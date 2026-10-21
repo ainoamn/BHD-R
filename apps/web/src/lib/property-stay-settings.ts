@@ -18,6 +18,7 @@ export type PropertyStaySettingsUnit = {
   maxNights: number;
   instantBook: boolean;
   checkInFrom: string | null;
+  dayUseCheckInFrom: string | null;
   dayUseCheckOutUntil: string | null;
   overnightCheckOutUntil: string | null;
   depositMinor: string | null;

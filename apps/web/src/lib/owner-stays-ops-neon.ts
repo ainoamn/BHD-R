@@ -37,6 +37,7 @@ import { loadStayStamps } from '@/lib/stay-arrival-neon';
 import { loadDepositClaims } from '@/lib/stay-deposit-claims-neon';
 import { loadBookingDeposits, loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 import type { StayBookingTimelineFacts } from '@/lib/stay-booking-timeline';
+import { resolveStayPeriodTimes, type StayPeriodType } from '@/lib/stay-period-times';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdROwnerStaysOpsDb?: DbHandle };
@@ -273,10 +274,16 @@ export async function getOwnerStayBookingContractOnNeon(
         unitCode: units.code,
         unitNameAr: units.nameAr,
         unitNameEn: units.nameEn,
+        checkInFrom: stayProfiles.checkInFrom,
+        dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
+        dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+        overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+        checkOutUntil: stayProfiles.checkOutUntil,
       })
       .from(stayBookings)
       .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
       .innerJoin(units, eq(units.id, stayBookings.unitId))
+      .leftJoin(stayProfiles, eq(stayProfiles.id, stayBookings.stayProfileId))
       .where(
         and(
           eq(stayBookings.organizationId, organizationId),
@@ -563,6 +570,19 @@ export async function getOwnerStayBookingContractOnNeon(
       adults: contact.adults ?? null,
       children: contact.children ?? null,
       stayType: contact.stayType ?? null,
+      ...(() => {
+        const period = resolveStayPeriodTimes(
+          (contact.stayType as StayPeriodType | null) ?? null,
+          {
+            checkInFrom: row.checkInFrom,
+            dayUseCheckInFrom: row.dayUseCheckInFrom,
+            dayUseCheckOutUntil: row.dayUseCheckOutUntil,
+            overnightCheckOutUntil: row.overnightCheckOutUntil,
+            checkOutUntil: row.checkOutUntil,
+          },
+        );
+        return { checkInTime: period.checkInTime, checkOutTime: period.checkOutTime };
+      })(),
       otherSlot,
       propertyId: row.propertyId,
       propertyNameAr: row.propertyNameAr,

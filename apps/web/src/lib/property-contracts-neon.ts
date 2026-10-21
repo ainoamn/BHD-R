@@ -20,6 +20,7 @@ import {
   stayBookingStatusHistory,
   stayBookings,
   stayInventoryLocks,
+  stayProfiles,
   units,
   users,
   workflowEvents,
@@ -38,6 +39,7 @@ import {
   createLockInTransaction,
   isRangeAvailableInTransaction,
 } from '@/lib/public-stays-booking-neon';
+import { resolveStayPeriodTimes } from '@/lib/stay-period-times';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
@@ -624,6 +626,7 @@ export async function approveStayBookingOnNeon(
         currency: stayBookings.currency,
         createdAt: stayBookings.createdAt,
         snapshot: stayBookings.pricingSnapshotJson,
+        stayProfileId: stayBookings.stayProfileId,
       })
       .from(stayBookings)
       .where(
@@ -785,6 +788,25 @@ export async function approveStayBookingOnNeon(
         };
 
     const unit = await loadUnit(tx, orgId, property.id, booking.unitId);
+    const [profileTimes] = booking.stayProfileId
+      ? await tx
+          .select({
+            checkInFrom: stayProfiles.checkInFrom,
+            dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
+            dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+            overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+            checkOutUntil: stayProfiles.checkOutUntil,
+          })
+          .from(stayProfiles)
+          .where(
+            and(
+              eq(stayProfiles.id, booking.stayProfileId),
+              eq(stayProfiles.organizationId, orgId),
+            ),
+          )
+          .limit(1)
+      : [null];
+    const period = resolveStayPeriodTimes(stayType, profileTimes ?? {});
     const endsOn =
       booking.checkOutOn > booking.checkInOn ? booking.checkOutOn : addDays(booking.checkInOn, 1);
     const outcome = await issueContract(tx, {
@@ -804,7 +826,11 @@ export async function approveStayBookingOnNeon(
         stayBookingId: booking.id,
         referenceCode: booking.referenceCode,
       },
-      extra: { stayType },
+      extra: {
+        stayType,
+        checkInTime: period.checkInTime,
+        checkOutTime: period.checkOutTime,
+      },
       counterpartySignature,
     });
     await notifyInTx(tx, {
@@ -820,8 +846,14 @@ export async function approveStayBookingOnNeon(
         details: [
           { label: 'رقم الحجز', value: booking.referenceCode },
           { label: 'العقار', value: `${property.nameAr} — ${unit.nameAr || unit.code}` },
-          { label: 'تاريخ الوصول', value: arDate(booking.checkInOn) },
-          { label: 'تاريخ المغادرة', value: arDate(booking.checkOutOn) },
+          {
+            label: 'الوصول',
+            value: `${arDate(booking.checkInOn)} · ${period.checkInTime}`,
+          },
+          {
+            label: 'المغادرة',
+            value: `${arDate(stayType === 'day_use' ? booking.checkInOn : booking.checkOutOn)} · ${period.checkOutTime}`,
+          },
           {
             label: 'الإجمالي',
             value: formatMoney(booking.totalMinor.toString(), booking.currency, 'ar'),

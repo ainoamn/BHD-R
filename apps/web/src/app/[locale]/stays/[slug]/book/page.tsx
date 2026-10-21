@@ -172,8 +172,11 @@ export default async function StayBookPage({
         : `${Math.round(detail.areaSquareMeters)} m²`
       : null,
   ].filter((fact): fact is string => Boolean(fact));
-  const checkInFrom = shortTime(detail.checkInFrom);
-  const checkOutUntil = shortTime(detail.checkOutUntil);
+  const dayIn = shortTime(detail.dayUseCheckInFrom) || '08:00';
+  const dayOut = shortTime(detail.dayUseCheckOutUntil) || '23:00';
+  const nightIn = shortTime(detail.checkInFrom) || '15:00';
+  const nightOut =
+    shortTime(detail.overnightCheckOutUntil) || shortTime(detail.checkOutUntil) || '11:00';
   const details = [
     ...facts,
     detail.nightlyMinor
@@ -181,8 +184,8 @@ export default async function StayBookPage({
         ? `تبدأ من ${formatMoney(detail.nightlyMinor, currency, locale)} / الليلة`
         : `From ${formatMoney(detail.nightlyMinor, currency, locale)} / night`
       : null,
-    checkInFrom ? (ar ? `الوصول من ${checkInFrom}` : `Check-in from ${checkInFrom}`) : null,
-    checkOutUntil ? (ar ? `المغادرة حتى ${checkOutUntil}` : `Check-out by ${checkOutUntil}`) : null,
+    ar ? `صباحي: ${dayIn} → ${dayOut}` : `Morning: ${dayIn} → ${dayOut}`,
+    ar ? `مبيت: ${nightIn} → ${nightOut}` : `Overnight: ${nightIn} → ${nightOut}`,
   ].filter((item): item is string => Boolean(item));
 
   return (
@@ -306,6 +309,11 @@ export default async function StayBookPage({
             dayUseMinor: detail.dayUseMinor ?? null,
             overnightOnlyMinor: detail.overnightOnlyMinor ?? null,
             maxGuests: detail.maxGuests ?? null,
+            checkInFrom: detail.checkInFrom ?? null,
+            dayUseCheckInFrom: detail.dayUseCheckInFrom ?? null,
+            dayUseCheckOutUntil: detail.dayUseCheckOutUntil ?? null,
+            overnightCheckOutUntil: detail.overnightCheckOutUntil ?? null,
+            checkOutUntil: detail.checkOutUntil ?? null,
           }}
           defaults={{
             ...(pickQuery(query, 'checkInOn') ? { checkInOn: pickQuery(query, 'checkInOn')! } : {}),

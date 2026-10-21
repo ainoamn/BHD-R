@@ -37,6 +37,8 @@ export type StayBookingContractData = {
   adults?: number | null;
   children?: number | null;
   stayType?: string | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
   /** Half-day bookings: status and price of the other slot on the same date. */
   otherSlot?: {
     slot: 'morning' | 'evening';
@@ -270,8 +272,24 @@ export function StayBookingContract({
             label={ar ? 'نمط الحجز' : 'Booking mode'}
             value={stayBookingModeLabel(booking.bookingMode, ar)}
           />
-          <Row label={ar ? 'الوصول' : 'Check-in'} value={booking.checkInOn} ltr />
-          <Row label={ar ? 'المغادرة' : 'Check-out'} value={booking.checkOutOn} ltr />
+          <Row
+            label={ar ? 'الوصول' : 'Check-in'}
+            value={
+              booking.checkInTime
+                ? `${booking.checkInOn} · ${booking.checkInTime}`
+                : booking.checkInOn
+            }
+            ltr
+          />
+          <Row
+            label={ar ? 'المغادرة' : 'Check-out'}
+            value={
+              booking.checkOutTime
+                ? `${booking.stayType === 'day_use' ? booking.checkInOn : booking.checkOutOn} · ${booking.checkOutTime}`
+                : booking.checkOutOn
+            }
+            ltr
+          />
           <Row
             label={ar ? 'عدد الليالي' : 'Nights'}
             value={`${booking.nights} ${

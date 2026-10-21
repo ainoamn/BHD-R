@@ -72,20 +72,17 @@ export function StayGuestInfoSection({
   ].filter(Boolean) as Array<{ label: string; value: ReactNode }>;
 
   const timeRows = [
-    detail.checkInFrom
-      ? { label: ar ? 'وقت الدخول' : 'Check-in', value: detail.checkInFrom, dir: 'ltr' as const }
-      : null,
-    detail.dayUseCheckOutUntil
+    detail.dayUseCheckInFrom || detail.dayUseCheckOutUntil
       ? {
-          label: ar ? 'وقت الخروج (بدون مبيت)' : 'Check-out (day use)',
-          value: detail.dayUseCheckOutUntil,
+          label: ar ? 'الفترة الصباحية (دخول → خروج)' : 'Morning (in → out)',
+          value: `${detail.dayUseCheckInFrom ?? '08:00'} → ${detail.dayUseCheckOutUntil ?? '23:00'}`,
           dir: 'ltr' as const,
         }
       : null,
-    (detail.overnightCheckOutUntil ?? detail.checkOutUntil)
+    detail.checkInFrom || detail.overnightCheckOutUntil || detail.checkOutUntil
       ? {
-          label: ar ? 'وقت الخروج (عند المبيت)' : 'Check-out (overnight)',
-          value: detail.overnightCheckOutUntil ?? detail.checkOutUntil,
+          label: ar ? 'المبيت / المسائية (دخول → خروج)' : 'Overnight / evening (in → out)',
+          value: `${detail.checkInFrom ?? '15:00'} → ${detail.overnightCheckOutUntil ?? detail.checkOutUntil ?? '11:00'}`,
           dir: 'ltr' as const,
         }
       : null,

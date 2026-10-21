@@ -52,6 +52,7 @@ type StayFacts = {
   stayType: StayCheckinType | null;
   checkInFrom: string | null;
   checkOutUntil: string | null;
+  dayUseCheckInFrom: string | null;
   dayUseCheckOutUntil: string | null;
   overnightCheckOutUntil: string | null;
 };
@@ -71,6 +72,7 @@ async function loadStayById(tx: Pick<Tx, 'select'>, bookingId: string): Promise<
       pricingSnapshotJson: stayBookings.pricingSnapshotJson,
       checkInFrom: stayProfiles.checkInFrom,
       checkOutUntil: stayProfiles.checkOutUntil,
+      dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
       dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
       overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
       guestName: sql<string | null>`coalesce(
@@ -101,6 +103,7 @@ async function loadStayById(tx: Pick<Tx, 'select'>, bookingId: string): Promise<
     stayType: readStayTypeFromSnapshot(row.pricingSnapshotJson),
     checkInFrom: row.checkInFrom ?? null,
     checkOutUntil: row.checkOutUntil ?? null,
+    dayUseCheckInFrom: row.dayUseCheckInFrom ?? null,
     dayUseCheckOutUntil: row.dayUseCheckOutUntil ?? null,
     overnightCheckOutUntil: row.overnightCheckOutUntil ?? null,
   };
@@ -150,6 +153,7 @@ function enforceCheckinWindow(facts: StayFacts, now: Date = new Date()) {
       stayType: facts.stayType,
       checkInFrom: facts.checkInFrom,
       checkOutUntil: facts.checkOutUntil,
+      dayUseCheckInFrom: facts.dayUseCheckInFrom,
       dayUseCheckOutUntil: facts.dayUseCheckOutUntil,
       overnightCheckOutUntil: facts.overnightCheckOutUntil,
     },
@@ -408,6 +412,7 @@ export async function expireStayNoShowsOnNeon(): Promise<{ marked: number }> {
       pricing_snapshot_json: unknown;
       check_in_from: string | null;
       check_out_until: string | null;
+      day_use_check_in_from: string | null;
       day_use_check_out_until: string | null;
       overnight_check_out_until: string | null;
     }>(
@@ -416,7 +421,7 @@ export async function expireStayNoShowsOnNeon(): Promise<{ marked: number }> {
                b.property_id::text, b.check_in_on::text, b.check_out_on::text,
                b.pricing_snapshot_json,
                sp.check_in_from, sp.check_out_until,
-               sp.day_use_check_out_until, sp.overnight_check_out_until
+               sp.day_use_check_in_from, sp.day_use_check_out_until, sp.overnight_check_out_until
         from stay_bookings b
         left join stay_profiles sp on sp.id = b.stay_profile_id
         where b.status in ('confirmed', 'paid', 'pre_arrival')
@@ -441,6 +446,7 @@ export async function expireStayNoShowsOnNeon(): Promise<{ marked: number }> {
         stayType: readStayTypeFromSnapshot(row.pricing_snapshot_json),
         checkInFrom: row.check_in_from,
         checkOutUntil: row.check_out_until,
+        dayUseCheckInFrom: row.day_use_check_in_from,
         dayUseCheckOutUntil: row.day_use_check_out_until,
         overnightCheckOutUntil: row.overnight_check_out_until,
       };

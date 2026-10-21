@@ -259,9 +259,10 @@ const copy = {
     sectionCancellationPolicies: 'سياسات الإلغاء والتغيير',
     sectionEventsPolicies: 'المناسبات والحفلات المسموح بها',
     sectionPaymentPolicies: 'خيارات الدفع',
-    checkInFrom: 'وقت الدخول',
-    dayUseCheckOut: 'وقت الخروج (بدون مبيت)',
-    overnightCheckOut: 'وقت الخروج (عند المبيت)',
+    checkInFrom: 'دخول المبيت / الفترة المسائية',
+    dayUseCheckIn: 'دخول الفترة الصباحية (بدون مبيت)',
+    dayUseCheckOut: 'خروج الفترة الصباحية (بدون مبيت)',
+    overnightCheckOut: 'خروج المبيت',
     dayUseMaxGuests: 'عدد الضيوف المسموح (بدون مبيت)',
     overnightMaxGuests: 'عدد الضيوف المسموح (مع المبيت)',
     minNights: 'الحد الأدنى لليالي',
@@ -333,9 +334,10 @@ const copy = {
     sectionCancellationPolicies: 'Cancellation & change policies',
     sectionEventsPolicies: 'Allowed events & parties',
     sectionPaymentPolicies: 'Payment options',
-    checkInFrom: 'Check-in time',
-    dayUseCheckOut: 'Check-out (day use / no overnight)',
-    overnightCheckOut: 'Check-out (overnight stay)',
+    checkInFrom: 'Overnight / evening check-in',
+    dayUseCheckIn: 'Morning check-in (day use)',
+    dayUseCheckOut: 'Morning check-out (day use)',
+    overnightCheckOut: 'Overnight check-out',
     dayUseMaxGuests: 'Guests allowed (day use)',
     overnightMaxGuests: 'Guests allowed (overnight)',
     minNights: 'Minimum nights',
@@ -417,6 +419,7 @@ export function StaySetupWizard({
   const [minNights, setMinNights] = useState('1');
   const [maxNights, setMaxNights] = useState('30');
   const [checkInFrom, setCheckInFrom] = useState('15:00');
+  const [dayUseCheckInFrom, setDayUseCheckInFrom] = useState('08:00');
   const [dayUseCheckOutUntil, setDayUseCheckOutUntil] = useState('23:00');
   const [overnightCheckOutUntil, setOvernightCheckOutUntil] = useState('11:00');
   const [instantBook, setInstantBook] = useState(true);
@@ -489,6 +492,8 @@ export function StaySetupWizard({
         setAllowViewingRequests(draft.allowViewingRequests);
       }
       if (draft.checkInFrom) setCheckInFrom(normalizeTime(draft.checkInFrom, '15:00'));
+      if (draft.dayUseCheckInFrom)
+        setDayUseCheckInFrom(normalizeTime(draft.dayUseCheckInFrom, '08:00'));
       if (draft.dayUseCheckOutUntil)
         setDayUseCheckOutUntil(normalizeTime(draft.dayUseCheckOutUntil, '23:00'));
       if (draft.overnightCheckOutUntil)
@@ -601,8 +606,9 @@ export function StaySetupWizard({
     return [
       `${locale === 'ar' ? 'العقار' : 'Property'}: ${locale === 'ar' ? context.propertyNameAr : context.propertyNameEn}`,
       `${locale === 'ar' ? 'الوحدات' : 'Units'}: ${selectedUnits.map((unit) => unit.code).join(', ') || '—'}`,
-      `${t.checkInFrom}: ${checkInFrom}`,
+      `${t.dayUseCheckIn}: ${dayUseCheckInFrom}`,
       `${t.dayUseCheckOut}: ${dayUseCheckOutUntil}`,
+      `${t.checkInFrom}: ${checkInFrom}`,
       `${t.overnightCheckOut}: ${overnightCheckOutUntil}`,
       `${t.dayUseMaxGuests}: ${dayUseMaxGuests}`,
       `${t.overnightMaxGuests}: ${overnightMaxGuests}`,
@@ -613,6 +619,7 @@ export function StaySetupWizard({
     checkInFrom,
     context,
     currency,
+    dayUseCheckInFrom,
     dayUseCheckOutUntil,
     dayUseMaxGuests,
     locale,
@@ -621,6 +628,7 @@ export function StaySetupWizard({
     selectedUnits,
     slug,
     t.checkInFrom,
+    t.dayUseCheckIn,
     t.dayUseCheckOut,
     t.dayUseMaxGuests,
     t.nightlyRate,
@@ -673,6 +681,7 @@ export function StaySetupWizard({
       bathrooms: primary?.bathrooms ?? null,
       checkInFrom,
       checkOutUntil: overnightCheckOutUntil,
+      dayUseCheckInFrom,
       dayUseCheckOutUntil,
       overnightCheckOutUntil,
       depositMinor,
@@ -866,6 +875,7 @@ export function StaySetupWizard({
       instantBook,
       allowViewingRequests,
       checkInFrom,
+      dayUseCheckInFrom,
       dayUseCheckOutUntil,
       overnightCheckOutUntil,
       checkOutUntil: overnightCheckOutUntil,
@@ -1353,13 +1363,13 @@ export function StaySetupWizard({
                 <h3>{t.sectionTimes}</h3>
                 <div className="field-grid stays-setup-times">
                   <div className="field">
-                    <label htmlFor="check-in">{t.checkInFrom}</label>
+                    <label htmlFor="day-use-in">{t.dayUseCheckIn}</label>
                     <input
-                      id="check-in"
+                      id="day-use-in"
                       className="input"
                       type="time"
-                      value={checkInFrom}
-                      onChange={(event) => setCheckInFrom(event.target.value)}
+                      value={dayUseCheckInFrom}
+                      onChange={(event) => setDayUseCheckInFrom(event.target.value)}
                       dir="ltr"
                     />
                   </div>
@@ -1371,6 +1381,17 @@ export function StaySetupWizard({
                       type="time"
                       value={dayUseCheckOutUntil}
                       onChange={(event) => setDayUseCheckOutUntil(event.target.value)}
+                      dir="ltr"
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="check-in">{t.checkInFrom}</label>
+                    <input
+                      id="check-in"
+                      className="input"
+                      type="time"
+                      value={checkInFrom}
+                      onChange={(event) => setCheckInFrom(event.target.value)}
                       dir="ltr"
                     />
                   </div>

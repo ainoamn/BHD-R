@@ -15,6 +15,8 @@ import {
   properties,
   propertyProfiles,
   stayBookingStatusHistory,
+  stayBookings,
+  stayProfiles,
   units,
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -46,6 +48,7 @@ import {
   signatureSerials,
 } from '@/lib/contract-verify';
 import { loadStayStamps, type StayStamps } from '@/lib/stay-arrival-neon';
+import { resolveStayPeriodTimes, type StayPeriodType } from '@/lib/stay-period-times';
 import { tenantClaimsForContract } from '@/lib/tenancy-neon';
 import { loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 import { contractAnnexLinks, leaseAnnexLinks } from '@/lib/contract-annex';
@@ -53,6 +56,7 @@ import { leaseBookingAgreement, type LeaseBookingAgreement } from '@/lib/lease-b
 import { leaseBookingDocumentPath } from '@/lib/lease-booking-paths';
 import { publicWebOrigin } from '@/lib/seo';
 import { loadLeaseBookingAgreementInTx } from '@/lib/public-lease-booking-neon';
+import { readStayTypeFromSnapshot } from '@/lib/stay-booking-dates';
 import type { ContractArticleHead } from '@/components/contract-document-view';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
@@ -385,7 +389,7 @@ export async function loadContractDetailFromNeon(
         .limit(1)
         .then((rows) => rows[0] ?? null),
     ]);
-    const [propertyRow, identityDocs, templateSibling, stamps, refund, location] =
+    const [propertyRow, identityDocs, templateSibling, stamps, refund, location, stayProfileRow] =
       await Promise.all([
         unit
           ? tx
@@ -468,10 +472,40 @@ export async function loadContractDetailFromNeon(
             )
           : Promise.resolve(null),
         unit ? loadPropertyLocation(tx, orgId, unit.propertyId) : Promise.resolve(null),
+        stayBookingId
+          ? tx
+              .select({
+                pricingSnapshotJson: stayBookings.pricingSnapshotJson,
+                checkInFrom: stayProfiles.checkInFrom,
+                dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
+                dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+                overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
+                checkOutUntil: stayProfiles.checkOutUntil,
+              })
+              .from(stayBookings)
+              .leftJoin(stayProfiles, eq(stayProfiles.id, stayBookings.stayProfileId))
+              .where(
+                and(eq(stayBookings.id, stayBookingId), eq(stayBookings.organizationId, orgId)),
+              )
+              .limit(1)
+              .then((rows) => rows[0] ?? null)
+          : Promise.resolve(null),
       ]);
     const serials = signatures.length
       ? await signatureSerials(tx, orgId, contract.id)
       : new Map<string, string>();
+    const snapStayType =
+      (typeof snapshot.stayType === 'string' ? snapshot.stayType : null) ??
+      (stayProfileRow ? readStayTypeFromSnapshot(stayProfileRow.pricingSnapshotJson) : null);
+    const stayPeriodTimes =
+      typeof snapshot.checkInTime === 'string' && typeof snapshot.checkOutTime === 'string'
+        ? {
+            checkInTime: snapshot.checkInTime,
+            checkOutTime: snapshot.checkOutTime,
+          }
+        : stayProfileRow
+          ? resolveStayPeriodTimes(snapStayType as StayPeriodType | null, stayProfileRow)
+          : null;
     const bookingSource = record(snapshot.source);
     const booking =
       bookingSource.type === 'lease_reservation' && text(bookingSource.reservationId)
@@ -508,6 +542,7 @@ export async function loadContractDetailFromNeon(
       parent,
       esign,
       stayBookingId,
+      stayPeriodTimes,
       showIdentityFiles: canViewIdentityFiles(access, contract),
       canManageStays: hasPermission(claims, 'stay.booking.manage'),
       serials,
@@ -593,6 +628,7 @@ type Loaded = {
   parent: { id: string; reference: string | null } | null;
   esign: Record<string, unknown> | null;
   stayBookingId: string | null;
+  stayPeriodTimes: { checkInTime: string; checkOutTime: string } | null;
   showIdentityFiles: boolean;
   canManageStays: boolean;
   serials: Map<string, string>;
@@ -762,6 +798,8 @@ async function buildContractDocument(
     amount: money(snapshot.amount),
     deposit,
     stayType: text(snapshot.stayType),
+    checkInTime: text(snapshot.checkInTime) ?? loaded.stayPeriodTimes?.checkInTime ?? null,
+    checkOutTime: text(snapshot.checkOutTime) ?? loaded.stayPeriodTimes?.checkOutTime ?? null,
     source: Object.keys(source).length
       ? {
           type: text(source.type) ?? 'manual',

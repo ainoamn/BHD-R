@@ -35,6 +35,7 @@ import {
   stayTodayInOman,
   type StayBookingType,
 } from '@/lib/stay-booking-dates';
+import { formatStayDateTime, resolveStayPeriodTimes } from '@/lib/stay-period-times';
 import { stayStatusLabel } from '@/lib/ui-labels';
 
 type ContactForm = { fullName: string; phone: string; email: string };
@@ -201,6 +202,11 @@ export type StayCheckoutOffer = {
   dayUseMinor: string | null;
   overnightOnlyMinor: string | null;
   maxGuests: number | null;
+  checkInFrom?: string | null;
+  dayUseCheckInFrom?: string | null;
+  dayUseCheckOutUntil?: string | null;
+  overnightCheckOutUntil?: string | null;
+  checkOutUntil?: string | null;
 };
 
 const STAY_TYPES: StayType[] = ['overnight_stay', 'day_use', 'overnight_only'];
@@ -211,10 +217,20 @@ function stayTypeTitle(type: StayType, ar: boolean): string {
   return ar ? 'يوم كامل مع مبيت' : 'Full stay';
 }
 
-function stayTypeHint(type: StayType, ar: boolean): string {
-  if (type === 'day_use') return ar ? 'فترة صباحية · نفس اليوم' : 'Morning slot · same day';
-  if (type === 'overnight_only') return ar ? 'فترة مسائية مع مبيت' : 'Evening slot with overnight';
-  return ar ? 'ليلة أو أكثر · قابل للتمديد' : 'One night or more · extendable';
+function stayTypeHint(
+  type: StayType,
+  ar: boolean,
+  times?: { checkInTime: string; checkOutTime: string },
+): string {
+  const clock =
+    times != null ? ` · ${times.checkInTime} → ${times.checkOutTime}` : '';
+  if (type === 'day_use') {
+    return (ar ? 'فترة صباحية · نفس اليوم' : 'Morning slot · same day') + clock;
+  }
+  if (type === 'overnight_only') {
+    return (ar ? 'فترة مسائية مع مبيت' : 'Evening slot with overnight') + clock;
+  }
+  return (ar ? 'ليلة أو أكثر · قابل للتمديد' : 'One night or more · extendable') + clock;
 }
 
 function stayTypeUnit(type: StayType, ar: boolean): string {
@@ -497,6 +513,12 @@ export function StayCheckout({
   }
 
   const apiCheckOutOn = exclusiveCheckOutOn(stayType, checkInOn, checkOutOn);
+  const periodTimes = resolveStayPeriodTimes(stayType, offer ?? {});
+  const checkInLabel = formatStayDateTime(checkInOn, periodTimes.checkInTime);
+  const checkOutLabel = formatStayDateTime(
+    isSameCalendarDayStay(stayType) ? checkInOn : checkOutOn,
+    periodTimes.checkOutTime,
+  );
 
   useEffect(() => {
     setError(null);
@@ -989,7 +1011,9 @@ export function StayCheckout({
                     </span>
                     <span className="stays-checkout__type-text">
                       <strong>{stayTypeTitle(type, ar)}</strong>
-                      <small>{stayTypeHint(type, ar)}</small>
+                      <small>
+                        {stayTypeHint(type, ar, resolveStayPeriodTimes(type, offer ?? {}))}
+                      </small>
                     </span>
                     {price && offer ? (
                       <span className="stays-checkout__type-price">
@@ -1018,13 +1042,13 @@ export function StayCheckout({
                 <div>
                   <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
                   <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
-                    {checkInOn}
+                    {checkInLabel}
                   </dd>
                 </div>
                 <div>
                   <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
                   <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
-                    {checkOutOn}
+                    {checkOutLabel}
                   </dd>
                 </div>
               </dl>
@@ -1378,13 +1402,13 @@ export function StayCheckout({
             <div>
               <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
               <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
-                {checkInOn}
+                {checkInLabel}
               </dd>
             </div>
             <div>
               <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
               <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
-                {checkOutOn}
+                {checkOutLabel}
               </dd>
             </div>
             <div>
@@ -1484,13 +1508,13 @@ export function StayCheckout({
             <div>
               <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
               <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
-                {checkInOn}
+                {checkInLabel}
               </dd>
             </div>
             <div>
               <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
               <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
-                {checkOutOn}
+                {checkOutLabel}
               </dd>
             </div>
             <div>

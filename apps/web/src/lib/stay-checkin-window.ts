@@ -24,6 +24,7 @@ export type StayArrivalWindowInput = {
   stayType?: StayCheckinType | null;
   checkInFrom?: string | null;
   checkOutUntil?: string | null;
+  dayUseCheckInFrom?: string | null;
   dayUseCheckOutUntil?: string | null;
   overnightCheckOutUntil?: string | null;
 };
@@ -48,14 +49,15 @@ export function stayArrivalWindow(input: StayArrivalWindowInput): {
     normalizeTime(input.overnightCheckOutUntil) ||
     normalizeTime(input.checkOutUntil) ||
     '11:00';
+  const dayUseIn = normalizeTime(input.dayUseCheckInFrom) || '08:00';
   const dayUseOut = normalizeTime(input.dayUseCheckOutUntil) || '23:00';
 
   let checkInAt: Date;
   let checkOutAt: Date;
 
   if (type === 'day_use') {
-    // Morning / day-use occupies the arrival calendar day until day-use check-out.
-    checkInAt = muscatLocalDateTime(input.checkInOn, '00:00');
+    // Morning / day-use: from configured day-use check-in until day-use check-out.
+    checkInAt = muscatLocalDateTime(input.checkInOn, dayUseIn);
     checkOutAt = muscatLocalDateTime(input.checkInOn, dayUseOut);
   } else if (type === 'overnight_only') {
     checkInAt = muscatLocalDateTime(input.checkInOn, eveningIn);

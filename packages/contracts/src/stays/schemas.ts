@@ -315,6 +315,7 @@ export const stayPublicDetailSchema = z.object({
   areaSquareMeters: z.number().nullable().optional(),
   checkInFrom: z.string().nullable().optional(),
   checkOutUntil: z.string().nullable().optional(),
+  dayUseCheckInFrom: z.string().nullable().optional(),
   dayUseCheckOutUntil: z.string().nullable().optional(),
   overnightCheckOutUntil: z.string().nullable().optional(),
   dayUseMaxGuests: z.number().int().min(1).max(999).nullable().optional(),

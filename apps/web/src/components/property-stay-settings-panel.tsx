@@ -14,6 +14,7 @@ type Draft = {
   maxNights: string;
   instantBook: boolean;
   checkInFrom: string;
+  dayUseCheckInFrom: string;
   dayUseCheckOutUntil: string;
   overnightCheckOutUntil: string;
   nightly: string;
@@ -57,6 +58,7 @@ function toDraft(unit: PropertyStaySettingsUnit): Draft {
     maxNights: String(unit.maxNights),
     instantBook: unit.instantBook,
     checkInFrom: time(unit.checkInFrom, '15:00'),
+    dayUseCheckInFrom: time(unit.dayUseCheckInFrom, '08:00'),
     dayUseCheckOutUntil: time(unit.dayUseCheckOutUntil, '23:00'),
     overnightCheckOutUntil: time(unit.overnightCheckOutUntil, '11:00'),
     nightly: majorFromMinor(unit.baseNightlyMinor, unit.minorUnit),
@@ -179,6 +181,7 @@ export function UnitStaySettings({
         maxNights,
         instantBook: draft.instantBook,
         checkInFrom: draft.checkInFrom || null,
+        dayUseCheckInFrom: draft.dayUseCheckInFrom || null,
         dayUseCheckOutUntil: draft.dayUseCheckOutUntil || null,
         overnightCheckOutUntil: draft.overnightCheckOutUntil || null,
         depositMinor: priced.depositMinor,
@@ -219,6 +222,15 @@ export function UnitStaySettings({
         dayUseMinor: checked.rates.dayUseMinor ?? null,
         overnightOnlyMinor: checked.rates.overnightOnlyMinor ?? null,
         depositMinor: (checked.profile.depositMinor as string | null | undefined) ?? null,
+        checkInFrom: (checked.profile.checkInFrom as string | null | undefined) ?? unit.checkInFrom,
+        dayUseCheckInFrom:
+          (checked.profile.dayUseCheckInFrom as string | null | undefined) ?? unit.dayUseCheckInFrom,
+        dayUseCheckOutUntil:
+          (checked.profile.dayUseCheckOutUntil as string | null | undefined) ??
+          unit.dayUseCheckOutUntil,
+        overnightCheckOutUntil:
+          (checked.profile.overnightCheckOutUntil as string | null | undefined) ??
+          unit.overnightCheckOutUntil,
       });
     } catch (caught) {
       setStatus({
@@ -313,30 +325,37 @@ export function UnitStaySettings({
           </h4>
           <div className="form-grid">
             <Field
-              id={id('check-in')}
+              id={id('day-in')}
               type="time"
-              label={ar ? 'الدخول من الساعة' : 'Check-in from'}
-              value={draft.checkInFrom}
-              onChange={(event) => set('checkInFrom', event.target.value)}
+              label={ar ? 'دخول الفترة الصباحية (بدون مبيت)' : 'Morning check-in (day use)'}
+              value={draft.dayUseCheckInFrom}
+              onChange={(event) => set('dayUseCheckInFrom', event.target.value)}
             />
             <Field
               id={id('day-out')}
               type="time"
-              label={ar ? 'الخروج بدون مبيت حتى' : 'Day-use check-out until'}
+              label={ar ? 'خروج الفترة الصباحية (بدون مبيت)' : 'Morning check-out (day use)'}
               value={draft.dayUseCheckOutUntil}
               onChange={(event) => set('dayUseCheckOutUntil', event.target.value)}
             />
             <Field
+              id={id('check-in')}
+              type="time"
+              label={ar ? 'دخول المبيت / الفترة المسائية' : 'Overnight / evening check-in'}
+              value={draft.checkInFrom}
+              onChange={(event) => set('checkInFrom', event.target.value)}
+            />
+            <Field
               id={id('night-out')}
               type="time"
-              label={ar ? 'الخروج بعد المبيت حتى' : 'Overnight check-out until'}
+              label={ar ? 'خروج المبيت' : 'Overnight check-out'}
               value={draft.overnightCheckOutUntil}
               onChange={(event) => set('overnightCheckOutUntil', event.target.value)}
             />
             <p className="muted stay-settings-unit__check">
               {ar
-                ? 'الحجز من الموقع فوري: يدفع الضيف مباشرة ويتأكّد الحجز بعد الدفع.'
-                : 'Site bookings are instant: the guest pays right away and the booking confirms after payment.'}
+                ? 'تظهر هذه الأوقات أثناء الحجز وفي عقد الإقامة. الحجز من الموقع فوري بعد الدفع.'
+                : 'These times appear during booking and on the stay contract. Site bookings confirm after payment.'}
             </p>
           </div>
         </>

@@ -99,6 +99,9 @@ export interface ContractDocument {
   amount: Money | null;
   deposit: Money | null;
   stayType: string | null;
+  /** Property-configured clock times for this stay type (HH:MM). */
+  checkInTime: string | null;
+  checkOutTime: string | null;
   source: { type: string; referenceCode: string | null; stayBookingId: string | null } | null;
   approval: { mode: string | null; byName: string | null; at: string | null } | null;
   tenantContact: { email: string | null; phone: string | null } | null;

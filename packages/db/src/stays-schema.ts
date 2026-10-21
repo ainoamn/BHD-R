@@ -132,6 +132,7 @@ export const stayProfiles = pgTable(
     checkInFrom: varchar('check_in_from', { length: 8 }),
     checkInUntil: varchar('check_in_until', { length: 8 }),
     checkOutUntil: varchar('check_out_until', { length: 8 }),
+    dayUseCheckInFrom: varchar('day_use_check_in_from', { length: 8 }),
     dayUseCheckOutUntil: varchar('day_use_check_out_until', { length: 8 }),
     overnightCheckOutUntil: varchar('overnight_check_out_until', { length: 8 }),
     dayUseMaxGuests: integer('day_use_max_guests'),

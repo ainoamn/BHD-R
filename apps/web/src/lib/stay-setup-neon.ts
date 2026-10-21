@@ -157,6 +157,7 @@ export async function loadPropertyStaySettingsOnNeon(
         allowViewingRequests: stayProfiles.allowViewingRequests,
         checkInFrom: stayProfiles.checkInFrom,
         checkOutUntil: stayProfiles.checkOutUntil,
+        dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
         dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
         overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
         depositMinor: stayProfiles.depositMinor,
@@ -229,6 +230,7 @@ export async function loadPropertyStaySettingsOnNeon(
         instantBook: row.instantBook,
         allowViewingRequests: row.allowViewingRequests,
         checkInFrom: row.checkInFrom,
+        dayUseCheckInFrom: row.dayUseCheckInFrom,
         dayUseCheckOutUntil: row.dayUseCheckOutUntil,
         overnightCheckOutUntil: row.overnightCheckOutUntil ?? row.checkOutUntil,
         depositMinor: text(row.depositMinor),
@@ -297,6 +299,7 @@ export async function loadStaySetupContextOnNeon(
               instantBook: stayProfiles.instantBook,
               allowViewingRequests: stayProfiles.allowViewingRequests,
               checkInFrom: stayProfiles.checkInFrom,
+              dayUseCheckInFrom: stayProfiles.dayUseCheckInFrom,
               dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
               overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
               checkOutUntil: stayProfiles.checkOutUntil,
@@ -381,6 +384,7 @@ export async function loadStaySetupContextOnNeon(
           instantBook: draftSource.instantBook,
           allowViewingRequests: draftSource.allowViewingRequests,
           checkInFrom: draftSource.checkInFrom,
+          dayUseCheckInFrom: draftSource.dayUseCheckInFrom,
           dayUseCheckOutUntil: draftSource.dayUseCheckOutUntil,
           overnightCheckOutUntil: draftSource.overnightCheckOutUntil ?? draftSource.checkOutUntil,
           dayUseMaxGuests: draftSource.dayUseMaxGuests,
@@ -638,6 +642,9 @@ export async function createStayProfilesOnNeon(
           checkInFrom: input.checkInFrom ?? '15:00',
           checkInUntil: input.checkInUntil ?? '22:00',
           checkOutUntil: input.checkOutUntil ?? '11:00',
+          dayUseCheckInFrom: '08:00',
+          dayUseCheckOutUntil: '23:00',
+          overnightCheckOutUntil: input.checkOutUntil ?? '11:00',
         })
         .returning({ id: stayProfiles.id, unitId: stayProfiles.unitId });
       if (inserted) created.push(inserted);

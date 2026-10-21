@@ -501,8 +501,18 @@ export function ContractArticle({
   const ar = locale === 'ar';
   const kit = contractKit(ar);
   const { bi, row, para, order } = kit;
-  const { dateTime, day, money, titlePair, title, ownerName, tenantName, propertyName, status } =
-    documentFacts(contract, doc, ar);
+  const {
+    dateTime,
+    day,
+    money,
+    pick,
+    titlePair,
+    title,
+    ownerName,
+    tenantName,
+    propertyName,
+    status,
+  } = documentFacts(contract, doc, ar);
   const [titleAr, titleEn] = titlePair;
   const stay = doc.type === 'stay';
   const sale = doc.type === 'sale';
@@ -750,6 +760,27 @@ export function ContractArticle({
                     ? null
                     : row(['تاريخ البدء', 'Commencement'], bi(day(contract.startsOn)))}
                   {reservation ? null : row(['تاريخ الانتهاء', 'Expiry'], bi(day(contract.endsOn)))}
+                  {doc.checkInTime
+                    ? row(
+                        ['وقت الدخول', 'Check-in time'],
+                        <span dir="ltr">
+                          {pick(day(contract.startsOn))} · {doc.checkInTime}
+                        </span>,
+                      )
+                    : null}
+                  {doc.checkOutTime
+                    ? row(
+                        ['وقت المغادرة', 'Check-out time'],
+                        <span dir="ltr">
+                          {pick(
+                            day(
+                              doc.stayType === 'day_use' ? contract.startsOn : contract.endsOn,
+                            ),
+                          )}{' '}
+                          · {doc.checkOutTime}
+                        </span>,
+                      )
+                    : null}
                   {doc.stay?.nights ? row(['عدد الليالي', 'Nights'], doc.stay.nights) : null}
                   {guests ? row(['عدد الضيوف', 'Guests'], bi(guests)) : null}
                   {doc.stayType
