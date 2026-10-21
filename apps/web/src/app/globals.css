@@ -32051,3 +32051,192 @@ button.handover-shots__item {
   background: #fff7ed;
   color: #9a3412;
 }
+
+/* —— Platform administration console —— */
+.platform-admin {
+  display: grid;
+  gap: 1rem;
+}
+.platform-admin-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.35rem 0 0.15rem;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
+}
+.platform-admin-nav__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.platform-admin-nav__tabs a {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: inherit;
+  background: color-mix(in srgb, CanvasText 5%, transparent);
+}
+.platform-admin-nav__tabs a.is-current {
+  background: #0f766e;
+  color: #fff;
+}
+.platform-admin__body {
+  min-width: 0;
+}
+.platform-admin__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.platform-admin__head h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.45rem;
+}
+.platform-admin__head p {
+  margin: 0;
+  max-width: 52rem;
+  color: color-mix(in srgb, CanvasText 68%, transparent);
+  line-height: 1.5;
+}
+.platform-admin__kicker {
+  margin: 0 0 0.25rem !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0f766e;
+}
+.platform-admin__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1.1rem;
+}
+.platform-admin__card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+  background: color-mix(in srgb, Canvas 92%, CanvasText 8%);
+}
+.platform-admin__card span {
+  font-size: 0.8rem;
+  color: color-mix(in srgb, CanvasText 62%, transparent);
+}
+.platform-admin__card strong {
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+.platform-admin__card.is-money strong {
+  color: #0f766e;
+}
+.platform-admin-overview__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+.platform-admin-overview__tile {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
+  text-decoration: none;
+  color: inherit;
+  background: Canvas;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.platform-admin-overview__tile:hover {
+  border-color: #0f766e;
+  transform: translateY(-1px);
+}
+.platform-admin-overview__tile strong {
+  font-size: 1.05rem;
+}
+.platform-admin-overview__tile span {
+  font-size: 0.86rem;
+  color: color-mix(in srgb, CanvasText 65%, transparent);
+  line-height: 1.4;
+}
+.platform-admin-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+.platform-admin-checks__item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+}
+.platform-admin-checks__item p {
+  margin: 0.25rem 0 0;
+  font-size: 0.88rem;
+  color: color-mix(in srgb, CanvasText 68%, transparent);
+}
+.platform-admin__panel {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.85rem;
+  border: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+}
+.platform-admin__panel h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
+.platform-admin-status-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.platform-admin-status-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 8%, transparent);
+}
+.platform-admin-table-wrap {
+  overflow-x: auto;
+}
+.platform-admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.platform-admin-table th,
+.platform-admin-table td {
+  padding: 0.5rem 0.55rem;
+  border-bottom: 1px solid color-mix(in srgb, CanvasText 10%, transparent);
+  text-align: start;
+  vertical-align: top;
+}
+.platform-admin-table th {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: color-mix(in srgb, CanvasText 60%, transparent);
+}
+.platform-admin__error {
+  padding: 0.85rem 1rem;
+  border-radius: 0.65rem;
+  background: #fef2f2;
+  color: #991b1b;
+}

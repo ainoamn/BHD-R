@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.85 — 2026-10-21
+
+- **لوحة إدارة المنصة:** `/platform` أصبحت لوحة مشرف موحّدة: تشخيص النظام، الاشتراكات والباقات، إحصائيات الاشتراك التقديرية، المستخدمون، المنشآت، والأمن/التدقيق (جلسات وبصمات IP وسجل الأحداث)، مع تقرير مراجعة مفصّل في `docs/implementation/PLATFORM-ADMIN-REVIEW-AR.md`.
+
 ## 0.8.134.84 — 2026-10-21
 
 - **مستندات استرداد التأمين:** بعد تحويل مبلغ التأمين يظهر بجانب إيصال القبض في `/tenant/payments` رابطا «إيصال التحويل» و«مستند عكس المعاملة» (نفس المستند في `/owner/accounting?tab=deposits`).
