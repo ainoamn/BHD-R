@@ -1,7 +1,6 @@
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { contractQrSvg } from '@/lib/contract-verify';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
-import { publicWebOrigin } from '@/lib/seo';
 import { guestStayCheckinPass } from '@/lib/stay-checkin-neon';
 
 export const runtime = 'nodejs';
@@ -36,8 +35,9 @@ export async function GET(
     const result = await guestStayCheckinPass(reference, locale);
     if (result.state !== 'pass') return json(result);
     const { token, ...pass } = result;
-    const url = `${publicWebOrigin()}/${locale}/stay-gate?t=${encodeURIComponent(token)}`;
-    return json({ ...pass, qrSvg: await contractQrSvg(url) });
+    // Encode the sealed token only — never a /stay-gate URL. Phone cameras show
+    // opaque symbols; only the staff desk (login + stay.booking.manage) can redeem.
+    return json({ ...pass, qrSvg: await contractQrSvg(token) });
   } catch (error) {
     const code = error instanceof Error ? error.message : 'request_failed';
     const status = code === 'booking_not_found' ? 404 : 400;

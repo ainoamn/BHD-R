@@ -33,11 +33,13 @@ type Detector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue
 type DetectorConstructor = new (options: { formats: string[] }) => Detector;
 
 function tokenFromScan(value: string): string | null {
+  const raw = value.trim();
   try {
-    const token = new URL(value).searchParams.get('t');
+    const token = new URL(raw).searchParams.get('t');
     return token && /^[A-Za-z0-9_-]{40,120}$/.test(token) ? token : null;
   } catch {
-    return /^[A-Za-z0-9_-]{40,120}$/.test(value) ? value : null;
+    // Guest QR encodes the sealed token alone (no stay-gate URL).
+    return /^[A-Za-z0-9_-]{40,120}$/.test(raw) ? raw : null;
   }
 }
 

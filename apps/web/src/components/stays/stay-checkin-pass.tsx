@@ -210,8 +210,8 @@ export function StayCheckinPass({
       <h2 id="stay-checkin-title">{ar ? 'باركود تسجيل الوصول' : 'Check-in barcode'}</h2>
       <p>
         {ar
-          ? 'عند وصولك اعرض هذا الرمز على عامل العقار ليمسحه — يُسجَّل تاريخ ووقت دخولك فوراً.'
-          : 'On arrival, show this code to property staff to scan — your check-in date and time are recorded at once.'}
+          ? 'عند وصولك اعرض هذا الرمز المشفّر على عامل العقار المخوّل ليمسحه من تطبيق المالك — يُسجَّل دخولك فوراً. مسحه بكاميرا الهاتف العادية يُظهر رموزاً فقط ولا يفتح أي صفحة.'
+          : 'On arrival, show this sealed code to authorized property staff to scan in the owner app — your check-in is recorded at once. A regular phone camera only shows symbols and opens no page.'}
       </p>
       <div className="handover-pass__body">
         {pass ? (
@@ -250,8 +250,8 @@ export function StayCheckinPass({
       </div>
       <p className="handover-pass__note">
         {ar
-          ? 'يُسمح بالمسح أثناء مدة حجزك؛ لا يُقبل قبل بدايتها بأكثر من 4 ساعات، وبعد انتهائها دون دخول يُلغى الحجز تلقائياً.'
-          : 'Scanning is allowed during your booked period; not more than 4 hours before it starts, and after it ends without check-in the booking is cancelled automatically.'}
+          ? 'الرمز مشفّر ويتجدد تلقائياً؛ يعمل فقط مع حساب مالك أو موظف مخوّل. يُقبل أثناء مدة حجزك (بحد أقصى 4 ساعات قبل البدء)، وبعد انتهائها دون دخول يُلغى الحجز تلقائياً.'
+          : 'The code is encrypted and renews automatically; only an authorized owner or staff account can use it. Valid during your booked period (at most 4 hours early); after it ends without check-in the booking is cancelled automatically.'}
       </p>
     </section>
   );
