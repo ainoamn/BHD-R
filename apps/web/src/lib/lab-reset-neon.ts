@@ -90,7 +90,9 @@ export async function labResetCounts(claims: SessionClaims): Promise<LabResetCou
       sales,
       approvals,
     ] = await Promise.all([
-      countTable(tx, orgId, 'work_tasks'),
+      (async () =>
+        (await countTable(tx, orgId, 'work_tasks')) +
+        (await countTable(tx, orgId, 'workflow_events')))(),
       (async () =>
         (await countTable(tx, orgId, 'journal_entries')) +
         (await countTable(tx, orgId, 'expenses')) +
@@ -127,16 +129,28 @@ export async function labResetCounts(claims: SessionClaims): Promise<LabResetCou
   }, 20_000);
 }
 
+async function wipeWorkflowEvents(
+  tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
+  orgId: string,
+  resourceTypes?: string[],
+): Promise<number> {
+  if (!resourceTypes?.length) {
+    return deleteTable(tx, orgId, 'workflow_events');
+  }
+  // Build `and resource_type in (...)` without interpolating untrusted values.
+  const list = sql.join(
+    resourceTypes.map((type) => sql`${type}`),
+    sql`, `,
+  );
+  return deleteTable(tx, orgId, 'workflow_events', sql`and resource_type in (${list})`);
+}
+
 async function wipeTasks(
   tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
   orgId: string,
 ): Promise<number> {
-  const events = await deleteTable(
-    tx,
-    orgId,
-    'workflow_events',
-    sql`and resource_type = 'work_task'`,
-  );
+  // “Tasks & workflow” clears the dashboard activity feed as well as work tasks.
+  const events = await wipeWorkflowEvents(tx, orgId);
   const tasks = await deleteTable(tx, orgId, 'work_tasks');
   return events + tasks;
 }
@@ -153,6 +167,7 @@ async function wipeAccounting(
   } catch (error) {
     if (!isMissingTable(error)) throw error;
   }
+  const events = await wipeWorkflowEvents(tx, orgId, ['journal_entry', 'expense', 'cheque']);
   const lines = await deleteTable(tx, orgId, 'journal_lines');
   const entries = await deleteTable(tx, orgId, 'journal_entries');
   const expenses = await deleteTable(tx, orgId, 'expenses');
@@ -165,7 +180,7 @@ async function wipeAccounting(
   } catch (error) {
     if (!isMissingTable(error)) throw error;
   }
-  return lines + entries + expenses + cheques;
+  return events + lines + entries + expenses + cheques;
 }
 
 async function softNull(
@@ -231,6 +246,16 @@ async function wipeBookings(
     'rental_applications',
     'reservation_id = null, viewing_request_id = null',
   );
+  const events = await wipeWorkflowEvents(tx, orgId, [
+    'contract',
+    'reservation',
+    'reservation_document',
+    'reservation_esign_evidence',
+    'reservation_contract_esign',
+    'reservation_handover',
+    'hold',
+    'viewing_request',
+  ]);
   const n =
     (await deleteTable(tx, orgId, 'signature_challenges')) +
     (await deleteTable(tx, orgId, 'contract_signatures')) +
@@ -247,13 +272,15 @@ async function wipeBookings(
   } catch (error) {
     if (!isMissingTable(error)) throw error;
   }
-  return n;
+  return events + n;
 }
 
 async function wipeStays(
   tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
   orgId: string,
 ): Promise<number> {
+  // Activity feed rows outlive bookings unless cleared here.
+  const events = await wipeWorkflowEvents(tx, orgId, ['stay_booking']);
   // Child → parent order. Payment intents reference folios, so intents before folios.
   const deleted = await sumDeletes(tx, orgId, [
     'booking_review_photos',
@@ -296,7 +323,7 @@ async function wipeStays(
   } catch (error) {
     if (!isMissingTable(error)) throw error;
   }
-  return deleted + clearedDays;
+  return events + deleted + clearedDays;
 }
 
 async function wipeMaintenance(
@@ -310,7 +337,13 @@ async function wipeMaintenance(
   } catch (error) {
     if (!isMissingTable(error)) throw error;
   }
+  const events = await wipeWorkflowEvents(tx, orgId, [
+    'maintenance_ticket',
+    'maintenance_work_order',
+    'operational_request',
+  ]);
   return (
+    events +
     (await deleteTable(tx, orgId, 'maintenance_work_orders')) +
     (await deleteTable(tx, orgId, 'maintenance_tickets')) +
     (await deleteTable(tx, orgId, 'operational_requests'))
@@ -321,12 +354,7 @@ async function wipeLegal(
   tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
   orgId: string,
 ): Promise<number> {
-  const events = await deleteTable(
-    tx,
-    orgId,
-    'workflow_events',
-    sql`and resource_type = 'legal_case'`,
-  );
+  const events = await wipeWorkflowEvents(tx, orgId, ['legal_case']);
   return events + (await deleteTable(tx, orgId, 'legal_cases'));
 }
 

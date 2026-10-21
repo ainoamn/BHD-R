@@ -24,7 +24,7 @@ export type LabResetResult = {
 
 export function labResetLabel(category: LabResetCategory, locale: 'ar' | 'en'): string {
   const copy: Record<LabResetCategory, [string, string]> = {
-    tasks: ['المهام وسير العمل', 'Tasks & workflow'],
+    tasks: ['المهام وسجل النشاط (آخر النشاط)', 'Tasks & activity feed (recent activity)'],
     accounting: ['المحاسبة والمصروفات والقيود', 'Accounting, expenses & journals'],
     leasing: ['الإيجارات والفواتير والمدفوعات والإيصالات', 'Leases, invoices, payments & receipts'],
     bookings: ['الحجوزات والعقود والطلبات المرتبطة', 'Reservations, contracts & related holds'],
