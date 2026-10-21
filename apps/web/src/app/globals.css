@@ -2923,6 +2923,63 @@ body:has(.stays-booking-receipt) #main-content {
     padding: 1rem;
   }
 }
+/* Phone: short payment summary photo so card fields stay above the fold. */
+@media (max-width: 899px) {
+  .pay-gateway-shell__aside {
+    padding-block: max(0.65rem, env(safe-area-inset-top)) 0.65rem;
+  }
+  .pay-gateway-shell__aside-inner {
+    gap: 0.45rem;
+  }
+  .pay-gateway-shell__aside h1 {
+    font-size: 1.15rem;
+  }
+  .pay-gateway-shell__summary {
+    width: 100%;
+    max-width: none;
+    aspect-ratio: auto;
+    height: 8.5rem;
+    min-height: 8.5rem;
+    max-height: 8.5rem;
+    margin-top: 0.25rem;
+    border-radius: 0.85rem;
+  }
+  .pay-gateway-shell__summary-body {
+    grid-template-rows: auto auto;
+    gap: 0.35rem;
+    padding: 0.65rem 0.8rem 0.6rem;
+    align-content: space-between;
+  }
+  .pay-gateway-shell__amount {
+    margin: 0;
+    font-size: 1.45rem;
+  }
+  .pay-gateway-shell__summary .muted {
+    font-size: 0.72rem;
+  }
+  .pay-gateway-shell__summary dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.85rem;
+    align-content: start;
+  }
+  .pay-gateway-shell__summary dl > div {
+    min-width: 0;
+  }
+  .pay-gateway-shell__summary dt {
+    font-size: 0.62rem;
+  }
+  .pay-gateway-shell__summary dd {
+    margin: 0;
+    font-size: 0.78rem;
+  }
+  .pay-gateway-shell__summary-place {
+    font-size: 0.68rem;
+  }
+  .pay-gateway-shell__panel {
+    padding-top: 0.85rem;
+  }
+}
 @media (min-width: 900px) {
   .pay-gateway-shell__summary {
     width: min(100%, 28rem);
@@ -20134,6 +20191,18 @@ button.lrw__step-body:focus-visible {
   margin: 0 0 1rem;
   display: grid;
   gap: 0.65rem;
+}
+.terms-acceptance__consent {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 2px solid #c62828;
+  border-radius: 0.75rem;
+  background: #fff5f5;
+  color: #b71c1c;
+  font-weight: 700;
+}
+.terms-acceptance__consent input {
+  accent-color: #c62828;
 }
 .terms-acceptance__view {
   font-size: 0.88rem;

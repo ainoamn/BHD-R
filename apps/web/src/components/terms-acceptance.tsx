@@ -113,7 +113,7 @@ export function TermsAcceptance({
       ) : null}
 
       {canAccept ? (
-        <label className="checkbox-row lease-checkout__accept">
+        <label className="checkbox-row lease-checkout__accept terms-acceptance__consent">
           <input
             type="checkbox"
             checked={accepted}
