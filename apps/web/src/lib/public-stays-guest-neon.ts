@@ -1,8 +1,10 @@
 import 'server-only';
-import { randomBytes } from 'node:crypto';
-import { and, desc, eq, gt, inArray, ne, or, sql } from 'drizzle-orm';
+import { createHash, randomBytes } from 'node:crypto';
+import { and, desc, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { resolveStaysEnabledFromEnv, readStaysFlagsFromEnv } from '@bhd-r/config';
 import {
+  contractSignatures,
+  contractTemplates,
   contracts,
   createDatabase,
   leases,
@@ -17,6 +19,7 @@ import {
   stayProfiles,
   type Database,
 } from '@bhd-r/db';
+import { DEFAULT_CONTRACT_TEMPLATES } from '@/lib/contract-default-templates';
 import { assertStayBookingTransition, nightsBetween } from '@bhd-r/domain';
 import { publicWebOrigin } from '@/lib/seo';
 import { termsBlocksFromStored, type TermsBlock } from '@/lib/booking-terms';
@@ -993,19 +996,110 @@ function addCalendarDays(isoDate: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+type RescheduleMove = {
+  at: string;
+  fromCheckInOn: string;
+  fromCheckOutOn: string;
+  fromStayType: RescheduleStayType;
+  toCheckInOn: string;
+  toCheckOutOn: string;
+  toStayType: RescheduleStayType;
+  quotedTotalMinor: string;
+  chargedTotalMinor: string;
+  forfeitedMinor: string;
+  originalTotalMinor?: string;
+  extraDueMinor?: string;
+  hasOffer?: boolean;
+};
+
+function rowsOf<T>(result: unknown): T[] {
+  return (Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? [])) as T[];
+}
+
+async function ensureStayRescheduleAmendmentTemplate(
+  transaction: Tx,
+  orgId: string,
+): Promise<string> {
+  const key = 'stay_reschedule_amendment';
+  await transaction.execute(
+    sql`select pg_advisory_xact_lock(hashtextextended(${`${orgId}:${key}:ar`}, 11))`,
+  );
+  const [existing] = await transaction
+    .select({ id: contractTemplates.id })
+    .from(contractTemplates)
+    .where(
+      and(
+        eq(contractTemplates.organizationId, orgId),
+        eq(contractTemplates.key, key),
+        eq(contractTemplates.language, 'ar'),
+        eq(contractTemplates.active, true),
+      ),
+    )
+    .limit(1);
+  if (existing) return existing.id;
+  const html = DEFAULT_CONTRACT_TEMPLATES.stay_reschedule_amendment.ar;
+  const [versionRow] = rowsOf<{ version: number }>(
+    await transaction.execute(sql`
+      select coalesce(max(version), 0)::integer + 1 as version
+      from contract_templates
+      where organization_id = ${orgId} and key = ${key} and language = 'ar'
+    `),
+  );
+  const [created] = await transaction
+    .insert(contractTemplates)
+    .values({
+      organizationId: orgId,
+      key,
+      version: Number(versionRow?.version ?? 1),
+      language: 'ar',
+      html,
+      contentHash: createHash('sha256').update(html).digest('hex'),
+      active: true,
+    })
+    .returning({ id: contractTemplates.id });
+  return created!.id;
+}
+
+async function allocateStayContractReference(
+  transaction: Tx,
+  orgId: string,
+  year: number,
+): Promise<string> {
+  const [row] = rowsOf<{ allocated: string | number | bigint }>(
+    await transaction.execute(sql`
+      insert into contract_sequences (organization_id, year, next_value)
+      values (${orgId}, ${year}, 2)
+      on conflict (organization_id, year)
+      do update set next_value = contract_sequences.next_value + 1
+      returning next_value - 1 as allocated
+    `),
+  );
+  return `CTR-${year}-${String(row!.allocated).padStart(6, '0')}`;
+}
+
+function contractSignatureHash(parts: string[]): string {
+  return createHash('sha256').update(parts.join('|')).digest('hex');
+}
+
 /**
- * Keep the issued stay contract (and its lease) aligned with booking dates/period/amount
- * after a guest reschedule is applied.
+ * Issue a signed amendment addendum linked to the parent stay contract, then keep
+ * the parent snapshot + lease aligned with the new booking terms.
  */
 async function syncStayContractAfterRescheduleInTx(
   transaction: Tx,
   booking: typeof stayBookings.$inferSelect,
   stayType: RescheduleStayType,
+  move: RescheduleMove,
 ): Promise<void> {
-  const [contract] = await transaction
+  const [parent] = await transaction
     .select({
       id: contracts.id,
+      reference: contracts.reference,
       payloadSnapshot: contracts.payloadSnapshot,
+      ownerPartyId: contracts.ownerPartyId,
+      tenantPartyId: contracts.tenantPartyId,
+      unitId: contracts.unitId,
+      status: contracts.status,
     })
     .from(contracts)
     .where(
@@ -1013,10 +1107,11 @@ async function syncStayContractAfterRescheduleInTx(
         eq(contracts.organizationId, booking.organizationId),
         sql`${contracts.payloadSnapshot}->'source'->>'stayBookingId' = ${booking.id}`,
         ne(contracts.status, 'void'),
+        isNull(contracts.parentContractId),
       ),
     )
     .limit(1);
-  if (!contract) return;
+  if (!parent) return;
 
   const [profileTimes] = booking.stayProfileId
     ? await transaction
@@ -1037,20 +1132,170 @@ async function syncStayContractAfterRescheduleInTx(
         .limit(1)
     : [null];
   const period = resolveStayPeriodTimes(stayType, profileTimes ?? {});
+  const previousPeriod = resolveStayPeriodTimes(move.fromStayType, profileTimes ?? {});
   const startsOn = booking.checkInOn.slice(0, 10);
   const endsOn =
     booking.checkOutOn.slice(0, 10) > startsOn
       ? booking.checkOutOn.slice(0, 10)
       : addCalendarDays(startsOn, 1);
+  const fromStartsOn = move.fromCheckInOn.slice(0, 10);
+  const fromEndsOn =
+    move.fromCheckOutOn.slice(0, 10) > fromStartsOn
+      ? move.fromCheckOutOn.slice(0, 10)
+      : addCalendarDays(fromStartsOn, 1);
   const snapshot =
-    contract.payloadSnapshot && typeof contract.payloadSnapshot === 'object'
-      ? { ...(contract.payloadSnapshot as Record<string, unknown>) }
+    parent.payloadSnapshot && typeof parent.payloadSnapshot === 'object'
+      ? { ...(parent.payloadSnapshot as Record<string, unknown>) }
       : {};
   const priorAmount =
     snapshot.amount && typeof snapshot.amount === 'object'
       ? (snapshot.amount as Record<string, unknown>)
       : {};
+  const currency =
+    typeof priorAmount.currency === 'string' ? priorAmount.currency : booking.currency;
+  const previousAmountMinor =
+    typeof priorAmount.amountMinor === 'string'
+      ? priorAmount.amountMinor
+      : (move.originalTotalMinor ?? booking.totalMinor.toString());
   const now = new Date();
+  const originalTotalMinor = move.originalTotalMinor ?? previousAmountMinor;
+  const extraDueMinor =
+    move.extraDueMinor ??
+    (BigInt(move.chargedTotalMinor) > BigInt(originalTotalMinor)
+      ? (BigInt(move.chargedTotalMinor) - BigInt(originalTotalMinor)).toString()
+      : '0');
+
+  const templateId = await ensureStayRescheduleAmendmentTemplate(
+    transaction,
+    booking.organizationId,
+  );
+  const reference = await allocateStayContractReference(
+    transaction,
+    booking.organizationId,
+    Number(startsOn.slice(0, 4)),
+  );
+  const parentReference =
+    parent.reference ?? `CTR-${parent.id.slice(0, 8).toUpperCase()}`;
+  const owner = snapshot.owner && typeof snapshot.owner === 'object' ? snapshot.owner : null;
+  const tenant =
+    (snapshot.tenant && typeof snapshot.tenant === 'object' ? snapshot.tenant : null) ??
+    (snapshot.buyer && typeof snapshot.buyer === 'object' ? snapshot.buyer : null);
+  const property =
+    snapshot.property && typeof snapshot.property === 'object' ? snapshot.property : null;
+  const unit = snapshot.unit && typeof snapshot.unit === 'object' ? snapshot.unit : null;
+
+  const [amendment] = await transaction
+    .insert(contracts)
+    .values({
+      organizationId: booking.organizationId,
+      reference,
+      kind: 'amendment',
+      parentContractId: parent.id,
+      templateVersionId: templateId,
+      unitId: parent.unitId,
+      ownerPartyId: parent.ownerPartyId,
+      tenantPartyId: parent.tenantPartyId,
+      status: 'signed',
+      sentAt: now,
+      completedAt: now,
+      payloadSnapshot: {
+        contract: {
+          reference,
+          type: 'lease',
+          kind: 'amendment',
+          parentReference,
+        },
+        source: {
+          type: 'stay_booking_reschedule',
+          stayBookingId: booking.id,
+          referenceCode: booking.referenceCode,
+        },
+        owner: owner ?? { id: parent.ownerPartyId },
+        tenant: tenant ?? { id: parent.tenantPartyId },
+        property,
+        unit: unit ?? { id: parent.unitId },
+        startsOn,
+        endsOn,
+        stayType,
+        checkInTime: period.checkInTime,
+        checkOutTime: period.checkOutTime,
+        amount: { amountMinor: move.chargedTotalMinor, currency },
+        previous: {
+          startsOn: fromStartsOn,
+          endsOn: fromEndsOn,
+          stayType: move.fromStayType,
+          checkInTime: previousPeriod.checkInTime,
+          checkOutTime: previousPeriod.checkOutTime,
+          amount: { amountMinor: originalTotalMinor, currency },
+        },
+        difference: {
+          originalTotalMinor,
+          quotedTotalMinor: move.quotedTotalMinor,
+          chargedTotalMinor: move.chargedTotalMinor,
+          forfeitedMinor: move.forfeitedMinor,
+          extraDueMinor,
+        },
+        approvals: {
+          guest: { at: move.at, method: 'reschedule_request' },
+          owner: { at: now.toISOString(), method: 'reschedule_approval' },
+        },
+        approval: {
+          mode: 'signed_on_reschedule',
+          at: now.toISOString(),
+        },
+      },
+    })
+    .returning({ id: contracts.id });
+
+  if (amendment) {
+    await transaction
+      .insert(contractSignatures)
+      .values([
+        {
+          organizationId: booking.organizationId,
+          contractId: amendment.id,
+          signerPartyId: parent.tenantPartyId,
+          signerRole: 'tenant',
+          method: 'reschedule_request',
+          evidence: {
+            bookingReference: booking.referenceCode,
+            kind: 'stay_reschedule',
+            fromCheckInOn: fromStartsOn,
+            toCheckInOn: startsOn,
+            approvedAt: move.at,
+          },
+          signatureHash: contractSignatureHash([
+            amendment.id,
+            parent.tenantPartyId,
+            'tenant',
+            move.at,
+          ]),
+          signedAt: new Date(move.at),
+        },
+        {
+          organizationId: booking.organizationId,
+          contractId: amendment.id,
+          signerPartyId: parent.ownerPartyId,
+          signerRole: 'owner',
+          method: 'reschedule_approval',
+          evidence: {
+            bookingReference: booking.referenceCode,
+            kind: 'stay_reschedule',
+            onBehalfOf: 'owner',
+            approvedAt: now.toISOString(),
+          },
+          signatureHash: contractSignatureHash([
+            amendment.id,
+            parent.ownerPartyId,
+            'owner',
+            now.toISOString(),
+          ]),
+          signedAt: now,
+        },
+      ])
+      .onConflictDoNothing();
+  }
+
   await transaction
     .update(contracts)
     .set({
@@ -1063,21 +1308,22 @@ async function syncStayContractAfterRescheduleInTx(
         checkOutTime: period.checkOutTime,
         amount: {
           ...priorAmount,
-          amountMinor: booking.totalMinor.toString(),
-          currency:
-            typeof priorAmount.currency === 'string' ? priorAmount.currency : booking.currency,
+          amountMinor: move.chargedTotalMinor,
+          currency,
         },
         rescheduleSync: {
           at: now.toISOString(),
-          fromStartsOn: snapshot.startsOn ?? null,
-          fromEndsOn: snapshot.endsOn ?? null,
-          fromStayType: snapshot.stayType ?? null,
+          fromStartsOn,
+          fromEndsOn,
+          fromStayType: move.fromStayType,
+          amendmentContractId: amendment?.id ?? null,
+          amendmentReference: reference,
         },
       },
       updatedAt: now,
     })
     .where(
-      and(eq(contracts.id, contract.id), eq(contracts.organizationId, booking.organizationId)),
+      and(eq(contracts.id, parent.id), eq(contracts.organizationId, booking.organizationId)),
     );
 
   await transaction
@@ -1085,13 +1331,13 @@ async function syncStayContractAfterRescheduleInTx(
     .set({
       startsOn,
       endsOn,
-      rentMinor: booking.totalMinor,
+      rentMinor: BigInt(move.chargedTotalMinor),
       updatedAt: now,
     })
     .where(
       and(
         eq(leases.organizationId, booking.organizationId),
-        eq(leases.contractId, contract.id),
+        eq(leases.contractId, parent.id),
         inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
       ),
     );
@@ -1190,7 +1436,7 @@ async function applyGuestRescheduleInTx(
     ? (snapshot.reschedules as unknown[])
     : [];
   const fromStayType = rescheduleStayType(readStayTypeFromSnapshot(booking.pricingSnapshotJson));
-  const move = {
+  const move: RescheduleMove = {
     at: now.toISOString(),
     fromCheckInOn: booking.checkInOn,
     fromCheckOutOn: booking.checkOutOn,
@@ -1201,6 +1447,8 @@ async function applyGuestRescheduleInTx(
     quotedTotalMinor: charge.quotedTotalMinor,
     chargedTotalMinor: charge.chargedTotalMinor,
     forfeitedMinor: charge.forfeitedMinor,
+    originalTotalMinor: charge.originalTotalMinor,
+    extraDueMinor: charge.extraDueMinor,
     hasOffer: priced.hasOffer,
   };
   const takesNewPrice = !charge.keptOriginalPrice;
@@ -1278,7 +1526,7 @@ async function applyGuestRescheduleInTx(
     payload: { referenceCode: booking.referenceCode, unitId: booking.unitId, ...move },
   });
 
-  await syncStayContractAfterRescheduleInTx(transaction, updated, stayType);
+  await syncStayContractAfterRescheduleInTx(transaction, updated, stayType, move);
 
   return updated;
 }

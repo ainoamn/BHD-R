@@ -77,6 +77,7 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
     stayType: null,
     checkInTime: null,
     checkOutTime: null,
+    rescheduleChange: null,
     source: {
       type: 'lease_reservation',
       referenceCode: booking.referenceCode,

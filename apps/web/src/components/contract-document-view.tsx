@@ -153,6 +153,9 @@ function docTitle(doc: ContractDocument, contract: ContractArticleHead): Pair {
     return [title.ar, title.en];
   }
   if (contract.kind === 'renewal') return ['ملحق تجديد عقد', 'Contract Renewal Addendum'];
+  if (contract.kind === 'amendment' || doc.rescheduleChange) {
+    return ['ملحق تعديل تواريخ الإقامة', 'Stay Date-Change Addendum'];
+  }
   if (doc.type === 'stay') return ['عقد إقامة قصيرة', 'Short-Stay Agreement'];
   if (doc.type === 'sale') return ['عقد بيع عقار', 'Property Sale Agreement'];
   return ['عقد إيجار', 'Lease Agreement'];
@@ -753,8 +756,155 @@ export function ContractArticle({
                 ) : null}
               </section>
 
+              {doc.rescheduleChange ? (
+                <section className="contract-doc__section">
+                  {heading(['اتفاقية تعديل التواريخ', 'Date-change agreement'])}
+                  {para(
+                    'يتفق الطرفان على تعديل الإقامة وفق الجدول التالي، ويظل العقد الأصلي سارياً فيما لم يُعدَّل صراحة بهذا الملحق.',
+                    'The parties agree to amend the stay as set out below; the original contract remains in force except as expressly amended by this addendum.',
+                    'contract-doc__lead',
+                  )}
+                  <table className="contract-doc__compare">
+                    <thead>
+                      <tr>
+                        <th>{bi(['البيان', 'Item'])}</th>
+                        <th>{bi(['من', 'From'])}</th>
+                        <th>{bi(['إلى', 'To'])}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <th scope="row">{bi(['الوصول', 'Check-in'])}</th>
+                        <td>
+                          {bi(day(doc.rescheduleChange.previous.startsOn))}
+                          {doc.rescheduleChange.previous.checkInTime
+                            ? ` · ${doc.rescheduleChange.previous.checkInTime}`
+                            : ''}
+                        </td>
+                        <td>
+                          {bi(day(doc.rescheduleChange.next.startsOn))}
+                          {doc.rescheduleChange.next.checkInTime
+                            ? ` · ${doc.rescheduleChange.next.checkInTime}`
+                            : ''}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th scope="row">{bi(['المغادرة', 'Check-out'])}</th>
+                        <td>
+                          {bi(
+                            day(
+                              doc.rescheduleChange.previous.stayType === 'day_use'
+                                ? doc.rescheduleChange.previous.startsOn
+                                : doc.rescheduleChange.previous.endsOn,
+                            ),
+                          )}
+                          {doc.rescheduleChange.previous.checkOutTime
+                            ? ` · ${doc.rescheduleChange.previous.checkOutTime}`
+                            : ''}
+                        </td>
+                        <td>
+                          {bi(
+                            day(
+                              doc.rescheduleChange.next.stayType === 'day_use'
+                                ? doc.rescheduleChange.next.startsOn
+                                : doc.rescheduleChange.next.endsOn,
+                            ),
+                          )}
+                          {doc.rescheduleChange.next.checkOutTime
+                            ? ` · ${doc.rescheduleChange.next.checkOutTime}`
+                            : ''}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th scope="row">{bi(['نوع الإقامة', 'Stay type'])}</th>
+                        <td>
+                          {doc.rescheduleChange.previous.stayType
+                            ? bi([
+                                stayTypeLabel(doc.rescheduleChange.previous.stayType, 'ar'),
+                                stayTypeLabel(doc.rescheduleChange.previous.stayType, 'en'),
+                              ])
+                            : '—'}
+                        </td>
+                        <td>
+                          {doc.rescheduleChange.next.stayType
+                            ? bi([
+                                stayTypeLabel(doc.rescheduleChange.next.stayType, 'ar'),
+                                stayTypeLabel(doc.rescheduleChange.next.stayType, 'en'),
+                              ])
+                            : '—'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th scope="row">{bi(['المبلغ', 'Amount'])}</th>
+                        <td>{bi(money(doc.rescheduleChange.previous.amount))}</td>
+                        <td>{bi(money(doc.rescheduleChange.next.amount))}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  {doc.rescheduleChange.difference ? (
+                    <dl className="contract-doc__table">
+                      {doc.rescheduleChange.difference.extraDueMinor &&
+                      doc.rescheduleChange.difference.extraDueMinor !== '0'
+                        ? row(
+                            ['فرق إضافي مدفوع', 'Additional amount due'],
+                            bi(
+                              money({
+                                amountMinor: doc.rescheduleChange.difference.extraDueMinor,
+                                currency: doc.amount?.currency ?? 'OMR',
+                              }),
+                            ),
+                          )
+                        : null}
+                      {doc.rescheduleChange.difference.forfeitedMinor &&
+                      doc.rescheduleChange.difference.forfeitedMinor !== '0'
+                        ? row(
+                            ['فرق غير مسترد', 'Non-refundable difference'],
+                            bi(
+                              money({
+                                amountMinor: doc.rescheduleChange.difference.forfeitedMinor,
+                                currency: doc.amount?.currency ?? 'OMR',
+                              }),
+                            ),
+                          )
+                        : null}
+                      {row(
+                        ['المبلغ المعتمد بعد التعديل', 'Amount after the change'],
+                        bi(
+                          money(
+                            doc.rescheduleChange.difference.chargedTotalMinor
+                              ? {
+                                  amountMinor:
+                                    doc.rescheduleChange.difference.chargedTotalMinor,
+                                  currency: doc.amount?.currency ?? 'OMR',
+                                }
+                              : doc.rescheduleChange.next.amount,
+                          ),
+                        ),
+                      )}
+                    </dl>
+                  ) : null}
+                  <dl className="contract-doc__table">
+                    {row(
+                      ['موافقة الضيف (طلب التعديل)', 'Guest approval (change request)'],
+                      bi(dateTime(doc.rescheduleChange.approvals.guestAt)),
+                    )}
+                    {row(
+                      ['موافقة المالك (اعتماد التعديل)', 'Owner approval'],
+                      bi(dateTime(doc.rescheduleChange.approvals.ownerAt)),
+                    )}
+                    {doc.source?.referenceCode
+                      ? row(['مرجع الحجز', 'Booking reference'], ltr(doc.source.referenceCode))
+                      : null}
+                  </dl>
+                </section>
+              ) : null}
+
               <section className="contract-doc__section">
-                {heading(['المدة والقيمة', 'Term & Consideration'])}
+                {heading(
+                  doc.rescheduleChange
+                    ? ['البيانات المعتمدة بعد التعديل', 'Terms after the change']
+                    : ['المدة والقيمة', 'Term & Consideration'],
+                )}
                 <dl className="contract-doc__table">
                   {reservation
                     ? null
@@ -1088,7 +1238,9 @@ export function ContractArticle({
                             {bi(
                               addendum.kind === 'renewal'
                                 ? ['تجديد', 'Renewal']
-                                : [addendum.kind, addendum.kind],
+                                : addendum.kind === 'amendment'
+                                  ? ['تعديل تواريخ', 'Date change']
+                                  : [addendum.kind, addendum.kind],
                             )}
                           </span>
                           <span>{bi(label(STATUS_LABELS, addendum.status))}</span>

@@ -152,9 +152,13 @@ function SimpleContractView({
               ? ar
                 ? 'ملحق تجديد'
                 : 'Renewal addendum'
-              : ar
-                ? 'عقد إيجار أساسي'
-                : 'Initial lease contract'}{' '}
+              : contract.kind === 'amendment'
+                ? ar
+                  ? 'ملحق تعديل تواريخ'
+                  : 'Date-change addendum'
+                : ar
+                  ? 'عقد إيجار أساسي'
+                  : 'Initial lease contract'}{' '}
             · {contract.startsOn} — {contract.endsOn}
           </p>
         </div>

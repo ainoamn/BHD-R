@@ -195,7 +195,8 @@ function canViewIdentityFiles(access: Access, contract: { tenantPartyId: string 
 
 export function stayBookingIdOf(snapshot: Record<string, unknown>): string | null {
   const source = snapshot.source as { type?: unknown; stayBookingId?: unknown } | undefined;
-  return source?.type === 'stay_booking' && typeof source.stayBookingId === 'string'
+  if (typeof source?.stayBookingId !== 'string') return null;
+  return source.type === 'stay_booking' || source.type === 'stay_booking_reschedule'
     ? source.stayBookingId
     : null;
 }
@@ -266,7 +267,10 @@ export async function loadContractDetailFromNeon(
 
     const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
     const stayBookingId = stayBookingIdOf(snapshot);
-    const linkedContractId = contract.kind === 'renewal' ? contract.parentContractId : contract.id;
+    const linkedContractId =
+      contract.kind === 'renewal' || contract.kind === 'amendment'
+        ? contract.parentContractId
+        : contract.id;
     const [template, letterhead, addenda, parent, esign] = await Promise.all([
       tx
         .select({
@@ -800,6 +804,46 @@ async function buildContractDocument(
     stayType: text(snapshot.stayType),
     checkInTime: text(snapshot.checkInTime) ?? loaded.stayPeriodTimes?.checkInTime ?? null,
     checkOutTime: text(snapshot.checkOutTime) ?? loaded.stayPeriodTimes?.checkOutTime ?? null,
+    rescheduleChange: (() => {
+      if (contract.kind !== 'amendment' && source.type !== 'stay_booking_reschedule') return null;
+      const previous = record(snapshot.previous);
+      if (!text(previous.startsOn)) return null;
+      const approvals = record(snapshot.approvals);
+      const guest = record(approvals.guest);
+      const ownerApproval = record(approvals.owner);
+      const difference = record(snapshot.difference);
+      return {
+        previous: {
+          startsOn: text(previous.startsOn)!,
+          endsOn: text(previous.endsOn),
+          stayType: text(previous.stayType),
+          checkInTime: text(previous.checkInTime),
+          checkOutTime: text(previous.checkOutTime),
+          amount: money(previous.amount),
+        },
+        next: {
+          startsOn: text(snapshot.startsOn) ?? text(previous.startsOn)!,
+          endsOn: text(snapshot.endsOn),
+          stayType: text(snapshot.stayType),
+          checkInTime: text(snapshot.checkInTime),
+          checkOutTime: text(snapshot.checkOutTime),
+          amount: money(snapshot.amount),
+        },
+        difference: Object.keys(difference).length
+          ? {
+              originalTotalMinor: text(difference.originalTotalMinor),
+              quotedTotalMinor: text(difference.quotedTotalMinor),
+              chargedTotalMinor: text(difference.chargedTotalMinor),
+              forfeitedMinor: text(difference.forfeitedMinor),
+              extraDueMinor: text(difference.extraDueMinor),
+            }
+          : null,
+        approvals: {
+          guestAt: text(guest.at),
+          ownerAt: text(ownerApproval.at),
+        },
+      };
+    })(),
     source: Object.keys(source).length
       ? {
           type: text(source.type) ?? 'manual',

@@ -102,6 +102,39 @@ export interface ContractDocument {
   /** Property-configured clock times for this stay type (HH:MM). */
   checkInTime: string | null;
   checkOutTime: string | null;
+  /**
+   * Stay date-change addendum: from → to terms, money difference, and both-party approvals.
+   * Present when `kind === 'amendment'` for a stay reschedule.
+   */
+  rescheduleChange: {
+    previous: {
+      startsOn: string;
+      endsOn: string | null;
+      stayType: string | null;
+      checkInTime: string | null;
+      checkOutTime: string | null;
+      amount: Money | null;
+    };
+    next: {
+      startsOn: string;
+      endsOn: string | null;
+      stayType: string | null;
+      checkInTime: string | null;
+      checkOutTime: string | null;
+      amount: Money | null;
+    };
+    difference: {
+      originalTotalMinor: string | null;
+      quotedTotalMinor: string | null;
+      chargedTotalMinor: string | null;
+      forfeitedMinor: string | null;
+      extraDueMinor: string | null;
+    } | null;
+    approvals: {
+      guestAt: string | null;
+      ownerAt: string | null;
+    };
+  } | null;
   source: { type: string; referenceCode: string | null; stayBookingId: string | null } | null;
   approval: { mode: string | null; byName: string | null; at: string | null } | null;
   tenantContact: { email: string | null; phone: string | null } | null;

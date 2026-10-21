@@ -117,7 +117,7 @@ export async function loadContractVerification(
     }
     const orgId = contract.organizationId;
     const linkedContractId =
-      contract.kind === 'renewal' && contract.parentContractId
+      (contract.kind === 'renewal' || contract.kind === 'amendment') && contract.parentContractId
         ? contract.parentContractId
         : contract.id;
 
@@ -201,7 +201,9 @@ export async function loadContractVerification(
     const type: ContractVerification['type'] =
       contractInfo.type === 'sale'
         ? 'sale'
-        : source.type === 'stay_booking' || snapshot.stayType
+        : source.type === 'stay_booking' ||
+            source.type === 'stay_booking_reschedule' ||
+            snapshot.stayType
           ? 'stay'
           : 'lease';
 

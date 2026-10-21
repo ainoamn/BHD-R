@@ -10,6 +10,7 @@ const TYPES: Record<string, Pair> = {
   lease: ['عقد إيجار', 'Lease agreement'],
   sale: ['عقد بيع عقار', 'Property sale agreement'],
   renewal: ['ملحق تجديد عقد', 'Contract renewal addendum'],
+  amendment: ['ملحق تعديل تواريخ الإقامة', 'Stay date-change addendum'],
 };
 
 const ID_KINDS: Record<string, Pair> = {
@@ -127,7 +128,12 @@ export function ContractVerifyView({
 
   const verdict = verdictOf(result.status);
   const copy = VERDICTS[verdict];
-  const title = result.kind === 'renewal' ? TYPES.renewal! : (TYPES[result.type] ?? TYPES.lease!);
+  const title =
+    result.kind === 'renewal'
+      ? TYPES.renewal!
+      : result.kind === 'amendment'
+        ? TYPES.amendment!
+        : (TYPES[result.type] ?? TYPES.lease!);
   const ended =
     verdict === 'valid' && result.endsOn && result.endsOn < new Date().toISOString().slice(0, 10);
   const firstRole: Pair = result.type === 'sale' ? ['البائع', 'Seller'] : ['المؤجر', 'Landlord'];

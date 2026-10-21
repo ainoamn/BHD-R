@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
-import { and, asc, eq, inArray, lte, gte, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lte, gte, ne, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
@@ -592,6 +592,7 @@ async function existingBookingContract(tx: Tx, orgId: string, bookingId: string)
         eq(contracts.organizationId, orgId),
         sql`${contracts.payloadSnapshot}->'source'->>'stayBookingId' = ${bookingId}`,
         ne(contracts.status, 'void'),
+        isNull(contracts.parentContractId),
       ),
     )
     .limit(1);

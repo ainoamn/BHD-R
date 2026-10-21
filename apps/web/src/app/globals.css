@@ -25598,6 +25598,29 @@ a.contract-annex-bar__item:focus-visible {
 .contract-doc__signature-facts {
   margin: 0;
 }
+.contract-doc__compare {
+  width: 100%;
+  margin: 0 0 1rem;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.contract-doc__compare th,
+.contract-doc__compare td {
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px dotted #d6cbb4;
+  text-align: start;
+  vertical-align: top;
+}
+.contract-doc__compare thead th {
+  color: var(--doc-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.contract-doc__compare tbody th {
+  color: var(--doc-muted);
+  font-weight: 500;
+  width: 22%;
+}
 .contract-doc__table {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
