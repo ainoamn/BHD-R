@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.28 — 2026-10-21
+
+- **بناء الإنتاج:** إصلاح تمرير `unitId` الاختياري في تقويم حجز الإقامة تحت `exactOptionalPropertyTypes`.
+
 ## 0.8.134.27 — 2026-10-21
 
 - **حجز الإقامة:** موافقة الشروط بعلامة واحدة دون إجبار التمرير، مع زر منفصل للاطلاع؛ تقويم يظهر الأيام غير الشاغرة؛ صورة الجانب أصغر على الجوال.

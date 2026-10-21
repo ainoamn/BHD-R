@@ -1039,7 +1039,7 @@ export function StayCheckout({
                   locale={locale}
                   mode="public"
                   slug={slug}
-                  unitId={unitId}
+                  {...(unitId ? { unitId } : {})}
                   monthCount={1}
                   size="compact"
                   selectedCheckIn={checkInOn}
