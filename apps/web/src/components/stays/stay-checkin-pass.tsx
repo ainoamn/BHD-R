@@ -203,8 +203,8 @@ export function StayCheckinPass({
       </div>
       <p className="handover-pass__note">
         {ar
-          ? 'لا يُقبل المسح قبل موعد الوصول بأكثر من 4 ساعات؛ بعد انتهاء مدة الحجز يُلغى تلقائياً إن لم يُسجَّل الدخول.'
-          : 'Scanning is not accepted more than 4 hours before arrival; after the stay ends without check-in the booking is cancelled automatically.'}
+          ? 'يُسمح بالمسح أثناء مدة حجزك؛ لا يُقبل قبل بدايتها بأكثر من 4 ساعات، وبعد انتهائها دون دخول يُلغى الحجز تلقائياً.'
+          : 'Scanning is allowed during your booked period; not more than 4 hours before it starts, and after it ends without check-in the booking is cancelled automatically.'}
       </p>
     </section>
   );

@@ -19,7 +19,12 @@ import {
   openStayCheckinPass,
   verifyStayCheckinCode,
 } from '@/lib/stay-checkin-pass';
-import { assertStayCheckinWindow, stayArrivalWindow } from '@/lib/stay-checkin-window';
+import { readStayTypeFromSnapshot } from '@/lib/stay-booking-dates';
+import {
+  assertStayCheckinWindow,
+  stayArrivalWindow,
+  type StayCheckinType,
+} from '@/lib/stay-checkin-window';
 
 const ARRIVAL_READY = new Set(['confirmed', 'paid', 'pre_arrival']);
 
@@ -44,8 +49,11 @@ type StayFacts = {
   guestName: string;
   checkInOn: string;
   checkOutOn: string;
+  stayType: StayCheckinType | null;
   checkInFrom: string | null;
   checkOutUntil: string | null;
+  dayUseCheckOutUntil: string | null;
+  overnightCheckOutUntil: string | null;
 };
 
 async function loadStayById(tx: Pick<Tx, 'select'>, bookingId: string): Promise<StayFacts | null> {
@@ -60,8 +68,11 @@ async function loadStayById(tx: Pick<Tx, 'select'>, bookingId: string): Promise<
       unitCode: units.code,
       checkInOn: stayBookings.checkInOn,
       checkOutOn: stayBookings.checkOutOn,
+      pricingSnapshotJson: stayBookings.pricingSnapshotJson,
       checkInFrom: stayProfiles.checkInFrom,
       checkOutUntil: stayProfiles.checkOutUntil,
+      dayUseCheckOutUntil: stayProfiles.dayUseCheckOutUntil,
+      overnightCheckOutUntil: stayProfiles.overnightCheckOutUntil,
       guestName: sql<string | null>`coalesce(
         ${stayBookings.pricingSnapshotJson}->'guestContact'->>'displayName',
         (select g.display_name from stay_booking_guests g
@@ -87,8 +98,11 @@ async function loadStayById(tx: Pick<Tx, 'select'>, bookingId: string): Promise<
     guestName: row.guestName?.trim() || '—',
     checkInOn: String(row.checkInOn).slice(0, 10),
     checkOutOn: String(row.checkOutOn).slice(0, 10),
+    stayType: readStayTypeFromSnapshot(row.pricingSnapshotJson),
     checkInFrom: row.checkInFrom ?? null,
     checkOutUntil: row.checkOutUntil ?? null,
+    dayUseCheckOutUntil: row.dayUseCheckOutUntil ?? null,
+    overnightCheckOutUntil: row.overnightCheckOutUntil ?? null,
   };
 }
 
@@ -133,8 +147,11 @@ function enforceCheckinWindow(facts: StayFacts, now: Date = new Date()) {
     {
       checkInOn: facts.checkInOn,
       checkOutOn: facts.checkOutOn,
+      stayType: facts.stayType,
       checkInFrom: facts.checkInFrom,
       checkOutUntil: facts.checkOutUntil,
+      dayUseCheckOutUntil: facts.dayUseCheckOutUntil,
+      overnightCheckOutUntil: facts.overnightCheckOutUntil,
     },
     now,
   );
@@ -388,13 +405,18 @@ export async function expireStayNoShowsOnNeon(): Promise<{ marked: number }> {
       property_id: string;
       check_in_on: string;
       check_out_on: string;
+      pricing_snapshot_json: unknown;
       check_in_from: string | null;
       check_out_until: string | null;
+      day_use_check_out_until: string | null;
+      overnight_check_out_until: string | null;
     }>(
       await tx.execute(sql`
         select b.id::text, b.status, b.organization_id::text, b.reference_code,
                b.property_id::text, b.check_in_on::text, b.check_out_on::text,
-               sp.check_in_from, sp.check_out_until
+               b.pricing_snapshot_json,
+               sp.check_in_from, sp.check_out_until,
+               sp.day_use_check_out_until, sp.overnight_check_out_until
         from stay_bookings b
         left join stay_profiles sp on sp.id = b.stay_profile_id
         where b.status in ('confirmed', 'paid', 'pre_arrival')
@@ -416,8 +438,11 @@ export async function expireStayNoShowsOnNeon(): Promise<{ marked: number }> {
         guestName: '—',
         checkInOn: String(row.check_in_on).slice(0, 10),
         checkOutOn: String(row.check_out_on).slice(0, 10),
+        stayType: readStayTypeFromSnapshot(row.pricing_snapshot_json),
         checkInFrom: row.check_in_from,
         checkOutUntil: row.check_out_until,
+        dayUseCheckOutUntil: row.day_use_check_out_until,
+        overnightCheckOutUntil: row.overnight_check_out_until,
       };
       const { closesAt } = stayArrivalWindow(facts);
       if (now.getTime() < closesAt.getTime()) continue;

@@ -1810,8 +1810,8 @@ export function PropertySectionRecords({
           </h3>
           <p className="muted psr-stay-gate__hint">
             {ar
-              ? 'امسح باركود الضيف هنا فيُسجَّل تاريخ ووقت الدخول فوراً. لا يُقبل المسح قبل موعد الوصول بأكثر من 4 ساعات، وبعد انتهاء مدة الحجز يُلغى تلقائياً إن لم يُسجَّل الدخول.'
-              : 'Scan the guest barcode here to record check-in date and time immediately. Check-in opens at most 4 hours before arrival; after the stay ends without check-in the booking is cancelled automatically.'}
+              ? 'امسح باركود الضيف هنا فيُسجَّل تاريخ ووقت الدخول فوراً. يُسمح أثناء مدة الحجز (مثلاً الفترة الصباحية حتى وقت خروجها)، ولا يُقبل قبل بدايتها بأكثر من 4 ساعات؛ وبعد انتهاء المدة دون دخول يُلغى الحجز تلقائياً.'
+              : 'Scan the guest barcode here to record check-in immediately. Allowed during the booked period (e.g. morning until its check-out); not more than 4 hours before it starts; after the period ends without check-in the booking is cancelled automatically.'}
           </p>
           <StayGateDesk
             locale={ar ? 'ar' : 'en'}
