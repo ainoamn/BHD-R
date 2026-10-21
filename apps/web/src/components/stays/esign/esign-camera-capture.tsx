@@ -57,6 +57,11 @@ function cropToAspect(
   return canvas.toDataURL('image/jpeg', 0.86);
 }
 
+function isCoarsePointerMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(pointer: coarse), (max-width: 899px)').matches;
+}
+
 export function EsignCameraCapture({
   locale,
   facingMode,
@@ -67,10 +72,12 @@ export function EsignCameraCapture({
 }: Props) {
   const ar = locale === 'ar';
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  const cameraFileRef = useRef<HTMLInputElement | null>(null);
+  const galleryFileRef = useRef<HTMLInputElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [ready, setReady] = useState(false);
-  const [cameraDenied, setCameraDenied] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [liveUnavailable, setLiveUnavailable] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const onErrorRef = useRef(onError);
@@ -82,50 +89,68 @@ export function EsignCameraCapture({
     setReady(false);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function start() {
-      stopStream();
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setCameraDenied(true);
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            facingMode: { ideal: facingMode },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        const video = videoRef.current;
-        if (video) {
-          video.srcObject = stream;
-          await video.play().catch(() => undefined);
-        }
-        setReady(true);
-        setCameraDenied(false);
-      } catch {
-        if (!cancelled) {
-          setCameraDenied(true);
-          onErrorRef.current?.(
-            ar ? 'تعذّر فتح الكاميرا — يمكنك الرفع من المعرض' : 'Camera unavailable — use gallery',
-          );
-        }
-      }
+  useEffect(() => () => stopStream(), [stopStream]);
+
+  const openNativeCamera = useCallback(() => {
+    cameraFileRef.current?.click();
+  }, []);
+
+  const openGallery = useCallback(() => {
+    galleryFileRef.current?.click();
+  }, []);
+
+  const startLiveCamera = useCallback(async (): Promise<boolean> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setLiveUnavailable(true);
+      return false;
     }
-    void start();
-    return () => {
-      cancelled = true;
-      stopStream();
-    };
-  }, [facingMode, ar, stopStream]);
+    setStarting(true);
+    setLiveUnavailable(false);
+    stopStream();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      streamRef.current = stream;
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        await video.play().catch(() => undefined);
+      }
+      setReady(true);
+      setLiveUnavailable(false);
+      return true;
+    } catch {
+      setLiveUnavailable(true);
+      setReady(false);
+      return false;
+    } finally {
+      setStarting(false);
+    }
+  }, [facingMode, stopStream]);
+
+  /** User-gesture entry: try live preview, else open the device camera app. */
+  async function openCamera() {
+    setBusy(true);
+    try {
+      const ok = await startLiveCamera();
+      if (!ok) {
+        openNativeCamera();
+        onErrorRef.current?.(
+          ar
+            ? 'افتح كاميرا الجهاز والتقط صورة البطاقة، أو اختر من المعرض.'
+            : 'Open the device camera to capture the ID, or pick from the gallery.',
+        );
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function captureFromCamera() {
     const video = videoRef.current;
@@ -161,6 +186,7 @@ export function EsignCameraCapture({
       const aspect = frame === 'selfie' ? ([3, 4] as const) : ([856, 540] as const);
       const dataUrl = cropToAspect(img, aspect[0], aspect[1], 1280, false);
       URL.revokeObjectURL(objectUrl);
+      stopStream();
       onCaptured(dataUrl);
     } catch (caught) {
       onError?.(caught instanceof Error ? caught.message : 'upload_failed');
@@ -169,6 +195,8 @@ export function EsignCameraCapture({
       event.target.value = '';
     }
   }
+
+  const preferNativeFirst = frame === 'id' && isCoarsePointerMobile();
 
   return (
     <div className="esign-cam">
@@ -179,47 +207,109 @@ export function EsignCameraCapture({
           playsInline
           muted
           autoPlay
-          // Mirror selfie for natural UX
           style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
         />
-        {overlay ? <div className="esign-cam__overlay">{overlay}</div> : null}
-        {!ready && !cameraDenied ? (
-          <p className="esign-cam__hint">{ar ? 'جارٍ فتح الكاميرا…' : 'Opening camera…'}</p>
-        ) : null}
-        {cameraDenied ? (
-          <p className="esign-cam__hint">
-            {ar ? 'الكاميرا غير متاحة — استخدم المعرض' : 'Camera unavailable — use gallery'}
-          </p>
+        {overlay && ready ? <div className="esign-cam__overlay">{overlay}</div> : null}
+        {!ready ? (
+          <div className="esign-cam__gate">
+            <p className="esign-cam__hint">
+              {starting
+                ? ar
+                  ? 'جارٍ فتح الكاميرا…'
+                  : 'Opening camera…'
+                : frame === 'id'
+                  ? ar
+                    ? 'افتح الكاميرا لتصوير البطاقة، أو اختر صورة من المعرض'
+                    : 'Open the camera to photograph the ID, or pick from the gallery'
+                  : ar
+                    ? 'افتح الكاميرا الأمامية للصورة الشخصية، أو اختر من المعرض'
+                    : 'Open the front camera for your portrait, or pick from the gallery'}
+            </p>
+          </div>
         ) : null}
       </div>
+
       <div className="esign-cam__actions">
-        {!cameraDenied ? (
+        {ready ? (
           <button
             type="button"
             className="button button--primary esign-cam__shutter"
-            disabled={!ready || busy}
+            disabled={busy}
             onClick={() => void captureFromCamera()}
           >
             {busy ? (ar ? 'جارٍ…' : 'Working…') : ar ? 'التقاط' : 'Capture'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="button button--primary esign-cam__shutter"
+            disabled={busy || starting}
+            onClick={() => {
+              if (preferNativeFirst) {
+                openNativeCamera();
+                return;
+              }
+              void openCamera();
+            }}
+          >
+            {starting
+              ? ar
+                ? 'جارٍ الفتح…'
+                : 'Opening…'
+              : ar
+                ? 'افتح الكاميرا'
+                : 'Open camera'}
+          </button>
+        )}
+        {!ready && !preferNativeFirst ? (
+          <button
+            type="button"
+            className="button button--quiet"
+            disabled={busy || starting}
+            onClick={openNativeCamera}
+          >
+            {ar ? 'كاميرا الجهاز' : 'Device camera'}
+          </button>
+        ) : null}
+        {ready && liveUnavailable === false ? (
+          <button
+            type="button"
+            className="button button--quiet"
+            disabled={busy}
+            onClick={() => {
+              stopStream();
+              openNativeCamera();
+            }}
+          >
+            {ar ? 'كاميرا الجهاز' : 'Device camera'}
           </button>
         ) : null}
         <button
           type="button"
           className="button button--quiet"
-          disabled={busy}
-          onClick={() => fileRef.current?.click()}
+          disabled={busy || starting}
+          onClick={openGallery}
         >
           {ar ? 'من المعرض' : 'Gallery'}
         </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          capture={facingMode === 'user' ? 'user' : 'environment'}
-          className="esign-cam__file"
-          onChange={(e) => void onFileChange(e)}
-        />
       </div>
+
+      {/* Native camera app — separate from gallery so capture= does not block album pick. */}
+      <input
+        ref={cameraFileRef}
+        type="file"
+        accept="image/*"
+        capture={facingMode === 'user' ? 'user' : 'environment'}
+        className="esign-cam__file"
+        onChange={(e) => void onFileChange(e)}
+      />
+      <input
+        ref={galleryFileRef}
+        type="file"
+        accept="image/*"
+        className="esign-cam__file"
+        onChange={(e) => void onFileChange(e)}
+      />
     </div>
   );
 }

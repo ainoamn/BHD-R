@@ -19730,15 +19730,36 @@ button.lrw__step-body:focus-visible {
   object-fit: cover;
   background: #041210;
 }
-.esign-cam__hint {
+.esign-cam__gate {
   position: absolute;
-  inset: auto 0.75rem 0.75rem;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background:
+    linear-gradient(165deg, rgba(8, 36, 30, 0.55), rgba(5, 22, 18, 0.72)),
+    repeating-linear-gradient(
+      -12deg,
+      transparent,
+      transparent 10px,
+      rgba(255, 255, 255, 0.03) 10px,
+      rgba(255, 255, 255, 0.03) 20px
+    );
+}
+.esign-cam__hint {
+  position: relative;
+  inset: auto;
   margin: 0;
-  padding: 0.45rem 0.65rem;
-  border-radius: 0.55rem;
-  background: rgb(4 18 16 / 0.72);
-  font-size: 0.85rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.65rem;
+  background: rgb(4 18 16 / 0.78);
+  font-size: 0.9rem;
+  font-weight: 650;
   text-align: center;
+  color: #f5fbf8;
+  max-width: 26ch;
+  line-height: 1.45;
 }
 .esign-cam__actions {
   display: flex;
