@@ -3,10 +3,12 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
 import type { CurrencyCode } from '@bhd-r/contracts';
+import { NoteTranslateBar, OWNER_NOTE_SERVICE } from '@/components/note-translate';
 import { ClosureProofPanel } from '@/components/request-media';
 import { RequestSummary } from '@/components/tenant-requests-list';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney, toMinorUnits } from '@/lib/format';
+import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import type { ChargePayment } from '@/lib/tenant-charges-shared';
 import {
@@ -293,7 +295,7 @@ function OwnerRequestItem({
           <textarea
             className="input"
             rows={2}
-            maxLength={1000}
+            maxLength={Math.min(1000, NOTE_TRANSLATE_MAX)}
             placeholder={
               ar
                 ? 'ملاحظة أو رد للمستأجر (مطلوب عند الرفض)…'
@@ -301,6 +303,14 @@ function OwnerRequestItem({
             }
             value={note}
             onChange={(event) => setNote(event.target.value)}
+          />
+          <NoteTranslateBar
+            value={note}
+            onChange={setNote}
+            locale={locale}
+            max={Math.min(1000, NOTE_TRANSLATE_MAX)}
+            disabled={busy !== null}
+            service={OWNER_NOTE_SERVICE}
           />
           <div className="tenant-request__buttons">
             {request.status === 'pending' ? (
