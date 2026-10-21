@@ -365,10 +365,9 @@ async function refreshUnpaidBooking(transaction: Tx, bookingId: string) {
       AND l.status = 'active'
       AND l.kind = 'hold'
       AND (
-        h.id IS NULL
-        OR h.status <> 'active'
-        OR h.expires_at <= now()
+        (h.id IS NOT NULL AND h.status = 'active' AND h.expires_at <= now())
         OR (l.expires_at IS NOT NULL AND l.expires_at <= now())
+        OR h.id IS NULL
       )
   `);
   await transaction.execute(sql`
@@ -385,14 +384,17 @@ async function refreshUnpaidBooking(transaction: Tx, bookingId: string) {
     SET status = 'expired', updated_at = ${now.toISOString()}
     WHERE b.id = ${bookingId}::uuid
       AND b.status = 'payment_pending'
-      AND (
-        b.hold_id IS NULL
-        OR NOT EXISTS (
-          SELECT 1 FROM stay_holds h
-          WHERE h.id = b.hold_id
-            AND h.status = 'active'
-            AND h.expires_at > now()
-        )
+      AND NOT EXISTS (
+        SELECT 1 FROM stay_holds h
+        WHERE h.id = b.hold_id
+          AND h.status = 'active'
+          AND h.expires_at > now()
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM stay_inventory_locks l
+        WHERE l.id = b.inventory_lock_id
+          AND l.status = 'active'
+          AND (l.expires_at IS NULL OR l.expires_at > now())
       )
   `);
   return transaction.query.stayBookings.findFirst({

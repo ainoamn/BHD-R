@@ -560,21 +560,26 @@ async function releaseExpiredHoldsInTransaction(transaction: Tx, organizationId:
       ),
     );
 
-  // Unpaid drafts whose hold is no longer active must stop blocking dates/calendar.
+  // Unpaid drafts expire only when both the hold window and the inventory lock
+  // are gone — never because the hold was prematurely marked converted.
   await transaction.execute(sql`
     UPDATE stay_bookings b
     SET status = 'expired', updated_at = ${now.toISOString()}
     WHERE b.organization_id = ${organizationId}::uuid
       AND b.status = 'payment_pending'
-      AND (
-        b.hold_id IS NULL
-        OR NOT EXISTS (
-          SELECT 1
-          FROM stay_holds h
-          WHERE h.id = b.hold_id
-            AND h.status = 'active'
-            AND h.expires_at > now()
-        )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM stay_holds h
+        WHERE h.id = b.hold_id
+          AND h.status = 'active'
+          AND h.expires_at > now()
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM stay_inventory_locks l
+        WHERE l.id = b.inventory_lock_id
+          AND l.status = 'active'
+          AND (l.expires_at IS NULL OR l.expires_at > now())
       )
   `);
 }
@@ -1275,16 +1280,9 @@ export async function createPublicStayBookingOnNeon(
       })
       .returning();
 
-    await transaction
-      .update(stayHolds)
-      .set({ status: 'converted', updatedAt: new Date() })
-      .where(
-        and(
-          eq(stayHolds.id, hold.id),
-          eq(stayHolds.organizationId, hold.organizationId),
-          eq(stayHolds.status, 'active'),
-        ),
-      );
+    // Keep the hold `active` until sandbox/live payment succeeds. Marking it
+    // `converted` here made releaseExpiredHolds treat unpaid drafts as expired
+    // within seconds (hold no longer active → booking → expired → pay fails).
 
     await transaction.insert(workflowEvents).values({
       organizationId: hold.organizationId,

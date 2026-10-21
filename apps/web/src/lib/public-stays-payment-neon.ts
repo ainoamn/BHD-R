@@ -107,7 +107,7 @@ export async function createStayPaymentSessionOnNeon(input: CreateStayPaymentSes
     }
     if (booking.status !== 'payment_pending') {
       throw new PublicStayBookingError(
-        'booking_not_payable',
+        booking.status === 'expired' ? 'booking_expired' : 'booking_not_payable',
         `Stay booking cannot start payment in status ${booking.status}`,
         409,
       );
@@ -235,7 +235,7 @@ export async function completeStaySandboxPaymentOnNeon(
     }
     if (booking.status !== 'payment_pending') {
       throw new PublicStayBookingError(
-        'booking_not_payable',
+        booking.status === 'expired' ? 'booking_expired' : 'booking_not_payable',
         `Stay booking cannot accept payment in status ${booking.status}`,
         409,
       );

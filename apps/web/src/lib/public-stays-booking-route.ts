@@ -49,6 +49,8 @@ export function stayBookingErrorResponse(error: unknown) {
       intent_not_found: 'نية الدفع غير موجودة.',
       session_not_found: 'جلسة الدفع غير موجودة.',
       already_paid: 'تم دفع هذا الحجز مسبقاً.',
+      booking_expired: 'انتهت مهلة الدفع لهذا الحجز — ابدأ حجزاً جديداً من صفحة الإقامة.',
+      booking_not_payable: 'لا يمكن دفع هذا الحجز بحالته الحالية.',
       terms_changed: 'حدّث المالك الشروط والأحكام — راجعها ووافق عليها مجدداً.',
       dates_in_past: 'لا يمكن اختيار تاريخ سابق — اختر تاريخاً من اليوم فصاعداً.',
       same_dates: 'التواريخ المختارة هي نفس تواريخ حجزك الحالي.',
