@@ -17,6 +17,9 @@ import type { BadgeChip } from '@/lib/badges-shared';
 import {
   stayPaymentKindLabel,
   stayPaymentMethodLabel,
+  tenantDepositRefundPhase,
+  tenantDepositRefundStatusLabel,
+  tenantDepositRefundStatusTone,
 } from '@/lib/stay-booking-payment-labels';
 import {
   invoiceOutstandingMinor,
@@ -27,6 +30,7 @@ import {
   tenancyUnitLabel,
   type MyTenancy,
   type TenancyContract,
+  type TenancyDepositRefund,
 } from '@/lib/tenancy-shared';
 import { OPEN_TENANT_REQUEST } from '@/lib/tenant-requests-shared';
 import {
@@ -219,6 +223,17 @@ function LeasesTable({ ar, locale, data }: Ctx) {
   );
 }
 
+function depositRefundStatusCell(refund: TenancyDepositRefund | null | undefined, ar: boolean) {
+  if (!refund) return null;
+  const phase = tenantDepositRefundPhase(refund);
+  return (
+    <Status
+      label={tenantDepositRefundStatusLabel(phase, ar)}
+      tone={tenantDepositRefundStatusTone(phase)}
+    />
+  );
+}
+
 function InvoicesTable({ ar, locale, data, openOnly = false }: Ctx & { openOnly?: boolean }) {
   const rows = openOnly
     ? data.invoices.filter((invoice) => OPEN_INVOICE.has(invoice.status))
@@ -240,48 +255,53 @@ function InvoicesTable({ ar, locale, data, openOnly = false }: Ctx & { openOnly?
           : ['Invoice', 'Landlord', 'Issued', 'Due', 'Total', 'Outstanding', 'Status', '']
       }
     >
-      {rows.map((invoice) => (
-        <tr key={invoice.id}>
-          <td className="tenant-table__ref">
-            <bdi>{invoice.number}</bdi>
-            {invoice.stayReference ? (
-              <small className="tenant-table__sub">
-                {ar ? 'إقامة يومية' : 'Daily stay'}
-              </small>
-            ) : null}
-          </td>
-          <td>{tenancyLandlordName(invoice.landlord, ar)}</td>
-          <td>{formatDate(invoice.issuedOn, ar)}</td>
-          <td>{formatDate(invoice.dueOn, ar)}</td>
-          <td>{money(invoice.totalMinor, invoice.currency, locale)}</td>
-          <td>{money(invoiceOutstandingMinor(invoice), invoice.currency, locale)}</td>
-          <td>
-            <Status
-              label={domainStatusLabel(invoice.status, ar)}
-              tone={
-                invoice.status === 'overdue' || invoice.status === 'partially_paid'
-                  ? invoice.status === 'overdue'
-                    ? 'danger'
-                    : 'action'
-                  : invoice.status === 'paid'
-                    ? 'good'
-                    : undefined
-              }
-            />
-          </td>
-          <td>
-            {invoice.receiptHref ? (
-              <Link className="tenant-doc-link tenant-doc-link--receipt" href={invoice.receiptHref}>
-                {ar ? 'إيصال القبض' : 'Receipt'}
-              </Link>
-            ) : OPEN_INVOICE.has(invoice.status) ? (
-              <span className="tenant-doc-link tenant-doc-link--invoice">
-                {ar ? 'الفاتورة' : 'Invoice'}
-              </span>
-            ) : null}
-          </td>
-        </tr>
-      ))}
+      {rows.map((invoice) => {
+        const refundStatus = depositRefundStatusCell(invoice.depositRefund, ar);
+        return (
+          <tr key={invoice.id}>
+            <td className="tenant-table__ref">
+              <bdi>{invoice.number}</bdi>
+              {invoice.stayReference ? (
+                <small className="tenant-table__sub">
+                  {ar ? 'إقامة يومية' : 'Daily stay'}
+                </small>
+              ) : null}
+            </td>
+            <td>{tenancyLandlordName(invoice.landlord, ar)}</td>
+            <td>{formatDate(invoice.issuedOn, ar)}</td>
+            <td>{formatDate(invoice.dueOn, ar)}</td>
+            <td>{money(invoice.totalMinor, invoice.currency, locale)}</td>
+            <td>{money(invoiceOutstandingMinor(invoice), invoice.currency, locale)}</td>
+            <td>
+              {refundStatus ?? (
+                <Status
+                  label={domainStatusLabel(invoice.status, ar)}
+                  tone={
+                    invoice.status === 'overdue' || invoice.status === 'partially_paid'
+                      ? invoice.status === 'overdue'
+                        ? 'danger'
+                        : 'action'
+                      : invoice.status === 'paid'
+                        ? 'good'
+                        : undefined
+                  }
+                />
+              )}
+            </td>
+            <td>
+              {invoice.receiptHref ? (
+                <Link className="tenant-doc-link tenant-doc-link--receipt" href={invoice.receiptHref}>
+                  {ar ? 'إيصال القبض' : 'Receipt'}
+                </Link>
+              ) : OPEN_INVOICE.has(invoice.status) ? (
+                <span className="tenant-doc-link tenant-doc-link--invoice">
+                  {ar ? 'الفاتورة' : 'Invoice'}
+                </span>
+              ) : null}
+            </td>
+          </tr>
+        );
+      })}
     </Table>
   );
 }
@@ -296,44 +316,52 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
           : ['Date', 'Reference', 'Landlord', 'Amount', 'Refunded', 'Method', 'Status', '']
       }
     >
-      {data.payments.map((payment) => (
-        <tr key={payment.id}>
-          <td>{formatDate(payment.receivedAt, ar)}</td>
-          <td className="tenant-table__ref">
-            <bdi>{payment.invoiceNumber}</bdi>
-            {payment.stayKind ? (
-              <small className="tenant-table__sub">
-                {stayPaymentKindLabel(payment.stayKind, ar)}
-              </small>
-            ) : null}
-          </td>
-          <td>{tenancyLandlordName(payment.landlord, ar)}</td>
-          <td>{money(payment.amountMinor, payment.currency, locale)}</td>
-          <td>
-            {payment.refundedMinor !== '0'
-              ? money(payment.refundedMinor, payment.currency, locale)
-              : '—'}
-          </td>
-          <td>
-            {payment.stayReference
-              ? stayPaymentMethodLabel(payment.method, ar)
-              : payment.method}
-          </td>
-          <td>
-            <Status
-              label={domainStatusLabel(payment.status, ar)}
-              tone={payment.status === 'succeeded' ? 'good' : undefined}
-            />
-          </td>
-          <td>
-            {payment.receiptHref ? (
-              <Link className="tenant-doc-link tenant-doc-link--receipt" href={payment.receiptHref}>
-                {ar ? 'إيصال القبض' : 'Receipt'}
-              </Link>
-            ) : null}
-          </td>
-        </tr>
-      ))}
+      {data.payments.map((payment) => {
+        const refundStatus =
+          payment.stayKind === 'deposit'
+            ? depositRefundStatusCell(payment.depositRefund, ar)
+            : null;
+        return (
+          <tr key={payment.id}>
+            <td>{formatDate(payment.receivedAt, ar)}</td>
+            <td className="tenant-table__ref">
+              <bdi>{payment.invoiceNumber}</bdi>
+              {payment.stayKind ? (
+                <small className="tenant-table__sub">
+                  {stayPaymentKindLabel(payment.stayKind, ar)}
+                </small>
+              ) : null}
+            </td>
+            <td>{tenancyLandlordName(payment.landlord, ar)}</td>
+            <td>{money(payment.amountMinor, payment.currency, locale)}</td>
+            <td>
+              {payment.refundedMinor !== '0'
+                ? money(payment.refundedMinor, payment.currency, locale)
+                : '—'}
+            </td>
+            <td>
+              {payment.stayReference
+                ? stayPaymentMethodLabel(payment.method, ar)
+                : payment.method}
+            </td>
+            <td>
+              {refundStatus ?? (
+                <Status
+                  label={domainStatusLabel(payment.status, ar)}
+                  tone={payment.status === 'succeeded' ? 'good' : undefined}
+                />
+              )}
+            </td>
+            <td>
+              {payment.receiptHref ? (
+                <Link className="tenant-doc-link tenant-doc-link--receipt" href={payment.receiptHref}>
+                  {ar ? 'إيصال القبض' : 'Receipt'}
+                </Link>
+              ) : null}
+            </td>
+          </tr>
+        );
+      })}
     </Table>
   );
 }

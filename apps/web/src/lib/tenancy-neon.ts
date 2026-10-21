@@ -15,6 +15,7 @@ import {
   reservations,
   stayBookings,
   stayPaymentIntents,
+  stayRefunds,
   units,
   viewingRequests,
   type Database,
@@ -30,11 +31,13 @@ import {
 } from '@/lib/lease-reservation-lifecycle';
 import { listGuestStayBookingsOnNeon } from '@/lib/public-stays-guest-neon';
 import type { StayBookingPaymentKind } from '@/lib/stay-booking-payment-labels';
+import type { DepositRefundStatus } from '@/lib/stay-deposit-refund';
 import {
   buildTenancyAlerts,
   EMPTY_TENANCY,
   type MyTenancy,
   type TenancyContract,
+  type TenancyDepositRefund,
   type TenancyInvoice,
   type TenancyLandlord,
   type TenancyLease,
@@ -876,6 +879,40 @@ function stayIntentKind(idempotencyKey: string): StayBookingPaymentKind {
   return 'other';
 }
 
+/** Prefer the deposit refund row over a booking-cancel refund for the same stay. */
+function pickStayDepositRefund(
+  rows: Array<{
+    bookingId: string;
+    status: string;
+    amountMinor: bigint;
+    paidMinor: bigint;
+    idempotencyKey: string | null;
+  }>,
+): Map<string, TenancyDepositRefund> {
+  const byBooking = new Map<string, TenancyDepositRefund & { depositKey: boolean }>();
+  for (const row of rows) {
+    const depositKey =
+      typeof row.idempotencyKey === 'string' && row.idempotencyKey.startsWith('deposit:');
+    const existing = byBooking.get(row.bookingId);
+    if (existing?.depositKey && !depositKey) continue;
+    byBooking.set(row.bookingId, {
+      status: row.status as DepositRefundStatus,
+      amountMinor: row.amountMinor.toString(),
+      paidMinor: row.paidMinor.toString(),
+      depositKey,
+    });
+  }
+  const out = new Map<string, TenancyDepositRefund>();
+  for (const [bookingId, value] of byBooking) {
+    out.set(bookingId, {
+      status: value.status,
+      amountMinor: value.amountMinor,
+      paidMinor: value.paidMinor,
+    });
+  }
+  return out;
+}
+
 /** Succeeded stay checkout / deposit intents → tenant invoices + payments lists. */
 async function loadStayFinance(links: TenancyLink[]): Promise<{
   invoices: TenancyInvoice[];
@@ -929,6 +966,7 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
         lastIntentId: string;
       }
     >();
+    const paymentBookingIds: string[] = [];
 
     for (const row of rows) {
       const link = byOrg.get(`${row.organizationId}:${row.guestPartyId ?? ''}`);
@@ -936,6 +974,7 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
       const paidAt = iso(row.paidAt);
       const kind = stayIntentKind(row.idempotencyKey);
       const receiptHref = `/stays/booking/receipt?ref=${encodeURIComponent(row.referenceCode)}&doc=payment&pay=${encodeURIComponent(row.intentId)}`;
+      paymentBookingIds.push(row.bookingId);
       payments.push({
         id: row.intentId,
         landlord: link.landlord,
@@ -967,6 +1006,40 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
       bookingTotals.set(row.bookingId, bucket);
     }
 
+    const bookingIds = [...bookingTotals.keys()];
+    const refundByBooking =
+      bookingIds.length === 0
+        ? new Map<string, TenancyDepositRefund>()
+        : pickStayDepositRefund(
+            await elevated(async (tx) =>
+              tx
+                .select({
+                  bookingId: stayRefunds.bookingId,
+                  status: stayRefunds.status,
+                  amountMinor: stayRefunds.amountMinor,
+                  paidMinor: stayRefunds.paidMinor,
+                  idempotencyKey: stayRefunds.idempotencyKey,
+                })
+                .from(stayRefunds)
+                .where(
+                  and(
+                    inArray(stayRefunds.bookingId, bookingIds),
+                    sql`(${stayRefunds.idempotencyKey} like 'deposit:%' or ${stayRefunds.idempotencyKey} like 'booking_cancel:%')`,
+                  ),
+                )
+                .orderBy(asc(stayRefunds.createdAt)),
+            ),
+          );
+
+    for (let i = 0; i < payments.length; i++) {
+      const payment = payments[i]!;
+      if (payment.stayKind !== 'deposit') continue;
+      const refund = refundByBooking.get(paymentBookingIds[i]!);
+      if (!refund) continue;
+      payment.depositRefund = refund;
+      payment.refundedMinor = refund.paidMinor !== '0' ? refund.paidMinor : '0';
+    }
+
     const invoices: TenancyInvoice[] = [...bookingTotals.entries()].map(([bookingId, bucket]) => ({
       id: `stay-invoice:${bookingId}`,
       landlord: bucket.landlord,
@@ -979,6 +1052,7 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
       currency: bucket.currency,
       stayReference: bucket.referenceCode,
       receiptHref: `/stays/booking/receipt?ref=${encodeURIComponent(bucket.referenceCode)}&doc=payment&pay=${encodeURIComponent(bucket.lastIntentId)}`,
+      depositRefund: refundByBooking.get(bookingId) ?? null,
     }));
 
     return { invoices, payments };

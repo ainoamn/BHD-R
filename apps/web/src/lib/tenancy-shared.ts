@@ -59,6 +59,13 @@ export type TenancyLease = {
   fromStay: boolean;
 };
 
+/** Deposit-refund lifecycle mirrored from the host/accountant stay_refunds row. */
+export type TenancyDepositRefund = {
+  status: 'requested' | 'approved' | 'rejected' | 'executed';
+  amountMinor: string;
+  paidMinor: string;
+};
+
 export type TenancyInvoice = {
   id: string;
   landlord: TenancyLandlord;
@@ -72,6 +79,8 @@ export type TenancyInvoice = {
   /** Stay booking receipt page when this row is a daily-stay charge summary. */
   receiptHref?: string | null;
   stayReference?: string | null;
+  /** Stay deposit refund progress when this invoice is a daily-stay summary. */
+  depositRefund?: TenancyDepositRefund | null;
 };
 
 export type TenancyPayment = {
@@ -89,6 +98,8 @@ export type TenancyPayment = {
   stayReference?: string | null;
   /** Stay intent kind when this row is from a daily-stay checkout. */
   stayKind?: 'booking' | 'reschedule_topup' | 'deposit' | 'other' | null;
+  /** Deposit refund progress when this row is a stay security deposit. */
+  depositRefund?: TenancyDepositRefund | null;
 };
 
 export type TenancyReservation = {
