@@ -15,7 +15,8 @@ import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { reviewScoreTone } from '@/lib/review-rubric';
 import { ReviewForm, hostReviewAssistant, type ReviewFormValue } from './reviews/review-form';
-import { StayHandoverForm, type HandoverSubmit } from './stays/stay-handover-form';
+import type { HandoverSubmit } from './stays/stay-handover-form';
+import { StayHandoverWizard } from './stays/stay-handover-wizard';
 import { StayGateDesk } from './stays/stay-gate-desk';
 import {
   DepositRefundCell,
@@ -1633,17 +1634,17 @@ export function PropertySectionRecords({
         ? 'check_out'
         : null;
     if (!kind || !row.id) return null;
-    const open = stampForm?.rowId === row.id;
     return (
       <button
         type="button"
         className="button button--primary psr-action"
         disabled={busy}
-        aria-expanded={open}
         onClick={() => {
           setNotice(null);
           setRefundForm(null);
-          setStampForm(open ? null : { rowId: row.id ?? '', kind });
+          setRejectForm(null);
+          setReviewRowId(null);
+          setStampForm({ rowId: row.id ?? '', kind });
         }}
       >
         {kind === 'check_in'
@@ -2210,21 +2211,6 @@ export function PropertySectionRecords({
                         </td>
                       ) : null}
                     </tr>
-                    {stampForm && stampForm.rowId === row.id ? (
-                      <tr className="psr-details">
-                        <td colSpan={columns.length + (showActions ? 1 : 0)}>
-                          <StayHandoverForm
-                            kind={stampForm.kind}
-                            reference={row.reference ?? ''}
-                            locale={locale}
-                            busy={busyId === row.id}
-                            guestPhone={row.guestPhone ?? null}
-                            onSubmit={(value) => void submitStamp(row, stampForm.kind, value)}
-                            onCancel={() => setStampForm(null)}
-                          />
-                        </td>
-                      </tr>
-                    ) : null}
                     {reviewRowId && reviewRowId === row.id ? (
                       <tr id={`psr-review-${row.id}`} className="psr-details">
                         <td colSpan={columns.length + (showActions ? 1 : 0)}>
@@ -2305,6 +2291,26 @@ export function PropertySectionRecords({
           </table>
         </div>
       )}
+
+      {stampForm
+        ? (() => {
+            const row = rows?.find((item) => item.id === stampForm.rowId) ?? null;
+            if (!row) return null;
+            return (
+              <StayHandoverWizard
+                kind={stampForm.kind}
+                reference={row.reference ?? ''}
+                locale={locale}
+                busy={busyId === row.id}
+                guestPhone={row.guestPhone ?? null}
+                guestName={row.party ?? null}
+                propertyId={propertyOf(row) || null}
+                onSubmit={(value) => void submitStamp(row, stampForm.kind, value)}
+                onClose={() => setStampForm(null)}
+              />
+            );
+          })()
+        : null}
     </section>
   );
 }

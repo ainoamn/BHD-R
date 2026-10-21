@@ -24231,6 +24231,128 @@ button.lrw__step-body:focus-visible {
   font-size: 0.78em;
   font-weight: 500;
 }
+.handover-wizard__card {
+  max-width: min(40rem, 96vw);
+  max-height: min(92vh, 54rem);
+  overflow: auto;
+}
+.handover-wizard__steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0.85rem 1.1rem 0;
+  list-style: none;
+}
+.handover-wizard__steps li {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: center;
+  padding: 0.45rem 0.35rem;
+  border-radius: 0.65rem;
+  background: #f3f7f5;
+  color: #5c6b64;
+  text-align: center;
+  font-size: 0.72rem;
+}
+.handover-wizard__steps li span {
+  display: grid;
+  place-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  background: #e2ebe6;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+.handover-wizard__steps li b {
+  font-weight: 700;
+  line-height: 1.25;
+}
+.handover-wizard__steps li.is-current {
+  background: #e8f5ef;
+  color: #0b6e4f;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #0b6e4f 28%, transparent);
+}
+.handover-wizard__steps li.is-current span {
+  background: #0b6e4f;
+  color: #fff;
+}
+.handover-wizard__steps li.is-done {
+  background: #eefaf3;
+  color: #11643f;
+}
+.handover-wizard__steps li.is-done span {
+  background: #11643f;
+  color: #fff;
+}
+.handover-wizard__body {
+  padding: 0.85rem 1.1rem;
+}
+.handover-wizard__pane {
+  display: grid;
+  gap: 0.85rem;
+}
+.handover-wizard__lead {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: #44554d;
+}
+.handover-wizard__scan {
+  display: grid;
+  gap: 0.55rem;
+  justify-items: start;
+}
+.handover-wizard__video {
+  width: 100%;
+  max-height: 14rem;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  background: #0f172a;
+}
+.handover-wizard__manual {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--sand-200, #d8e1dc);
+  background: #f7faf8;
+}
+.handover-wizard__manual h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.handover-wizard__skip {
+  justify-self: start;
+}
+.handover-wizard__summary {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+}
+.handover-wizard__summary > div {
+  display: grid;
+  grid-template-columns: 7.5rem 1fr;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.55rem;
+  background: #f7faf8;
+}
+.handover-wizard__summary dt {
+  margin: 0;
+  font-weight: 700;
+  color: #5c6b64;
+}
+.handover-wizard__summary dd {
+  margin: 0;
+  font-weight: 700;
+}
+.handover-wizard__actions {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+}
 .handover-form fieldset {
   margin: 0;
   padding: 0.75rem 0.9rem 0.9rem;
