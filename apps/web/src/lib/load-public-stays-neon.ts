@@ -368,6 +368,7 @@ export async function loadPublicStayBySlugOnNeon(
           profile_currency: string | null;
           check_in_from: string | null;
           check_out_until: string | null;
+          day_use_check_in_from: string | null;
           day_use_check_out_until: string | null;
           overnight_check_out_until: string | null;
           day_use_max_guests: number | null;

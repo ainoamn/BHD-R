@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.40 — 2026-10-21
+
+- **بناء الإنتاج:** إصلاح TypeScript بعد حقول أوقات الدخول/المغادرة (`checkInTime` / `day_use_check_in_from`).
+
 ## 0.8.134.39 — 2026-10-21
 
 - **أوقات الدخول والمغادرة:** ضبط من إعدادات العقار (صباحي + مبيت)، وتظهر أثناء الحجز وفي عقد الإقامة مع التاريخ.

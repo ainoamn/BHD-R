@@ -75,6 +75,8 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
     amount: money(priceMinor),
     deposit: null,
     stayType: null,
+    checkInTime: null,
+    checkOutTime: null,
     source: {
       type: 'lease_reservation',
       referenceCode: booking.referenceCode,
