@@ -51,11 +51,11 @@ export function AccountingRefundsAlert({
 
   return (
     <button type="button" className="accounting-refunds-alert" onClick={onOpen}>
-      <strong>{ar ? 'طلبات إرجاع بانتظار التحويل' : 'Refunds awaiting transfer'}</strong>
+      <strong>{ar ? 'استردادات بانتظار التحويل' : 'Refunds to transfer'}</strong>
       <span>
         {ar
-          ? `${count} معاملة تحتاج تحويلك — اضغط لفتح أمانات التأمين`
-          : `${count} transfer${count === 1 ? '' : 's'} need your action — open deposits`}
+          ? `${count} — افتح أمانات التأمين للتحويل`
+          : `${count} — open deposit trust to transfer`}
       </span>
     </button>
   );

@@ -105,8 +105,8 @@ export function DepositLedgerPanel({
   const [hidden, setHidden] = useState(false);
   const [failed, setFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  /** Default to all so settled refunds still show the deposit the guest paid. */
-  const [filter, setFilter] = useState<Filter>('all');
+  /** Open items first — what the accountant usually needs to act on. */
+  const [filter, setFilter] = useState<Filter>('open');
   const [payoutId, setPayoutId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -206,34 +206,39 @@ export function DepositLedgerPanel({
   const all = rows ?? [];
   const held = all.filter((row) => row.status !== 'deposit_settled');
   const awaiting = all.filter((row) => row.status === 'awaiting_refund_transfer');
-  const cards: Array<{ label: string; hint: string; values: Array<[string, bigint]> }> = [
-    {
-      label: ar ? `أمانات محتجزة (${held.length})` : `Held in trust (${held.length})`,
-      hint: ar ? 'ليست دخلاً' : 'Not income',
-      values: totals(held, (row) => row.depositMinor),
-    },
-    {
-      label: ar ? `بانتظار تحويلك (${awaiting.length})` : `To transfer (${awaiting.length})`,
-      hint: ar ? 'استرداد معتمد للضيوف' : 'Approved guest refunds',
-      values: totals(awaiting, pendingRefund),
-    },
-    {
-      label: ar ? 'مُسترد للضيوف' : 'Refunded to guests',
-      hint: ar ? 'من أمانات التأمين' : 'Out of the deposits',
-      values: totals(all, (row) => row.refundedMinor),
-    },
-    {
-      label: ar ? 'دخل من خصومات التأمين' : 'Income kept from deposits',
-      hint: ar ? 'يدخل في إيراد العقار' : "Part of the property's income",
-      values: totals(all, (row) => row.retainedMinor),
-    },
-  ];
+  const cards: Array<{ label: string; hint: string; values: Array<[string, bigint]>; tone: string }> =
+    [
+      {
+        label: ar ? `محتجز (${held.length})` : `Held (${held.length})`,
+        hint: ar ? 'أمانة' : 'In trust',
+        values: totals(held, (row) => row.depositMinor),
+        tone: 'held',
+      },
+      {
+        label: ar ? `للتحويل (${awaiting.length})` : `To pay (${awaiting.length})`,
+        hint: ar ? 'معتمد' : 'Approved',
+        values: totals(awaiting, pendingRefund),
+        tone: 'pay',
+      },
+      {
+        label: ar ? 'حُوّل' : 'Paid out',
+        hint: ar ? 'للضيوف' : 'To guests',
+        values: totals(all, (row) => row.refundedMinor),
+        tone: 'paid',
+      },
+      {
+        label: ar ? 'مخصوم' : 'Kept',
+        hint: ar ? 'دخل العقار' : 'Property income',
+        values: totals(all, (row) => row.retainedMinor),
+        tone: 'kept',
+      },
+    ];
   const filters: Array<[Filter, string]> = [
-    ['all', ar ? 'الكل' : 'All'],
-    ['open', ar ? 'المفتوحة' : 'Open'],
-    ['awaiting_refund_transfer', ar ? 'بانتظار التحويل' : 'To transfer'],
+    ['open', ar ? 'تحتاج إجراء' : 'Needs action'],
+    ['awaiting_refund_transfer', ar ? 'للتحويل' : 'To pay'],
     ['deposit_held', ar ? 'محتجزة' : 'Held'],
     ['deposit_settled', ar ? 'مُسوّاة' : 'Settled'],
+    ['all', ar ? 'الكل' : 'All'],
   ];
 
   async function submitPayout(row: Row, value: RefundSubmit) {
@@ -293,26 +298,32 @@ export function DepositLedgerPanel({
   }
 
   return (
-    <section
-      className="deposit-ledger pmh-card"
-      id="deposits"
-      aria-labelledby="deposit-ledger-title"
-    >
+    <section className="deposit-ledger" id="deposits" aria-labelledby="deposit-ledger-title">
       <header className="deposit-ledger__head">
         <div>
-          <h2 id="deposit-ledger-title">{ar ? 'أمانات التأمين' : 'Deposits held in trust'}</h2>
+          <h2 id="deposit-ledger-title">{ar ? 'أمانات التأمين' : 'Deposit trust'}</h2>
           <p className="muted">
             {ar
-              ? 'تأمينات الإقامة وعربون حجوزات الموقع أمانة لدى العقار، معزولة عن الإيرادات. لا يدخل من تأمين الإقامة في الدخل إلا ما يُخصم عند الاسترداد.'
-              : 'Stay deposits and website booking deposits are held in trust, apart from income. Only what is deducted from a stay deposit at refund becomes income.'}
+              ? 'حوّل الاستردادات المعتمدة هنا. المبالغ المحتجزة أمانة وليست دخلاً إلا ما يُخصم.'
+              : 'Transfer approved refunds here. Held amounts are in trust — only deductions become income.'}
           </p>
         </div>
+        {awaiting.length ? (
+          <p className="deposit-ledger__cue" role="status">
+            {ar
+              ? `${awaiting.length} بانتظار تحويلك`
+              : `${awaiting.length} awaiting your transfer`}
+          </p>
+        ) : null}
       </header>
 
-      <div className="deposit-ledger__cards">
+      <div className="deposit-ledger__cards" role="group" aria-label={ar ? 'ملخص' : 'Summary'}>
         {cards.map((card) => (
-          <div key={card.label} className="deposit-ledger__card">
-            <span className="deposit-ledger__label">{card.label}</span>
+          <div key={card.label} className={`deposit-ledger__card is-${card.tone}`}>
+            <span className="deposit-ledger__label">
+              {card.label}
+              <small>{card.hint}</small>
+            </span>
             <strong dir="ltr">
               {card.values.length
                 ? card.values
@@ -320,7 +331,6 @@ export function DepositLedgerPanel({
                     .join(' · ')
                 : formatMoney('0', 'OMR', locale)}
             </strong>
-            <small className="muted">{card.hint}</small>
           </div>
         ))}
       </div>
@@ -335,6 +345,9 @@ export function DepositLedgerPanel({
             onClick={() => setFilter(key)}
           >
             {label}
+            {key === 'awaiting_refund_transfer' && awaiting.length ? (
+              <b dir="ltr">{awaiting.length}</b>
+            ) : null}
           </button>
         ))}
       </div>
@@ -399,21 +412,24 @@ export function DepositLedgerPanel({
                     <strong className="deposit-ledger__ref" dir="ltr">
                       {row.reference}
                     </strong>
+                    <span className="deposit-ledger__guest-line">
+                      <bdi>{row.party || row.guestName || (ar ? 'ضيف' : 'Guest')}</bdi>
+                    </span>
                     <span className="deposit-ledger__place">
                       <bdi>{[property, row.unitCode].filter(Boolean).join(' · ') || '—'}</bdi>
                     </span>
                   </div>
                   <dl className="deposit-ledger__facts">
                     <div>
-                      <dt>{ar ? 'تاريخ الطلب' : 'Requested'}</dt>
+                      <dt>{ar ? 'الطلب' : 'Asked'}</dt>
                       <dd>{row.refundRequestedAt ? formatDay(row.refundRequestedAt, ar) : '—'}</dd>
                     </div>
                     <div>
-                      <dt>{ar ? 'مبلغ التأمين' : 'Deposit'}</dt>
+                      <dt>{ar ? 'التأمين' : 'Deposit'}</dt>
                       <dd dir="ltr">{money(row.depositMinor ?? null)}</dd>
                     </div>
                     <div>
-                      <dt>{ar ? 'الخصم' : 'Deducted'}</dt>
+                      <dt>{ar ? 'خصم' : 'Keep'}</dt>
                       <dd
                         dir="ltr"
                         className={
@@ -424,7 +440,7 @@ export function DepositLedgerPanel({
                       </dd>
                     </div>
                     <div>
-                      <dt>{ar ? 'المسترد' : 'Refund'}</dt>
+                      <dt>{ar ? 'يرد' : 'Refund'}</dt>
                       <dd dir="ltr" className="is-refund">
                         {money(split.refund)}
                       </dd>
@@ -436,17 +452,17 @@ export function DepositLedgerPanel({
                     </span>
                     {row.kind === 'reservation_deposit' ? (
                       <span className="pmh-badge pmh-badge--info">
-                        {ar ? 'عربون حجز' : 'Booking deposit'}
+                        {ar ? 'عربون' : 'Booking'}
                       </span>
                     ) : null}
                     {row.kind === 'stay_payment_refund' ? (
                       <span className="pmh-badge pmh-badge--warn">
-                        {ar ? 'إرجاع مبلغ حجز ملغى' : 'Cancelled booking refund'}
+                        {ar ? 'إلغاء حجز' : 'Cancel payback'}
                       </span>
                     ) : null}
                     {hasClaim ? (
                       <span className="pmh-badge pmh-badge--danger">
-                        {ar ? 'طلب من الضيف' : 'Guest request'}
+                        {ar ? 'اعتراض' : 'Claim'}
                       </span>
                     ) : null}
                   </div>
@@ -464,13 +480,7 @@ export function DepositLedgerPanel({
                           setPayoutId(payoutId === id ? null : id);
                         }}
                       >
-                        {row.kind === 'stay_payment_refund'
-                          ? ar
-                            ? 'تحويل مبلغ الحجز'
-                            : 'Transfer booking payment'
-                          : ar
-                            ? 'تحويل التأمين'
-                            : 'Transfer deposit'}
+                        {ar ? 'حوّل' : 'Transfer'}
                       </button>
                     ) : null}
                     <AccountingFollowTask
@@ -483,18 +493,12 @@ export function DepositLedgerPanel({
                     />
                     <button
                       type="button"
-                      className="button button--secondary deposit-ledger__toggle"
+                      className="button button--quiet deposit-ledger__toggle"
                       aria-expanded={isOpen}
                       aria-controls={detailsId}
                       onClick={() => setExpanded((map) => ({ ...map, [id]: !isOpen }))}
                     >
-                      {isOpen
-                        ? ar
-                          ? 'إخفاء التفاصيل'
-                          : 'Hide details'
-                        : ar
-                          ? 'التفاصيل'
-                          : 'Details'}
+                      {isOpen ? (ar ? 'إخفاء' : 'Hide') : ar ? 'تفاصيل' : 'Details'}
                     </button>
                   </div>
                 </div>
