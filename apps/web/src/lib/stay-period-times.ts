@@ -64,13 +64,15 @@ export function isHalfDayStayType(stayType: string | null | undefined): boolean 
 
 /**
  * Calendar day shown as check-out to guests/owners.
- * Day-use is stored as an exclusive [checkIn, checkIn+1) range but ends the same day.
+ * day_use / overnight_only are stored as exclusive [checkIn, checkIn+1) but end the same day.
  */
 export function displayStayCheckoutOn(
   stayType: string | null | undefined,
   checkInOn: string,
   checkOutOn: string,
 ): string {
-  if (stayType === 'day_use') return checkInOn.slice(0, 10);
+  if (stayType === 'day_use' || stayType === 'overnight_only') {
+    return checkInOn.slice(0, 10);
+  }
   return checkOutOn.slice(0, 10);
 }

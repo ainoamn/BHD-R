@@ -37,6 +37,7 @@ import { loadStayStamps } from '@/lib/stay-arrival-neon';
 import { depositRefundStage } from '@/lib/stay-deposit-refund';
 import { accountReader, loadDepositLedger, refundFields } from '@/lib/stay-deposit-ledger-neon';
 import { loadBookingDeposits, loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
+import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 
 export const PROPERTY_RECORD_SECTIONS = [
   'bookings',
@@ -465,6 +466,7 @@ async function loadBookings(
       status: stayBookings.status,
       checkInOn: stayBookings.checkInOn,
       checkOutOn: stayBookings.checkOutOn,
+      stayType: sql<string | null>`${stayBookings.pricingSnapshotJson}->>'stayType'`,
       currency: stayBookings.currency,
       totalMinor: stayBookings.totalMinor,
       createdAt: stayBookings.createdAt,
@@ -677,7 +679,12 @@ async function loadBookings(
           (row.guestPartyId ? (names.get(row.guestPartyId) ?? null) : null),
         partyId: row.guestPartyId ?? null,
         fromOn: isoDate(row.checkInOn),
-        toOn: isoDate(row.checkOutOn),
+        toOn: (() => {
+          const checkIn = isoDate(row.checkInOn);
+          const checkOut = isoDate(row.checkOutOn);
+          if (!checkIn || !checkOut) return checkOut;
+          return displayStayCheckoutOn(row.stayType, checkIn, checkOut);
+        })(),
         amountMinor: minor(row.totalMinor),
         currency: row.currency,
         status: row.status,
@@ -688,7 +695,14 @@ async function loadBookings(
         contractStatus: contract?.status ?? null,
         reschedulePending: row.rescheduleStatus === 'awaiting_owner' ? '1' : null,
         rescheduleCheckInOn: row.rescheduleCheckInOn,
-        rescheduleCheckOutOn: row.rescheduleCheckOutOn,
+        rescheduleCheckOutOn:
+          row.rescheduleCheckInOn && row.rescheduleCheckOutOn
+            ? displayStayCheckoutOn(
+                row.stayType,
+                row.rescheduleCheckInOn,
+                row.rescheduleCheckOutOn,
+              )
+            : row.rescheduleCheckOutOn,
         sortOn: isoDate(row.createdAt),
       };
     }),
@@ -781,6 +795,7 @@ async function loadContracts(
       contractType: sql<string | null>`${contracts.payloadSnapshot}->'contract'->>'type'`,
       sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
       sourceReference: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'referenceCode'`,
+      stayType: sql<string | null>`${contracts.payloadSnapshot}->>'stayType'`,
       linkedBookingStatus: sql<string | null>`(
         select b.status from stay_bookings b
         where b.organization_id = ${orgId}
@@ -844,6 +859,10 @@ async function loadContracts(
   }
   return rows.map((row) => {
     const isSale = row.contractType === 'sale';
+    const fromOn = isoDate(row.startsOn) ?? (isSale ? isoDate(row.payloadStartsOn) : null);
+    const rawToOn = isoDate(row.endsOn);
+    const toOn =
+      fromOn && rawToOn ? displayStayCheckoutOn(row.stayType, fromOn, rawToOn) : rawToOn;
     return {
       id: row.id,
       reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
@@ -866,8 +885,8 @@ async function loadContracts(
       createdOn: isoDate(row.createdAt),
       sentOn: isoDate(row.sentAt),
       signedOn: isoDate(row.completedAt),
-      fromOn: isoDate(row.startsOn) ?? (isSale ? isoDate(row.payloadStartsOn) : null),
-      toOn: isoDate(row.endsOn),
+      fromOn,
+      toOn,
       amountMinor: row.payloadAmountMinor ?? minor(row.rentMinor),
       currency: row.payloadCurrency ?? row.currency ?? null,
       termsJson: row.termsJson,
@@ -900,6 +919,7 @@ async function loadLeases(
       contractStatus: contracts.status,
       sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
       sourceReference: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'referenceCode'`,
+      stayType: sql<string | null>`${contracts.payloadSnapshot}->>'stayType'`,
       linkedBookingStatus: sql<string | null>`(
         select b.status from stay_bookings b
         where b.organization_id = ${orgId}
@@ -921,30 +941,36 @@ async function loadLeases(
     tx,
     rows.map((row) => row.tenantPartyId),
   );
-  return rows.map((row) => ({
-    id: row.id,
-    reference: row.contractReference ?? row.id.slice(0, 8).toUpperCase(),
-    contractId: row.contractId,
-    contractReference: row.contractReference,
-    contractStatus: row.contractStatus,
-    sourceType: row.sourceType,
-    sourceReference: row.sourceReference,
-    linkedBookingStatus: row.linkedBookingStatus,
-    unitCode: codeOf(row.unitId),
-    party: names.get(row.tenantPartyId) ?? null,
-    partyId: row.tenantPartyId ?? null,
-    status: leaseDisplayStatus(row.status, isoDate(row.startsOn), isoDate(row.endsOn)),
-    leaseStatus: row.status,
-    fromOn: isoDate(row.startsOn),
-    toOn: isoDate(row.endsOn),
-    cancellationOn: isoDate(row.cancellationEffectiveOn),
-    amountMinor: minor(row.rentMinor),
-    contractTotalMinor: row.contractTotalMinor,
-    depositMinor: minor(row.depositMinor),
-    currency: row.currency,
-    termsJson: row.termsJson,
-    tenantJson: row.tenantJson,
-  }));
+  return rows.map((row) => {
+    const fromOn = isoDate(row.startsOn);
+    const rawToOn = isoDate(row.endsOn);
+    const toOn =
+      fromOn && rawToOn ? displayStayCheckoutOn(row.stayType, fromOn, rawToOn) : rawToOn;
+    return {
+      id: row.id,
+      reference: row.contractReference ?? row.id.slice(0, 8).toUpperCase(),
+      contractId: row.contractId,
+      contractReference: row.contractReference,
+      contractStatus: row.contractStatus,
+      sourceType: row.sourceType,
+      sourceReference: row.sourceReference,
+      linkedBookingStatus: row.linkedBookingStatus,
+      unitCode: codeOf(row.unitId),
+      party: names.get(row.tenantPartyId) ?? null,
+      partyId: row.tenantPartyId ?? null,
+      status: leaseDisplayStatus(row.status, isoDate(row.startsOn), isoDate(row.endsOn)),
+      leaseStatus: row.status,
+      fromOn,
+      toOn,
+      cancellationOn: isoDate(row.cancellationEffectiveOn),
+      amountMinor: minor(row.rentMinor),
+      contractTotalMinor: row.contractTotalMinor,
+      depositMinor: minor(row.depositMinor),
+      currency: row.currency,
+      termsJson: row.termsJson,
+      tenantJson: row.tenantJson,
+    };
+  });
 }
 
 async function loadSales(

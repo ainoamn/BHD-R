@@ -20,6 +20,7 @@ import {
 } from '@/lib/contract-annex';
 import { leaseContractTitle } from '@/lib/lease-booking-contract';
 import type { PortalRole } from '@/lib/types';
+import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import { stayTypeLabel } from '@/lib/ui-labels';
 import { ContractActions } from './contract-actions';
 import { ContractAnnexArticle } from './contract-annex-view';
@@ -291,9 +292,14 @@ export function ContractDocumentView({
         ? `/${locale}${doc.stay.guestPageHref}`
         : null
       : `/${locale}/tenant/contracts/${contract.id}`;
+  const displayEndsOn = displayStayCheckoutOn(
+    doc.stayType,
+    contract.startsOn,
+    contract.endsOn,
+  );
   const summary = ar
-    ? `${ownerName} ← ${tenantName} · ${pick(propertyName)} (${unitName}) · من ${pick(day(contract.startsOn))} إلى ${pick(day(contract.endsOn))} · القيمة ${pick(money(doc.amount))}`
-    : `${ownerName} → ${tenantName} · ${pick(propertyName)} (${unitName}) · ${pick(day(contract.startsOn))} – ${pick(day(contract.endsOn))} · ${pick(money(doc.amount))}`;
+    ? `${ownerName} ← ${tenantName} · ${pick(propertyName)} (${unitName}) · من ${pick(day(contract.startsOn))} إلى ${pick(day(displayEndsOn))} · القيمة ${pick(money(doc.amount))}`
+    : `${ownerName} → ${tenantName} · ${pick(propertyName)} (${unitName)} · ${pick(day(contract.startsOn))} – ${pick(day(displayEndsOn))} · ${pick(money(doc.amount))}`;
   const links: ContractArticleLinks = {
     file: (kind) => `/api/portal/contracts/${contract.id}/files/${kind}?portal=${portal}`,
     contract: (contractId) => `/${locale}/${portal}/contracts/${contractId}`,
@@ -1003,7 +1009,9 @@ export function ContractArticle({
                   {reservation
                     ? null
                     : row(['تاريخ البدء', 'Commencement'], bi(day(contract.startsOn)))}
-                  {reservation ? null : row(['تاريخ الانتهاء', 'Expiry'], bi(day(contract.endsOn)))}
+                  {reservation
+                    ? null
+                    : row(['تاريخ الانتهاء', 'Expiry'], bi(day(displayEndsOn)))}
                   {doc.checkInTime
                     ? row(
                         ['وقت الدخول', 'Check-in time'],
@@ -1016,12 +1024,7 @@ export function ContractArticle({
                     ? row(
                         ['وقت المغادرة', 'Check-out time'],
                         <span dir="ltr">
-                          {pick(
-                            day(
-                              doc.stayType === 'day_use' ? contract.startsOn : contract.endsOn,
-                            ),
-                          )}{' '}
-                          · {doc.checkOutTime}
+                          {pick(day(displayEndsOn))} · {doc.checkOutTime}
                         </span>,
                       )
                     : null}

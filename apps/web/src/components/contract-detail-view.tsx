@@ -9,6 +9,7 @@ import { loadContractAnnexFromNeon } from '@/lib/contract-annex-neon';
 import { loadContractDetailFromNeon, type ContractDetail } from '@/lib/contract-detail-neon';
 import { scopedOwnerParty } from '@/lib/portal-access';
 import { ApiError, apiFetch } from '@/lib/server-api';
+import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import { requirePortal } from '@/lib/viewer';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 import type { PortalRole } from '@/lib/types';
@@ -159,7 +160,12 @@ function SimpleContractView({
                 : ar
                   ? 'عقد إيجار أساسي'
                   : 'Initial lease contract'}{' '}
-            · {contract.startsOn} — {contract.endsOn}
+            · {contract.startsOn} —{' '}
+            {displayStayCheckoutOn(
+              contract.document?.stayType,
+              contract.startsOn,
+              contract.endsOn,
+            )}
           </p>
         </div>
         <StatusBadge
