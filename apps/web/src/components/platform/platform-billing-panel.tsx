@@ -16,7 +16,7 @@ export function PlatformBillingPanel({ locale }: { locale: 'ar' | 'en' }) {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/platform/billing', {
+        const response = await fetch('/api/site-admin/billing', {
           credentials: 'same-origin',
           cache: 'no-store',
         });
@@ -56,7 +56,7 @@ export function PlatformBillingPanel({ locale }: { locale: 'ar' | 'en' }) {
               : 'Estimated monthly from plan prices × org counts. Automated SaaS collection is not live yet — edit status on Subscriptions.'}
           </p>
         </div>
-        <Link className="button button--quiet" href="/platform/subscriptions" prefetch={false}>
+        <Link className="button button--quiet" href="/site-admin/plans" prefetch={false}>
           {ar ? 'إدارة الاشتراكات ←' : 'Manage subscriptions →'}
         </Link>
       </header>

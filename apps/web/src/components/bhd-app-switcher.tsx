@@ -534,7 +534,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
                 href={`/${locale}/site-admin`}
                 onClick={() => setPanel(null)}
               >
-                {ar ? 'إدارة الموقع' : 'Site admin'}
+                {ar ? 'تحكم الموقع والنظام' : 'Site & system control'}
               </Link>
             ) : null}
             <OrganizationSwitcher ar={ar} locale={locale} />

@@ -19,17 +19,7 @@ interface Row {
 }
 
 const allowedSections: Record<PortalRole, string[]> = {
-  platform: [
-    'organizations',
-    'users',
-    'audit',
-    'reports',
-    'settings',
-    'diagnostics',
-    'subscriptions',
-    'billing',
-    'security',
-  ],
+  platform: ['organizations', 'users', 'audit', 'reports', 'settings'],
   owner: [
     'properties',
     'contacts',

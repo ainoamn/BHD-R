@@ -1,41 +1,39 @@
 import Link from 'next/link';
 import {
-  ADMIN_SECTIONS,
-  SCOPE_LABELS,
-  type AdminScope,
+  siteConsoleSectionsFor,
   type SiteAdminAccess,
+  type SiteConsoleSectionId,
 } from '@/lib/site-admin-shared';
 
-/** Sections of site administration this account may open, as a scrollable tab row. */
+/** Sections of site administration — system console only, never mixed with owner/tenant portals. */
 export function SiteAdminNav({
   access,
   current,
   locale,
 }: {
   access: SiteAdminAccess;
-  current: AdminScope;
+  current: SiteConsoleSectionId;
   locale: 'ar' | 'en';
 }) {
   const ar = locale === 'ar';
+  const sections = siteConsoleSectionsFor(access);
   return (
-    <nav className="site-admin-nav" aria-label={ar ? 'أقسام إدارة الموقع' : 'Site admin sections'}>
+    <nav className="site-admin-nav" aria-label={ar ? 'تحكم الموقع والنظام' : 'Site & system control'}>
       <span className="site-admin-nav__role">
-        {access.root ? (ar ? 'إدارة عليا' : 'Top-level admin') : ar ? 'مفوَّض' : 'Delegate'}
+        {access.root ? (ar ? 'مالك الموقع' : 'Site owner') : ar ? 'مدير مفوَّض' : 'Delegated manager'}
       </span>
       <div className="site-admin-nav__tabs">
-        {ADMIN_SECTIONS.filter((section) => access.scopes.includes(section.scope)).map(
-          (section) => (
-            <Link
-              key={section.scope}
-              href={`/${locale}${section.path}`}
-              prefetch={false}
-              className={section.scope === current ? 'is-current' : undefined}
-              aria-current={section.scope === current ? 'page' : undefined}
-            >
-              {ar ? SCOPE_LABELS[section.scope].ar : SCOPE_LABELS[section.scope].en}
-            </Link>
-          ),
-        )}
+        {sections.map((section) => (
+          <Link
+            key={section.id}
+            href={`/${locale}${section.path}`}
+            prefetch={false}
+            className={section.id === current ? 'is-current' : undefined}
+            aria-current={section.id === current ? 'page' : undefined}
+          >
+            {ar ? section.ar : section.en}
+          </Link>
+        ))}
       </div>
     </nav>
   );

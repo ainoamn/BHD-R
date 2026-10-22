@@ -39,11 +39,82 @@ export const SCOPE_LABELS: Record<
 };
 
 export const ADMIN_SECTIONS: { scope: AdminScope; path: string }[] = [
-  { scope: 'complaints', path: '/site-admin' },
+  { scope: 'complaints', path: '/site-admin/complaints' },
   { scope: 'verification', path: '/site-admin/verification' },
   { scope: 'plans', path: '/site-admin/plans' },
   { scope: 'users', path: '/site-admin/users' },
   { scope: 'delegates', path: '/site-admin/delegates' },
+];
+
+/**
+ * Full site-console navigation (system control only — never mixed with owner/tenant portals).
+ * `scope: null` = any account that already has site-admin access may open it.
+ */
+export type SiteConsoleSectionId =
+  | 'overview'
+  | 'diagnostics'
+  | 'security'
+  | 'billing'
+  | AdminScope;
+
+export const SITE_CONSOLE_SECTIONS: Array<{
+  id: SiteConsoleSectionId;
+  path: string;
+  scope: AdminScope | null;
+  ar: string;
+  en: string;
+}> = [
+  { id: 'overview', path: '/site-admin', scope: null, ar: 'نظرة عامة', en: 'Overview' },
+  {
+    id: 'diagnostics',
+    path: '/site-admin/diagnostics',
+    scope: null,
+    ar: 'تشخيص النظام',
+    en: 'Diagnostics',
+  },
+  {
+    id: 'security',
+    path: '/site-admin/security',
+    scope: null,
+    ar: 'الأمن والتدقيق',
+    en: 'Security',
+  },
+  {
+    id: 'plans',
+    path: '/site-admin/plans',
+    scope: 'plans',
+    ar: 'الاشتراكات',
+    en: 'Subscriptions',
+  },
+  {
+    id: 'billing',
+    path: '/site-admin/billing',
+    scope: 'plans',
+    ar: 'إحصائيات الاشتراك',
+    en: 'Billing stats',
+  },
+  { id: 'users', path: '/site-admin/users', scope: 'users', ar: 'المستخدمون', en: 'Users' },
+  {
+    id: 'complaints',
+    path: '/site-admin/complaints',
+    scope: 'complaints',
+    ar: 'شكاوى التأمين',
+    en: 'Deposit complaints',
+  },
+  {
+    id: 'verification',
+    path: '/site-admin/verification',
+    scope: 'verification',
+    ar: 'توثيق الحسابات',
+    en: 'Verification',
+  },
+  {
+    id: 'delegates',
+    path: '/site-admin/delegates',
+    scope: 'delegates',
+    ar: 'التفويض',
+    en: 'Delegation',
+  },
 ];
 
 export type SiteAdminAccess = {
@@ -51,6 +122,13 @@ export type SiteAdminAccess = {
   root: boolean;
   scopes: AdminScope[];
 };
+
+/** Sections this account may see in the site console (never shown in owner/tenant portals). */
+export function siteConsoleSectionsFor(access: SiteAdminAccess) {
+  return SITE_CONSOLE_SECTIONS.filter(
+    (section) => section.scope === null || access.scopes.includes(section.scope),
+  );
+}
 
 export type AdminDelegate = {
   email: string;

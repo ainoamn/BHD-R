@@ -26,7 +26,7 @@ export function SiteFooter() {
   const ar = locale === 'ar';
 
   if (
-    /^\/(platform|owner|developer|tenant|login|forgot-password|reset-password|activate)(\/|$)/.test(
+    /^\/(platform|owner|developer|tenant|site-admin|login|forgot-password|reset-password|activate)(\/|$)/.test(
       pathname,
     )
   ) {
@@ -78,7 +78,6 @@ export function SiteFooter() {
           <a href="https://www.bhd-om.com/privacy">{ar ? 'الخصوصية' : 'Privacy'}</a>
           <a href="https://www.bhd-om.com/terms">{ar ? 'الشروط' : 'Terms'}</a>
           <a href="https://www.bhd-om.com/security">{ar ? 'الأمان' : 'Security'}</a>
-          <a href="/api/auth/admin-entry">{ar ? 'دخول الإدارة' : 'Admin sign-in'}</a>
         </nav>
       </div>
 

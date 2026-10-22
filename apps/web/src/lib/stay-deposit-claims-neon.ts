@@ -623,7 +623,7 @@ async function notifySiteAdmins(
       : 'لم يرد المالك بعد.',
     `الشكوى: ${escalation}`,
   ];
-  const adminUrl = `${publicWebOrigin()}/ar/site-admin`;
+  const adminUrl = `${publicWebOrigin()}/ar/site-admin/complaints`;
   if (settings.channel === 'whatsapp') {
     const text = [
       `شكوى تأمين جديدة — ${booking.referenceCode}`,

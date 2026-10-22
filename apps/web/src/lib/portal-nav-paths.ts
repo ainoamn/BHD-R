@@ -2,18 +2,7 @@ import type { PortalRole } from '@/lib/types';
 
 /** Sidebar paths (relative to /{portal}) — keep in sync with portal-nav.tsx */
 const PORTAL_PATHS: Record<PortalRole, string[]> = {
-  platform: [
-    '',
-    '/diagnostics',
-    '/subscriptions',
-    '/billing',
-    '/users',
-    '/organizations',
-    '/security',
-    '/audit',
-    '/reports',
-    '/settings',
-  ],
+  platform: ['', '/organizations', '/users', '/audit', '/reports', '/settings'],
   owner: [
     '',
     '/properties',

@@ -1,37 +1,36 @@
 'use client';
 
-import { Link, usePathname } from '@/i18n/navigation';
+import { Link } from '@/i18n/navigation';
+import { usePathname } from '@/i18n/navigation';
 
-const TABS: Array<{ path: string; ar: string; en: string }> = [
-  { path: '/platform', ar: 'نظرة عامة', en: 'Overview' },
-  { path: '/platform/diagnostics', ar: 'تشخيص النظام', en: 'Diagnostics' },
-  { path: '/platform/subscriptions', ar: 'الاشتراكات', en: 'Subscriptions' },
-  { path: '/platform/billing', ar: 'إحصائيات الاشتراك', en: 'Billing stats' },
-  { path: '/platform/users', ar: 'المستخدمون', en: 'Users' },
-  { path: '/platform/organizations', ar: 'المنشآت', en: 'Organizations' },
-  { path: '/platform/security', ar: 'الأمن والتدقيق', en: 'Security' },
-  { path: '/site-admin', ar: 'تشغيل الموقع', en: 'Site ops' },
-];
+const TABS = [
+  { path: '/site-admin', ar: 'نظرة عامة', en: 'Overview' },
+  { path: '/site-admin/diagnostics', ar: 'تشخيص النظام', en: 'Diagnostics' },
+  { path: '/site-admin/plans', ar: 'الاشتراكات', en: 'Subscriptions' },
+  { path: '/site-admin/billing', ar: 'إحصائيات الاشتراك', en: 'Billing' },
+  { path: '/site-admin/users', ar: 'المستخدمون', en: 'Users' },
+  { path: '/site-admin/security', ar: 'الأمن والتدقيق', en: 'Security' },
+] as const;
 
-/** Secondary tab row for the platform administration console. */
+/** Legacy nav — prefer SiteAdminNav under /site-admin. */
 export function PlatformAdminNav({ locale }: { locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const pathname = usePathname();
+
   return (
-    <nav className="platform-admin-nav" aria-label={ar ? 'أقسام إدارة المنصة' : 'Platform admin'}>
+    <nav className="platform-admin-nav" aria-label={ar ? 'تحكم الموقع' : 'Site control'}>
       <div className="platform-admin-nav__tabs">
         {TABS.map((tab) => {
-          const current =
-            tab.path === '/platform'
-              ? pathname === '/platform' || pathname === '/platform/'
+          const active =
+            tab.path === '/site-admin'
+              ? pathname === '/site-admin'
               : pathname === tab.path || pathname.startsWith(`${tab.path}/`);
           return (
             <Link
               key={tab.path}
               href={tab.path}
+              className={active ? 'is-active' : undefined}
               prefetch={false}
-              className={current ? 'is-current' : undefined}
-              aria-current={current ? 'page' : undefined}
             >
               {ar ? tab.ar : tab.en}
             </Link>

@@ -63,18 +63,14 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
       label: 'Portal.groupCore',
       items: [
         { path: '', label: 'Common.dashboard', mark: '⌂' },
-        { path: '/diagnostics', label: 'Common.diagnostics', mark: '⌁' },
-        { path: '/subscriptions', label: 'Common.subscriptions', mark: '▣' },
-        { path: '/billing', label: 'Common.billing', mark: '◇' },
-        { path: '/users', label: 'Common.users', mark: '◎' },
         { path: '/organizations', label: 'Common.organizations', mark: '◫' },
+        { path: '/users', label: 'Common.users', mark: '◎' },
       ],
     },
     {
       id: 'insight',
       label: 'Portal.groupInsight',
       items: [
-        { path: '/security', label: 'Common.security', mark: '⛨' },
         { path: '/audit', label: 'Common.audit', mark: '≡' },
         { path: '/reports', label: 'Common.reports', mark: '↗' },
         { path: '/settings', label: 'Common.settings', mark: '⚙' },

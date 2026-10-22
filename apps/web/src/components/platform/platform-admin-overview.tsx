@@ -6,42 +6,42 @@ import type { PlatformDiagnostics } from '@/lib/platform-admin-neon';
 
 const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintEn: string }> = [
   {
-    href: '/platform/diagnostics',
+    href: '/site-admin/diagnostics',
     ar: 'تشخيص النظام',
     en: 'Diagnostics',
     hintAr: 'صحة القاعدة والهوية والطوابير والجلسات',
     hintEn: 'Database, identity, queues, sessions',
   },
   {
-    href: '/platform/subscriptions',
+    href: '/site-admin/plans',
     ar: 'الباقات والاشتراكات',
     en: 'Plans & subscriptions',
     hintAr: 'أسعار الباقات وحالة اشتراك كل منشأة',
     hintEn: 'Plan prices and each organization’s subscription',
   },
   {
-    href: '/platform/billing',
+    href: '/site-admin/billing',
     ar: 'إحصائيات الاشتراك',
     en: 'Billing stats',
     hintAr: 'تقدير شهري وحالات السداد',
     hintEn: 'Estimated MRR and payment statuses',
   },
   {
-    href: '/platform/users',
+    href: '/site-admin/users',
     ar: 'المستخدمون',
     en: 'Users',
     hintAr: 'إيقاف الحسابات وإعادة تفعيلها',
     hintEn: 'Suspend and restore accounts',
   },
   {
-    href: '/platform/security',
+    href: '/site-admin/security',
     ar: 'الأمن والتدقيق',
     en: 'Security',
     hintAr: 'سجل التدقيق وبصمات IP والجلسات',
     hintEn: 'Audit log, IP fingerprints, sessions',
   },
   {
-    href: '/site-admin',
+    href: '/site-admin/complaints',
     ar: 'تشغيل الموقع',
     en: 'Site operations',
     hintAr: 'شكاوى التأمين، التوثيق، التفويض',
@@ -49,7 +49,7 @@ const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintE
   },
 ];
 
-/** Landing hub for platform administration. */
+/** Legacy hub — prefer SiteAdminOverview under /site-admin. */
 export function PlatformAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const [pulse, setPulse] = useState<PlatformDiagnostics['counts'] | null>(null);
@@ -58,15 +58,16 @@ export function PlatformAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/platform/diagnostics', {
+        const response = await fetch('/api/site-admin/diagnostics', {
           credentials: 'same-origin',
           cache: 'no-store',
+          headers: { accept: 'application/json' },
         });
         if (!response.ok) return;
-        const payload = (await response.json()) as PlatformDiagnostics;
-        if (!cancelled) setPulse(payload.counts);
+        const data = (await response.json()) as PlatformDiagnostics;
+        if (!cancelled) setPulse(data.counts);
       } catch {
-        /* overview still works without pulse */
+        /* ignore */
       }
     })();
     return () => {
@@ -78,37 +79,38 @@ export function PlatformAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
     <div className="platform-admin-overview">
       <header className="platform-admin__head">
         <div>
-          <p className="platform-admin__kicker">{ar ? 'إدارة المنصة' : 'Platform admin'}</p>
-          <h1>{ar ? 'لوحة تحكم المشرف' : 'Administrator console'}</h1>
+          <p className="platform-admin__kicker">{ar ? 'تحكم الموقع' : 'Site control'}</p>
+          <h1>{ar ? 'انتقل إلى /site-admin' : 'Use /site-admin'}</h1>
           <p>
             {ar
-              ? 'تشخيص النظام، الاشتراكات والمستخدمون، إحصائيات التحصيل التقديرية، ومتابعة الأمن والتدقيق — في مكان واحد.'
-              : 'System diagnostics, subscriptions and users, estimated billing stats, and security audit — in one place.'}
+              ? 'أدوات النظام لم تعد جزءاً من بوابة /platform.'
+              : 'System tools are no longer part of the /platform portal.'}
           </p>
         </div>
+        <Link className="button" href="/site-admin" prefetch={false}>
+          {ar ? 'فتح تحكم الموقع' : 'Open site console'}
+        </Link>
       </header>
-
       {pulse ? (
         <div className="platform-admin__cards">
           <article className="platform-admin__card">
+            <strong>{pulse.organizations}</strong>
             <span>{ar ? 'منشآت' : 'Orgs'}</span>
-            <strong dir="ltr">{pulse.organizations}</strong>
           </article>
           <article className="platform-admin__card">
+            <strong>{pulse.users}</strong>
             <span>{ar ? 'مستخدمون' : 'Users'}</span>
-            <strong dir="ltr">{pulse.users}</strong>
           </article>
           <article className="platform-admin__card">
+            <strong>{pulse.activeSessions}</strong>
             <span>{ar ? 'جلسات' : 'Sessions'}</span>
-            <strong dir="ltr">{pulse.activeSessions}</strong>
           </article>
           <article className="platform-admin__card">
-            <span>{ar ? 'Outbox' : 'Outbox'}</span>
-            <strong dir="ltr">{pulse.openOutbox}</strong>
+            <strong>{pulse.openOutbox}</strong>
+            <span>{ar ? 'طابور' : 'Outbox'}</span>
           </article>
         </div>
       ) : null}
-
       <div className="platform-admin-overview__grid">
         {LINKS.map((item) => (
           <Link key={item.href} href={item.href} className="platform-admin-overview__tile" prefetch={false}>

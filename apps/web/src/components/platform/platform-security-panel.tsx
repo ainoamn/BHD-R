@@ -13,7 +13,7 @@ export function PlatformSecurityPanel({ locale }: { locale: 'ar' | 'en' }) {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/platform/security', {
+        const response = await fetch('/api/site-admin/security', {
           credentials: 'same-origin',
           cache: 'no-store',
         });

@@ -20,7 +20,7 @@ export function PlatformDiagnosticsPanel({ locale }: { locale: 'ar' | 'en' }) {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/platform/diagnostics', {
+        const response = await fetch('/api/site-admin/diagnostics', {
           credentials: 'same-origin',
           cache: 'no-store',
         });

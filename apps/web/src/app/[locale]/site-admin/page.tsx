@@ -1,26 +1,30 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
-import { SiteAdminPanel } from '@/components/site-admin/site-admin-panel';
+import { SiteAdminOverview } from '@/components/site-admin/site-admin-overview';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'إدارة الموقع · شكاوى التأمين',
-  robots: { index: false, follow: false },
+  title: 'تحكم الموقع والنظام',
+  robots: { index: false, follow: false, nocache: true },
 };
 
-/** Site administration: guests' deposit complaints, and who receives them. */
-export default async function SiteAdminPage({ params }: { params: Promise<{ locale: string }> }) {
+/** Site owner / site manager console — never part of owner or tenant portals. */
+export default async function SiteAdminHomePage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  const access = await requireSiteAdminPage(locale, 'complaints');
+  const access = await requireSiteAdminPage(locale, null, { path: '/site-admin' });
   return (
     <>
-      <SiteAdminNav access={access} current="complaints" locale={locale} />
-      <SiteAdminPanel locale={locale} canEditInbox={access.root} />
+      <SiteAdminNav access={access} current="overview" locale={locale} />
+      <SiteAdminOverview locale={locale} />
     </>
   );
 }

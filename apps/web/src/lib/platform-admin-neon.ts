@@ -23,6 +23,14 @@ function canPlatform(claims: SessionClaims): boolean {
   );
 }
 
+/** Site console (owners/managers) or classic platform_admin permissions. */
+async function assertSiteConsole(claims: SessionClaims): Promise<void> {
+  if (canPlatform(claims)) return;
+  const access = await siteAdminAccess(claims).catch(() => null);
+  if (access) return;
+  fail('forbidden');
+}
+
 function envConfigured(name: string): boolean {
   return Boolean(process.env[name]?.trim());
 }
@@ -117,9 +125,9 @@ async function loadSubscriptions(): Promise<
   });
 }
 
-/** Cross-cutting health of the platform for the admin diagnostics console. */
+/** Cross-cutting health for the site-admin diagnostics console. */
 export async function loadPlatformDiagnostics(claims: SessionClaims): Promise<PlatformDiagnostics> {
-  if (!canPlatform(claims)) fail('forbidden');
+  await assertSiteConsole(claims);
   const generatedAt = new Date().toISOString();
   const counts = await elevatedTx(async (tx) => {
     const [orgs] = rowsOf<{ n: string }>(
@@ -258,9 +266,12 @@ export async function loadPlatformDiagnostics(claims: SessionClaims): Promise<Pl
 
 /** Manual SaaS subscription desk stats (prices × org counts; no automated collection yet). */
 export async function loadPlatformBillingStats(claims: SessionClaims): Promise<PlatformBillingStats> {
-  if (!canPlatform(claims)) fail('forbidden');
   const access = await siteAdminAccess(claims).catch(() => null);
-  if (!access?.scopes.includes('plans') && !access?.root) fail('forbidden');
+  const allowed =
+    Boolean(access?.root) ||
+    Boolean(access?.scopes.includes('plans')) ||
+    canPlatform(claims);
+  if (!allowed) fail('forbidden');
 
   const [plans, subscriptions, orgRows] = await Promise.all([
     loadPlanCatalog(),
@@ -321,7 +332,9 @@ export async function loadPlatformBillingStats(claims: SessionClaims): Promise<P
 
 /** Recent audit + session signals for the security console (hashed IPs only). */
 export async function loadPlatformSecurity(claims: SessionClaims): Promise<PlatformSecurityView> {
-  if (!canPlatform(claims) && !hasPermission(claims, 'platform.audit.read')) fail('forbidden');
+  if (!hasPermission(claims, 'platform.audit.read')) {
+    await assertSiteConsole(claims);
+  }
 
   return elevatedTx(async (tx) => {
     const [active] = rowsOf<{ n: string }>(

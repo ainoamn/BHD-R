@@ -2,17 +2,24 @@ import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { loadPlatformDiagnostics } from '@/lib/platform-admin-neon';
+import { siteAdminAccess } from '@/lib/site-admin-neon';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-/** GET /api/platform/diagnostics — system health for platform administrators. */
+/**
+ * GET /api/platform/diagnostics — legacy alias.
+ * Prefer /api/site-admin/diagnostics; both require site-console access.
+ */
 export async function GET(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
   try {
     const claims = await requireLiveSession(request);
+    if (!(await siteAdminAccess(claims))) {
+      return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
+    }
     const diagnostics = await loadPlatformDiagnostics(claims);
     return NextResponse.json(diagnostics);
   } catch (error) {

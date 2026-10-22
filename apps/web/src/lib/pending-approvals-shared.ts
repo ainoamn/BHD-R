@@ -102,7 +102,7 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   if (item.kind === 'refund_transfer' || item.kind === 'deposit_claim') {
     return `/${portal}/accounting?focus=${encodeURIComponent(item.id)}#deposits`;
   }
-  if (item.kind === 'deposit_complaint') return '/site-admin';
+  if (item.kind === 'deposit_complaint') return '/site-admin/complaints';
   if (item.kind === 'sale_decision') return `${base}?unit=${encodeURIComponent(item.id)}`;
   if (item.kind === 'stay_booking' && item.stayPhase === 'reschedule' && portal === 'owner') {
     return `/owner/bookings?tab=daily&focus=${encodeURIComponent(item.id)}`;

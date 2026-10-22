@@ -118,12 +118,26 @@ export default function proxy(request: NextRequest): NextResponse {
   const pathname = request.nextUrl.pathname;
   if (INTL_SKIP.test(pathname)) return NextResponse.next();
 
+  // Short /admin alias → dedicated site console (never owner/tenant/product portals).
   const adminMatch = pathname.match(/^\/(ar|en)\/(admin|ADMIN)(\/.*)?$/i);
   if (adminMatch) {
     const locale = adminMatch[1]!;
-    const rest = adminMatch[3] ?? '';
+    const rest = (adminMatch[3] ?? '').replace(/^\//, '');
     const url = request.nextUrl.clone();
-    url.pathname = `/${locale}/platform${rest}`;
+    const map: Record<string, string> = {
+      diagnostics: 'diagnostics',
+      subscriptions: 'plans',
+      billing: 'billing',
+      security: 'security',
+      users: 'users',
+      complaints: 'complaints',
+      verification: 'verification',
+      delegates: 'delegates',
+      plans: 'plans',
+    };
+    const head = rest.split('/')[0] ?? '';
+    const mapped = map[head];
+    url.pathname = mapped ? `/${locale}/site-admin/${mapped}` : `/${locale}/site-admin`;
     return NextResponse.redirect(url);
   }
 

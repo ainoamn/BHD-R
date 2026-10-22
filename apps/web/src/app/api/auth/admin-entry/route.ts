@@ -4,9 +4,19 @@ export const runtime = 'nodejs';
 
 /** Safe admin landing — copied from ONE-BHD admin-entry (BHD-PRODUCT-SSO-ADMIN §3.1 / §4.9). */
 function adminReturnTo(request: Request): string {
-  const raw = new URL(request.url).searchParams.get('next')?.trim() || '/platform';
+  const raw = new URL(request.url).searchParams.get('next')?.trim() || '/site-admin';
   if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('://') || raw.includes('\\')) {
-    return '/platform';
+    return '/site-admin';
+  }
+  // Site/system control only — never land admins inside owner/tenant portals by mistake.
+  if (
+    raw === '/platform' ||
+    raw.startsWith('/platform/') ||
+    raw.startsWith('/owner/') ||
+    raw.startsWith('/tenant/') ||
+    raw.startsWith('/developer/')
+  ) {
+    return '/site-admin';
   }
   return raw;
 }

@@ -94,18 +94,23 @@ export default async function LoginPage({
       ? query.returnTo
       : `/${locale}/portal`;
 
-  // BHD-PRODUCT-SSO-ADMIN §3.2 — admin must never use local password login
+  // BHD-PRODUCT-SSO-ADMIN §3.2 — site console must never use local password login
   if (
     local &&
     (nextRaw.startsWith('/admin') ||
+      nextRaw.startsWith('/site-admin') ||
       nextRaw.startsWith('/platform') ||
       returnTo.startsWith('/admin') ||
+      returnTo.startsWith('/site-admin') ||
       returnTo.startsWith('/platform') ||
-      returnTo.includes('/platform'))
+      returnTo.includes('/platform') ||
+      returnTo.includes('/site-admin'))
   ) {
     redirect(
       `/api/auth/admin-entry?next=${encodeURIComponent(
-        nextRaw.startsWith('/') ? nextRaw : '/platform',
+        nextRaw.startsWith('/site-admin') || nextRaw.startsWith('/admin')
+          ? nextRaw
+          : '/site-admin',
       )}`,
     );
   }
