@@ -47,9 +47,9 @@ export function leaseOwnerLifecycleState(input: {
   leaseStatus: string | null | undefined;
   endsOn: string | null | undefined;
   today: string;
-  sourceType?: string | null;
-  contractStatus?: string | null;
-  linkedBookingStatus?: string | null;
+  sourceType?: string | null | undefined;
+  contractStatus?: string | null | undefined;
+  linkedBookingStatus?: string | null | undefined;
 }): OwnerLifecycleState {
   if (input.sourceType === 'stay_booking') {
     const contractStatus =
