@@ -32,6 +32,14 @@ import {
 } from './stays/reject-stay-note-form';
 import { HANDOVER_PHOTOS_MAX, handoverDocumentKind } from '@/lib/stay-handover';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
+import { muscatToday } from '@/lib/contract-list-facets';
+import {
+  leaseOwnerLifecycleState,
+  ownerLifecycleLabel,
+  ownerLifecycleState,
+  stayGuestStageDetail,
+  type OwnerLifecycleState,
+} from '@/lib/owner-lifecycle-status';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type {
   PropertyRecordRow,
@@ -151,7 +159,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'amountMinor', ar: 'المبلغ', en: 'Amount', format: 'money' },
       { key: 'refundStatus', ar: 'استرداد التأمين', en: 'Deposit refund', format: 'refund' },
       { key: 'termsAcceptedOn', ar: 'الشروط والأحكام', en: 'Terms', format: 'terms' },
-      { key: 'status', ar: 'حالة الحجز', en: 'Status', format: 'status' },
+      { key: 'status', ar: 'حالة العقد', en: 'Contract status', format: 'status' },
       { key: 'contractReference', ar: 'العقد', en: 'Contract', format: 'contractLink' },
     ],
     href: (row, portal) =>
@@ -180,7 +188,6 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'ownerSignedBy', ar: 'التوقيعات', en: 'Signatures', format: 'signatures' },
       { key: 'signedOn', ar: 'تاريخ الاعتماد', en: 'Approved on', format: 'date' },
       { key: 'status', ar: 'حالة العقد', en: 'Contract status', format: 'status' },
-      { key: 'leaseStatus', ar: 'حالة الإيجار', en: 'Lease status', format: 'status' },
     ],
     href: (row, portal) => `/${portal}/contracts/${row.id}`,
   },
@@ -200,7 +207,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'contractTotalMinor', ar: 'إجمالي العقد', en: 'Contract total', format: 'money' },
       { key: 'depositMinor', ar: 'التأمين', en: 'Deposit', format: 'money' },
       { key: 'cancellationOn', ar: 'تاريخ الإلغاء', en: 'Cancelled on', format: 'date' },
-      { key: 'status', ar: 'حالة التأجير', en: 'Status', format: 'status' },
+      { key: 'status', ar: 'حالة العقد', en: 'Contract status', format: 'status' },
     ],
   },
   sales: {
@@ -323,15 +330,17 @@ const INFO = new Set([
   'viewing_scheduled',
   'scheduled',
 ]);
-const ATTENTION = new Set(['viewing_requested', 'requested', 'request_pending']);
+const ATTENTION = new Set(['viewing_requested', 'requested', 'request_pending', 'pending']);
 const CHECK_IN_READY = new Set(['confirmed', 'pre_arrival']);
 const STAY_DEPARTED = new Set(['checked_out', 'closed']);
+const LIFECYCLE_STATES = new Set<string>(['active', 'ended', 'cancelled', 'pending']);
 const DANGER = new Set([
   'overdue',
   'failed',
   'payment_failed',
   'no_show',
   'reschedule_pending',
+  'cancelled',
 ]);
 const MUTED = new Set([
   'cancelled',
@@ -469,12 +478,57 @@ function formatStamp(value: string, locale: 'ar' | 'en'): string {
   }).format(date);
 }
 
-/** Stay rows show where the guest stands (awaiting check-in / check-out) instead of the raw status. */
+/**
+ * Owner-facing status: stays, leases, and stay-linked contracts use the same four
+ * lifecycle states as /owner/contracts (ساري / منتهي / ملغي / معلق).
+ */
 function displayStatus(row: PropertyRecordRow): string | null {
   if (row.kind === 'viewing' && row.status === 'requested') return 'viewing_requested';
   if (row.kind === 'viewing' && row.status === 'scheduled') return 'viewing_scheduled';
-  if (row.kind === 'stay' && row.reschedulePending === '1') return 'reschedule_pending';
+  if (row.kind === 'stay') {
+    return ownerLifecycleState({
+      contractStatus: row.contractStatus,
+      linkedStatus: row.status,
+      endsOn: row.toOn,
+      today: muscatToday(),
+    });
+  }
+  // Contract rows carry display lease labels in `leaseStatus`; use the raw contract fields.
+  if (row.contractKind || row.contractType) {
+    return ownerLifecycleState({
+      contractStatus: row.contractStatus,
+      linkedStatus: row.linkedBookingStatus,
+      endsOn: row.toOn,
+      today: muscatToday(),
+    });
+  }
+  if (row.leaseStatus) {
+    return leaseOwnerLifecycleState({
+      leaseStatus: row.leaseStatus,
+      endsOn: row.toOn,
+      today: muscatToday(),
+      sourceType: row.sourceType,
+      contractStatus: row.contractStatus,
+      linkedBookingStatus: row.linkedBookingStatus,
+    });
+  }
   return row.stage ?? row.status ?? null;
+}
+
+function statusDetail(row: PropertyRecordRow): string | null {
+  if (row.kind === 'stay') {
+    return stayGuestStageDetail(row.status, row.stage, {
+      reschedulePending: row.reschedulePending === '1',
+    });
+  }
+  return null;
+}
+
+function statusBadgeLabel(status: string, locale: 'ar' | 'en'): string {
+  if (LIFECYCLE_STATES.has(status)) {
+    return ownerLifecycleLabel(status as OwnerLifecycleState, locale);
+  }
+  return domainStatusLabel(status, locale);
 }
 
 function rowHighlightClass(row: PropertyRecordRow, focused: boolean): string | undefined {
@@ -790,12 +844,15 @@ function Cell({
       return value ? <>{value}</> : <span className="muted">—</span>;
     case 'status': {
       const status = column.key === 'status' ? displayStatus(row) : value;
-      return status ? (
-        <span className={`pmh-badge pmh-badge--${statusTone(status)}`}>
-          {domainStatusLabel(status, locale)}
+      if (!status) return <span className="muted">—</span>;
+      const detail = column.key === 'status' ? statusDetail(row) : null;
+      return (
+        <span className="ops-contract-state">
+          <span className={`pmh-badge pmh-badge--${statusTone(status)}`}>
+            {statusBadgeLabel(status, locale)}
+          </span>
+          {detail ? <small>{domainStatusLabel(detail, locale)}</small> : null}
         </span>
-      ) : (
-        <span className="muted">—</span>
       );
     }
     case 'stayLog':
@@ -2154,7 +2211,7 @@ export function PropertySectionRecords({
                 aria-pressed={statusFilter === status}
                 onClick={() => setStatusFilter(statusFilter === status ? '' : status)}
               >
-                {domainStatusLabel(status, locale)} <span>{count}</span>
+                {statusBadgeLabel(status, locale)} <span>{count}</span>
               </button>
             ))}
           </div>
@@ -2402,13 +2459,21 @@ export function PropertySectionRecords({
                                   </dd>
                                 </div>
                                 <div>
-                                  <dt>{ar ? 'حالة الحجز' : 'Booking status'}</dt>
+                                  <dt>{ar ? 'حالة العقد' : 'Contract status'}</dt>
                                   <dd>
                                     {(() => {
                                       const status = displayStatus(row);
+                                      const detail = statusDetail(row);
                                       return status ? (
-                                        <span className={`pmh-badge pmh-badge--${statusTone(status)}`}>
-                                          {domainStatusLabel(status, locale)}
+                                        <span className="ops-contract-state">
+                                          <span
+                                            className={`pmh-badge pmh-badge--${statusTone(status)}`}
+                                          >
+                                            {statusBadgeLabel(status, locale)}
+                                          </span>
+                                          {detail ? (
+                                            <small>{domainStatusLabel(detail, locale)}</small>
+                                          ) : null}
                                         </span>
                                       ) : (
                                         <span className="muted">—</span>

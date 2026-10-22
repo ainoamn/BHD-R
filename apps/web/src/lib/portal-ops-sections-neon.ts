@@ -186,9 +186,40 @@ async function loadLeasing(tx: OpsTransaction, orgId: string): Promise<NeonSecti
   } catch (error) {
     console.error('stay lease checkout repair (leasing)', error);
   }
+  const snapshot = contracts.payloadSnapshot;
   const rows = await tx
-    .select()
+    .select({
+      id: leases.id,
+      organizationId: leases.organizationId,
+      contractId: leases.contractId,
+      unitId: leases.unitId,
+      ownerPartyId: leases.ownerPartyId,
+      tenantPartyId: leases.tenantPartyId,
+      status: leases.status,
+      startsOn: leases.startsOn,
+      endsOn: leases.endsOn,
+      rentMinor: leases.rentMinor,
+      depositMinor: leases.depositMinor,
+      currency: leases.currency,
+      exitKind: leases.exitKind,
+      cancellationEffectiveOn: leases.cancellationEffectiveOn,
+      cancellationClearedAt: leases.cancellationClearedAt,
+      createdAt: leases.createdAt,
+      updatedAt: leases.updatedAt,
+      contractStatus: contracts.status,
+      sourceType: sql<string | null>`${snapshot}->'source'->>'type'`,
+      linkedBookingStatus: sql<string | null>`(
+        select b.status from stay_bookings b
+        where b.organization_id = ${orgId}
+          and b.id::text = ${snapshot}->'source'->>'stayBookingId'
+        limit 1
+      )`,
+    })
     .from(leases)
+    .leftJoin(
+      contracts,
+      and(eq(contracts.id, leases.contractId), eq(contracts.organizationId, orgId)),
+    )
     .where(eq(leases.organizationId, orgId))
     .orderBy(desc(leases.createdAt))
     .limit(LIST_LIMIT);

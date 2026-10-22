@@ -781,6 +781,12 @@ async function loadContracts(
       contractType: sql<string | null>`${contracts.payloadSnapshot}->'contract'->>'type'`,
       sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
       sourceReference: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'referenceCode'`,
+      linkedBookingStatus: sql<string | null>`(
+        select b.status from stay_bookings b
+        where b.organization_id = ${orgId}
+          and b.id::text = ${contracts.payloadSnapshot}->'source'->>'stayBookingId'
+        limit 1
+      )`,
       payloadStartsOn: sql<string | null>`${contracts.payloadSnapshot}->>'startsOn'`,
       payloadAmountMinor: sql<
         string | null
@@ -845,6 +851,7 @@ async function loadContracts(
       contractType: isSale ? 'sale' : 'lease',
       sourceType: row.sourceType,
       sourceReference: row.sourceReference,
+      linkedBookingStatus: row.linkedBookingStatus,
       unitCode: codeOf(row.unitId),
       party: names.get(row.tenantPartyId) ?? null,
       partyId: row.tenantPartyId ?? null,
@@ -890,8 +897,15 @@ async function loadLeases(
       cancellationEffectiveOn: leases.cancellationEffectiveOn,
       contractId: leases.contractId,
       contractReference: contracts.reference,
+      contractStatus: contracts.status,
       sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
       sourceReference: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'referenceCode'`,
+      linkedBookingStatus: sql<string | null>`(
+        select b.status from stay_bookings b
+        where b.organization_id = ${orgId}
+          and b.id::text = ${contracts.payloadSnapshot}->'source'->>'stayBookingId'
+        limit 1
+      )`,
       contractTotalMinor: sql<
         string | null
       >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
@@ -912,8 +926,10 @@ async function loadLeases(
     reference: row.contractReference ?? row.id.slice(0, 8).toUpperCase(),
     contractId: row.contractId,
     contractReference: row.contractReference,
+    contractStatus: row.contractStatus,
     sourceType: row.sourceType,
     sourceReference: row.sourceReference,
+    linkedBookingStatus: row.linkedBookingStatus,
     unitCode: codeOf(row.unitId),
     party: names.get(row.tenantPartyId) ?? null,
     partyId: row.tenantPartyId ?? null,

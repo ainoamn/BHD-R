@@ -36,6 +36,7 @@ import {
   rowContractCategory,
   type ContractCategory,
 } from '@/lib/contract-list-facets';
+import { leaseOwnerLifecycleState } from '@/lib/owner-lifecycle-status';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import { domainStatusLabel } from '@/lib/ui-labels';
@@ -337,26 +338,23 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     titleAr: 'إدارة التأجير',
     titleEn: 'Leasing management',
     introAr:
-      'عقد قيد الإجراء: إيجار وضمان وسماح وشيكات وسلسلة اعتماد (محاسب/مالي/إدارة) ثم توقيع إلكتروني وتفعيل ليصبح ساري المفعول.',
+      'عقد قيد الإجراء: إيجار وضمان وسماح وشيكات وسلسلة اعتماد (محاسب/مالي/إدارة) ثم توقيع إلكتروني وتفعيل ليصبح ساري المفعول. حالة العقد موحّدة مع الحجوزات والعقود (ساري / منتهي / ملغي / معلق).',
     introEn:
-      'In-progress lease: rent, deposit, grace, cheques, approval chain, e-sign, then activation to active.',
+      'In-progress lease: rent, deposit, grace, cheques, approval chain, e-sign, then activation. Status matches bookings and contracts (in force / ended / cancelled / pending).',
     createAr: 'تحويل لعقد إيجار',
     createEn: 'Convert to lease',
     columns: [
       { key: 'id', ar: 'العقد', en: 'Lease' },
-      { key: 'status', ar: 'الحالة', en: 'Status', format: 'status' },
+      { key: 'state', ar: 'الحالة', en: 'Status', format: 'contract_state' },
       { key: 'startsOn', ar: 'البداية', en: 'Starts', format: 'date' },
       { key: 'endsOn', ar: 'النهاية', en: 'Ends', format: 'date' },
       { key: 'rentMinor', ar: 'الإيجار', en: 'Rent', format: 'money' },
     ],
     flow: [
-      { value: 'draft', ar: 'مسودة', en: 'Draft' },
-      { value: 'active', ar: 'نشط', en: 'Active' },
-      { value: 'cancel_requested', ar: 'طلب إلغاء', en: 'Cancel requested' },
-      { value: 'clearance_pending', ar: 'بانتظار المحاسب', en: 'Clearance pending' },
+      { value: 'active', ar: 'ساري', en: 'In force' },
+      { value: 'ended', ar: 'منتهي', en: 'Ended' },
       { value: 'cancelled', ar: 'ملغي', en: 'Cancelled' },
-      { value: 'ended', ar: 'منتهٍ', en: 'Ended' },
-      { value: 'terminated', ar: 'مفسوخ (مسودة)', en: 'Terminated (draft)' },
+      { value: 'pending', ar: 'معلق', en: 'Pending' },
     ],
     moneyKey: 'rentMinor',
   },
@@ -993,8 +991,12 @@ function displayCellValue(
     const label = CONTRACT_STATE_LABELS[state];
     if (!label) return '—';
     const status = safeString(row.status);
-    const detail =
-      state === 'pending' || status === 'terminated' ? CONTRACT_SIGNING_LABELS[status] : null;
+    const contractStatus = safeString(row.contractStatus) || status;
+    const detailKey =
+      state === 'pending' || contractStatus === 'terminated' || status === 'terminated'
+        ? contractStatus || status
+        : '';
+    const detail = detailKey ? CONTRACT_SIGNING_LABELS[detailKey] : null;
     return (
       <span className="ops-contract-state">
         <span className={`ops-status ops-status--${CONTRACT_STATE_TONE[state]}`}>
@@ -2462,9 +2464,21 @@ export function OperationsConsole({
     () => contractsDefinition(definitions[section], contractKind),
     [section, contractKind],
   );
-  // Contracts: the sidebar kind picks the list; the status follows the signing, the linked
-  // lease or stay, and today's date.
+  // Contracts / leasing: same four owner-facing states (ساري / منتهي / ملغي / معلق).
   const records = useMemo((): DataRow[] => {
+    if (section === 'leasing') {
+      return loadedRecords.map((row) => ({
+        ...row,
+        state: leaseOwnerLifecycleState({
+          leaseStatus: safeString(row.status),
+          endsOn: safeString(row.endsOn),
+          today,
+          sourceType: safeString(row.sourceType) || null,
+          contractStatus: safeString(row.contractStatus) || null,
+          linkedBookingStatus: safeString(row.linkedBookingStatus) || null,
+        }),
+      }));
+    }
     if (section !== 'contracts') return loadedRecords;
     return loadedRecords
       .map((row) => ({
@@ -2638,7 +2652,9 @@ export function OperationsConsole({
       if (section === 'bookings' && !matchesBookingPurposeTab(row, bookingPurposeTab)) {
         return false;
       }
-      const status = safeString(section === 'contracts' ? row.state : row.status);
+      const status = safeString(
+        section === 'contracts' || section === 'leasing' ? row.state : row.status,
+      );
       if (section === 'properties') {
         if (archiveMode) {
           if (status !== 'archived') return false;
