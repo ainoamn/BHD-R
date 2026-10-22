@@ -120,9 +120,7 @@ function contractStatusCell(contract: TenancyContract, ar: boolean) {
               : 'Cancelled'
             : domainStatusLabel(contract.status, ar)
       }
-      tone={
-        awaitingMe ? 'action' : contract.status === 'signed' ? 'good' : cancelled ? 'muted' : undefined
-      }
+      tone={awaitingMe ? 'action' : contract.status === 'signed' ? 'good' : undefined}
     />
   );
 }
