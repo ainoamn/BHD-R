@@ -1070,6 +1070,22 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
               )
               .orderBy(asc(stayRefunds.createdAt)),
           );
+    // Closed «not received» disputes must not keep guest_receipt stuck — heal before paint.
+    const { healStaleDepositNotReceivedReceipt } = await import('@/lib/stay-deposit-claims-neon');
+    const healed = new Set<string>();
+    for (const row of refundRows) {
+      if (row.guestReceipt !== 'not_received' || healed.has(row.bookingId)) continue;
+      healed.add(row.bookingId);
+      if (await healStaleDepositNotReceivedReceipt(row.bookingId).catch(() => false)) {
+        row.guestReceipt = 'confirmed';
+        for (const other of refundRows) {
+          if (other.bookingId === row.bookingId && other.guestReceipt === 'not_received') {
+            other.guestReceipt = 'confirmed';
+          }
+        }
+      }
+    }
+
     const refundByBooking = pickStayDepositRefund(refundRows);
     const depositRefundByBooking = pickStayRefundByPrefix(refundRows, 'deposit:');
     const bookingCancelByBooking = pickStayRefundByPrefix(refundRows, 'booking_cancel:');

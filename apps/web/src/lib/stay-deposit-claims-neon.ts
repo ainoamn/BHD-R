@@ -280,6 +280,76 @@ async function audit(
   });
 }
 
+const OPEN_NOT_RECEIVED = ['open', 'with_accountant', 'escalated'] as const;
+
+/**
+ * Closing a «transfer not received» dispute (reject / host wins) means the refund
+ * is considered delivered — clear the sticky `guest_receipt = not_received` flag
+ * so tenant invoices stop showing «لم يصل الإرجاع».
+ */
+async function confirmReceiptAfterNotReceivedDismissed(
+  tx: Tx,
+  booking: RefundBooking,
+  meta: { claimId: string; actorUserId: string | null; by: string | null },
+): Promise<void> {
+  const refund = await currentRefund(tx, booking);
+  if (!refund || refund.guestReceipt !== 'not_received') return;
+  const now = new Date();
+  await tx
+    .update(stayRefunds)
+    .set({ guestReceipt: 'confirmed', guestReceiptAt: now, updatedAt: now })
+    .where(eq(stayRefunds.id, refund.id));
+  await recordDepositEvent(tx, booking, {
+    event: 'receipt_confirmed',
+    actorUserId: meta.actorUserId,
+    metadata: {
+      refundId: refund.id,
+      claimId: meta.claimId,
+      by: meta.by ?? 'staff',
+      reason: 'not_received_claim_dismissed',
+    },
+    audit: { claimId: meta.claimId, by: meta.by ?? 'staff' },
+  });
+}
+
+/**
+ * If every «not received» claim is closed but `guest_receipt` is still stuck,
+ * mark the transfer as confirmed (self-heal for older decisions).
+ */
+export async function healStaleDepositNotReceivedReceipt(
+  bookingId: string,
+): Promise<boolean> {
+  if (!UUID.test(bookingId)) return false;
+  return elevated(async (tx) => {
+    const [booking] = await tx
+      .select(bookingColumns)
+      .from(stayBookings)
+      .where(eq(stayBookings.id, bookingId))
+      .limit(1);
+    if (!booking) return false;
+    const refund = await currentRefund(tx, booking);
+    if (!refund || refund.guestReceipt !== 'not_received') return false;
+    const [open] = await tx
+      .select({ id: stayDepositClaims.id })
+      .from(stayDepositClaims)
+      .where(
+        and(
+          eq(stayDepositClaims.bookingId, bookingId),
+          eq(stayDepositClaims.kind, 'not_received'),
+          inArray(stayDepositClaims.status, [...OPEN_NOT_RECEIVED]),
+        ),
+      )
+      .limit(1);
+    if (open) return false;
+    await confirmReceiptAfterNotReceivedDismissed(tx, booking, {
+      claimId: 'heal',
+      actorUserId: null,
+      by: 'system',
+    });
+    return true;
+  });
+}
+
 const bookingColumns = {
   id: stayBookings.id,
   organizationId: stayBookings.organizationId,
@@ -832,6 +902,13 @@ export async function respondToDepositClaimOnNeon(
         })
         .where(eq(stayDepositClaims.id, claimId));
       await audit(tx, booking, claims.sub, `stay.deposit_claim.${status}`, { claimId });
+      if (!accepted && claim.kind === 'not_received') {
+        await confirmReceiptAfterNotReceivedDismissed(tx, booking, {
+          claimId,
+          actorUserId: claims.sub,
+          by,
+        });
+      }
       const nextHint =
         claim.kind === 'property_complaint'
           ? 'إن لم تكن راضياً يمكنك تقديم تظلُّم برقم مستقل من صفحة إقامتك.'
@@ -884,6 +961,14 @@ export async function respondToDepositClaimOnNeon(
       claimId,
       amountMinor: (voided ?? amount)?.toString() ?? null,
     });
+
+    if (!accepted && claim.kind === 'not_received') {
+      await confirmReceiptAfterNotReceivedDismissed(tx, booking, {
+        claimId,
+        actorUserId: claims.sub,
+        by,
+      });
+    }
     await queueGuestEmail(tx, booking, {
       subject: `رد المحاسب على طلب التأمين — ${booking.referenceCode}`,
       body: [
@@ -1325,6 +1410,14 @@ export async function resolveDepositComplaint(
       outcome: input.outcome,
       amountMinor: (voided ?? amount)?.toString() ?? null,
     });
+
+    if (!forGuest && claim.kind === 'not_received') {
+      await confirmReceiptAfterNotReceivedDismissed(tx, found, {
+        claimId,
+        actorUserId: claims.sub,
+        by: meta.by,
+      });
+    }
     await queueGuestEmail(tx, found, {
       subject: `قرار إدارة الموقع في شكواك — ${found.referenceCode}`,
       body: decisionLines(
