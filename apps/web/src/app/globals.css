@@ -28431,16 +28431,11 @@ a.contract-annex-bar__item:focus-visible {
   border: 0;
 }
 .reputation__list--grid .reputation-card {
-  grid-template-columns: 1fr;
-  gap: 0.7rem;
-  align-content: start;
-  background: #fff;
-  border: 1px solid rgb(9 45 36 / 0.08);
-  border-radius: 1rem;
+  margin-top: 0;
   box-shadow: 0 8px 22px rgb(9 45 36 / 0.04);
 }
-.reputation__list--grid .reputation-card + .reputation-card {
-  border-top: 1px solid rgb(9 45 36 / 0.08);
+.reputation__list--grid .reputation-card__body {
+  grid-template-columns: 1fr;
 }
 .reputation__list--grid .reputation-card__guest {
   padding-bottom: 0.6rem;
@@ -28561,13 +28556,90 @@ a.contract-annex-bar__item:focus-visible {
 }
 .reputation-card {
   display: grid;
+  gap: 0;
+  border: 1px solid rgb(9 45 36 / 0.1);
+  border-radius: 0.85rem;
+  background: #fff;
+  overflow: hidden;
+}
+.reputation-card + .reputation-card {
+  margin-top: 0.55rem;
+  border-top: 1px solid rgb(9 45 36 / 0.1);
+}
+.reputation-card__summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  color: inherit;
+}
+.reputation-card__summary:hover {
+  background: rgb(9 45 36 / 0.03);
+}
+.reputation-card__summary-who {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.reputation-card__summary-text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.reputation-card__summary-text strong {
+  font-weight: 700;
+}
+.reputation-card__preview {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: rgb(9 45 36 / 0.72);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+.reputation-card__summary-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+.reputation-card__chevron {
+  font-size: 0.8rem;
+}
+.reputation-card__body {
+  display: grid;
   grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
   gap: 1rem 1.5rem;
   align-items: start;
-  padding: 1.1rem 1.2rem;
-}
-.reputation-card + .reputation-card {
+  padding: 0.85rem 1rem 1rem;
   border-top: 1px solid rgb(9 45 36 / 0.08);
+}
+.reputation-card__profile-link {
+  margin: 0.15rem 0 0;
+}
+.reputation-card__profile-link a {
+  font-size: 0.9rem;
+}
+.reputation-all-modal__card {
+  width: min(52rem, 100%);
+  max-height: min(88dvh, 900px);
+  display: flex;
+  flex-direction: column;
+}
+.reputation-all-modal__body {
+  overflow: auto;
+  padding: 0.25rem 0.25rem 0.75rem;
+  overscroll-behavior: contain;
 }
 .reputation-card__guest {
   display: grid;
@@ -28607,10 +28679,9 @@ a.contract-annex-bar__item:focus-visible {
   font-size: 0.76rem;
 }
 @media (max-width: 640px) {
-  .reputation-card {
+  .reputation-card__body {
     grid-template-columns: 1fr;
     gap: 0.7rem;
-    padding: 0.95rem 0.9rem;
   }
   .reputation-card__guest {
     padding-bottom: 0.6rem;

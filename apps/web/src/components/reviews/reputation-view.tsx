@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ModalPortal } from '@/components/modal-portal';
 import { ScoreBadge } from '@/components/reviews/review-form';
 import {
   criterionLabel,
@@ -14,6 +15,12 @@ import {
   type ReputationSubject,
   type ReviewDirection,
 } from '@/lib/review-rubric';
+
+const PREVIEW_LIMIT = 4;
+
+function sortReviewsNewestFirst(reviews: readonly PublicReview[]): PublicReview[] {
+  return [...reviews].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
 
 function monthLabel(month: string, ar: boolean): string {
   const date = new Date(`${month}-15T12:00:00Z`);
@@ -396,100 +403,140 @@ function ReviewCard({
   review,
   subject,
   locale,
+  defaultOpen = false,
 }: {
   review: PublicReview;
   subject: ReputationSubject;
   locale: 'ar' | 'en';
+  defaultOpen?: boolean;
 }) {
   const { ar, fromGuest, name, nameHref, place, shownScore, stayed, party, unit, reviewedOn } =
     reviewFacts(review, subject, locale);
+  const [open, setOpen] = useState(defaultOpen);
+  const preview =
+    review.comment?.trim() ||
+    (review.summary ? (ar ? review.summary.ar : review.summary.en) : null) ||
+    (review.commentHidden
+      ? ar
+        ? 'أُخفي التعليق لمخالفته سياسة النشر، وبقيت الدرجات.'
+        : 'Comment hidden; scores remain.'
+      : ar
+        ? 'بلا تعليق نصي'
+        : 'No written comment');
+
   return (
-    <li className="reputation-card">
-      <aside className="reputation-card__guest">
-        <div className="reputation-card__head">
+    <li className={`reputation-card${open ? ' is-open' : ' is-collapsed'}`}>
+      <button
+        type="button"
+        className="reputation-card__summary"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="reputation-card__summary-who">
           <span className="reputation-card__avatar" aria-hidden="true">
             {name.trim().charAt(0)}
           </span>
-          <div className="reputation-card__who">
-            <ReviewerName name={name} href={nameHref} />
-            {!fromGuest && place ? <small className="muted">{place}</small> : null}
+          <span className="reputation-card__summary-text">
+            <strong>
+              <ReviewerName name={name} href={null} />
+            </strong>
+            <small className="muted">
+              {reviewedOn ?? (fromGuest ? stayed : monthLabel(review.stayMonth, ar))}
+            </small>
+            {!open ? (
+              <span className="reputation-card__preview" dir="auto">
+                {preview}
+              </span>
+            ) : null}
+          </span>
+        </span>
+        <span className="reputation-card__summary-meta">
+          <ScoreBadge score={shownScore} ar={ar} size="sm" />
+          <span className="muted reputation-card__chevron" aria-hidden="true">
+            {open ? (ar ? 'إخفاء' : 'Hide') : ar ? 'عرض' : 'Show'}
+          </span>
+        </span>
+      </button>
+
+      {open ? (
+        <div className="reputation-card__body">
+          <aside className="reputation-card__guest">
+            <ul className="reputation-card__facts">
+              {fromGuest && subject !== 'property' && subject !== 'unit' && place ? (
+                <li>
+                  <FactIcon kind="place" />
+                  <bdi>{place}</bdi>
+                </li>
+              ) : null}
+              {fromGuest && unit && subject !== 'unit' ? (
+                <li>
+                  <FactIcon kind="unit" />
+                  <bdi>{unit}</bdi>
+                </li>
+              ) : null}
+              <li>
+                <FactIcon kind="date" />
+                <span>{fromGuest ? stayed : monthLabel(review.stayMonth, ar)}</span>
+              </li>
+              {party ? (
+                <li>
+                  <FactIcon kind="party" />
+                  <span>{party}</span>
+                </li>
+              ) : null}
+            </ul>
+          </aside>
+          <div className="reputation-card__main">
+            <div className="reputation-card__groups">
+              {review.groups.map((group) =>
+                group.score === null ? null : (
+                  <span key={group.key}>
+                    {groupLabel(review.direction, group.key, ar)}{' '}
+                    <strong dir="ltr">{group.score.toFixed(1)}</strong>
+                  </span>
+                ),
+              )}
+              <RecommendChip review={review} ar={ar} />
+            </div>
+            {review.comment ? (
+              <blockquote className="reputation-card__comment" dir="auto">
+                {review.comment}
+              </blockquote>
+            ) : review.commentHidden ? (
+              <p className="muted reputation-card__hidden">
+                {ar
+                  ? 'أُخفي التعليق لمخالفته سياسة النشر، وبقيت الدرجات.'
+                  : 'The comment was hidden for breaking the posting rules; the scores remain.'}
+              </p>
+            ) : null}
+            {review.summary ? (
+              <p className="reputation-card__ai">
+                <span aria-hidden="true">✦</span> {ar ? review.summary.ar : review.summary.en}
+              </p>
+            ) : null}
+            {review.highlights.length || review.concerns.length ? (
+              <ul className="reputation-card__points">
+                {review.highlights.map((item) => (
+                  <li key={`h-${item.en}`} className="reputation-card__point--good">
+                    {ar ? item.ar : item.en}
+                  </li>
+                ))}
+                {review.concerns.map((item) => (
+                  <li key={`c-${item.en}`} className="reputation-card__point--bad">
+                    {ar ? item.ar : item.en}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {nameHref ? (
+              <p className="reputation-card__profile-link">
+                <a href={nameHref}>{ar ? 'ملف المقيّم ←' : 'Reviewer profile →'}</a>
+              </p>
+            ) : null}
+            {review.photoIds.length ? <ReviewPhotos ids={review.photoIds} ar={ar} /> : null}
           </div>
         </div>
-        <ul className="reputation-card__facts">
-          {fromGuest && subject !== 'property' && subject !== 'unit' && place ? (
-            <li>
-              <FactIcon kind="place" />
-              <bdi>{place}</bdi>
-            </li>
-          ) : null}
-          {fromGuest && unit && subject !== 'unit' ? (
-            <li>
-              <FactIcon kind="unit" />
-              <bdi>{unit}</bdi>
-            </li>
-          ) : null}
-          <li>
-            <FactIcon kind="date" />
-            <span>{fromGuest ? stayed : monthLabel(review.stayMonth, ar)}</span>
-          </li>
-          {party ? (
-            <li>
-              <FactIcon kind="party" />
-              <span>{party}</span>
-            </li>
-          ) : null}
-        </ul>
-      </aside>
-      <div className="reputation-card__main">
-        <header className="reputation-card__top">
-          <small className="muted">
-            {reviewedOn ? (ar ? `تاريخ التقييم: ${reviewedOn}` : `Reviewed: ${reviewedOn}`) : null}
-          </small>
-          <ScoreBadge score={shownScore} ar={ar} size="sm" />
-        </header>
-        <div className="reputation-card__groups">
-          {review.groups.map((group) =>
-            group.score === null ? null : (
-              <span key={group.key}>
-                {groupLabel(review.direction, group.key, ar)}{' '}
-                <strong dir="ltr">{group.score.toFixed(1)}</strong>
-              </span>
-            ),
-          )}
-          <RecommendChip review={review} ar={ar} />
-        </div>
-        {review.comment ? (
-          <blockquote className="reputation-card__comment" dir="auto">
-            {review.comment}
-          </blockquote>
-        ) : review.commentHidden ? (
-          <p className="muted reputation-card__hidden">
-            {ar
-              ? 'أُخفي التعليق لمخالفته سياسة النشر، وبقيت الدرجات.'
-              : 'The comment was hidden for breaking the posting rules; the scores remain.'}
-          </p>
-        ) : null}
-        {review.summary ? (
-          <p className="reputation-card__ai">
-            <span aria-hidden="true">✦</span> {ar ? review.summary.ar : review.summary.en}
-          </p>
-        ) : null}
-        {review.highlights.length || review.concerns.length ? (
-          <ul className="reputation-card__points">
-            {review.highlights.map((item) => (
-              <li key={`h-${item.en}`} className="reputation-card__point--good">
-                {ar ? item.ar : item.en}
-              </li>
-            ))}
-            {review.concerns.map((item) => (
-              <li key={`c-${item.en}`} className="reputation-card__point--bad">
-                {ar ? item.ar : item.en}
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        {review.photoIds.length ? <ReviewPhotos ids={review.photoIds} ar={ar} /> : null}
-      </div>
+      ) : null}
     </li>
   );
 }
@@ -564,7 +611,7 @@ export function ReputationView({
   const ar = locale === 'ar';
   const [data, setData] = useState<Reputation | null>(initial ?? null);
   const [loaded, setLoaded] = useState(initial !== undefined);
-  const [showAll, setShowAll] = useState(showAllReviews);
+  const [allOpen, setAllOpen] = useState(false);
   const [view, setView] = useState<ReviewsView>('list');
 
   useEffect(() => {
@@ -614,12 +661,21 @@ export function ReputationView({
       : true,
   );
   const [traveller, setTraveller] = useState<TravellerType | 'all'>('all');
-  const allReviews = data?.reviews ?? [];
-  const reviews =
-    traveller === 'all' ? allReviews : allReviews.filter((item) => item.traveller === traveller);
-  const visible = showAll ? reviews : reviews.slice(0, 4);
+  const allReviews = useMemo(
+    () => sortReviewsNewestFirst(data?.reviews ?? []),
+    [data?.reviews],
+  );
+  const reviews = useMemo(
+    () =>
+      traveller === 'all'
+        ? allReviews
+        : allReviews.filter((item) => item.traveller === traveller),
+    [allReviews, traveller],
+  );
+  const visible = showAllReviews ? reviews : reviews.slice(0, PREVIEW_LIMIT);
   const travellers = data?.travellers ?? [];
   const showTravellers = subject !== 'guest' && travellers.some((item) => item.count > 0);
+  const hasMore = !showAllReviews && reviews.length > PREVIEW_LIMIT;
 
   return (
     <section
@@ -834,14 +890,93 @@ export function ReputationView({
               {ar ? 'لا توجد تقييمات معروضة من هذا النوع.' : 'No reviews of this type shown.'}
             </p>
           ) : null}
-          {reviews.length > visible.length ? (
+          {hasMore ? (
             <button
               type="button"
               className="button button--quiet reputation__more"
-              onClick={() => setShowAll(true)}
+              onClick={() => setAllOpen(true)}
             >
-              {ar ? `عرض كل التقييمات (${reviews.length})` : `Show all reviews (${reviews.length})`}
+              {ar
+                ? `فتح كل التقييمات (${reviews.length})`
+                : `Open all reviews (${reviews.length})`}
             </button>
+          ) : null}
+          {allOpen ? (
+            <ModalPortal onClose={() => setAllOpen(false)}>
+              <div
+                className="ops-modal ops-modal--create reputation-all-modal"
+                role="presentation"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) setAllOpen(false);
+                }}
+              >
+                <section
+                  className="ops-modal__card reputation-all-modal__card"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="reputation-all-title"
+                  dir={ar ? 'rtl' : 'ltr'}
+                >
+                  <header>
+                    <div>
+                      <h2 id="reputation-all-title">
+                        {ar ? title.ar : title.en}
+                      </h2>
+                      <p className="muted">
+                        {ar
+                          ? `${reviews.length} تقييماً · الأحدث أولاً`
+                          : `${reviews.length} reviews · newest first`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAllOpen(false)}
+                      aria-label={ar ? 'إغلاق' : 'Close'}
+                    >
+                      ×
+                    </button>
+                  </header>
+                  <div className="reputation-all-modal__body">
+                    {view === 'table' ? (
+                      <div className="reputation-table-wrap">
+                        <table className="reputation-table">
+                          <thead>
+                            <tr>
+                              <th scope="col">{ar ? 'الضيف' : 'Guest'}</th>
+                              <th scope="col">{ar ? 'الإقامة' : 'Stay'}</th>
+                              <th scope="col">{ar ? 'الدرجة' : 'Score'}</th>
+                              <th scope="col">{ar ? 'التعليق' : 'Comment'}</th>
+                              <th scope="col">{ar ? 'تاريخ التقييم' : 'Reviewed'}</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {reviews.map((review) => (
+                              <ReviewRow
+                                key={review.id}
+                                review={review}
+                                subject={subject}
+                                locale={locale}
+                              />
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <ul className={`reputation__list reputation__list--${view}`}>
+                        {reviews.map((review) => (
+                          <ReviewCard
+                            key={review.id}
+                            review={review}
+                            subject={subject}
+                            locale={locale}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </section>
+              </div>
+            </ModalPortal>
           ) : null}
         </>
       )}
