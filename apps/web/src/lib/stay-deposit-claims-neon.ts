@@ -520,7 +520,7 @@ export async function respondToDepositClaimOnNeon(
 
     const accepted = input.decision === 'accept';
     const by = await actorName(tx, claims.sub);
-    const who: 'host' | 'admin' | 'accountant' =
+    const who: 'host' | 'accountant' =
       accountantMayDecide && !hostMayDecide ? 'accountant' : 'host';
     const meta = { claimId, note, by, actorUserId: claims.sub };
     let amount: bigint | null = null;
@@ -554,7 +554,7 @@ export async function respondToDepositClaimOnNeon(
     });
     await queueGuestEmail(tx, booking, {
       subject:
-        who === 'admin'
+        who === 'accountant'
           ? `رد المحاسب على بلاغ التأمين — ${booking.referenceCode}`
           : `رد المالك على طلبك بشأن التأمين — ${booking.referenceCode}`,
       body: [

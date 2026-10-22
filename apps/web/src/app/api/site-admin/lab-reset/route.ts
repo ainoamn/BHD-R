@@ -35,10 +35,11 @@ function errorJson(error: unknown, fallback: string) {
   return NextResponse.json({ error: { code } }, { status });
 }
 
-async function requireSiteLabReset(request: Request, opts?: { requireCsrf?: boolean }) {
-  const claims = await requireLiveSession(request, {
-    requireCsrf: opts?.requireCsrf,
-  });
+async function requireSiteLabReset(request: Request, requireCsrf = false) {
+  const claims = await requireLiveSession(
+    request,
+    requireCsrf ? { requireCsrf: true } : {},
+  );
   if (!(await siteAdminAccess(claims))) {
     throw new RouteGuardError(403, 'forbidden');
   }
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
   try {
-    const claims = await requireSiteLabReset(request, { requireCsrf: true });
+    const claims = await requireSiteLabReset(request, true);
     const limited = assertRouteRateLimit({
       key: hashRateKey(['lab-reset', claims.organizationId ?? claims.sub]),
       limit: 5,
