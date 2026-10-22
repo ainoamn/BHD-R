@@ -1,6 +1,5 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import { PlatformDiagnosticsPanel } from '@/components/platform/platform-diagnostics-panel';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
@@ -19,9 +18,5 @@ export default async function SiteAdminDiagnosticsPage({
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
   await requireSiteAdminPage(locale, null, { path: '/admin/diagnostics' });
-  return (
-    <div className="site-admin--wide">
-        <PlatformDiagnosticsPanel locale={locale} />
-      </div>
-  );
+  return null;
 }

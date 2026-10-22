@@ -65,6 +65,8 @@ export const maxDuration = 20;
 export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const { assertPublicSitePage } = await import('@/lib/site-page-gate');
+  await assertPublicSitePage('home');
   const t = await getTranslations();
   const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
   const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };

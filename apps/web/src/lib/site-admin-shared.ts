@@ -55,6 +55,9 @@ export type SiteConsoleSectionId =
   | 'diagnostics'
   | 'security'
   | 'billing'
+  | 'payments'
+  | 'pages'
+  | 'maintenance'
   | 'notifications'
   | 'badges'
   | 'apiKeys'
@@ -65,6 +68,8 @@ export const SITE_CONSOLE_SECTIONS: Array<{
   id: SiteConsoleSectionId;
   path: string;
   scope: AdminScope | null;
+  /** Root-only sections (site owner / complaint-inbox emails). */
+  rootOnly?: boolean;
   ar: string;
   en: string;
 }> = [
@@ -82,6 +87,30 @@ export const SITE_CONSOLE_SECTIONS: Array<{
     scope: null,
     ar: 'الأمن والتدقيق',
     en: 'Security',
+  },
+  {
+    id: 'payments',
+    path: '/admin/payments',
+    scope: null,
+    rootOnly: true,
+    ar: 'بوابات الدفع',
+    en: 'Payment gateways',
+  },
+  {
+    id: 'pages',
+    path: '/admin/pages',
+    scope: null,
+    rootOnly: true,
+    ar: 'صفحات الموقع',
+    en: 'Site pages',
+  },
+  {
+    id: 'maintenance',
+    path: '/admin/maintenance',
+    scope: null,
+    rootOnly: true,
+    ar: 'الصيانة والتنبيه',
+    en: 'Maintenance',
   },
   {
     id: 'plans',
@@ -157,9 +186,10 @@ export type SiteAdminAccess = {
 
 /** Sections this account may see in the site console (never shown in owner/tenant portals). */
 export function siteConsoleSectionsFor(access: SiteAdminAccess) {
-  return SITE_CONSOLE_SECTIONS.filter(
-    (section) => section.scope === null || access.scopes.includes(section.scope),
-  );
+  return SITE_CONSOLE_SECTIONS.filter((section) => {
+    if (section.rootOnly && !access.root) return false;
+    return section.scope === null || access.scopes.includes(section.scope);
+  });
 }
 
 export type AdminDelegate = {
@@ -383,6 +413,16 @@ const ERRORS: Record<string, { status: number; ar: string; en: string }> = {
     status: 403,
     ar: 'لا يوقف حساب الإدارة العليا إلا إداري أعلى.',
     en: 'Only a top-level admin can suspend another top-level admin.',
+  },
+  gateway_keys_required: {
+    status: 400,
+    ar: 'أدخل مفاتيح البوابة المطلوبة قبل تفعيلها.',
+    en: 'Enter the required gateway keys before enabling it.',
+  },
+  gateway_verify_failed: {
+    status: 400,
+    ar: 'تعذّر التحقق من مفاتيح البوابة. راجع المفتاح ونقطة النهاية ثم أعد المحاولة.',
+    en: 'Could not verify the gateway keys. Check the key and endpoint, then try again.',
   },
 };
 

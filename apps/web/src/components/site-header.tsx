@@ -18,7 +18,7 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [auth, setAuth] = useState<AuthState>({ status: 'loading' });
   const hidden =
-    /^\/(platform|owner|developer|tenant|login|forgot-password|reset-password|activate)(\/|$)/.test(
+    /^\/(platform|owner|developer|tenant|admin|site-admin|login|forgot-password|reset-password|activate)(\/|$)/.test(
       pathname,
     );
 

@@ -1,6 +1,5 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import { BadgesCenterBoard } from '@/components/badges/badges-center-board';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
@@ -19,9 +18,5 @@ export default async function SiteAdminBadgesPage({
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
   await requireSiteAdminPage(locale, null, { path: '/admin/badges' });
-  return (
-    <div className="site-admin--wide">
-        <BadgesCenterBoard locale={locale} portal="admin" />
-      </div>
-  );
+  return null;
 }

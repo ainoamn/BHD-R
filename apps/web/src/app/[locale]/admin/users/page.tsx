@@ -1,6 +1,5 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import { UsersAdmin } from '@/components/site-admin/users-admin';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +18,5 @@ export default async function SiteAdminUsersPage({
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
   await requireSiteAdminPage(locale, 'users');
-  return (
-    <UsersAdmin locale={locale} />
-  );
+  return null;
 }

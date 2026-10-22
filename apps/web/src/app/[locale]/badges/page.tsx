@@ -101,6 +101,8 @@ export default async function BadgesGuidePage({
   const ar = locale === 'ar';
   const lang = ar ? 'ar' : 'en';
   setRequestLocale(locale);
+  const { assertPublicSitePage } = await import('@/lib/site-page-gate');
+  await assertPublicSitePage('badges');
 
   const query = await searchParams;
   const serialQuery = typeof query.serial === 'string' ? query.serial : undefined;

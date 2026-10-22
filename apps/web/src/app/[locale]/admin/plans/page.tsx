@@ -1,6 +1,5 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import { PlansAdmin } from '@/components/site-admin/plans-admin';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +18,5 @@ export default async function SiteAdminPlansPage({
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
   await requireSiteAdminPage(locale, 'plans');
-  return (
-    <PlansAdmin locale={locale} />
-  );
+  return null;
 }

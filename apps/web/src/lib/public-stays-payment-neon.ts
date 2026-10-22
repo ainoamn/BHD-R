@@ -2,11 +2,8 @@ import 'server-only';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import {
-  isPaymentSandboxPilotEnabled,
-  readStaysFlagsFromEnv,
-  resolveStaysEnabledFromEnv,
-} from '@bhd-r/config';
+import { readStaysFlagsFromEnv, resolveStaysEnabledFromEnv } from '@bhd-r/config';
+import { isPlatformSandboxPaymentActive } from '@/lib/site-control-neon';
 import type { CreateStayPaymentSessionInput } from '@bhd-r/contracts';
 import {
   createDatabase,
@@ -56,8 +53,8 @@ async function asSystem<T>(work: (transaction: Tx) => Promise<T>): Promise<T> {
   });
 }
 
-function assertSandboxEnabled(): void {
-  if (!isPaymentSandboxPilotEnabled()) {
+async function assertSandboxEnabled(): Promise<void> {
+  if (!(await isPlatformSandboxPaymentActive())) {
     throw new PublicStayBookingError(
       'payment_gateway_inactive',
       'No supported online payment adapter is active',
@@ -79,7 +76,7 @@ function publicWebOrigin(): string {
 }
 
 export async function createStayPaymentSessionOnNeon(input: CreateStayPaymentSessionInput) {
-  assertSandboxEnabled();
+  await assertSandboxEnabled();
 
   return asSystem(async (transaction) => {
     const intent = await transaction.query.stayPaymentIntents.findFirst({
@@ -181,7 +178,7 @@ export async function completeStaySandboxPaymentOnNeon(
     cardholderName?: string;
   },
 ) {
-  assertSandboxEnabled();
+  await assertSandboxEnabled();
   if (!/^[A-Za-z0-9_-]{24,80}$/.test(sessionReference)) {
     throw new PublicStayBookingError('invalid_reference', 'Invalid payment session reference', 400);
   }
@@ -878,7 +875,7 @@ export type StaySandboxSessionSummary = {
 export async function lookupStaySandboxSessionOnNeon(
   sessionReference: string,
 ): Promise<StaySandboxSessionSummary | null> {
-  if (!isPaymentSandboxPilotEnabled()) return null;
+  if (!(await isPlatformSandboxPaymentActive())) return null;
   if (!/^[A-Za-z0-9_-]{24,80}$/.test(sessionReference)) return null;
 
   return asSystem(async (transaction) => {

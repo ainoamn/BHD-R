@@ -1,6 +1,5 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import { NotificationTemplatesStudio } from '@/components/notification-templates-studio';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
@@ -18,12 +17,6 @@ export default async function SiteAdminNotificationsPage({
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  await requireSiteAdminPage(locale, null, {
-    path: '/admin/notifications',
-  });
-  return (
-    <div className="site-admin--wide">
-        <NotificationTemplatesStudio locale={locale} />
-      </div>
-  );
+  await requireSiteAdminPage(locale, null, { path: '/admin/notifications' });
+  return null;
 }

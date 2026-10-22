@@ -9,6 +9,8 @@ export const metadata: Metadata = {
 
 export default async function PortalRouter({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
+  const { assertPublicSitePage } = await import('@/lib/site-page-gate');
+  await assertPublicSitePage('portal');
   const viewer = await getViewer();
   if (!viewer) redirect(`/${locale}/login`);
   const priority = ['platform', 'owner', 'developer', 'tenant'] as const;

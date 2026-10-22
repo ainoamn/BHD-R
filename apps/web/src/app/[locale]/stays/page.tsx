@@ -188,6 +188,8 @@ export default async function StaysSearchPage({
   const { locale: rawLocale } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
+  const { assertPublicSitePage } = await import('@/lib/site-page-gate');
+  await assertPublicSitePage('stays');
   const t = await getTranslations('Stays');
   const raw = await searchParams;
 

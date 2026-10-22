@@ -48,6 +48,8 @@ export default async function PropertiesPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const { assertPublicSitePage } = await import('@/lib/site-page-gate');
+  await assertPublicSitePage('properties');
   const raw = await searchParams;
   const flat: Record<string, string | undefined> = {};
   for (const [key, value] of Object.entries(raw)) {

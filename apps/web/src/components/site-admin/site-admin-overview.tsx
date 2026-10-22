@@ -2,9 +2,31 @@
 
 import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
+import { pushSoftPortalUrl } from '@/lib/soft-portal-nav';
 import type { PlatformDiagnostics } from '@/lib/platform-admin-neon';
 
 const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintEn: string }> = [
+  {
+    href: '/admin/payments',
+    ar: 'بوابات الدفع',
+    en: 'Payment gateways',
+    hintAr: 'تفعيل البوابات وطرق الدفع وإدخال المفاتيح',
+    hintEn: 'Enable gateways and methods, enter keys',
+  },
+  {
+    href: '/admin/pages',
+    ar: 'صفحات الموقع',
+    en: 'Site pages',
+    hintAr: 'تفعيل أو إيقاف الصفحات العامة',
+    hintEn: 'Turn public pages on or off',
+  },
+  {
+    href: '/admin/maintenance',
+    ar: 'الصيانة والتنبيه',
+    en: 'Maintenance',
+    hintAr: 'وضع الصيانة ورسالة الزوار',
+    hintEn: 'Maintenance mode and visitor notice',
+  },
   {
     href: '/admin/diagnostics',
     ar: 'تشخيص النظام',
@@ -155,7 +177,26 @@ export function SiteAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
 
       <div className="platform-admin-overview__grid">
         {LINKS.map((item) => (
-          <Link key={item.href} href={item.href} className="platform-admin-overview__tile" prefetch={false}>
+          <Link
+            key={item.href}
+            href={item.href}
+            className="platform-admin-overview__tile"
+            prefetch={false}
+            data-no-progress=""
+            onClick={(event) => {
+              if (
+                !event.defaultPrevented &&
+                event.button === 0 &&
+                !event.metaKey &&
+                !event.ctrlKey &&
+                !event.shiftKey &&
+                !event.altKey
+              ) {
+                event.preventDefault();
+                pushSoftPortalUrl(event.currentTarget.href);
+              }
+            }}
+          >
             <strong>{ar ? item.ar : item.en}</strong>
             <span>{ar ? item.hintAr : item.hintEn}</span>
           </Link>

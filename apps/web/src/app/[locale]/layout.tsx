@@ -7,6 +7,7 @@ import { isAppLocale, localeConfig, locales } from '@bhd-r/i18n';
 import { BhdSilentSso } from '@/components/bhd-silent-sso';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
+import { SiteMaintenanceBanner } from '@/components/site-maintenance-banner';
 import { MarketingRoutePrefetch } from '@/components/marketing-route-prefetch';
 import { NavigationProgress } from '@/components/navigation-progress';
 import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google';
@@ -118,6 +119,7 @@ export default async function LocaleLayout({
           <BhdSilentSso />
           <NavigationProgress />
           <MarketingRoutePrefetch />
+          <SiteMaintenanceBanner />
           <SiteHeader />
           <main id="main-content">{children}</main>
           <SiteFooter />
