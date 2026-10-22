@@ -1077,7 +1077,6 @@ function paymentPreviewItems(data: MyTenancy, ar: boolean, locale: string): Prev
         formatDate(payment.receivedAt, ar),
       ].join(' · '),
       amount: money(held.toString(), payment.currency, locale),
-      tone: hold.tone === 'info' ? 'info' : hold.tone === 'danger' ? 'danger' : undefined,
       status: <Status label={hold.label} tone={hold.tone} />,
       facts: [
         {
@@ -1118,6 +1117,7 @@ function paymentPreviewItems(data: MyTenancy, ar: boolean, locale: string): Prev
             : payment.method,
         },
       ],
+      ...(hold.tone === 'info' || hold.tone === 'danger' ? { tone: hold.tone } : {}),
       ...(href ? { href, hrefLabel: ar ? 'إيصال القبض' : 'Receipt' } : {}),
     } satisfies PreviewItem;
   });
