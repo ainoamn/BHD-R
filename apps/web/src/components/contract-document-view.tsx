@@ -552,6 +552,11 @@ export function ContractArticle({
     propertyName,
     status,
   } = documentFacts(contract, doc, ar);
+  const displayEndsOn = displayStayCheckoutOn(
+    doc.stayType,
+    contract.startsOn,
+    contract.endsOn,
+  );
   const [titleAr, titleEn] = titlePair;
   const stay = doc.type === 'stay';
   const sale = doc.type === 'sale';
