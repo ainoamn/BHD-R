@@ -918,11 +918,16 @@ function queueColumns(
   };
 }
 
-/** Guest claims waiting for the host's answer (for the bell), oldest first. */
+/** Guest claims waiting for the host/accountant (for the bell), oldest first. */
 export async function loadOpenClaimQueue(
   tx: Pick<Tx, 'select'>,
   orgId: string,
-  scope: { ownerPartyId: string | null; limit: number },
+  scope: {
+    ownerPartyId: string | null;
+    limit: number;
+    /** When set, only these claim kinds (e.g. accountant: `not_received`). */
+    kinds?: readonly string[];
+  },
 ): Promise<DepositClaimQueueRow[]> {
   const rows = await tx
     .select(queueColumns(stayDepositClaims.createdAt))
@@ -935,6 +940,9 @@ export async function loadOpenClaimQueue(
         eq(stayDepositClaims.status, 'open'),
         eq(properties.organizationId, orgId),
         ...(scope.ownerPartyId ? [eq(properties.ownerPartyId, scope.ownerPartyId)] : []),
+        ...(scope.kinds?.length
+          ? [inArray(stayDepositClaims.kind, [...scope.kinds])]
+          : []),
       ),
     )
     .orderBy(asc(stayDepositClaims.createdAt))

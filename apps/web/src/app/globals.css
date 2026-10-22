@@ -23594,6 +23594,29 @@ button.lrw__step-body:focus-visible {
   border-color: #b91c1c;
   box-shadow: 0 0 0 2px rgb(220 38 38 / 0.16);
 }
+.deposit-ledger__item.is-claim,
+.deposit-ledger__item.is-objection {
+  border-color: #dc2626;
+  background: #fef2f2;
+  box-shadow: inset 0.4rem 0 0 #dc2626;
+}
+.deposit-ledger__item.is-claim.is-focus,
+.deposit-ledger__item.is-objection.is-focus {
+  border-color: #b91c1c;
+  box-shadow:
+    inset 0.4rem 0 0 #b91c1c,
+    0 0 0 2px rgb(220 38 38 / 0.2);
+}
+.deposit-ledger__claim-mark {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  margin-inline-end: 0.35rem;
+  border-radius: 0.15rem;
+  background: #dc2626;
+  vertical-align: -0.05em;
+  box-shadow: 0 0 0 2px rgb(220 38 38 / 0.22);
+}
 .accounting-refunds-alert {
   display: grid;
   gap: 0.2rem;
@@ -23611,8 +23634,13 @@ button.lrw__step-body:focus-visible {
   font-size: 0.98rem;
 }
 .accounting-refunds-alert span {
+  display: block;
   font-size: 0.86rem;
   opacity: 0.92;
+}
+.accounting-refunds-alert__hint {
+  margin-top: 0.15rem;
+  font-weight: 600;
 }
 .stay-review-modal {
   align-items: center;
@@ -23705,6 +23733,8 @@ button.lrw__step-body:focus-visible {
   min-width: 0;
 }
 .deposit-ledger__ref {
+  display: inline-flex;
+  align-items: center;
   justify-self: start;
   font-size: 0.88rem;
   font-weight: 800;

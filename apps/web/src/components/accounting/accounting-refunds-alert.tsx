@@ -7,7 +7,12 @@ import {
 } from '@/lib/pending-approvals-shared';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 
-/** Dashboard cue when approved stay/deposit refunds await the accountant's transfer. */
+type Cue = {
+  transfers: number;
+  objections: number;
+};
+
+/** Dashboard cues for accountant work on deposits: transfers + guest objections. */
 export function AccountingRefundsAlert({
   locale,
   onOpen,
@@ -16,7 +21,7 @@ export function AccountingRefundsAlert({
   onOpen: () => void;
 }) {
   const ar = locale === 'ar';
-  const [count, setCount] = useState(0);
+  const [cue, setCue] = useState<Cue>({ transfers: 0, objections: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -30,10 +35,13 @@ export function AccountingRefundsAlert({
         if (!response.ok) return;
         const payload = (await response.json()) as PendingApprovals;
         if (cancelled) return;
-        const transfers = (payload.items ?? []).filter((item) => item.kind === 'refund_transfer');
-        setCount(transfers.length);
+        const items = payload.items ?? [];
+        setCue({
+          transfers: items.filter((item) => item.kind === 'refund_transfer').length,
+          objections: items.filter((item) => item.kind === 'deposit_claim').length,
+        });
       } catch {
-        /* keep last count */
+        /* keep last */
       }
     };
     void load();
@@ -47,15 +55,41 @@ export function AccountingRefundsAlert({
     };
   }, []);
 
-  if (count <= 0) return null;
+  const total = cue.transfers + cue.objections;
+  if (total <= 0) return null;
+
+  const lines: string[] = [];
+  if (cue.objections > 0) {
+    lines.push(
+      ar
+        ? `${cue.objections} اعتراض المبلغ لم يصل — علامة حمراء في أمانات التأمين`
+        : `${cue.objections} not-received objection${cue.objections === 1 ? '' : 's'} — red mark on deposits`,
+    );
+  }
+  if (cue.transfers > 0) {
+    lines.push(
+      ar
+        ? `${cue.transfers} استرداد بانتظار التحويل`
+        : `${cue.transfers} refund${cue.transfers === 1 ? '' : 's'} awaiting transfer`,
+    );
+  }
 
   return (
     <button type="button" className="accounting-refunds-alert" onClick={onOpen}>
-      <strong>{ar ? 'استردادات بانتظار التحويل' : 'Refunds to transfer'}</strong>
-      <span>
-        {ar
-          ? `${count} — افتح أمانات التأمين للتحويل`
-          : `${count} — open deposit trust to transfer`}
+      <strong>
+        {cue.objections > 0
+          ? ar
+            ? 'تنبيهات المحاسب — أمانات التأمين'
+            : 'Accountant alerts — deposits'
+          : ar
+            ? 'استردادات بانتظار التحويل'
+            : 'Refunds to transfer'}
+      </strong>
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+      <span className="accounting-refunds-alert__hint">
+        {ar ? 'افتح أمانات التأمين للمتابعة' : 'Open deposit trust to continue'}
       </span>
     </button>
   );

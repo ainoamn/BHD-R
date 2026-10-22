@@ -11,6 +11,7 @@ import {
   type Database,
 } from '@bhd-r/db';
 import { applySessionSettings } from '@/lib/db-session-settings';
+import type { AccountingIssuer, AccountingSignature } from '@/lib/accounting-letterhead';
 import {
   depositReceiptNumbers,
   maskAccount,
@@ -20,6 +21,7 @@ import {
   type RefundPayoutMethod,
 } from '@/lib/stay-deposit-refund';
 import { loadDepositRefunds } from '@/lib/stay-deposit-refund-neon';
+import { loadStayReceiptLetterhead } from '@/lib/stay-receipt-letterhead-neon';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
@@ -50,6 +52,7 @@ async function elevated<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
 export type GuestDepositSettlementDoc = {
   referenceCode: string;
   bookingId: string;
+  organizationId: string;
   propertyId: string;
   propertyNameAr: string | null;
   propertyNameEn: string | null;
@@ -73,6 +76,8 @@ export type GuestDepositSettlementDoc = {
   paidHolder: string | null;
   paidReference: string | null;
   hasTransferReceipt: boolean;
+  issuer: AccountingIssuer | null;
+  signature: AccountingSignature | null;
 };
 
 /** Bank slip uploaded with the accountant's transfer, by stay reference. */
@@ -112,10 +117,11 @@ export async function readGuestDepositTransferReceipt(
 /** Settlement / reverse document fields after an executed (or rejected) deposit refund. */
 export async function loadGuestDepositSettlementDoc(
   referenceCode: string,
+  locale: 'ar' | 'en' = 'ar',
 ): Promise<GuestDepositSettlementDoc | null> {
   const reference = referenceCode.trim().toUpperCase();
   if (reference.length < 4) return null;
-  return elevated(async (tx) => {
+  const base = await elevated(async (tx) => {
     const [booking] = await tx
       .select({
         id: stayBookings.id,
@@ -169,6 +175,7 @@ export async function loadGuestDepositSettlementDoc(
     return {
       referenceCode: booking.referenceCode,
       bookingId: booking.id,
+      organizationId: booking.organizationId,
       propertyId: booking.propertyId,
       propertyNameAr: booking.propertyNameAr,
       propertyNameEn: booking.propertyNameEn,
@@ -197,5 +204,20 @@ export async function loadGuestDepositSettlementDoc(
       hasTransferReceipt: Boolean(transfer?.hasReceipt),
     };
   });
+  if (!base) return null;
+
+  const letterhead = await loadStayReceiptLetterhead({
+    organizationId: base.organizationId,
+    referenceCode: base.referenceCode,
+    docKind: 'deposit_refund',
+    amountMinor: base.refundedMinor,
+    locale,
+  }).catch(() => null);
+
+  return {
+    ...base,
+    issuer: letterhead?.issuer ?? null,
+    signature: letterhead?.signature ?? null,
+  };
 }
 

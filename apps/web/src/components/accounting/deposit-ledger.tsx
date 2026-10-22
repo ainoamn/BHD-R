@@ -421,17 +421,39 @@ export function DepositLedgerPanel({
             const detailsId = `deposit-details-${id}`;
             const money = (value: string | null) =>
               value === null ? '—' : formatMoney(value, currency, locale);
+            const claimKinds = (claims[id] ?? []).filter(
+              (claim) => claim.status === 'open' || claim.status === 'escalated',
+            );
+            const notReceivedClaim = claimKinds.some((claim) => claim.kind === 'not_received');
             return (
               <li
                 key={id}
                 id={`deposit-${id}`}
                 className={`deposit-ledger__item${focusId === id ? ' is-focus' : ''}${
                   isOpen ? ' is-open' : ''
-                }${status === 'awaiting_refund_transfer' ? ' is-action' : ''}`}
+                }${status === 'awaiting_refund_transfer' ? ' is-action' : ''}${
+                  hasClaim ? ' is-claim' : ''
+                }${notReceivedClaim ? ' is-objection' : ''}`}
               >
-                <div className="deposit-ledger__row">
+                <div
+                  className="deposit-ledger__row"
+                  title={
+                    hasClaim
+                      ? notReceivedClaim
+                        ? ar
+                          ? 'اعتراض: لم يصل المبلغ'
+                          : 'Objection: amount not received'
+                        : ar
+                          ? 'اعتراض مفتوح'
+                          : 'Open claim'
+                      : undefined
+                  }
+                >
                   <div className="deposit-ledger__who">
                     <strong className="deposit-ledger__ref" dir="ltr">
+                      {hasClaim ? (
+                        <span className="deposit-ledger__claim-mark" aria-hidden="true" />
+                      ) : null}
                       {row.reference}
                     </strong>
                     <span className="deposit-ledger__guest-line">
@@ -484,7 +506,13 @@ export function DepositLedgerPanel({
                     ) : null}
                     {hasClaim ? (
                       <span className="pmh-badge pmh-badge--danger">
-                        {ar ? 'اعتراض' : 'Claim'}
+                        {notReceivedClaim
+                          ? ar
+                            ? 'اعتراض: لم يصل المبلغ'
+                            : 'Objection: not received'
+                          : ar
+                            ? 'اعتراض'
+                            : 'Claim'}
                       </span>
                     ) : null}
                   </div>

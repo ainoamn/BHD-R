@@ -34,7 +34,8 @@ export default async function StayDepositSettlementDocsPage({
     redirect(depositTransferReceiptHref(ref));
   }
 
-  const doc = await loadGuestDepositSettlementDoc(ref);
+  const lang = locale === 'en' ? 'en' : 'ar';
+  const doc = await loadGuestDepositSettlementDoc(ref, lang);
   if (!doc || doc.refundStatus !== 'executed') notFound();
 
   return (
@@ -63,8 +64,8 @@ export default async function StayDepositSettlementDocsPage({
       </div>
       <p className="rent-doc-page__hint muted">
         {ar
-          ? 'مستند عكس معاملة التأمين لحسابك — نفس المستند الذي يظهر للمحاسب في أمانات التأمين.'
-          : 'Reverse document for your deposit account — the same document the accountant sees on the deposits tab.'}
+          ? 'مستند محاسبي رسمي بترويسة الشركة واعتماد إلكتروني وباركود تحقق — نفس المستند في أمانات التأمين.'
+          : 'Official accounting document with company letterhead, electronic approval and a verification barcode — the same document on the deposits tab.'}
       </p>
       <StayDepositSettlementDocument doc={doc} locale={locale} />
     </div>

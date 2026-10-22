@@ -505,62 +505,17 @@
   align-items: center;
 }
 
-.stay-deposit-settlement-doc {
+.stay-deposit-settlement-doc.rent-doc {
   max-width: 760px;
   margin: 0 auto;
-  padding: 1.5rem 1.25rem 2.5rem;
-  background: #fff;
-  color: #111;
-  border: 1px solid #d8d8d8;
-  border-radius: 0.5rem;
 }
-.stay-deposit-settlement-doc__brand {
-  margin: 0 0 0.35rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-}
-.stay-deposit-settlement-doc__head h1 {
-  margin: 0 0 0.35rem;
-  font-size: 1.25rem;
-}
-.stay-deposit-settlement-doc__sub {
-  margin: 0 0 1.1rem;
-  color: #555;
-  font-size: 0.92rem;
-}
-.stay-deposit-settlement-doc__table {
-  width: 100%;
-  border-collapse: collapse;
-}
-.stay-deposit-settlement-doc__table th,
-.stay-deposit-settlement-doc__table td {
-  border: 1px solid #bbb;
-  padding: 0.45rem 0.6rem;
-  font-size: 0.92rem;
-  text-align: start;
-  vertical-align: top;
-}
-.stay-deposit-settlement-doc__table th {
-  width: 38%;
-  background: #f3f3f3;
-  font-weight: 600;
-}
-.stay-deposit-settlement-doc__strong td {
+.stay-deposit-settlement-doc .rent-doc__parties .is-strong dd {
   font-weight: 700;
 }
 .stay-deposit-settlement-doc__reconcile {
-  margin: 1rem 0 0;
+  margin: 0.85rem 0 0;
   padding: 0.75rem 1rem;
   border: 1px dashed #888;
   background: #fafafa;
   font-size: 0.92rem;
-}
-
-@media print {
-  .stay-deposit-settlement-doc {
-    border: 0;
-    border-radius: 0;
-    max-width: none;
-    padding: 0;
-  }
 }

@@ -27,10 +27,12 @@ function signatureCode(fingerprint: string): string {
 export async function loadStayReceiptLetterhead(input: {
   organizationId: string;
   referenceCode: string;
-  docKind: 'payment' | 'confirmation';
+  docKind: 'payment' | 'confirmation' | 'deposit_refund';
   paymentId?: string | null;
   amountMinor?: string | null;
   locale: 'ar' | 'en';
+  /** Path under the site origin for the QR verify link (defaults from docKind). */
+  verifyPath?: string;
 }): Promise<StayReceiptLetterhead | null> {
   const url = process.env.DATABASE_URL;
   if (!url) return null;
@@ -57,11 +59,15 @@ export async function loadStayReceiptLetterhead(input: {
         orgId: input.organizationId,
       };
       const fingerprint = fingerprintOf(payload);
-      const verifyPath = `/${input.locale}/stays/booking/receipt?ref=${encodeURIComponent(input.referenceCode)}${
-        input.docKind === 'payment' && input.paymentId
-          ? `&doc=payment&pay=${encodeURIComponent(input.paymentId)}`
-          : `&doc=${input.docKind}`
-      }`;
+      const verifyPath =
+        input.verifyPath ??
+        (input.docKind === 'deposit_refund'
+          ? `/${input.locale}/stays/booking/deposit-docs?ref=${encodeURIComponent(input.referenceCode)}&doc=refund`
+          : `/${input.locale}/stays/booking/receipt?ref=${encodeURIComponent(input.referenceCode)}${
+              input.docKind === 'payment' && input.paymentId
+                ? `&doc=payment&pay=${encodeURIComponent(input.paymentId)}`
+                : `&doc=${input.docKind}`
+            }`);
       const verifyUrl = `${publicWebOrigin()}${verifyPath}`;
       return {
         issuer,

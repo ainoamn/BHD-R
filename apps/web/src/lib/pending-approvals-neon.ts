@@ -268,9 +268,15 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
       canDecideRefunds || canPayRefunds
         ? loadDepositRefundQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
         : Promise.resolve([]);
-    const claimQuery = canDecideRefunds
-      ? loadOpenClaimQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
-      : Promise.resolve([]);
+    // Hosts see all open claims; accountants with pay-only see «not received» objections.
+    const claimQuery =
+      canDecideRefunds || canPayRefunds
+        ? loadOpenClaimQueue(tx, orgId, {
+            ownerPartyId,
+            limit: ITEM_LIMIT,
+            ...(canDecideRefunds ? {} : { kinds: ['not_received'] as const }),
+          })
+        : Promise.resolve([]);
     const saleQuery = canDecideSale
       ? listSaleDecisionUnits(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
       : Promise.resolve([]);
