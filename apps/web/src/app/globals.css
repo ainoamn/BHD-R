@@ -29637,6 +29637,31 @@ html.photo-viewer-open {
   color: #8a5a00;
   font-size: 0.9rem;
 }
+.handover-pass--locked {
+  opacity: 0.85;
+}
+.stay-deposit-gate-modal {
+  z-index: 120;
+}
+.stay-deposit-gate-modal__card {
+  width: min(26rem, calc(100vw - 1.5rem));
+  max-height: min(90vh, 32rem);
+}
+.stay-deposit-gate-modal__body {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0 1.15rem 1.25rem;
+}
+.stay-deposit-gate-modal__body > p {
+  margin: 0;
+  line-height: 1.5;
+}
+.stay-deposit-gate-modal__pay {
+  justify-self: stretch;
+  text-align: center;
+  min-height: 2.75rem;
+  font-weight: 800;
+}
 .handover-shots {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));

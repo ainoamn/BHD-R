@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ModalPortal } from '@/components/modal-portal';
 import { formatMoney } from '@/lib/format';
 
 type Pass = {
@@ -37,6 +38,7 @@ const stamp = (iso: string, ar: boolean) =>
 /**
  * Guest arrival barcode: staff at the property scan it (or type the 6-digit code)
  * to confirm check-in — same idea as viewing gate / lease handover.
+ * Unpaid refundable deposit blocks the barcode behind a modal with a pay CTA.
  */
 export function StayCheckinPass({
   locale,
@@ -53,6 +55,7 @@ export function StayCheckinPass({
   const [notReady, setNotReady] = useState(false);
   const [depositUnpaid, setDepositUnpaid] = useState<DepositUnpaid | null>(null);
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let stopped = false;
@@ -70,6 +73,7 @@ export function StayCheckinPass({
         if (stopped) return;
         if (!response.ok || !body || !('state' in body)) {
           setFailed(true);
+          setLoaded(true);
         } else if (body.state === 'arrived') {
           setArrived(true);
           setPass(null);
@@ -77,6 +81,7 @@ export function StayCheckinPass({
           setExpired(false);
           setNotReady(false);
           setDepositUnpaid(null);
+          setLoaded(true);
           return;
         } else if (body.state === 'expired') {
           setExpired(true);
@@ -84,6 +89,7 @@ export function StayCheckinPass({
           setTooEarly(null);
           setNotReady(false);
           setDepositUnpaid(null);
+          setLoaded(true);
           return;
         } else if (body.state === 'deposit_unpaid') {
           setDepositUnpaid(body);
@@ -92,6 +98,7 @@ export function StayCheckinPass({
           setExpired(false);
           setNotReady(false);
           setFailed(false);
+          setLoaded(true);
         } else if (body.state === 'too_early') {
           setTooEarly(body.opensAt);
           setPass(null);
@@ -99,6 +106,7 @@ export function StayCheckinPass({
           setNotReady(false);
           setDepositUnpaid(null);
           setFailed(false);
+          setLoaded(true);
         } else if (body.state === 'not_ready') {
           setNotReady(true);
           setPass(null);
@@ -106,18 +114,23 @@ export function StayCheckinPass({
           setExpired(false);
           setDepositUnpaid(null);
           setFailed(false);
+          setLoaded(true);
         } else if (body.state === 'pass' && body.qrSvg && body.code && body.refreshAt) {
           setFailed(false);
           setTooEarly(null);
           setExpired(false);
           setNotReady(false);
           setDepositUnpaid(null);
+          setLoaded(true);
           setPass((current) =>
             current?.refreshAt === body.refreshAt ? current : (body as Pass),
           );
         }
       } catch {
-        if (!stopped) setFailed(true);
+        if (!stopped) {
+          setFailed(true);
+          setLoaded(true);
+        }
       }
       if (!stopped) timer = window.setTimeout(() => void load(), 5000);
     };
@@ -161,21 +174,68 @@ export function StayCheckinPass({
       locale,
     );
     return (
-      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
-        <h2 id="stay-checkin-title">{ar ? 'ادفع مبلغ التأمين أولاً' : 'Pay the deposit first'}</h2>
-        <p className="notice notice--warn" role="status">
-          {ar
-            ? `قبل ظهور باركود الوصول يجب دفع مبلغ التأمين المسترد (${amount}).`
-            : `Pay the refundable deposit (${amount}) before the arrival barcode appears.`}
-        </p>
-        {depositUnpaid.paymentRedirectUrl ? (
-          <p>
-            <a className="button button--primary" href={depositUnpaid.paymentRedirectUrl}>
-              {ar ? `ادفع التأمين · ${amount}` : `Pay deposit · ${amount}`}
-            </a>
+      <>
+        <section
+          className="guest-stay-detail__card handover-pass handover-pass--locked"
+          aria-labelledby="stay-checkin-title"
+        >
+          <h2 id="stay-checkin-title">{ar ? 'باركود تسجيل الوصول' : 'Check-in barcode'}</h2>
+          <p className="muted" role="status">
+            {ar
+              ? 'باركود الوصول مقفل حتى يُدفع مبلغ التأمين المسترد.'
+              : 'The arrival barcode stays locked until the refundable deposit is paid.'}
           </p>
-        ) : null}
-      </section>
+        </section>
+        <ModalPortal>
+          <div
+            className="ops-modal stay-deposit-gate-modal"
+            role="presentation"
+          >
+            <div
+              className="ops-modal__card stay-deposit-gate-modal__card"
+              role="alertdialog"
+              aria-modal="true"
+              aria-labelledby="stay-deposit-gate-title"
+              aria-describedby="stay-deposit-gate-body"
+            >
+              <header className="ops-modal__head">
+                <div>
+                  <p className="ops-kicker">{ar ? 'خطوة الوصول' : 'Arrival step'}</p>
+                  <h2 id="stay-deposit-gate-title">
+                    {ar ? 'ادفع مبلغ التأمين أولاً' : 'Pay the deposit first'}
+                  </h2>
+                </div>
+              </header>
+              <div className="stay-deposit-gate-modal__body">
+                <p id="stay-deposit-gate-body">
+                  {ar
+                    ? `قبل ظهور باركود الوصول يجب دفع مبلغ التأمين المسترد (${amount}).`
+                    : `Pay the refundable deposit (${amount}) before the arrival barcode appears.`}
+                </p>
+                <p className="muted">
+                  {ar
+                    ? 'يُسترد التأمين بعد المغادرة وفحص العقار وفق سياسة الإقامة.'
+                    : 'The deposit is refunded after check-out and inspection under the stay policy.'}
+                </p>
+                {depositUnpaid.paymentRedirectUrl ? (
+                  <a
+                    className="button button--primary stay-deposit-gate-modal__pay"
+                    href={depositUnpaid.paymentRedirectUrl}
+                  >
+                    {ar ? `ادفع التأمين · ${amount}` : `Pay deposit · ${amount}`}
+                  </a>
+                ) : (
+                  <p className="notice notice--warn" role="status">
+                    {ar
+                      ? 'تعذّر فتح بوابة الدفع الآن. أعد تحميل الصفحة بعد لحظات.'
+                      : 'Payment could not be opened right now. Reload in a moment.'}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      </>
     );
   }
 
@@ -242,9 +302,13 @@ export function StayCheckinPass({
               ? ar
                 ? 'تعذّر تحميل الرمز، نعيد المحاولة…'
                 : 'Could not load the code; retrying…'
-              : ar
-                ? 'جارٍ إنشاء رمز الوصول…'
-                : 'Creating your arrival code…'}
+              : !loaded
+                ? ar
+                  ? 'جارٍ التحقق من التأمين ورمز الوصول…'
+                  : 'Checking deposit and arrival code…'
+                : ar
+                  ? 'جارٍ إنشاء رمز الوصول…'
+                  : 'Creating your arrival code…'}
           </p>
         )}
       </div>
