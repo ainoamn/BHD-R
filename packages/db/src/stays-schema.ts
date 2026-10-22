@@ -707,7 +707,7 @@ export const stayDepositClaims = pgTable(
       .notNull()
       .references(() => properties.id),
     refundId: uuid('refund_id').references(() => stayRefunds.id),
-    kind: varchar('kind', { length: 16 }).notNull(),
+    kind: varchar('kind', { length: 32 }).notNull(),
     status: varchar('status', { length: 16 }).notNull().default('open'),
     /** Guest-facing request number, e.g. DC-ST-72170FF9-01 — each cycle is isolated. */
     referenceCode: varchar('reference_code', { length: 40 }),

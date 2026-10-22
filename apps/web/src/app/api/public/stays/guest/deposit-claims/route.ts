@@ -82,8 +82,25 @@ export async function POST(request: Request) {
     }
     return stayBookingJson({ ok: true, whatsapp: result.whatsapp });
   } catch (error) {
-    const failed = claimErrorBody(error instanceof Error ? error.message : '');
-    if (failed.status === 500) console.error('POST /api/public/stays/guest/deposit-claims', error);
+    const code = error instanceof Error ? error.message : '';
+    const failed = claimErrorBody(code);
+    if (failed.status === 500) {
+      console.error('POST /api/public/stays/guest/deposit-claims', error);
+      const detail = error instanceof Error ? error.message : String(error);
+      // Surface known Postgres constraint failures instead of a blank retry message.
+      if (/value too long for type character varying/i.test(detail)) {
+        return stayBookingJson(
+          {
+            error: {
+              code: 'claim_kind_too_long',
+              messageAr: 'تعذّر حفظ نوع الشكوى؛ حدّث الصفحة وأعد المحاولة.',
+              message: 'Could not save the complaint type; refresh and try again.',
+            },
+          },
+          { status: 500 },
+        );
+      }
+    }
     return stayBookingJson(failed.body, { status: failed.status });
   }
 }
