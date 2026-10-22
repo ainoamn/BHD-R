@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.117 — 2026-10-22
+
+- **إصلاح بناء الإنتاج:** تصحيح قوس قالب في ملخص عقد الإقامة كان يوقف Turbopack.
+
 ## 0.8.134.116 — 2026-10-22
 
 - **نافذة تأمين الوصول:** مع زر دفع التأمين يظهر تغيير الموعد (إذا بقي أقل من 24 ساعة على الوصول) وإلغاء الحجز.

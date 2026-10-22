@@ -299,7 +299,7 @@ export function ContractDocumentView({
   );
   const summary = ar
     ? `${ownerName} ← ${tenantName} · ${pick(propertyName)} (${unitName}) · من ${pick(day(contract.startsOn))} إلى ${pick(day(displayEndsOn))} · القيمة ${pick(money(doc.amount))}`
-    : `${ownerName} → ${tenantName} · ${pick(propertyName)} (${unitName)} · ${pick(day(contract.startsOn))} – ${pick(day(displayEndsOn))} · ${pick(money(doc.amount))}`;
+    : `${ownerName} → ${tenantName} · ${pick(propertyName)} (${unitName}) · ${pick(day(contract.startsOn))} – ${pick(day(displayEndsOn))} · ${pick(money(doc.amount))}`;
   const links: ContractArticleLinks = {
     file: (kind) => `/api/portal/contracts/${contract.id}/files/${kind}?portal=${portal}`,
     contract: (contractId) => `/${locale}/${portal}/contracts/${contractId}`,
