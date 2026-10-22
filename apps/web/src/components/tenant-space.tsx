@@ -93,14 +93,18 @@ function Table({ head, children }: { head: string[]; children: ReactNode }) {
   );
 }
 
-function Status({
-  label,
-  tone,
-}: {
-  label: string;
-  tone?: 'action' | 'good' | 'danger' | undefined;
-}) {
+type StatusTone = 'action' | 'good' | 'danger' | 'warn' | 'info' | 'quiet';
+
+function Status({ label, tone }: { label: string; tone?: StatusTone | undefined }) {
   return <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>{label}</span>;
+}
+
+function alertTone(kind: string, action: boolean): string {
+  if (action || kind.includes('overdue') || kind === 'deposit_dispute') return 'danger';
+  if (kind.includes('sign') || kind.includes('payment') || kind.includes('pending')) return 'action';
+  if (kind.includes('scheduled') || kind.includes('expiring')) return 'warn';
+  if (kind.includes('due')) return 'info';
+  return 'quiet';
 }
 
 function contractStatusCell(contract: TenancyContract, ar: boolean) {
@@ -120,7 +124,15 @@ function contractStatusCell(contract: TenancyContract, ar: boolean) {
               : 'Cancelled'
             : domainStatusLabel(contract.status, ar)
       }
-      tone={awaitingMe ? 'action' : contract.status === 'signed' ? 'good' : undefined}
+      tone={
+        awaitingMe
+          ? 'action'
+          : cancelled
+            ? 'quiet'
+            : contract.status === 'signed'
+              ? 'good'
+              : 'info'
+      }
     />
   );
 }
@@ -212,7 +224,17 @@ function LeasesTable({ ar, locale, data }: Ctx) {
           <td>
             <Status
               label={domainStatusLabel(lease.status, ar)}
-              tone={lease.status === 'active' ? 'good' : undefined}
+              tone={
+                lease.status === 'active'
+                  ? 'good'
+                  : lease.status === 'cancel_requested' || lease.status === 'clearance_pending'
+                    ? 'warn'
+                    : lease.status === 'cancelled' || lease.status === 'terminated'
+                      ? 'quiet'
+                      : lease.status === 'ended'
+                        ? 'info'
+                        : undefined
+              }
             />
           </td>
           <td>
@@ -420,7 +442,7 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
 function AlertsList({ ar, locale, data }: Ctx) {
   if (!data.alerts.length) {
     return (
-      <p className="dash-alerts__empty">
+      <p className="tenant-home__calm">
         {ar ? 'لا شيء يحتاج انتباهك الآن.' : 'Nothing needs your attention right now.'}
       </p>
     );
@@ -431,8 +453,9 @@ function AlertsList({ ar, locale, data }: Ctx) {
         <li key={`${alert.kind}:${alert.id}`}>
           <Link
             href={alert.href}
-            className={`tenant-alert${alert.action ? ' tenant-alert--action' : ''}`}
+            className={`tenant-alert tenant-alert--${alertTone(alert.kind, alert.action)}`}
           >
+            <span className="tenant-alert__tone" aria-hidden="true" />
             <strong>{tenancyAlertLabel(alert.kind, ar)}</strong>
             <bdi className="tenant-alert__ref">{alert.reference}</bdi>
             <span className="tenant-alert__meta">
@@ -457,25 +480,28 @@ function Section({
   hint,
   more,
   children,
+  className,
 }: {
   title: string;
   hint?: string;
   more?: { href: string; label: string };
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <section className="tenant-section">
-      <div className="dash-section-head dash-section-head--compact">
-        <h2>{title}</h2>
+    <section className={`tenant-section${className ? ` ${className}` : ''}`}>
+      <div className="tenant-section__head">
+        <div className="tenant-section__titles">
+          <h2>{title}</h2>
+          {hint ? <p>{hint}</p> : null}
+        </div>
         {more ? (
-          <Link href={more.href} className="button button--quiet button--tiny">
+          <Link href={more.href} className="tenant-section__more">
             {more.label}
           </Link>
-        ) : hint ? (
-          <p className="dash-section-hint">{hint}</p>
         ) : null}
       </div>
-      {children}
+      <div className="tenant-section__body">{children}</div>
     </section>
   );
 }
@@ -700,54 +726,60 @@ export function TenantSpaceContent({
       label: ar ? 'حجوزاتي' : 'Bookings',
       value: data.stays.length + data.reservations.length + data.viewings.length,
       href: '/tenant/reservations',
+      tone: 'info' as const,
     },
     {
       key: 'contracts',
       label: ar ? 'عقودي' : 'Contracts',
       value: tenancyContractGroups(data.contracts).length,
       href: '/tenant/contracts',
+      tone: 'info' as const,
     },
     {
       key: 'leases',
       label: ar ? 'إيجارات سارية' : 'Active leases',
       value: liveLeases.length,
       href: '/tenant/leases',
+      tone: 'good' as const,
     },
     {
       key: 'invoices',
       label: ar ? 'فواتير مستحقة' : 'Invoices due',
       value: openInvoices.length,
       href: '/tenant/invoices',
+      tone: openInvoices.length ? ('danger' as const) : ('quiet' as const),
     },
     {
       key: 'requests',
       label: ar ? 'طلبات مفتوحة' : 'Open requests',
       value: openRequests.length,
       href: '/tenant/requests',
+      tone: openRequests.length ? ('action' as const) : ('quiet' as const),
     },
   ];
+  const alertCount = data.alerts.length;
 
   return (
-    <div className="dash-shell tenant-space">
-      <header className="dash-hero">
-        <div className="dash-hero__copy">
-          <p className="dash-hero__kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>
-          <h1>{ar ? `أهلاً ${displayName}` : `Welcome, ${displayName}`}</h1>
+    <div className="dash-shell tenant-space tenant-home">
+      <header className="tenant-home__welcome">
+        <div className="tenant-home__welcome-copy">
+          <p className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>
+          <h1>{ar ? `أهلاً، ${displayName}` : `Hello, ${displayName}`}</h1>
+          <p>
+            {ar
+              ? 'حجوزاتك وعقودك وفواتيرك في مكان واحد — خفيف وسريع.'
+              : 'Your bookings, contracts, and invoices in one light place.'}
+          </p>
           <BadgeChips
             badges={badges}
             locale={locale}
-            size={20}
-            max={6}
+            size={18}
+            max={5}
             labelled
-            className="property-360__badges"
+            className="tenant-home__badges"
           />
-          <p className="dash-hero__lede">
-            {ar
-              ? 'كل ما استأجرته أو حجزته لدى الملاك على المنصة: الحجوزات والعقود والإيجارات والفواتير. أما عقاراتك التي تؤجّرها أنت ففي مساحة المالك.'
-              : 'Everything you rent or booked from landlords on the platform: bookings, contracts, leases and invoices. Properties you let out yourself live in the owner space.'}
-          </p>
         </div>
-        <div className="dash-hero__actions">
+        <div className="tenant-home__welcome-actions">
           <Link href="/properties" className="button button--primary">
             {ar ? 'تصفّح العقارات' : 'Browse properties'}
           </Link>
@@ -772,36 +804,46 @@ export function TenantSpaceContent({
       </header>
       {notice}
 
-      <section className="dash-alerts" aria-label={ar ? 'يحتاج انتباهك' : 'Needs attention'}>
-        <div className="dash-section-head dash-section-head--compact">
-          <h2>{ar ? 'يحتاج انتباهك' : 'Needs your attention'}</h2>
-          <p className="dash-section-hint">
-            {ar
-              ? 'توقيع وسداد وحجوزات تنتظرك، الأهم أولاً.'
-              : 'Signatures, payments and bookings waiting on you, most urgent first.'}
-          </p>
+      <nav className="tenant-home__nav" aria-label={ar ? 'ملخص سريع' : 'Quick summary'}>
+        {metrics.map((metric) => (
+          <Link
+            key={metric.key}
+            href={metric.href}
+            className={`tenant-home__chip tenant-home__chip--${metric.tone}${
+              metric.value === 0 ? ' is-empty' : ''
+            }`}
+          >
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+          </Link>
+        ))}
+      </nav>
+
+      <section
+        className={`tenant-home__attention${alertCount ? ' has-items' : ''}`}
+        aria-label={ar ? 'يحتاج انتباهك' : 'Needs attention'}
+      >
+        <div className="tenant-section__head">
+          <div className="tenant-section__titles">
+            <h2>{ar ? 'يحتاج انتباهك' : 'Needs your attention'}</h2>
+            <p>
+              {ar
+                ? 'توقيع وسداد وحجوزات تنتظرك — الأهم أولاً.'
+                : 'Signatures, payments, and bookings waiting on you — most urgent first.'}
+            </p>
+          </div>
+          {alertCount ? (
+            <span className="tenant-home__count">{alertCount}</span>
+          ) : null}
         </div>
         <AlertsList {...ctx} />
       </section>
 
-      <section className="dash-metrics-block" aria-label={ar ? 'ملخص' : 'Summary'}>
-        <div className="dash-metrics">
-          {metrics.map((metric, index) => (
-            <Link
-              key={metric.key}
-              href={metric.href}
-              className={`dash-metric dash-metric--${index + 1}`}
-            >
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       <Section
         title={ar ? 'حجوزاتي' : 'My bookings'}
-        more={{ href: '/tenant/reservations', label: ar ? 'كل الحجوزات' : 'All bookings' }}
+        hint={ar ? 'أحدث المعاينات والإقامات والحجوزات.' : 'Latest viewings, stays, and bookings.'}
+        more={{ href: '/tenant/reservations', label: ar ? 'الكل' : 'All' }}
+        className="tenant-home__span"
       >
         {data.viewings.length || data.stays.length || data.reservations.length ? (
           <TenantBookingsBoard
@@ -817,26 +859,29 @@ export function TenantSpaceContent({
           <EmptyState title={ar ? 'لا حجوزات بعد' : 'No bookings yet'} />
         )}
       </Section>
-      <Section
-        title={ar ? 'عقودي' : 'My contracts'}
-        more={{ href: '/tenant/contracts', label: ar ? 'كل العقود' : 'All contracts' }}
-      >
-        <ContractsTable
-          {...ctx}
-          data={{
-            ...data,
-            contracts: tenancyContractGroups(data.contracts)
-              .slice(0, 5)
-              .flatMap(({ root, attachments }) => [root, ...attachments]),
-          }}
-        />
-      </Section>
-      <Section
-        title={ar ? 'فواتير مستحقة' : 'Invoices due'}
-        more={{ href: '/tenant/invoices', label: ar ? 'كل الفواتير' : 'All invoices' }}
-      >
-        <InvoicesTable {...ctx} openOnly />
-      </Section>
+
+      <div className="tenant-home__split">
+        <Section
+          title={ar ? 'عقودي' : 'My contracts'}
+          more={{ href: '/tenant/contracts', label: ar ? 'الكل' : 'All' }}
+        >
+          <ContractsTable
+            {...ctx}
+            data={{
+              ...data,
+              contracts: tenancyContractGroups(data.contracts)
+                .slice(0, 4)
+                .flatMap(({ root, attachments }) => [root, ...attachments]),
+            }}
+          />
+        </Section>
+        <Section
+          title={ar ? 'فواتير مستحقة' : 'Invoices due'}
+          more={{ href: '/tenant/invoices', label: ar ? 'الكل' : 'All' }}
+        >
+          <InvoicesTable {...ctx} openOnly />
+        </Section>
+      </div>
     </div>
   );
 }

@@ -85,18 +85,18 @@
   line-height: 1.7;
 }
 
-/* Tenant account statement: one card per lease. */
+/* Status tones for statements/requests inherit tenant-space tokens when nested. */
 .tenant-status--bad {
-  background: #fde9e9;
-  color: #8e2028;
+  background: var(--tenant-danger-soft, #fdecec);
+  color: var(--tenant-danger, #9b1c1c);
 }
 .tenant-status--warn {
-  background: #fff4e0;
-  color: #8a4b08;
+  background: var(--tenant-warn-soft, #fff6e8);
+  color: var(--tenant-warn, #9a5b08);
 }
 .tenant-status--info {
-  background: #e8f0fb;
-  color: #1d4f91;
+  background: var(--tenant-info-soft, #e8f1f8);
+  color: var(--tenant-info, #1a5a8a);
 }
 .tenant-statements {
   display: grid;
@@ -289,7 +289,7 @@
   margin: 0;
 }
 
-/* Request form (modal). */
+/* Request form (modal) — light tenant window */
 .tenant-request-modal {
   position: fixed;
   inset: 0;
@@ -297,37 +297,49 @@
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgb(6 20 16 / 0.55);
+  background: rgb(15 47 74 / 0.42);
+  backdrop-filter: blur(3px);
 }
 .tenant-request-modal__panel {
   width: min(34rem, 100%);
   max-height: calc(100dvh - 2rem);
   overflow: auto;
-  padding: 1.25rem;
+  padding: 1.2rem 1.25rem 1.35rem;
   background: #fff;
-  border-radius: 1.1rem;
-  box-shadow: 0 30px 80px rgb(0 0 0 / 0.25);
+  border: 1px solid rgb(26 90 138 / 0.12);
+  border-radius: 1.15rem;
+  box-shadow: 0 28px 70px rgb(15 47 74 / 0.22);
+  font-family: var(--font-arabic), 'IBM Plex Sans Arabic', Tahoma, sans-serif;
+  color: #0f2f4a;
 }
 .tenant-request-modal__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgb(15 47 74 / 0.08);
 }
 .tenant-request-modal__head h2 {
   margin: 0;
-  font-size: 1.15rem;
+  font-size: 1.12rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
 }
 .tenant-request-modal__close {
   width: 2.2rem;
   height: 2.2rem;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   line-height: 1;
-  background: #f1f4f2;
+  background: #eaf3f9;
+  color: #1a5a8a;
   border: 0;
   border-radius: 50%;
   cursor: pointer;
+}
+.tenant-request-modal__close:hover {
+  background: #dceaf4;
 }
 .tenant-request-modal__done {
   display: grid;

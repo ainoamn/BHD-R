@@ -8003,17 +8003,35 @@ body:has(.stays-booking-receipt) #main-content {
   }
 }
 
-/* Tenant space: its own blue tint so it never reads as the owner dashboard */
+/* Tenant space: calm blue system — light, flexible, status-colored */
 .tenant-space {
-  --tenant-accent: #1d4f8a;
-  --tenant-accent-soft: #e8f0f8;
-  --tenant-ink: #12355e;
-  --tenant-muted: #5b6f86;
+  --tenant-accent: #1a5a8a;
+  --tenant-accent-soft: #eaf3f9;
+  --tenant-ink: #0f2f4a;
+  --tenant-muted: #5a7188;
+  --tenant-line: rgb(15 47 74 / 0.1);
+  --tenant-surface: #ffffff;
+  --tenant-canvas: #f5f8fb;
+  --tenant-radius: 1rem;
+  --tenant-font: var(--font-arabic), 'IBM Plex Sans Arabic', Tahoma, sans-serif;
+  --tenant-good: #0f6b52;
+  --tenant-good-soft: #e6f6f0;
+  --tenant-warn: #9a5b08;
+  --tenant-warn-soft: #fff6e8;
+  --tenant-danger: #9b1c1c;
+  --tenant-danger-soft: #fdecec;
+  --tenant-action: #9a3412;
+  --tenant-action-soft: #fff1e8;
+  --tenant-info: #1a5a8a;
+  --tenant-info-soft: #e8f1f8;
+  --tenant-quiet: #475569;
+  --tenant-quiet-soft: #eef2f6;
   width: 100%;
   max-width: none;
   min-width: 0;
+  font-family: var(--tenant-font);
+  color: var(--tenant-ink);
 }
-/* Contracts / leases / invoices: use the full main column like owner ops tables */
 .tenant-space--lists {
   width: 100%;
   max-width: none;
@@ -8026,8 +8044,177 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .portal-layout .tenant-space .dash-hero {
   background:
-    radial-gradient(circle at 0% 0%, rgb(29 79 138 / 0.09), transparent 22rem),
-    linear-gradient(135deg, #f1f5fb 0%, #fff 55%);
+    radial-gradient(circle at 0% 0%, rgb(26 90 138 / 0.08), transparent 22rem),
+    linear-gradient(135deg, #eef4f9 0%, #fff 58%);
+}
+
+/* Tenant home overview */
+.tenant-home {
+  display: grid;
+  gap: 1.15rem;
+  padding-bottom: 1.5rem;
+}
+.tenant-home__welcome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--tenant-line);
+  border-radius: calc(var(--tenant-radius) + 0.15rem);
+  background:
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.1), transparent 16rem),
+    linear-gradient(145deg, #eef4f9 0%, #fff 62%);
+}
+.tenant-home__welcome-copy {
+  display: grid;
+  gap: 0.3rem;
+  max-width: 38rem;
+}
+.tenant-kicker {
+  margin: 0;
+  color: var(--tenant-accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tenant-home__welcome-copy h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--tenant-ink);
+}
+.tenant-home__welcome-copy > p {
+  margin: 0;
+  color: var(--tenant-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.tenant-home__badges {
+  margin-top: 0.25rem;
+}
+.tenant-home__welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.tenant-home__nav {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.tenant-home__chip {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--tenant-radius);
+  border: 1px solid var(--tenant-line);
+  background: var(--tenant-surface);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 8px 20px rgb(15 47 74 / 0.04);
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.tenant-home__chip:hover {
+  border-color: rgb(26 90 138 / 0.28);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 28px rgb(15 47 74 / 0.07);
+}
+.tenant-home__chip span {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--tenant-muted);
+}
+.tenant-home__chip strong {
+  font-size: 1.4rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--tenant-ink);
+}
+.tenant-home__chip--good {
+  border-inline-start: 3px solid var(--tenant-good);
+}
+.tenant-home__chip--danger {
+  border-inline-start: 3px solid var(--tenant-danger);
+  background: linear-gradient(180deg, var(--tenant-danger-soft), #fff 70%);
+}
+.tenant-home__chip--action {
+  border-inline-start: 3px solid var(--tenant-action);
+  background: linear-gradient(180deg, var(--tenant-action-soft), #fff 70%);
+}
+.tenant-home__chip--info {
+  border-inline-start: 3px solid var(--tenant-info);
+}
+.tenant-home__chip--quiet,
+.tenant-home__chip.is-empty {
+  opacity: 0.88;
+}
+.tenant-home__chip.is-empty strong {
+  color: var(--tenant-muted);
+}
+.tenant-home__attention {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.95rem 1.05rem;
+  border: 1px solid var(--tenant-line);
+  border-radius: var(--tenant-radius);
+  background: var(--tenant-surface);
+}
+.tenant-home__attention.has-items {
+  border-color: rgb(154 52 18 / 0.18);
+  background: linear-gradient(180deg, #fffaf6 0%, #fff 55%);
+}
+.tenant-home__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--tenant-action-soft);
+  color: var(--tenant-action);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.tenant-home__calm {
+  margin: 0;
+  padding: 0.55rem 0.15rem;
+  color: var(--tenant-muted);
+  font-size: 0.9rem;
+}
+.tenant-home__split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+.tenant-home__span {
+  grid-column: 1 / -1;
+}
+@media (max-width: 960px) {
+  .tenant-home__nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .tenant-home__split {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .tenant-home__nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tenant-home__welcome {
+    padding: 1rem;
+  }
 }
 
 /* Tenant bookings board — card feed instead of stacked tables */
@@ -8382,7 +8569,48 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .tenant-section {
   display: grid;
-  gap: 0.55rem;
+  gap: 0.65rem;
+  min-width: 0;
+}
+.tenant-section__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.tenant-section__titles {
+  display: grid;
+  gap: 0.15rem;
+}
+.tenant-section__titles h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--tenant-ink, #0f2f4a);
+}
+.tenant-section__titles p {
+  margin: 0;
+  color: var(--tenant-muted, #5a7188);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+.tenant-section__more {
+  color: var(--tenant-accent, #1a5a8a);
+  font-size: 0.84rem;
+  font-weight: 750;
+  text-decoration: none;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.tenant-section__more:hover {
+  border-color: var(--tenant-line, rgb(15 47 74 / 0.12));
+  background: var(--tenant-accent-soft, #eaf3f9);
+}
+.tenant-section__body {
+  min-width: 0;
 }
 .dash-tenancy {
   display: flex;
@@ -8426,75 +8654,133 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .tenant-alerts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14.5rem), 1fr));
+  gap: 0.55rem;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .tenant-alert {
+  position: relative;
   display: grid;
-  gap: 0.2rem;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid rgb(29 79 138 / 0.18);
-  border-radius: 0.8rem;
-  background: rgb(29 79 138 / 0.05);
-  color: #12355e;
+  gap: 0.18rem;
+  padding: 0.75rem 0.85rem 0.75rem 0.95rem;
+  border: 1px solid var(--tenant-line, rgb(15 47 74 / 0.1));
+  border-radius: 0.85rem;
+  background: #fff;
+  color: var(--tenant-ink, #0f2f4a);
   text-decoration: none;
+  overflow: hidden;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.tenant-alert__tone {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 3px;
+  background: var(--tenant-info, #1a5a8a);
 }
 .tenant-alert:hover {
-  background: rgb(29 79 138 / 0.09);
+  border-color: rgb(26 90 138 / 0.28);
+}
+.tenant-alert--danger {
+  background: var(--tenant-danger-soft, #fdecec);
+  border-color: rgb(155 28 28 / 0.18);
+  color: var(--tenant-danger, #9b1c1c);
+}
+.tenant-alert--danger .tenant-alert__tone {
+  background: var(--tenant-danger, #9b1c1c);
 }
 .tenant-alert--action {
-  border-color: #efc8a8;
-  background: #fff4ec;
-  color: #7c2d12;
+  background: var(--tenant-action-soft, #fff1e8);
+  border-color: rgb(154 52 18 / 0.2);
+  color: var(--tenant-action, #9a3412);
 }
-.tenant-alert--action:hover {
-  background: #ffeadb;
+.tenant-alert--action .tenant-alert__tone {
+  background: var(--tenant-action, #9a3412);
+}
+.tenant-alert--warn {
+  background: var(--tenant-warn-soft, #fff6e8);
+  border-color: rgb(154 91 8 / 0.2);
+  color: var(--tenant-warn, #9a5b08);
+}
+.tenant-alert--warn .tenant-alert__tone {
+  background: var(--tenant-warn, #9a5b08);
+}
+.tenant-alert--info {
+  background: var(--tenant-info-soft, #e8f1f8);
+}
+.tenant-alert--info .tenant-alert__tone {
+  background: var(--tenant-info, #1a5a8a);
+}
+.tenant-alert--quiet .tenant-alert__tone {
+  background: var(--tenant-quiet, #475569);
 }
 .tenant-alert strong {
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 800;
 }
 .tenant-alert__ref {
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 700;
 }
 .tenant-alert__meta {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   opacity: 0.85;
 }
 .tenant-status {
-  display: inline-block;
-  padding: 0.12rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.6rem;
   border-radius: 999px;
-  background: #eef2f6;
-  color: #334155;
-  font-size: 0.78rem;
-  font-weight: 700;
+  background: var(--tenant-quiet-soft, #eef2f6);
+  color: var(--tenant-quiet, #475569);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.01em;
   white-space: nowrap;
+  border: 1px solid transparent;
 }
 .tenant-status--action {
-  background: #fff1e6;
-  color: #9a3412;
+  background: var(--tenant-action-soft, #fff1e8);
+  color: var(--tenant-action, #9a3412);
+  border-color: rgb(154 52 18 / 0.12);
 }
 .tenant-status--good {
-  background: #e7f5ee;
-  color: #0f5b4a;
+  background: var(--tenant-good-soft, #e6f6f0);
+  color: var(--tenant-good, #0f6b52);
+  border-color: rgb(15 107 82 / 0.12);
 }
 .tenant-status--danger {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--tenant-danger-soft, #fdecec);
+  color: var(--tenant-danger, #9b1c1c);
+  border-color: rgb(155 28 28 / 0.12);
+}
+.tenant-status--warn,
+.tenant-status--bad {
+  background: var(--tenant-warn-soft, #fff6e8);
+  color: var(--tenant-warn, #9a5b08);
+  border-color: rgb(154 91 8 / 0.14);
+}
+.tenant-status--info {
+  background: var(--tenant-info-soft, #e8f1f8);
+  color: var(--tenant-info, #1a5a8a);
+  border-color: rgb(26 90 138 / 0.12);
+}
+.tenant-status--quiet {
+  background: var(--tenant-quiet-soft, #eef2f6);
+  color: var(--tenant-quiet, #475569);
 }
 .tenant-table-wrap {
   width: 100%;
   min-width: 0;
   max-height: none;
   overflow: visible;
-  background: rgb(255 255 255 / 0.96);
-  border: 1px solid rgb(9 45 36 / 0.08);
-  border-radius: 1.2rem;
-  box-shadow: 0 14px 36px rgb(9 45 36 / 0.05);
+  background: var(--tenant-surface, #fff);
+  border: 1px solid var(--tenant-line, rgb(15 47 74 / 0.1));
+  border-radius: var(--tenant-radius, 1rem);
+  box-shadow: 0 10px 28px rgb(15 47 74 / 0.045);
 }
 .portal-layout .tenant-space .tenant-table-wrap.data-table-wrap {
   overflow: visible;
@@ -8536,11 +8822,11 @@ body:has(.stays-booking-receipt) #main-content {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem 1.25rem;
-  padding: 1.1rem 1.25rem;
-  background: rgb(255 255 255 / 0.96);
-  border: 1px solid rgb(9 45 36 / 0.08);
-  border-radius: 1.15rem;
-  box-shadow: 0 14px 36px rgb(9 45 36 / 0.05);
+  padding: 1rem 1.15rem;
+  background: var(--tenant-surface, #fff);
+  border: 1px solid var(--tenant-line, rgb(15 47 74 / 0.1));
+  border-radius: var(--tenant-radius, 1rem);
+  box-shadow: 0 10px 28px rgb(15 47 74 / 0.04);
 }
 .tenant-contract-card__main {
   display: grid;
