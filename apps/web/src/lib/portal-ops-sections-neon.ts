@@ -192,6 +192,8 @@ async function loadLeasing(tx: OpsTransaction, orgId: string): Promise<NeonSecti
       id: leases.id,
       organizationId: leases.organizationId,
       contractId: leases.contractId,
+      /** Same human reference as /owner/contracts (not the lease UUID). */
+      reference: contracts.reference,
       unitId: leases.unitId,
       ownerPartyId: leases.ownerPartyId,
       tenantPartyId: leases.tenantPartyId,

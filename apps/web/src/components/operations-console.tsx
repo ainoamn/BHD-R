@@ -344,7 +344,7 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     createAr: 'تحويل لعقد إيجار',
     createEn: 'Convert to lease',
     columns: [
-      { key: 'id', ar: 'العقد', en: 'Lease' },
+      { key: 'reference', fallbackKeys: ['contractId', 'id'], ar: 'العقد', en: 'Contract' },
       { key: 'state', ar: 'الحالة', en: 'Status', format: 'contract_state' },
       { key: 'startsOn', ar: 'البداية', en: 'Starts', format: 'date' },
       { key: 'endsOn', ar: 'النهاية', en: 'Ends', format: 'date' },
@@ -4474,6 +4474,22 @@ ${depositHtml}${
                                     })()}
                                   />
                                 </span>
+                              ) : section === 'leasing' && column.key === 'reference' ? (
+                                safeString(row.contractId) ? (
+                                  <Link
+                                    className="ops-action"
+                                    href={`/${portal}/contracts/${encodeURIComponent(safeString(row.contractId))}`}
+                                    prefetch
+                                  >
+                                    <bdi>
+                                      {displayCell(row, column, locale, context, definition.flow)}
+                                    </bdi>
+                                  </Link>
+                                ) : (
+                                  <bdi>
+                                    {displayCell(row, column, locale, context, definition.flow)}
+                                  </bdi>
+                                )
                               ) : section === 'contracts' && column.key === 'reference' ? (
                                 <div className="tenant-contract-ref">
                                   <bdi>
