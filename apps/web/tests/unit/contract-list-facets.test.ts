@@ -87,12 +87,16 @@ describe('contract list facets', () => {
     expect(state('signed', '2026-10-12')).toBe('active');
     expect(state('signed', null)).toBe('active');
     expect(state('signed', '2026-10-11')).toBe('ended');
-    expect(state('signed', '2026-12-31', 'checked_out')).toBe('ended');
-    expect(state('signed', '2027-12-31', 'terminated')).toBe('ended');
+    expect(state('signed', '2026-12-31', 'ended')).toBe('ended');
+    // Daily stay handover / checkout closes the contract with a termination annex.
+    expect(state('signed', '2026-12-31', 'checked_out')).toBe('cancelled');
+    expect(state('signed', '2026-12-31', 'closed')).toBe('cancelled');
+    expect(state('signed', '2027-12-31', 'terminated')).toBe('cancelled');
     expect(state('void', '2026-12-31')).toBe('cancelled');
     expect(state('terminated', '2026-12-31')).toBe('cancelled');
     expect(state('signed', '2026-12-31', 'cancelled')).toBe('cancelled');
     expect(state('sent', '2026-12-31', 'expired')).toBe('cancelled');
+    expect(state('signed', '2026-12-31', 'no_show')).toBe('cancelled');
     expect(state('draft', '2026-12-31')).toBe('pending');
     expect(state('sent', '2026-12-31')).toBe('pending');
     expect(state('partially_signed', '2026-10-01')).toBe('pending');

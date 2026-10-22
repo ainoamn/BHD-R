@@ -144,14 +144,26 @@ export const CONTRACT_STATE_LABELS: Record<ContractState, { ar: string; en: stri
   pending: { ar: 'معلق', en: 'Pending' },
 };
 
-/** Lease or stay booking statuses that cancel the contract, and those that end it. */
-const LINK_CANCELLED = new Set(['cancelled', 'expired', 'payment_failed']);
-const LINK_ENDED = new Set(['ended', 'terminated', 'checked_out', 'closed', 'no_show']);
+/**
+ * Cancelled / voided ops: guest cancelled, no-show, payment failed, or daily stay
+ * checked out / closed (checkout issues a termination annex — owner sees ملغي).
+ * Natural lease end stays in LINK_ENDED (منتهي).
+ */
+const LINK_CANCELLED = new Set([
+  'cancelled',
+  'expired',
+  'payment_failed',
+  'checked_out',
+  'closed',
+  'no_show',
+  'terminated',
+]);
+const LINK_ENDED = new Set(['ended']);
 
 /**
- * Void or terminated contracts and cancelled bookings are cancelled; anything not
- * fully signed is pending; signed contracts end with their lease or stay, or on
- * their end date (Muscat), and are in force until then.
+ * Void or terminated contracts and cancelled / checked-out stays are cancelled;
+ * anything not fully signed is pending; signed contracts end with their lease
+ * term or end date (Muscat), and are in force until then.
  */
 export function contractState(input: {
   status: string | null | undefined;

@@ -24,7 +24,15 @@ describe('owner lifecycle status', () => {
         endsOn: '2026-10-25',
         today,
       }),
-    ).toBe('ended');
+    ).toBe('cancelled');
+    expect(
+      ownerLifecycleState({
+        contractStatus: 'terminated',
+        linkedStatus: 'checked_out',
+        endsOn: '2026-10-25',
+        today,
+      }),
+    ).toBe('cancelled');
     expect(
       ownerLifecycleState({
         contractStatus: 'draft',
@@ -63,7 +71,7 @@ describe('owner lifecycle status', () => {
         contractStatus: 'signed',
         linkedBookingStatus: 'checked_out',
       }),
-    ).toBe('ended');
+    ).toBe('cancelled');
   });
 
   it('maps long-term leases onto the same four labels', () => {
