@@ -1,6 +1,5 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
 import { SiteAdminOverview } from '@/components/site-admin/site-admin-overview';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
@@ -20,11 +19,8 @@ export default async function SiteAdminHomePage({
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  const access = await requireSiteAdminPage(locale, null, { path: '/admin' });
+  await requireSiteAdminPage(locale, null, { path: '/admin' });
   return (
-    <>
-      <SiteAdminNav access={access} current="overview" locale={locale} />
-      <SiteAdminOverview locale={locale} />
-    </>
+    <SiteAdminOverview locale={locale} />
   );
 }

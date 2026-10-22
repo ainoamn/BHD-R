@@ -117,7 +117,7 @@ export function SiteAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
   }, []);
 
   return (
-    <div className="platform-admin-overview site-admin--wide" style={{ margin: '0 auto', padding: '1rem' }}>
+    <div className="platform-admin-overview site-admin--wide">
       <header className="platform-admin__head">
         <div>
           <p className="platform-admin__kicker">

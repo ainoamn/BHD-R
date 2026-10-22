@@ -1,7 +1,6 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { PlatformSecurityPanel } from '@/components/platform/platform-security-panel';
-import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
@@ -19,13 +18,10 @@ export default async function SiteAdminSecurityPage({
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  const access = await requireSiteAdminPage(locale, null, { path: '/admin/security' });
+  await requireSiteAdminPage(locale, null, { path: '/admin/security' });
   return (
-    <>
-      <SiteAdminNav access={access} current="security" locale={locale} />
-      <div className="site-admin--wide" style={{ margin: '0 auto', padding: '1rem' }}>
+    <div className="site-admin--wide">
         <PlatformSecurityPanel locale={locale} />
       </div>
-    </>
   );
 }

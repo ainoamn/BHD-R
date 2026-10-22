@@ -1,6 +1,5 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
 import { SiteAdminPanel } from '@/components/site-admin/site-admin-panel';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
@@ -23,9 +22,6 @@ export default async function SiteAdminComplaintsPage({
     path: '/admin/complaints',
   });
   return (
-    <>
-      <SiteAdminNav access={access} current="complaints" locale={locale} />
-      <SiteAdminPanel locale={locale} canEditInbox={access.root} />
-    </>
+    <SiteAdminPanel locale={locale} canEditInbox={access.root} />
   );
 }

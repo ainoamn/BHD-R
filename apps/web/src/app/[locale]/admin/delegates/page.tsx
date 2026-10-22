@@ -1,7 +1,6 @@
 ﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { DelegatesAdmin } from '@/components/site-admin/delegates-admin';
-import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
@@ -19,11 +18,8 @@ export default async function SiteAdminDelegatesPage({
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  const access = await requireSiteAdminPage(locale, 'delegates');
+  await requireSiteAdminPage(locale, 'delegates');
   return (
-    <>
-      <SiteAdminNav access={access} current="delegates" locale={locale} />
-      <DelegatesAdmin locale={locale} />
-    </>
+    <DelegatesAdmin locale={locale} />
   );
 }

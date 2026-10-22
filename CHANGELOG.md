@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.90 — 2026-10-22
+
+- **تنقّل جانبي لتحكم الموقع:** قائمة أقسام `/admin` أصبحت شريطاً جانبياً ثابتاً بدل التبويبات الأفقية؛ على الشاشات الضيقة تبقى أفقية قابلة للتمرير.
+
 ## 0.8.134.89 — 2026-10-22
 
 - **مسار تحكم الموقع:** العنوان الرسمي أصبح `/admin` بدل `/site-admin`. الروابط القديمة `/site-admin/*` تُحوَّل تلقائياً؛ واجهات API تبقى تحت `/api/site-admin`.
