@@ -22,6 +22,7 @@ import {
   isHalfDayStayType,
   resolveStayPeriodTimes,
 } from '@/lib/stay-period-times';
+import { stayArrivalWindow } from '@/lib/stay-checkin-window';
 
 export type GuestStayActionBooking = {
   id: string;
@@ -164,13 +165,31 @@ async function guestStayPost<T>(path: string, body: unknown, ar: boolean, fallba
   return payload as T;
 }
 
+/** Show “change dates” in the deposit gate only when check-in is within this window. */
+const DEPOSIT_GATE_RESCHEDULE_MS = 24 * 60 * 60 * 1000;
+
+function withinArrivalHours(booking: GuestStayActionBooking, windowMs: number, now = Date.now()) {
+  const { checkInAt } = stayArrivalWindow({
+    checkInOn: booking.checkInOn,
+    checkOutOn: booking.checkOutOn,
+    stayType:
+      booking.stayType === 'day_use' || booking.stayType === 'overnight_only'
+        ? booking.stayType
+        : 'overnight_stay',
+  });
+  return checkInAt.getTime() - now < windowMs;
+}
+
 export function GuestStayActions({
   booking,
   compact = false,
+  /** Inside the unpaid-deposit arrival modal: pay is separate; change dates only near arrival. */
+  depositGate = false,
   onUpdated,
 }: {
   booking: GuestStayActionBooking;
   compact?: boolean;
+  depositGate?: boolean;
   onUpdated?: (next: GuestStayActionBooking) => void;
 }) {
   const locale = useLocale();
@@ -273,10 +292,12 @@ export function GuestStayActions({
     });
   }
 
-  const showPay = Boolean(
-    (booking.canPay && booking.paymentIntentId) ||
-      booking.pendingReschedule?.paymentRedirectUrl,
-  );
+  const showPay = depositGate
+    ? false
+    : Boolean(
+        (booking.canPay && booking.paymentIntentId) ||
+          booking.pendingReschedule?.paymentRedirectUrl,
+      );
   const showCancel = Boolean(booking.canCancel);
   const pendingReschedule = booking.pendingReschedule ?? null;
   const rescheduleRejection = booking.rescheduleRejection ?? null;
@@ -285,11 +306,14 @@ export function GuestStayActions({
     : null;
   const showModifyDates = Boolean(
     booking.listingSlug &&
-    booking.unitId &&
-    !pendingReschedule &&
-    (booking.canReschedule ?? RESCHEDULABLE.has(booking.status)),
+      booking.unitId &&
+      !pendingReschedule &&
+      (booking.canReschedule ?? RESCHEDULABLE.has(booking.status)) &&
+      (!depositGate || withinArrivalHours(booking, DEPOSIT_GATE_RESCHEDULE_MS)),
   );
-  const showRebook = Boolean(booking.canRebook && rebookHref && !showModifyDates);
+  const showRebook = depositGate
+    ? false
+    : Boolean(booking.canRebook && rebookHref && !showModifyDates);
 
   if (
     !showPay &&
@@ -304,7 +328,14 @@ export function GuestStayActions({
 
   return (
     <div
-      className={compact ? 'guest-stay-actions guest-stay-actions--compact' : 'guest-stay-actions'}
+      className={[
+        compact || depositGate
+          ? 'guest-stay-actions guest-stay-actions--compact'
+          : 'guest-stay-actions',
+        depositGate ? 'guest-stay-actions--deposit-gate' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       {rescheduleRejection && !pendingReschedule ? (
         <p className="notice notice--warn guest-stay-actions__pending" role="status">

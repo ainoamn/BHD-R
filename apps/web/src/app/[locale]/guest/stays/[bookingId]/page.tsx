@@ -564,7 +564,11 @@ export default async function GuestStayDetailPage({
             !ENDED_STATUSES.has(booking.status) &&
             booking.status !== 'checked_out' &&
             booking.status !== 'closed' ? (
-              <StayCheckinPass locale={locale} referenceCode={booking.referenceCode} />
+              <StayCheckinPass
+                locale={locale}
+                referenceCode={booking.referenceCode}
+                actionBooking={booking}
+              />
             ) : null}
             <section className="guest-stay-detail__card">
               <h2>{ar ? 'موعد الإقامة' : 'Your dates'}</h2>

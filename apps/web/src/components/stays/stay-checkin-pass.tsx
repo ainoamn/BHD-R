@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { ModalPortal } from '@/components/modal-portal';
+import {
+  GuestStayActions,
+  type GuestStayActionBooking,
+} from '@/components/stays/guest-stay-actions';
 import { formatMoney } from '@/lib/format';
 
 type Pass = {
@@ -43,9 +47,12 @@ const stamp = (iso: string, ar: boolean) =>
 export function StayCheckinPass({
   locale,
   referenceCode,
+  actionBooking = null,
 }: {
   locale: string;
   referenceCode: string;
+  /** Enables change-dates / cancel in the unpaid-deposit gate modal. */
+  actionBooking?: GuestStayActionBooking | null;
 }) {
   const ar = locale === 'ar';
   const [pass, setPass] = useState<Pass | null>(null);
@@ -217,20 +224,25 @@ export function StayCheckinPass({
                     ? 'يُسترد التأمين بعد المغادرة وفحص العقار وفق سياسة الإقامة.'
                     : 'The deposit is refunded after check-out and inspection under the stay policy.'}
                 </p>
-                {depositUnpaid.paymentRedirectUrl ? (
-                  <a
-                    className="button button--primary stay-deposit-gate-modal__pay"
-                    href={depositUnpaid.paymentRedirectUrl}
-                  >
-                    {ar ? `ادفع التأمين · ${amount}` : `Pay deposit · ${amount}`}
-                  </a>
-                ) : (
-                  <p className="notice notice--warn" role="status">
-                    {ar
-                      ? 'تعذّر فتح بوابة الدفع الآن. أعد تحميل الصفحة بعد لحظات.'
-                      : 'Payment could not be opened right now. Reload in a moment.'}
-                  </p>
-                )}
+                <div className="stay-deposit-gate-modal__actions">
+                  {depositUnpaid.paymentRedirectUrl ? (
+                    <a
+                      className="button button--primary stay-deposit-gate-modal__pay"
+                      href={depositUnpaid.paymentRedirectUrl}
+                    >
+                      {ar ? `ادفع التأمين · ${amount}` : `Pay deposit · ${amount}`}
+                    </a>
+                  ) : (
+                    <p className="notice notice--warn" role="status">
+                      {ar
+                        ? 'تعذّر فتح بوابة الدفع الآن. أعد تحميل الصفحة بعد لحظات.'
+                        : 'Payment could not be opened right now. Reload in a moment.'}
+                    </p>
+                  )}
+                  {actionBooking ? (
+                    <GuestStayActions booking={actionBooking} depositGate />
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>

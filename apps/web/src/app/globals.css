@@ -29645,7 +29645,8 @@ html.photo-viewer-open {
 }
 .stay-deposit-gate-modal__card {
   width: min(26rem, calc(100vw - 1.5rem));
-  max-height: min(90vh, 32rem);
+  max-height: min(92vh, 40rem);
+  overflow: auto;
 }
 .stay-deposit-gate-modal__body {
   display: grid;
@@ -29656,11 +29657,29 @@ html.photo-viewer-open {
   margin: 0;
   line-height: 1.5;
 }
+.stay-deposit-gate-modal__actions {
+  display: grid;
+  gap: 0.55rem;
+}
 .stay-deposit-gate-modal__pay {
   justify-self: stretch;
   text-align: center;
   min-height: 2.75rem;
   font-weight: 800;
+}
+.guest-stay-actions--deposit-gate {
+  display: grid;
+  gap: 0.55rem;
+  width: 100%;
+  margin: 0;
+}
+.guest-stay-actions--deposit-gate > .button {
+  width: 100%;
+  justify-content: center;
+  min-height: 2.5rem;
+}
+.guest-stay-actions--deposit-gate .guest-stay-actions__pending {
+  margin: 0;
 }
 .handover-shots {
   display: grid;
