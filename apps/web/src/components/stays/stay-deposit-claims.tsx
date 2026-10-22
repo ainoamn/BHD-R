@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { guestDepositClaimNoteService, NoteTranslateBar } from '@/components/note-translate';
 import { formatMoney } from '@/lib/format';
 import {
   CLAIM_MESSAGE_MAX,
@@ -98,6 +99,10 @@ export function StayDepositClaims({
   const router = useRouter();
   const locale = ar ? 'ar' : 'en';
   const money = (minor: string) => formatMoney(minor, refund.currency, locale);
+  const noteService = useMemo(
+    () => guestDepositClaimNoteService(referenceCode),
+    [referenceCode],
+  );
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -153,20 +158,31 @@ export function StayDepositClaims({
   }
 
   const messageField = (id: string, placeholder: string) => (
-    <label className="stay-deposit-claims__field" htmlFor={id}>
-      <span>{ar ? 'اكتب التفاصيل' : 'Details'}</span>
-      <textarea
-        id={id}
-        rows={4}
-        maxLength={CLAIM_MESSAGE_MAX}
+    <div className="stay-deposit-claims__field">
+      <label htmlFor={id}>
+        <span>{ar ? 'اكتب التفاصيل' : 'Details'}</span>
+        <textarea
+          id={id}
+          rows={4}
+          maxLength={CLAIM_MESSAGE_MAX}
+          value={message}
+          placeholder={placeholder}
+          onChange={(event) => setMessage(event.target.value)}
+          disabled={pending}
+        />
+      </label>
+      <NoteTranslateBar
         value={message}
-        placeholder={placeholder}
-        onChange={(event) => setMessage(event.target.value)}
+        onChange={setMessage}
+        locale={locale}
+        max={CLAIM_MESSAGE_MAX}
+        disabled={pending}
+        service={noteService}
       />
       <small className="muted">
         {ar ? `${CLAIM_MESSAGE_MIN} أحرف على الأقل.` : `At least ${CLAIM_MESSAGE_MIN} characters.`}
       </small>
-    </label>
+    </div>
   );
 
   return (

@@ -71,6 +71,39 @@ export const TENANT_NOTE_SERVICE: NoteService = {
     }),
 };
 
+/** Guest deposit claim / complaint / appeal notes — public reference-code assist. */
+export function guestDepositClaimNoteService(referenceCode: string): NoteService {
+  const post = async <T,>(body: Record<string, unknown>, signal: AbortSignal): Promise<T> => {
+    const response = await fetch('/api/public/stays/guest/deposit-claims/assist', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        'x-requested-with': 'BHD-R',
+      },
+      body: JSON.stringify({ referenceCode, ...body }),
+      signal,
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | (T & { error?: { code?: string; messageAr?: string; message?: string } })
+      | null;
+    if (!response.ok || !payload) {
+      throw new ApiError(
+        response.status,
+        payload?.error?.code ?? 'api_error',
+        payload?.error?.messageAr ?? 'تعذّر إكمال الطلب.',
+      );
+    }
+    return payload;
+  };
+  return {
+    assist: (text, signal) => post<Assist>({ action: 'assist', text }, signal),
+    translate: (text, target) =>
+      post<Result>({ action: 'translate', text, target }, AbortSignal.timeout(60_000)),
+  };
+}
+
 /** The guest's review comment: public route, allowed while the stay's review is open. */
 export function guestReviewNoteService(referenceCode: string): NoteService {
   const post = async <T,>(body: Record<string, unknown>, signal: AbortSignal): Promise<T> => {

@@ -428,6 +428,19 @@ export type GuestDepositAction =
       message: string;
     };
 
+/** Reference-code gate for guest writing assist on deposit claims / complaints. */
+export async function assertGuestStayReference(referenceCode: string): Promise<void> {
+  const reference = referenceCode.trim().toUpperCase();
+  await elevated(async (tx) => {
+    const [found] = await tx
+      .select({ id: stayBookings.id })
+      .from(stayBookings)
+      .where(eq(stayBookings.referenceCode, reference))
+      .limit(1);
+    if (!found) fail('booking_not_found');
+  });
+}
+
 export type ComplaintWhatsapp = { number: string; url: string };
 
 /**

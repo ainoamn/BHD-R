@@ -28127,6 +28127,20 @@ a.contract-annex-bar__item:focus-visible {
   display: grid;
   gap: 0.55rem;
 }
+.stay-guest-review__host-title {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.stay-guest-review__host-lead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.stay-guest-review__host-phrase {
+  margin: 0;
+  line-height: 1.5;
+  color: #2f4740;
+}
 .stay-guest-review__host-toggle {
   display: flex;
   justify-content: space-between;
@@ -28146,16 +28160,21 @@ a.contract-annex-bar__item:focus-visible {
 .stay-guest-review__host-toggle:hover {
   background: #eef5f2;
 }
-.stay-guest-review__host-toggle > span:first-child {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
+.stay-guest-review__host-panel {
+  display: grid;
+  gap: 0.45rem;
+}
+.stay-guest-review__host-panel > p {
+  margin: 0;
 }
 .stay-guest-review__host-score {
   font-variant-numeric: tabular-nums;
   font-weight: 700;
   color: #0f4c44;
+}
+.stay-deposit-claims__field > label {
+  display: grid;
+  gap: 0.3rem;
 }
 .stay-guest-review__host h3 {
   margin: 0 0 0.5rem;
