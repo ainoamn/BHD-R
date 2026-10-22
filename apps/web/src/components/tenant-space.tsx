@@ -122,6 +122,8 @@ type PreviewItem = {
   title: string;
   eyebrow?: string;
   summary?: string;
+  /** Visible money on the title row (invoice total, payment amount, …). */
+  amount?: string;
   status?: ReactNode;
   tone?: string;
   facts: PreviewFact[];
@@ -130,6 +132,142 @@ type PreviewItem = {
   href?: string | null;
   hrefLabel?: string | null;
 };
+
+type MoneyBucket = { paid: bigint; overdue: bigint; due: bigint; deferred: bigint };
+
+function emptyMoneyBucket(): MoneyBucket {
+  return { paid: 0n, overdue: 0n, due: 0n, deferred: 0n };
+}
+
+function addMinor(map: Map<string, bigint>, currency: string, value: bigint) {
+  if (!currency || value === 0n) return;
+  map.set(currency, (map.get(currency) ?? 0n) + value);
+}
+
+function formatMoneyMap(
+  map: Map<string, bigint>,
+  locale: string,
+  zeroCurrency: string | null,
+): string {
+  const parts = [...map.entries()]
+    .filter(([, value]) => value !== 0n)
+    .map(([currency, value]) => formatMoney(value.toString(), currency, locale));
+  if (parts.length) return parts.join(' · ');
+  return zeroCurrency ? formatMoney('0', zeroCurrency, locale) : '—';
+}
+
+function todayIsoDate(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function plusDaysIso(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Paid / overdue / due now / deferred across lease statements (+ open invoices not in the ledger). */
+function tenantFinanceMoney(data: MyTenancy, locale: string) {
+  const today = todayIsoDate();
+  const soon = plusDaysIso(today, 14);
+  const byCurrency = new Map<string, MoneyBucket>();
+  const bucket = (currency: string) => {
+    let row = byCurrency.get(currency);
+    if (!row) {
+      row = emptyMoneyBucket();
+      byCurrency.set(currency, row);
+    }
+    return row;
+  };
+
+  for (const item of data.statements) {
+    const row = bucket(item.currency);
+    const statement = item.statement;
+    row.paid += BigInt(statement.paidMinor || '0');
+    row.overdue += BigInt(statement.arrears.totalMinor || '0');
+    for (const line of statement.lines) {
+      if (line.outsideTotal) continue;
+      const left = BigInt(line.amountMinor || '0') - BigInt(line.paidMinor || '0');
+      if (left <= 0n) continue;
+      if (
+        line.status === 'overdue' ||
+        line.status === 'bounced' ||
+        (line.dueOn < today &&
+          line.status !== 'paid' &&
+          line.status !== 'collecting' &&
+          line.status !== 'stopped')
+      ) {
+        continue;
+      }
+      if (line.status === 'upcoming' || line.dueOn > soon) {
+        row.deferred += left;
+      } else if (
+        line.status === 'due_soon' ||
+        line.status === 'due' ||
+        line.status === 'partially_paid' ||
+        line.status === 'collecting'
+      ) {
+        row.due += left;
+      }
+    }
+    for (const invoice of statement.otherInvoices) {
+      if (!OPEN_INVOICE.has(invoice.status)) continue;
+      const left = BigInt(invoice.totalMinor || '0') - BigInt(invoice.paidMinor || '0');
+      if (left <= 0n) continue;
+      if (invoice.status === 'overdue' || invoice.dueOn < today) continue;
+      if (invoice.dueOn > soon) row.deferred += left;
+      else row.due += left;
+    }
+  }
+
+  const covered = new Set(
+    data.statements.flatMap((item) => [
+      ...item.statement.otherInvoices.map((invoice) => invoice.id),
+      ...item.statement.lines
+        .map((line) => line.invoiceId)
+        .filter((id): id is string => Boolean(id)),
+    ]),
+  );
+  for (const invoice of data.invoices) {
+    if (covered.has(invoice.id)) continue;
+    const row = bucket(invoice.currency);
+    const paid = BigInt(invoice.paidMinor || '0');
+    const total = BigInt(invoice.totalMinor || '0');
+    const left = total - paid;
+    row.paid += paid > total ? total : paid;
+    if (left <= 0n) continue;
+    if (invoice.status === 'overdue' || (OPEN_INVOICE.has(invoice.status) && invoice.dueOn < today)) {
+      row.overdue += left;
+    } else if (OPEN_INVOICE.has(invoice.status) && invoice.dueOn > soon) {
+      row.deferred += left;
+    } else if (OPEN_INVOICE.has(invoice.status)) {
+      row.due += left;
+    }
+  }
+
+  const paid = new Map<string, bigint>();
+  const overdue = new Map<string, bigint>();
+  const due = new Map<string, bigint>();
+  const deferred = new Map<string, bigint>();
+  for (const [currency, row] of byCurrency) {
+    addMinor(paid, currency, row.paid);
+    addMinor(overdue, currency, row.overdue);
+    addMinor(due, currency, row.due);
+    addMinor(deferred, currency, row.deferred);
+  }
+  const zeroCurrency =
+    data.statements[0]?.currency ?? data.invoices[0]?.currency ?? data.payments[0]?.currency ?? null;
+  const has = (map: Map<string, bigint>) => [...map.values()].some((value) => value !== 0n);
+  return {
+    paid: formatMoneyMap(paid, locale, zeroCurrency),
+    overdue: formatMoneyMap(overdue, locale, zeroCurrency),
+    due: formatMoneyMap(due, locale, zeroCurrency),
+    deferred: formatMoneyMap(deferred, locale, zeroCurrency),
+    hasOverdue: has(overdue),
+    hasDue: has(due),
+    hasDeferred: has(deferred),
+  };
+}
 
 function takeRows<T>(rows: T[], limit?: number): T[] {
   return limit != null ? rows.slice(0, limit) : rows;
@@ -168,6 +306,9 @@ function PreviewList({
               ) : null}
             </div>
             <div className="tenant-preview-row__side">
+              {item.amount ? (
+                <strong className="tenant-preview-row__amount">{item.amount}</strong>
+              ) : null}
               {item.status}
               <button
                 type="button"
@@ -777,6 +918,8 @@ function invoicePreviewItems(
     : data.invoices;
   return takeRows(rows, options?.limit).map((invoice) => {
     const href = invoice.receiptHref ?? null;
+    const outstanding = invoiceOutstandingMinor(invoice);
+    const showOutstanding = OPEN_INVOICE.has(invoice.status) && outstanding !== '0';
     return {
       id: `invoice:${invoice.id}`,
       title: invoice.number,
@@ -788,6 +931,11 @@ function invoicePreviewItems(
           ? 'فاتورة'
           : 'Invoice',
       summary: `${tenancyLandlordName(invoice.landlord, ar)} · ${formatDate(invoice.dueOn, ar)}`,
+      amount: money(
+        showOutstanding ? outstanding : invoice.totalMinor,
+        invoice.currency,
+        locale,
+      ),
       status: (
         <Status
           label={domainStatusLabel(invoice.status, ar)}
@@ -812,7 +960,7 @@ function invoicePreviewItems(
         },
         {
           label: ar ? 'المتبقي' : 'Outstanding',
-          value: money(invoiceOutstandingMinor(invoice), invoice.currency, locale),
+          value: money(outstanding, invoice.currency, locale),
         },
       ],
       ...(href
@@ -877,6 +1025,7 @@ function paymentPreviewItems(data: MyTenancy, ar: boolean, locale: string): Prev
           ? 'دفعة'
           : 'Payment',
       summary: `${tenancyLandlordName(payment.landlord, ar)} · ${formatDate(payment.receivedAt, ar)}`,
+      amount: money(payment.amountMinor, payment.currency, locale),
       status: (
         <Status
           label={domainStatusLabel(payment.status, ar)}
@@ -1069,6 +1218,92 @@ export function TenantSpaceContent({
         ) : null}
         {view === 'invoices' || view === 'payments' ? (
           <>
+            {(() => {
+              const moneyStats = tenantFinanceMoney(data, locale);
+              const contractCount = tenancyContractGroups(data.contracts).length;
+              const bookingCount =
+                data.stays.length + data.reservations.length + data.viewings.length;
+              const chips: Array<{
+                key: string;
+                label: string;
+                value: string | number;
+                tone: StatusTone;
+                href?: string;
+              }> = [
+                {
+                  key: 'paid',
+                  label: ar ? 'المدفوع' : 'Paid',
+                  value: moneyStats.paid,
+                  tone: 'good',
+                },
+                {
+                  key: 'overdue',
+                  label: ar ? 'المتأخر' : 'Overdue',
+                  value: moneyStats.overdue,
+                  tone: moneyStats.hasOverdue ? 'danger' : 'quiet',
+                },
+                {
+                  key: 'due',
+                  label: ar ? 'الواجب للدفع' : 'Due to pay',
+                  value: moneyStats.due,
+                  tone: moneyStats.hasDue ? 'action' : 'quiet',
+                },
+                {
+                  key: 'deferred',
+                  label: ar ? 'الآجلة' : 'Deferred',
+                  value: moneyStats.deferred,
+                  tone: moneyStats.hasDeferred ? 'info' : 'quiet',
+                },
+                {
+                  key: 'contracts',
+                  label: ar ? 'العقود' : 'Contracts',
+                  value: contractCount,
+                  tone: 'info',
+                  href: '/tenant/contracts',
+                },
+                {
+                  key: 'bookings',
+                  label: ar ? 'الحجوزات' : 'Bookings',
+                  value: bookingCount,
+                  tone: 'info',
+                  href: '/tenant/reservations',
+                },
+              ];
+              return (
+                <nav
+                  className="tenant-home__nav tenant-home__nav--finance"
+                  aria-label={ar ? 'ملخص مالي' : 'Finance summary'}
+                >
+                  {chips.map((chip) => {
+                    const className = `tenant-home__chip tenant-home__chip--${chip.tone}${
+                      chip.value === 0 ||
+                      chip.value === '—' ||
+                      (typeof chip.value === 'string' &&
+                        ((chip.key === 'overdue' && !moneyStats.hasOverdue) ||
+                          (chip.key === 'due' && !moneyStats.hasDue) ||
+                          (chip.key === 'deferred' && !moneyStats.hasDeferred)))
+                        ? ' is-empty'
+                        : ''
+                    }`;
+                    const body = (
+                      <>
+                        <span>{chip.label}</span>
+                        <strong>{chip.value}</strong>
+                      </>
+                    );
+                    return chip.href ? (
+                      <Link key={chip.key} href={chip.href} className={className}>
+                        {body}
+                      </Link>
+                    ) : (
+                      <div key={chip.key} className={className}>
+                        {body}
+                      </div>
+                    );
+                  })}
+                </nav>
+              );
+            })()}
             {longTermStatements.some((item) => item.statement.arrears.totalMinor !== '0') ? (
               <TenantArrearsSummary statements={longTermStatements} ar={ar} locale={locale} />
             ) : null}

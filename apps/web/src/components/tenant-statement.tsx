@@ -168,11 +168,14 @@ function StatementCard({
           <span className="tenant-preview-row__summary">{summary}</span>
         </div>
         <div className="tenant-preview-row__side">
+          <strong className="tenant-preview-row__amount">
+            {overdue ? money(statement.overdueMinor) : money(statement.remainingMinor)}
+          </strong>
           <span className={`tenant-status${overdue ? ' tenant-status--action' : ''}`}>
             {overdue
               ? ar
-                ? `متأخر ${money(statement.overdueMinor)}`
-                : `Overdue ${money(statement.overdueMinor)}`
+                ? 'متأخر'
+                : 'Overdue'
               : domainStatusLabel(item.status, ar)}
           </span>
           <button

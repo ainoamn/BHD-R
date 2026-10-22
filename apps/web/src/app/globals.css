@@ -8131,6 +8131,15 @@ body:has(.stays-booking-receipt) #main-content {
   gap: 0.45rem;
   width: 100%;
 }
+.tenant-home__nav--finance {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0.85rem;
+}
+@media (min-width: 961px) {
+  .tenant-home__nav--finance {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
 .tenant-home__chip {
   display: flex;
   flex-direction: row;
@@ -8302,6 +8311,14 @@ body:has(.stays-booking-receipt) #main-content {
   gap: 0.4rem;
   flex: 0 1 auto;
 }
+.tenant-preview-row__amount {
+  font-size: 0.9rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--tenant-ink);
+  white-space: nowrap;
+  line-height: 1.1;
+}
 .tenant-preview-row__side .button {
   min-height: 2rem;
   padding: 0.25rem 0.7rem;
@@ -8309,6 +8326,10 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .tenant-preview-row__side .tenant-status {
   font-size: 0.72rem;
+}
+.tenant-home__nav--finance .tenant-home__chip strong {
+  font-size: 0.82rem;
+  white-space: nowrap;
 }
 .tenant-detail-modal__card {
   width: min(34rem, calc(100vw - 1.5rem));
