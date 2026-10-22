@@ -3586,8 +3586,12 @@ body:has(.stays-booking-receipt) #main-content {
 .portal-ops-pane {
   animation: none;
 }
-.portal-persisted-panel[hidden] {
+.portal-persisted-panel[hidden],
+.portal-persisted-page[hidden] {
   display: none !important;
+}
+.portal-layout :is(.form-shell, .contract-detail, .portal-persisted-page) {
+  animation: none;
 }
 .portal-ops-boot {
   display: grid;

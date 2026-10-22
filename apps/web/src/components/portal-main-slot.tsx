@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { Link } from '@/i18n/navigation';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { startTransition, useCallback, useEffect, useState, type ReactNode } from 'react';
 import { AccountingHub } from '@/components/accounting/accounting-hub';
 import { ApprovalsHub } from '@/components/approvals-hub';
 import { ContactsBoard } from '@/components/contacts-board';
@@ -100,9 +100,11 @@ export function PortalMainSlot({
   const [tenantHostMounted, setTenantHostMounted] = useState(() => Boolean(tenantSoft));
   const [pages, setPages] = useState<Record<string, ReactNode>>({});
   const register = useCallback((path: string, content: ReactNode) => {
-    // Always replace — soft-nav + router.refresh() must show fresh RSC output
-    // (e.g. booking timeline after reschedule), not a stale first-visit tree.
-    setPages((current) => ({ ...current, [path]: content }));
+    // Keep-alive copy for soft-nav back. Active route paints from live `children`
+    // so LiveSync refresh does not remount the visible tree via setState.
+    startTransition(() => {
+      setPages((current) => ({ ...current, [path]: content }));
+    });
   }, []);
 
   useEffect(() => {
@@ -119,7 +121,7 @@ export function PortalMainSlot({
   const showPersistedPage = !section && !tenantSoft;
   return (
     <PortalPageContext.Provider value={register}>
-      {/* Keep the router outlet mounted once, but hide it while soft panes own the main area. */}
+      {/* Live RSC for the active route; hide only while soft panes own the main area. */}
       <div
         hidden={softPane}
         inert={softPane || undefined}
@@ -131,9 +133,10 @@ export function PortalMainSlot({
         <div
           key={path}
           className="portal-persisted-page"
-          hidden={!showPersistedPage || path !== pathname}
-          inert={!showPersistedPage || path !== pathname}
-          aria-hidden={!showPersistedPage || path !== pathname || undefined}
+          // Keep-alive for inactive detail routes only — active path uses live children.
+          hidden={softPane || !showPersistedPage || path === pathname}
+          inert={softPane || !showPersistedPage || path === pathname}
+          aria-hidden={softPane || !showPersistedPage || path === pathname || undefined}
         >
           {content}
         </div>

@@ -278,25 +278,37 @@ export async function closeStayContractAfterCheckoutInTx(
       : {};
 
   if (existingTerm) {
-    await tx
-      .update(contracts)
-      .set({
-        status: parent.status === 'void' ? parent.status : 'terminated',
-        payloadSnapshot: {
-          ...snapshot,
-          stayType: stayType as StayPeriodType | null,
-          terminationSync: {
-            at: checkedOutIso,
-            terminationContractId: existingTerm.id,
-            terminationReference: existingTerm.reference,
-            lateReturn,
-            cancelledAt: checkedOutIso,
-            effectiveOn,
+    const priorSync =
+      snapshot.terminationSync && typeof snapshot.terminationSync === 'object'
+        ? (snapshot.terminationSync as Record<string, unknown>)
+        : null;
+    const alreadyClosed =
+      (parent.status === 'terminated' || parent.status === 'void') &&
+      priorSync?.terminationContractId === existingTerm.id;
+    // Idempotent: never rewrite payload/updatedAt on every contract-detail open —
+    // that bumps live_changes and LiveSync refreshes the page in a flicker loop.
+    if (!alreadyClosed) {
+      await tx
+        .update(contracts)
+        .set({
+          status: parent.status === 'void' ? parent.status : 'terminated',
+          payloadSnapshot: {
+            ...snapshot,
+            stayType: stayType as StayPeriodType | null,
+            terminationSync: {
+              at: checkedOutIso,
+              terminationContractId: existingTerm.id,
+              terminationReference: existingTerm.reference,
+              lateReturn,
+              cancelledAt: checkedOutIso,
+              effectiveOn,
+            },
           },
-        },
-        updatedAt: now,
-      })
-      .where(and(eq(contracts.id, parent.id), eq(contracts.organizationId, orgId)));
+          updatedAt: now,
+        })
+        .where(and(eq(contracts.id, parent.id), eq(contracts.organizationId, orgId)));
+      repaired = true;
+    }
     return {
       leaseId: lease?.id ?? null,
       terminationId: existingTerm.id,
