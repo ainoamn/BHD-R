@@ -12,7 +12,6 @@ import { formatMoney } from '@/lib/format';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { ModalPortal } from '@/components/modal-portal';
 import { SoftPortalLink as Link } from '@/components/soft-portal-link';
-import { TenantBookingsBoard } from '@/components/tenant-bookings-board';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
 import { TenantRequestsList } from '@/components/tenant-requests-list';
 import {
@@ -126,9 +125,15 @@ type PreviewItem = {
   status?: ReactNode;
   tone?: string;
   facts: PreviewFact[];
+  /** Rich body for complex records (statements, request threads). */
+  detail?: ReactNode;
   href?: string | null;
   hrefLabel?: string | null;
 };
+
+function takeRows<T>(rows: T[], limit?: number): T[] {
+  return limit != null ? rows.slice(0, limit) : rows;
+}
 
 /** Title row + «استعراض» modal — keeps the home wide and light on every screen. */
 function PreviewList({
@@ -206,14 +211,17 @@ function PreviewList({
                 {open.status ? (
                   <div className="tenant-detail-modal__status">{open.status}</div>
                 ) : null}
-                <dl className="tenant-detail-modal__facts">
-                  {open.facts.map((fact) => (
-                    <div key={fact.label}>
-                      <dt>{fact.label}</dt>
-                      <dd>{fact.value}</dd>
-                    </div>
-                  ))}
-                </dl>
+                {open.facts.length ? (
+                  <dl className="tenant-detail-modal__facts">
+                    {open.facts.map((fact) => (
+                      <div key={fact.label}>
+                        <dt>{fact.label}</dt>
+                        <dd>{fact.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+                {open.detail ? <div className="tenant-detail-modal__detail">{open.detail}</div> : null}
                 {open.href ? (
                   <div className="tenant-detail-modal__footer">
                     <Link href={open.href} className="button button--primary">
@@ -606,8 +614,13 @@ function AlertsList({ ar, locale, data }: Ctx) {
   );
 }
 
-function homeBookingItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
-  const viewings = data.viewings.slice(0, 4).map((viewing) => {
+function bookingPreviewItems(
+  data: MyTenancy,
+  ar: boolean,
+  locale: string,
+  limit?: number,
+): PreviewItem[] {
+  const viewings = takeRows(data.viewings, limit).map((viewing) => {
     const place =
       (ar
         ? viewing.propertyNameAr || viewing.propertyNameEn
@@ -634,7 +647,7 @@ function homeBookingItems(data: MyTenancy, ar: boolean, locale: string): Preview
       ...(href ? { hrefLabel: ar ? 'بطاقة الزيارة' : 'Visit pass' } : {}),
     } satisfies PreviewItem;
   });
-  const stays = data.stays.slice(0, 4).map((stay) => {
+  const stays = takeRows(data.stays, limit).map((stay) => {
     const title =
       (ar ? stay.titleAr || stay.titleEn : stay.titleEn || stay.titleAr) ?? stay.referenceCode;
     return {
@@ -667,7 +680,7 @@ function homeBookingItems(data: MyTenancy, ar: boolean, locale: string): Preview
       hrefLabel: ar ? 'فتح الحجز' : 'Open booking',
     } satisfies PreviewItem;
   });
-  const reservations = data.reservations.slice(0, 4).map((reservation) => {
+  const reservations = takeRows(data.reservations, limit).map((reservation) => {
     const href = reservationHref(reservation);
     const awaitingPay = reservation.status === 'pending' && reservation.awaitingPayment;
     return {
@@ -711,10 +724,14 @@ function homeBookingItems(data: MyTenancy, ar: boolean, locale: string): Preview
   return [...viewings, ...stays, ...reservations];
 }
 
-function homeContractItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
-  return tenancyContractGroups(data.contracts)
-    .slice(0, 4)
-    .map(({ root: contract, attachments }) => ({
+function contractPreviewItems(
+  data: MyTenancy,
+  ar: boolean,
+  locale: string,
+  limit?: number,
+): PreviewItem[] {
+  return takeRows(tenancyContractGroups(data.contracts), limit).map(
+    ({ root: contract, attachments }) => ({
       id: `contract:${contract.id}`,
       title: contract.reference,
       eyebrow: contract.stayReference
@@ -745,14 +762,22 @@ function homeContractItems(data: MyTenancy, ar: boolean, locale: string): Previe
       ],
       href: `/tenant/contracts/${contract.id}`,
       hrefLabel: ar ? 'عرض العقد' : 'View contract',
-    }));
+    }),
+  );
 }
 
-function homeInvoiceItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
-  return data.invoices
-    .filter((invoice) => OPEN_INVOICE.has(invoice.status))
-    .slice(0, 4)
-    .map((invoice) => ({
+function invoicePreviewItems(
+  data: MyTenancy,
+  ar: boolean,
+  locale: string,
+  options?: { openOnly?: boolean; limit?: number },
+): PreviewItem[] {
+  const rows = options?.openOnly
+    ? data.invoices.filter((invoice) => OPEN_INVOICE.has(invoice.status))
+    : data.invoices;
+  return takeRows(rows, options?.limit).map((invoice) => {
+    const href = invoice.receiptHref ?? null;
+    return {
       id: `invoice:${invoice.id}`,
       title: invoice.number,
       eyebrow: invoice.stayReference
@@ -771,7 +796,9 @@ function homeInvoiceItems(data: MyTenancy, ar: boolean, locale: string): Preview
               ? 'danger'
               : invoice.status === 'partially_paid'
                 ? 'action'
-                : undefined
+                : invoice.status === 'paid'
+                  ? 'good'
+                  : undefined
           }
         />
       ),
@@ -788,15 +815,98 @@ function homeInvoiceItems(data: MyTenancy, ar: boolean, locale: string): Preview
           value: money(invoiceOutstandingMinor(invoice), invoice.currency, locale),
         },
       ],
-      href: invoice.receiptHref ?? '/tenant/invoices',
-      hrefLabel: invoice.receiptHref
-        ? ar
-          ? 'إيصال القبض'
-          : 'Receipt'
+      ...(href
+        ? { href, hrefLabel: ar ? 'إيصال القبض' : 'Receipt' }
+        : {}),
+    } satisfies PreviewItem;
+  });
+}
+
+function leasePreviewItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
+  return data.leases.map((lease) => ({
+    id: `lease:${lease.id}`,
+    title: tenancyUnitLabel(lease, ar),
+    eyebrow: lease.fromStay
+      ? ar
+        ? 'إقامة يومية'
+        : 'Daily stay'
+      : ar
+        ? 'إيجار'
+        : 'Lease',
+    summary: `${tenancyLandlordName(lease.landlord, ar)} · ${period(lease.startsOn, lease.endsOn, ar)}`,
+    status: (
+      <Status
+        label={domainStatusLabel(lease.status, ar)}
+        tone={
+          lease.status === 'active'
+            ? 'good'
+            : lease.status === 'cancel_requested' || lease.status === 'clearance_pending'
+              ? 'warn'
+              : lease.status === 'cancelled' || lease.status === 'terminated'
+                ? 'quiet'
+                : lease.status === 'ended'
+                  ? 'info'
+                  : undefined
+        }
+      />
+    ),
+    facts: [
+      { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(lease.landlord, ar) },
+      { label: ar ? 'المدة' : 'Term', value: period(lease.startsOn, lease.endsOn, ar) },
+      { label: ar ? 'الإيجار' : 'Rent', value: money(lease.rentMinor, lease.currency, locale) },
+      { label: ar ? 'الحالة' : 'Status', value: domainStatusLabel(lease.status, ar) },
+    ],
+    ...(lease.contractId
+      ? {
+          href: `/tenant/contracts/${lease.contractId}`,
+          hrefLabel: ar ? 'عرض العقد' : 'View contract',
+        }
+      : {}),
+  }));
+}
+
+function paymentPreviewItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
+  return data.payments.map((payment) => {
+    const href = payment.receiptHref ?? null;
+    return {
+      id: `payment:${payment.id}`,
+      title: payment.invoiceNumber || payment.id.slice(0, 8),
+      eyebrow: payment.stayKind
+        ? stayPaymentKindLabel(payment.stayKind, ar)
         : ar
-          ? 'كل الفواتير'
-          : 'All invoices',
-    }));
+          ? 'دفعة'
+          : 'Payment',
+      summary: `${tenancyLandlordName(payment.landlord, ar)} · ${formatDate(payment.receivedAt, ar)}`,
+      status: (
+        <Status
+          label={domainStatusLabel(payment.status, ar)}
+          tone={payment.status === 'succeeded' ? 'good' : undefined}
+        />
+      ),
+      facts: [
+        { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(payment.landlord, ar) },
+        { label: ar ? 'التاريخ' : 'Date', value: formatDate(payment.receivedAt, ar) },
+        {
+          label: ar ? 'المبلغ' : 'Amount',
+          value: money(payment.amountMinor, payment.currency, locale),
+        },
+        {
+          label: ar ? 'المسترد' : 'Refunded',
+          value:
+            payment.refundedMinor !== '0'
+              ? money(payment.refundedMinor, payment.currency, locale)
+              : '—',
+        },
+        {
+          label: ar ? 'الطريقة' : 'Method',
+          value: payment.stayReference
+            ? stayPaymentMethodLabel(payment.method, ar)
+            : payment.method,
+        },
+      ],
+      ...(href ? { href, hrefLabel: ar ? 'إيصال القبض' : 'Receipt' } : {}),
+    } satisfies PreviewItem;
+  });
 }
 
 function Section({
@@ -915,79 +1025,73 @@ export function TenantSpaceContent({
   if (view !== 'overview') {
     const [title, hint] = ar ? VIEW_COPY[view].ar : VIEW_COPY[view].en;
     const requestLeases = requestLeasesOf(data.statements, ar);
-    if (view === 'bookings') {
-      return (
-        <div className="dash-shell tenant-space tenant-space--bookings">
-          <header className="tenant-bookings-hero">
-            <div className="tenant-bookings-hero__copy">
-              <span className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</span>
-              <h1>{title}</h1>
-              <p>{hint}</p>
-            </div>
-            <div className="tenant-bookings-hero__actions">
-              <Link href="/properties" className="button button--primary">
-                {ar ? 'تصفّح العقارات' : 'Browse properties'}
-              </Link>
-              <Link href="/tenant" className="button button--quiet">
-                {ar ? 'لوحة المستأجر' : 'Tenant dashboard'}
-              </Link>
-            </div>
-          </header>
-          {notice}
-          <TenantBookingsBoard
-            locale={locale}
-            data={{
-              viewings: data.viewings,
-              stays: data.stays,
-              reservations: data.reservations,
-            }}
-          />
-        </div>
-      );
-    }
+    const longTermStatements = data.statements.filter((item) => !item.fromStay);
     return (
-      <div className="dash-shell tenant-space tenant-space--lists">
-        <header className="portal-topbar">
-          <div>
-            <span className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</span>
+      <div className="dash-shell tenant-space tenant-home tenant-home--section">
+        <header className="tenant-home__welcome">
+          <div className="tenant-home__welcome-copy">
+            <p className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>
             <h1>{title}</h1>
             <p>{hint}</p>
           </div>
-          <Link href="/tenant" className="button button--quiet">
-            {ar ? 'لوحة المستأجر' : 'Tenant dashboard'}
-          </Link>
+          <div className="tenant-home__welcome-actions">
+            {view === 'bookings' ? (
+              <Link href="/properties" className="button button--primary">
+                {ar ? 'تصفّح العقارات' : 'Browse properties'}
+              </Link>
+            ) : null}
+            <Link href="/tenant" className="button button--quiet">
+              {ar ? 'لوحة المستأجر' : 'Tenant dashboard'}
+            </Link>
+          </div>
         </header>
         {notice}
+        {view === 'bookings' ? (
+          <PreviewList
+            items={bookingPreviewItems(data, ar, locale)}
+            ar={ar}
+            empty={ar ? 'لا حجوزات بعد.' : 'No bookings yet.'}
+          />
+        ) : null}
         {view === 'contracts' ? (
-          <ContractsTable {...ctx} />
-        ) : view === 'leases' ? (
-          <LeasesTable {...ctx} />
-        ) : view === 'invoices' || view === 'payments' ? (
+          <PreviewList
+            items={contractPreviewItems(data, ar, locale)}
+            ar={ar}
+            empty={ar ? 'لا عقود بعد.' : 'No contracts yet.'}
+          />
+        ) : null}
+        {view === 'leases' ? (
+          <PreviewList
+            items={leasePreviewItems(data, ar, locale)}
+            ar={ar}
+            empty={ar ? 'لا إيجارات.' : 'No leases.'}
+          />
+        ) : null}
+        {view === 'invoices' || view === 'payments' ? (
           <>
-            {data.statements.some(
-              (item) => !item.fromStay && item.statement.arrears.totalMinor !== '0',
-            ) ? (
-              <TenantArrearsSummary
-                statements={data.statements.filter((item) => !item.fromStay)}
-                ar={ar}
-                locale={locale}
-              />
+            {longTermStatements.some((item) => item.statement.arrears.totalMinor !== '0') ? (
+              <TenantArrearsSummary statements={longTermStatements} ar={ar} locale={locale} />
             ) : null}
             <Section title={ar ? 'كشف حساب العقود والشيكات' : 'Lease statements & cheques'}>
-              <TenantStatements
-                statements={data.statements.filter((item) => !item.fromStay)}
-                ar={ar}
-                locale={locale}
-              />
+              <TenantStatements statements={longTermStatements} ar={ar} locale={locale} />
             </Section>
             <Section title={ar ? 'كل الفواتير الصادرة لك' : 'All invoices issued to you'}>
-              <InvoicesTable {...ctx} />
+              <PreviewList
+                items={invoicePreviewItems(data, ar, locale)}
+                ar={ar}
+                empty={ar ? 'لا فواتير.' : 'No invoices.'}
+              />
             </Section>
             <Section title={ar ? 'المدفوعات المباشرة' : 'Direct payments'}>
-              <PaymentsTable {...ctx} />
+              <PreviewList
+                items={paymentPreviewItems(data, ar, locale)}
+                ar={ar}
+                empty={ar ? 'لا مدفوعات.' : 'No payments.'}
+              />
             </Section>
           </>
-        ) : view === 'requests' ? (
+        ) : null}
+        {view === 'requests' ? (
           <>
             <div className="tenant-space__toolbar">
               <TenantRequestLauncher
@@ -1018,14 +1122,8 @@ export function TenantSpaceContent({
                 className="button button--quiet"
               />
             </div>
-            {data.statements.some(
-              (item) => !item.fromStay && item.statement.arrears.totalMinor !== '0',
-            ) ? (
-              <TenantArrearsSummary
-                statements={data.statements.filter((item) => !item.fromStay)}
-                ar={ar}
-                locale={locale}
-              />
+            {longTermStatements.some((item) => item.statement.arrears.totalMinor !== '0') ? (
+              <TenantArrearsSummary statements={longTermStatements} ar={ar} locale={locale} />
             ) : null}
             {requestLeases.length ? null : (
               <p className="tenant-notice">
@@ -1083,9 +1181,9 @@ export function TenantSpaceContent({
   ];
   const alertCount = data.alerts.length;
 
-  const bookingItems = homeBookingItems(data, ar, locale);
-  const contractItems = homeContractItems(data, ar, locale);
-  const invoiceItems = homeInvoiceItems(data, ar, locale);
+  const bookingItems = bookingPreviewItems(data, ar, locale, 4);
+  const contractItems = contractPreviewItems(data, ar, locale, 4);
+  const invoiceItems = invoicePreviewItems(data, ar, locale, { openOnly: true, limit: 4 });
 
   return (
     <div className="dash-shell tenant-space tenant-home">

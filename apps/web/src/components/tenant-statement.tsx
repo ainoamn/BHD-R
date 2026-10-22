@@ -1,4 +1,7 @@
+'use client';
+
 import { EmptyState } from '@bhd-r/ui';
+import { useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { formatMoney } from '@/lib/format';
 import { TenantRequestLauncher, type RequestLease } from '@/components/tenant-request-form';
@@ -128,6 +131,7 @@ function StatementCard({
   locale: 'ar' | 'en';
   requestLease: RequestLease | undefined;
 }) {
+  const [open, setOpen] = useState(false);
   const { statement, currency } = item;
   const money = (minor: string) => formatMoney(minor, currency, locale);
   const total = BigInt(statement.contractTotalMinor);
@@ -136,29 +140,54 @@ function StatementCard({
   const leases = requestLease ? [requestLease] : [];
   const overdue = statement.overdueMinor !== '0';
   const subjects = new Map(rentDocSubjects(statement).map((subject) => [subject.key, subject]));
+  const summary = [
+    tenancyLandlordName(item.landlord, ar),
+    item.contractReference
+      ? ar
+        ? `العقد ${item.contractReference}`
+        : `Contract ${item.contractReference}`
+      : null,
+    `${day(item.startsOn, ar)} ${ar ? '←' : '→'} ${day(item.endsOn, ar)}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <article className="tenant-statement" aria-labelledby={`statement-${item.leaseId}`}>
-      <header className="tenant-statement__head">
-        <div>
-          <h2 id={`statement-${item.leaseId}`}>{tenancyUnitLabel(item, ar)}</h2>
-          <p className="muted">
-            {[
-              tenancyLandlordName(item.landlord, ar),
-              item.contractReference
-                ? ar
-                  ? `العقد ${item.contractReference}`
-                  : `Contract ${item.contractReference}`
-                : null,
-              `${day(item.startsOn, ar)} ${ar ? '←' : '→'} ${day(item.endsOn, ar)}`,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
+    <article
+      className={`tenant-statement${open ? ' is-open' : ' is-collapsed'}`}
+      aria-labelledby={`statement-${item.leaseId}`}
+    >
+      <div className="tenant-preview-row tenant-statement__preview">
+        <div className="tenant-preview-row__copy">
+          <span className="tenant-preview-row__eyebrow">
+            {ar ? 'كشف حساب' : 'Statement'}
+          </span>
+          <strong className="tenant-preview-row__title" id={`statement-${item.leaseId}`}>
+            {tenancyUnitLabel(item, ar)}
+          </strong>
+          <span className="tenant-preview-row__summary">{summary}</span>
         </div>
-        <span className="tenant-status">{domainStatusLabel(item.status, ar)}</span>
-      </header>
+        <div className="tenant-preview-row__side">
+          <span className={`tenant-status${overdue ? ' tenant-status--action' : ''}`}>
+            {overdue
+              ? ar
+                ? `متأخر ${money(statement.overdueMinor)}`
+                : `Overdue ${money(statement.overdueMinor)}`
+              : domainStatusLabel(item.status, ar)}
+          </span>
+          <button
+            type="button"
+            className="button button--quiet"
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
+            {open ? (ar ? 'إخفاء' : 'Hide') : ar ? 'استعراض' : 'Review'}
+          </button>
+        </div>
+      </div>
 
+      {open ? (
+        <>
       <dl className="tenant-statement__totals">
         <div>
           <dt>{ar ? 'قيمة العقد الكاملة' : 'Full contract value'}</dt>
@@ -410,6 +439,8 @@ function StatementCard({
             ) : null}
           </div>
         </footer>
+      ) : null}
+        </>
       ) : null}
     </article>
   );

@@ -8354,6 +8354,46 @@ body:has(.stays-booking-receipt) #main-content {
   justify-content: flex-end;
   padding-top: 0.25rem;
 }
+.tenant-detail-modal__detail {
+  min-width: 0;
+}
+.tenant-home--section {
+  gap: 0.85rem;
+}
+.tenant-statement.is-collapsed {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.tenant-statement.is-collapsed .tenant-statement__preview {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.tenant-statement.is-open {
+  gap: 0.85rem;
+}
+.tenant-statement__preview {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.tenant-request__preview {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.tenant-requests {
+  gap: 0.4rem;
+}
+.tenant-request {
+  border-radius: 0.75rem;
+}
+.tenant-statements {
+  gap: 0.4rem;
+}
 @media (max-width: 960px) {
   .tenant-home__nav {
     grid-template-columns: repeat(3, minmax(0, 1fr));

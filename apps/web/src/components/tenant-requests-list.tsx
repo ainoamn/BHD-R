@@ -69,26 +69,29 @@ export function RequestInboxRow({
   controlsId: string;
 }) {
   return (
-    <button
-      type="button"
-      className="tenant-request__row"
-      aria-expanded={expanded}
-      aria-controls={controlsId}
-      onClick={onToggle}
-    >
-      <bdi className="tenant-request__ref">{reference}</bdi>
-      <span className="tenant-request__party">
-        <strong>{party}</strong>
-        {kind ? <small>{kind}</small> : null}
-      </span>
-      <time className="tenant-request__when" dateTime={createdAt}>
-        {requestStamp(createdAt, ar)}
-      </time>
-      <span className={statusToneClass(status)}>{tenantRequestStatusLabel(status, ar)}</span>
-      <span className="tenant-request__chevron" aria-hidden="true">
-        {expanded ? (ar ? '▾' : '▾') : ar ? '◂' : '▸'}
-      </span>
-    </button>
+    <div className="tenant-preview-row tenant-request__preview">
+      <div className="tenant-preview-row__copy">
+        <span className="tenant-preview-row__eyebrow">{party}</span>
+        <strong className="tenant-preview-row__title">
+          <bdi>{reference}</bdi>
+        </strong>
+        <span className="tenant-preview-row__summary">
+          {[kind, requestStamp(createdAt, ar)].filter(Boolean).join(' · ')}
+        </span>
+      </div>
+      <div className="tenant-preview-row__side">
+        <span className={statusToneClass(status)}>{tenantRequestStatusLabel(status, ar)}</span>
+        <button
+          type="button"
+          className="button button--quiet"
+          aria-expanded={expanded}
+          aria-controls={controlsId}
+          onClick={onToggle}
+        >
+          {expanded ? (ar ? 'إخفاء' : 'Hide') : ar ? 'استعراض' : 'Review'}
+        </button>
+      </div>
+    </div>
   );
 }
 
