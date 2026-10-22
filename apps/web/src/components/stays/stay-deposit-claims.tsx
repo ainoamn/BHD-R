@@ -140,6 +140,22 @@ export function StayDepositClaims({
       : null;
 
   function run(body: Record<string, unknown>, success: string) {
+    const needsMessage =
+      body.action === 'open' ||
+      body.action === 'open_track' ||
+      (body.action === 'not_received' && typeof body.message === 'string');
+    if (needsMessage) {
+      const text = String(body.message ?? '').trim();
+      if (text.length < CLAIM_MESSAGE_MIN) {
+        setDone(null);
+        setError(
+          ar
+            ? `اكتب التفاصيل في ${CLAIM_MESSAGE_MIN} أحرف على الأقل ثم اضغط إرسال.`
+            : `Write at least ${CLAIM_MESSAGE_MIN} characters, then press Send.`,
+        );
+        return;
+      }
+    }
     startTransition(async () => {
       setError(null);
       setDone(null);
@@ -169,6 +185,8 @@ export function StayDepositClaims({
           placeholder={placeholder}
           onChange={(event) => setMessage(event.target.value)}
           disabled={pending}
+          required
+          minLength={CLAIM_MESSAGE_MIN}
         />
       </label>
       <NoteTranslateBar
@@ -177,10 +195,13 @@ export function StayDepositClaims({
         locale={locale}
         max={CLAIM_MESSAGE_MAX}
         disabled={pending}
+        autoAssist={false}
         service={noteService}
       />
       <small className="muted">
-        {ar ? `${CLAIM_MESSAGE_MIN} أحرف على الأقل.` : `At least ${CLAIM_MESSAGE_MIN} characters.`}
+        {ar
+          ? `${CLAIM_MESSAGE_MIN} أحرف على الأقل. الترجمة اختيارية — أرسل النص كما هو.`
+          : `At least ${CLAIM_MESSAGE_MIN} characters. Translation is optional — send your text as written.`}
       </small>
     </div>
   );

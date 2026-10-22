@@ -193,6 +193,7 @@ function engineLabel(engine: Result['engine'], ar: boolean): string {
  * Under a note field: while the writer pauses, shows a live translation into the other language
  * and, from AI, a corrected and a clearer wording to adopt. The translation can be added below
  * the original, so the guest, owner, and accountant each read the note in their language.
+ * Set `autoAssist={false}` on send-critical guest forms so suggestions do not cover Send.
  */
 export function NoteTranslateBar({
   value,
@@ -200,6 +201,7 @@ export function NoteTranslateBar({
   locale,
   max,
   disabled = false,
+  autoAssist = true,
   service = OWNER_NOTE_SERVICE,
 }: {
   value: string;
@@ -207,6 +209,11 @@ export function NoteTranslateBar({
   locale: 'ar' | 'en';
   max: number;
   disabled?: boolean;
+  /**
+   * When false, only the on-demand translate button runs (no live “use this wording”
+   * panel that can shift the Send button).
+   */
+  autoAssist?: boolean;
   /** Keep it stable across renders (module constant or memoized). */
   service?: NoteService;
 }) {
@@ -220,10 +227,13 @@ export function NoteTranslateBar({
   const translated = hasNoteTranslation(value);
   const target = otherLanguage(noteLanguage(original));
   const [targetAr, targetEn] = LANG_LABEL[target];
-  const live = assist && assist.forText === original && dismissedFor !== original ? assist : null;
+  const live =
+    autoAssist && assist && assist.forText === original && dismissedFor !== original
+      ? assist
+      : null;
 
   useEffect(() => {
-    if (disabled || translated || original.length < ASSIST_MIN_CHARS) return;
+    if (!autoAssist || disabled || translated || original.length < ASSIST_MIN_CHARS) return;
     if (dismissedFor === original || assist?.forText === original) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
@@ -241,7 +251,7 @@ export function NoteTranslateBar({
       controller.abort();
       setChecking(false);
     };
-  }, [original, translated, disabled, dismissedFor, assist?.forText, service]);
+  }, [autoAssist, original, translated, disabled, dismissedFor, assist?.forText, service]);
 
   function addTranslation(text: string, engine: Result['engine']) {
     const next = joinNoteTranslation(original, text, target);
