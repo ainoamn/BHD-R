@@ -1,17 +1,17 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
+import { PlansAdmin } from '@/components/site-admin/plans-admin';
 import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
-import { SiteAdminPanel } from '@/components/site-admin/site-admin-panel';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'تحكم الموقع · شكاوى التأمين',
+  title: 'إدارة الموقع · الباقات والاشتراكات',
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default async function SiteAdminComplaintsPage({
+export default async function SiteAdminPlansPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -19,13 +19,11 @@ export default async function SiteAdminComplaintsPage({
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  const access = await requireSiteAdminPage(locale, 'complaints', {
-    path: '/site-admin/complaints',
-  });
+  const access = await requireSiteAdminPage(locale, 'plans');
   return (
     <>
-      <SiteAdminNav access={access} current="complaints" locale={locale} />
-      <SiteAdminPanel locale={locale} canEditInbox={access.root} />
+      <SiteAdminNav access={access} current="plans" locale={locale} />
+      <PlansAdmin locale={locale} />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 
 export default async function RedirectPlatformSubscriptions({
   params,
@@ -6,5 +6,5 @@ export default async function RedirectPlatformSubscriptions({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  redirect(`/${locale}/site-admin/plans`);
+  redirect(`/${locale}/admin/plans`);
 }

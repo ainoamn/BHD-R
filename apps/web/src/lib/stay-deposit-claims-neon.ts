@@ -1,4 +1,4 @@
-import 'server-only';
+﻿import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, asc, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
@@ -623,7 +623,7 @@ async function notifySiteAdmins(
       : 'لم يرد المالك بعد.',
     `الشكوى: ${escalation}`,
   ];
-  const adminUrl = `${publicWebOrigin()}/ar/site-admin/complaints`;
+  const adminUrl = `${publicWebOrigin()}/ar/admin/complaints`;
   if (settings.channel === 'whatsapp') {
     const text = [
       `شكوى تأمين جديدة — ${booking.referenceCode}`,

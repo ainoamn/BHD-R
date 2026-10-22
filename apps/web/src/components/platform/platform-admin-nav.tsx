@@ -1,18 +1,18 @@
-'use client';
+﻿'use client';
 
 import { Link } from '@/i18n/navigation';
 import { usePathname } from '@/i18n/navigation';
 
 const TABS = [
-  { path: '/site-admin', ar: 'نظرة عامة', en: 'Overview' },
-  { path: '/site-admin/diagnostics', ar: 'تشخيص النظام', en: 'Diagnostics' },
-  { path: '/site-admin/plans', ar: 'الاشتراكات', en: 'Subscriptions' },
-  { path: '/site-admin/billing', ar: 'إحصائيات الاشتراك', en: 'Billing' },
-  { path: '/site-admin/users', ar: 'المستخدمون', en: 'Users' },
-  { path: '/site-admin/security', ar: 'الأمن والتدقيق', en: 'Security' },
+  { path: '/admin', ar: 'نظرة عامة', en: 'Overview' },
+  { path: '/admin/diagnostics', ar: 'تشخيص النظام', en: 'Diagnostics' },
+  { path: '/admin/plans', ar: 'الاشتراكات', en: 'Subscriptions' },
+  { path: '/admin/billing', ar: 'إحصائيات الاشتراك', en: 'Billing' },
+  { path: '/admin/users', ar: 'المستخدمون', en: 'Users' },
+  { path: '/admin/security', ar: 'الأمن والتدقيق', en: 'Security' },
 ] as const;
 
-/** Legacy nav — prefer SiteAdminNav under /site-admin. */
+/** Legacy nav — prefer SiteAdminNav under /admin. */
 export function PlatformAdminNav({ locale }: { locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const pathname = usePathname();
@@ -22,8 +22,8 @@ export function PlatformAdminNav({ locale }: { locale: 'ar' | 'en' }) {
       <div className="platform-admin-nav__tabs">
         {TABS.map((tab) => {
           const active =
-            tab.path === '/site-admin'
-              ? pathname === '/site-admin'
+            tab.path === '/admin'
+              ? pathname === '/admin'
               : pathname === tab.path || pathname.startsWith(`${tab.path}/`);
           return (
             <Link

@@ -1,4 +1,4 @@
-import 'server-only';
+﻿import 'server-only';
 import { notFound, redirect } from 'next/navigation';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { readClaims } from '@/lib/portal-ops-data';
@@ -24,7 +24,7 @@ export async function requireSiteAdminPage(
     options?.path ??
     (scope
       ? ADMIN_SECTIONS.find((section) => section.scope === scope)!.path
-      : '/site-admin');
+      : '/admin');
   const claims = await readClaims();
   if (!claims) redirect(`/${locale}/login?next=${encodeURIComponent(`/${locale}${path}`)}`);
   const access = await siteAdminAccess(claims).catch(() => null);

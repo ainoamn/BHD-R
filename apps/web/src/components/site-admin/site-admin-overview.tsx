@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
@@ -6,84 +6,84 @@ import type { PlatformDiagnostics } from '@/lib/platform-admin-neon';
 
 const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintEn: string }> = [
   {
-    href: '/site-admin/diagnostics',
+    href: '/admin/diagnostics',
     ar: 'تشخيص النظام',
     en: 'Diagnostics',
     hintAr: 'صحة القاعدة والهوية والطوابير والجلسات',
     hintEn: 'Database, identity, queues, sessions',
   },
   {
-    href: '/site-admin/plans',
+    href: '/admin/plans',
     ar: 'الباقات والاشتراكات',
     en: 'Plans & subscriptions',
     hintAr: 'أسعار الباقات وحالة اشتراك كل منشأة',
     hintEn: 'Plan prices and each organization’s subscription',
   },
   {
-    href: '/site-admin/billing',
+    href: '/admin/billing',
     ar: 'إحصائيات الاشتراك',
     en: 'Billing stats',
     hintAr: 'تقدير شهري وحالات السداد',
     hintEn: 'Estimated MRR and payment statuses',
   },
   {
-    href: '/site-admin/users',
+    href: '/admin/users',
     ar: 'المستخدمون',
     en: 'Users',
     hintAr: 'إيقاف الحسابات وإعادة تفعيلها',
     hintEn: 'Suspend and restore accounts',
   },
   {
-    href: '/site-admin/security',
+    href: '/admin/security',
     ar: 'الأمن والتدقيق',
     en: 'Security',
     hintAr: 'سجل التدقيق وبصمات IP والجلسات',
     hintEn: 'Audit log, IP fingerprints, sessions',
   },
   {
-    href: '/site-admin/complaints',
+    href: '/admin/complaints',
     ar: 'شكاوى التأمين',
     en: 'Deposit complaints',
     hintAr: 'تشغيل يومي لشكاوى الضيوف',
     hintEn: 'Day-to-day guest deposit complaints',
   },
   {
-    href: '/site-admin/verification',
+    href: '/admin/verification',
     ar: 'توثيق الحسابات',
     en: 'Verification',
     hintAr: 'مراجعة طلبات التوثيق',
     hintEn: 'Review verification requests',
   },
   {
-    href: '/site-admin/notifications',
+    href: '/admin/notifications',
     ar: 'قوالب الإشعارات',
     en: 'Notification templates',
     hintAr: 'رسائل البريد والتنبيهات',
     hintEn: 'Email and alert wording',
   },
   {
-    href: '/site-admin/badges',
+    href: '/admin/badges',
     ar: 'الشارات',
     en: 'Badges',
     hintAr: 'كتالوج الشارات والاعتماد',
     hintEn: 'Badge catalogue and approvals',
   },
   {
-    href: '/site-admin/api-keys',
+    href: '/admin/api-keys',
     ar: 'مفاتيح API',
     en: 'API keys',
     hintAr: 'وصول برمجي للمنشأة النشطة',
     hintEn: 'Programmatic access for the active org',
   },
   {
-    href: '/site-admin/lab-reset',
+    href: '/admin/lab-reset',
     ar: 'إعادة ضبط التجارب',
     en: 'Lab reset',
     hintAr: 'مسح بيانات التجريب مع الإبقاء على العقارات',
     hintEn: 'Wipe test data while keeping properties',
   },
   {
-    href: '/site-admin/delegates',
+    href: '/admin/delegates',
     ar: 'التفويض',
     en: 'Delegation',
     hintAr: 'مَن يدير الموقع نيابةً عنك',

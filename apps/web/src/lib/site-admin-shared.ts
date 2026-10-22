@@ -1,4 +1,4 @@
-/** What a delegated administrator may run on behalf of the site administration. */
+﻿/** What a delegated administrator may run on behalf of the site administration. */
 export const ADMIN_SCOPES = ['complaints', 'verification', 'plans', 'users', 'delegates'] as const;
 export type AdminScope = (typeof ADMIN_SCOPES)[number];
 
@@ -39,11 +39,11 @@ export const SCOPE_LABELS: Record<
 };
 
 export const ADMIN_SECTIONS: { scope: AdminScope; path: string }[] = [
-  { scope: 'complaints', path: '/site-admin/complaints' },
-  { scope: 'verification', path: '/site-admin/verification' },
-  { scope: 'plans', path: '/site-admin/plans' },
-  { scope: 'users', path: '/site-admin/users' },
-  { scope: 'delegates', path: '/site-admin/delegates' },
+  { scope: 'complaints', path: '/admin/complaints' },
+  { scope: 'verification', path: '/admin/verification' },
+  { scope: 'plans', path: '/admin/plans' },
+  { scope: 'users', path: '/admin/users' },
+  { scope: 'delegates', path: '/admin/delegates' },
 ];
 
 /**
@@ -68,81 +68,81 @@ export const SITE_CONSOLE_SECTIONS: Array<{
   ar: string;
   en: string;
 }> = [
-  { id: 'overview', path: '/site-admin', scope: null, ar: 'نظرة عامة', en: 'Overview' },
+  { id: 'overview', path: '/admin', scope: null, ar: 'نظرة عامة', en: 'Overview' },
   {
     id: 'diagnostics',
-    path: '/site-admin/diagnostics',
+    path: '/admin/diagnostics',
     scope: null,
     ar: 'تشخيص النظام',
     en: 'Diagnostics',
   },
   {
     id: 'security',
-    path: '/site-admin/security',
+    path: '/admin/security',
     scope: null,
     ar: 'الأمن والتدقيق',
     en: 'Security',
   },
   {
     id: 'plans',
-    path: '/site-admin/plans',
+    path: '/admin/plans',
     scope: 'plans',
     ar: 'الاشتراكات',
     en: 'Subscriptions',
   },
   {
     id: 'billing',
-    path: '/site-admin/billing',
+    path: '/admin/billing',
     scope: 'plans',
     ar: 'إحصائيات الاشتراك',
     en: 'Billing stats',
   },
-  { id: 'users', path: '/site-admin/users', scope: 'users', ar: 'المستخدمون', en: 'Users' },
+  { id: 'users', path: '/admin/users', scope: 'users', ar: 'المستخدمون', en: 'Users' },
   {
     id: 'complaints',
-    path: '/site-admin/complaints',
+    path: '/admin/complaints',
     scope: 'complaints',
     ar: 'شكاوى التأمين',
     en: 'Deposit complaints',
   },
   {
     id: 'verification',
-    path: '/site-admin/verification',
+    path: '/admin/verification',
     scope: 'verification',
     ar: 'توثيق الحسابات',
     en: 'Verification',
   },
   {
     id: 'notifications',
-    path: '/site-admin/notifications',
+    path: '/admin/notifications',
     scope: null,
     ar: 'قوالب الإشعارات',
     en: 'Notification templates',
   },
   {
     id: 'badges',
-    path: '/site-admin/badges',
+    path: '/admin/badges',
     scope: null,
     ar: 'الشارات',
     en: 'Badges',
   },
   {
     id: 'apiKeys',
-    path: '/site-admin/api-keys',
+    path: '/admin/api-keys',
     scope: null,
     ar: 'مفاتيح API',
     en: 'API keys',
   },
   {
     id: 'labReset',
-    path: '/site-admin/lab-reset',
+    path: '/admin/lab-reset',
     scope: null,
     ar: 'إعادة ضبط التجارب',
     en: 'Lab reset',
   },
   {
     id: 'delegates',
-    path: '/site-admin/delegates',
+    path: '/admin/delegates',
     scope: 'delegates',
     ar: 'التفويض',
     en: 'Delegation',

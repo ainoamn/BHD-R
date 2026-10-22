@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { loadPlatformSecurity } from '@/lib/platform-admin-neon';

@@ -1,17 +1,17 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import { PlatformBillingPanel } from '@/components/platform/platform-billing-panel';
+import { PlatformSecurityPanel } from '@/components/platform/platform-security-panel';
 import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
 
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'تحكم الموقع · إحصائيات الاشتراك',
+  title: 'تحكم الموقع · الأمن والتدقيق',
   robots: { index: false, follow: false, nocache: true },
 };
 
-export default async function SiteAdminBillingPage({
+export default async function SiteAdminSecurityPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -19,12 +19,12 @@ export default async function SiteAdminBillingPage({
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  const access = await requireSiteAdminPage(locale, 'plans', { path: '/site-admin/billing' });
+  const access = await requireSiteAdminPage(locale, null, { path: '/admin/security' });
   return (
     <>
-      <SiteAdminNav access={access} current="billing" locale={locale} />
+      <SiteAdminNav access={access} current="security" locale={locale} />
       <div className="site-admin--wide" style={{ margin: '0 auto', padding: '1rem' }}>
-        <PlatformBillingPanel locale={locale} />
+        <PlatformSecurityPanel locale={locale} />
       </div>
     </>
   );

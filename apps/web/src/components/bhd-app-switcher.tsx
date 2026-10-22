@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useId, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
@@ -531,7 +531,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
             {siteAdmin ? (
               <Link
                 className="bhd-switcher-manage"
-                href={`/${locale}/site-admin`}
+                href={`/${locale}/admin`}
                 onClick={() => setPanel(null)}
               >
                 {ar ? 'تحكم الموقع والنظام' : 'Site & system control'}

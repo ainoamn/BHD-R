@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
@@ -147,7 +147,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
             ? 'احذف المعاملات التجريبية التي اخترتها. العقارات والوحدات والصور وإعداد الإقامة اليومية والفريق ودليل الحسابات تبقى كما هي.'
             : 'Delete the experimental transactions you select. Properties, units, photos, stay property setup, team, and the chart of accounts stay.'}
         </p>
-        <Link className="button button--quiet" href="/site-admin" prefetch={false}>
+        <Link className="button button--quiet" href="/admin" prefetch={false}>
           {ar ? 'العودة لتحكم الموقع' : 'Back to site console'}
         </Link>
       </header>

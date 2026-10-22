@@ -26,7 +26,7 @@ export function SiteFooter() {
   const ar = locale === 'ar';
 
   if (
-    /^\/(platform|owner|developer|tenant|site-admin|login|forgot-password|reset-password|activate)(\/|$)/.test(
+    /^\/(platform|owner|developer|tenant|admin|site-admin|login|forgot-password|reset-password|activate)(\/|$)/.test(
       pathname,
     )
   ) {

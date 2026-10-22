@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import { Logo } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { redirect } from 'next/navigation';
@@ -104,15 +104,15 @@ export default async function LoginPage({
       returnTo.startsWith('/site-admin') ||
       returnTo.startsWith('/platform') ||
       returnTo.includes('/platform') ||
+      returnTo.includes('/admin') ||
       returnTo.includes('/site-admin'))
   ) {
-    redirect(
-      `/api/auth/admin-entry?next=${encodeURIComponent(
-        nextRaw.startsWith('/site-admin') || nextRaw.startsWith('/admin')
-          ? nextRaw
-          : '/site-admin',
-      )}`,
-    );
+    const adminNext = nextRaw.startsWith('/admin')
+      ? nextRaw
+      : nextRaw.startsWith('/site-admin')
+        ? nextRaw.replace(/^\/site-admin/, '/admin')
+        : '/admin';
+    redirect(`/api/auth/admin-entry?next=${encodeURIComponent(adminNext)}`);
   }
 
   const invitedOrganization =

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 
 /** Moved to site console — not part of the developer portal. */
 export default async function RedirectDeveloperApiKeys({
@@ -7,5 +7,5 @@ export default async function RedirectDeveloperApiKeys({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  redirect(`/${locale}/site-admin/api-keys`);
+  redirect(`/${locale}/admin/api-keys`);
 }

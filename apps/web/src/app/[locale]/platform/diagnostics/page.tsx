@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 
 export default async function RedirectPlatformDiagnostics({
   params,
@@ -6,5 +6,5 @@ export default async function RedirectPlatformDiagnostics({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  redirect(`/${locale}/site-admin/diagnostics`);
+  redirect(`/${locale}/admin/diagnostics`);
 }

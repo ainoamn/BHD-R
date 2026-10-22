@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 
 /** Moved to site console — not part of the owner portal. */
 export default async function RedirectOwnerBadges({
@@ -7,5 +7,5 @@ export default async function RedirectOwnerBadges({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  redirect(`/${locale}/site-admin/badges`);
+  redirect(`/${locale}/admin/badges`);
 }

@@ -1,12 +1,15 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
 /** Safe admin landing — copied from ONE-BHD admin-entry (BHD-PRODUCT-SSO-ADMIN §3.1 / §4.9). */
 function adminReturnTo(request: Request): string {
-  const raw = new URL(request.url).searchParams.get('next')?.trim() || '/site-admin';
+  let raw = new URL(request.url).searchParams.get('next')?.trim() || '/admin';
   if (!raw.startsWith('/') || raw.startsWith('//') || raw.includes('://') || raw.includes('\\')) {
-    return '/site-admin';
+    return '/admin';
+  }
+  if (raw === '/site-admin' || raw.startsWith('/site-admin/')) {
+    raw = raw.replace(/^\/site-admin/, '/admin');
   }
   // Site/system control only — never land admins inside owner/tenant portals by mistake.
   if (
@@ -16,7 +19,7 @@ function adminReturnTo(request: Request): string {
     raw.startsWith('/tenant/') ||
     raw.startsWith('/developer/')
   ) {
-    return '/site-admin';
+    return '/admin';
   }
   return raw;
 }

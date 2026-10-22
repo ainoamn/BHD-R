@@ -62,7 +62,7 @@ export function BadgesCenterBoard({
   portal,
 }: {
   locale: Locale;
-  portal: 'owner' | 'developer' | 'site-admin';
+  portal: 'owner' | 'developer' | 'admin';
 }) {
   const ar = locale === 'ar';
   const [center, setCenter] = useState<BadgesCenter | null>(null);
@@ -428,7 +428,7 @@ function AwardList({
   onOpenBadge,
 }: {
   locale: Locale;
-  portal: 'owner' | 'developer' | 'site-admin';
+  portal: 'owner' | 'developer' | 'admin';
   awards: BadgeAwardView[];
   canManage: boolean;
   busy: string | null;
@@ -550,7 +550,7 @@ function HoldersDrawer({
   onChanged,
 }: {
   locale: Locale;
-  portal: 'owner' | 'developer' | 'site-admin';
+  portal: 'owner' | 'developer' | 'admin';
   badgeId: string;
   canManage: boolean;
   onClose: () => void;

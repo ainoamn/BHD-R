@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation';
+﻿import { redirect } from 'next/navigation';
 
 /** Moved to site console — not part of the developer portal. */
 export default async function RedirectDeveloperLabReset({
@@ -7,5 +7,5 @@ export default async function RedirectDeveloperLabReset({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  redirect(`/${locale}/site-admin/lab-reset`);
+  redirect(`/${locale}/admin/lab-reset`);
 }

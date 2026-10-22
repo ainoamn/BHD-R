@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Catalog of outbound notifications (email + WhatsApp) for the studio preview page.
  * Every sample is bilingual (Arabic first, then English) so previews match the product rule.
  */
@@ -489,7 +489,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       ],
       ctaAr: 'عرض الشارات',
       ctaEn: 'View badges',
-      ctaUrl: `${SAMPLE_ORIGIN}/ar/site-admin/badges`,
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/admin/badges`,
       footnoteAr: 'أُرسلت لأنك حصلت على شارة جديدة.',
       footnoteEn: 'Sent because you were awarded a new badge.',
     }),

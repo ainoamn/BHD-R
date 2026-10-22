@@ -1,4 +1,4 @@
-import createMiddleware from 'next-intl/middleware';
+﻿import createMiddleware from 'next-intl/middleware';
 import { NextRequest, NextResponse } from 'next/server';
 import { routing } from './i18n/routing';
 
@@ -118,27 +118,14 @@ export default function proxy(request: NextRequest): NextResponse {
   const pathname = request.nextUrl.pathname;
   if (INTL_SKIP.test(pathname)) return NextResponse.next();
 
-  // Short /admin alias → dedicated site console (never owner/tenant/product portals).
-  const adminMatch = pathname.match(/^\/(ar|en)\/(admin|ADMIN)(\/.*)?$/i);
-  if (adminMatch) {
-    const locale = adminMatch[1]!;
-    const rest = (adminMatch[3] ?? '').replace(/^\//, '');
+  // Legacy /site-admin → canonical /admin console.
+  const legacySiteAdmin = pathname.match(/^\/(ar|en)\/site-admin(\/.*)?$/i);
+  if (legacySiteAdmin) {
+    const locale = legacySiteAdmin[1]!;
+    const rest = legacySiteAdmin[2] ?? '';
     const url = request.nextUrl.clone();
-    const map: Record<string, string> = {
-      diagnostics: 'diagnostics',
-      subscriptions: 'plans',
-      billing: 'billing',
-      security: 'security',
-      users: 'users',
-      complaints: 'complaints',
-      verification: 'verification',
-      delegates: 'delegates',
-      plans: 'plans',
-    };
-    const head = rest.split('/')[0] ?? '';
-    const mapped = map[head];
-    url.pathname = mapped ? `/${locale}/site-admin/${mapped}` : `/${locale}/site-admin`;
-    return NextResponse.redirect(url);
+    url.pathname = `/${locale}/admin${rest}`;
+    return NextResponse.redirect(url, 308);
   }
 
   // Session gate stays in requirePortalShell (silent start). Do not redirect from

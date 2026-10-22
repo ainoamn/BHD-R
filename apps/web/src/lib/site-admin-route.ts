@@ -1,4 +1,4 @@
-import 'server-only';
+﻿import 'server-only';
 import { NextResponse } from 'next/server';
 import type { SessionClaims } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';

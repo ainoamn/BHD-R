@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { SiteAdminNav } from '@/components/site-admin/site-admin-nav';
 import { VerificationReview } from '@/components/site-admin/verification-review';

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
@@ -56,7 +56,7 @@ export function PlatformBillingPanel({ locale }: { locale: 'ar' | 'en' }) {
               : 'Estimated monthly from plan prices × org counts. Automated SaaS collection is not live yet — edit status on Subscriptions.'}
           </p>
         </div>
-        <Link className="button button--quiet" href="/site-admin/plans" prefetch={false}>
+        <Link className="button button--quiet" href="/admin/plans" prefetch={false}>
           {ar ? 'إدارة الاشتراكات ←' : 'Manage subscriptions →'}
         </Link>
       </header>

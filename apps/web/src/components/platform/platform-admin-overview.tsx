@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
@@ -6,42 +6,42 @@ import type { PlatformDiagnostics } from '@/lib/platform-admin-neon';
 
 const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintEn: string }> = [
   {
-    href: '/site-admin/diagnostics',
+    href: '/admin/diagnostics',
     ar: 'تشخيص النظام',
     en: 'Diagnostics',
     hintAr: 'صحة القاعدة والهوية والطوابير والجلسات',
     hintEn: 'Database, identity, queues, sessions',
   },
   {
-    href: '/site-admin/plans',
+    href: '/admin/plans',
     ar: 'الباقات والاشتراكات',
     en: 'Plans & subscriptions',
     hintAr: 'أسعار الباقات وحالة اشتراك كل منشأة',
     hintEn: 'Plan prices and each organization’s subscription',
   },
   {
-    href: '/site-admin/billing',
+    href: '/admin/billing',
     ar: 'إحصائيات الاشتراك',
     en: 'Billing stats',
     hintAr: 'تقدير شهري وحالات السداد',
     hintEn: 'Estimated MRR and payment statuses',
   },
   {
-    href: '/site-admin/users',
+    href: '/admin/users',
     ar: 'المستخدمون',
     en: 'Users',
     hintAr: 'إيقاف الحسابات وإعادة تفعيلها',
     hintEn: 'Suspend and restore accounts',
   },
   {
-    href: '/site-admin/security',
+    href: '/admin/security',
     ar: 'الأمن والتدقيق',
     en: 'Security',
     hintAr: 'سجل التدقيق وبصمات IP والجلسات',
     hintEn: 'Audit log, IP fingerprints, sessions',
   },
   {
-    href: '/site-admin/complaints',
+    href: '/admin/complaints',
     ar: 'تشغيل الموقع',
     en: 'Site operations',
     hintAr: 'شكاوى التأمين، التوثيق، التفويض',
@@ -49,7 +49,7 @@ const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintE
   },
 ];
 
-/** Legacy hub — prefer SiteAdminOverview under /site-admin. */
+/** Legacy hub — prefer SiteAdminOverview under /admin. */
 export function PlatformAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const [pulse, setPulse] = useState<PlatformDiagnostics['counts'] | null>(null);
@@ -80,14 +80,14 @@ export function PlatformAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
       <header className="platform-admin__head">
         <div>
           <p className="platform-admin__kicker">{ar ? 'تحكم الموقع' : 'Site control'}</p>
-          <h1>{ar ? 'انتقل إلى /site-admin' : 'Use /site-admin'}</h1>
+          <h1>{ar ? 'انتقل إلى /admin' : 'Use /admin'}</h1>
           <p>
             {ar
               ? 'أدوات النظام لم تعد جزءاً من بوابة /platform.'
               : 'System tools are no longer part of the /platform portal.'}
           </p>
         </div>
-        <Link className="button" href="/site-admin" prefetch={false}>
+        <Link className="button" href="/admin" prefetch={false}>
           {ar ? 'فتح تحكم الموقع' : 'Open site console'}
         </Link>
       </header>
