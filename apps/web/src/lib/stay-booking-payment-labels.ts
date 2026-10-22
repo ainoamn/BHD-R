@@ -15,6 +15,76 @@ export function stayPaymentKindLabel(kind: StayBookingPaymentKind, ar: boolean):
   }
 }
 
+/** Broad bucket for tenant payments UI: rent/booking vs security deposit. */
+export function tenantPaymentCategory(
+  stayKind: StayBookingPaymentKind | null | undefined,
+): 'rent' | 'deposit' {
+  return stayKind === 'deposit' ? 'deposit' : 'rent';
+}
+
+export function tenantPaymentCategoryLabel(
+  stayKind: StayBookingPaymentKind | null | undefined,
+  ar: boolean,
+): string {
+  if (stayKind === 'deposit') return ar ? 'ضمان' : 'Deposit';
+  if (stayKind === 'booking') return ar ? 'إيجار / حجز' : 'Rent / booking';
+  if (stayKind === 'reschedule_topup') return ar ? 'إيجار (تعديل)' : 'Rent (date change)';
+  return ar ? 'إيجار' : 'Rent';
+}
+
+export function tenantPaymentHoldStatus(
+  input: {
+    stayKind?: StayBookingPaymentKind | null;
+    amountMinor: string;
+    refundedMinor: string;
+    depositRefund?: {
+      status: DepositRefundStatus;
+      amountMinor: string;
+      paidMinor: string;
+      guestReceipt?: 'confirmed' | 'not_received' | null;
+    } | null;
+  },
+  ar: boolean,
+): { label: string; tone: 'action' | 'good' | 'danger' | 'info' | 'quiet' } {
+  const amount = BigInt(input.amountMinor || '0');
+  const refunded = BigInt(input.refundedMinor || '0');
+  if (input.stayKind === 'deposit') {
+    if (input.depositRefund) {
+      const phase = tenantDepositRefundPhase(input.depositRefund);
+      if (phase === 'transferred') {
+        return { label: ar ? 'ضمان · تم الإرجاع' : 'Deposit · refunded', tone: 'good' };
+      }
+      if (phase === 'partial') {
+        return { label: ar ? 'ضمان · إرجاع جزئي' : 'Deposit · partial refund', tone: 'action' };
+      }
+      if (phase === 'rejected') {
+        return { label: ar ? 'ضمان · محجوز' : 'Deposit · held', tone: 'info' };
+      }
+      if (phase === 'not_received') {
+        return {
+          label: ar ? 'ضمان · لم يصل الإرجاع' : 'Deposit · refund not received',
+          tone: 'danger',
+        };
+      }
+      return { label: ar ? 'ضمان · قيد الإرجاع' : 'Deposit · refund in progress', tone: 'action' };
+    }
+    if (refunded > 0n && refunded < amount) {
+      return { label: ar ? 'ضمان · إرجاع جزئي' : 'Deposit · partial refund', tone: 'action' };
+    }
+    if (refunded >= amount && amount > 0n) {
+      return { label: ar ? 'ضمان · تم الإرجاع' : 'Deposit · refunded', tone: 'good' };
+    }
+    return { label: ar ? 'ضمان · محجوز' : 'Deposit · held', tone: 'info' };
+  }
+  if (refunded >= amount && amount > 0n) {
+    return { label: ar ? 'إيجار · تم الإرجاع' : 'Rent · refunded', tone: 'good' };
+  }
+  if (refunded > 0n) {
+    return { label: ar ? 'إيجار · إرجاع جزئي' : 'Rent · partially refunded', tone: 'action' };
+  }
+  return { label: ar ? 'إيجار · مدفوع' : 'Rent · paid', tone: 'good' };
+}
+
 /** Tenant-facing phase of a stay deposit refund (partial / dispute are derived). */
 export type TenantDepositRefundPhase =
   | 'requested'

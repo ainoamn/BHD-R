@@ -907,44 +907,51 @@ function stayIntentKind(idempotencyKey: string): StayBookingPaymentKind {
   return 'other';
 }
 
-/** Prefer the deposit refund row over a booking-cancel refund for the same stay. */
-function pickStayDepositRefund(
-  rows: Array<{
-    bookingId: string;
-    status: string;
-    amountMinor: bigint;
-    paidMinor: bigint;
-    idempotencyKey: string | null;
-    guestReceipt: string | null;
-  }>,
+type StayRefundRow = {
+  bookingId: string;
+  status: string;
+  amountMinor: bigint;
+  paidMinor: bigint;
+  idempotencyKey: string | null;
+  guestReceipt: string | null;
+};
+
+function toTenancyDepositRefund(row: StayRefundRow): TenancyDepositRefund {
+  return {
+    status: row.status as DepositRefundStatus,
+    amountMinor: row.amountMinor.toString(),
+    paidMinor: row.paidMinor.toString(),
+    guestReceipt:
+      row.guestReceipt === 'confirmed' || row.guestReceipt === 'not_received'
+        ? row.guestReceipt
+        : null,
+  };
+}
+
+/** Latest refund row whose idempotency key matches a prefix (`deposit:` / `booking_cancel:`). */
+function pickStayRefundByPrefix(
+  rows: StayRefundRow[],
+  prefix: 'deposit:' | 'booking_cancel:',
 ): Map<string, TenancyDepositRefund> {
-  const byBooking = new Map<string, TenancyDepositRefund & { depositKey: boolean }>();
+  const byBooking = new Map<string, TenancyDepositRefund>();
   for (const row of rows) {
-    const depositKey =
-      typeof row.idempotencyKey === 'string' && row.idempotencyKey.startsWith('deposit:');
-    const existing = byBooking.get(row.bookingId);
-    if (existing?.depositKey && !depositKey) continue;
-    byBooking.set(row.bookingId, {
-      status: row.status as DepositRefundStatus,
-      amountMinor: row.amountMinor.toString(),
-      paidMinor: row.paidMinor.toString(),
-      guestReceipt:
-        row.guestReceipt === 'confirmed' || row.guestReceipt === 'not_received'
-          ? row.guestReceipt
-          : null,
-      depositKey,
-    });
+    if (typeof row.idempotencyKey !== 'string' || !row.idempotencyKey.startsWith(prefix)) continue;
+    byBooking.set(row.bookingId, toTenancyDepositRefund(row));
   }
-  const out = new Map<string, TenancyDepositRefund>();
-  for (const [bookingId, value] of byBooking) {
-    out.set(bookingId, {
-      status: value.status,
-      amountMinor: value.amountMinor,
-      paidMinor: value.paidMinor,
-      guestReceipt: value.guestReceipt ?? null,
-    });
+  return byBooking;
+}
+
+/** Prefer the deposit refund row over a booking-cancel refund for the same stay. */
+function pickStayDepositRefund(rows: StayRefundRow[]): Map<string, TenancyDepositRefund> {
+  const deposit = pickStayRefundByPrefix(rows, 'deposit:');
+  if (deposit.size) {
+    const cancel = pickStayRefundByPrefix(rows, 'booking_cancel:');
+    for (const [bookingId, value] of cancel) {
+      if (!deposit.has(bookingId)) deposit.set(bookingId, value);
+    }
+    return deposit;
   }
-  return out;
+  return pickStayRefundByPrefix(rows, 'booking_cancel:');
 }
 
 /** Succeeded stay checkout / deposit intents → tenant invoices + payments lists. */
@@ -1041,46 +1048,61 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
     }
 
     const bookingIds = [...bookingTotals.keys()];
-    const refundByBooking =
+    const refundRows =
       bookingIds.length === 0
-        ? new Map<string, TenancyDepositRefund>()
-        : pickStayDepositRefund(
-            await elevated(async (tx) =>
-              tx
-                .select({
-                  bookingId: stayRefunds.bookingId,
-                  status: stayRefunds.status,
-                  amountMinor: stayRefunds.amountMinor,
-                  paidMinor: stayRefunds.paidMinor,
-                  idempotencyKey: stayRefunds.idempotencyKey,
-                  guestReceipt: stayRefunds.guestReceipt,
-                })
-                .from(stayRefunds)
-                .where(
-                  and(
-                    inArray(stayRefunds.bookingId, bookingIds),
-                    sql`(${stayRefunds.idempotencyKey} like 'deposit:%' or ${stayRefunds.idempotencyKey} like 'booking_cancel:%')`,
-                  ),
-                )
-                .orderBy(asc(stayRefunds.createdAt)),
-            ),
+        ? ([] as StayRefundRow[])
+        : await elevated(async (tx) =>
+            tx
+              .select({
+                bookingId: stayRefunds.bookingId,
+                status: stayRefunds.status,
+                amountMinor: stayRefunds.amountMinor,
+                paidMinor: stayRefunds.paidMinor,
+                idempotencyKey: stayRefunds.idempotencyKey,
+                guestReceipt: stayRefunds.guestReceipt,
+              })
+              .from(stayRefunds)
+              .where(
+                and(
+                  inArray(stayRefunds.bookingId, bookingIds),
+                  sql`(${stayRefunds.idempotencyKey} like 'deposit:%' or ${stayRefunds.idempotencyKey} like 'booking_cancel:%')`,
+                ),
+              )
+              .orderBy(asc(stayRefunds.createdAt)),
           );
+    const refundByBooking = pickStayDepositRefund(refundRows);
+    const depositRefundByBooking = pickStayRefundByPrefix(refundRows, 'deposit:');
+    const bookingCancelByBooking = pickStayRefundByPrefix(refundRows, 'booking_cancel:');
+    const bookingCancelLeft = new Map<string, bigint>();
+    for (const [bookingId, refund] of bookingCancelByBooking) {
+      bookingCancelLeft.set(bookingId, BigInt(refund.paidMinor || '0'));
+    }
 
     for (let i = 0; i < payments.length; i++) {
       const payment = payments[i]!;
-      if (payment.stayKind !== 'deposit') continue;
-      const refund = refundByBooking.get(paymentBookingIds[i]!);
-      if (!refund) continue;
+      const bookingId = paymentBookingIds[i]!;
       const ref = payment.stayReference ?? payment.invoiceNumber;
-      const docs =
-        refund.status === 'executed'
-          ? {
-              transferReceiptHref: depositTransferReceiptHref(ref),
-              refundDocHref: depositRefundDocHref(ref),
-            }
-          : {};
-      payment.depositRefund = { ...refund, ...docs };
-      payment.refundedMinor = refund.paidMinor !== '0' ? refund.paidMinor : '0';
+      if (payment.stayKind === 'deposit') {
+        const refund = depositRefundByBooking.get(bookingId) ?? refundByBooking.get(bookingId);
+        if (!refund) continue;
+        const docs =
+          refund.status === 'executed'
+            ? {
+                transferReceiptHref: depositTransferReceiptHref(ref),
+                refundDocHref: depositRefundDocHref(ref),
+              }
+            : {};
+        payment.depositRefund = { ...refund, ...docs };
+        payment.refundedMinor = refund.paidMinor !== '0' ? refund.paidMinor : '0';
+        continue;
+      }
+      // Booking / top-up: apply cancel refund so «المدفوع للإيجار» drops after return.
+      let left = bookingCancelLeft.get(bookingId) ?? 0n;
+      if (left <= 0n) continue;
+      const amount = BigInt(payment.amountMinor || '0');
+      const applied = left < amount ? left : amount;
+      payment.refundedMinor = applied.toString();
+      bookingCancelLeft.set(bookingId, left - applied);
     }
 
     const invoices: TenancyInvoice[] = [...bookingTotals.entries()].map(([bookingId, bucket]) => {

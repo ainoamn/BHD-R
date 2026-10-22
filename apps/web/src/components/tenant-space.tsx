@@ -26,6 +26,8 @@ import {
   tenantDepositRefundPhase,
   tenantDepositRefundStatusLabel,
   tenantDepositRefundStatusTone,
+  tenantPaymentCategoryLabel,
+  tenantPaymentHoldStatus,
 } from '@/lib/stay-booking-payment-labels';
 import {
   invoiceOutstandingMinor,
@@ -266,6 +268,48 @@ function tenantFinanceMoney(data: MyTenancy, locale: string) {
     hasOverdue: has(overdue),
     hasDue: has(due),
     hasDeferred: has(deferred),
+  };
+}
+
+/** Rent paid vs deposit held/refunded — for the tenant payments summary. */
+function tenantPaymentMoney(data: MyTenancy, locale: string) {
+  const rentPaid = new Map<string, bigint>();
+  const depositHeld = new Map<string, bigint>();
+  const depositRefunded = new Map<string, bigint>();
+
+  for (const payment of data.payments) {
+    const amount = BigInt(payment.amountMinor || '0');
+    const refundedRaw = BigInt(payment.refundedMinor || '0');
+    const refunded = refundedRaw > amount ? amount : refundedRaw;
+    const net = amount > refunded ? amount - refunded : 0n;
+    if (payment.stayKind === 'deposit') {
+      addMinor(depositHeld, payment.currency, net);
+      addMinor(depositRefunded, payment.currency, refunded);
+    } else {
+      addMinor(rentPaid, payment.currency, net);
+    }
+  }
+
+  // Long-term lease security deposits (outside contract total) still held.
+  for (const item of data.statements) {
+    for (const line of item.statement.lines) {
+      if (line.kind !== 'deposit') continue;
+      const paid = BigInt(line.paidMinor || '0');
+      if (paid <= 0n) continue;
+      addMinor(depositHeld, item.currency, paid);
+    }
+  }
+
+  const zeroCurrency =
+    data.payments[0]?.currency ?? data.statements[0]?.currency ?? data.invoices[0]?.currency ?? null;
+  const has = (map: Map<string, bigint>) => [...map.values()].some((value) => value !== 0n);
+  return {
+    rentPaid: formatMoneyMap(rentPaid, locale, zeroCurrency),
+    depositHeld: formatMoneyMap(depositHeld, locale, zeroCurrency),
+    depositRefunded: formatMoneyMap(depositRefunded, locale, zeroCurrency),
+    hasRentPaid: has(rentPaid),
+    hasDepositHeld: has(depositHeld),
+    hasDepositRefunded: has(depositRefunded),
   };
 }
 
@@ -639,27 +683,31 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
       }
     >
       {data.payments.map((payment) => {
-        const refundStatus =
-          payment.stayKind === 'deposit'
-            ? depositRefundStatusCell(payment.depositRefund, ar)
-            : null;
+        const hold = tenantPaymentHoldStatus(payment, ar);
+        const amount = BigInt(payment.amountMinor || '0');
+        const refundedRaw = BigInt(payment.refundedMinor || '0');
+        const refunded = refundedRaw > amount ? amount : refundedRaw;
+        const held = amount > refunded ? amount - refunded : 0n;
         return (
           <tr key={payment.id}>
             <td>{formatDate(payment.receivedAt, ar)}</td>
             <td className="tenant-table__ref">
               <bdi>{payment.invoiceNumber}</bdi>
-              {payment.stayKind ? (
-                <small className="tenant-table__sub">
-                  {stayPaymentKindLabel(payment.stayKind, ar)}
-                </small>
-              ) : null}
+              <small className="tenant-table__sub">
+                {tenantPaymentCategoryLabel(payment.stayKind, ar)}
+                {payment.stayKind ? ` · ${stayPaymentKindLabel(payment.stayKind, ar)}` : ''}
+              </small>
             </td>
             <td>{tenancyLandlordName(payment.landlord, ar)}</td>
-            <td>{money(payment.amountMinor, payment.currency, locale)}</td>
             <td>
-              {payment.refundedMinor !== '0'
-                ? money(payment.refundedMinor, payment.currency, locale)
-                : '—'}
+              {money(
+                payment.stayKind === 'deposit' ? held.toString() : payment.amountMinor,
+                payment.currency,
+                locale,
+              )}
+            </td>
+            <td>
+              {refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '—'}
             </td>
             <td>
               {payment.stayReference
@@ -667,12 +715,7 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
                 : payment.method}
             </td>
             <td>
-              {refundStatus ?? (
-                <Status
-                  label={domainStatusLabel(payment.status, ar)}
-                  tone={payment.status === 'succeeded' ? 'good' : undefined}
-                />
-              )}
+              <Status label={hold.label} tone={hold.tone} />
             </td>
             <td>
               <span className="tenant-doc-links">
@@ -1016,35 +1059,57 @@ function leasePreviewItems(data: MyTenancy, ar: boolean, locale: string): Previe
 function paymentPreviewItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
   return data.payments.map((payment) => {
     const href = payment.receiptHref ?? null;
+    const amount = BigInt(payment.amountMinor || '0');
+    const refundedRaw = BigInt(payment.refundedMinor || '0');
+    const refunded = refundedRaw > amount ? amount : refundedRaw;
+    const held = amount > refunded ? amount - refunded : 0n;
+    const hold = tenantPaymentHoldStatus(payment, ar);
+    const kindLabel = payment.stayKind
+      ? stayPaymentKindLabel(payment.stayKind, ar)
+      : tenantPaymentCategoryLabel(payment.stayKind, ar);
     return {
       id: `payment:${payment.id}`,
       title: payment.invoiceNumber || payment.id.slice(0, 8),
-      eyebrow: payment.stayKind
-        ? stayPaymentKindLabel(payment.stayKind, ar)
-        : ar
-          ? 'دفعة'
-          : 'Payment',
-      summary: `${tenancyLandlordName(payment.landlord, ar)} · ${formatDate(payment.receivedAt, ar)}`,
-      amount: money(payment.amountMinor, payment.currency, locale),
-      status: (
-        <Status
-          label={domainStatusLabel(payment.status, ar)}
-          tone={payment.status === 'succeeded' ? 'good' : undefined}
-        />
-      ),
+      eyebrow: kindLabel,
+      summary: [
+        tenantPaymentCategoryLabel(payment.stayKind, ar),
+        tenancyLandlordName(payment.landlord, ar),
+        formatDate(payment.receivedAt, ar),
+      ].join(' · '),
+      amount: money(held.toString(), payment.currency, locale),
+      tone: hold.tone === 'info' ? 'info' : hold.tone === 'danger' ? 'danger' : undefined,
+      status: <Status label={hold.label} tone={hold.tone} />,
       facts: [
+        {
+          label: ar ? 'النوع' : 'Type',
+          value: tenantPaymentCategoryLabel(payment.stayKind, ar),
+        },
+        { label: ar ? 'التفصيل' : 'Detail', value: kindLabel },
         { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(payment.landlord, ar) },
         { label: ar ? 'التاريخ' : 'Date', value: formatDate(payment.receivedAt, ar) },
         {
-          label: ar ? 'المبلغ' : 'Amount',
+          label: ar ? 'المبلغ الأصلي' : 'Original amount',
           value: money(payment.amountMinor, payment.currency, locale),
+        },
+        {
+          label:
+            payment.stayKind === 'deposit'
+              ? ar
+                ? 'المتبقي محجوزاً'
+                : 'Still held'
+              : ar
+                ? 'صافي المدفوع'
+                : 'Net paid',
+          value: money(held.toString(), payment.currency, locale),
         },
         {
           label: ar ? 'المسترد' : 'Refunded',
           value:
-            payment.refundedMinor !== '0'
-              ? money(payment.refundedMinor, payment.currency, locale)
-              : '—',
+            refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '—',
+        },
+        {
+          label: ar ? 'الحالة' : 'Status',
+          value: hold.label,
         },
         {
           label: ar ? 'الطريقة' : 'Method',
@@ -1124,11 +1189,11 @@ const VIEW_COPY: Record<
   payments: {
     ar: [
       'مدفوعاتي والفواتير',
-      'كشف أقساط العقود والشيكات والمتأخرات، مع إيصالات القبض والفواتير، ثم المدفوعات المباشرة.',
+      'المدفوع للإيجار ومبالغ الضمان المحجوزة والمستردّة، مع حالة كل دفعة: إيجار أو ضمان، ومحجوز أو تم الإرجاع.',
     ],
     en: [
       'My payments & invoices',
-      'Lease installments, cheques and arrears with receipts and invoices, then direct payments.',
+      'Rent paid and security deposits held or refunded, with each payment marked rent or deposit and held or returned.',
     ],
   },
   requests: {
@@ -1220,55 +1285,105 @@ export function TenantSpaceContent({
           <>
             {(() => {
               const moneyStats = tenantFinanceMoney(data, locale);
+              const paymentMoney = tenantPaymentMoney(data, locale);
               const contractCount = tenancyContractGroups(data.contracts).length;
               const bookingCount =
                 data.stays.length + data.reservations.length + data.viewings.length;
+              const emptyKeys = new Set<string>();
+              if (!moneyStats.hasOverdue) emptyKeys.add('overdue');
+              if (!moneyStats.hasDue) emptyKeys.add('due');
+              if (!moneyStats.hasDeferred) emptyKeys.add('deferred');
+              if (!paymentMoney.hasRentPaid) emptyKeys.add('rentPaid');
+              if (!paymentMoney.hasDepositHeld) emptyKeys.add('depositHeld');
+              if (!paymentMoney.hasDepositRefunded) emptyKeys.add('depositRefunded');
               const chips: Array<{
                 key: string;
                 label: string;
                 value: string | number;
                 tone: StatusTone;
                 href?: string;
-              }> = [
-                {
-                  key: 'paid',
-                  label: ar ? 'المدفوع' : 'Paid',
-                  value: moneyStats.paid,
-                  tone: 'good',
-                },
-                {
-                  key: 'overdue',
-                  label: ar ? 'المتأخر' : 'Overdue',
-                  value: moneyStats.overdue,
-                  tone: moneyStats.hasOverdue ? 'danger' : 'quiet',
-                },
-                {
-                  key: 'due',
-                  label: ar ? 'الواجب للدفع' : 'Due to pay',
-                  value: moneyStats.due,
-                  tone: moneyStats.hasDue ? 'action' : 'quiet',
-                },
-                {
-                  key: 'deferred',
-                  label: ar ? 'الآجلة' : 'Deferred',
-                  value: moneyStats.deferred,
-                  tone: moneyStats.hasDeferred ? 'info' : 'quiet',
-                },
-                {
-                  key: 'contracts',
-                  label: ar ? 'العقود' : 'Contracts',
-                  value: contractCount,
-                  tone: 'info',
-                  href: '/tenant/contracts',
-                },
-                {
-                  key: 'bookings',
-                  label: ar ? 'الحجوزات' : 'Bookings',
-                  value: bookingCount,
-                  tone: 'info',
-                  href: '/tenant/reservations',
-                },
-              ];
+              }> =
+                view === 'payments'
+                  ? [
+                      {
+                        key: 'rentPaid',
+                        label: ar ? 'المدفوع للإيجار' : 'Rent paid',
+                        value: paymentMoney.rentPaid,
+                        tone: 'good',
+                      },
+                      {
+                        key: 'depositHeld',
+                        label: ar ? 'الضمان المحجوز' : 'Deposit held',
+                        value: paymentMoney.depositHeld,
+                        tone: paymentMoney.hasDepositHeld ? 'info' : 'quiet',
+                      },
+                      {
+                        key: 'depositRefunded',
+                        label: ar ? 'الضمان المسترد' : 'Deposit refunded',
+                        value: paymentMoney.depositRefunded,
+                        tone: paymentMoney.hasDepositRefunded ? 'good' : 'quiet',
+                      },
+                      {
+                        key: 'overdue',
+                        label: ar ? 'المتأخر' : 'Overdue',
+                        value: moneyStats.overdue,
+                        tone: moneyStats.hasOverdue ? 'danger' : 'quiet',
+                      },
+                      {
+                        key: 'contracts',
+                        label: ar ? 'العقود' : 'Contracts',
+                        value: contractCount,
+                        tone: 'info',
+                        href: '/tenant/contracts',
+                      },
+                      {
+                        key: 'bookings',
+                        label: ar ? 'الحجوزات' : 'Bookings',
+                        value: bookingCount,
+                        tone: 'info',
+                        href: '/tenant/reservations',
+                      },
+                    ]
+                  : [
+                      {
+                        key: 'paid',
+                        label: ar ? 'المدفوع' : 'Paid',
+                        value: moneyStats.paid,
+                        tone: 'good',
+                      },
+                      {
+                        key: 'overdue',
+                        label: ar ? 'المتأخر' : 'Overdue',
+                        value: moneyStats.overdue,
+                        tone: moneyStats.hasOverdue ? 'danger' : 'quiet',
+                      },
+                      {
+                        key: 'due',
+                        label: ar ? 'الواجب للدفع' : 'Due to pay',
+                        value: moneyStats.due,
+                        tone: moneyStats.hasDue ? 'action' : 'quiet',
+                      },
+                      {
+                        key: 'deferred',
+                        label: ar ? 'الآجلة' : 'Deferred',
+                        value: moneyStats.deferred,
+                        tone: moneyStats.hasDeferred ? 'info' : 'quiet',
+                      },
+                      {
+                        key: 'contracts',
+                        label: ar ? 'العقود' : 'Contracts',
+                        value: contractCount,
+                        tone: 'info',
+                        href: '/tenant/contracts',
+                      },
+                      {
+                        key: 'bookings',
+                        label: ar ? 'الحجوزات' : 'Bookings',
+                        value: bookingCount,
+                        tone: 'info',
+                        href: '/tenant/reservations',
+                      },
+                    ];
               return (
                 <nav
                   className="tenant-home__nav tenant-home__nav--finance"
@@ -1276,12 +1391,7 @@ export function TenantSpaceContent({
                 >
                   {chips.map((chip) => {
                     const className = `tenant-home__chip tenant-home__chip--${chip.tone}${
-                      chip.value === 0 ||
-                      chip.value === '—' ||
-                      (typeof chip.value === 'string' &&
-                        ((chip.key === 'overdue' && !moneyStats.hasOverdue) ||
-                          (chip.key === 'due' && !moneyStats.hasDue) ||
-                          (chip.key === 'deferred' && !moneyStats.hasDeferred)))
+                      chip.value === 0 || chip.value === '—' || emptyKeys.has(chip.key)
                         ? ' is-empty'
                         : ''
                     }`;
