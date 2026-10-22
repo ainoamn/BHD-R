@@ -5,6 +5,7 @@ import { and, count, desc, eq, gte, inArray, lte, notInArray, or, sql } from 'dr
 import { verifySessionToken, type SessionClaims } from '@bhd-r/authz';
 import {
   createDatabase,
+  contracts,
   invoices,
   leases,
   maintenanceTickets,
@@ -71,6 +72,28 @@ async function withinViewerTenant<T>(
   });
 }
 
+/** Active leases that are really closed stays / terminated contracts must not raise the 60-day alert. */
+function leaseStillLiveForExpiryAlert(orgId: string) {
+  return sql`not exists (
+    select 1
+    from ${contracts} c
+    left join ${stayBookings} b
+      on b.organization_id = ${orgId}::uuid
+     and b.id::text = c.payload_snapshot->'source'->>'stayBookingId'
+    where c.id = ${leases.contractId}
+      and c.organization_id = ${orgId}::uuid
+      and (
+        c.status in ('terminated', 'void')
+        or (
+          c.payload_snapshot->'source'->>'type' = 'stay_booking'
+          and b.status in (
+            'checked_out', 'closed', 'cancelled', 'expired', 'no_show', 'payment_failed'
+          )
+        )
+      )
+  )`;
+}
+
 async function organizationOverviewFromDb(claims: SessionClaims): Promise<PortalOverview> {
   return withinViewerTenant(claims, async (transaction) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -87,6 +110,8 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
     } catch (error) {
       console.error('stay lease checkout repair', error);
     }
+
+    const liveExpiry = leaseStillLiveForExpiryAlert(orgId);
 
     const propertyFilter = ownerPartyId
       ? and(eq(properties.organizationId, orgId), eq(properties.ownerPartyId, ownerPartyId))
@@ -114,8 +139,9 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
           eq(leases.organizationId, orgId),
           eq(leases.status, 'active'),
           eq(leases.ownerPartyId, ownerPartyId),
+          liveExpiry,
         )
-      : and(eq(leases.organizationId, orgId), eq(leases.status, 'active'));
+      : and(eq(leases.organizationId, orgId), eq(leases.status, 'active'), liveExpiry);
 
     const expiringFilter = ownerPartyId
       ? and(
@@ -124,12 +150,14 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
           eq(leases.ownerPartyId, ownerPartyId),
           gte(leases.endsOn, today),
           lte(leases.endsOn, expiryCutoff),
+          liveExpiry,
         )
       : and(
           eq(leases.organizationId, orgId),
           eq(leases.status, 'active'),
           gte(leases.endsOn, today),
           lte(leases.endsOn, expiryCutoff),
+          liveExpiry,
         );
 
     const countsQuery = Promise.all([
@@ -309,6 +337,7 @@ async function tenantOverviewFromDb(claims: SessionClaims): Promise<PortalOvervi
       ? and(eq(invoices.organizationId, orgId), eq(invoices.tenantPartyId, tenantPartyId))
       : eq(invoices.organizationId, orgId);
 
+    const tenantLiveExpiry = leaseStillLiveForExpiryAlert(orgId);
     const expiringWhere = tenantPartyId
       ? and(
           eq(leases.organizationId, orgId),
@@ -316,12 +345,14 @@ async function tenantOverviewFromDb(claims: SessionClaims): Promise<PortalOvervi
           eq(leases.tenantPartyId, tenantPartyId),
           gte(leases.endsOn, today),
           lte(leases.endsOn, expiryCutoff),
+          tenantLiveExpiry,
         )
       : and(
           eq(leases.organizationId, orgId),
           eq(leases.status, 'active'),
           gte(leases.endsOn, today),
           lte(leases.endsOn, expiryCutoff),
+          tenantLiveExpiry,
         );
 
     const tenantUnitIds = tenantPartyId

@@ -123,7 +123,8 @@ export async function closeStayContractAfterCheckoutInTx(
     .from(stayBookings)
     .where(and(eq(stayBookings.id, input.bookingId), eq(stayBookings.organizationId, orgId)))
     .limit(1);
-  if (!booking || booking.status !== 'checked_out') {
+  // `closed` is the settled post-checkout status; treat it like checked_out for annex + lease close.
+  if (!booking || (booking.status !== 'checked_out' && booking.status !== 'closed')) {
     return {
       leaseId: null,
       terminationId: null,
@@ -498,7 +499,7 @@ export async function repairOpenStayLeasesAfterCheckoutInTx(
       on l.contract_id = c.id
      and l.organization_id = b.organization_id
     where b.organization_id = ${orgId}::uuid
-      and b.status = 'checked_out'
+      and b.status in ('checked_out', 'closed')
       and l.status in ('active', 'cancel_requested', 'clearance_pending')
     limit ${limit}
   `);

@@ -2781,22 +2781,24 @@ export function OperationsConsole({
     }
     return rows;
   }, [expandedProperties, filtered, section, contractGroups]);
-  const openCount = records.filter(
-    (row) =>
-      ![
-        'completed',
-        'closed',
-        'closed_won',
-        'paid',
-        'posted',
-        'ready',
-        'verified',
-        'signed',
-        'ended',
-        'cancelled',
-        'rejected',
-      ].includes(safeString(row.status)),
-  ).length;
+  const openCount = records.filter((row) => {
+    const status = safeString(
+      section === 'contracts' || section === 'leasing' ? row.state : row.status,
+    );
+    return ![
+      'completed',
+      'closed',
+      'closed_won',
+      'paid',
+      'posted',
+      'ready',
+      'verified',
+      'signed',
+      'ended',
+      'cancelled',
+      'rejected',
+    ].includes(status);
+  }).length;
   const completedCount = Math.max(0, records.length - openCount);
   const amountTotals = new Map<string, bigint>();
   if (definition.moneyKey) {
@@ -4007,7 +4009,11 @@ ${depositHtml}${
                 {definition.flow.map((stage, index) => {
                   const count = records.filter(
                     (row) =>
-                      safeString(section === 'contracts' ? row.state : row.status) === stage.value,
+                      safeString(
+                        section === 'contracts' || section === 'leasing'
+                          ? row.state
+                          : row.status,
+                      ) === stage.value,
                   ).length;
                   return (
                     <article key={stage.value} className={count ? 'is-active' : undefined}>
