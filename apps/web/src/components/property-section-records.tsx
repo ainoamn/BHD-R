@@ -507,9 +507,9 @@ function displayStatus(row: PropertyRecordRow): string | null {
       leaseStatus: row.leaseStatus,
       endsOn: row.toOn,
       today: muscatToday(),
-      sourceType: row.sourceType,
-      contractStatus: row.contractStatus,
-      linkedBookingStatus: row.linkedBookingStatus,
+      sourceType: row.sourceType ?? null,
+      contractStatus: row.contractStatus ?? null,
+      linkedBookingStatus: row.linkedBookingStatus ?? null,
     });
   }
   return row.stage ?? row.status ?? null;

@@ -8048,41 +8048,60 @@ body:has(.stays-booking-receipt) #main-content {
     linear-gradient(135deg, #eef4f9 0%, #fff 58%);
 }
 
-/* Tenant home overview */
+/* Tenant home overview — wide title rows + review modal */
 .tenant-home {
   display: grid;
-  gap: 1.15rem;
+  gap: 0.95rem;
+  width: 100%;
+  max-width: none;
   padding-bottom: 1.5rem;
+}
+.tenant-home .empty-state {
+  min-height: 0;
+  padding: 0.85rem 0.5rem;
+  border: none;
+  background: transparent;
+}
+.tenant-home .empty-state__mark {
+  display: none;
+}
+.tenant-home .empty-state h2 {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: var(--tenant-muted);
 }
 .tenant-home__welcome {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 1rem 1.5rem;
-  padding: 1.15rem 1.25rem;
+  gap: 0.75rem 1.25rem;
+  width: 100%;
+  padding: 0.9rem 1.1rem;
   border: 1px solid var(--tenant-line);
-  border-radius: calc(var(--tenant-radius) + 0.15rem);
+  border-radius: calc(var(--tenant-radius) + 0.1rem);
   background:
-    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.1), transparent 16rem),
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.08), transparent 14rem),
     linear-gradient(145deg, #eef4f9 0%, #fff 62%);
 }
 .tenant-home__welcome-copy {
   display: grid;
-  gap: 0.3rem;
-  max-width: 38rem;
+  gap: 0.2rem;
+  min-width: min(100%, 18rem);
+  flex: 1 1 16rem;
 }
 .tenant-kicker {
   margin: 0;
   color: var(--tenant-accent);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 .tenant-home__welcome-copy h1 {
   margin: 0;
-  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -8091,52 +8110,61 @@ body:has(.stays-booking-receipt) #main-content {
 .tenant-home__welcome-copy > p {
   margin: 0;
   color: var(--tenant-muted);
-  font-size: 0.92rem;
-  line-height: 1.5;
+  font-size: 0.86rem;
+  line-height: 1.45;
 }
 .tenant-home__badges {
-  margin-top: 0.25rem;
+  margin-top: 0.15rem;
+}
+.tenant-home__badges .badge-emblem {
+  width: 14px !important;
+  height: 14px !important;
 }
 .tenant-home__welcome-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 .tenant-home__nav {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.45rem;
+  width: 100%;
 }
 .tenant-home__chip {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.75rem 0.85rem;
-  border-radius: var(--tenant-radius);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.75rem;
   border: 1px solid var(--tenant-line);
   background: var(--tenant-surface);
   color: inherit;
   text-decoration: none;
-  box-shadow: 0 8px 20px rgb(15 47 74 / 0.04);
-  transition:
-    border-color 0.15s ease,
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 .tenant-home__chip:hover {
   border-color: rgb(26 90 138 / 0.28);
-  transform: translateY(-1px);
-  box-shadow: 0 12px 28px rgb(15 47 74 / 0.07);
+  background: #f7fafc;
 }
 .tenant-home__chip span {
+  min-width: 0;
   font-size: 0.78rem;
   font-weight: 700;
   color: var(--tenant-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .tenant-home__chip strong {
-  font-size: 1.4rem;
+  flex: 0 0 auto;
+  font-size: 1.05rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  line-height: 1.1;
+  line-height: 1;
   color: var(--tenant-ink);
 }
 .tenant-home__chip--good {
@@ -8160,15 +8188,16 @@ body:has(.stays-booking-receipt) #main-content {
 .tenant-home__chip.is-empty strong {
   color: var(--tenant-muted);
 }
-.tenant-home__attention {
+.tenant-home__panel {
   display: grid;
-  gap: 0.65rem;
-  padding: 0.95rem 1.05rem;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.8rem 0.95rem;
   border: 1px solid var(--tenant-line);
   border-radius: var(--tenant-radius);
   background: var(--tenant-surface);
 }
-.tenant-home__attention.has-items {
+.tenant-home__panel.has-items {
   border-color: rgb(154 52 18 / 0.18);
   background: linear-gradient(180deg, #fffaf6 0%, #fff 55%);
 }
@@ -8176,29 +8205,154 @@ body:has(.stays-booking-receipt) #main-content {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.6rem;
-  height: 1.6rem;
-  padding: 0 0.4rem;
+  min-width: 1.45rem;
+  height: 1.45rem;
+  padding: 0 0.35rem;
   border-radius: 999px;
   background: var(--tenant-action-soft);
   color: var(--tenant-action);
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   font-weight: 800;
 }
 .tenant-home__calm {
   margin: 0;
-  padding: 0.55rem 0.15rem;
+  padding: 0.4rem 0.1rem;
   color: var(--tenant-muted);
-  font-size: 0.9rem;
+  font-size: 0.86rem;
 }
 .tenant-home__split {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.95rem;
   align-items: start;
+  width: 100%;
 }
 .tenant-home__span {
   grid-column: 1 / -1;
+}
+.tenant-preview-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  width: 100%;
+}
+.tenant-preview-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 0.85rem;
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--tenant-line);
+  border-radius: 0.75rem;
+  background: #fff;
+  border-inline-start: 3px solid var(--tenant-info, #1a5a8a);
+}
+.tenant-preview-row--danger {
+  border-inline-start-color: var(--tenant-danger);
+  background: linear-gradient(90deg, var(--tenant-danger-soft), #fff 42%);
+}
+.tenant-preview-row--action {
+  border-inline-start-color: var(--tenant-action);
+  background: linear-gradient(90deg, var(--tenant-action-soft), #fff 42%);
+}
+.tenant-preview-row--warn {
+  border-inline-start-color: var(--tenant-warn);
+  background: linear-gradient(90deg, var(--tenant-warn-soft), #fff 42%);
+}
+.tenant-preview-row--info {
+  border-inline-start-color: var(--tenant-info);
+}
+.tenant-preview-row--quiet {
+  border-inline-start-color: var(--tenant-quiet);
+}
+.tenant-preview-row__copy {
+  display: grid;
+  gap: 0.12rem;
+  min-width: min(100%, 12rem);
+  flex: 1 1 12rem;
+}
+.tenant-preview-row__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tenant-muted);
+}
+.tenant-preview-row__title {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--tenant-ink);
+  line-height: 1.25;
+  word-break: break-word;
+}
+.tenant-preview-row__summary {
+  font-size: 0.8rem;
+  color: var(--tenant-muted);
+  line-height: 1.35;
+}
+.tenant-preview-row__side {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex: 0 1 auto;
+}
+.tenant-preview-row__side .button {
+  min-height: 2rem;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.8rem;
+}
+.tenant-preview-row__side .tenant-status {
+  font-size: 0.72rem;
+}
+.tenant-detail-modal__card {
+  width: min(34rem, calc(100vw - 1.5rem));
+  max-height: min(86vh, 40rem);
+  display: flex;
+  flex-direction: column;
+}
+.tenant-detail-modal__body {
+  display: grid;
+  gap: 0.9rem;
+  overflow: auto;
+  padding: 0 1.15rem 1.15rem;
+}
+.tenant-detail-modal__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tenant-detail-modal__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.65rem 0.9rem;
+  margin: 0;
+}
+.tenant-detail-modal__facts > div {
+  display: grid;
+  gap: 0.15rem;
+}
+.tenant-detail-modal__facts dt {
+  margin: 0;
+  color: var(--tenant-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.tenant-detail-modal__facts dd {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--tenant-ink);
+}
+.tenant-detail-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
 }
 @media (max-width: 960px) {
   .tenant-home__nav {
@@ -8210,10 +8364,17 @@ body:has(.stays-booking-receipt) #main-content {
 }
 @media (max-width: 640px) {
   .tenant-home__nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr 1fr;
   }
   .tenant-home__welcome {
-    padding: 1rem;
+    padding: 0.85rem;
+  }
+  .tenant-preview-row__side {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .tenant-preview-row__side .button {
+    margin-inline-start: auto;
   }
 }
 

@@ -1,9 +1,16 @@
 'use client';
 
 import { EmptyState } from '@bhd-r/ui';
-import { Children, cloneElement, isValidElement, type ReactNode } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useState,
+  type ReactNode,
+} from 'react';
 import { formatMoney } from '@/lib/format';
 import { BadgeChips } from '@/components/badges/badge-chips';
+import { ModalPortal } from '@/components/modal-portal';
 import { SoftPortalLink as Link } from '@/components/soft-portal-link';
 import { TenantBookingsBoard } from '@/components/tenant-bookings-board';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
@@ -23,11 +30,14 @@ import {
 } from '@/lib/stay-booking-payment-labels';
 import {
   invoiceOutstandingMinor,
+  reservationHref,
+  stayHref,
   tenancyAlertLabel,
   tenancyContractGroups,
   tenancyContractKindLabel,
   tenancyLandlordName,
   tenancyUnitLabel,
+  viewingHref,
   type MyTenancy,
   type TenancyContract,
   type TenancyDepositRefund,
@@ -37,7 +47,7 @@ import {
   TENANT_SPACE_SECTIONS,
   type TenantSpaceView,
 } from '@/lib/tenant-soft-nav';
-import { domainStatusLabel } from '@/lib/ui-labels';
+import { domainStatusLabel, stayStatusLabel } from '@/lib/ui-labels';
 
 export type { TenantSpaceView };
 export { TENANT_SPACE_SECTIONS };
@@ -105,6 +115,119 @@ function alertTone(kind: string, action: boolean): string {
   if (kind.includes('scheduled') || kind.includes('expiring')) return 'warn';
   if (kind.includes('due')) return 'info';
   return 'quiet';
+}
+
+type PreviewFact = { label: string; value: ReactNode };
+type PreviewItem = {
+  id: string;
+  title: string;
+  eyebrow?: string;
+  summary?: string;
+  status?: ReactNode;
+  tone?: string;
+  facts: PreviewFact[];
+  href?: string | null;
+  hrefLabel?: string | null;
+};
+
+/** Title row + «استعراض» modal — keeps the home wide and light on every screen. */
+function PreviewList({
+  items,
+  ar,
+  empty,
+}: {
+  items: PreviewItem[];
+  ar: boolean;
+  empty: string;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const open = items.find((item) => item.id === openId) ?? null;
+  if (!items.length) {
+    return <p className="tenant-home__calm">{empty}</p>;
+  }
+  return (
+    <>
+      <ul className="tenant-preview-list">
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className={`tenant-preview-row${item.tone ? ` tenant-preview-row--${item.tone}` : ''}`}
+          >
+            <div className="tenant-preview-row__copy">
+              {item.eyebrow ? (
+                <span className="tenant-preview-row__eyebrow">{item.eyebrow}</span>
+              ) : null}
+              <strong className="tenant-preview-row__title">{item.title}</strong>
+              {item.summary ? (
+                <span className="tenant-preview-row__summary">{item.summary}</span>
+              ) : null}
+            </div>
+            <div className="tenant-preview-row__side">
+              {item.status}
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setOpenId(item.id)}
+              >
+                {ar ? 'استعراض' : 'Review'}
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {open ? (
+        <ModalPortal onClose={() => setOpenId(null)}>
+          <div
+            className="ops-modal ops-modal--create tenant-detail-modal"
+            role="presentation"
+            onClick={() => setOpenId(null)}
+          >
+            <div
+              className="ops-modal__card tenant-detail-modal__card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby={`tenant-detail-${open.id}`}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <header className="ops-modal__head">
+                <div>
+                  {open.eyebrow ? <p className="tenant-kicker">{open.eyebrow}</p> : null}
+                  <h2 id={`tenant-detail-${open.id}`}>{open.title}</h2>
+                </div>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => setOpenId(null)}
+                >
+                  {ar ? 'إغلاق' : 'Close'}
+                </button>
+              </header>
+              <div className="tenant-detail-modal__body">
+                {open.status ? (
+                  <div className="tenant-detail-modal__status">{open.status}</div>
+                ) : null}
+                <dl className="tenant-detail-modal__facts">
+                  {open.facts.map((fact) => (
+                    <div key={fact.label}>
+                      <dt>{fact.label}</dt>
+                      <dd>{fact.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {open.href ? (
+                  <div className="tenant-detail-modal__footer">
+                    <Link href={open.href} className="button button--primary">
+                      {open.hrefLabel ?? (ar ? 'فتح' : 'Open')}
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      ) : null}
+    </>
+  );
 }
 
 function contractStatusCell(contract: TenancyContract, ar: boolean) {
@@ -440,39 +563,240 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
 }
 
 function AlertsList({ ar, locale, data }: Ctx) {
-  if (!data.alerts.length) {
-    return (
-      <p className="tenant-home__calm">
-        {ar ? 'لا شيء يحتاج انتباهك الآن.' : 'Nothing needs your attention right now.'}
-      </p>
-    );
-  }
+  const items: PreviewItem[] = data.alerts.map((alert) => {
+    const meta = [
+      alert.date ? formatDate(alert.date, ar) : '',
+      alert.amountMinor && alert.currency
+        ? formatMoney(alert.amountMinor, alert.currency, locale)
+        : '',
+    ].filter(Boolean);
+    return {
+      id: `alert:${alert.kind}:${alert.id}`,
+      title: tenancyAlertLabel(alert.kind, ar),
+      eyebrow: ar ? 'تنبيه' : 'Alert',
+      summary: [alert.reference, ...meta].filter(Boolean).join(' · '),
+      tone: alertTone(alert.kind, alert.action),
+      status: alert.action ? (
+        <Status label={ar ? 'يتطلب إجراءً' : 'Action needed'} tone="action" />
+      ) : undefined,
+      facts: [
+        { label: ar ? 'المرجع' : 'Reference', value: <bdi>{alert.reference}</bdi> },
+        ...(alert.date
+          ? [{ label: ar ? 'التاريخ' : 'Date', value: formatDate(alert.date, ar) }]
+          : []),
+        ...(alert.amountMinor && alert.currency
+          ? [
+              {
+                label: ar ? 'المبلغ' : 'Amount',
+                value: formatMoney(alert.amountMinor, alert.currency, locale),
+              },
+            ]
+          : []),
+      ],
+      href: alert.href,
+      hrefLabel: ar ? 'متابعة' : 'Continue',
+    };
+  });
   return (
-    <ul className="tenant-alerts">
-      {data.alerts.map((alert) => (
-        <li key={`${alert.kind}:${alert.id}`}>
-          <Link
-            href={alert.href}
-            className={`tenant-alert tenant-alert--${alertTone(alert.kind, alert.action)}`}
-          >
-            <span className="tenant-alert__tone" aria-hidden="true" />
-            <strong>{tenancyAlertLabel(alert.kind, ar)}</strong>
-            <bdi className="tenant-alert__ref">{alert.reference}</bdi>
-            <span className="tenant-alert__meta">
-              {[
-                alert.date ? formatDate(alert.date, ar) : '',
-                alert.amountMinor && alert.currency
-                  ? formatMoney(alert.amountMinor, alert.currency, locale)
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
+    <PreviewList
+      items={items}
+      ar={ar}
+      empty={ar ? 'لا شيء يحتاج انتباهك الآن.' : 'Nothing needs your attention right now.'}
+    />
   );
+}
+
+function homeBookingItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
+  const viewings = data.viewings.slice(0, 4).map((viewing) => {
+    const place =
+      (ar
+        ? viewing.propertyNameAr || viewing.propertyNameEn
+        : viewing.propertyNameEn || viewing.propertyNameAr) ?? tenancyUnitLabel(viewing, ar);
+    const when = viewing.scheduledAt || viewing.preferredAt || viewing.createdAt;
+    const href = viewingHref(viewing);
+    return {
+      id: `viewing:${viewing.id}`,
+      title: place,
+      eyebrow: ar ? 'معاينة' : 'Viewing',
+      summary: `${tenancyUnitLabel(viewing, ar)} · ${formatDate(when, ar)}`,
+      status: <Status label={domainStatusLabel(viewing.status, ar)} tone="info" />,
+      facts: [
+        { label: ar ? 'المرجع' : 'Reference', value: <bdi>{viewing.reference}</bdi> },
+        { label: ar ? 'الوحدة' : 'Unit', value: tenancyUnitLabel(viewing, ar) },
+        { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(viewing.landlord, ar) },
+        {
+          label: viewing.scheduledAt ? (ar ? 'الموعد' : 'Appointment') : ar ? 'الطلب' : 'Requested',
+          value: formatDate(when, ar),
+        },
+        { label: ar ? 'الحالة' : 'Status', value: domainStatusLabel(viewing.status, ar) },
+      ],
+      href,
+      ...(href ? { hrefLabel: ar ? 'بطاقة الزيارة' : 'Visit pass' } : {}),
+    } satisfies PreviewItem;
+  });
+  const stays = data.stays.slice(0, 4).map((stay) => {
+    const title =
+      (ar ? stay.titleAr || stay.titleEn : stay.titleEn || stay.titleAr) ?? stay.referenceCode;
+    return {
+      id: `stay:${stay.id}`,
+      title,
+      eyebrow: ar ? 'إقامة يومية' : 'Daily stay',
+      summary: period(stay.checkInOn, stay.checkOutOn, ar),
+      status: (
+        <Status
+          label={stayStatusLabel(stay.status, ar)}
+          tone={
+            ['payment_pending', 'payment_failed'].includes(stay.status)
+              ? 'action'
+              : ['confirmed', 'pre_arrival', 'checked_in'].includes(stay.status)
+                ? 'good'
+                : undefined
+          }
+        />
+      ),
+      facts: [
+        { label: ar ? 'المرجع' : 'Reference', value: <bdi>{stay.referenceCode}</bdi> },
+        { label: ar ? 'الفترة' : 'Dates', value: period(stay.checkInOn, stay.checkOutOn, ar) },
+        {
+          label: ar ? 'المبلغ' : 'Amount',
+          value: money(stay.totalMinor, stay.currency, locale),
+        },
+        { label: ar ? 'الحالة' : 'Status', value: stayStatusLabel(stay.status, ar) },
+      ],
+      href: stayHref(stay),
+      hrefLabel: ar ? 'فتح الحجز' : 'Open booking',
+    } satisfies PreviewItem;
+  });
+  const reservations = data.reservations.slice(0, 4).map((reservation) => {
+    const href = reservationHref(reservation);
+    const awaitingPay = reservation.status === 'pending' && reservation.awaitingPayment;
+    return {
+      id: `reservation:${reservation.id}`,
+      title: tenancyUnitLabel(reservation, ar),
+      eyebrow:
+        reservation.mode === 'sale' ? (ar ? 'حجز شراء' : 'Purchase booking') : ar ? 'حجز إيجار' : 'Rent booking',
+      summary: `${tenancyLandlordName(reservation.landlord, ar)} · ${formatDate(reservation.expiresAt, ar)}`,
+      status: (
+        <Status
+          label={
+            awaitingPay
+              ? ar
+                ? 'بانتظار دفع الضمان'
+                : 'Deposit payment due'
+              : domainStatusLabel(reservation.status, ar)
+          }
+          tone={awaitingPay || reservation.handover ? 'action' : 'info'}
+        />
+      ),
+      facts: [
+        {
+          label: ar ? 'المرجع' : 'Reference',
+          value: <bdi>{reservation.referenceCode ?? reservation.id.slice(0, 8)}</bdi>,
+        },
+        { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(reservation.landlord, ar) },
+        { label: ar ? 'صالح حتى' : 'Valid until', value: formatDate(reservation.expiresAt, ar) },
+        {
+          label: ar ? 'العربون' : 'Deposit',
+          value: money(reservation.depositMinor, reservation.currency, locale),
+        },
+        {
+          label: ar ? 'الحالة' : 'Status',
+          value: domainStatusLabel(reservation.status, ar),
+        },
+      ],
+      href,
+      ...(href ? { hrefLabel: ar ? 'متابعة الحجز' : 'Continue' } : {}),
+    } satisfies PreviewItem;
+  });
+  return [...viewings, ...stays, ...reservations];
+}
+
+function homeContractItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
+  return tenancyContractGroups(data.contracts)
+    .slice(0, 4)
+    .map(({ root: contract, attachments }) => ({
+      id: `contract:${contract.id}`,
+      title: contract.reference,
+      eyebrow: contract.stayReference
+        ? ar
+          ? 'عقد إقامة يومية'
+          : 'Daily stay contract'
+        : ar
+          ? 'عقد إيجار'
+          : 'Lease contract',
+      summary: `${tenancyUnitLabel(contract, ar)} · ${period(contract.startsOn, contract.endsOn, ar)}`,
+      status: contractStatusCell(contract, ar),
+      facts: [
+        { label: ar ? 'الوحدة' : 'Unit', value: tenancyUnitLabel(contract, ar) },
+        { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(contract.landlord, ar) },
+        { label: ar ? 'المدة' : 'Term', value: period(contract.startsOn, contract.endsOn, ar) },
+        {
+          label: ar ? 'القيمة' : 'Value',
+          value: money(contract.amountMinor, contract.currency, locale),
+        },
+        ...(attachments.length
+          ? [
+              {
+                label: ar ? 'المرفقات' : 'Attachments',
+                value: String(attachments.length),
+              },
+            ]
+          : []),
+      ],
+      href: `/tenant/contracts/${contract.id}`,
+      hrefLabel: ar ? 'عرض العقد' : 'View contract',
+    }));
+}
+
+function homeInvoiceItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
+  return data.invoices
+    .filter((invoice) => OPEN_INVOICE.has(invoice.status))
+    .slice(0, 4)
+    .map((invoice) => ({
+      id: `invoice:${invoice.id}`,
+      title: invoice.number,
+      eyebrow: invoice.stayReference
+        ? ar
+          ? 'فاتورة إقامة'
+          : 'Stay invoice'
+        : ar
+          ? 'فاتورة'
+          : 'Invoice',
+      summary: `${tenancyLandlordName(invoice.landlord, ar)} · ${formatDate(invoice.dueOn, ar)}`,
+      status: (
+        <Status
+          label={domainStatusLabel(invoice.status, ar)}
+          tone={
+            invoice.status === 'overdue'
+              ? 'danger'
+              : invoice.status === 'partially_paid'
+                ? 'action'
+                : undefined
+          }
+        />
+      ),
+      facts: [
+        { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(invoice.landlord, ar) },
+        { label: ar ? 'الإصدار' : 'Issued', value: formatDate(invoice.issuedOn, ar) },
+        { label: ar ? 'الاستحقاق' : 'Due', value: formatDate(invoice.dueOn, ar) },
+        {
+          label: ar ? 'الإجمالي' : 'Total',
+          value: money(invoice.totalMinor, invoice.currency, locale),
+        },
+        {
+          label: ar ? 'المتبقي' : 'Outstanding',
+          value: money(invoiceOutstandingMinor(invoice), invoice.currency, locale),
+        },
+      ],
+      href: invoice.receiptHref ?? '/tenant/invoices',
+      hrefLabel: invoice.receiptHref
+        ? ar
+          ? 'إيصال القبض'
+          : 'Receipt'
+        : ar
+          ? 'كل الفواتير'
+          : 'All invoices',
+    }));
 }
 
 function Section({
@@ -759,6 +1083,10 @@ export function TenantSpaceContent({
   ];
   const alertCount = data.alerts.length;
 
+  const bookingItems = homeBookingItems(data, ar, locale);
+  const contractItems = homeContractItems(data, ar, locale);
+  const invoiceItems = homeInvoiceItems(data, ar, locale);
+
   return (
     <div className="dash-shell tenant-space tenant-home">
       <header className="tenant-home__welcome">
@@ -767,15 +1095,14 @@ export function TenantSpaceContent({
           <h1>{ar ? `أهلاً، ${displayName}` : `Hello, ${displayName}`}</h1>
           <p>
             {ar
-              ? 'حجوزاتك وعقودك وفواتيرك في مكان واحد — خفيف وسريع.'
-              : 'Your bookings, contracts, and invoices in one light place.'}
+              ? 'عناوين واضحة، والتفاصيل بضغطة «استعراض».'
+              : 'Clear titles — open details with Review.'}
           </p>
           <BadgeChips
             badges={badges}
             locale={locale}
-            size={18}
-            max={5}
-            labelled
+            size={14}
+            max={4}
             className="tenant-home__badges"
           />
         </div>
@@ -820,7 +1147,7 @@ export function TenantSpaceContent({
       </nav>
 
       <section
-        className={`tenant-home__attention${alertCount ? ' has-items' : ''}`}
+        className={`tenant-home__panel${alertCount ? ' has-items' : ''}`}
         aria-label={ar ? 'يحتاج انتباهك' : 'Needs attention'}
       >
         <div className="tenant-section__head">
@@ -828,36 +1155,25 @@ export function TenantSpaceContent({
             <h2>{ar ? 'يحتاج انتباهك' : 'Needs your attention'}</h2>
             <p>
               {ar
-                ? 'توقيع وسداد وحجوزات تنتظرك — الأهم أولاً.'
-                : 'Signatures, payments, and bookings waiting on you — most urgent first.'}
+                ? 'الأهم أولاً — افتح التفاصيل عند الحاجة.'
+                : 'Most urgent first — open details when you need them.'}
             </p>
           </div>
-          {alertCount ? (
-            <span className="tenant-home__count">{alertCount}</span>
-          ) : null}
+          {alertCount ? <span className="tenant-home__count">{alertCount}</span> : null}
         </div>
         <AlertsList {...ctx} />
       </section>
 
       <Section
         title={ar ? 'حجوزاتي' : 'My bookings'}
-        hint={ar ? 'أحدث المعاينات والإقامات والحجوزات.' : 'Latest viewings, stays, and bookings.'}
+        hint={ar ? 'معاينات وإقامات وحجوزات — عناوين فقط.' : 'Viewings, stays, and bookings as titles.'}
         more={{ href: '/tenant/reservations', label: ar ? 'الكل' : 'All' }}
-        className="tenant-home__span"
       >
-        {data.viewings.length || data.stays.length || data.reservations.length ? (
-          <TenantBookingsBoard
-            locale={locale}
-            compact
-            data={{
-              viewings: data.viewings.slice(0, 4),
-              stays: data.stays.slice(0, 4),
-              reservations: data.reservations.slice(0, 4),
-            }}
-          />
-        ) : (
-          <EmptyState title={ar ? 'لا حجوزات بعد' : 'No bookings yet'} />
-        )}
+        <PreviewList
+          items={bookingItems}
+          ar={ar}
+          empty={ar ? 'لا حجوزات بعد.' : 'No bookings yet.'}
+        />
       </Section>
 
       <div className="tenant-home__split">
@@ -865,21 +1181,21 @@ export function TenantSpaceContent({
           title={ar ? 'عقودي' : 'My contracts'}
           more={{ href: '/tenant/contracts', label: ar ? 'الكل' : 'All' }}
         >
-          <ContractsTable
-            {...ctx}
-            data={{
-              ...data,
-              contracts: tenancyContractGroups(data.contracts)
-                .slice(0, 4)
-                .flatMap(({ root, attachments }) => [root, ...attachments]),
-            }}
+          <PreviewList
+            items={contractItems}
+            ar={ar}
+            empty={ar ? 'لا عقود بعد.' : 'No contracts yet.'}
           />
         </Section>
         <Section
           title={ar ? 'فواتير مستحقة' : 'Invoices due'}
           more={{ href: '/tenant/invoices', label: ar ? 'الكل' : 'All' }}
         >
-          <InvoicesTable {...ctx} openOnly />
+          <PreviewList
+            items={invoiceItems}
+            ar={ar}
+            empty={ar ? 'لا فواتير مستحقة.' : 'Nothing due.'}
+          />
         </Section>
       </div>
     </div>
