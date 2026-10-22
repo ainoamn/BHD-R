@@ -9,6 +9,7 @@ import {
   CLAIM_MESSAGE_MAX,
   CLAIM_NOTE_MIN,
   SITE_ADMIN_LIMIT,
+  SITE_DECISION_DAYS,
   claimKindLabel,
   claimStatusLabel,
   claimStatusTone,
@@ -32,6 +33,8 @@ type Complaint = DepositClaimView & {
   paidMinor: string | null;
   decisionNote: string | null;
   guestPageUrl: string;
+  priorThreads?: DepositClaimView[];
+  decisionDueAt?: string | null;
 };
 
 type Notice = { tone: 'success' | 'error'; text: string };
@@ -357,8 +360,48 @@ function ComplaintCard({
           <div className="site-admin__wide">
             <dt>
               {ar ? 'الشكوى' : 'Complaint'} · {stamp(item.escalation.at, ar)}
+              {item.decisionDueAt && item.status === 'escalated'
+                ? ` · ${ar ? `مهلة البت ${SITE_DECISION_DAYS} يوماً حتى` : `decide by`} ${stamp(item.decisionDueAt, ar)}`
+                : ''}
             </dt>
             <dd>{item.escalation.message}</dd>
+          </div>
+        ) : null}
+        {item.priorThreads?.length ? (
+          <div className="site-admin__wide">
+            <dt>{ar ? 'السجل السابق (مرفقات)' : 'Prior thread (attachments)'}</dt>
+            <dd>
+              <ul className="site-admin__prior-threads">
+                {item.priorThreads.map((thread) => (
+                  <li key={thread.id}>
+                    <details>
+                      <summary>
+                        <bdi dir="ltr">{thread.referenceCode}</bdi>
+                        {' · '}
+                        {claimKindLabel(thread.kind, ar)}
+                        {' · '}
+                        {claimStatusLabel(thread.status, ar)}
+                        {' · '}
+                        {stamp(thread.createdAt, ar)}
+                      </summary>
+                      <p>{thread.message}</p>
+                      {thread.response?.note ? (
+                        <p className="muted">
+                          {ar ? 'الرد: ' : 'Reply: '}
+                          {thread.response.note}
+                        </p>
+                      ) : null}
+                      {thread.escalation?.message ? (
+                        <p className="muted">
+                          {ar ? 'التصعيد: ' : 'Escalation: '}
+                          {thread.escalation.message}
+                        </p>
+                      ) : null}
+                    </details>
+                  </li>
+                ))}
+              </ul>
+            </dd>
           </div>
         ) : null}
         {item.resolution ? (

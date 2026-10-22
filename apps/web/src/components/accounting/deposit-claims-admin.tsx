@@ -8,6 +8,7 @@ import {
   CLAIM_MESSAGE_MAX,
   CLAIM_NOTE_MIN,
   claimKindLabel,
+  claimOwnerClosesDirectly,
   claimStatusLabel,
   claimStatusTone,
   sortClaimsNewestFirst,
@@ -95,7 +96,12 @@ export function DepositClaimsAdmin({
     setAmount(minorToDecimal(first.amountMinor, currency));
     setAnswering({
       id: first.id,
-      decision: first.status === 'open' ? 'refer' : 'accept',
+      decision:
+        first.status === 'open'
+          ? claimOwnerClosesDirectly(first.kind)
+            ? 'accept'
+            : 'refer'
+          : 'accept',
     });
   }, [preferOpen, ordered, canRefer, canDecide, currency]);
 
@@ -172,6 +178,7 @@ export function DepositClaimsAdmin({
           const expanded = openId === claim.id;
           const formOpen = answering?.id === claim.id;
           const notReceived = claim.kind === 'not_received';
+          const directClose = claimOwnerClosesDirectly(claim.kind);
           const ownerAction = claim.status === 'open' && canRefer;
           const accountantAction = claim.status === 'with_accountant' && canDecide;
           return (
@@ -216,9 +223,13 @@ export function DepositClaimsAdmin({
                   {ownerAction ? (
                     <div className="deposit-claims-admin__procedure" role="note">
                       <p>
-                        {ar
-                          ? 'دور المالك / إدارة المبنى: تحقّق ثم أحِل للمحاسب، أو ارفض مع ملاحظة تظهر للضيف. ملاحظة الإحالة الداخلية لا تظهر للضيف.'
-                          : 'Owner / building management: verify, then refer to accounting, or decline with a guest-visible note. Internal referral notes stay staff-only.'}
+                        {directClose
+                          ? ar
+                            ? 'شكوى أو تظلُّم لإدارة العقار: اعتمد أو ارفض مع ملاحظة عامة للضيف. إن لم تُجب خلال 7 أيام عمل تُحال لإدارة الموقع تلقائياً.'
+                            : 'Property complaint or appeal: approve or decline with a guest-visible note. Unanswered after 7 working days auto-escalates to the site.'
+                          : ar
+                            ? 'دور المالك / إدارة المبنى: تحقّق ثم أحِل للمحاسب، أو ارفض مع ملاحظة تظهر للضيف. ملاحظة الإحالة الداخلية لا تظهر للضيف.'
+                            : 'Owner / building management: verify, then refer to accounting, or decline with a guest-visible note. Internal referral notes stay staff-only.'}
                       </p>
                     </div>
                   ) : null}
@@ -329,7 +340,10 @@ export function DepositClaimsAdmin({
                               ? 'الإجراء: رفض وإغلاق الطلب — توضّح للضيف في الملاحظة العامة لماذا.'
                               : 'Action: decline and close — explain why in the public note.'}
                       </p>
-                      {answering.decision === 'accept' && !notReceived ? (
+                      {answering.decision === 'accept' &&
+                      !notReceived &&
+                      !directClose &&
+                      claim.status === 'with_accountant' ? (
                         <label className="field">
                           <span>
                             {ar
@@ -441,18 +455,33 @@ export function DepositClaimsAdmin({
                     <div className="deposit-claims-admin__actions">
                       {ownerAction ? (
                         <>
-                          <button
-                            type="button"
-                            className="button button--primary"
-                            onClick={() => {
-                              setNote('');
-                              setInternalNote('');
-                              setTried(false);
-                              setAnswering({ id: claim.id, decision: 'refer' });
-                            }}
-                          >
-                            {ar ? 'إحالة للمحاسب' : 'Refer to accounting'}
-                          </button>
+                          {directClose ? (
+                            <button
+                              type="button"
+                              className="button button--primary"
+                              onClick={() => {
+                                setNote('');
+                                setInternalNote('');
+                                setTried(false);
+                                setAnswering({ id: claim.id, decision: 'accept' });
+                              }}
+                            >
+                              {ar ? 'قبول وإغلاق' : 'Accept & close'}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="button button--primary"
+                              onClick={() => {
+                                setNote('');
+                                setInternalNote('');
+                                setTried(false);
+                                setAnswering({ id: claim.id, decision: 'refer' });
+                              }}
+                            >
+                              {ar ? 'إحالة للمحاسب' : 'Refer to accounting'}
+                            </button>
+                          )}
                           <button
                             type="button"
                             className="button button--quiet"

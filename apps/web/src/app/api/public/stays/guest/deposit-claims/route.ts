@@ -32,18 +32,17 @@ const bodySchema = z.discriminatedUnion('action', [
     .strict(),
   z
     .object({
-      action: z.literal('escalate'),
+      action: z.literal('open_track'),
       referenceCode: reference,
-      claimId: z.string().uuid(),
+      kind: z.enum(['property_complaint', 'appeal', 'site_complaint']),
       message,
     })
     .strict(),
 ]);
 
 /**
- * POST /api/public/stays/guest/deposit-claims — after the deposit refund, the guest confirms the
- * transfer arrived or says it did not, sends the host a request or objection, or escalates one
- * to the site administration.
+ * POST /api/public/stays/guest/deposit-claims — confirm receipt, open a request (max 2),
+ * or open the property-complaint → appeal → site-complaint track.
  */
 export async function POST(request: Request) {
   const blocked = stayBookingDbGuard();

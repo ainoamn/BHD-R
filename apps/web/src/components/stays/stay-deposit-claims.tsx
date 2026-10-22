@@ -6,16 +6,19 @@ import { formatMoney } from '@/lib/format';
 import {
   CLAIM_MESSAGE_MAX,
   CLAIM_MESSAGE_MIN,
-  ESCALATION_BUSINESS_DAYS,
-  MAX_CLAIMS_PER_STAY,
+  MAX_REGULAR_CLAIMS_PER_STAY,
+  PROPERTY_RESPONSE_BUSINESS_DAYS,
   RECEIPT_CONFIRM_HOURS,
+  SITE_DECISION_DAYS,
   claimIsActive,
   claimKindLabel,
   claimStatusLabel,
   claimStatusTone,
   claimsOpenFrom,
+  guestDepositNextStep,
   sortClaimsNewestFirst,
   type DepositClaimView,
+  type TrackClaimKind,
 } from '@/lib/stay-deposit-claims';
 import type { GuestDepositRefund } from '@/lib/stay-deposit-refund';
 
@@ -98,8 +101,7 @@ export function StayDepositClaims({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  const [form, setForm] = useState<'claim' | 'not_received' | null>(null);
-  const [escalating, setEscalating] = useState<string | null>(null);
+  const [form, setForm] = useState<'claim' | 'not_received' | TrackClaimKind | null>(null);
   const [kind, setKind] = useState<'deduction' | 'other'>('deduction');
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
@@ -123,7 +125,14 @@ export function StayDepositClaims({
   const [now] = useState(() => Date.now());
   const opensFrom = claimsOpenFrom(refund);
   const waiting = opensFrom !== null && Date.parse(opensFrom) > now;
-  const canClaim = !waiting && !activeOpen && claims.length < MAX_CLAIMS_PER_STAY;
+  const nextStep = waiting || activeOpen ? { step: 'none' as const } : guestDepositNextStep(claims);
+  const canClaim = !waiting && nextStep.step === 'claim';
+  const trackStep =
+    nextStep.step === 'property_complaint' ||
+    nextStep.step === 'appeal' ||
+    nextStep.step === 'site_complaint'
+      ? nextStep.step
+      : null;
 
   function run(body: Record<string, unknown>, success: string) {
     startTransition(async () => {
@@ -133,7 +142,6 @@ export function StayDepositClaims({
         const result = await send({ referenceCode, ...body }, ar);
         if (result.whatsapp.length) setWhatsapp(result.whatsapp);
         setForm(null);
-        setEscalating(null);
         setMessage('');
         setAmount('');
         setDone(success);
@@ -272,21 +280,18 @@ export function StayDepositClaims({
         </h2>
         <p className="muted">
           {ar
-            ? `إن لم يصلك المبلغ أو اعترضت على الخصم، أرسل طلبك للمالك مباشرة. يصل للمالك/الإدارة، ثم يُحال للمحاسب أو يُرفض مع ملاحظة تظهر لك. كل طلب برقم مستقل؛ بعد الإغلاق يمكنك فتح طلباً جديداً. وإن لم تصل لحل مرضٍ، يمكنك بعد ${ESCALATION_BUSINESS_DAYS} أيام عمل من استرداد التأمين رفع شكوى لإدارة الموقع.`
-            : `If the money did not arrive or you object to a deduction, send your request to the host. It reaches the owner/management, then is referred to accounting or declined with a note you can see. Each request has its own number; after it closes you can open a new one. If the answer is not satisfying, ${ESCALATION_BUSINESS_DAYS} working days after the refund you can complain to the site administration.`}
+            ? `يحق لك طلبان أو اعتراضان فقط (${MAX_REGULAR_CLAIMS_PER_STAY}). بعدهما تقدّم شكوى لإدارة العقار؛ إن لم تُجب خلال ${PROPERTY_RESPONSE_BUSINESS_DAYS} أيام عمل تُحال تلقائياً لإدارة الموقع. بعد إغلاق الشكوى يمكنك التظلُّم (نفس المهلة)، ثم شكوى نهائية لإدارة الموقع مع إرفاق السجل السابق. مهلة بث إدارة الموقع ${SITE_DECISION_DAYS} يوماً.`
+            : `You may open only ${MAX_REGULAR_CLAIMS_PER_STAY} requests. Then file a property-management complaint; unanswered after ${PROPERTY_RESPONSE_BUSINESS_DAYS} working days it auto-escalates to the site. After a closed complaint you may appeal (same SLA), then a final site complaint with prior threads attached. Site decisions are due within ${SITE_DECISION_DAYS} days.`}
         </p>
 
         {ordered.length ? (
           <ul className="stay-deposit-claims__list">
             {ordered.map((claim) => {
-              const from = claim.escalateFrom ? Date.parse(claim.escalateFrom) : null;
-              const canEscalate =
-                from !== null &&
-                from <= now &&
-                (claim.status === 'rejected' ||
-                  claim.status === 'accepted' ||
-                  claim.status === 'open');
               const expanded = openId === claim.id;
+              const autoDue =
+                claim.escalateFrom && claim.status === 'open'
+                  ? Date.parse(claim.escalateFrom)
+                  : null;
               return (
                 <li key={claim.id} className="stay-deposit-claims__item">
                   <button
@@ -322,8 +327,8 @@ export function StayDepositClaims({
                           </strong>
                           <p>
                             {ar
-                              ? 'سيراجعونه ويحيلونه للمحاسب أو يردّون عليك هنا.'
-                              : 'They will review it and either refer it to accounting or reply here.'}
+                              ? 'سيراجعونه ويردّون عليك هنا. الشكاوى والتظلمات بلا رد تُحال تلقائياً لإدارة الموقع بعد المهلة.'
+                              : 'They will review and reply here. Unanswered complaints/appeals auto-escalate after the deadline.'}
                           </p>
                         </div>
                       ) : null}
@@ -342,7 +347,7 @@ export function StayDepositClaims({
                       {claim.escalation ? (
                         <div className="stay-deposit-claims__reply is-escalated">
                           <strong>
-                            {ar ? 'شكواك لإدارة الموقع' : 'Your complaint'} ·{' '}
+                            {ar ? 'لدى إدارة الموقع' : 'With the site administration'} ·{' '}
                             {stamp(claim.escalation.at, ar)}
                           </strong>
                           {claim.escalation.message ? <p>{claim.escalation.message}</p> : null}
@@ -365,6 +370,13 @@ export function StayDepositClaims({
                           {claim.resolution.note ? <p>{claim.resolution.note}</p> : null}
                         </div>
                       ) : null}
+                      {autoDue !== null && autoDue > now ? (
+                        <small className="muted">
+                          {ar
+                            ? `إن لم يُردّ، يُحال لإدارة الموقع ابتداءً من ${stamp(claim.escalateFrom!, ar)}.`
+                            : `If unanswered, escalates to the site from ${stamp(claim.escalateFrom!, ar)}.`}
+                        </small>
+                      ) : null}
                       {claim.status === 'escalated' && whatsapp.length ? (
                         <div className="stay-deposit-claims__actions">
                           {whatsapp.map((link) => (
@@ -375,72 +387,11 @@ export function StayDepositClaims({
                               target="_blank"
                               rel="noopener noreferrer"
                             >
-                              {ar ? 'أرسل الشكوى عبر واتساب' : 'Send on WhatsApp'}{' '}
+                              {ar ? 'أرسل عبر واتساب' : 'Send on WhatsApp'}{' '}
                               <bdi dir="ltr">{link.number}</bdi>
                             </a>
                           ))}
                         </div>
-                      ) : null}
-                      {canEscalate ? (
-                        escalating === claim.id ? (
-                          <form
-                            className="stay-deposit-claims__form"
-                            onSubmit={(event) => {
-                              event.preventDefault();
-                              run(
-                                { action: 'escalate', claimId: claim.id, message: message.trim() },
-                                ar
-                                  ? 'وصلت شكواك لإدارة الموقع، وسيصلك قرارها.'
-                                  : 'The site administration has your complaint.',
-                              );
-                            }}
-                          >
-                            {messageField(
-                              `deposit-escalate-${claim.id}`,
-                              ar
-                                ? 'لماذا لم يكن الرد مرضياً؟ وما الذي تطلبه؟'
-                                : 'Why was the answer not satisfying, and what do you ask for?',
-                            )}
-                            <div className="stay-deposit-claims__actions">
-                              <button
-                                type="submit"
-                                className="button button--primary"
-                                disabled={pending}
-                              >
-                                {ar ? 'أرسل الشكوى لإدارة الموقع' : 'Send the complaint'}
-                              </button>
-                              <button
-                                type="button"
-                                className="button button--quiet"
-                                onClick={() => setEscalating(null)}
-                              >
-                                {ar ? 'إلغاء' : 'Cancel'}
-                              </button>
-                            </div>
-                          </form>
-                        ) : (
-                          <button
-                            type="button"
-                            className="button button--quiet stay-deposit-claims__escalate"
-                            disabled={pending}
-                            onClick={() => {
-                              setMessage('');
-                              setForm(null);
-                              setEscalating(claim.id);
-                            }}
-                          >
-                            {ar ? 'تقديم شكوى لإدارة الموقع' : 'Complain to the site administration'}
-                          </button>
-                        )
-                      ) : from !== null &&
-                        from > now &&
-                        claim.status !== 'accepted' &&
-                        claim.status !== 'with_accountant' ? (
-                        <small className="muted">
-                          {ar
-                            ? `يمكنك رفع شكوى لإدارة الموقع ابتداءً من ${stamp(claim.escalateFrom!, ar)}.`
-                            : `You can complain to the site administration from ${stamp(claim.escalateFrom!, ar)}.`}
-                        </small>
                       ) : null}
                     </div>
                   ) : null}
@@ -522,18 +473,75 @@ export function StayDepositClaims({
               onClick={() => {
                 setMessage('');
                 setAmount('');
-                setEscalating(null);
                 setForm('claim');
               }}
             >
               {ar ? 'طلب أو اعتراض جديد' : 'New request or objection'}
             </button>
           )
+        ) : trackStep ? (
+          form === trackStep ? (
+            <form
+              className="stay-deposit-claims__form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                run(
+                  { action: 'open_track', kind: trackStep, message: message.trim() },
+                  trackStep === 'site_complaint'
+                    ? ar
+                      ? 'وصلت شكواك النهائية لإدارة الموقع مع سجل الطلبات السابقة.'
+                      : 'Your final site complaint was filed with the prior thread attached.'
+                    : trackStep === 'appeal'
+                      ? ar
+                        ? 'وُصِل تظلُّمك لإدارة العقار برقم مستقل.'
+                        : 'Your appeal reached property management with its own number.'
+                      : ar
+                        ? 'وصلت شكواك لإدارة العقار برقم مستقل.'
+                        : 'Your property-management complaint was filed with its own number.',
+                );
+              }}
+            >
+              {messageField(
+                `deposit-track-${trackStep}`,
+                trackStep === 'site_complaint'
+                  ? ar
+                    ? 'اشرح المشكلة بالتفصيل؛ سيُرفق النظام طلباتك وشكاواك السابقة لإدارة الموقع.'
+                    : 'Describe the problem in detail; prior requests and complaints are attached for the site.'
+                  : ar
+                    ? 'اشرح اعتراضك أو تظلُّمك بوضوح.'
+                    : 'Explain your complaint or appeal clearly.',
+              )}
+              <div className="stay-deposit-claims__actions">
+                <button type="submit" className="button button--primary" disabled={pending}>
+                  {ar ? 'أرسل' : 'Send'}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => setForm(null)}
+                >
+                  {ar ? 'إلغاء' : 'Cancel'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="button button--quiet stay-deposit-claims__new"
+              disabled={pending}
+              onClick={() => {
+                setMessage('');
+                setForm(trackStep);
+              }}
+            >
+              {claimKindLabel(trackStep, ar)}
+            </button>
+          )
         ) : activeOpen ? (
           <small className="muted">
             {ar
-              ? 'لديك طلباً قيد المعالجة برقم مستقل؛ انتظر إغلاقه قبل فتح طلب جديد.'
-              : 'You already have a request in progress; wait until it closes before opening a new one.'}
+              ? 'لديك طلباً قيد المعالجة برقم مستقل؛ انتظر إغلاقه قبل المتابعة.'
+              : 'You already have a request in progress; wait until it closes before continuing.'}
           </small>
         ) : waiting ? (
           <p className="stay-deposit-claims__wait">

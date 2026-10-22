@@ -114,34 +114,64 @@ export function StayGuestReview({
 
   const mine = saved ?? state.mine?.score ?? null;
   const published = saved === null && state.mine?.published === true;
+  const [hostOpen, setHostOpen] = useState(false);
 
   const fromHost = state.fromHost ? (
     <div className="stay-guest-review__host">
-      <h3>{ar ? 'تقييم المالك لك' : 'The host’s review of you'}</h3>
-      <div className="stay-guest-review__done">
-        <ScoreBadge score={state.fromHost.score} ar={ar} size="sm" />
-        <div>
-          {state.fromHost.summary ? (
-            <p>{ar ? state.fromHost.summary.ar : state.fromHost.summary.en}</p>
-          ) : null}
-          {state.fromHost.comment ? (
-            <blockquote className="stay-guest-review__quote">{state.fromHost.comment}</blockquote>
-          ) : null}
+      <button
+        type="button"
+        className="stay-guest-review__host-toggle"
+        aria-expanded={hostOpen}
+        onClick={() => setHostOpen((open) => !open)}
+      >
+        <span>
+          <strong>{ar ? 'تقييم المالك لك' : 'The host’s review of you'}</strong>
+          <span className="stay-guest-review__host-score" aria-hidden="true">
+            {state.fromHost.score.toFixed(1)}
+          </span>
+        </span>
+        <span className="muted">
+          {hostOpen ? (ar ? 'إخفاء' : 'Hide') : ar ? 'عرض' : 'Show'}
+        </span>
+      </button>
+      {hostOpen ? (
+        <div className="stay-guest-review__done">
+          <ScoreBadge score={state.fromHost.score} ar={ar} size="sm" />
+          <div>
+            {state.fromHost.summary ? (
+              <p>{ar ? state.fromHost.summary.ar : state.fromHost.summary.en}</p>
+            ) : null}
+            {state.fromHost.comment ? (
+              <blockquote className="stay-guest-review__quote">{state.fromHost.comment}</blockquote>
+            ) : null}
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
   ) : state.hostWrote ? (
     <div className="stay-guest-review__host">
-      <h3>{ar ? 'تقييم المالك لك' : 'The host’s review of you'}</h3>
-      <p className="muted">
-        {mine === null
-          ? ar
-            ? 'كتب المالك تقييمه لك. يظهر هنا بعد أن تكتب تقييمك ويُحوَّل مبلغ التأمين وتؤكد استلامه، فلا يرى أي طرف تقييم الآخر قبل أن يكتب تقييمه.'
-            : 'The host has reviewed you. It shows here once you have written yours and your deposit is refunded and received, so neither side sees the other’s review before writing their own.'
-          : ar
-            ? 'كتب المالك تقييمه لك. يظهر هنا بعد تحويل مبلغ التأمين وتأكيد استلامه.'
-            : 'The host has reviewed you. It shows here once your deposit is refunded and received.'}
-      </p>
+      <button
+        type="button"
+        className="stay-guest-review__host-toggle"
+        aria-expanded={hostOpen}
+        onClick={() => setHostOpen((open) => !open)}
+      >
+        <strong>{ar ? 'تقييم المالك لك' : 'The host’s review of you'}</strong>
+        <span className="muted">
+          {hostOpen ? (ar ? 'إخفاء' : 'Hide') : ar ? 'عرض' : 'Show'}
+        </span>
+      </button>
+      {hostOpen ? (
+        <p className="muted">
+          {mine === null
+            ? ar
+              ? 'كتب المالك تقييمه لك. يظهر هنا بعد أن تكتب تقييمك ويُحوَّل مبلغ التأمين وتؤكد استلامه، فلا يرى أي طرف تقييم الآخر قبل أن يكتب تقييمه.'
+              : 'The host has reviewed you. It shows here once you have written yours and your deposit is refunded and received, so neither side sees the other’s review before writing their own.'
+            : ar
+              ? 'كتب المالك تقييمه لك. يظهر هنا بعد تحويل مبلغ التأمين وتأكيد استلامه.'
+              : 'The host has reviewed you. It shows here once your deposit is refunded and received.'}
+        </p>
+      ) : null}
     </div>
   ) : null;
 

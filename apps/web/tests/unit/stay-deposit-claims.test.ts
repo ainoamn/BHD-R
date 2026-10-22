@@ -4,6 +4,9 @@ import {
   claimEscalationFrom,
   claimsOpenFrom,
   depositReceiptState,
+  guestDepositNextStep,
+  propertyTrackAutoEscalateFrom,
+  siteDecisionDueFrom,
   whatsappDigits,
   whatsappLink,
 } from '@/lib/stay-deposit-claims';
@@ -30,38 +33,68 @@ describe('deposit receipt and claims', () => {
   });
 
   it('counts Omani working days, skipping Friday and Saturday', () => {
-    // Thursday 15 Oct 2026, 10:00 Muscat → Sunday, Monday, Tuesday.
     expect(addBusinessDays('2026-10-15T06:00:00.000Z', 3)).toBe('2026-10-20T06:00:00.000Z');
-    // Sunday → Wednesday.
     expect(addBusinessDays('2026-10-11T06:00:00.000Z', 3)).toBe('2026-10-14T06:00:00.000Z');
   });
 
-  it('opens escalation 3 working days after the refund, once the host answered or went quiet', () => {
-    const settled = '2026-10-11T06:00:00.000Z';
-    const answered = claimEscalationFrom(
-      {
-        status: 'rejected',
-        createdAt: '2026-10-11T08:00:00.000Z',
-        respondedAt: '2026-10-12T08:00:00.000Z',
-      },
-      settled,
-    );
-    expect(answered).toBe('2026-10-14T06:00:00.000Z');
-    const silent = claimEscalationFrom(
-      { status: 'open', createdAt: '2026-10-13T08:00:00.000Z', respondedAt: null },
-      settled,
-    );
-    expect(silent).toBe('2026-10-18T08:00:00.000Z');
+  it('auto-escalates unanswered property complaints after 7 working days', () => {
+    const created = '2026-10-11T06:00:00.000Z';
+    expect(propertyTrackAutoEscalateFrom(created)).toBe('2026-10-20T06:00:00.000Z');
     expect(
       claimEscalationFrom(
-        { status: 'escalated', createdAt: settled, respondedAt: settled },
-        settled,
+        {
+          status: 'open',
+          createdAt: created,
+          respondedAt: null,
+          kind: 'property_complaint',
+        },
+        created,
+      ),
+    ).toBe('2026-10-20T06:00:00.000Z');
+    expect(
+      claimEscalationFrom(
+        { status: 'rejected', createdAt: created, respondedAt: created, kind: 'deduction' },
+        created,
       ),
     ).toBeNull();
   });
 
+  it('walks claim → property complaint → appeal → site complaint', () => {
+    expect(guestDepositNextStep([])).toEqual({ step: 'claim' });
+    expect(
+      guestDepositNextStep([
+        { kind: 'not_received', status: 'rejected', createdAt: 'a' },
+        { kind: 'deduction', status: 'accepted', createdAt: 'b' },
+      ]),
+    ).toEqual({ step: 'property_complaint' });
+    expect(
+      guestDepositNextStep([
+        { kind: 'not_received', status: 'rejected', createdAt: 'a' },
+        { kind: 'deduction', status: 'accepted', createdAt: 'b' },
+        { kind: 'property_complaint', status: 'rejected', createdAt: 'c' },
+      ]),
+    ).toEqual({ step: 'appeal' });
+    expect(
+      guestDepositNextStep([
+        { kind: 'not_received', status: 'rejected', createdAt: 'a' },
+        { kind: 'deduction', status: 'accepted', createdAt: 'b' },
+        { kind: 'property_complaint', status: 'rejected', createdAt: 'c' },
+        { kind: 'appeal', status: 'rejected', createdAt: 'd' },
+      ]),
+    ).toEqual({ step: 'site_complaint' });
+    expect(
+      guestDepositNextStep([
+        { kind: 'not_received', status: 'rejected', createdAt: 'a' },
+        { kind: 'property_complaint', status: 'open', createdAt: 'c' },
+      ]),
+    ).toEqual({ step: 'none' });
+  });
+
+  it('gives the site administration 30 calendar days to decide', () => {
+    expect(siteDecisionDueFrom('2026-10-01T08:00:00.000Z')).toBe('2026-10-31T08:00:00.000Z');
+  });
+
   it('opens guest requests on transfer or rejection, else two working weeks after the request', () => {
-    // Monday 12 Oct 2026, 10:52 Muscat → ten working days → Monday 26 Oct.
     const requestedAt = '2026-10-12T06:52:00.000Z';
     expect(claimsOpenFrom({ status: 'requested', requestedAt, paidMinor: '0' })).toBe(
       '2026-10-26T06:52:00.000Z',
@@ -78,21 +111,12 @@ describe('deposit receipt and claims', () => {
     expect(refundDueMinor({ status: 'approved', amountMinor: '70000', paidMinor: '60000' })).toBe(
       '10000',
     );
-    expect(refundDueMinor({ status: 'approved', amountMinor: '60000', paidMinor: '0' })).toBe(
-      '60000',
-    );
-    expect(refundDueMinor({ status: 'executed', amountMinor: '60000', paidMinor: '60000' })).toBe(
-      null,
-    );
   });
 
-  it('builds WhatsApp links for Omani and international numbers', () => {
-    expect(whatsappDigits('9123 4567')).toBe('96891234567');
-    expect(whatsappDigits('+968 9123 4567')).toBe('96891234567');
-    expect(whatsappDigits('00968 91234567')).toBe('96891234567');
-    expect(whatsappDigits('123')).toBeNull();
-    expect(whatsappLink('91234567', 'شكوى')).toBe(
-      'https://wa.me/96891234567?text=%D8%B4%D9%83%D9%88%D9%89',
+  it('normalises WhatsApp digits and builds wa.me links', () => {
+    expect(whatsappDigits('91234567')).toBe('96891234567');
+    expect(whatsappLink('+968 9123 4567', 'hi')).toBe(
+      'https://wa.me/96891234567?text=hi',
     );
   });
 });

@@ -30,11 +30,15 @@ import {
   CLAIM_MESSAGE_MIN,
   CLAIM_NOTE_MIN,
   CLAIM_WINDOW_DAYS,
-  MAX_CLAIMS_PER_STAY,
+  MAX_REGULAR_CLAIMS_PER_STAY,
   SITE_ADMIN_LIMIT,
   claimEscalationFrom,
   claimKindLabel,
+  claimOwnerClosesDirectly,
   claimsOpenFrom,
+  guestDepositNextStep,
+  propertyTrackAutoEscalateFrom,
+  siteDecisionDueFrom,
   validAdminEmail,
   whatsappDigits,
   whatsappLink,
@@ -43,6 +47,7 @@ import {
   type DepositClaimStatus,
   type DepositClaimView,
   type SiteAdminSettings,
+  type TrackClaimKind,
 } from '@/lib/stay-deposit-claims';
 import { openDepositNotReceivedFollowTask } from '@/lib/accounting-follow-task-neon';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
@@ -198,7 +203,10 @@ function toView(
             by: row.resolvedByName,
           }
         : null,
-    escalateFrom: claimEscalationFrom({ status, createdAt, respondedAt }, settledAt),
+    escalateFrom: claimEscalationFrom(
+      { status, createdAt, respondedAt, kind: row.kind },
+      settledAt,
+    ),
   };
 }
 
@@ -288,13 +296,98 @@ async function claimCounts(tx: Tx, bookingId: string) {
   const [row] = await tx
     .select({
       total: sql<number>`count(*)::int`,
+      regular: sql<number>`count(*) filter (
+        where ${stayDepositClaims.kind} in ('not_received', 'deduction', 'other')
+      )::int`,
       open: sql<number>`count(*) filter (
         where ${stayDepositClaims.status} in ('open', 'with_accountant', 'escalated')
       )::int`,
     })
     .from(stayDepositClaims)
     .where(eq(stayDepositClaims.bookingId, bookingId));
-  return { total: row?.total ?? 0, open: row?.open ?? 0 };
+  return { total: row?.total ?? 0, regular: row?.regular ?? 0, open: row?.open ?? 0 };
+}
+
+/** Unanswered property complaints / appeals past 7 working days → site administration. */
+export async function autoEscalateOverdueDepositTracks(limit = 40): Promise<number> {
+  return elevated(async (tx) => {
+    const rows = await tx
+      .select({
+        claimId: stayDepositClaims.id,
+        claimKind: stayDepositClaims.kind,
+        claimCreatedAt: stayDepositClaims.createdAt,
+        claimMessage: stayDepositClaims.message,
+        claimReference: stayDepositClaims.referenceCode,
+        ...bookingColumns,
+      })
+      .from(stayDepositClaims)
+      .innerJoin(stayBookings, eq(stayBookings.id, stayDepositClaims.bookingId))
+      .where(
+        and(
+          inArray(stayDepositClaims.kind, ['property_complaint', 'appeal']),
+          eq(stayDepositClaims.status, 'open'),
+          sql`${stayDepositClaims.respondedAt} is null`,
+        ),
+      )
+      .orderBy(asc(stayDepositClaims.createdAt))
+      .limit(limit);
+    let moved = 0;
+    const now = new Date();
+    for (const row of rows) {
+      const createdAt = iso(row.claimCreatedAt) ?? '';
+      if (Date.parse(propertyTrackAutoEscalateFrom(createdAt)) > now.getTime()) continue;
+      const note =
+        row.claimKind === 'appeal'
+          ? 'أُحيل التظلُّم تلقائياً لإدارة الموقع بعد انقضاء مهلة الرد (7 أيام عمل).'
+          : 'أُحيلت الشكوى تلقائياً لإدارة الموقع بعد انقضاء مهلة الرد (7 أيام عمل).';
+      await tx
+        .update(stayDepositClaims)
+        .set({
+          status: 'escalated',
+          escalatedAt: now,
+          escalationMessage: note,
+          updatedAt: now,
+        })
+        .where(eq(stayDepositClaims.id, row.claimId));
+      const booking: RefundBooking & { propertyId: string } = {
+        id: row.id,
+        organizationId: row.organizationId,
+        status: row.status,
+        referenceCode: row.referenceCode,
+        currency: row.currency,
+        stayProfileId: row.stayProfileId,
+        propertyId: row.propertyId,
+        unitId: row.unitId,
+        guestPartyId: row.guestPartyId,
+      };
+      await audit(tx, booking, null, 'stay.deposit_claim.auto_escalated', {
+        claimId: row.claimId,
+        kind: row.claimKind,
+      });
+      const view: DepositClaimView = {
+        id: row.claimId,
+        bookingId: row.id,
+        referenceCode: row.claimReference?.trim() || `DC-${row.claimId.slice(0, 8).toUpperCase()}`,
+        kind: row.claimKind as DepositClaimKind,
+        status: 'escalated',
+        amountMinor: null,
+        currency: row.currency,
+        message: row.claimMessage,
+        createdAt,
+        response: null,
+        ownerInternalNote: null,
+        accountantInternalNote: null,
+        referredAt: null,
+        referredBy: null,
+        escalation: { at: now.toISOString(), message: note },
+        resolution: null,
+        escalateFrom: null,
+      };
+      await notifySiteAdmins(tx, booking, view, note).catch(() => undefined);
+      moved += 1;
+    }
+    return moved;
+  });
 }
 
 async function nextClaimReference(
@@ -329,7 +422,11 @@ export type GuestDepositAction =
       amount?: string | undefined;
       message: string;
     }
-  | { action: 'escalate'; claimId: string; message: string };
+  | {
+      action: 'open_track';
+      kind: TrackClaimKind;
+      message: string;
+    };
 
 export type ComplaintWhatsapp = { number: string; url: string };
 
@@ -415,34 +512,54 @@ export async function guestDepositClaimAction(
       return { whatsapp: [] as ComplaintWhatsapp[], alert: null };
     }
 
-    if (input.action === 'escalate') {
-      if (!UUID.test(input.claimId)) fail('claim_not_found');
-      const [claim] = await tx
-        .select(claimColumns)
-        .from(stayDepositClaims)
-        .where(
-          and(eq(stayDepositClaims.id, input.claimId), eq(stayDepositClaims.bookingId, booking.id)),
-        )
-        .limit(1);
-      if (!claim) fail('claim_not_found');
-      const view = toView(claim, settledAtOf(refund));
-      if (!view.escalateFrom || Date.parse(view.escalateFrom) > now.getTime()) {
-        fail('escalation_not_yet');
+    if (input.action === 'open_track') {
+      if (!refund) fail('refund_not_decided');
+      const settledAt = settledAtOf(refund);
+      if (settledAt && now.getTime() - Date.parse(settledAt) > CLAIM_WINDOW_DAYS * DAY_MS) {
+        fail('claim_window_closed');
       }
+      const existing = await loadDepositClaims(tx, booking.organizationId, [booking.id]);
+      const claims = existing.get(booking.id) ?? [];
+      const next = guestDepositNextStep(claims);
+      if (next.step !== input.kind) fail('track_not_ready');
       const message = cleanText(input.message, CLAIM_MESSAGE_MAX);
       if ((message?.length ?? 0) < CLAIM_MESSAGE_MIN) fail('claim_message_required');
-      await tx
-        .update(stayDepositClaims)
-        .set({
-          status: 'escalated',
-          escalatedAt: now,
-          escalationMessage: message,
-          updatedAt: now,
+      const referenceCode = await nextClaimReference(tx, booking.id, booking.referenceCode);
+      const siteBound = input.kind === 'site_complaint';
+      const [created] = await tx
+        .insert(stayDepositClaims)
+        .values({
+          organizationId: booking.organizationId,
+          bookingId: booking.id,
+          propertyId: booking.propertyId,
+          refundId: refund.id,
+          kind: input.kind,
+          referenceCode,
+          currency: booking.currency,
+          message: message!,
+          status: siteBound ? 'escalated' : 'open',
+          escalatedAt: siteBound ? now : null,
+          escalationMessage: siteBound ? message : null,
         })
-        .where(eq(stayDepositClaims.id, claim.id));
-      await audit(tx, booking, null, 'stay.deposit_claim.escalated', { claimId: claim.id });
-      const whatsapp = await notifySiteAdmins(tx, booking, view, message!);
-      return { whatsapp, alert: null };
+        .returning({ id: stayDepositClaims.id });
+      await audit(tx, booking, null, `stay.deposit_claim.${input.kind}`, {
+        claimId: created!.id,
+      });
+      if (siteBound) {
+        const [row] = await tx
+          .select(claimColumns)
+          .from(stayDepositClaims)
+          .where(eq(stayDepositClaims.id, created!.id))
+          .limit(1);
+        const whatsapp = await notifySiteAdmins(
+          tx,
+          booking,
+          toView(row!, settledAt),
+          message!,
+        );
+        return { whatsapp, alert: null };
+      }
+      return { whatsapp: [] as ComplaintWhatsapp[], alert: null };
     }
 
     if (!refund) fail('refund_not_decided');
@@ -458,7 +575,14 @@ export async function guestDepositClaimAction(
     }
     const counts = await claimCounts(tx, booking.id);
     if (counts.open > 0) fail('claim_open_exists');
-    if (counts.total >= MAX_CLAIMS_PER_STAY) fail('claim_limit');
+    if (counts.regular >= MAX_REGULAR_CLAIMS_PER_STAY) fail('claim_limit');
+    if (guestDepositNextStep(
+      (
+        await loadDepositClaims(tx, booking.organizationId, [booking.id])
+      ).get(booking.id) ?? [],
+    ).step !== 'claim') {
+      fail('track_not_ready');
+    }
 
     const kind: DepositClaimKind = input.action === 'not_received' ? 'not_received' : input.kind;
     const message =
@@ -632,10 +756,11 @@ export async function respondToDepositClaimOnNeon(
     const by = await actorName(tx, claims.sub);
     const now = new Date();
 
-    // Owner triage: refer → accountant, or reject and close.
+    // Owner triage: refer → accountant, or reject and close (regular claims only).
     if (input.decision === 'refer') {
       if (!hostMayDecide) fail('forbidden');
       if (claim.status !== 'open') fail('claim_not_with_owner');
+      if (claimOwnerClosesDirectly(claim.kind)) fail('claim_not_with_accountant');
       await tx
         .update(stayDepositClaims)
         .set({
@@ -673,15 +798,18 @@ export async function respondToDepositClaimOnNeon(
 
     const accepted = input.decision === 'accept';
 
-    // Owner may only reject while the claim is with them (accept must go via accountant after refer).
+    // Owner on open: regular claims — reject only (accept via accountant after refer).
+    // Property complaint / appeal — accept or reject closes the track step.
     if (claim.status === 'open') {
       if (!hostMayDecide) fail('forbidden');
-      if (accepted) fail('claim_not_with_accountant');
+      const direct = claimOwnerClosesDirectly(claim.kind);
+      if (accepted && !direct) fail('claim_not_with_accountant');
+      const status: DepositClaimStatus = accepted ? 'accepted' : 'rejected';
       await tx
         .update(stayDepositClaims)
         .set({
-          status: 'rejected',
-          response: 'rejected',
+          status,
+          response: accepted ? 'accepted' : 'rejected',
           responseNote: note,
           respondedAt: now,
           respondedByUserId: claims.sub,
@@ -690,17 +818,23 @@ export async function respondToDepositClaimOnNeon(
           updatedAt: now,
         })
         .where(eq(stayDepositClaims.id, claimId));
-      await audit(tx, booking, claims.sub, 'stay.deposit_claim.rejected', { claimId });
+      await audit(tx, booking, claims.sub, `stay.deposit_claim.${status}`, { claimId });
+      const nextHint =
+        claim.kind === 'property_complaint'
+          ? 'إن لم تكن راضياً يمكنك تقديم تظلُّم برقم مستقل من صفحة إقامتك.'
+          : claim.kind === 'appeal'
+            ? 'إن لم تكن راضياً يمكنك تقديم شكوى نهائية لإدارة الموقع من صفحة إقامتك.'
+            : 'يمكنك متابعة المسار من صفحة إقامتك (طلب ثانٍ، ثم شكوى لإدارة العقار عند الحاجة).';
       await queueGuestEmail(tx, booking, {
         subject: `رد على طلب التأمين — ${booking.referenceCode}`,
         body: [
           `طلبك ${claim.referenceCode ?? ''} وصل للمالك/الإدارة.`,
-          'لم يُقبل الطلب.',
+          accepted ? 'قُبل الطلب وأُغلق.' : 'لم يُقبل الطلب وأُغلق.',
           note ? `الملاحظة: ${note}` : null,
-          'يمكنك فتح طلباً جديداً برقم مستقل من صفحة إقامتك إن لزم.',
+          nextHint,
         ].filter(Boolean) as string[],
       });
-      return { status: 'rejected' };
+      return { status };
     }
 
     // Accountant closes the referred claim.
@@ -925,6 +1059,10 @@ export type DepositComplaint = DepositClaimView & {
   paidMinor: string | null;
   decisionNote: string | null;
   guestPageUrl: string;
+  /** Earlier requests / complaints / appeals on the same stay (attachments for the site). */
+  priorThreads: DepositClaimView[];
+  /** Calendar deadline for the site administration decision (30 days from escalation). */
+  decisionDueAt: string | null;
 };
 
 /** Escalated complaints across all organizations, awaiting ones first. */
@@ -971,6 +1109,8 @@ export async function listDepositComplaints(claims: SessionClaims): Promise<Depo
         desc(stayDepositClaims.escalatedAt),
       )
       .limit(200);
+    const bookingIds = [...new Set(rows.map((row) => row.bookingId))];
+    const byBooking = await loadDepositClaims(tx, null, bookingIds);
     const complaints: DepositComplaint[] = [];
     for (const row of rows) {
       const booking: RefundBooking = {
@@ -994,8 +1134,12 @@ export async function listDepositComplaints(claims: SessionClaims): Promise<Depo
             }
           : null,
       );
+      const view = toView(row, settledAt);
+      const priorThreads = (byBooking.get(row.bookingId) ?? [])
+        .filter((claim) => claim.id !== row.id)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       complaints.push({
-        ...toView(row, settledAt),
+        ...view,
         reference: row.reference,
         propertyName: row.propertyAr,
         propertyNameEn: row.propertyEn,
@@ -1008,6 +1152,8 @@ export async function listDepositComplaints(claims: SessionClaims): Promise<Depo
         paidMinor: row.paidMinor?.toString() ?? null,
         decisionNote: decision?.note ?? null,
         guestPageUrl: guestStayUrl(booking),
+        priorThreads,
+        decisionDueAt: view.escalation?.at ? siteDecisionDueFrom(view.escalation.at) : null,
       });
     }
     return complaints;

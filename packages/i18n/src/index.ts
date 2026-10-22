@@ -468,14 +468,14 @@ export const messages = {
         'نطبق فصل المؤسسات والصلاحيات المركزية وسجلات تدقيق منقّحة وتشفير البيانات الحساسة. الواجهة لا تمنح صلاحية؛ كل طلب يُتحقق منه داخل واجهة البرمجة.',
       privacyTitle: 'الخصوصية',
       privacyBody:
-        'نجمع الحد الأدنى اللازم لتشغيل الخدمة وإدارة العقود والمدفوعات والصيانة. روابط العقارات العامة لا تكشف بيانات المالك أو المستأجر أو المستندات.',
+        'نجمع الحد الأدنى اللازم لتشغيل الخدمة وإدارة العقود والمدفوعات والصيانة ونزاعات التأمين. روابط العقارات العامة لا تكشف بيانات المالك أو المستأجر أو المستندات. تفاصيل مسار طلبات التأمين والشكاوى والتظلمات موضحة أدناه.',
       termsTitle: 'شروط الاستخدام',
       termsBody:
-        'هذه الصفحة مسودة تشغيلية ويجب اعتماد النص القانوني النهائي قبل إطلاق الخدمة تجارياً.',
+        'باستخدام BHD R توافق على قواعد تشغيل الحجوزات والمدفوعات واسترداد التأمين ومسار الشكاوى والتظلمات الموضّح أدناه، وعلى أن البت النهائي لإدارة الموقع في الشكاوى المحالة يتم خلال المهلة المنصوص عليها.',
       accessibilityTitle: 'إمكانية الوصول',
       accessibilityBody:
         'صُممت BHD R للعمل بلوحة المفاتيح وقارئات الشاشة، مع تباين واضح واتجاه عربي وإنجليزي صحيح. أبلغنا عن أي عائق وسنعالجه.',
-      updated: 'آخر تحديث: أغسطس 2026',
+      updated: 'آخر تحديث: أكتوبر 2026',
     },
   },
   en: {
@@ -938,14 +938,14 @@ export const messages = {
         'We enforce organization isolation, central permissions, redacted audit logs and encryption for sensitive data. The interface never grants authority; every API request is independently authorized.',
       privacyTitle: 'Privacy',
       privacyBody:
-        'We collect only what is necessary to manage the service, leases, payments and maintenance. Public property links do not expose owner, tenant or document data.',
+        'We collect only what is necessary to manage the service, leases, payments, maintenance and deposit disputes. Public property links do not expose owner, tenant or document data. The deposit request, complaint and appeal track is described below.',
       termsTitle: 'Terms of use',
       termsBody:
-        'This is an operational draft and must be replaced with approved legal language before commercial launch.',
+        'By using BHD R you agree to the operating rules for bookings, payments, deposit refunds and the complaint and appeal track below, including that the site administration decides escalated complaints within the stated deadline.',
       accessibilityTitle: 'Accessibility',
       accessibilityBody:
         'BHD R is designed for keyboard and screen reader use, clear contrast, and correct Arabic and English direction. Report any barrier and we will address it.',
-      updated: 'Last updated: August 2026',
+      updated: 'Last updated: October 2026',
     },
   },
 } as const;

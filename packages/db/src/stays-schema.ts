@@ -740,7 +740,7 @@ export const stayDepositClaims = pgTable(
     index('stay_deposit_claims_org_status_idx').on(table.organizationId, table.status),
     check(
       'stay_deposit_claims_kind_check',
-      sql`${table.kind} IN ('not_received', 'deduction', 'other')`,
+      sql`${table.kind} IN ('not_received', 'deduction', 'other', 'property_complaint', 'appeal', 'site_complaint')`,
     ),
     check(
       'stay_deposit_claims_status_check',

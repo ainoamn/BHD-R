@@ -4,10 +4,21 @@
  * escalates it to the site administration as a complaint. Shared by server and client.
  */
 
-export const CLAIM_KINDS = ['not_received', 'deduction', 'other'] as const;
+export const CLAIM_KINDS = [
+  'not_received',
+  'deduction',
+  'other',
+  'property_complaint',
+  'appeal',
+  'site_complaint',
+] as const;
 export type DepositClaimKind = (typeof CLAIM_KINDS)[number];
-/** Kinds the guest picks in the form; `not_received` comes from the receipt question. */
+/** Kinds the guest picks for a regular request; `not_received` comes from the receipt question. */
 export const GUEST_CLAIM_KINDS = ['deduction', 'not_received', 'other'] as const;
+export const REGULAR_CLAIM_KINDS = ['not_received', 'deduction', 'other'] as const;
+export type RegularClaimKind = (typeof REGULAR_CLAIM_KINDS)[number];
+export const TRACK_CLAIM_KINDS = ['property_complaint', 'appeal', 'site_complaint'] as const;
+export type TrackClaimKind = (typeof TRACK_CLAIM_KINDS)[number];
 
 export type DepositClaimStatus =
   | 'open'
@@ -22,23 +33,92 @@ export function claimIsActive(status: string): boolean {
   return status === 'open' || status === 'with_accountant' || status === 'escalated';
 }
 
+export function isRegularClaimKind(kind: string): kind is RegularClaimKind {
+  return kind === 'not_received' || kind === 'deduction' || kind === 'other';
+}
+
+export function isTrackClaimKind(kind: string): kind is TrackClaimKind {
+  return kind === 'property_complaint' || kind === 'appeal' || kind === 'site_complaint';
+}
+
+/** Property-management track: owner may accept or reject without the accountant. */
+export function claimOwnerClosesDirectly(kind: string): boolean {
+  return kind === 'property_complaint' || kind === 'appeal';
+}
+
 export const CLAIM_MESSAGE_MIN = 10;
 export const CLAIM_MESSAGE_MAX = 1500;
 export const CLAIM_NOTE_MIN = 3;
 /** Hours the guest has to confirm a transfer; silence after that counts as received. */
 export const RECEIPT_CONFIRM_HOURS = 24;
-/** Working days after the refund before the guest may complain to the site administration. */
-export const ESCALATION_BUSINESS_DAYS = 3;
+/**
+ * Working days after an unanswered property complaint or appeal before it auto-escalates
+ * to the site administration.
+ */
+export const PROPERTY_RESPONSE_BUSINESS_DAYS = 7;
+/** @deprecated Prefer PROPERTY_RESPONSE_BUSINESS_DAYS — kept for older copy/tests. */
+export const ESCALATION_BUSINESS_DAYS = PROPERTY_RESPONSE_BUSINESS_DAYS;
 /** Days after the refund (or its rejection) during which the guest may send a claim. */
 export const CLAIM_WINDOW_DAYS = 30;
+/** Calendar days the site administration has to decide an escalated complaint. */
+export const SITE_DECISION_DAYS = 30;
 /** Working days the host has to settle a refund request: the two working weeks told to the guest. */
 export const CLAIM_WAIT_BUSINESS_DAYS = 10;
-export const MAX_CLAIMS_PER_STAY = 5;
+/** Regular deposit requests/objections per stay (then property complaint → appeal → site). */
+export const MAX_REGULAR_CLAIMS_PER_STAY = 2;
+/** @deprecated Use MAX_REGULAR_CLAIMS_PER_STAY. */
+export const MAX_CLAIMS_PER_STAY = MAX_REGULAR_CLAIMS_PER_STAY;
 
 export type DepositReceiptState = 'pending' | 'confirmed' | 'auto' | 'not_received';
 
-export function isGuestClaimKind(value: unknown): value is DepositClaimKind {
+export function isGuestClaimKind(value: unknown): value is RegularClaimKind {
   return value === 'not_received' || value === 'deduction' || value === 'other';
+}
+
+export type GuestDepositNextStep =
+  | { step: 'claim' }
+  | { step: 'property_complaint' }
+  | { step: 'appeal' }
+  | { step: 'site_complaint' }
+  | { step: 'none' };
+
+/** What the guest may open next once nothing is active. */
+export function guestDepositNextStep(
+  claims: readonly { kind: string; status: string; createdAt: string }[],
+): GuestDepositNextStep {
+  if (claims.some((claim) => claimIsActive(claim.status))) return { step: 'none' };
+  const regular = claims.filter((claim) => isRegularClaimKind(claim.kind));
+  const property = claims.filter((claim) => claim.kind === 'property_complaint');
+  const appeals = claims.filter((claim) => claim.kind === 'appeal');
+  const site = claims.filter((claim) => claim.kind === 'site_complaint');
+  if (regular.length < MAX_REGULAR_CLAIMS_PER_STAY) return { step: 'claim' };
+  if (property.length === 0) return { step: 'property_complaint' };
+  const propertyClosedByOwner = property.some(
+    (claim) => claim.status === 'accepted' || claim.status === 'rejected',
+  );
+  const propertyDecidedBySite = property.some((claim) => claim.status === 'resolved');
+  if (propertyDecidedBySite && appeals.length === 0) return { step: 'none' };
+  if (propertyClosedByOwner && appeals.length === 0) return { step: 'appeal' };
+  if (appeals.length === 0) return { step: 'none' };
+  const appealClosedByOwner = appeals.some(
+    (claim) => claim.status === 'accepted' || claim.status === 'rejected',
+  );
+  const appealDecidedBySite = appeals.some((claim) => claim.status === 'resolved');
+  if (appealDecidedBySite || site.length > 0) return { step: 'none' };
+  if (appealClosedByOwner) return { step: 'site_complaint' };
+  return { step: 'none' };
+}
+
+/** When an unanswered property complaint / appeal must auto-escalate to the site. */
+export function propertyTrackAutoEscalateFrom(createdAt: string): string {
+  return addBusinessDays(createdAt, PROPERTY_RESPONSE_BUSINESS_DAYS);
+}
+
+/** Site-administration decision deadline (calendar days from escalation). */
+export function siteDecisionDueFrom(escalatedAt: string): string {
+  const start = Date.parse(escalatedAt);
+  if (Number.isNaN(start)) return escalatedAt;
+  return new Date(start + SITE_DECISION_DAYS * 86_400_000).toISOString();
 }
 
 /**
@@ -99,20 +179,22 @@ export function claimsOpenFrom(refund: {
 }
 
 /**
- * When the guest may escalate a claim to the site administration: 3 working days after the
- * refund settled (the transfer, or the rejection), and only once the host answered the claim
- * or left it unanswered for 3 working days. Null when it cannot be escalated.
+ * Auto-escalation deadline for an unanswered property complaint or appeal (7 working days).
+ * Regular requests do not escalate in place — the guest opens the next track step instead.
  */
 export function claimEscalationFrom(
-  claim: { status: DepositClaimStatus; createdAt: string; respondedAt: string | null },
-  settledAt: string | null,
+  claim: {
+    status: DepositClaimStatus;
+    createdAt: string;
+    respondedAt: string | null;
+    kind?: string;
+  },
+  _settledAt: string | null,
 ): string | null {
   if (claim.status === 'escalated' || claim.status === 'resolved') return null;
-  const afterRefund = addBusinessDays(settledAt ?? claim.createdAt, ESCALATION_BUSINESS_DAYS);
-  const afterHost = claim.respondedAt
-    ? claim.respondedAt
-    : addBusinessDays(claim.createdAt, ESCALATION_BUSINESS_DAYS);
-  return afterRefund > afterHost ? afterRefund : afterHost;
+  if (claim.kind !== 'property_complaint' && claim.kind !== 'appeal') return null;
+  if (claim.status !== 'open' || claim.respondedAt) return null;
+  return propertyTrackAutoEscalateFrom(claim.createdAt);
 }
 
 export type DepositClaimView = {
@@ -155,6 +237,13 @@ export type DepositClaimView = {
 export function claimKindLabel(kind: string, ar: boolean): string {
   if (kind === 'not_received') return ar ? 'لم يصل المبلغ المحوَّل' : 'Transfer not received';
   if (kind === 'deduction') return ar ? 'اعتراض على الخصم أو الرفض' : 'Objection to the deduction';
+  if (kind === 'property_complaint') {
+    return ar ? 'شكوى لإدارة العقار' : 'Complaint to property management';
+  }
+  if (kind === 'appeal') return ar ? 'تظلُّم' : 'Appeal';
+  if (kind === 'site_complaint') {
+    return ar ? 'شكوى نهائية لإدارة الموقع' : 'Final complaint to site administration';
+  }
   return ar ? 'طلب آخر بشأن التأمين' : 'Other deposit request';
 }
 
@@ -259,8 +348,18 @@ export const CLAIM_ERRORS: Record<string, { status: number; ar: string; en: stri
   },
   claim_limit: {
     status: 409,
-    ar: 'بلغت الحد الأعلى لطلبات هذه الإقامة.',
-    en: 'This stay has reached the request limit.',
+    ar: `يحق لك طلبان أو اعتراضان فقط بشأن التأمين في هذه الإقامة؛ بعدهما تقدّم شكوى لإدارة العقار.`,
+    en: `You may send only ${MAX_REGULAR_CLAIMS_PER_STAY} deposit requests on this stay; then open a property-management complaint.`,
+  },
+  track_not_ready: {
+    status: 409,
+    ar: 'هذه الخطوة غير متاحة بعد؛ أكمل الطلبات السابقة أو انتظر إغلاق الطلب الحالي.',
+    en: 'This step is not available yet; finish earlier requests or wait for the open one to close.',
+  },
+  track_exists: {
+    status: 409,
+    ar: 'لديك شكوى أو تظلُّماً في هذه المرحلة مسبقاً.',
+    en: 'You already have a complaint or appeal at this stage.',
   },
   claim_window_closed: {
     status: 409,
@@ -294,8 +393,8 @@ export const CLAIM_ERRORS: Record<string, { status: number; ar: string; en: stri
   },
   escalation_not_yet: {
     status: 409,
-    ar: `تُرفع الشكوى لإدارة الموقع بعد ${ESCALATION_BUSINESS_DAYS} أيام عمل من استرداد التأمين، وبعد رد المالك أو مرور ${ESCALATION_BUSINESS_DAYS} أيام عمل على طلبك.`,
-    en: `Complaints open ${ESCALATION_BUSINESS_DAYS} working days after the refund, once the host answered or ${ESCALATION_BUSINESS_DAYS} working days passed.`,
+    ar: `تُحال الشكوى أو التظلُّم تلقائياً لإدارة الموقع بعد ${PROPERTY_RESPONSE_BUSINESS_DAYS} أيام عمل دون رد من إدارة العقار.`,
+    en: `A complaint or appeal auto-escalates to the site administration after ${PROPERTY_RESPONSE_BUSINESS_DAYS} working days without a property-management reply.`,
   },
   complaint_not_open: {
     status: 409,
