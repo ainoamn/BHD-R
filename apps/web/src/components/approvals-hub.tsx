@@ -42,8 +42,8 @@ const GROUPS: { key: string; ar: string; en: string; kinds: PendingApprovalItem[
   },
   {
     key: 'money',
-    ar: 'التأمينات والمبالغ',
-    en: 'Deposits and amounts',
+    ar: 'التأمينات والتحويلات والمهام المالية',
+    en: 'Deposits, transfers, and money tasks',
     kinds: ['deposit_refund', 'refund_transfer', 'deposit_claim', 'deposit_complaint'],
   },
   { key: 'legal', ar: 'القضايا', en: 'Legal cases', kinds: ['legal_message'] },
@@ -293,7 +293,17 @@ export function ApprovalsHub({
                             className="button button--primary button--small"
                             href={pendingApprovalHref(portal, item)}
                           >
-                            {ar ? 'افتح واتخذ القرار' : 'Open and decide'}
+                            {item.kind === 'deposit_claim'
+                              ? ar
+                                ? 'افتح في الحسابات وتحقق'
+                                : 'Open in Accounting and verify'
+                              : item.kind === 'refund_transfer'
+                                ? ar
+                                  ? 'افتح للتحويل'
+                                  : 'Open to transfer'
+                                : ar
+                                  ? 'افتح واتخذ القرار'
+                                  : 'Open and decide'}
                           </Link>
                         </div>
                       </li>

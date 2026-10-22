@@ -199,8 +199,8 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
   }
   if (item.kind === 'deposit_claim') {
     return ar
-      ? 'بلاغ ضيف: لم يصل مبلغ التأمين — مهمة للمحاسب'
-      : 'Guest report: deposit not received — accountant task';
+      ? 'بلاغ ضيف: لم يصل مبلغ التأمين (تحقق المحاسب في الحسابات)'
+      : 'Guest report: deposit not received (accountant check in Accounting)';
   }
   if (item.kind === 'deposit_complaint') {
     return ar ? 'شكوى تأمين لدى إدارة الموقع' : 'Deposit complaint for the site administration';

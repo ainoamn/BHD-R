@@ -45,6 +45,7 @@ import {
   type SiteAdminSettings,
 } from '@/lib/stay-deposit-claims';
 import { openDepositNotReceivedFollowTask } from '@/lib/accounting-follow-task-neon';
+import { appLink, notifyByEmail } from '@/lib/email-notify';
 import {
   actorName,
   addToDepositRefund,
@@ -297,12 +298,58 @@ export type ComplaintWhatsapp = { number: string; url: string };
  * say it did not, send the host a request or objection, or escalate one to the site
  * administration. A `not_received` answer opens a claim for the host at once.
  */
+async function alertStaffDepositNotReceived(input: {
+  orgId: string;
+  propertyId: string;
+  bookingId: string;
+  claimId: string;
+  referenceCode: string;
+  message: string;
+  amountMinor: string | null;
+  currency: string;
+}): Promise<void> {
+  const money = input.amountMinor
+    ? formatMoney(input.amountMinor, input.currency, 'ar')
+    : null;
+  const accountingUrl = appLink(
+    `/ar/owner/accounting?focus=${encodeURIComponent(input.bookingId)}#deposits`,
+  );
+  await notifyByEmail({
+    orgId: input.orgId,
+    aggregateType: 'stay_deposit_claim',
+    aggregateId: input.claimId,
+    dedupeKey: `deposit_not_received:${input.claimId}`,
+    audience: {
+      managersOf: { orgId: input.orgId, propertyId: input.propertyId },
+      rolesOf: { orgId: input.orgId, roles: ['finance_manager'] },
+    },
+    content: () => ({
+      tone: 'booking',
+      subject: `بلاغ ضيف: لم يصل مبلغ التأمين — ${input.referenceCode}`,
+      title: 'بلاغ: لم يصل مبلغ التأمين المحوَّل',
+      intro: `أبلغ الضيف أن تحويل استرداد التأمين للحجز ${input.referenceCode} لم يصله. المطلوب تحقق المحاسب ثم قبول البلاغ لإعادة التحويل، أو رفضه إن تبيّن أن المبلغ وصل.`,
+      details: [
+        { label: 'الحجز', value: input.referenceCode },
+        ...(money ? [{ label: 'المبلغ', value: money }] : []),
+        { label: 'ملاحظة الضيف', value: input.message },
+      ],
+      lines: [
+        'افتح أمانات التأمين في الحسابات للتحقق من إيصال التحويل والمعاملة.',
+        'إن تأكد عدم الوصول: اقبل البلاغ مع ملاحظة — يُلغى التحويل الأخير ويعود للمحاسب للتحويل مجدداً.',
+        'إن تأكد وصول المبلغ: ارفض البلاغ مع ملاحظة توضح ذلك للضيف.',
+      ],
+      cta: { label: 'فتح أمانات التأمين', url: accountingUrl },
+    }),
+  });
+}
+
 export async function guestDepositClaimAction(
   referenceCode: string,
   input: GuestDepositAction,
 ): Promise<{ whatsapp: ComplaintWhatsapp[] }> {
   const reference = referenceCode.trim().toUpperCase();
-  return elevated(async (tx) => {
+  type Alert = Parameters<typeof alertStaffDepositNotReceived>[0];
+  const result = await elevated(async (tx) => {
     const [booking] = await tx
       .select(bookingColumns)
       .from(stayBookings)
@@ -325,7 +372,7 @@ export async function guestDepositClaimAction(
         metadata: { refundId: refund.id, by: 'guest' },
         audit: { by: 'guest' },
       });
-      return { whatsapp: [] };
+      return { whatsapp: [] as ComplaintWhatsapp[], alert: null };
     }
 
     if (input.action === 'escalate') {
@@ -355,7 +402,7 @@ export async function guestDepositClaimAction(
         .where(eq(stayDepositClaims.id, claim.id));
       await audit(tx, booking, null, 'stay.deposit_claim.escalated', { claimId: claim.id });
       const whatsapp = await notifySiteAdmins(tx, booking, view, message!);
-      return { whatsapp };
+      return { whatsapp, alert: null };
     }
 
     if (!refund) fail('refund_not_decided');
@@ -431,6 +478,7 @@ export async function guestDepositClaimAction(
       aggregateId: booking.id,
       payload: { referenceCode: booking.referenceCode, claimId: created!.id, kind },
     });
+    let alert: Alert | null = null;
     if (kind === 'not_received') {
       await openDepositNotReceivedFollowTask(tx, {
         organizationId: booking.organizationId,
@@ -439,9 +487,21 @@ export async function guestDepositClaimAction(
         referenceCode: booking.referenceCode,
         guestMessage: message!,
       });
+      alert = {
+        orgId: booking.organizationId,
+        propertyId: booking.propertyId,
+        bookingId: booking.id,
+        claimId: created!.id,
+        referenceCode: booking.referenceCode,
+        message: message!,
+        amountMinor: amount?.toString() ?? null,
+        currency: booking.currency,
+      };
     }
-    return { whatsapp: [] };
+    return { whatsapp: [] as ComplaintWhatsapp[], alert };
   });
+  if (result.alert) await alertStaffDepositNotReceived(result.alert);
+  return { whatsapp: result.whatsapp };
 }
 
 function decisionLines(

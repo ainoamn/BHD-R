@@ -162,7 +162,10 @@ export function DepositLedgerPanel({
 
   useEffect(() => {
     if (!focusId || !rows?.length) return;
-    if (rows.some((row) => row.id === focusId)) setFilter('all');
+    if (rows.some((row) => row.id === focusId)) {
+      setFilter('all');
+      setExpanded((current) => ({ ...current, [focusId]: true }));
+    }
     const timer = window.setTimeout(() => {
       document
         .getElementById(`deposit-${focusId}`)
@@ -320,6 +323,21 @@ export function DepositLedgerPanel({
           </p>
         ) : null}
       </header>
+
+      {claimOpen.size ? (
+        <div className="deposit-ledger__alert" role="status">
+          <strong>
+            {ar
+              ? `${claimOpen.size} بلاغ ضيف عن التأمين بانتظار تحقق المحاسب`
+              : `${claimOpen.size} guest deposit report(s) awaiting accountant review`}
+          </strong>
+          <p>
+            {ar
+              ? 'افتح الصف ثم اقرأ ملاحظة الضيف: إمّا تأكيد عدم الوصول لإعادة التحويل، أو رفض البلاغ إن وصل المبلغ — مع ملاحظة إلزامية.'
+              : 'Open the row and read the guest note: confirm not-received to re-transfer, or decline if the money arrived — a note is required.'}
+          </p>
+        </div>
+      ) : null}
 
       <div className="deposit-ledger__cards" role="group" aria-label={ar ? 'ملخص' : 'Summary'}>
         {cards.map((card) => (
@@ -648,6 +666,7 @@ export function DepositLedgerPanel({
                           currency={row.currency || 'OMR'}
                           canDecide={viewer.canDecideRefunds || viewer.canPayRefunds}
                           locale={locale}
+                          preferOpen={focusId === id}
                           onDone={(next, reload) => {
                             setNotice(next);
                             if (!reload) return;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NoteTranslateBar } from '@/components/note-translate';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -35,21 +35,23 @@ function stamp(value: string, ar: boolean): string {
 }
 
 /**
- * The guest's deposit requests and objections on one stay, for the host to accept or decline.
- * Accepting a missing transfer sends it back to the accountant; accepting a deduction objection
- * adds the agreed amount to the refund.
+ * Guest deposit requests on one stay. For «transfer not received», the accountant verifies the
+ * payout then either voids it for a re-transfer or declines the report — always with a note.
  */
 export function DepositClaimsAdmin({
   claims,
   currency,
   canDecide,
   locale,
+  preferOpen = false,
   onDone,
 }: {
   claims: DepositClaimView[];
   currency: string;
   canDecide: boolean;
   locale: 'ar' | 'en';
+  /** When deep-linked from approvals, open the first actionable claim form. */
+  preferOpen?: boolean;
   onDone: (notice: { tone: 'success' | 'error'; text: string }, reload: boolean) => void;
 }) {
   const ar = locale === 'ar';
@@ -61,6 +63,18 @@ export function DepositClaimsAdmin({
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState(false);
   const [tried, setTried] = useState(false);
+  const autoOpened = useRef(false);
+
+  useEffect(() => {
+    if (!preferOpen || autoOpened.current || !canDecide) return;
+    const first = [...claims].reverse().find((claim) => claim.status === 'open');
+    if (!first) return;
+    autoOpened.current = true;
+    setNote('');
+    setTried(false);
+    setAmount(minorToDecimal(first.amountMinor, currency));
+    setAnswering({ id: first.id, decision: 'accept' });
+  }, [preferOpen, claims, canDecide, currency]);
 
   if (!claims.length) return null;
 
@@ -89,12 +103,12 @@ export function DepositClaimsAdmin({
           text:
             decision === 'reject'
               ? ar
-                ? 'سُجّل رفضك للطلب وأُبلغ الضيف بردك.'
-                : 'The request was declined and the guest told.'
+                ? 'سُجّل رفض البلاغ وأُبلغ الضيف بردك.'
+                : 'The report was declined and the guest told.'
               : claim.kind === 'not_received'
                 ? ar
-                  ? 'قُبل البلاغ: أُعيد التحويل للمحاسب ليحوّله من جديد، وأُبلغ الضيف.'
-                  : 'Accepted: the transfer is back with the accountant to send again.'
+                  ? 'تأكيد عدم الوصول: أُلغي التحويل الأخير وعاد للمحاسب ليحوّل المبلغ من جديد، وأُبلغ الضيف.'
+                  : 'Confirmed: last transfer voided; accountant will send again. Guest notified.'
                 : ar
                   ? 'قُبل الطلب: أُضيف المبلغ لاسترداد الضيف وهو الآن لدى المحاسب للتحويل.'
                   : 'Accepted: the amount was added to the refund for the accountant to transfer.',
@@ -123,13 +137,19 @@ export function DepositClaimsAdmin({
   return (
     <div className="deposit-claims-admin">
       <strong className="deposit-claims-admin__title">
-        {ar ? 'طلبات التأمين أو الاعتراضات من الضيف' : 'Guest deposit requests and objections'}
+        {ar ? 'بلاغات الضيف عن التأمين' : 'Guest deposit reports'}
       </strong>
       <ul className="deposit-claims-admin__list">
         {[...claims].reverse().map((claim) => {
           const open = answering?.id === claim.id;
+          const notReceived = claim.kind === 'not_received';
           return (
-            <li key={claim.id} className="deposit-claims-admin__item">
+            <li
+              key={claim.id}
+              className={`deposit-claims-admin__item${
+                claim.status === 'open' && notReceived ? ' is-urgent' : ''
+              }`}
+            >
               <div className="deposit-claims-admin__head">
                 <span>
                   {claimKindLabel(claim.kind, ar)}
@@ -146,15 +166,42 @@ export function DepositClaimsAdmin({
               </div>
               <small className="muted">{stamp(claim.createdAt, ar)}</small>
               <p className="deposit-claims-admin__message">{claim.message}</p>
+
+              {claim.status === 'open' && notReceived ? (
+                <div className="deposit-claims-admin__procedure" role="note">
+                  <p>
+                    {ar
+                      ? 'هذا بلاغ للمحاسب (وليس اعتماد عقد). تحقق من إيصال التحويل والمعاملة ثم اختر:'
+                      : 'This is an accountant follow-up (not a contract approval). Verify the transfer slip, then choose:'}
+                  </p>
+                  <ol>
+                    <li>
+                      {ar
+                        ? '«تأكيد عدم الوصول» — يُلغى التحويل الأخير ويعود للمحاسب لتحويل المبلغ مجدداً بعد كتابة ملاحظة.'
+                        : '“Confirm not received” — voids the last transfer so accounting can send again, after your note.'}
+                    </li>
+                    <li>
+                      {ar
+                        ? '«المبلغ وصل — رفض البلاغ» — إن تبيّن أن الضيف استلم المبلغ؛ اكتب ملاحظة توضّح ذلك.'
+                        : '“Amount arrived — decline report” — if the guest did receive it; write a clarifying note.'}
+                    </li>
+                  </ol>
+                </div>
+              ) : null}
+
               {claim.response ? (
                 <small className="deposit-claims-admin__reply">
                   {claim.response.decision === 'accepted'
                     ? ar
-                      ? 'قُبل'
-                      : 'Accepted'
+                      ? notReceived
+                        ? 'تأكيد عدم الوصول — أُعيد للمحاسب'
+                        : 'قُبل'
+                      : notReceived
+                        ? 'Confirmed not received — back to accountant'
+                        : 'Accepted'
                     : ar
-                      ? 'رُفض'
-                      : 'Declined'}
+                      ? 'رُفض البلاغ'
+                      : 'Report declined'}
                   {claim.response.by ? ` · ${claim.response.by}` : ''}
                   {claim.response.amountMinor ? ` · ${money(claim.response.amountMinor)}` : ''}
                   {claim.response.note ? `: ${claim.response.note}` : ''}
@@ -180,6 +227,7 @@ export function DepositClaimsAdmin({
                   {claim.resolution.note ? `: ${claim.resolution.note}` : ''}
                 </small>
               ) : null}
+
               {claim.status === 'open' && canDecide ? (
                 open ? (
                   <form
@@ -189,7 +237,20 @@ export function DepositClaimsAdmin({
                       void submit(claim, answering.decision);
                     }}
                   >
-                    {answering.decision === 'accept' && claim.kind !== 'not_received' ? (
+                    <p className="deposit-claims-admin__choice" role="status">
+                      {answering.decision === 'accept'
+                        ? notReceived
+                          ? ar
+                            ? 'الإجراء: تأكيد عدم الوصول → إلغاء التحويل الأخير وإعادته للمحاسب مع ملاحظتك.'
+                            : 'Action: confirm not received → void last transfer for the accountant, with your note.'
+                          : ar
+                            ? 'الإجراء: قبول الطلب وإضافة المبلغ لاسترداد الضيف إن لزم.'
+                            : 'Action: accept the request and add an amount to the refund if needed.'
+                        : ar
+                          ? 'الإجراء: رفض البلاغ بعد التحقق — توضّح للضيف في الملاحظة لماذا.'
+                          : 'Action: decline the report after verification — explain why in the note.'}
+                    </p>
+                    {answering.decision === 'accept' && !notReceived ? (
                       <label className="field">
                         <span>
                           {ar
@@ -204,21 +265,31 @@ export function DepositClaimsAdmin({
                         />
                       </label>
                     ) : null}
-                    {answering.decision === 'accept' && claim.kind === 'not_received' ? (
-                      <small className="muted">
-                        {ar
-                          ? 'بالقبول يُلغى التحويل الأخير ويعود للمحاسب ليحوّل المبلغ من جديد.'
-                          : 'Accepting voids the last transfer; the accountant sends it again.'}
-                      </small>
-                    ) : null}
                     <label className="field">
-                      <span>{ar ? 'ردّك (يظهر للضيف)' : 'Your answer (shown to the guest)'}</span>
+                      <span>
+                        {ar
+                          ? 'ملاحظة المحاسب / المالك (تظهر للضيف)'
+                          : 'Accountant / host note (shown to the guest)'}
+                      </span>
                       <textarea
                         rows={3}
                         maxLength={CLAIM_MESSAGE_MAX}
                         value={note}
                         onChange={(event) => setNote(event.target.value)}
                         aria-invalid={tried && note.trim().length < CLAIM_NOTE_MIN}
+                        placeholder={
+                          ar
+                            ? notReceived
+                              ? answering.decision === 'accept'
+                                ? 'مثال: راجعنا التحويل ولم يُقيَّد — سنعيد التحويل خلال يوم عمل.'
+                                : 'مثال: التحويل ظهر في كشف البنك بتاريخ … برقم مرجعي …'
+                              : 'اكتب ردّك على الطلب.'
+                            : notReceived
+                              ? answering.decision === 'accept'
+                                ? 'e.g. Transfer not credited — we will resend within one business day.'
+                                : 'e.g. Bank statement shows the credit on … ref …'
+                              : 'Write your answer.'
+                        }
                       />
                     </label>
                     <NoteTranslateBar
@@ -230,17 +301,21 @@ export function DepositClaimsAdmin({
                     />
                     {tried && note.trim().length < CLAIM_NOTE_MIN ? (
                       <small className="field-error" role="alert">
-                        {ar ? 'اكتب ردّك على الطلب.' : 'Write your answer.'}
+                        {ar ? 'اكتب ملاحظة التحقق قبل التأكيد.' : 'Write a verification note before confirming.'}
                       </small>
                     ) : null}
                     <div className="deposit-claims-admin__actions">
                       <button type="submit" className="button button--primary" disabled={busy}>
                         {answering.decision === 'accept'
-                          ? ar
-                            ? 'تأكيد القبول'
-                            : 'Confirm accept'
+                          ? notReceived
+                            ? ar
+                              ? 'تأكيد: لم يصل — أعد للمحاسب'
+                              : 'Confirm: not received — return to accountant'
+                            : ar
+                              ? 'تأكيد القبول'
+                              : 'Confirm accept'
                           : ar
-                            ? 'تأكيد الرفض'
+                            ? 'تأكيد رفض البلاغ'
                             : 'Confirm decline'}
                       </button>
                       <button
@@ -265,7 +340,13 @@ export function DepositClaimsAdmin({
                         setAnswering({ id: claim.id, decision: 'accept' });
                       }}
                     >
-                      {ar ? 'قبول' : 'Accept'}
+                      {notReceived
+                        ? ar
+                          ? 'تأكيد: لم يصل — أعد للمحاسب'
+                          : 'Confirm: not received — return to accountant'
+                        : ar
+                          ? 'قبول'
+                          : 'Accept'}
                     </button>
                     <button
                       type="button"
@@ -276,7 +357,13 @@ export function DepositClaimsAdmin({
                         setAnswering({ id: claim.id, decision: 'reject' });
                       }}
                     >
-                      {ar ? 'رفض' : 'Decline'}
+                      {notReceived
+                        ? ar
+                          ? 'المبلغ وصل — رفض البلاغ'
+                          : 'Amount arrived — decline report'
+                        : ar
+                          ? 'رفض'
+                          : 'Decline'}
                     </button>
                   </div>
                 )

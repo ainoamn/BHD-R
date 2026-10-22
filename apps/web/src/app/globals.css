@@ -23450,6 +23450,24 @@ button.lrw__step-body:focus-visible {
   font-weight: 700;
   white-space: nowrap;
 }
+.deposit-ledger__alert {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid #f0c36d;
+  background: #fff8eb;
+  color: #5c3d0a;
+}
+.deposit-ledger__alert strong {
+  font-size: 0.9rem;
+}
+.deposit-ledger__alert p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
 .deposit-ledger__cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -29160,6 +29178,11 @@ button.handover-shots__item {
   background: #fffaf0;
   border: 1px solid #f0dfb5;
 }
+.deposit-claims-admin__item.is-urgent {
+  border-color: #e8a54b;
+  background: #fff6e8;
+  box-shadow: 0 0 0 1px rgb(232 165 75 / 0.25);
+}
 .deposit-claims-admin__head {
   display: flex;
   justify-content: space-between;
@@ -29169,6 +29192,36 @@ button.handover-shots__item {
 .deposit-claims-admin__message {
   margin: 0;
   white-space: pre-wrap;
+}
+.deposit-claims-admin__procedure {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.15rem 0 0.25rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.55rem;
+  background: #fff;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #3d4f4a;
+}
+.deposit-claims-admin__procedure p {
+  margin: 0;
+  font-weight: 650;
+}
+.deposit-claims-admin__procedure ol {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+}
+.deposit-claims-admin__choice {
+  margin: 0;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.5rem;
+  background: #eef6f3;
+  border: 1px solid rgb(15 118 110 / 0.2);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #0f4c44;
 }
 .deposit-claims-admin__reply.is-escalated {
   color: #8a5a00;
