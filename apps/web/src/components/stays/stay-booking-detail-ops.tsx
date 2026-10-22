@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useTransition } from 'react';
 import { Link } from '@/i18n/navigation';
+import { DepositClaimsAdmin } from '@/components/accounting/deposit-claims-admin';
 import { ModalPortal } from '@/components/modal-portal';
 import { StayAvailabilityCalendar } from '@/components/stays/stay-availability-calendar';
 import type { StayBookingPendingReschedule } from '@/components/stays/stay-booking-contract';
@@ -11,6 +12,7 @@ import { ApiError, browserMutation, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
+import type { DepositClaimView } from '@/lib/stay-deposit-claims';
 import { REFUND_NOTE_MAX } from '@/lib/stay-deposit-refund';
 import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import { stayTypeLabel } from '@/lib/ui-labels';
@@ -36,6 +38,9 @@ export function StayBookingDetailOps({
   pendingReschedule,
   currency,
   stayType,
+  depositClaims = [],
+  canReferDepositClaims = false,
+  canDecideDepositClaims = false,
 }: {
   locale: string;
   portal: 'owner' | 'developer';
@@ -52,9 +57,15 @@ export function StayBookingDetailOps({
   pendingReschedule?: StayBookingPendingReschedule | null | undefined;
   currency?: string | null | undefined;
   stayType?: string | null | undefined;
+  depositClaims?: DepositClaimView[];
+  canReferDepositClaims?: boolean;
+  canDecideDepositClaims?: boolean;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
+  const [claimNotice, setClaimNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(
+    null,
+  );
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -620,6 +631,33 @@ export function StayBookingDetailOps({
             </section>
           </div>
         </ModalPortal>
+      ) : null}
+
+      {depositClaims.length ? (
+        <div className="stay-booking-ops__claims">
+          {claimNotice ? (
+            <p
+              className={`notice notice--${claimNotice.tone === 'error' ? 'error' : 'success'}`}
+              role={claimNotice.tone === 'error' ? 'alert' : 'status'}
+            >
+              {claimNotice.text}
+            </p>
+          ) : null}
+          <DepositClaimsAdmin
+            claims={depositClaims}
+            currency={currency || paidCurrency || 'OMR'}
+            canRefer={canReferDepositClaims}
+            canDecide={canDecideDepositClaims}
+            locale={locale === 'en' ? 'en' : 'ar'}
+            preferOpen
+            onDone={(next, reload) => {
+              setClaimNotice(next);
+              if (!reload) return;
+              window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
+              router.refresh();
+            }}
+          />
+        </div>
       ) : null}
 
       <div className="stay-booking-ops__calendar">

@@ -85,7 +85,7 @@ function queueItem(
   return {
     kind,
     id,
-    reference: row.reference,
+    reference: row.claimReference || row.reference,
     propertyId: row.propertyId,
     propertyNameAr: row.propertyNameAr,
     propertyNameEn: row.propertyNameEn,
@@ -94,6 +94,7 @@ function queueItem(
     contractType: null,
     fromOn: null,
     requestedAt: row.since,
+    claimPhase: row.claimStatus === 'with_accountant' ? 'with_accountant' : 'with_owner',
   };
 }
 
@@ -268,15 +269,31 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
       canDecideRefunds || canPayRefunds
         ? loadDepositRefundQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
         : Promise.resolve([]);
-    // Hosts see all open claims; accountants with pay-only see «not received» objections.
-    const claimQuery =
-      canDecideRefunds || canPayRefunds
-        ? loadOpenClaimQueue(tx, orgId, {
-            ownerPartyId,
-            limit: ITEM_LIMIT,
-            ...(canDecideRefunds ? {} : { kinds: ['not_received'] as const }),
-          })
-        : Promise.resolve([]);
+    // Hosts: claims waiting on owner. Accountants: claims referred to accounting.
+    const claimQuery = (() => {
+      if (canDecideRefunds && canPayRefunds) {
+        return loadOpenClaimQueue(tx, orgId, {
+          ownerPartyId,
+          limit: ITEM_LIMIT,
+          statuses: ['open', 'with_accountant'],
+        });
+      }
+      if (canDecideRefunds) {
+        return loadOpenClaimQueue(tx, orgId, {
+          ownerPartyId,
+          limit: ITEM_LIMIT,
+          statuses: ['open'],
+        });
+      }
+      if (canPayRefunds) {
+        return loadOpenClaimQueue(tx, orgId, {
+          ownerPartyId,
+          limit: ITEM_LIMIT,
+          statuses: ['with_accountant'],
+        });
+      }
+      return Promise.resolve([]);
+    })();
     const saleQuery = canDecideSale
       ? listSaleDecisionUnits(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
       : Promise.resolve([]);

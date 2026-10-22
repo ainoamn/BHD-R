@@ -452,7 +452,10 @@ export function buildStayBookingTimeline(
   const hostReview = facts.reviews.find((review) => review.direction === 'host_to_guest') ?? null;
   const guestReview = facts.reviews.find((review) => review.direction === 'guest_to_host') ?? null;
   const openClaim = facts.claims.find(
-    (claim) => claim.status === 'open' || claim.status === 'escalated',
+    (claim) =>
+      claim.status === 'open' ||
+      claim.status === 'with_accountant' ||
+      claim.status === 'escalated',
   );
 
   const events: StayTimelineEvent[] = [];
@@ -618,15 +621,24 @@ export function buildStayBookingTimeline(
       events.push({
         key: `claim-${claim.id}-response`,
         at: claim.response.at,
-        tone: claim.response.decision === 'accepted' ? 'done' : 'info',
+        tone:
+          claim.response.decision === 'accepted'
+            ? 'done'
+            : claim.response.decision === 'referred'
+              ? 'warn'
+              : 'info',
         title:
           claim.response.decision === 'accepted'
             ? ar
-              ? 'قُبلت مطالبة الضيف'
-              : 'Guest claim accepted'
-            : ar
-              ? 'رُفضت مطالبة الضيف'
-              : 'Guest claim declined',
+              ? 'قُبلت مطالبة الضيف وأُغلقت'
+              : 'Guest claim accepted and closed'
+            : claim.response.decision === 'referred'
+              ? ar
+                ? 'أُحيلت مطالبة الضيف للمحاسب'
+                : 'Guest claim referred to accounting'
+              : ar
+                ? 'رُفضت مطالبة الضيف وأُغلقت'
+                : 'Guest claim declined and closed',
         detail: claim.response.note,
         by: claim.response.by,
       });
@@ -814,7 +826,21 @@ export function buildStayBookingTimeline(
   } else if (departed && deposit && (!refund || refund.status === 'requested')) {
     next = { label: ar ? 'قرّر في استرداد التأمين' : 'Decide the deposit refund', href: base };
   } else if (openClaim) {
-    next = { label: ar ? 'ردّ على مطالبة الضيف' : 'Answer the guest’s claim', href: base };
+    const claimHref =
+      openClaim.status === 'with_accountant'
+        ? `/${input.portal}/accounting?tab=deposits&focus=${input.bookingId}`
+        : `/${input.portal}/stays/bookings/${input.bookingId}#deposit-claims`;
+    next = {
+      label:
+        openClaim.status === 'with_accountant'
+          ? ar
+            ? 'تحقق من طلب التأمين في الحسابات'
+            : 'Review the deposit request in accounting'
+          : ar
+            ? 'راجع طلب التأمين وأحِله للمحاسب أو ارفضه'
+            : 'Review the deposit request — refer or decline',
+      href: claimHref,
+    };
   }
 
   return { steps, events, waiting, next };

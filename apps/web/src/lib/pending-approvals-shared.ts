@@ -47,6 +47,8 @@ export type PendingApprovalItem = {
   requestType?: string;
   /** For `stay_booking`: request queue, newly confirmed, or guest reschedule awaiting owner. */
   stayPhase?: 'request' | 'confirmed' | 'reschedule';
+  /** For `deposit_claim`: with owner/management vs referred to accountant. */
+  claimPhase?: 'with_owner' | 'with_accountant';
 };
 
 export type PendingApprovals = {
@@ -99,8 +101,16 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
   if (item.kind === 'guest_review') {
     return `${base}?section=bookings&focus=${encodeURIComponent(item.id)}&review=1`;
   }
-  if (item.kind === 'refund_transfer' || item.kind === 'deposit_claim') {
+  if (item.kind === 'refund_transfer') {
     return `/${portal}/accounting?tab=deposits&focus=${encodeURIComponent(item.id)}`;
+  }
+  if (item.kind === 'deposit_claim') {
+    // Owner/management triage on the stay booking page (no accounting permission needed).
+    // Accountant work opens the deposits desk.
+    if (item.claimPhase === 'with_accountant') {
+      return `/${portal}/accounting?tab=deposits&focus=${encodeURIComponent(item.id)}`;
+    }
+    return `/${portal}/stays/bookings/${encodeURIComponent(item.id)}#deposit-claims`;
   }
   if (item.kind === 'deposit_complaint') return '/admin/complaints';
   if (item.kind === 'sale_decision') return `${base}?unit=${encodeURIComponent(item.id)}`;
@@ -198,9 +208,14 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
       : 'Refund transfer to make (Accounting)';
   }
   if (item.kind === 'deposit_claim') {
+    if (item.claimPhase === 'with_accountant') {
+      return ar
+        ? 'طلب تأمين مُحال للمحاسب — تحقق وأغلق الطلب'
+        : 'Deposit request referred to accounting — verify and close';
+    }
     return ar
-      ? 'بلاغ ضيف: لم يصل مبلغ التأمين (تحقق المحاسب في الحسابات)'
-      : 'Guest report: deposit not received (accountant check in Accounting)';
+      ? 'طلب/اعتراض تأمين من الضيف — راجع وأحل للمحاسب أو ارفض'
+      : 'Guest deposit request — review, refer to accounting, or decline';
   }
   if (item.kind === 'deposit_complaint') {
     return ar ? 'شكوى تأمين لدى إدارة الموقع' : 'Deposit complaint for the site administration';

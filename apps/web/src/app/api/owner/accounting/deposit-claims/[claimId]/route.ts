@@ -14,13 +14,15 @@ export const dynamic = 'force-dynamic';
 
 const bodySchema = z
   .object({
-    decision: z.enum(['accept', 'reject']),
+    decision: z.enum(['accept', 'reject', 'refer']),
     note: z.string().max(CLAIM_MESSAGE_MAX * 2),
+    /** Staff-only (owner→accountant or accountant→owner); never shown to the guest. */
+    internalNote: z.string().max(CLAIM_MESSAGE_MAX * 2).optional(),
     amount: z.string().max(24).optional(),
   })
   .strict();
 
-/** POST /api/owner/accounting/deposit-claims/:claimId — the host answers a guest's deposit claim. */
+/** POST /api/owner/accounting/deposit-claims/:claimId — owner triage or accountant close. */
 export async function POST(request: Request, context: { params: Promise<{ claimId: string }> }) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });

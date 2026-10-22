@@ -9,10 +9,12 @@ import {
   ESCALATION_BUSINESS_DAYS,
   MAX_CLAIMS_PER_STAY,
   RECEIPT_CONFIRM_HOURS,
+  claimIsActive,
   claimKindLabel,
   claimStatusLabel,
   claimStatusTone,
   claimsOpenFrom,
+  sortClaimsNewestFirst,
   type DepositClaimView,
 } from '@/lib/stay-deposit-claims';
 import type { GuestDepositRefund } from '@/lib/stay-deposit-refund';
@@ -29,6 +31,19 @@ function stamp(value: string, ar: boolean): string {
     minute: '2-digit',
     timeZone: 'Asia/Muscat',
   }).format(date);
+}
+
+function guestDecisionLabel(
+  decision: 'accepted' | 'rejected' | 'referred',
+  ar: boolean,
+): string {
+  if (decision === 'referred') {
+    return ar ? 'أُحيل الموضوع للمحاسب' : 'Referred to accounting';
+  }
+  if (decision === 'accepted') {
+    return ar ? 'اعتُمد طلبك وأُغلق' : 'Your request was approved and closed';
+  }
+  return ar ? 'رُفض طلبك وأُغلق' : 'Your request was declined and closed';
 }
 
 async function send(body: Record<string, unknown>, ar: boolean): Promise<{ whatsapp: Whatsapp[] }> {
@@ -89,6 +104,10 @@ export function StayDepositClaims({
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
   const [whatsapp, setWhatsapp] = useState<Whatsapp[]>(initialWhatsapp);
+  const [openId, setOpenId] = useState<string | null>(() => {
+    const active = sortClaimsNewestFirst(claims).find((claim) => claimIsActive(claim.status));
+    return active?.id ?? null;
+  });
 
   const deposit = depositMinor && /^\d+$/.test(depositMinor) ? BigInt(depositMinor) : 0n;
   const kept =
@@ -99,11 +118,12 @@ export function StayDepositClaims({
         : 0n;
   const lastPaid = refund.lastPaidMinor ?? refund.paidMinor;
   const partial = lastPaid !== refund.paidMinor;
-  const open = claims.some((claim) => claim.status === 'open');
+  const activeOpen = claims.some((claim) => claimIsActive(claim.status));
+  const ordered = sortClaimsNewestFirst(claims);
   const [now] = useState(() => Date.now());
   const opensFrom = claimsOpenFrom(refund);
   const waiting = opensFrom !== null && Date.parse(opensFrom) > now;
-  const canClaim = !waiting && !open && claims.length < MAX_CLAIMS_PER_STAY;
+  const canClaim = !waiting && !activeOpen && claims.length < MAX_CLAIMS_PER_STAY;
 
   function run(body: Record<string, unknown>, success: string) {
     startTransition(async () => {
@@ -252,149 +272,177 @@ export function StayDepositClaims({
         </h2>
         <p className="muted">
           {ar
-            ? `إن لم يصلك المبلغ أو اعترضت على الخصم، أرسل طلبك للمالك مباشرة ليبتّ فيه. وإن لم تصل لحل مرضٍ، يمكنك بعد ${ESCALATION_BUSINESS_DAYS} أيام عمل من استرداد التأمين رفع شكوى لإدارة الموقع.`
-            : `If the money did not arrive or you object to a deduction, send your request to the host. If the answer is not satisfying, ${ESCALATION_BUSINESS_DAYS} working days after the refund you can complain to the site administration.`}
+            ? `إن لم يصلك المبلغ أو اعترضت على الخصم، أرسل طلبك للمالك مباشرة. يصل للمالك/الإدارة، ثم يُحال للمحاسب أو يُرفض مع ملاحظة تظهر لك. كل طلب برقم مستقل؛ بعد الإغلاق يمكنك فتح طلباً جديداً. وإن لم تصل لحل مرضٍ، يمكنك بعد ${ESCALATION_BUSINESS_DAYS} أيام عمل من استرداد التأمين رفع شكوى لإدارة الموقع.`
+            : `If the money did not arrive or you object to a deduction, send your request to the host. It reaches the owner/management, then is referred to accounting or declined with a note you can see. Each request has its own number; after it closes you can open a new one. If the answer is not satisfying, ${ESCALATION_BUSINESS_DAYS} working days after the refund you can complain to the site administration.`}
         </p>
 
-        {claims.length ? (
+        {ordered.length ? (
           <ul className="stay-deposit-claims__list">
-            {[...claims].reverse().map((claim) => {
+            {ordered.map((claim) => {
               const from = claim.escalateFrom ? Date.parse(claim.escalateFrom) : null;
               const canEscalate =
                 from !== null &&
                 from <= now &&
                 (claim.status === 'rejected' ||
-                  claim.status === 'open' ||
-                  claim.status === 'accepted');
+                  claim.status === 'accepted' ||
+                  claim.status === 'open');
+              const expanded = openId === claim.id;
               return (
                 <li key={claim.id} className="stay-deposit-claims__item">
-                  <div className="stay-deposit-claims__item-head">
-                    <strong>{claimKindLabel(claim.kind, ar)}</strong>
-                    <span className={`pmh-badge pmh-badge--${claimStatusTone(claim.status)}`}>
-                      {claimStatusLabel(claim.status, ar)}
+                  <button
+                    type="button"
+                    className="stay-deposit-claims__summary"
+                    aria-expanded={expanded}
+                    onClick={() => setOpenId(expanded ? null : claim.id)}
+                  >
+                    <span className="stay-deposit-claims__summary-main">
+                      <strong dir="ltr">{claim.referenceCode}</strong>
+                      <span className="stay-deposit-claims__summary-kind">
+                        {claimKindLabel(claim.kind, ar)}
+                      </span>
                     </span>
-                  </div>
-                  <small className="muted">
-                    {stamp(claim.createdAt, ar)}
-                    {claim.amountMinor ? ` · ${money(claim.amountMinor)}` : ''}
-                  </small>
-                  <p className="stay-deposit-claims__message">{claim.message}</p>
-                  {claim.response ? (
-                    <div className="stay-deposit-claims__reply">
-                      <strong>
-                        {claim.response.decision === 'accepted'
-                          ? ar
-                            ? 'قبِل المالك طلبك'
-                            : 'The host accepted'
-                          : ar
-                            ? 'لم يقبل المالك طلبك'
-                            : 'The host declined'}
-                        {claim.response.amountMinor
-                          ? ` · ${money(claim.response.amountMinor)}`
-                          : ''}
-                      </strong>
-                      {claim.response.note ? <p>{claim.response.note}</p> : null}
-                    </div>
-                  ) : null}
-                  {claim.escalation ? (
-                    <div className="stay-deposit-claims__reply is-escalated">
-                      <strong>
-                        {ar ? 'شكواك لإدارة الموقع' : 'Your complaint'} ·{' '}
-                        {stamp(claim.escalation.at, ar)}
-                      </strong>
-                      {claim.escalation.message ? <p>{claim.escalation.message}</p> : null}
-                    </div>
-                  ) : null}
-                  {claim.resolution ? (
-                    <div className="stay-deposit-claims__reply is-resolved">
-                      <strong>
-                        {claim.resolution.outcome === 'guest'
-                          ? ar
-                            ? 'قرار الإدارة: لصالحك'
-                            : 'Decided in your favour'
-                          : ar
-                            ? 'قرار الإدارة: لصالح المالك'
-                            : 'Decided for the host'}
-                        {claim.resolution.amountMinor
-                          ? ` · ${money(claim.resolution.amountMinor)}`
-                          : ''}
-                      </strong>
-                      {claim.resolution.note ? <p>{claim.resolution.note}</p> : null}
-                    </div>
-                  ) : null}
-                  {claim.status === 'escalated' && whatsapp.length ? (
-                    <div className="stay-deposit-claims__actions">
-                      {whatsapp.map((link) => (
-                        <a
-                          key={link.number}
-                          className="button button--quiet"
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {ar ? 'أرسل الشكوى عبر واتساب' : 'Send on WhatsApp'}{' '}
-                          <bdi dir="ltr">{link.number}</bdi>
-                        </a>
-                      ))}
-                    </div>
-                  ) : null}
-                  {canEscalate ? (
-                    escalating === claim.id ? (
-                      <form
-                        className="stay-deposit-claims__form"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          run(
-                            { action: 'escalate', claimId: claim.id, message: message.trim() },
-                            ar
-                              ? 'وصلت شكواك لإدارة الموقع، وسيصلك قرارها.'
-                              : 'The site administration has your complaint.',
-                          );
-                        }}
-                      >
-                        {messageField(
-                          `deposit-escalate-${claim.id}`,
-                          ar
-                            ? 'لماذا لم يكن رد المالك مرضياً؟ وما الذي تطلبه؟'
-                            : 'Why was the host’s answer not satisfying, and what do you ask for?',
-                        )}
+                    <span className="stay-deposit-claims__summary-meta">
+                      <span className={`pmh-badge pmh-badge--${claimStatusTone(claim.status)}`}>
+                        {claimStatusLabel(claim.status, ar)}
+                      </span>
+                      <small className="muted">{stamp(claim.createdAt, ar)}</small>
+                    </span>
+                  </button>
+
+                  {expanded ? (
+                    <div className="stay-deposit-claims__panel">
+                      {claim.amountMinor ? (
+                        <small className="muted">{money(claim.amountMinor)}</small>
+                      ) : null}
+                      <p className="stay-deposit-claims__message">{claim.message}</p>
+                      {claim.status === 'open' && !claim.response ? (
+                        <div className="stay-deposit-claims__reply">
+                          <strong>
+                            {ar ? 'وصل طلبك للمالك / الإدارة' : 'Received by the owner / management'}
+                          </strong>
+                          <p>
+                            {ar
+                              ? 'سيراجعونه ويحيلونه للمحاسب أو يردّون عليك هنا.'
+                              : 'They will review it and either refer it to accounting or reply here.'}
+                          </p>
+                        </div>
+                      ) : null}
+                      {claim.response ? (
+                        <div className="stay-deposit-claims__reply">
+                          <strong>
+                            {guestDecisionLabel(claim.response.decision, ar)}
+                            {claim.response.amountMinor
+                              ? ` · ${money(claim.response.amountMinor)}`
+                              : ''}
+                          </strong>
+                          {claim.response.note ? <p>{claim.response.note}</p> : null}
+                          <small className="muted">{stamp(claim.response.at, ar)}</small>
+                        </div>
+                      ) : null}
+                      {claim.escalation ? (
+                        <div className="stay-deposit-claims__reply is-escalated">
+                          <strong>
+                            {ar ? 'شكواك لإدارة الموقع' : 'Your complaint'} ·{' '}
+                            {stamp(claim.escalation.at, ar)}
+                          </strong>
+                          {claim.escalation.message ? <p>{claim.escalation.message}</p> : null}
+                        </div>
+                      ) : null}
+                      {claim.resolution ? (
+                        <div className="stay-deposit-claims__reply is-resolved">
+                          <strong>
+                            {claim.resolution.outcome === 'guest'
+                              ? ar
+                                ? 'قرار الإدارة: لصالحك'
+                                : 'Decided in your favour'
+                              : ar
+                                ? 'قرار الإدارة: لصالح المالك'
+                                : 'Decided for the host'}
+                            {claim.resolution.amountMinor
+                              ? ` · ${money(claim.resolution.amountMinor)}`
+                              : ''}
+                          </strong>
+                          {claim.resolution.note ? <p>{claim.resolution.note}</p> : null}
+                        </div>
+                      ) : null}
+                      {claim.status === 'escalated' && whatsapp.length ? (
                         <div className="stay-deposit-claims__actions">
-                          <button
-                            type="submit"
-                            className="button button--primary"
-                            disabled={pending}
+                          {whatsapp.map((link) => (
+                            <a
+                              key={link.number}
+                              className="button button--quiet"
+                              href={link.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {ar ? 'أرسل الشكوى عبر واتساب' : 'Send on WhatsApp'}{' '}
+                              <bdi dir="ltr">{link.number}</bdi>
+                            </a>
+                          ))}
+                        </div>
+                      ) : null}
+                      {canEscalate ? (
+                        escalating === claim.id ? (
+                          <form
+                            className="stay-deposit-claims__form"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              run(
+                                { action: 'escalate', claimId: claim.id, message: message.trim() },
+                                ar
+                                  ? 'وصلت شكواك لإدارة الموقع، وسيصلك قرارها.'
+                                  : 'The site administration has your complaint.',
+                              );
+                            }}
                           >
-                            {ar ? 'أرسل الشكوى لإدارة الموقع' : 'Send the complaint'}
-                          </button>
+                            {messageField(
+                              `deposit-escalate-${claim.id}`,
+                              ar
+                                ? 'لماذا لم يكن الرد مرضياً؟ وما الذي تطلبه؟'
+                                : 'Why was the answer not satisfying, and what do you ask for?',
+                            )}
+                            <div className="stay-deposit-claims__actions">
+                              <button
+                                type="submit"
+                                className="button button--primary"
+                                disabled={pending}
+                              >
+                                {ar ? 'أرسل الشكوى لإدارة الموقع' : 'Send the complaint'}
+                              </button>
+                              <button
+                                type="button"
+                                className="button button--quiet"
+                                onClick={() => setEscalating(null)}
+                              >
+                                {ar ? 'إلغاء' : 'Cancel'}
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
                           <button
                             type="button"
-                            className="button button--quiet"
-                            onClick={() => setEscalating(null)}
+                            className="button button--quiet stay-deposit-claims__escalate"
+                            disabled={pending}
+                            onClick={() => {
+                              setMessage('');
+                              setForm(null);
+                              setEscalating(claim.id);
+                            }}
                           >
-                            {ar ? 'إلغاء' : 'Cancel'}
+                            {ar ? 'تقديم شكوى لإدارة الموقع' : 'Complain to the site administration'}
                           </button>
-                        </div>
-                      </form>
-                    ) : (
-                      <button
-                        type="button"
-                        className="button button--quiet stay-deposit-claims__escalate"
-                        disabled={pending}
-                        onClick={() => {
-                          setMessage('');
-                          setForm(null);
-                          setEscalating(claim.id);
-                        }}
-                      >
-                        {ar ? 'تقديم شكوى لإدارة الموقع' : 'Complain to the site administration'}
-                      </button>
-                    )
-                  ) : from !== null && from > now && claim.status !== 'accepted' ? (
-                    <small className="muted">
-                      {ar
-                        ? `يمكنك رفع شكوى لإدارة الموقع ابتداءً من ${stamp(claim.escalateFrom!, ar)}.`
-                        : `You can complain to the site administration from ${stamp(claim.escalateFrom!, ar)}.`}
-                    </small>
+                        )
+                      ) : from !== null &&
+                        from > now &&
+                        claim.status !== 'accepted' &&
+                        claim.status !== 'with_accountant' ? (
+                        <small className="muted">
+                          {ar
+                            ? `يمكنك رفع شكوى لإدارة الموقع ابتداءً من ${stamp(claim.escalateFrom!, ar)}.`
+                            : `You can complain to the site administration from ${stamp(claim.escalateFrom!, ar)}.`}
+                        </small>
+                      ) : null}
+                    </div>
                   ) : null}
                 </li>
               );
@@ -416,8 +464,8 @@ export function StayDepositClaims({
                     message: message.trim(),
                   },
                   ar
-                    ? 'وصل طلبك للمالك مباشرة، ويصلك رده هنا وعلى بريدك.'
-                    : 'Your request went to the host; the answer will appear here.',
+                    ? 'وصل طلبك للمالك/الإدارة برقم مستقل، ويصلك التحديث هنا وعلى بريدك.'
+                    : 'Your request reached the owner/management with its own number; updates appear here.',
                 );
               }}
             >
@@ -481,11 +529,11 @@ export function StayDepositClaims({
               {ar ? 'طلب أو اعتراض جديد' : 'New request or objection'}
             </button>
           )
-        ) : open ? (
+        ) : activeOpen ? (
           <small className="muted">
             {ar
-              ? 'لديك طلب بانتظار رد المالك؛ يصلك رده هنا وعلى بريدك.'
-              : 'Your request is waiting for the host; the answer will appear here.'}
+              ? 'لديك طلباً قيد المعالجة برقم مستقل؛ انتظر إغلاقه قبل فتح طلب جديد.'
+              : 'You already have a request in progress; wait until it closes before opening a new one.'}
           </small>
         ) : waiting ? (
           <p className="stay-deposit-claims__wait">

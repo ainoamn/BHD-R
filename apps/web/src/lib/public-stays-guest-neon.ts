@@ -642,7 +642,7 @@ async function enrichProjection(
       ? loadDepositRefunds(transaction, booking.organizationId, [booking.id])
       : Promise.resolve(null),
     departed
-      ? loadDepositClaims(transaction, booking.organizationId, [booking.id])
+      ? loadDepositClaims(transaction, booking.organizationId, [booking.id], { forGuest: true })
       : Promise.resolve(null),
     cancelled
       ? loadCancelOutcome(transaction, booking.organizationId, booking.id)

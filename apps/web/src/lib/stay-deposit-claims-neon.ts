@@ -108,6 +108,7 @@ function cleanText(value: string | null | undefined, max: number): string | null
 const claimColumns = {
   id: stayDepositClaims.id,
   bookingId: stayDepositClaims.bookingId,
+  referenceCode: stayDepositClaims.referenceCode,
   kind: stayDepositClaims.kind,
   status: stayDepositClaims.status,
   amountMinor: stayDepositClaims.amountMinor,
@@ -119,6 +120,10 @@ const claimColumns = {
   responseAmountMinor: stayDepositClaims.responseAmountMinor,
   respondedAt: stayDepositClaims.respondedAt,
   respondedByName: stayDepositClaims.respondedByName,
+  ownerInternalNote: stayDepositClaims.ownerInternalNote,
+  accountantInternalNote: stayDepositClaims.accountantInternalNote,
+  referredAt: stayDepositClaims.referredAt,
+  referredByName: stayDepositClaims.referredByName,
   escalatedAt: stayDepositClaims.escalatedAt,
   escalationMessage: stayDepositClaims.escalationMessage,
   resolution: stayDepositClaims.resolution,
@@ -144,13 +149,22 @@ function settledAtOf(
   return null;
 }
 
-function toView(row: ClaimRow, settledAt: string | null): DepositClaimView {
+function toView(
+  row: ClaimRow,
+  settledAt: string | null,
+  options?: { forGuest?: boolean },
+): DepositClaimView {
   const status = row.status as DepositClaimStatus;
   const createdAt = iso(row.createdAt) ?? '';
   const respondedAt = iso(row.respondedAt);
+  const decision =
+    row.response === 'accepted' || row.response === 'rejected' || row.response === 'referred'
+      ? row.response
+      : null;
   return {
     id: row.id,
     bookingId: row.bookingId,
+    referenceCode: row.referenceCode?.trim() || `DC-${row.id.slice(0, 8).toUpperCase()}`,
     kind: row.kind as DepositClaimKind,
     status,
     amountMinor: row.amountMinor?.toString() ?? null,
@@ -158,15 +172,19 @@ function toView(row: ClaimRow, settledAt: string | null): DepositClaimView {
     message: row.message,
     createdAt,
     response:
-      row.response && respondedAt
+      decision && respondedAt
         ? {
-            decision: row.response === 'accepted' ? 'accepted' : 'rejected',
+            decision,
             note: row.responseNote,
             amountMinor: row.responseAmountMinor?.toString() ?? null,
             at: respondedAt,
             by: row.respondedByName,
           }
         : null,
+    ownerInternalNote: options?.forGuest ? null : (row.ownerInternalNote ?? null),
+    accountantInternalNote: options?.forGuest ? null : (row.accountantInternalNote ?? null),
+    referredAt: iso(row.referredAt),
+    referredBy: row.referredByName ?? null,
     escalation: row.escalatedAt
       ? { at: iso(row.escalatedAt) ?? '', message: row.escalationMessage }
       : null,
@@ -184,6 +202,11 @@ function toView(row: ClaimRow, settledAt: string | null): DepositClaimView {
   };
 }
 
+/** Guest-safe projection — strips staff-only notes. */
+export function toGuestClaimView(view: DepositClaimView): DepositClaimView {
+  return { ...view, ownerInternalNote: null, accountantInternalNote: null };
+}
+
 const depositRefundJoin = and(
   eq(stayRefunds.organizationId, stayBookings.organizationId),
   eq(stayRefunds.idempotencyKey, sql`'deposit:' || ${stayBookings.id}::text`),
@@ -194,6 +217,7 @@ export async function loadDepositClaims(
   tx: Pick<Tx, 'select'>,
   orgId: string | null,
   bookingIds: string[],
+  options?: { forGuest?: boolean },
 ): Promise<Map<string, DepositClaimView[]>> {
   const views = new Map<string, DepositClaimView[]>();
   if (!bookingIds.length) return views;
@@ -225,7 +249,7 @@ export async function loadDepositClaims(
         : null,
     );
     const list = views.get(row.bookingId) ?? [];
-    list.push(toView(row, settledAt));
+    list.push(toView(row, settledAt, options));
     views.set(row.bookingId, list);
   }
   return views;
@@ -264,11 +288,27 @@ async function claimCounts(tx: Tx, bookingId: string) {
   const [row] = await tx
     .select({
       total: sql<number>`count(*)::int`,
-      open: sql<number>`count(*) filter (where ${stayDepositClaims.status} = 'open')::int`,
+      open: sql<number>`count(*) filter (
+        where ${stayDepositClaims.status} in ('open', 'with_accountant', 'escalated')
+      )::int`,
     })
     .from(stayDepositClaims)
     .where(eq(stayDepositClaims.bookingId, bookingId));
   return { total: row?.total ?? 0, open: row?.open ?? 0 };
+}
+
+async function nextClaimReference(
+  tx: Tx,
+  bookingId: string,
+  bookingReference: string,
+): Promise<string> {
+  const [row] = await tx
+    .select({ n: sql<number>`count(*)::int` })
+    .from(stayDepositClaims)
+    .where(eq(stayDepositClaims.bookingId, bookingId));
+  const seq = String((row?.n ?? 0) + 1).padStart(2, '0');
+  const base = bookingReference.replace(/[^A-Za-z0-9-]/g, '').slice(0, 24).toUpperCase() || 'STAY';
+  return `DC-${base}-${seq}`;
 }
 
 function parseAmount(amount: string | undefined, currency: string): bigint | null {
@@ -453,6 +493,7 @@ export async function guestDepositClaimAction(
       }
     }
 
+    const referenceCode = await nextClaimReference(tx, booking.id, booking.referenceCode);
     const [created] = await tx
       .insert(stayDepositClaims)
       .values({
@@ -461,6 +502,7 @@ export async function guestDepositClaimAction(
         propertyId: booking.propertyId,
         refundId: refund.id,
         kind,
+        referenceCode,
         amountMinor: amount,
         currency: booking.currency,
         message: message!,
@@ -537,16 +579,26 @@ function decisionLines(
   return lines;
 }
 
-/** Host or accountant answers a guest's claim: accept (re-send / top-up) or decline. */
+/**
+ * Owner/management on `open`: reject (closes) or refer to accountant.
+ * Accountant on `with_accountant`: accept (re-send / top-up) or reject — closes the request.
+ * `note` is guest-visible; `internalNote` is staff-only.
+ */
 export async function respondToDepositClaimOnNeon(
   claims: SessionClaims,
   claimId: string,
-  input: { decision: 'accept' | 'reject'; note: string; amount?: string | undefined },
+  input: {
+    decision: 'accept' | 'reject' | 'refer';
+    note: string;
+    internalNote?: string | undefined;
+    amount?: string | undefined;
+  },
 ): Promise<{ status: DepositClaimStatus }> {
   const orgId = claims.organizationId ?? fail('forbidden');
   if (!UUID.test(claimId)) fail('claim_not_found');
   const note = cleanText(input.note, CLAIM_MESSAGE_MAX);
   if ((note?.length ?? 0) < CLAIM_NOTE_MIN) fail('claim_note_required');
+  const internalNote = cleanText(input.internalNote, CLAIM_MESSAGE_MAX);
   const ownerPartyId = ownerPartyScope(claims);
   const hostMayDecide = canDecideDepositRefunds(claims);
   const accountantMayDecide = canPayDepositRefunds(claims);
@@ -575,13 +627,86 @@ export async function respondToDepositClaimOnNeon(
       .from(stayDepositClaims)
       .where(eq(stayDepositClaims.id, claimId))
       .limit(1);
-    if (claim?.status !== 'open') fail('claim_closed');
-    if (!hostMayDecide && claim.kind !== 'not_received') fail('forbidden');
+    if (!claim) fail('claim_not_found');
+
+    const by = await actorName(tx, claims.sub);
+    const now = new Date();
+
+    // Owner triage: refer → accountant, or reject and close.
+    if (input.decision === 'refer') {
+      if (!hostMayDecide) fail('forbidden');
+      if (claim.status !== 'open') fail('claim_not_with_owner');
+      await tx
+        .update(stayDepositClaims)
+        .set({
+          status: 'with_accountant',
+          response: 'referred',
+          responseNote: note,
+          respondedAt: now,
+          respondedByUserId: claims.sub,
+          respondedByName: by,
+          ownerInternalNote: internalNote,
+          referredAt: now,
+          referredByName: by,
+          updatedAt: now,
+        })
+        .where(eq(stayDepositClaims.id, claimId));
+      await audit(tx, booking, claims.sub, 'stay.deposit_claim.referred', { claimId });
+      await openDepositNotReceivedFollowTask(tx, {
+        organizationId: booking.organizationId,
+        bookingId: booking.id,
+        claimId,
+        referenceCode: booking.referenceCode,
+        guestMessage: note!,
+      }).catch(() => undefined);
+      await queueGuestEmail(tx, booking, {
+        subject: `طلب التأمين أُحيل للمحاسب — ${booking.referenceCode}`,
+        body: [
+          `طلبك ${claim.referenceCode ?? ''} بشأن التأمين وصل للمالك/الإدارة.`,
+          `أُحيل الموضوع للمحاسب للمتابعة.`,
+          note ? `ملاحظة لك: ${note}` : null,
+          'ستصلك نتيجة التحقق هنا وعلى بريدك.',
+        ].filter(Boolean) as string[],
+      });
+      return { status: 'with_accountant' as DepositClaimStatus };
+    }
 
     const accepted = input.decision === 'accept';
-    const by = await actorName(tx, claims.sub);
-    const who: 'host' | 'accountant' =
-      accountantMayDecide && !hostMayDecide ? 'accountant' : 'host';
+
+    // Owner may only reject while the claim is with them (accept must go via accountant after refer).
+    if (claim.status === 'open') {
+      if (!hostMayDecide) fail('forbidden');
+      if (accepted) fail('claim_not_with_accountant');
+      await tx
+        .update(stayDepositClaims)
+        .set({
+          status: 'rejected',
+          response: 'rejected',
+          responseNote: note,
+          respondedAt: now,
+          respondedByUserId: claims.sub,
+          respondedByName: by,
+          ownerInternalNote: internalNote,
+          updatedAt: now,
+        })
+        .where(eq(stayDepositClaims.id, claimId));
+      await audit(tx, booking, claims.sub, 'stay.deposit_claim.rejected', { claimId });
+      await queueGuestEmail(tx, booking, {
+        subject: `رد على طلب التأمين — ${booking.referenceCode}`,
+        body: [
+          `طلبك ${claim.referenceCode ?? ''} وصل للمالك/الإدارة.`,
+          'لم يُقبل الطلب.',
+          note ? `الملاحظة: ${note}` : null,
+          'يمكنك فتح طلباً جديداً برقم مستقل من صفحة إقامتك إن لزم.',
+        ].filter(Boolean) as string[],
+      });
+      return { status: 'rejected' };
+    }
+
+    // Accountant closes the referred claim.
+    if (claim.status !== 'with_accountant') fail('claim_closed');
+    if (!accountantMayDecide) fail('forbidden');
+
     const meta = { claimId, note, by, actorUserId: claims.sub };
     let amount: bigint | null = null;
     let voided: bigint | null = null;
@@ -593,7 +718,6 @@ export async function respondToDepositClaimOnNeon(
         if (amount !== null && amount > 0n) await addToDepositRefund(tx, booking, amount, meta);
       }
     }
-    const now = new Date();
     const status: DepositClaimStatus = accepted ? 'accepted' : 'rejected';
     await tx
       .update(stayDepositClaims)
@@ -605,6 +729,7 @@ export async function respondToDepositClaimOnNeon(
         respondedAt: now,
         respondedByUserId: claims.sub,
         respondedByName: by,
+        accountantInternalNote: internalNote,
         updatedAt: now,
       })
       .where(eq(stayDepositClaims.id, claimId));
@@ -613,13 +738,10 @@ export async function respondToDepositClaimOnNeon(
       amountMinor: (voided ?? amount)?.toString() ?? null,
     });
     await queueGuestEmail(tx, booking, {
-      subject:
-        who === 'accountant'
-          ? `رد المحاسب على بلاغ التأمين — ${booking.referenceCode}`
-          : `رد المالك على طلبك بشأن التأمين — ${booking.referenceCode}`,
+      subject: `رد المحاسب على طلب التأمين — ${booking.referenceCode}`,
       body: [
-        ...decisionLines(booking, claim, { accepted, note: note!, amount, voided }, who),
-        'إن لم يكن الرد مرضياً، يمكنك رفع شكوى لإدارة الموقع من صفحة إقامتك بعد 3 أيام عمل من استرداد التأمين.',
+        ...decisionLines(booking, claim, { accepted, note: note!, amount, voided }, 'accountant'),
+        'يمكنك فتح طلباً جديداً برقم مستقل من صفحة إقامتك إن لزم.',
       ],
     });
     return { status };
@@ -896,6 +1018,8 @@ export type DepositClaimQueueRow = {
   claimId: string;
   bookingId: string;
   reference: string;
+  claimReference: string | null;
+  claimStatus: string;
   propertyId: string;
   propertyNameAr: string;
   propertyNameEn: string | null;
@@ -910,6 +1034,8 @@ function queueColumns(
     claimId: stayDepositClaims.id,
     bookingId: stayDepositClaims.bookingId,
     reference: stayBookings.referenceCode,
+    claimReference: stayDepositClaims.referenceCode,
+    claimStatus: stayDepositClaims.status,
     propertyId: properties.id,
     propertyNameAr: properties.nameAr,
     propertyNameEn: properties.nameEn,
@@ -927,8 +1053,11 @@ export async function loadOpenClaimQueue(
     limit: number;
     /** When set, only these claim kinds (e.g. accountant: `not_received`). */
     kinds?: readonly string[];
+    /** Statuses to include (default: open with owner). */
+    statuses?: readonly string[];
   },
 ): Promise<DepositClaimQueueRow[]> {
+  const statuses = scope.statuses?.length ? scope.statuses : ['open'];
   const rows = await tx
     .select(queueColumns(stayDepositClaims.createdAt))
     .from(stayDepositClaims)
@@ -937,7 +1066,7 @@ export async function loadOpenClaimQueue(
     .where(
       and(
         eq(stayDepositClaims.organizationId, orgId),
-        eq(stayDepositClaims.status, 'open'),
+        inArray(stayDepositClaims.status, [...statuses]),
         eq(properties.organizationId, orgId),
         ...(scope.ownerPartyId ? [eq(properties.ownerPartyId, scope.ownerPartyId)] : []),
         ...(scope.kinds?.length

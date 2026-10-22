@@ -1,7 +1,7 @@
 import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { cookies } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { verifySessionToken } from '@bhd-r/authz';
+import { verifySessionToken, type SessionClaims } from '@bhd-r/authz';
 import { Link } from '@/i18n/navigation';
 import {
   StayBookingContract,
@@ -14,15 +14,29 @@ import { stayBookingBadges } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { getOwnerStayBookingContractOnNeon } from '@/lib/owner-stays-ops-neon';
 import { requireSessionSecret } from '@/lib/runtime-env';
+import {
+  canDecideDepositRefunds,
+  canPayDepositRefunds,
+} from '@/lib/stay-deposit-refund-neon';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 
-async function loadContract(bookingId: string): Promise<StayBookingContractData | null> {
+async function loadPage(bookingId: string): Promise<{
+  booking: StayBookingContractData;
+  canRefer: boolean;
+  canDecide: boolean;
+} | null> {
   if (!hasDatabaseUrl()) return null;
   try {
     const token = (await cookies()).get('bhd_r_session')?.value;
     if (!token) return null;
-    const claims = await verifySessionToken(token, requireSessionSecret());
-    return await getOwnerStayBookingContractOnNeon(claims, bookingId);
+    const claims: SessionClaims = await verifySessionToken(token, requireSessionSecret());
+    const booking = await getOwnerStayBookingContractOnNeon(claims, bookingId);
+    if (!booking) return null;
+    return {
+      booking,
+      canRefer: canDecideDepositRefunds(claims),
+      canDecide: canPayDepositRefunds(claims),
+    };
   } catch {
     return null;
   }
@@ -35,8 +49,9 @@ async function DeveloperStayBookingDetailPage({
 }) {
   if (!isStaysPlatformEnabled()) notFound();
   const { locale, bookingId } = await params;
-  const booking = await loadContract(bookingId);
-  if (!booking) notFound();
+  const page = await loadPage(bookingId);
+  if (!page) notFound();
+  const { booking, canRefer, canDecide } = page;
   const badges = await stayBookingBadges(booking);
   const ar = locale === 'ar';
 
@@ -78,6 +93,9 @@ async function DeveloperStayBookingDetailPage({
             pendingReschedule={booking.pendingReschedule}
             currency={booking.currency}
             stayType={booking.stayType}
+            depositClaims={booking.timeline?.claims ?? []}
+            canReferDepositClaims={canRefer}
+            canDecideDepositClaims={canDecide}
           />
         </div>
       </div>

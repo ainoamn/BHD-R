@@ -709,6 +709,8 @@ export const stayDepositClaims = pgTable(
     refundId: uuid('refund_id').references(() => stayRefunds.id),
     kind: varchar('kind', { length: 16 }).notNull(),
     status: varchar('status', { length: 16 }).notNull().default('open'),
+    /** Guest-facing request number, e.g. DC-ST-72170FF9-01 — each cycle is isolated. */
+    referenceCode: varchar('reference_code', { length: 40 }),
     amountMinor: bigint('amount_minor', { mode: 'bigint' }),
     currency: varchar('currency', { length: 3 }).notNull(),
     message: text('message').notNull(),
@@ -718,6 +720,12 @@ export const stayDepositClaims = pgTable(
     respondedAt: timestamp('responded_at', { withTimezone: true }),
     respondedByUserId: uuid('responded_by_user_id').references(() => users.id),
     respondedByName: varchar('responded_by_name', { length: 160 }),
+    /** Owner → accountant only (never shown to the guest). */
+    ownerInternalNote: text('owner_internal_note'),
+    /** Accountant → owner/management only (never shown to the guest). */
+    accountantInternalNote: text('accountant_internal_note'),
+    referredAt: timestamp('referred_at', { withTimezone: true }),
+    referredByName: varchar('referred_by_name', { length: 160 }),
     escalatedAt: timestamp('escalated_at', { withTimezone: true }),
     escalationMessage: text('escalation_message'),
     resolution: varchar('resolution', { length: 16 }),
@@ -736,7 +744,7 @@ export const stayDepositClaims = pgTable(
     ),
     check(
       'stay_deposit_claims_status_check',
-      sql`${table.status} IN ('open', 'accepted', 'rejected', 'escalated', 'resolved')`,
+      sql`${table.status} IN ('open', 'with_accountant', 'accepted', 'rejected', 'escalated', 'resolved')`,
     ),
   ],
 );

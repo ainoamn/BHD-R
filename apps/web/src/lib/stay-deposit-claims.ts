@@ -9,7 +9,18 @@ export type DepositClaimKind = (typeof CLAIM_KINDS)[number];
 /** Kinds the guest picks in the form; `not_received` comes from the receipt question. */
 export const GUEST_CLAIM_KINDS = ['deduction', 'not_received', 'other'] as const;
 
-export type DepositClaimStatus = 'open' | 'accepted' | 'rejected' | 'escalated' | 'resolved';
+export type DepositClaimStatus =
+  | 'open'
+  | 'with_accountant'
+  | 'accepted'
+  | 'rejected'
+  | 'escalated'
+  | 'resolved';
+
+/** Still in flight — guest cannot open another request until these close. */
+export function claimIsActive(status: string): boolean {
+  return status === 'open' || status === 'with_accountant' || status === 'escalated';
+}
 
 export const CLAIM_MESSAGE_MIN = 10;
 export const CLAIM_MESSAGE_MAX = 1500;
@@ -107,6 +118,8 @@ export function claimEscalationFrom(
 export type DepositClaimView = {
   id: string;
   bookingId: string;
+  /** Isolated request number for this cycle, e.g. DC-ST-72170FF9-01. */
+  referenceCode: string;
   kind: DepositClaimKind;
   status: DepositClaimStatus;
   amountMinor: string | null;
@@ -114,12 +127,19 @@ export type DepositClaimView = {
   message: string;
   createdAt: string;
   response: {
-    decision: 'accepted' | 'rejected';
+    decision: 'accepted' | 'rejected' | 'referred';
+    /** Guest-visible note from owner or accountant. */
     note: string | null;
     amountMinor: string | null;
     at: string;
     by: string | null;
   } | null;
+  /** Owner note to accountant — never returned to the guest client. */
+  ownerInternalNote: string | null;
+  /** Accountant note to owner — never returned to the guest client. */
+  accountantInternalNote: string | null;
+  referredAt: string | null;
+  referredBy: string | null;
   escalation: { at: string; message: string | null } | null;
   resolution: {
     outcome: 'guest' | 'host';
@@ -141,11 +161,13 @@ export function claimKindLabel(kind: string, ar: boolean): string {
 export function claimStatusLabel(status: string, ar: boolean): string {
   switch (status) {
     case 'open':
-      return ar ? 'بانتظار رد المالك' : 'Awaiting the host';
+      return ar ? 'وصل للمالك / الإدارة' : 'With the owner / management';
+    case 'with_accountant':
+      return ar ? 'أُحيل للمحاسب' : 'Referred to accounting';
     case 'accepted':
-      return ar ? 'قبِله المالك' : 'Accepted by the host';
+      return ar ? 'اعتُمد وأُغلق' : 'Approved & closed';
     case 'rejected':
-      return ar ? 'رفضه المالك' : 'Declined by the host';
+      return ar ? 'رُفض وأُغلق' : 'Declined & closed';
     case 'escalated':
       return ar ? 'شكوى لدى إدارة الموقع' : 'Complaint with the site administration';
     case 'resolved':
@@ -156,10 +178,15 @@ export function claimStatusLabel(status: string, ar: boolean): string {
 }
 
 export function claimStatusTone(status: string): 'warn' | 'ready' | 'muted' | 'info' {
-  if (status === 'open' || status === 'escalated') return 'warn';
+  if (status === 'open' || status === 'with_accountant' || status === 'escalated') return 'warn';
   if (status === 'accepted') return 'ready';
   if (status === 'resolved') return 'info';
   return 'muted';
+}
+
+/** Sort claims newest first (createdAt descending). */
+export function sortClaimsNewestFirst<T extends { createdAt: string }>(claims: readonly T[]): T[] {
+  return [...claims].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 export type ComplaintChannel = 'email' | 'whatsapp';
@@ -217,8 +244,18 @@ export const CLAIM_ERRORS: Record<string, { status: number; ar: string; en: stri
   },
   claim_open_exists: {
     status: 409,
-    ar: 'لديك طلب مفتوح بانتظار رد المالك؛ تابعه أولاً.',
-    en: 'You already have an open request waiting for the host.',
+    ar: 'لديك طلباً قيد المعالجة؛ انتظر إغلاقه قبل فتح طلب جديد برقم مستقل.',
+    en: 'You already have a request in progress; wait until it closes before opening a new one.',
+  },
+  claim_not_with_owner: {
+    status: 409,
+    ar: 'هذا الطلب ليس بانتظار المالك حالياً.',
+    en: 'This request is not awaiting the owner right now.',
+  },
+  claim_not_with_accountant: {
+    status: 409,
+    ar: 'هذا الطلب ليس بانتظار المحاسب حالياً.',
+    en: 'This request is not awaiting the accountant right now.',
   },
   claim_limit: {
     status: 409,

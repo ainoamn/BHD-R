@@ -692,7 +692,8 @@ export function DepositLedgerPanel({
                         <DepositClaimsAdmin
                           claims={claims[id] ?? []}
                           currency={row.currency || 'OMR'}
-                          canDecide={viewer.canDecideRefunds || viewer.canPayRefunds}
+                          canRefer={viewer.canDecideRefunds}
+                          canDecide={viewer.canPayRefunds}
                           locale={locale}
                           preferOpen={focusId === id}
                           onDone={(next, reload) => {

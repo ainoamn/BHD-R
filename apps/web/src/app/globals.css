@@ -29121,17 +29121,50 @@ button.handover-shots__item {
 }
 .stay-deposit-claims__item {
   display: grid;
-  gap: 0.3rem;
-  padding: 0.75rem 0.9rem;
+  gap: 0;
   border-radius: 0.8rem;
   border: 1px solid rgb(9 45 36 / 0.1);
   background: #fff;
+  overflow: hidden;
 }
-.stay-deposit-claims__item-head {
+.stay-deposit-claims__summary {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
+  align-items: flex-start;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  color: inherit;
+}
+.stay-deposit-claims__summary:hover {
+  background: rgb(9 45 36 / 0.03);
+}
+.stay-deposit-claims__summary-main {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.stay-deposit-claims__summary-kind {
+  font-size: 0.9rem;
+  color: rgb(9 45 36 / 0.72);
+}
+.stay-deposit-claims__summary-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+.stay-deposit-claims__panel {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0 0.9rem 0.85rem;
+  border-top: 1px solid rgb(9 45 36 / 0.08);
 }
 .stay-deposit-claims__message {
   margin: 0;
@@ -29202,26 +29235,63 @@ button.handover-shots__item {
 }
 .deposit-claims-admin__item {
   display: grid;
-  gap: 0.25rem;
-  padding: 0.6rem 0.75rem;
+  gap: 0;
   border-radius: 0.6rem;
   background: #fffaf0;
   border: 1px solid #f0dfb5;
+  overflow: hidden;
 }
 .deposit-claims-admin__item.is-urgent {
   border-color: #e8a54b;
   background: #fff6e8;
   box-shadow: 0 0 0 1px rgb(232 165 75 / 0.25);
 }
-.deposit-claims-admin__head {
+.deposit-claims-admin__summary {
   display: flex;
   justify-content: space-between;
-  gap: 0.5rem;
-  align-items: center;
+  align-items: flex-start;
+  gap: 0.65rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  color: inherit;
+}
+.deposit-claims-admin__summary:hover {
+  background: rgb(0 0 0 / 0.03);
+}
+.deposit-claims-admin__summary-main {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.deposit-claims-admin__summary-meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+.deposit-claims-admin__panel {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0 0.75rem 0.7rem;
+  border-top: 1px solid rgb(9 45 36 / 0.08);
 }
 .deposit-claims-admin__message {
   margin: 0;
   white-space: pre-wrap;
+}
+.deposit-claims-admin__reply.is-internal {
+  display: block;
+  color: #5a4630;
+  background: #fff;
+  border: 1px dashed rgb(9 45 36 / 0.18);
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.5rem;
 }
 .deposit-claims-admin__procedure {
   display: grid;
