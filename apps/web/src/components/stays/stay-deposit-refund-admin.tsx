@@ -132,10 +132,13 @@ export function DepositRefundCell({
   row,
   locale,
   receiptHref,
+  compact = false,
 }: {
   row: PropertyRecordRow;
   locale: 'ar' | 'en';
   receiptHref: string | null;
+  /** Table summary: badge + amount only (full details in the preview modal). */
+  compact?: boolean;
 }) {
   const ar = locale === 'ar';
   if ((row.kind !== 'stay' && row.kind !== 'deposit_refund') || !hasDeposit(row.depositMinor)) {
@@ -172,6 +175,25 @@ export function DepositRefundCell({
     executed: ['ready', ar ? 'مكتمل · حوّله المحاسب' : 'Completed · transferred by the accountant'],
   };
   const badge = badges[row.refundStatus] ?? ['warn', row.refundStatus];
+
+  if (compact) {
+    return (
+      <div className="psr-refund psr-refund--compact">
+        {deposit}
+        <span className={`pmh-badge pmh-badge--${badge[0]}`}>{badge[1]}</span>
+        {row.refundStatus === 'executed' && row.refundAmountMinor ? (
+          <span className="psr-refund__line">
+            <bdi dir="ltr">{money(row.refundAmountMinor)}</bdi>
+          </span>
+        ) : null}
+        {row.refundReceiptState === 'not_received' ? (
+          <span className="psr-refund__line psr-refund__receipt-state is-not_received">
+            {ar ? 'بلاغ: لم يصل المبلغ' : 'Report: not received'}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="psr-refund">

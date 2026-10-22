@@ -595,6 +595,98 @@ function openRecord(section: PropertyRecordSection, id: string) {
   window.scrollTo({ top: 0 });
 }
 
+function StayLogCell({
+  row,
+  locale,
+  documentHref,
+  compact = false,
+}: {
+  row: PropertyRecordRow;
+  locale: 'ar' | 'en';
+  documentHref: string | null;
+  compact?: boolean;
+}) {
+  const ar = locale === 'ar';
+  if (row.kind !== 'stay' || (!row.checkedInAt && !row.checkedOutAt)) {
+    return <span className="muted">—</span>;
+  }
+  if (compact) {
+    return (
+      <div className="psr-stay-log psr-stay-log--compact">
+        {row.checkedInAt ? (
+          <span>
+            <span className="psr-stay-log__label">{ar ? 'دخول' : 'In'}</span>{' '}
+            {formatStamp(row.checkedInAt, locale)}
+          </span>
+        ) : null}
+        {row.checkedOutAt ? (
+          <span>
+            <span className="psr-stay-log__label">{ar ? 'مغادرة' : 'Out'}</span>{' '}
+            {formatStamp(row.checkedOutAt, locale)}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+  const documentKind = handoverDocumentKind(row.checkInDocumentKind);
+  const entries = [
+    {
+      at: row.checkedInAt,
+      notes: row.checkInNotes,
+      important: row.checkInImportant === '1',
+      label: ar ? 'دخول' : 'In',
+      handover: row.checkInPhone || row.checkInDocument,
+    },
+    {
+      at: row.checkedOutAt,
+      notes: row.checkOutNotes,
+      important: row.checkOutImportant === '1',
+      label: ar ? 'مغادرة' : 'Out',
+      handover: false,
+    },
+  ];
+  return (
+    <div className="psr-stay-log">
+      {entries.map((entry) =>
+        entry.at ? (
+          <div key={entry.label}>
+            <span className="psr-stay-log__label">{entry.label}</span>{' '}
+            <span>{formatStamp(entry.at, locale)}</span>
+            {entry.important ? (
+              <span className="psr-stay-log__important">
+                {ar ? 'مهم · Important' : 'Important · مهم'}
+              </span>
+            ) : null}
+            {entry.handover ? (
+              <span className="psr-stay-log__recipient">
+                {row.checkInRecipient ? <bdi>{row.checkInRecipient}</bdi> : null}
+                {row.checkInPhone ? (
+                  <a href={`tel:${row.checkInPhone.replace(/[^\d+]/g, '')}`} dir="ltr">
+                    {row.checkInPhone}
+                  </a>
+                ) : null}
+                {row.checkInDocument && documentHref ? (
+                  <a href={documentHref} target="_blank" rel="noreferrer">
+                    🪪{' '}
+                    {documentKind
+                      ? ar
+                        ? documentKind.ar
+                        : documentKind.en
+                      : ar
+                        ? 'الوثيقة'
+                        : 'ID'}
+                  </a>
+                ) : null}
+              </span>
+            ) : null}
+            {entry.notes ? <small>{entry.notes}</small> : null}
+          </div>
+        ) : null,
+      )}
+    </div>
+  );
+}
+
 function Cell({
   row,
   column,
@@ -603,6 +695,7 @@ function Cell({
   documentHref,
   receiptHref,
   contractHref,
+  compactDense = false,
 }: {
   row: PropertyRecordRow;
   column: Column;
@@ -615,6 +708,8 @@ function Cell({
   receiptHref: string | null;
   /** Contract row in its property's hub, when the list is not inside that hub. */
   contractHref: string | null;
+  /** Collapse stay log / refund cells in the table body. */
+  compactDense?: boolean;
 }) {
   const ar = locale === 'ar';
   const value = row[column.key] ?? null;
@@ -635,10 +730,24 @@ function Cell({
       );
     }
     case 'refund':
-      return <DepositRefundCell row={row} locale={locale} receiptHref={receiptHref} />;
+      return (
+        <DepositRefundCell
+          row={row}
+          locale={locale}
+          receiptHref={receiptHref}
+          compact={compactDense}
+        />
+      );
     case 'detail':
       if (row.kind === 'deposit_refund') {
-        return <DepositRefundCell row={row} locale={locale} receiptHref={receiptHref} />;
+        return (
+          <DepositRefundCell
+            row={row}
+            locale={locale}
+            receiptHref={receiptHref}
+            compact={compactDense}
+          />
+        );
       }
       if (row.kind === 'deposit_received') {
         const money = (minor: string | null | undefined) =>
@@ -689,68 +798,15 @@ function Cell({
         <span className="muted">—</span>
       );
     }
-    case 'stayLog': {
-      if (row.kind !== 'stay' || (!row.checkedInAt && !row.checkedOutAt)) {
-        return <span className="muted">—</span>;
-      }
-      const documentKind = handoverDocumentKind(row.checkInDocumentKind);
-      const entries = [
-        {
-          at: row.checkedInAt,
-          notes: row.checkInNotes,
-          important: row.checkInImportant === '1',
-          label: ar ? 'دخول' : 'In',
-          handover: row.checkInPhone || row.checkInDocument,
-        },
-        {
-          at: row.checkedOutAt,
-          notes: row.checkOutNotes,
-          important: row.checkOutImportant === '1',
-          label: ar ? 'مغادرة' : 'Out',
-          handover: false,
-        },
-      ];
+    case 'stayLog':
       return (
-        <div className="psr-stay-log">
-          {entries.map((entry) =>
-            entry.at ? (
-              <div key={entry.label}>
-                <span className="psr-stay-log__label">{entry.label}</span>{' '}
-                <span>{formatStamp(entry.at, locale)}</span>
-                {entry.important ? (
-                  <span className="psr-stay-log__important">
-                    {ar ? 'مهم · Important' : 'Important · مهم'}
-                  </span>
-                ) : null}
-                {entry.handover ? (
-                  <span className="psr-stay-log__recipient">
-                    {row.checkInRecipient ? <bdi>{row.checkInRecipient}</bdi> : null}
-                    {row.checkInPhone ? (
-                      <a href={`tel:${row.checkInPhone.replace(/[^\d+]/g, '')}`} dir="ltr">
-                        {row.checkInPhone}
-                      </a>
-                    ) : null}
-                    {row.checkInDocument && documentHref ? (
-                      <a href={documentHref} target="_blank" rel="noreferrer">
-                        🪪{' '}
-                        {documentKind
-                          ? ar
-                            ? documentKind.ar
-                            : documentKind.en
-                          : ar
-                            ? 'الوثيقة'
-                            : 'ID'}
-                      </a>
-                    ) : null}
-                  </span>
-                ) : null}
-                {entry.notes ? <small>{entry.notes}</small> : null}
-              </div>
-            ) : null,
-          )}
-        </div>
+        <StayLogCell
+          row={row}
+          locale={locale}
+          documentHref={documentHref}
+          compact={compactDense}
+        />
       );
-    }
     case 'kind':
       if (value === 'reservation' && row.bookingMode === 'rent') {
         return <>{ar ? 'حجز إيجار بعربون' : 'Rent deposit booking'}</>;
@@ -1189,6 +1245,7 @@ export function PropertySectionRecords({
   );
   const [reviewRowId, setReviewRowId] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
+  const [detailRowId, setDetailRowId] = useState<string | null>(null);
   const silentReload = useRef(false);
   const reviewLinkOpened = useRef(false);
   const scrollToReview = useRef(false);
@@ -2165,6 +2222,7 @@ export function PropertySectionRecords({
                             column={column}
                             locale={locale}
                             badges={badges}
+                            compactDense={section === 'bookings'}
                             documentHref={
                               viewer.canRecordStays && row.checkInDocument && row.id
                                 ? `/api/owner/properties/${encodeURIComponent(propertyOf(row))}/records/handover/${row.id}`
@@ -2188,6 +2246,20 @@ export function PropertySectionRecords({
                       {showActions ? (
                         <td className="psr-col--actions">
                           <div className="psr-actions">
+                            {section === 'bookings' &&
+                            (row.kind === 'stay' || row.kind === 'reservation') &&
+                            row.id ? (
+                              <button
+                                type="button"
+                                className="button button--primary psr-action"
+                                onClick={() => {
+                                  setNotice(null);
+                                  setDetailRowId(row.id ?? null);
+                                }}
+                              >
+                                {ar ? 'استعراض' : 'Review'}
+                              </button>
+                            ) : null}
                             {rowActions(row)}
                             {row.kind === 'viewing' &&
                             row.status === 'scheduled' &&
@@ -2248,6 +2320,145 @@ export function PropertySectionRecords({
                           />
                         </td>
                       </tr>
+                    ) : null}
+                    {detailRowId && detailRowId === row.id ? (
+                      <ModalPortal onClose={() => setDetailRowId(null)}>
+                        <div
+                          className="ops-modal ops-modal--create psr-booking-detail-modal"
+                          role="presentation"
+                          onMouseDown={(event) => {
+                            if (event.target === event.currentTarget) setDetailRowId(null);
+                          }}
+                        >
+                          <section
+                            className="ops-modal__card psr-booking-detail-modal__card"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby={`psr-detail-title-${row.id}`}
+                            dir={ar ? 'rtl' : 'ltr'}
+                          >
+                            <header>
+                              <div>
+                                <span className="ops-kicker" dir="ltr">
+                                  {row.reference}
+                                </span>
+                                <h2 id={`psr-detail-title-${row.id}`}>
+                                  {ar ? 'تفاصيل الحجز' : 'Booking details'}
+                                </h2>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setDetailRowId(null)}
+                                aria-label={ar ? 'إغلاق' : 'Close'}
+                              >
+                                ×
+                              </button>
+                            </header>
+                            <div className="psr-booking-detail-modal__body">
+                              <dl className="psr-booking-detail-modal__facts">
+                                <div>
+                                  <dt>{ar ? 'العقار' : 'Property'}</dt>
+                                  <dd>
+                                    <bdi>{(ar ? row.propertyNameAr : row.propertyNameEn) || '—'}</bdi>
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
+                                  <dd>
+                                    <bdi>{row.unitCode || '—'}</bdi>
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>{ar ? 'العميل / الضيف' : 'Client / guest'}</dt>
+                                  <dd>
+                                    <bdi>{row.party || '—'}</bdi>
+                                    {row.hostReviewScore ? (
+                                      <span
+                                        className={`pmh-badge pmh-badge--${reviewScoreTone(Number.parseFloat(row.hostReviewScore))}`}
+                                      >
+                                        {Number.parseFloat(row.hostReviewScore).toFixed(1)}
+                                      </span>
+                                    ) : null}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>{ar ? 'الفترة' : 'Period'}</dt>
+                                  <dd dir="ltr">
+                                    {row.fromOn && row.toOn
+                                      ? `${row.fromOn} → ${row.toOn}`
+                                      : row.fromOn || row.toOn || '—'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
+                                  <dd>
+                                    {row.amountMinor
+                                      ? formatMoney(
+                                          row.amountMinor,
+                                          row.currency ?? 'OMR',
+                                          locale,
+                                        )
+                                      : '—'}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>{ar ? 'حالة الحجز' : 'Booking status'}</dt>
+                                  <dd>
+                                    {(() => {
+                                      const status = displayStatus(row);
+                                      return status ? (
+                                        <span className={`pmh-badge pmh-badge--${statusTone(status)}`}>
+                                          {domainStatusLabel(status, locale)}
+                                        </span>
+                                      ) : (
+                                        <span className="muted">—</span>
+                                      );
+                                    })()}
+                                  </dd>
+                                </div>
+                              </dl>
+                              <section className="psr-booking-detail-modal__block">
+                                <h3>{ar ? 'الدخول والمغادرة' : 'Check-in and check-out'}</h3>
+                                <StayLogCell
+                                  row={row}
+                                  locale={locale}
+                                  documentHref={
+                                    viewer.canRecordStays && row.checkInDocument && row.id
+                                      ? `/api/owner/properties/${encodeURIComponent(propertyOf(row))}/records/handover/${row.id}`
+                                      : null
+                                  }
+                                />
+                              </section>
+                              <section className="psr-booking-detail-modal__block">
+                                <h3>{ar ? 'استرداد التأمين' : 'Security deposit refund'}</h3>
+                                <DepositRefundCell
+                                  row={row}
+                                  locale={locale}
+                                  receiptHref={
+                                    (viewer.canDecideRefunds || viewer.canPayRefunds) &&
+                                    row.refundReceipt &&
+                                    (row.bookingId ?? row.id)
+                                      ? `/api/owner/properties/${encodeURIComponent(propertyOf(row))}/records/refund-receipt/${row.bookingId ?? row.id}`
+                                      : null
+                                  }
+                                />
+                              </section>
+                              {href ? (
+                                <div className="psr-booking-detail-modal__footer">
+                                  <Link
+                                    className="button button--quiet"
+                                    href={href}
+                                    prefetch={false}
+                                    onClick={() => setDetailRowId(null)}
+                                  >
+                                    {ar ? 'فتح صفحة الحجز' : 'Open booking page'}
+                                  </Link>
+                                </div>
+                              ) : null}
+                            </div>
+                          </section>
+                        </div>
+                      </ModalPortal>
                     ) : null}
                     {refundForm && refundForm.rowId === row.id ? (
                       <ModalPortal
