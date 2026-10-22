@@ -78,6 +78,7 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
     checkInTime: null,
     checkOutTime: null,
     rescheduleChange: null,
+    terminationClose: null,
     source: {
       type: 'lease_reservation',
       referenceCode: booking.referenceCode,

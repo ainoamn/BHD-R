@@ -45,7 +45,7 @@ const BOOKING_COPY_ID = 'contract-booking-copy';
 function addendumTitle(kind: string, ar: boolean): string {
   if (kind === 'renewal') return ar ? 'ملحق تجديد' : 'Renewal addendum';
   if (kind === 'amendment') return ar ? 'ملحق تعديل التواريخ' : 'Date-change addendum';
-  if (kind === 'termination') return ar ? 'ملحق إنهاء' : 'Termination addendum';
+  if (kind === 'termination') return ar ? 'ملحق إلغاء العقد' : 'Cancellation addendum';
   return ar ? 'ملحق عقد' : 'Contract addendum';
 }
 
@@ -163,6 +163,9 @@ function docTitle(doc: ContractDocument, contract: ContractArticleHead): Pair {
   if (contract.kind === 'renewal') return ['ملحق تجديد عقد', 'Contract Renewal Addendum'];
   if (contract.kind === 'amendment' || doc.rescheduleChange) {
     return ['ملحق تعديل تواريخ الإقامة', 'Stay Date-Change Addendum'];
+  }
+  if (contract.kind === 'termination' || doc.terminationClose) {
+    return ['ملحق إلغاء العقد', 'Contract Cancellation Addendum'];
   }
   if (doc.type === 'stay') return ['عقد إقامة قصيرة', 'Short-Stay Agreement'];
   if (doc.type === 'sale') return ['عقد بيع عقار', 'Property Sale Agreement'];
@@ -782,6 +785,70 @@ export function ContractArticle({
                   <PropertyLocationMap location={doc.location} locale={locale} bilingual />
                 ) : null}
               </section>
+
+              {doc.terminationClose ? (
+                <section className="contract-doc__section">
+                  {heading(['محضر إلغاء العقد', 'Contract cancellation record'])}
+                  {para(
+                    'يُحرَّر هذا الملحق محضراً متمّماً للعقد الأصلي بعد تسجيل مغادرة الضيف، ويثبت تاريخ ووقت الإلغاء. أي تأخير عن موعد التسليم يُعرض للمالك والمحاسب لقرار الخصم من التأمين أو المطالبة بقيمته.',
+                    'This addendum completes the original contract after guest check-out and records the cancellation date and time. Any late return is shown for the owner and accountant to decide a deposit deduction or late fee.',
+                    'contract-doc__lead',
+                  )}
+                  <table className="contract-doc__compare">
+                    <thead>
+                      <tr>
+                        <th>{bi(['البيان', 'Item'])}</th>
+                        <th>{bi(['التفاصيل', 'Details'])}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <th scope="row">{bi(['تاريخ ووقت الإلغاء', 'Cancellation date & time'])}</th>
+                        <td>{bi(dateTime(doc.terminationClose.cancelledAt))}</td>
+                      </tr>
+                      <tr>
+                        <th scope="row">{bi(['سريان الإلغاء', 'Effective on'])}</th>
+                        <td>{bi(day(doc.terminationClose.effectiveOn))}</td>
+                      </tr>
+                      {doc.terminationClose.scheduledCheckOutAt ? (
+                        <tr>
+                          <th scope="row">{bi(['موعد المغادرة المتفق عليه', 'Scheduled check-out'])}</th>
+                          <td>{bi(dateTime(doc.terminationClose.scheduledCheckOutAt))}</td>
+                        </tr>
+                      ) : null}
+                      {doc.terminationClose.actualCheckOutAt ? (
+                        <tr>
+                          <th scope="row">{bi(['وقت المغادرة الفعلي', 'Actual check-out'])}</th>
+                          <td>{bi(dateTime(doc.terminationClose.actualCheckOutAt))}</td>
+                        </tr>
+                      ) : null}
+                      <tr>
+                        <th scope="row">{bi(['التأخير عن الموعد', 'Late return'])}</th>
+                        <td>
+                          {bi([
+                            doc.terminationClose.lateLabelAr,
+                            doc.terminationClose.lateLabelEn,
+                          ])}
+                          {doc.terminationClose.lateMinutes > 0
+                            ? bi([
+                                ' — يُترك قرار الخصم من التأمين أو المطالبة للمالك.',
+                                ' — Deposit deduction or claim is the owner’s decision.',
+                              ])
+                            : null}
+                        </td>
+                      </tr>
+                      {doc.terminationClose.recordedBy ? (
+                        <tr>
+                          <th scope="row">{bi(['سجّل المغادرة', 'Recorded by'])}</th>
+                          <td>
+                            <bdi>{doc.terminationClose.recordedBy}</bdi>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
+                </section>
+              ) : null}
 
               {doc.rescheduleChange ? (
                 <section className="contract-doc__section">

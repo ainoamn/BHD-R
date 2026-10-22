@@ -55,6 +55,14 @@ export type StayStamp = {
   recipient: StayRecipient | null;
   /** Condition photos of the unit; the bytes are only served on request. */
   photos: HandoverPhoto[];
+  /** Check-out only: late return vs booked check-out (for deposit decisions). */
+  lateReturn?: {
+    lateMinutes: number;
+    labelAr: string;
+    labelEn: string;
+    scheduledAt: string | null;
+    actualAt: string | null;
+  } | null;
 };
 
 export type StayPhotoInput = {
@@ -109,6 +117,11 @@ function readStamp(metadata: unknown, fallbackAt: Date, hasDocument: boolean): S
     row.recipient && typeof row.recipient === 'object'
       ? (row.recipient as Record<string, unknown>)
       : null;
+  const late =
+    row.lateReturn && typeof row.lateReturn === 'object'
+      ? (row.lateReturn as Record<string, unknown>)
+      : null;
+  const lateMinutes = late ? Number(late.lateMinutes) : Number.NaN;
   return {
     at: text(row.at) ?? fallbackAt.toISOString(),
     notes: text(row.notes),
@@ -127,6 +140,16 @@ function readStamp(metadata: unknown, fallbackAt: Date, hasDocument: boolean): S
           hasDocument,
         }
       : null,
+    lateReturn:
+      late && Number.isFinite(lateMinutes)
+        ? {
+            lateMinutes,
+            labelAr: text(late.labelAr) ?? '',
+            labelEn: text(late.labelEn) ?? '',
+            scheduledAt: text(late.scheduledAt),
+            actualAt: text(late.actualAt),
+          }
+        : null,
   };
 }
 
@@ -442,7 +465,30 @@ export async function recordStayStampOnNeon(
         takenAt,
         sha256,
       })),
+      lateReturn: null,
     };
+    await tx
+      .update(stayBookings)
+      .set({ status: toStatus, updatedAt: now })
+      .where(and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, orgId)));
+
+    let lateReturn: unknown = null;
+    let terminationContractId: string | null = null;
+    if (input.kind === 'check_out') {
+      const { closeStayContractAfterCheckoutInTx } = await import(
+        '@/lib/stay-contract-close-neon'
+      );
+      const close = await closeStayContractAfterCheckoutInTx(tx, {
+        organizationId: orgId,
+        bookingId: booking.id,
+        actorUserId: claims.sub,
+        checkedOutAt: stamp.at,
+        recordedBy: stamp.recordedBy,
+      });
+      lateReturn = close.lateReturn;
+      terminationContractId = close.terminationId;
+    }
+
     const metadata = {
       at: stamp.at,
       notes,
@@ -454,12 +500,10 @@ export async function recordStayStampOnNeon(
       ...(handover && recipient
         ? { recipient: { ...handover, document: recipient.document } }
         : {}),
+      ...(lateReturn ? { lateReturn } : {}),
+      ...(terminationContractId ? { terminationContractId } : {}),
     };
 
-    await tx
-      .update(stayBookings)
-      .set({ status: toStatus, updatedAt: now })
-      .where(and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, orgId)));
     await tx.insert(stayBookingStatusHistory).values({
       organizationId: orgId,
       bookingId: booking.id,
@@ -484,6 +528,7 @@ export async function recordStayStampOnNeon(
         important: stamp.important,
         photoCount: photos.length,
         ...(handover ? { recipientPhone: handover.phone, hasDocument: true } : {}),
+        ...(lateReturn ? { lateReturn } : {}),
       },
     });
     if (input.kind === 'check_out') {
@@ -492,7 +537,12 @@ export async function recordStayStampOnNeon(
         topic: 'stay.checked_out',
         aggregateType: 'stay_booking',
         aggregateId: booking.id,
-        payload: { unitId: booking.unitId, checkOutOn: booking.checkOutOn },
+        payload: {
+          unitId: booking.unitId,
+          checkOutOn: booking.checkOutOn,
+          lateReturn,
+          terminationContractId,
+        },
       });
     }
     // Trust liability when deposit was collected (online payment posts bank; skip if waived).

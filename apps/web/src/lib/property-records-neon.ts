@@ -659,6 +659,12 @@ async function loadBookings(
         checkedOutAt: stamp?.checkOut?.at ?? null,
         checkOutNotes: stamp?.checkOut?.notes ?? null,
         checkOutImportant: stamp?.checkOut?.important ? '1' : null,
+        lateReturnMinutes:
+          stamp?.checkOut?.lateReturn && stamp.checkOut.lateReturn.lateMinutes > 0
+            ? String(stamp.checkOut.lateReturn.lateMinutes)
+            : null,
+        lateReturnLabelAr: stamp?.checkOut?.lateReturn?.labelAr ?? null,
+        lateReturnLabelEn: stamp?.checkOut?.lateReturn?.labelEn ?? null,
         guestPhone: row.contactPhone,
         id: row.id,
         kind: 'stay',

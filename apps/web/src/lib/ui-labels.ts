@@ -103,7 +103,7 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
   scheduled: { ar: 'مجدول', en: 'Scheduled' },
   held: { ar: 'محجوز', en: 'Held' },
   converted: { ar: 'محوّل', en: 'Converted' },
-  terminated: { ar: 'منتهٍ', en: 'Terminated' },
+  terminated: { ar: 'ملغى', en: 'Cancelled' },
   vacant: { ar: 'شاغر', en: 'Vacant' },
   occupied: { ar: 'مشغول', en: 'Occupied' },
   available: { ar: 'متاح', en: 'Available' },

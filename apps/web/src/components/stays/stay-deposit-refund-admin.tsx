@@ -152,6 +152,16 @@ export function DepositRefundCell({
       {ar ? 'التأمين' : 'Deposit'} <bdi dir="ltr">{money(row.depositMinor)}</bdi>
     </span>
   );
+  const lateLabel = ar ? row.lateReturnLabelAr : row.lateReturnLabelEn;
+  const lateNote =
+    row.lateReturnMinutes && Number(row.lateReturnMinutes) > 0 ? (
+      <span className="psr-refund__line psr-refund__late">
+        {ar ? 'تأخير التسليم' : 'Late return'}: {lateLabel || row.lateReturnMinutes}
+        {ar
+          ? ' · قرار الخصم من التأمين أو المطالبة للمالك'
+          : ' · deposit deduction or claim is the owner’s choice'}
+      </span>
+    ) : null;
 
   if (!row.refundStatus) {
     if (row.status !== 'checked_out') return <div className="psr-refund">{deposit}</div>;
@@ -161,6 +171,7 @@ export function DepositRefundCell({
         <span className="pmh-badge pmh-badge--warn">
           {ar ? 'لم يُطلب بعد · بانتظار قرارك' : 'Not requested · your decision'}
         </span>
+        {lateNote}
       </div>
     );
   }
@@ -181,6 +192,7 @@ export function DepositRefundCell({
       <div className="psr-refund psr-refund--compact">
         {deposit}
         <span className={`pmh-badge pmh-badge--${badge[0]}`}>{badge[1]}</span>
+        {lateNote}
         {row.refundStatus === 'executed' && row.refundAmountMinor ? (
           <span className="psr-refund__line">
             <bdi dir="ltr">{money(row.refundAmountMinor)}</bdi>
@@ -199,6 +211,7 @@ export function DepositRefundCell({
     <div className="psr-refund">
       {deposit}
       <span className={`pmh-badge pmh-badge--${badge[0]}`}>{badge[1]}</span>
+      {lateNote}
       {row.refundRequestedAt && row.refundRequestedBy === 'guest' ? (
         <span className="psr-refund__line">
           {ar ? 'طُلب في' : 'Requested'} {formatStamp(row.refundRequestedAt, ar)}

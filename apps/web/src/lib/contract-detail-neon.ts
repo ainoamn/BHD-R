@@ -265,8 +265,36 @@ export async function loadContractDetailFromNeon(
     const contract = await visibleContract(tx, contractId, access);
     if (!contract) return null;
 
-    const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
-    const stayBookingId = stayBookingIdOf(snapshot);
+    let snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
+    let stayBookingId = stayBookingIdOf(snapshot);
+    // Parent may still be open if check-out happened before auto-close existed.
+    if (stayBookingId && !contract.parentContractId) {
+      try {
+        const { closeStayContractAfterCheckoutInTx } = await import(
+          '@/lib/stay-contract-close-neon'
+        );
+        const closed = await closeStayContractAfterCheckoutInTx(tx, {
+          organizationId: orgId,
+          bookingId: stayBookingId,
+          actorUserId: claims.sub,
+          recordedBy: 'contract_detail_repair',
+        });
+        if (closed.repaired || closed.terminationId) {
+          const [refreshed] = await tx
+            .select()
+            .from(contracts)
+            .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, orgId)))
+            .limit(1);
+          if (refreshed) {
+            Object.assign(contract, refreshed);
+            snapshot = (refreshed.payloadSnapshot ?? {}) as Record<string, unknown>;
+            stayBookingId = stayBookingIdOf(snapshot);
+          }
+        }
+      } catch (error) {
+        console.error('stay checkout close on contract detail', error);
+      }
+    }
     const linkedContractId =
       contract.kind === 'renewal' || contract.kind === 'amendment'
         ? contract.parentContractId
@@ -842,6 +870,37 @@ async function buildContractDocument(
           guestAt: text(guest.at),
           ownerAt: text(ownerApproval.at),
         },
+      };
+    })(),
+    terminationClose: (() => {
+      const term = record(snapshot.termination);
+      const sync = record(snapshot.terminationSync);
+      const lateObj = record(
+        term.lateReturn && typeof term.lateReturn === 'object'
+          ? term.lateReturn
+          : sync.lateReturn,
+      );
+      const cancelledAt =
+        text(term.cancelledAt) ?? text(sync.cancelledAt) ?? text(sync.at) ?? checkOutStamp?.at;
+      if (
+        !cancelledAt ||
+        (contract.kind !== 'termination' &&
+          source.type !== 'stay_booking_checkout' &&
+          !Object.keys(sync).length)
+      ) {
+        return null;
+      }
+      const lateMinutes = Number(lateObj.lateMinutes);
+      return {
+        cancelledAt,
+        effectiveOn:
+          text(term.effectiveOn) ?? text(sync.effectiveOn) ?? cancelledAt.slice(0, 10),
+        recordedBy: text(term.recordedBy),
+        scheduledCheckOutAt: text(lateObj.scheduledAt),
+        actualCheckOutAt: text(lateObj.actualAt) ?? checkOutStamp?.at ?? cancelledAt,
+        lateMinutes: Number.isFinite(lateMinutes) ? lateMinutes : 0,
+        lateLabelAr: text(lateObj.labelAr) ?? 'بدون تأخير عن موعد المغادرة',
+        lateLabelEn: text(lateObj.labelEn) ?? 'No delay past scheduled check-out',
       };
     })(),
     source: Object.keys(source).length

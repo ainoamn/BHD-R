@@ -28,7 +28,7 @@ export function groupContractRowsByParent<
 export function contractKindLabel(kind: string, ar: boolean): string {
   if (kind === 'renewal') return ar ? 'تجديد' : 'Renewal';
   if (kind === 'amendment') return ar ? 'تعديل تواريخ' : 'Date change';
-  if (kind === 'termination') return ar ? 'إنهاء' : 'Termination';
+  if (kind === 'termination') return ar ? 'ملحق إلغاء' : 'Cancellation';
   return ar ? 'عقد أساسي' : 'Initial';
 }
 

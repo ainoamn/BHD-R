@@ -106,6 +106,7 @@ function Status({
 function contractStatusCell(contract: TenancyContract, ar: boolean) {
   const awaitingMe =
     ['sent', 'partially_signed'].includes(contract.status) && !contract.tenantSigned;
+  const cancelled = contract.status === 'terminated' || contract.status === 'void';
   return (
     <Status
       label={
@@ -113,9 +114,15 @@ function contractStatusCell(contract: TenancyContract, ar: boolean) {
           ? ar
             ? 'بانتظار توقيعك'
             : 'Awaiting your signature'
-          : domainStatusLabel(contract.status, ar)
+          : cancelled
+            ? ar
+              ? 'ملغى'
+              : 'Cancelled'
+            : domainStatusLabel(contract.status, ar)
       }
-      tone={awaitingMe ? 'action' : contract.status === 'signed' ? 'good' : undefined}
+      tone={
+        awaitingMe ? 'action' : contract.status === 'signed' ? 'good' : cancelled ? 'muted' : undefined
+      }
     />
   );
 }

@@ -135,6 +135,20 @@ export interface ContractDocument {
       ownerAt: string | null;
     };
   } | null;
+  /**
+   * Stay check-out cancellation addendum: when the contract was cancelled, scheduled vs
+   * actual check-out, and late-return duration for the owner’s deposit decision.
+   */
+  terminationClose: {
+    cancelledAt: string;
+    effectiveOn: string;
+    recordedBy: string | null;
+    scheduledCheckOutAt: string | null;
+    actualCheckOutAt: string | null;
+    lateMinutes: number;
+    lateLabelAr: string;
+    lateLabelEn: string;
+  } | null;
   source: { type: string; referenceCode: string | null; stayBookingId: string | null } | null;
   approval: { mode: string | null; byName: string | null; at: string | null } | null;
   tenantContact: { email: string | null; phone: string | null } | null;
