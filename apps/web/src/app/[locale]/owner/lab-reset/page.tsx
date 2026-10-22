@@ -1,13 +1,11 @@
-import { persistentPortalPage } from '@/lib/persistent-portal-page';
-import { LabResetDesk } from '@/components/lab-reset-desk';
-import { requirePortal, requirePortalPath } from '@/lib/viewer';
+import { redirect } from 'next/navigation';
 
-async function Page({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale: raw } = await params;
-  const locale = raw === 'en' ? 'en' : 'ar';
-  await requirePortal(locale, 'owner');
-  await requirePortalPath('owner', '/lab-reset');
-  return <LabResetDesk locale={locale} />;
+/** Moved to site console — not part of the owner portal. */
+export default async function RedirectOwnerLabReset({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  redirect(`/${locale}/site-admin/lab-reset`);
 }
-
-export default persistentPortalPage('/owner/lab-reset', Page);

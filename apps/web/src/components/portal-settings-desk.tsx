@@ -62,18 +62,6 @@ export async function PortalSettingsDesk({
         : 'Booking copy, letterhead, and per-property approval overrides.',
       mark: '¶',
     },
-    {
-      href: `/${portal}/notifications`,
-      title: ar ? 'قوالب الإشعارات' : 'Notification templates',
-      hint: ar ? 'رسائل البريد والتنبيهات للعملاء والفريق.' : 'Email and alert wording for clients and staff.',
-      mark: '✉',
-    },
-    {
-      href: `/${portal}/api-keys`,
-      title: ar ? 'مفاتيح API' : 'API keys',
-      hint: ar ? 'وصول برمجي آمن لتكاملات موقعك وأنظمتك.' : 'Programmatic access for your site and systems.',
-      mark: '⌘',
-    },
     ...(isStaysPlatformEnabled()
       ? [
           {
@@ -146,8 +134,8 @@ export async function PortalSettingsDesk({
         <h2 id="settings-links-title">{ar ? 'إعدادات مرتبطة' : 'Related settings'}</h2>
         <p className="muted">
           {ar
-            ? 'الصلاحيات والشروط والإشعارات تبقى في صفحاتها؛ افتحها من هنا عند الحاجة.'
-            : 'Permissions, terms, and notifications stay on their pages — open them from here when needed.'}
+            ? 'الصلاحيات والشروط تبقى في صفحاتها؛ افتحها من هنا عند الحاجة.'
+            : 'Permissions and terms stay on their pages — open them from here when needed.'}
         </p>
         <ul className="portal-settings__links">
           {links.map((item) => (

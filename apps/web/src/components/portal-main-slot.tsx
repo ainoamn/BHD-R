@@ -26,19 +26,6 @@ const PropertySectionRecords = dynamic(() =>
   import('@/components/property-section-records').then((mod) => mod.PropertySectionRecords),
 );
 
-const NotificationTemplatesStudio = dynamic(() =>
-  import('@/components/notification-templates-studio').then(
-    (mod) => mod.NotificationTemplatesStudio,
-  ),
-);
-
-type SoftExtra = 'notifications';
-
-function softExtraFromPath(pathname: string, portal: PortalRole): SoftExtra | null {
-  if (pathname === `/${portal}/notifications`) return 'notifications';
-  return null;
-}
-
 export function opsSectionFromPathname(
   pathname: string,
   portal: PortalRole,
@@ -107,11 +94,9 @@ export function PortalMainSlot({
 }) {
   const pathname = useSoftPortalPathname();
   const section = opsSectionFromPathname(pathname, portal);
-  const extra = softExtraFromPath(pathname, portal);
   const tenantSoft = portal === 'tenant' ? tenantSoftViewFromPath(pathname) : null;
-  const softPane = Boolean(section || extra || tenantSoft);
+  const softPane = Boolean(section || tenantSoft);
   const [visited, setVisited] = useState<OperationsSection[]>(() => (section ? [section] : []));
-  const [visitedExtras, setVisitedExtras] = useState<SoftExtra[]>(() => (extra ? [extra] : []));
   const [tenantHostMounted, setTenantHostMounted] = useState(() => Boolean(tenantSoft));
   const [pages, setPages] = useState<Record<string, ReactNode>>({});
   const register = useCallback((path: string, content: ReactNode) => {
@@ -126,17 +111,12 @@ export function PortalMainSlot({
   }, [section]);
 
   useEffect(() => {
-    if (!extra) return;
-    setVisitedExtras((current) => (current.includes(extra) ? current : [...current, extra]));
-  }, [extra]);
-
-  useEffect(() => {
     if (!tenantSoft) return;
     setTenantHostMounted(true);
   }, [tenantSoft]);
 
   const panels = section && !visited.includes(section) ? [...visited, section] : visited;
-  const showPersistedPage = !section && !extra && !tenantSoft;
+  const showPersistedPage = !section && !tenantSoft;
   return (
     <PortalPageContext.Provider value={register}>
       {/* Keep the router outlet mounted once, but hide it while soft panes own the main area. */}
@@ -166,16 +146,6 @@ export function PortalMainSlot({
           aria-hidden={!tenantSoft || undefined}
         >
           <TenantSpaceHost locale={locale} active={Boolean(tenantSoft)} />
-        </div>
-      ) : null}
-      {visitedExtras.includes('notifications') ? (
-        <div
-          className="portal-persisted-panel"
-          hidden={extra !== 'notifications'}
-          inert={extra !== 'notifications'}
-          aria-hidden={extra !== 'notifications' || undefined}
-        >
-          <NotificationTemplatesStudio locale={locale} />
         </div>
       ) : null}
       {panels.map((panel) => (

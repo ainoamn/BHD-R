@@ -5,17 +5,19 @@ import { loadAwardCertificate } from '@/lib/badges-neon';
 import { readClaims } from '@/lib/portal-ops-data';
 import { requirePortalPath } from '@/lib/viewer';
 
-/** Server body shared by the owner and developer certificate pages. */
+/** Server body for org portals and the site-admin console. */
 export async function AwardCertificateRoute({
   locale,
   portal,
   awardId,
 }: {
   locale: 'ar' | 'en';
-  portal: 'owner' | 'developer';
+  portal: 'owner' | 'developer' | 'site-admin';
   awardId: string;
 }) {
-  await requirePortalPath(portal, '/badges');
+  if (portal !== 'site-admin') {
+    await requirePortalPath(portal, '/badges');
+  }
   if (!hasDatabaseUrl()) notFound();
   const claims = await readClaims();
   const certificate = claims
@@ -24,10 +26,14 @@ export async function AwardCertificateRoute({
   if (!certificate || certificate.status === 'pending' || certificate.status === 'rejected')
     notFound();
   const ar = locale === 'ar';
+  const backHref =
+    portal === 'site-admin'
+      ? `/${locale}/site-admin/badges`
+      : `/${locale}/${portal}/badges`;
   return (
     <AwardCertificate
       locale={locale}
-      backHref={`/${locale}/${portal}/badges`}
+      backHref={backHref}
       data={{
         ...certificate,
         holder: certificate.subjectName,

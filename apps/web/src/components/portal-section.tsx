@@ -39,7 +39,6 @@ const allowedSections: Record<PortalRole, string[]> = {
     'approvals',
     'reports',
     'team',
-    'api-keys',
   ],
   developer: [
     'properties',
@@ -60,7 +59,6 @@ const allowedSections: Record<PortalRole, string[]> = {
     'approvals',
     'reports',
     'team',
-    'api-keys',
   ],
   tenant: ['requests', 'contracts', 'leases', 'invoices', 'payments', 'maintenance'],
 };
@@ -84,7 +82,6 @@ const operationalSections = new Set<OperationsSection>([
   'approvals',
   'reports',
   'team',
-  'api-keys',
 ]);
 
 const labelKeys: Record<string, string> = {
@@ -97,7 +94,6 @@ const labelKeys: Record<string, string> = {
   maintenance: 'Common.maintenance',
   reports: 'Common.reports',
   team: 'Common.team',
-  'api-keys': 'Common.apiKeys',
   organizations: 'Common.organizations',
   users: 'Common.users',
   audit: 'Common.audit',

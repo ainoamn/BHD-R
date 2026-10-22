@@ -55,6 +55,10 @@ export type SiteConsoleSectionId =
   | 'diagnostics'
   | 'security'
   | 'billing'
+  | 'notifications'
+  | 'badges'
+  | 'apiKeys'
+  | 'labReset'
   | AdminScope;
 
 export const SITE_CONSOLE_SECTIONS: Array<{
@@ -107,6 +111,34 @@ export const SITE_CONSOLE_SECTIONS: Array<{
     scope: 'verification',
     ar: 'توثيق الحسابات',
     en: 'Verification',
+  },
+  {
+    id: 'notifications',
+    path: '/site-admin/notifications',
+    scope: null,
+    ar: 'قوالب الإشعارات',
+    en: 'Notification templates',
+  },
+  {
+    id: 'badges',
+    path: '/site-admin/badges',
+    scope: null,
+    ar: 'الشارات',
+    en: 'Badges',
+  },
+  {
+    id: 'apiKeys',
+    path: '/site-admin/api-keys',
+    scope: null,
+    ar: 'مفاتيح API',
+    en: 'API keys',
+  },
+  {
+    id: 'labReset',
+    path: '/site-admin/lab-reset',
+    scope: null,
+    ar: 'إعادة ضبط التجارب',
+    en: 'Lab reset',
   },
   {
     id: 'delegates',

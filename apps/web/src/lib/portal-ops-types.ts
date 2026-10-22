@@ -40,6 +40,7 @@ export const OPERATIONS_SECTIONS = [
   'approvals',
   'reports',
   'team',
+  /** Site-console only — never warmed into owner/developer soft-nav. */
   'api-keys',
 ] as const satisfies readonly OperationsSection[];
 
@@ -63,7 +64,6 @@ export const OPS_WARM_ORDER: OperationsSection[] = [
   'approvals',
   'reports',
   'team',
-  'api-keys',
 ];
 
 export type OperationsWorkspacePayload = {

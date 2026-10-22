@@ -1,11 +1,11 @@
-import { persistentPortalPage } from '@/lib/persistent-portal-page';
-import { BadgesCenterBoard } from '@/components/badges/badges-center-board';
-import { requirePortalPath } from '@/lib/viewer';
+import { redirect } from 'next/navigation';
 
-async function Page({ params }: { params: Promise<{ locale: string }> }) {
-  await requirePortalPath('developer', '/badges');
-  const { locale: rawLocale } = await params;
-  return <BadgesCenterBoard locale={rawLocale === 'en' ? 'en' : 'ar'} portal="developer" />;
+/** Moved to site console — not part of the developer portal. */
+export default async function RedirectDeveloperBadges({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  redirect(`/${locale}/site-admin/badges`);
 }
-
-export default persistentPortalPage('/developer/badges', Page);

@@ -36,7 +36,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch('/api/owner/lab-reset', {
+      const response = await fetch('/api/site-admin/lab-reset', {
         credentials: 'same-origin',
         headers: { accept: 'application/json' },
         cache: 'no-store',
@@ -88,7 +88,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
     setBusy(true);
     setMessage(null);
     try {
-      const result = await browserNextMutation<LabResetResult>('/api/owner/lab-reset', {
+      const result = await browserNextMutation<LabResetResult>('/api/site-admin/lab-reset', {
         method: 'POST',
         body: JSON.stringify({
           categories: [...selected],
@@ -116,8 +116,8 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
       setMessage(
         code === 'forbidden'
           ? ar
-            ? 'هذه الأداة للمالك/المدير فقط.'
-            : 'Only an owner/admin can use this tool.'
+            ? 'هذه الأداة لإدارة الموقع فقط.'
+            : 'Only site administrators can use this tool.'
           : code === 'invalid_body'
             ? ar
               ? `اكتب ${LAB_RESET_CONFIRM} واختر فئة.`
@@ -147,8 +147,8 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
             ? 'احذف المعاملات التجريبية التي اخترتها. العقارات والوحدات والصور وإعداد الإقامة اليومية والفريق ودليل الحسابات تبقى كما هي.'
             : 'Delete the experimental transactions you select. Properties, units, photos, stay property setup, team, and the chart of accounts stay.'}
         </p>
-        <Link className="button button--quiet" href="/owner" prefetch={false}>
-          {ar ? 'العودة للوحة المالك' : 'Back to owner home'}
+        <Link className="button button--quiet" href="/site-admin" prefetch={false}>
+          {ar ? 'العودة لتحكم الموقع' : 'Back to site console'}
         </Link>
       </header>
 

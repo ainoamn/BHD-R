@@ -489,7 +489,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       ],
       ctaAr: 'عرض الشارات',
       ctaEn: 'View badges',
-      ctaUrl: `${SAMPLE_ORIGIN}/ar/owner/badges`,
+      ctaUrl: `${SAMPLE_ORIGIN}/ar/site-admin/badges`,
       footnoteAr: 'أُرسلت لأنك حصلت على شارة جديدة.',
       footnoteEn: 'Sent because you were awarded a new badge.',
     }),

@@ -200,9 +200,6 @@ export function PartyBadgesPanel({
     <section className="contact-section subject-badges-panel">
       <header className="subject-badges-panel__head">
         <h2>{ar ? 'الشارات والتميّز' : 'Badges & excellence'}</h2>
-        <Link href={`/${portal}/badges`} className="button button--ghost button--small">
-          {ar ? 'كل الشارات' : 'All badges'}
-        </Link>
       </header>
       {subjects.map((subject) => (
         <SubjectBadgesView
@@ -251,9 +248,6 @@ export function PropertyBadgesPanel({
     <section className="subject-badges-panel">
       <header className="subject-badges-panel__head">
         <h2>{ar ? 'شارات العقار' : 'Property badges'}</h2>
-        <Link href={`/${portal}/badges`} className="button button--ghost button--small">
-          {ar ? 'كل الشارات' : 'All badges'}
-        </Link>
       </header>
       <SubjectBadgesView data={data} locale={locale} portal={portal} />
     </section>

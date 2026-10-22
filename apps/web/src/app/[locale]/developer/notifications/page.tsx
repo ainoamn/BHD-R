@@ -1,12 +1,11 @@
-import { requirePortal, requirePortalPath } from '@/lib/viewer';
+import { redirect } from 'next/navigation';
 
-/** URL anchor — studio panel is owned by PortalMainSlot for soft-nav. */
-async function Page({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale: raw } = await params;
-  const locale = raw === 'en' ? 'en' : 'ar';
-  await requirePortal(locale, 'developer');
-  await requirePortalPath('developer', '/notifications');
-  return null;
+/** Moved to site console — not part of the developer portal. */
+export default async function RedirectDeveloperNotifications({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  redirect(`/${locale}/site-admin/notifications`);
 }
-
-export default Page;

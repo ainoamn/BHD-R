@@ -25,9 +25,6 @@ const PORTAL_PATHS: Record<PortalRole, string[]> = {
     '/reports',
     '/settings',
     '/team',
-    '/notifications',
-    '/badges',
-    '/api-keys',
   ],
   developer: [
     '',
@@ -51,9 +48,6 @@ const PORTAL_PATHS: Record<PortalRole, string[]> = {
     '/reports',
     '/settings',
     '/team',
-    '/notifications',
-    '/badges',
-    '/api-keys',
   ],
   tenant: [
     '',

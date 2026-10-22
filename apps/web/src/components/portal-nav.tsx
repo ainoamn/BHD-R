@@ -128,10 +128,6 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/reports', label: 'Common.reports', mark: '↗' },
         { path: '/settings', label: 'Common.control', mark: '⚙' },
         { path: '/team', label: 'Common.team', mark: '◎' },
-        { path: '/notifications', label: 'Common.notifications', mark: '✉' },
-        { path: '/badges', label: 'Common.badges', mark: '★' },
-        { path: '/api-keys', label: 'Common.apiKeys', mark: '⌘' },
-        { path: '/lab-reset', label: 'Common.labReset', mark: '⟲' },
       ],
     },
   ],
@@ -185,10 +181,6 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/reports', label: 'Common.reports', mark: '↗' },
         { path: '/settings', label: 'Common.control', mark: '⚙' },
         { path: '/team', label: 'Common.team', mark: '◎' },
-        { path: '/notifications', label: 'Common.notifications', mark: '✉' },
-        { path: '/badges', label: 'Common.badges', mark: '★' },
-        { path: '/api-keys', label: 'Common.apiKeys', mark: '⌘' },
-        { path: '/lab-reset', label: 'Common.labReset', mark: '⟲' },
       ],
     },
   ],
@@ -230,11 +222,8 @@ function insertStaysGroup(groups: NavGroup[]): NavGroup[] {
 
 /** Portal pages kept alive in PortalMainSlot — soft-switch like ops sections (no full remount flash). */
 const SOFT_PORTAL_PATHS = new Set([
-  '/notifications',
-  '/badges',
   '/terms',
   '/settings',
-  '/lab-reset',
   '/stays',
   '/stays/calendar',
   '/stays/rates',
