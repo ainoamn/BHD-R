@@ -372,7 +372,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           title={t('Portal.approvalsTitle')}
           hint={t('Portal.approvalsHint')}
           openLabel={t('Portal.approvalsOpen')}
-          moreLabel={(count) => t('Portal.approvalsMore', { count })}
+          moreLabel={t('Portal.approvalsMore', { count: '{count}' })}
         />
       ) : null}
 

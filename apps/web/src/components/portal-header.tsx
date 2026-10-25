@@ -4,6 +4,7 @@ import { Logo } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
 import { BhdAppSwitcher } from '@/components/bhd-app-switcher';
+import { HeaderStayAlerts } from '@/components/header-stay-alerts';
 import { PortalApprovalsBell } from '@/components/portal-approvals-bell';
 import { lawyerParty } from '@/lib/portal-access';
 import type { PortalRole, Viewer } from '@/lib/types';
@@ -116,6 +117,7 @@ export function PortalHeader({
           {portal === 'owner' || portal === 'developer' ? (
             <PortalApprovalsBell portal={portal} locale={locale} lawyer={lawyer} />
           ) : null}
+          {portal === 'tenant' ? <HeaderStayAlerts locale={locale} signedIn /> : null}
 
           <BhdAppSwitcher viewer={viewer} locale={locale} />
         </div>

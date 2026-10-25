@@ -22,6 +22,7 @@ export function PortalPendingApprovalsPanel({
   title,
   hint,
   openLabel,
+  /** Template with `{count}` — must be a string (server→client safe). */
   moreLabel,
 }: {
   portal: PortalRole;
@@ -30,7 +31,7 @@ export function PortalPendingApprovalsPanel({
   title: string;
   hint: string;
   openLabel: string;
-  moreLabel: (count: number) => string;
+  moreLabel: string;
 }) {
   const ar = locale === 'ar';
   const [data, setData] = useState<PendingApprovals>(initial);
@@ -66,12 +67,12 @@ export function PortalPendingApprovalsPanel({
 
   if (!data.total) return null;
 
+  const moreCount = data.total - 6;
+  const moreText =
+    moreCount > 0 ? moreLabel.replace('{count}', String(moreCount)) : null;
+
   return (
-    <section
-      id="pending-approvals"
-      className="dash-approvals"
-      aria-label={title}
-    >
+    <section id="pending-approvals" className="dash-approvals" aria-label={title}>
       <div className="dash-section-head dash-section-head--compact">
         <h2>
           {title}
@@ -109,9 +110,7 @@ export function PortalPendingApprovalsPanel({
           </li>
         ))}
       </ul>
-      {data.total > 6 ? (
-        <p className="dash-section-hint">{moreLabel(data.total - 6)}</p>
-      ) : null}
+      {moreText ? <p className="dash-section-hint">{moreText}</p> : null}
     </section>
   );
 }
