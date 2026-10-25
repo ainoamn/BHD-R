@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.119 — 2026-10-25
+
+- **حجز الإقامة شريحة بشريحة:** صفحة الحجز العام تعرض نوع الإقامة ثم التواريخ ثم الضيوف واحداً تلو الآخر مع انتقال تلقائي بعد الاختيار وزر رجوع للتعديل.
+
 ## 0.8.134.118 — 2026-10-22
 
 - **إصلاح بناء الإنتاج:** تعريف `displayEndsOn` داخل مقالة العقد بعد إصلاح قوس قالب الملخص.

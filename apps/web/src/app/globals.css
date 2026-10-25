@@ -20009,6 +20009,117 @@ body:has(.stays-book-shell) #main-content {
   font-weight: 800;
   letter-spacing: 0.03em;
 }
+.stays-checkout__panel--slides {
+  gap: 1rem;
+}
+.stays-checkout__slides {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stays-checkout__slide {
+  margin: 0;
+}
+.stays-checkout__slide > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid #d7e3de;
+  border-radius: 999px;
+  background: #f7faf8;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: default;
+}
+.stays-checkout__slide > button > span {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: #e4eee9;
+  color: #35574c;
+  font-size: 0.72rem;
+}
+.stays-checkout__slide.is-active > button {
+  border-color: #0f5b4a;
+  background: #0f5b4a;
+  color: #fff;
+  cursor: default;
+}
+.stays-checkout__slide.is-active > button > span {
+  background: rgb(255 255 255 / 0.2);
+  color: #fff;
+}
+.stays-checkout__slide.is-done > button {
+  border-color: #9fc4b6;
+  background: #eef7f3;
+  color: #0f5b4a;
+  cursor: pointer;
+}
+.stays-checkout__slide.is-done > button:hover {
+  border-color: #0f5b4a;
+}
+.stays-checkout__slide > button:disabled {
+  opacity: 0.7;
+}
+.stays-checkout__picked {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.stays-checkout__picked-chip {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 7.5rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #d7e3de;
+  border-radius: 0.85rem;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.stays-checkout__picked-chip:hover {
+  border-color: #0f5b4a;
+  box-shadow: 0 0 0 3px rgb(15 91 74 / 0.1);
+}
+.stays-checkout__picked-chip > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.stays-checkout__picked-chip > strong {
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+.stays-checkout__slide-pane {
+  display: grid;
+  gap: 1rem;
+}
+.stays-checkout__panel--slides .stays-checkout__nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+}
+.stays-checkout__panel--slides .stays-checkout__nav .button {
+  flex: 1 1 8rem;
+  justify-content: center;
+  min-height: 2.65rem;
+}
 .stays-checkout__types {
   display: grid;
   gap: 0.7rem;

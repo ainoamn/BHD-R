@@ -142,6 +142,10 @@ function availabilityPathFor(slug: string, unitId: string | undefined, p: Availa
 type StayType = StayBookingType;
 
 type Step = 'stay' | 'guest' | 'review' | 'payment';
+/** Sub-slides inside the stay step (public book page): one choice at a time. */
+type StaySlide = 'type' | 'dates' | 'guests';
+
+const STAY_SLIDES: StaySlide[] = ['type', 'dates', 'guests'];
 
 /** Arrival defaults to today (Oman); a past or malformed date from the link falls back to today. */
 function initialCheckIn(requested: string | undefined, today: string): string {
@@ -440,6 +444,13 @@ export function StayCheckout({
   const initialType: StayType = defaults?.stayType ?? 'overnight_stay';
   const initialIn = initialCheckIn(defaults?.checkInOn, today);
   const [step, setStep] = useState<Step>('stay');
+  const [staySlide, setStaySlide] = useState<StaySlide>(() => {
+    if (defaults?.stayType && defaults?.checkInOn) return 'guests';
+    if (defaults?.stayType) return 'dates';
+    return 'type';
+  });
+  const [staySlideDir, setStaySlideDir] = useState<'forward' | 'back'>('forward');
+  const stayAdvanceTimer = useRef<number | undefined>(undefined);
   const [checkInOn, setCheckInOn] = useState(initialIn);
   const [checkOutOn, setCheckOutOn] = useState(() =>
     initialCheckOut(defaults?.checkOutOn, initialIn, initialType),
@@ -522,7 +533,59 @@ export function StayCheckout({
 
   useEffect(() => {
     setError(null);
-  }, [step]);
+  }, [step, staySlide]);
+
+  useEffect(() => {
+    return () => {
+      if (stayAdvanceTimer.current !== undefined) window.clearTimeout(stayAdvanceTimer.current);
+    };
+  }, []);
+
+  function goStaySlide(next: StaySlide, dir: 'forward' | 'back') {
+    if (stayAdvanceTimer.current !== undefined) {
+      window.clearTimeout(stayAdvanceTimer.current);
+      stayAdvanceTimer.current = undefined;
+    }
+    setStaySlideDir(dir);
+    setStaySlide(next);
+    setError(null);
+  }
+
+  function scheduleStayAdvance(next: StaySlide, delayMs = 200) {
+    if (stayAdvanceTimer.current !== undefined) window.clearTimeout(stayAdvanceTimer.current);
+    stayAdvanceTimer.current = window.setTimeout(() => {
+      stayAdvanceTimer.current = undefined;
+      goStaySlide(next, 'forward');
+    }, delayMs);
+  }
+
+  function pickStayType(type: StayType) {
+    setStayType(type);
+    if (embedded) return;
+    scheduleStayAdvance('dates', 180);
+  }
+
+  function applyDateRange(nextIn: string, nextOut: string, halfDay?: StayType) {
+    if (halfDay) {
+      setStayType(halfDay);
+      setCheckInOn(nextIn);
+      setCheckOutOn(nextIn);
+      if (!embedded) scheduleStayAdvance('guests', 220);
+      return;
+    }
+    setCheckInOn(nextIn);
+    if (isSameCalendarDayStay(stayType)) {
+      setCheckOutOn(nextIn);
+      if (!embedded && isIsoDate(nextIn)) scheduleStayAdvance('guests', 220);
+      return;
+    }
+    if (nextOut > nextIn) {
+      setCheckOutOn(nextOut);
+      if (!embedded) scheduleStayAdvance('guests', 240);
+      return;
+    }
+    setCheckOutOn(addUtcDays(nextIn, Math.max(1, stayNights || 1)));
+  }
 
   useEffect(() => {
     if (defaults?.guestName || defaults?.guestEmail) return;
@@ -713,6 +776,7 @@ export function StayCheckout({
   function continueFromStay() {
     setError(null);
     if (!stayDatesValid(stayType, checkInOn, checkOutOn)) {
+      if (!embedded) goStaySlide('dates', 'back');
       setError(
         isSameCalendarDayStay(stayType)
           ? ar
@@ -725,6 +789,7 @@ export function StayCheckout({
       return;
     }
     if (!guestsValid) {
+      if (!embedded) goStaySlide('guests', 'forward');
       setError(
         ar
           ? 'أدخل العدد الإجمالي للبالغين (1 أو أكثر) والأطفال (0 أو أكثر) حتى 999.'
@@ -734,6 +799,29 @@ export function StayCheckout({
     }
     setStep('guest');
   }
+
+  function continueStayDates() {
+    setError(null);
+    if (!stayDatesValid(stayType, checkInOn, checkOutOn)) {
+      setError(
+        isSameCalendarDayStay(stayType)
+          ? ar
+            ? 'اختر تاريخ الإقامة من الأيام الشاغرة.'
+            : 'Pick a stay date from the free days.'
+          : ar
+            ? 'اختر يوم الوصول ثم يوم المغادرة.'
+            : 'Pick check-in then check-out.',
+      );
+      return;
+    }
+    goStaySlide('guests', 'forward');
+  }
+
+  const staySlideLabels: Record<StaySlide, string> = {
+    type: ar ? 'النوع' : 'Type',
+    dates: ar ? 'التواريخ' : 'Dates',
+    guests: ar ? 'الضيوف' : 'Guests',
+  };
 
   function updateGuest(patch: Partial<ContactForm>) {
     setError(null);
@@ -982,238 +1070,380 @@ export function StayCheckout({
       )}
 
       {step === 'stay' ? (
-        <div className="stays-checkout__panel stays-checkout__panel--stay">
-          <section className="stays-checkout__section" aria-labelledby="stay-book-type-title">
-            <h3 className="stays-checkout__section-title" id="stay-book-type-title">
-              {ar ? 'نوع الإقامة' : 'Stay type'}
-            </h3>
-            <div
-              className="stays-checkout__types"
-              role="radiogroup"
-              aria-labelledby="stay-book-type-title"
-            >
-              {STAY_TYPES.map((type) => {
-                const selected = type === stayType;
-                const price = offer ? stayTypePrice(type, offer) : null;
-                return (
-                  <button
-                    key={type}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    className={
-                      selected ? 'stays-checkout__type is-selected' : 'stays-checkout__type'
-                    }
-                    onClick={() => setStayType(type)}
-                  >
-                    <span className="stays-checkout__type-icon" aria-hidden="true">
-                      <StayTypeIcon type={type} />
-                    </span>
-                    <span className="stays-checkout__type-text">
-                      <strong>{stayTypeTitle(type, ar)}</strong>
-                      <small>
-                        {stayTypeHint(type, ar, resolveStayPeriodTimes(type, offer ?? {}))}
-                      </small>
-                    </span>
-                    {price && offer ? (
-                      <span className="stays-checkout__type-price">
-                        <b dir="ltr">{formatMoney(price, offer.currency, locale)}</b>
-                        <small>{stayTypeUnit(type, ar)}</small>
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="stays-checkout__section" aria-labelledby="stay-book-dates-title">
-            <h3 className="stays-checkout__section-title" id="stay-book-dates-title">
-              {isSameCalendarDayStay(stayType)
-                ? ar
-                  ? 'تاريخ الإقامة'
-                  : 'Stay date'
-                : ar
-                  ? 'التواريخ'
-                  : 'Dates'}
-            </h3>
-            {embedded ? (
-              <dl className="stays-checkout__summary stays-checkout__summary--inline">
-                <div>
-                  <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
-                  <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
-                    {checkInLabel}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                  <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
-                    {checkOutLabel}
-                  </dd>
-                </div>
-              </dl>
-            ) : (
-              <>
-                <p className="stays-checkout__hint stays-checkout__calendar-hint">
-                  {ar
-                    ? 'الأيام غير الشاغرة معلّمة ولا يمكن اختيارها. اختر الوصول ثم المغادرة من الأيام المتاحة.'
-                    : 'Unavailable days are marked and cannot be selected. Pick arrival then departure from free days.'}
-                </p>
-                <StayAvailabilityCalendar
-                  locale={locale}
-                  mode="public"
-                  slug={slug}
-                  {...(unitId ? { unitId } : {})}
-                  monthCount={1}
-                  size="compact"
-                  selectedCheckIn={checkInOn}
-                  selectedCheckOut={isSameCalendarDayStay(stayType) ? '' : checkOutOn}
-                  onRangeChange={(nextIn, nextOut, halfDay) => {
-                    if (halfDay) {
-                      setStayType(halfDay);
-                      setCheckInOn(nextIn);
-                      setCheckOutOn(nextIn);
-                      return;
-                    }
-                    setCheckInOn(nextIn);
-                    if (isSameCalendarDayStay(stayType)) {
-                      setCheckOutOn(nextIn);
-                      return;
-                    }
-                    if (nextOut > nextIn) {
-                      setCheckOutOn(nextOut);
-                      return;
-                    }
-                    setCheckOutOn(addUtcDays(nextIn, Math.max(1, stayNights || 1)));
-                  }}
-                />
-                <div className="stays-checkout__dates">
-                  <div className="stays-checkout__date">
-                    <label htmlFor="stay-book-in">
-                      {isSameCalendarDayStay(stayType)
-                        ? ar
-                          ? 'اليوم'
-                          : 'Day'
-                        : ar
-                          ? 'الوصول'
-                          : 'Check-in'}
-                    </label>
-                    <input
-                      className="input"
-                      id="stay-book-in"
-                      type="date"
-                      required
-                      min={today}
-                      value={checkInOn}
-                      onChange={(event) => changeCheckIn(event.target.value)}
-                    />
-                  </div>
-                  {!isSameCalendarDayStay(stayType) ? (
-                    <div className="stays-checkout__date">
-                      <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
-                      <input
-                        className="input"
-                        id="stay-book-out"
-                        type="date"
-                        required
-                        min={isIsoDate(checkInOn) ? addUtcDays(checkInOn, 1) : today}
-                        value={checkOutOn}
-                        onChange={(event) => setCheckOutOn(event.target.value)}
-                      />
-                    </div>
-                  ) : (
-                    <div className="stays-checkout__date stays-checkout__date--note">
-                      <span className="stays-checkout__date-label">{ar ? 'الفترة' : 'Period'}</span>
-                      <p className="stays-checkout__period-note">
-                        {stayType === 'day_use'
-                          ? ar
-                            ? `صباحية · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
-                            : `Morning · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
-                          : ar
-                            ? `مسائية مع مبيت · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
-                            : `Evening with overnight · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-            {!embedded && !isSameCalendarDayStay(stayType) ? (
-              <div className="stays-checkout__nights">
-                <span className="stays-checkout__nights-label">
-                  {ar ? 'مدة الإقامة' : 'Length of stay'}
-                </span>
-                <div className="stays-checkout__nights-stepper">
+        <div
+          className={
+            embedded
+              ? 'stays-checkout__panel stays-checkout__panel--stay'
+              : 'stays-checkout__panel stays-checkout__panel--stay stays-checkout__panel--slides'
+          }
+        >
+          {embedded ? null : (
+            <>
+              <ol
+                className="stays-checkout__slides"
+                aria-label={ar ? 'شرائح اختيار الإقامة' : 'Stay selection slides'}
+              >
+                {STAY_SLIDES.map((id, index) => {
+                  const current = STAY_SLIDES.indexOf(staySlide);
+                  const done = index < current;
+                  const active = id === staySlide;
+                  return (
+                    <li
+                      key={id}
+                      className={
+                        active
+                          ? 'stays-checkout__slide is-active'
+                          : done
+                            ? 'stays-checkout__slide is-done'
+                            : 'stays-checkout__slide'
+                      }
+                    >
+                      <button
+                        type="button"
+                        disabled={!done && !active}
+                        onClick={() => {
+                          if (done) goStaySlide(id, 'back');
+                        }}
+                      >
+                        <span aria-hidden="true">{index + 1}</span>
+                        {staySlideLabels[id]}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+              {staySlide !== 'type' ? (
+                <div className="stays-checkout__picked" aria-live="polite">
                   <button
                     type="button"
-                    onClick={() => changeNights(-1)}
-                    disabled={stayNights <= 1}
-                    aria-label={ar ? 'إنقاص ليلة' : 'One night less'}
+                    className="stays-checkout__picked-chip"
+                    onClick={() => goStaySlide('type', 'back')}
                   >
-                    −
+                    <span>{ar ? 'النوع' : 'Type'}</span>
+                    <strong>{stayTypeTitle(stayType, ar)}</strong>
                   </button>
-                  <output aria-live="polite">
-                    {stayNights > 0 ? nightsLabel(stayNights, ar) : '—'}
-                  </output>
-                  <button
-                    type="button"
-                    onClick={() => changeNights(1)}
-                    disabled={stayNights >= MAX_STAY_NIGHTS}
-                    aria-label={ar ? 'تمديد ليلة' : 'Add a night'}
-                  >
-                    +
-                  </button>
+                  {staySlide === 'guests' && datesValid ? (
+                    <button
+                      type="button"
+                      className="stays-checkout__picked-chip"
+                      onClick={() => goStaySlide('dates', 'back')}
+                    >
+                      <span>{ar ? 'الموعد' : 'Dates'}</span>
+                      <strong dir="ltr">
+                        {isSameCalendarDayStay(stayType)
+                          ? checkInOn
+                          : `${checkInOn} → ${checkOutOn}`}
+                      </strong>
+                    </button>
+                  ) : null}
                 </div>
-              </div>
-            ) : null}
-          </section>
+              ) : null}
+            </>
+          )}
 
-          <section className="stays-checkout__section" aria-labelledby="stay-book-guests-title">
-            <h3 className="stays-checkout__section-title" id="stay-book-guests-title">
-              {ar ? 'الضيوف' : 'Guests'}
-            </h3>
-            <div className="stays-checkout__guests">
-              <GuestCountField
-                id="stay-book-adults"
-                label={ar ? 'بالغون' : 'Adults'}
-                value={adults}
-                onChange={setAdults}
-                min={1}
-                ar={ar}
-              />
-              <GuestCountField
-                id="stay-book-children"
-                label={ar ? 'أطفال' : 'Children'}
-                value={children}
-                onChange={setChildren}
-                min={0}
-                ar={ar}
-              />
-            </div>
-            {offer?.maxGuests ? (
-              <p className="stays-checkout__hint">
-                {ar
-                  ? `تتسع هذه الإقامة حتى ${guestsLabelAr(offer.maxGuests)} (بالغون وأطفال).`
-                  : `This stay fits up to ${offer.maxGuests} guests (adults and children).`}
-              </p>
-            ) : null}
-          </section>
-
-          <StayEstimateCard
-            ar={ar}
-            locale={locale}
-            stayType={stayType}
-            state={estimate}
-            unavailableMessage={unavailableMessage}
-          />
-          <button
-            type="button"
-            className="button button--primary stays-checkout__submit"
-            onClick={continueFromStay}
+          <div
+            key={embedded ? 'all' : staySlide}
+            className={
+              embedded ? undefined : `wizard-pane wizard-pane--${staySlideDir} stays-checkout__slide-pane`
+            }
           >
-            {ar ? 'متابعة إلى بياناتك' : 'Continue to your details'}
-            <span aria-hidden="true">{ar ? '←' : '→'}</span>
-          </button>
+            {embedded || staySlide === 'type' ? (
+              <section className="stays-checkout__section" aria-labelledby="stay-book-type-title">
+                <h3 className="stays-checkout__section-title" id="stay-book-type-title">
+                  {ar ? 'نوع الإقامة' : 'Stay type'}
+                </h3>
+                <div
+                  className="stays-checkout__types"
+                  role="radiogroup"
+                  aria-labelledby="stay-book-type-title"
+                >
+                  {STAY_TYPES.map((type) => {
+                    const selected = type === stayType;
+                    const price = offer ? stayTypePrice(type, offer) : null;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={
+                          selected ? 'stays-checkout__type is-selected' : 'stays-checkout__type'
+                        }
+                        onClick={() => pickStayType(type)}
+                      >
+                        <span className="stays-checkout__type-icon" aria-hidden="true">
+                          <StayTypeIcon type={type} />
+                        </span>
+                        <span className="stays-checkout__type-text">
+                          <strong>{stayTypeTitle(type, ar)}</strong>
+                          <small>
+                            {stayTypeHint(type, ar, resolveStayPeriodTimes(type, offer ?? {}))}
+                          </small>
+                        </span>
+                        {price && offer ? (
+                          <span className="stays-checkout__type-price">
+                            <b dir="ltr">{formatMoney(price, offer.currency, locale)}</b>
+                            <small>{stayTypeUnit(type, ar)}</small>
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            ) : null}
+
+            {embedded || staySlide === 'dates' ? (
+              <section className="stays-checkout__section" aria-labelledby="stay-book-dates-title">
+                <h3 className="stays-checkout__section-title" id="stay-book-dates-title">
+                  {isSameCalendarDayStay(stayType)
+                    ? ar
+                      ? 'تاريخ الإقامة'
+                      : 'Stay date'
+                    : ar
+                      ? 'التواريخ'
+                      : 'Dates'}
+                </h3>
+                {embedded ? (
+                  <dl className="stays-checkout__summary stays-checkout__summary--inline">
+                    <div>
+                      <dt>{ar ? 'الوصول' : 'Check-in'}</dt>
+                      <dd className="stays-checkout__chip stays-checkout__chip--check-in" dir="ltr">
+                        {checkInLabel}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
+                      <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
+                        {checkOutLabel}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : (
+                  <>
+                    <p className="stays-checkout__hint stays-checkout__calendar-hint">
+                      {ar
+                        ? isSameCalendarDayStay(stayType)
+                          ? 'اختر يوماً شاغراً — ننتقل بعدها مباشرة لعدد الضيوف.'
+                          : 'اختر الوصول ثم المغادرة من الأيام الشاغرة — ننتقل بعدها لعدد الضيوف.'
+                        : isSameCalendarDayStay(stayType)
+                          ? 'Pick a free day — we move on to guests right after.'
+                          : 'Pick arrival then departure from free days — we move on to guests next.'}
+                    </p>
+                    <StayAvailabilityCalendar
+                      locale={locale}
+                      mode="public"
+                      slug={slug}
+                      {...(unitId ? { unitId } : {})}
+                      monthCount={1}
+                      size="compact"
+                      selectedCheckIn={checkInOn}
+                      selectedCheckOut={isSameCalendarDayStay(stayType) ? '' : checkOutOn}
+                      onRangeChange={(nextIn, nextOut, halfDay) => {
+                        applyDateRange(nextIn, nextOut, halfDay);
+                      }}
+                    />
+                    <div className="stays-checkout__dates">
+                      <div className="stays-checkout__date">
+                        <label htmlFor="stay-book-in">
+                          {isSameCalendarDayStay(stayType)
+                            ? ar
+                              ? 'اليوم'
+                              : 'Day'
+                            : ar
+                              ? 'الوصول'
+                              : 'Check-in'}
+                        </label>
+                        <input
+                          className="input"
+                          id="stay-book-in"
+                          type="date"
+                          required
+                          min={today}
+                          value={checkInOn}
+                          onChange={(event) => {
+                            const next = event.target.value;
+                            changeCheckIn(next);
+                            if (
+                              !embedded &&
+                              isSameCalendarDayStay(stayType) &&
+                              isIsoDate(next) &&
+                              next >= today
+                            ) {
+                              scheduleStayAdvance('guests', 220);
+                            }
+                          }}
+                        />
+                      </div>
+                      {!isSameCalendarDayStay(stayType) ? (
+                        <div className="stays-checkout__date">
+                          <label htmlFor="stay-book-out">{ar ? 'المغادرة' : 'Check-out'}</label>
+                          <input
+                            className="input"
+                            id="stay-book-out"
+                            type="date"
+                            required
+                            min={isIsoDate(checkInOn) ? addUtcDays(checkInOn, 1) : today}
+                            value={checkOutOn}
+                            onChange={(event) => {
+                              const next = event.target.value;
+                              setCheckOutOn(next);
+                              if (isIsoDate(checkInOn) && next > checkInOn) {
+                                scheduleStayAdvance('guests', 240);
+                              }
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="stays-checkout__date stays-checkout__date--note">
+                          <span className="stays-checkout__date-label">
+                            {ar ? 'الفترة' : 'Period'}
+                          </span>
+                          <p className="stays-checkout__period-note">
+                            {stayType === 'day_use'
+                              ? ar
+                                ? `صباحية · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
+                                : `Morning · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
+                              : ar
+                                ? `مسائية مع مبيت · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`
+                                : `Evening with overnight · ${periodTimes.checkInTime} → ${periodTimes.checkOutTime}`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+                {!embedded && !isSameCalendarDayStay(stayType) ? (
+                  <div className="stays-checkout__nights">
+                    <span className="stays-checkout__nights-label">
+                      {ar ? 'مدة الإقامة' : 'Length of stay'}
+                    </span>
+                    <div className="stays-checkout__nights-stepper">
+                      <button
+                        type="button"
+                        onClick={() => changeNights(-1)}
+                        disabled={stayNights <= 1}
+                        aria-label={ar ? 'إنقاص ليلة' : 'One night less'}
+                      >
+                        −
+                      </button>
+                      <output aria-live="polite">
+                        {stayNights > 0 ? nightsLabel(stayNights, ar) : '—'}
+                      </output>
+                      <button
+                        type="button"
+                        onClick={() => changeNights(1)}
+                        disabled={stayNights >= MAX_STAY_NIGHTS}
+                        aria-label={ar ? 'تمديد ليلة' : 'Add a night'}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                {!embedded ? (
+                  <div className="stays-checkout__nav">
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      onClick={() => goStaySlide('type', 'back')}
+                    >
+                      {ar ? 'رجوع' : 'Back'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      onClick={continueStayDates}
+                    >
+                      {ar ? 'متابعة إلى الضيوف' : 'Continue to guests'}
+                      <span aria-hidden="true">{ar ? '←' : '→'}</span>
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
+
+            {embedded || staySlide === 'guests' ? (
+              <section className="stays-checkout__section" aria-labelledby="stay-book-guests-title">
+                <h3 className="stays-checkout__section-title" id="stay-book-guests-title">
+                  {ar ? 'الضيوف' : 'Guests'}
+                </h3>
+                <div className="stays-checkout__guests">
+                  <GuestCountField
+                    id="stay-book-adults"
+                    label={ar ? 'بالغون' : 'Adults'}
+                    value={adults}
+                    onChange={setAdults}
+                    min={1}
+                    ar={ar}
+                  />
+                  <GuestCountField
+                    id="stay-book-children"
+                    label={ar ? 'أطفال' : 'Children'}
+                    value={children}
+                    onChange={setChildren}
+                    min={0}
+                    ar={ar}
+                  />
+                </div>
+                {offer?.maxGuests ? (
+                  <p className="stays-checkout__hint">
+                    {ar
+                      ? `تتسع هذه الإقامة حتى ${guestsLabelAr(offer.maxGuests)} (بالغون وأطفال).`
+                      : `This stay fits up to ${offer.maxGuests} guests (adults and children).`}
+                  </p>
+                ) : null}
+                {!embedded ? (
+                  <>
+                    <StayEstimateCard
+                      ar={ar}
+                      locale={locale}
+                      stayType={stayType}
+                      state={estimate}
+                      unavailableMessage={unavailableMessage}
+                    />
+                    <div className="stays-checkout__nav">
+                      <button
+                        type="button"
+                        className="button button--quiet"
+                        onClick={() => goStaySlide('dates', 'back')}
+                      >
+                        {ar ? 'رجوع' : 'Back'}
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--primary stays-checkout__submit"
+                        onClick={continueFromStay}
+                      >
+                        {ar ? 'متابعة إلى بياناتك' : 'Continue to your details'}
+                        <span aria-hidden="true">{ar ? '←' : '→'}</span>
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+              </section>
+            ) : null}
+          </div>
+
+          {embedded ? (
+            <>
+              <StayEstimateCard
+                ar={ar}
+                locale={locale}
+                stayType={stayType}
+                state={estimate}
+                unavailableMessage={unavailableMessage}
+              />
+              <button
+                type="button"
+                className="button button--primary stays-checkout__submit"
+                onClick={continueFromStay}
+              >
+                {ar ? 'متابعة إلى بياناتك' : 'Continue to your details'}
+                <span aria-hidden="true">{ar ? '←' : '→'}</span>
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -1370,7 +1600,17 @@ export function StayCheckout({
             </label>
           ) : null}
           <div className="stays-checkout__nav">
-            <button type="button" className="button button--quiet" onClick={() => setStep('stay')}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => {
+                if (!embedded) {
+                  setStaySlideDir('back');
+                  setStaySlide('guests');
+                }
+                setStep('stay');
+              }}
+            >
               {ar ? 'رجوع' : 'Back'}
             </button>
             <button
