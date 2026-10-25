@@ -566,22 +566,20 @@ export function StayCheckout({
   }
 
   function applyDateRange(nextIn: string, nextOut: string, halfDay?: StayType) {
+    // Never auto-advance from the calendar — guest confirms with «Continue».
     if (halfDay) {
       setStayType(halfDay);
       setCheckInOn(nextIn);
       setCheckOutOn(nextIn);
-      if (!embedded) scheduleStayAdvance('guests', 220);
       return;
     }
     setCheckInOn(nextIn);
     if (isSameCalendarDayStay(stayType)) {
       setCheckOutOn(nextIn);
-      if (!embedded && isIsoDate(nextIn)) scheduleStayAdvance('guests', 220);
       return;
     }
     if (nextOut > nextIn) {
       setCheckOutOn(nextOut);
-      if (!embedded) scheduleStayAdvance('guests', 240);
       return;
     }
     setCheckOutOn(addUtcDays(nextIn, Math.max(1, stayNights || 1)));
@@ -1020,17 +1018,33 @@ export function StayCheckout({
     })();
   }
 
+  const stayGreeting = stayCheckoutGreeting(step, {
+    ar,
+    title: title ?? '',
+    name: greetingName(selfName),
+  });
+  /** Full illustrated scene only on the first stay-type slide — frees the calendar/guests viewport. */
+  const showStayScene = !embedded && step === 'stay' && staySlide === 'type';
+  const denseChrome = !embedded && !(step === 'stay' && staySlide === 'type');
+
   return (
     <section
-      className={
+      className={[
         embedded
           ? 'stays-checkout stays-checkout--wizard'
-          : 'stays-checkout stays-checkout--wizard stays-checkout--page'
-      }
+          : 'stays-checkout stays-checkout--wizard stays-checkout--page',
+        denseChrome ? 'stays-checkout--dense' : '',
+        !embedded && step === 'stay' && staySlide === 'dates' ? 'stays-checkout--dates' : '',
+        !embedded && step === 'stay' && staySlide === 'guests' ? 'stays-checkout--guests' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       aria-labelledby="stays-checkout-title"
     >
-      <h2 id="stays-checkout-title">{ar ? 'إكمال الحجز' : 'Complete your booking'}</h2>
-      {title ? <p className="stays-checkout__property muted">{title}</p> : null}
+      <h2 id="stays-checkout-title" className={denseChrome ? 'stays-checkout__title--sr' : undefined}>
+        {ar ? 'إكمال الحجز' : 'Complete your booking'}
+      </h2>
+      {title && !denseChrome ? <p className="stays-checkout__property muted">{title}</p> : null}
 
       <ol className="stays-checkout__steps" aria-label={ar ? 'خطوات الحجز' : 'Booking steps'}>
         {steps.map((item, index) => {
@@ -1055,19 +1069,25 @@ export function StayCheckout({
         })}
       </ol>
 
-      {embedded ? null : (
+      {showStayScene ? (
         <BookingStepScene
-          greeting={stayCheckoutGreeting(step, {
-            ar,
-            title: title ?? '',
-            name: greetingName(selfName),
-          })}
+          greeting={stayGreeting}
           label={steps[stepIndex(step)]!.label}
           stepNo={stepIndex(step) + 1}
           stepCount={steps.length}
           ar={ar}
         />
-      )}
+      ) : denseChrome ? (
+        <div className="stays-checkout__compact-head">
+          <p className="stays-checkout__compact-meta">
+            <span>{steps[stepIndex(step)]!.label}</span>
+            <span dir="ltr">
+              {stepIndex(step) + 1} / {steps.length}
+            </span>
+          </p>
+          <h3>{stayGreeting.heading}</h3>
+        </div>
+      ) : null}
 
       {step === 'stay' ? (
         <div
@@ -1224,11 +1244,11 @@ export function StayCheckout({
                     <p className="stays-checkout__hint stays-checkout__calendar-hint">
                       {ar
                         ? isSameCalendarDayStay(stayType)
-                          ? 'اختر يوماً شاغراً — ننتقل بعدها مباشرة لعدد الضيوف.'
-                          : 'اختر الوصول ثم المغادرة من الأيام الشاغرة — ننتقل بعدها لعدد الضيوف.'
+                          ? 'اختر يوماً شاغراً، ثم اضغط متابعة.'
+                          : 'اختر يوم الوصول ثم يوم المغادرة من الأيام الشاغرة، ثم اضغط متابعة.'
                         : isSameCalendarDayStay(stayType)
-                          ? 'Pick a free day — we move on to guests right after.'
-                          : 'Pick arrival then departure from free days — we move on to guests next.'}
+                          ? 'Pick a free day, then press Continue.'
+                          : 'Pick check-in then check-out from free days, then press Continue.'}
                     </p>
                     <StayAvailabilityCalendar
                       locale={locale}
@@ -1261,18 +1281,7 @@ export function StayCheckout({
                           required
                           min={today}
                           value={checkInOn}
-                          onChange={(event) => {
-                            const next = event.target.value;
-                            changeCheckIn(next);
-                            if (
-                              !embedded &&
-                              isSameCalendarDayStay(stayType) &&
-                              isIsoDate(next) &&
-                              next >= today
-                            ) {
-                              scheduleStayAdvance('guests', 220);
-                            }
-                          }}
+                          onChange={(event) => changeCheckIn(event.target.value)}
                         />
                       </div>
                       {!isSameCalendarDayStay(stayType) ? (
@@ -1285,13 +1294,7 @@ export function StayCheckout({
                             required
                             min={isIsoDate(checkInOn) ? addUtcDays(checkInOn, 1) : today}
                             value={checkOutOn}
-                            onChange={(event) => {
-                              const next = event.target.value;
-                              setCheckOutOn(next);
-                              if (isIsoDate(checkInOn) && next > checkInOn) {
-                                scheduleStayAdvance('guests', 240);
-                              }
-                            }}
+                            onChange={(event) => setCheckOutOn(event.target.value)}
                           />
                         </div>
                       ) : (
@@ -1342,7 +1345,7 @@ export function StayCheckout({
                   </div>
                 ) : null}
                 {!embedded ? (
-                  <div className="stays-checkout__nav">
+                  <div className="stays-checkout__nav stays-checkout__nav--sticky">
                     <button
                       type="button"
                       className="button button--quiet"
@@ -1402,7 +1405,7 @@ export function StayCheckout({
                       state={estimate}
                       unavailableMessage={unavailableMessage}
                     />
-                    <div className="stays-checkout__nav">
+                    <div className="stays-checkout__nav stays-checkout__nav--sticky">
                       <button
                         type="button"
                         className="button button--quiet"
@@ -1599,7 +1602,7 @@ export function StayCheckout({
               </span>
             </label>
           ) : null}
-          <div className="stays-checkout__nav">
+          <div className="stays-checkout__nav stays-checkout__nav--sticky">
             <button
               type="button"
               className="button button--quiet"
@@ -1703,7 +1706,7 @@ export function StayCheckout({
             resetKey={`daily:${termsRef}`}
             id="stay-booking-terms"
           />
-          <div className="stays-checkout__nav">
+          <div className="stays-checkout__nav stays-checkout__nav--sticky">
             <button type="button" className="button button--quiet" onClick={() => setStep('guest')}>
               {ar ? 'رجوع' : 'Back'}
             </button>
