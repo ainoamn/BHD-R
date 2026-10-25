@@ -5,6 +5,11 @@
 
 export type ApprovalMode = 'manual' | 'auto';
 
+/** Lease form fields that may wait until after tenant e-sign and before handover. */
+export type DeferredLeaseField = 'meters' | 'handoverOn';
+
+export const DEFERRED_LEASE_FIELDS = ['meters', 'handoverOn'] as const;
+
 export type ApprovalPolicy = {
   /** Approve a paid, signed booking. */
   booking: ApprovalMode;
@@ -20,6 +25,16 @@ export type ApprovalPolicy = {
    * must approve first. Synced to stay profile `autoApproveReschedule`.
    */
   reschedule: ApprovalMode;
+  /**
+   * Long-term leases: fields left empty at contract prep, filled at handover
+   * (after the tenant e-signs).
+   */
+  deferUntilHandover: DeferredLeaseField[];
+  /**
+   * Tenant must confirm document accuracy and accept cancel-if-invalid risk
+   * before uploading docs/cheques or signing the lease.
+   */
+  requireTenantAttestation: boolean;
 };
 
 export type ApprovalPolicySource = 'property' | 'organization' | 'default';
@@ -34,6 +49,18 @@ export const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = {
   contract: 'auto',
   payment: 'auto',
   reschedule: 'auto',
+  deferUntilHandover: [],
+  requireTenantAttestation: true,
+};
+
+/** One-click preset: system handles every approval step electronically. */
+export const FULL_AUTO_APPROVAL_POLICY: ApprovalPolicy = {
+  booking: 'auto',
+  contract: 'auto',
+  payment: 'auto',
+  reschedule: 'auto',
+  deferUntilHandover: ['meters', 'handoverOn'],
+  requireTenantAttestation: true,
 };
 
 export const SYSTEM_APPROVER_AR = 'النظام — اعتماد إلكتروني نيابةً عن المالك';
@@ -45,12 +72,29 @@ export function sanitizeApprovalPolicy(value: unknown): ApprovalPolicy {
     source[step] === 'auto' || source[step] === 'manual'
       ? source[step]
       : DEFAULT_APPROVAL_POLICY[step];
+  const deferRaw = Array.isArray(source.deferUntilHandover) ? source.deferUntilHandover : [];
+  const deferUntilHandover = deferRaw
+    .map((item) => String(item))
+    .filter((item): item is DeferredLeaseField =>
+      (DEFERRED_LEASE_FIELDS as readonly string[]).includes(item),
+    )
+    .filter((item, index, all) => all.indexOf(item) === index);
   return {
     booking: pick('booking'),
     contract: pick('contract'),
     payment: pick('payment'),
     reschedule: pick('reschedule'),
+    deferUntilHandover,
+    requireTenantAttestation: source.requireTenantAttestation !== false,
   };
+}
+
+export function deferredLeaseFieldLabel(field: DeferredLeaseField, ar: boolean): string {
+  const labels: Record<DeferredLeaseField, [string, string]> = {
+    meters: ['قراءات عداد الكهرباء والماء', 'Electricity and water meter readings'],
+    handoverOn: ['تاريخ استلام الوحدة / فترة السماح', 'Unit handover date / grace period'],
+  };
+  return labels[field][ar ? 0 : 1];
 }
 
 export function approvalStepLabel(step: ApprovalStep, ar: boolean): string {

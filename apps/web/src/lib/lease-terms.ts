@@ -470,22 +470,35 @@ function wholeNumber(value: string | null | undefined, min: number, max: number)
 }
 
 /** Validates the draft and computes every derived amount. The server stores the result. */
+export type ComputeLeaseTermsOptions = {
+  /** Fields allowed empty now; filled after tenant sign / at handover. */
+  deferUntilHandover?: ReadonlyArray<'meters' | 'handoverOn'> | undefined;
+};
+
 export function computeLeaseTerms(
   draft: LeaseTermsDraft,
   currency: string,
   digits: number,
+  options?: ComputeLeaseTermsOptions,
 ): LeaseTermsResult {
   const fail = (error: LeaseTermsError): LeaseTermsResult => ({ ok: false, error });
+  const defer = new Set(options?.deferUntilHandover ?? []);
 
   if (!isIsoDate(draft.startsOn) || !isIsoDate(draft.endsOn) || draft.endsOn <= draft.startsOn) {
     return fail('invalid_dates');
   }
   const handoverOn = text(draft.handoverOn, 10);
-  if (!handoverOn || !isIsoDate(handoverOn)) return fail('handover_required');
-  if (handoverOn > draft.startsOn) return fail('invalid_dates');
+  if (!defer.has('handoverOn')) {
+    if (!handoverOn || !isIsoDate(handoverOn)) return fail('handover_required');
+  } else if (handoverOn && !isIsoDate(handoverOn)) {
+    return fail('invalid_dates');
+  }
+  if (handoverOn && handoverOn > draft.startsOn) return fail('invalid_dates');
   const electricityReading = text(draft.electricityReading, 40);
   const waterReading = text(draft.waterReading, 40);
-  if (!electricityReading || !waterReading) return fail('meters_required');
+  if (!defer.has('meters') && (!electricityReading || !waterReading)) {
+    return fail('meters_required');
+  }
 
   let monthlyRentMinor: number | null;
   let rentAreaSqm: string | null = null;

@@ -107,7 +107,9 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
       ) : null}
       <h2>{screen.headline}</h2>
       <p>{screen.body}</p>
-      {props.lifecycle.electronic && !past ? <ElectronicApprovalNotice ar={ar} /> : null}
+      {(props.lifecycle.electronic || props.lifecycle.contractAuto) && !past ? (
+        <ElectronicApprovalNotice {...props} />
+      ) : null}
       {screen.guide ? (
         <ol className="guest-stay-detail__guide">
           {screen.guide.map((line) => (
@@ -133,6 +135,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
       ) : null}
       {screen.action === 'documents' && !past ? (
         <>
+          <TenantAttestationGate {...props} />
           <LeaseDocuments {...props} />
           <LeaseCheques {...props} />
         </>
@@ -143,7 +146,12 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
           <LeaseCheques {...props} readOnly />
         </>
       ) : null}
-      {screen.action === 'sign_contract' && !past ? <LeaseContractSign {...props} /> : null}
+      {screen.action === 'sign_contract' && !past ? (
+        <>
+          <TenantAttestationGate {...props} />
+          <LeaseContractSign {...props} />
+        </>
+      ) : null}
       {screen.action === 'view_contract' && props.lifecycle.contract ? (
         <Link
           className="button button--quiet guest-stay-detail__rebook"
@@ -157,16 +165,116 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
 }
 
 /** Shown whenever the system approved a step for the owner, so the client knows checks follow. */
-export function ElectronicApprovalNotice({ ar }: { ar: boolean }) {
+export function ElectronicApprovalNotice({
+  locale,
+  lifecycle,
+}: Pick<LeaseJourneyProps, 'locale' | 'lifecycle'>) {
+  const ar = locale === 'ar';
   return (
     <div className="electronic-approval-notice" role="note">
       <span aria-hidden="true">⚠️</span>
       <p>
         <strong>{ar ? 'اعتماد إلكتروني' : 'Electronic approval'}</strong>
         {ar
-          ? 'تم اعتماد هذا الطلب إلكترونياً من النظام، وسيقوم الفريق بالتحقق من المستندات. في حال تبيّن أن المستندات تخالف الاشتراطات أو غير ملائمة يُعتبر الحجز ملغياً مباشرة، لذا يرجى التأكد من رفع المستندات الصحيحة.'
-          : 'This request was approved electronically by the system, and the team will verify the documents. If they turn out to break the requirements or to be unsuitable, the booking is cancelled immediately — please make sure you upload the correct documents.'}
+          ? 'اعتمد النظام الطلب إلكترونياً. سيراجع الفريق المستندات يدوياً قبل التسليم. إن وُجد اختلاف أو عدم صحة يحق للمالك إلغاء الحجز والطلب، ويتحمّل المستأجر كامل المسؤولية — لذا أكّد صحة بياناتك قبل المتابعة.'
+          : 'The system approved this electronically. The team will manually review documents before handover. If anything is wrong or mismatched, the owner may cancel the booking and you bear full responsibility — confirm your details before continuing.'}
+        {lifecycle.deferUntilHandover?.length ? (
+          <>
+            {' '}
+            {ar
+              ? 'بعض بيانات العقد تُستكمل عند التسليم حسب ضبط المالك.'
+              : 'Some contract fields are completed at handover per the owner’s settings.'}
+          </>
+        ) : null}
       </p>
+    </div>
+  );
+}
+
+function TenantAttestationGate({
+  locale,
+  referenceCode,
+  lifecycle,
+}: LeaseJourneyProps) {
+  const ar = locale === 'ar';
+  const router = useRouter();
+  const required = lifecycle.requireTenantAttestation;
+  const done = Boolean(lifecycle.tenantAttestedAt);
+  const [checked, setChecked] = useState(done);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!required) return null;
+
+  async function confirm() {
+    if (!checked) {
+      setError(
+        ar
+          ? 'يجب التأشير على الإقرار أولاً.'
+          : 'Tick the confirmation box first.',
+      );
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await browserNextMutation(
+        `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/attestation`,
+        { method: 'POST', body: JSON.stringify({ accepted: true }) },
+      );
+      router.refresh();
+    } catch (caught) {
+      setError(errorText(caught, ar));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (done) {
+    return (
+      <p className="notice notice--success" role="status">
+        {ar
+          ? 'تم تسجيل إقرارك بصحة البيانات وتحمّل المسؤولية.'
+          : 'Your accuracy and responsibility confirmation is recorded.'}
+      </p>
+    );
+  }
+
+  return (
+    <div className="lease-attestation" role="group" aria-labelledby="lease-attest-title">
+      <h3 id="lease-attest-title">
+        {ar ? 'تأكيد صحة البيانات قبل المتابعة' : 'Confirm your details before continuing'}
+      </h3>
+      <p className="muted">
+        {ar
+          ? 'المستندات ستُراجع يدوياً قبل التسليم. أي اختلاف أو عدم صحة يمنح المالك حق إلغاء الحجز والطلب مع تحمّلك كامل المسؤولية.'
+          : 'Documents are reviewed manually before handover. Any mismatch lets the owner cancel the booking, and you bear full responsibility.'}
+      </p>
+      <label className="lease-attestation__check">
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(event) => setChecked(event.target.checked)}
+        />
+        <span>
+          {ar
+            ? 'أقرّ بأن جميع بياناتي ومستنداتي صحيحة وكاملة، وأتحمّل المسؤولية كاملة إن تبيّن خلاف ذلك، وأعلم بحق المالك في إلغاء الحجز قبل التسليم.'
+            : 'I confirm all my details and documents are true and complete, I accept full responsibility if they are not, and I understand the owner may cancel before handover.'}
+        </span>
+      </label>
+      {error ? (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        className="button button--primary"
+        disabled={busy || !checked}
+        onClick={() => void confirm()}
+      >
+        {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'تأكيد والمتابعة' : 'Confirm and continue'}
+      </button>
     </div>
   );
 }
@@ -211,11 +319,21 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const blocked =
+    lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
 
   async function upload(code: string, event: ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
     event.target.value = '';
     if (!picked) return;
+    if (blocked) {
+      setError(
+        ar
+          ? 'أكّد صحة بياناتك أولاً قبل رفع المستندات.'
+          : 'Confirm your details first before uploading documents.',
+      );
+      return;
+    }
     setError(null);
     setBusy(code);
     try {
@@ -293,7 +411,7 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
                     type="file"
                     accept="image/*,application/pdf"
                     hidden
-                    disabled={busy !== null}
+                    disabled={busy !== null || blocked}
                     onChange={(event) => void upload(item.code, event)}
                   />
                 </label>
@@ -323,6 +441,8 @@ function LeaseCheques({
   const cheques = lifecycle.cheques ?? [];
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const blocked =
+    !readOnly && lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
   const [drafts, setDrafts] = useState<Record<string, ChequeDraft>>(() => {
     const initial: Record<string, ChequeDraft> = {};
     for (const item of cheques) {
@@ -341,6 +461,14 @@ function LeaseCheques({
     const picked = event.target.files?.[0];
     event.target.value = '';
     if (!picked) return;
+    if (blocked) {
+      setError(
+        ar
+          ? 'أكّد صحة بياناتك أولاً قبل رفع الشيكات.'
+          : 'Confirm your details first before uploading cheques.',
+      );
+      return;
+    }
     const draft = drafts[key] ?? { bankName: '', accountHolderName: '', chequeNumber: '' };
     if (
       draft.bankName.trim().length < 2 ||
@@ -424,7 +552,7 @@ function LeaseCheques({
             accountHolderName: '',
             chequeNumber: item.suggestedChequeNumber ?? '',
           };
-          const canEdit = !readOnly && item.status !== 'approved';
+          const canEdit = !readOnly && item.status !== 'approved' && !blocked;
           return (
             <li key={item.key} className={`lease-docs__item lease-docs__item--${item.status}`}>
               <div className="lease-docs__text">
@@ -529,9 +657,18 @@ function LeaseContractSign({ lifecycle, locale, referenceCode, mode }: LeaseJour
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const contract = lifecycle.contract;
+  const blocked = lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
   if (!contract) return null;
 
   async function sign(signaturePng: string) {
+    if (blocked) {
+      setError(
+        ar
+          ? 'أكّد صحة بياناتك أولاً قبل توقيع العقد.'
+          : 'Confirm your details first before signing the contract.',
+      );
+      return;
+    }
     if (!accepted) {
       setError(
         ar ? 'أكّد أولاً أنك قرأت العقد ووافقت عليه.' : 'First confirm you read and accept it.',

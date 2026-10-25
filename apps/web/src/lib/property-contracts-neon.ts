@@ -1459,8 +1459,12 @@ export async function createManualLeaseContractOnNeon(
 }
 
 /** Rejects lease terms the server cannot compute, before anything is stored. */
-export function assertLeaseTermsValid(terms: LeaseTermsDraft, currency: string) {
-  const computed = computeLeaseTerms(terms, currency, minorUnitsFor(currency));
+export function assertLeaseTermsValid(
+  terms: LeaseTermsDraft,
+  currency: string,
+  options?: { deferUntilHandover?: ReadonlyArray<'meters' | 'handoverOn'> },
+) {
+  const computed = computeLeaseTerms(terms, currency, minorUnitsFor(currency), options);
   if (!computed.ok) fail(computed.error);
 }
 

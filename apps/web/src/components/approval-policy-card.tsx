@@ -4,12 +4,24 @@ import { useState } from 'react';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import {
   APPROVAL_STEPS,
+  DEFERRED_LEASE_FIELDS,
+  FULL_AUTO_APPROVAL_POLICY,
   approvalStepHelp,
   approvalStepLabel,
+  deferredLeaseFieldLabel,
   type ApprovalMode,
   type ApprovalPolicy,
   type ApprovalPolicySource,
+  type DeferredLeaseField,
 } from '@/lib/approval-policy';
+
+function policyEqual(a: ApprovalPolicy, b: ApprovalPolicy): boolean {
+  if (APPROVAL_STEPS.some((step) => a[step] !== b[step])) return false;
+  if (a.requireTenantAttestation !== b.requireTenantAttestation) return false;
+  const left = [...a.deferUntilHandover].sort().join(',');
+  const right = [...b.deferUntilHandover].sort().join(',');
+  return left === right;
+}
 
 /**
  * Owner chooses, step by step, whether website bookings wait for them or the system approves
@@ -38,7 +50,7 @@ export function ApprovalPolicyCard({
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const effective = saved ?? inherited.policy;
-  const dirty = APPROVAL_STEPS.some((step) => draft[step] !== effective[step]) || !saved;
+  const dirty = !policyEqual(draft, effective) || !saved;
   const fallbackLabel = propertyId
     ? inherited.source === 'organization'
       ? t('سياسة المؤسسة', 'the organization policy')
@@ -79,8 +91,21 @@ export function ApprovalPolicyCard({
     }
   }
 
-  const set = (step: keyof ApprovalPolicy, mode: ApprovalMode) =>
+  const set = (step: (typeof APPROVAL_STEPS)[number], mode: ApprovalMode) =>
     setDraft((current) => ({ ...current, [step]: mode }));
+
+  const toggleDefer = (field: DeferredLeaseField) => {
+    setDraft((current) => {
+      const has = current.deferUntilHandover.includes(field);
+      return {
+        ...current,
+        deferUntilHandover: has
+          ? current.deferUntilHandover.filter((item) => item !== field)
+          : [...current.deferUntilHandover, field],
+      };
+    });
+  };
+
   const anyAuto = APPROVAL_STEPS.some((step) => draft[step] === 'auto');
 
   return (
@@ -95,12 +120,12 @@ export function ApprovalPolicyCard({
           <p className="muted">
             {propertyId
               ? t(
-                  'حدّد لكل مرحلة — بما فيها تعديل تواريخ الإقامة — هل تعتمدها بنفسك أو يعتمدها النظام نيابةً عنك. بدون تخصيص يتبع العقار سياسة المؤسسة.',
-                  'Choose for each step — including stay date changes — whether you approve it or the system does for you. Without an override the property follows the organization policy.',
+                  'اضبط كل خطوات الاعتماد مرة واحدة لهذا العقار: حجز، عقد، دفع، تعديلات، حقول مؤجّلة، وإقرار المستأجر.',
+                  'Configure every approval step once for this property: booking, contract, payment, changes, deferred fields, and tenant attestation.',
                 )
               : t(
-                  'تنطبق على حجوزات الإيجار والشراء والإقامات اليومية (بما فيها إنشاء العقد إلكترونياً أو يدوياً وتعديل التواريخ) في كل عقاراتك. يمكن تخصيصها لأي عقار من صفحة شروطه.',
-                  'Applies to website rent/purchase bookings and daily stays (including electronic vs manual contract creation and date changes) on all your properties; any property can override it from its terms page.',
+                  'اضبط كل خطوات الاعتماد مرة واحدة لكل عقاراتك (حجز، عقد إلكتروني، دفع، تعديلات). يمكن تخصيص أي عقار من صفحة شروطه.',
+                  'Configure every approval step once for all your properties (booking, e-contract, payment, changes). Any property can override from its terms page.',
                 )}
           </p>
         </div>
@@ -112,6 +137,17 @@ export function ApprovalPolicyCard({
             : t(`تتبع ${fallbackLabel}`, `Follows ${fallbackLabel}`)}
         </span>
       </header>
+
+      <div className="approval-policy__actions approval-policy__actions--top">
+        <button
+          type="button"
+          className="button button--quiet"
+          disabled={busy}
+          onClick={() => setDraft({ ...FULL_AUTO_APPROVAL_POLICY })}
+        >
+          {t('تفعيل المسار الإلكتروني الكامل', 'Enable full electronic path')}
+        </button>
+      </div>
 
       <div className="approval-policy__steps">
         {APPROVAL_STEPS.map((step) => (
@@ -147,6 +183,76 @@ export function ApprovalPolicyCard({
         ))}
       </div>
 
+      <fieldset className="approval-policy__step">
+        <legend>
+          {t(
+            'حقول تُؤجَّل لما بعد توقيع المستأجر وقبل التسليم',
+            'Fields deferred until after tenant sign, before handover',
+          )}
+        </legend>
+        <p className="muted">
+          {t(
+            'عند تفعيلها يمكن تركها فارغة أثناء إعداد العقد؛ تُستكمل عند التسليم. يسهّل الاعتماد الإلكتروني دون انتظار كل التفاصيل.',
+            'When enabled they may stay empty while preparing the contract and are completed at handover — smoother electronic approval.',
+          )}
+        </p>
+        <div className="approval-policy__options">
+          {DEFERRED_LEASE_FIELDS.map((field) => (
+            <label
+              key={field}
+              className={`approval-policy__option${
+                draft.deferUntilHandover.includes(field) ? ' approval-policy__option--on' : ''
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={draft.deferUntilHandover.includes(field)}
+                onChange={() => toggleDefer(field)}
+              />
+              <span>
+                <strong>{deferredLeaseFieldLabel(field, ar)}</strong>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="approval-policy__step">
+        <legend>
+          {t('إقرار المستأجر بصحة البيانات', 'Tenant attestation of accurate data')}
+        </legend>
+        <label
+          className={`approval-policy__option${
+            draft.requireTenantAttestation ? ' approval-policy__option--on' : ''
+          }`}
+        >
+          <input
+            type="checkbox"
+            checked={draft.requireTenantAttestation}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                requireTenantAttestation: event.target.checked,
+              }))
+            }
+          />
+          <span>
+            <strong>
+              {t(
+                'إلزام المستأجر بالتأكيد قبل رفع المستندات أو توقيع العقد',
+                'Require tenant confirmation before uploads or contract signature',
+              )}
+            </strong>
+            <small>
+              {t(
+                'يؤكد أن بياناته ومستنداته صحيحة، ويعلم أن المراجعة اليدوية تتم قبل التسليم، وأن للمالك إلغاء الحجز عند الاختلاف مع تحمّل المستأجر المسؤولية.',
+                'They confirm details/docs are accurate, know manual review happens before handover, and that the owner may cancel if invalid — tenant bears responsibility.',
+              )}
+            </small>
+          </span>
+        </label>
+      </fieldset>
+
       {draft.contract === 'auto' ? (
         <p className="notice notice--info">
           {signer && saved?.contract === 'auto'
@@ -166,8 +272,8 @@ export function ApprovalPolicyCard({
           <strong>{t('ما يراه العميل عند الاعتماد الإلكتروني', 'What the client sees')}</strong>
           <p>
             {t(
-              'تم اعتماد هذا الطلب إلكترونياً من النظام، وسيقوم الفريق بالتحقق من المستندات. في حال تبيّن أن المستندات تخالف الاشتراطات أو غير ملائمة يُعتبر الحجز ملغياً مباشرة، لذا يرجى التأكد من رفع المستندات الصحيحة.',
-              'This request was approved electronically by the system, and the team will verify the documents. If they turn out to break the requirements or to be unsuitable, the booking is cancelled immediately — please make sure you upload the correct documents.',
+              'تنبيه: تم الاعتماد إلكترونياً؛ سيراجع الفريق المستندات يدوياً قبل التسليم. إن وُجد اختلاف أو عدم صحة يحق للمالك إلغاء الحجز والطلب ويتحمّل المستأجر كامل المسؤولية — لذلك يُطلب منه التأكيد قبل المتابعة.',
+              'Notice: approved electronically; the team will manually review documents before handover. If anything is wrong or mismatched, the owner may cancel the booking and the tenant bears full responsibility — so confirmation is required before continuing.',
             )}
           </p>
         </div>

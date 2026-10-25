@@ -152,6 +152,11 @@ const ERRORS = {
     'هذه الخطوة غير متاحة الآن — حدّث الصفحة لترى أين وصل حجزك.',
     'This step is not open right now — refresh to see where your booking stands.',
   ],
+  attestation_required: [
+    409,
+    'أكّد أولاً صحة بياناتك ومستنداتك وتحمّل المسؤولية قبل المتابعة.',
+    'First confirm your details and documents are accurate and accept responsibility.',
+  ],
   requirement_not_found: [
     404,
     'لم يعد هذا المستند مطلوباً.',
@@ -803,6 +808,10 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
     chequePayableTo: lifecycle.chequePayableTo ?? null,
     chequeBankName: lifecycle.chequeBankName ?? null,
     rentBankAccountId: lifecycle.rentBankAccountId ?? null,
+    requireTenantAttestation: Boolean(lifecycle.autoFlow?.requireTenantAttestation),
+    tenantAttestedAt: lifecycle.tenantAttestation?.at ?? null,
+    deferUntilHandover: lifecycle.autoFlow?.deferUntilHandover ?? [],
+    contractAuto: Boolean(lifecycle.autoFlow?.contractAuto || lifecycle.contract?.automatic),
     cheques: (lifecycle.chequeInstructions ?? []).map((item) => {
       const submitted = (lifecycle.chequeSubmissions ?? []).find((row) => row.key === item.key);
       return {

@@ -125,6 +125,17 @@ export type ReservationLifecycle = {
   rentBankAccountId?: string | null;
   chequeInstructions?: ReservationChequeInstruction[];
   chequeSubmissions?: ReservationChequeSubmission[];
+  /**
+   * Copied from approval policy when the contract draft is saved: electronic flow
+   * options the tenant and handover steps must honour.
+   */
+  autoFlow?: {
+    contractAuto: boolean;
+    deferUntilHandover: Array<'meters' | 'handoverOn'>;
+    requireTenantAttestation: boolean;
+  };
+  /** Tenant confirmed docs accuracy and cancel-if-invalid responsibility. */
+  tenantAttestation?: { at: string; accepted: true };
 };
 
 /** One cheque the tenant must prepare after the owner saves a cheque-payment contract. */

@@ -238,6 +238,7 @@ export function LeaseContractForm({
   footnote,
   bankAccounts = [],
   propertyId = null,
+  deferUntilHandover = [],
 }: {
   units: PropertyRecordUnit[];
   tenants: PropertyRecordTenant[];
@@ -260,6 +261,8 @@ export function LeaseContractForm({
   bankAccounts?: LeaseBankAccountOption[] | undefined;
   /** Property for auto-selecting a linked rent bank account. */
   propertyId?: string | null | undefined;
+  /** From approval policy: fields filled after tenant sign / at handover. */
+  deferUntilHandover?: ReadonlyArray<'meters' | 'handoverOn'> | undefined;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
@@ -483,9 +486,11 @@ export function LeaseContractForm({
     }));
   }, [defaultSchedule, digits]);
 
+  const deferMeters = deferUntilHandover.includes('meters');
+  const deferHandover = deferUntilHandover.includes('handoverOn');
   const result = useMemo(
-    () => computeLeaseTerms(draft, currency, digits),
-    [draft, currency, digits],
+    () => computeLeaseTerms(draft, currency, digits, { deferUntilHandover }),
+    [draft, currency, digits, deferUntilHandover],
   );
   const terms = result.ok ? result.terms : null;
   const period =
@@ -882,26 +887,37 @@ export function LeaseContractForm({
         <div className="form-grid">
           <Field
             id="lcf-elec"
-            label={t('قراءة عداد الكهرباء *', 'Electricity meter reading *')}
+            label={
+              deferMeters
+                ? t('قراءة عداد الكهرباء (مؤجّل للتسليم)', 'Electricity reading (deferred to handover)')
+                : t('قراءة عداد الكهرباء *', 'Electricity meter reading *')
+            }
           >
             <input
               id="lcf-elec"
               className="input"
               dir="ltr"
               inputMode="decimal"
-              required
+              required={!deferMeters}
               maxLength={40}
               value={draft.electricityReading ?? ''}
               onChange={(event) => set('electricityReading', event.target.value)}
             />
           </Field>
-          <Field id="lcf-water" label={t('قراءة عداد الماء *', 'Water meter reading *')}>
+          <Field
+            id="lcf-water"
+            label={
+              deferMeters
+                ? t('قراءة عداد الماء (مؤجّل للتسليم)', 'Water reading (deferred to handover)')
+                : t('قراءة عداد الماء *', 'Water meter reading *')
+            }
+          >
             <input
               id="lcf-water"
               className="input"
               dir="ltr"
               inputMode="decimal"
-              required
+              required={!deferMeters}
               maxLength={40}
               value={draft.waterReading ?? ''}
               onChange={(event) => set('waterReading', event.target.value)}
@@ -1001,17 +1017,28 @@ export function LeaseContractForm({
           </Field>
           <Field
             id="lcf-handover"
-            label={t('تاريخ استلام الوحدة *', 'Unit handover date *')}
-            hint={t(
-              'إلزامي لحساب فترة السماح من الاستلام إلى البداية.',
-              'Required to compute the grace period from handover to start.',
-            )}
+            label={
+              deferHandover
+                ? t('تاريخ استلام الوحدة (مؤجّل للتسليم)', 'Unit handover date (deferred to handover)')
+                : t('تاريخ استلام الوحدة *', 'Unit handover date *')
+            }
+            hint={
+              deferHandover
+                ? t(
+                    'حسب ضبط الاعتماد: يُستكمل عند التسليم بعد توقيع المستأجر.',
+                    'Per approval settings: completed at handover after the tenant signs.',
+                  )
+                : t(
+                    'إلزامي لحساب فترة السماح من الاستلام إلى البداية.',
+                    'Required to compute the grace period from handover to start.',
+                  )
+            }
           >
             <input
               id="lcf-handover"
               className="input"
               type="date"
-              required
+              required={!deferHandover}
               max={draft.startsOn}
               value={draft.handoverOn ?? ''}
               onChange={(event) => set('handoverOn', event.target.value)}
@@ -1047,7 +1074,11 @@ export function LeaseContractForm({
           </Field>
           <Field
             id="lcf-grace"
-            label={t('فترة السماح *', 'Grace period *')}
+            label={
+              deferHandover
+                ? t('فترة السماح (بعد تاريخ الاستلام)', 'Grace period (after handover date)')
+                : t('فترة السماح *', 'Grace period *')
+            }
             hint={t(
               'تُحسب تلقائياً من تاريخ الاستلام إلى تاريخ البداية. مبلغ السماح = (الإيجار ÷ 30) × الأيام.',
               'Auto from handover to start. Grace amount = (rent ÷ 30) × days.',
@@ -1062,7 +1093,9 @@ export function LeaseContractForm({
                       locale,
                     )}`
                   : t('٠ يوم (الاستلام يوم البداية)', '0 days (handover on start date)')
-                : t('أدخل تاريخ الاستلام أولاً', 'Enter the handover date first')}
+                : deferHandover
+                  ? t('تُحسب عند إدخال تاريخ الاستلام / التسليم', 'Computed when handover date is entered')
+                  : t('أدخل تاريخ الاستلام أولاً', 'Enter the handover date first')}
             </output>
           </Field>
           <label className="checkbox-row span-2">

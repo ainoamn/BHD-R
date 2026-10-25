@@ -252,13 +252,16 @@ function cleanRequirements(
 function buildChequeInstructions(
   draft: LeaseTermsDraft,
   currency: string,
+  deferUntilHandover: ReadonlyArray<'meters' | 'handoverOn'> = [],
 ): {
   payableTo: string | null;
   bankName: string | null;
   rentBankAccountId: string | null;
   instructions: ReservationChequeInstruction[];
 } {
-  const computed = computeLeaseTerms(draft, currency, minorDigitsFor(currency));
+  const computed = computeLeaseTerms(draft, currency, minorDigitsFor(currency), {
+    deferUntilHandover,
+  });
   if (!computed.ok || computed.terms.paymentMethod !== 'cheque') {
     return {
       payableTo: null,
@@ -813,6 +816,12 @@ async function ownerActionInTx(
       case 'save_contract': {
         if (!hasPermission(claims, 'contract.create')) fail('forbidden');
         if (!row.lifecycle.approval || row.lifecycle.contract) fail('reservation_not_ready');
+        const { policy: approvalPolicy } = await resolveApprovalPolicy(
+          tx,
+          row.orgId,
+          row.propertyId,
+        );
+        const deferUntilHandover = approvalPolicy.deferUntilHandover;
         let draft: NonNullable<ReservationLifecycle['contractDraft']>;
         if (sale) {
           if (!input.sale) fail('invalid_body');
@@ -821,7 +830,7 @@ async function ownerActionInTx(
           draft = { savedAt: at, byName, sale: input.sale };
         } else {
           if (!input.lease) fail('invalid_body');
-          assertLeaseTermsValid(input.lease.terms, row.currency);
+          assertLeaseTermsValid(input.lease.terms, row.currency, { deferUntilHandover });
           if (
             input.lease.terms.paymentMethod === 'cheque' &&
             !(input.lease.terms.chequeAccountName?.trim())
@@ -841,7 +850,7 @@ async function ownerActionInTx(
         );
         const chequeSeed =
           !sale && input.lease
-            ? buildChequeInstructions(input.lease.terms, row.currency)
+            ? buildChequeInstructions(input.lease.terms, row.currency, deferUntilHandover)
             : {
                 payableTo: null,
                 bankName: null,
@@ -856,6 +865,11 @@ async function ownerActionInTx(
           ...row.lifecycle,
           contractDraft: draft,
           requirements,
+          autoFlow: {
+            contractAuto: approvalPolicy.contract === 'auto',
+            deferUntilHandover,
+            requireTenantAttestation: approvalPolicy.requireTenantAttestation,
+          },
           chequePayableTo: chequeSeed.payableTo,
           chequeBankName: chequeSeed.bankName,
           rentBankAccountId: chequeSeed.rentBankAccountId,
@@ -960,6 +974,10 @@ async function ownerActionInTx(
         }
         const text = (value: string | undefined, max: number) =>
           value?.trim().slice(0, max) || null;
+        const elec = text(input.electricityReading, 40);
+        const water = text(input.waterReading, 40);
+        const deferred = new Set(row.lifecycle.autoFlow?.deferUntilHandover ?? []);
+        if (deferred.has('meters') && (!elec || !water)) fail('handover_invalid');
         const lifecycle: ReservationLifecycle = {
           ...row.lifecycle,
           handover: {
@@ -968,8 +986,8 @@ async function ownerActionInTx(
             byName,
             recipientName,
             keys: text(input.keys, 200),
-            electricityReading: text(input.electricityReading, 40),
-            waterReading: text(input.waterReading, 40),
+            electricityReading: elec,
+            waterReading: water,
             notes: text(input.notes, 1000),
           },
         };
@@ -1179,6 +1197,67 @@ async function customerReservation(transaction: Tx, userId: string, referenceCod
   };
 }
 
+function assertTenantAttested(lifecycle: ReservationLifecycle) {
+  if (
+    lifecycle.autoFlow?.requireTenantAttestation &&
+    !lifecycle.tenantAttestation?.accepted
+  ) {
+    leaseBookingFail('attestation_required');
+  }
+}
+
+/** Tenant confirms document accuracy and cancel-if-invalid responsibility. */
+export async function attestReservationDocuments(
+  claims: SessionClaims,
+  referenceCode: string,
+) {
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    if (
+      current.phase !== 'awaiting_documents' &&
+      current.phase !== 'awaiting_documents_review' &&
+      current.phase !== 'awaiting_contract_approval' &&
+      current.phase !== 'awaiting_tenant_signature'
+    ) {
+      leaseBookingFail('not_ready');
+    }
+    if (current.lifecycle.tenantAttestation?.accepted) {
+      return { attested: true as const, at: current.lifecycle.tenantAttestation.at };
+    }
+    if (!current.lifecycle.autoFlow?.requireTenantAttestation) {
+      const at = new Date().toISOString();
+      await saveLifecycle(
+        transaction,
+        { id: current.match.id, snapshot: current.snapshot },
+        {
+          ...current.lifecycle,
+          tenantAttestation: { at, accepted: true },
+        },
+      );
+      return { attested: true as const, at };
+    }
+    const at = new Date().toISOString();
+    await saveLifecycle(
+      transaction,
+      { id: current.match.id, snapshot: current.snapshot },
+      {
+        ...current.lifecycle,
+        tenantAttestation: { at, accepted: true },
+      },
+    );
+    await logEvent(transaction, {
+      orgId: current.match.organizationId,
+      actorUserId: claims.sub,
+      reservationId: current.match.id,
+      eventType: 'reservation.tenant_attested',
+      status: current.status,
+      metadata: { referenceCode: current.snapshot.referenceCode },
+    });
+    return { attested: true as const, at };
+  });
+}
+
 /** Tenant submits one rent/VAT/deposit cheque (number + photo) from the confirmed page. */
 export async function submitReservationCheque(
   claims: SessionClaims,
@@ -1214,6 +1293,7 @@ export async function submitReservationCheque(
     if (current.phase !== 'awaiting_documents' && current.phase !== 'awaiting_documents_review') {
       leaseBookingFail('not_ready');
     }
+    assertTenantAttested(current.lifecycle);
     const instruction = (current.lifecycle.chequeInstructions ?? []).find(
       (item) => item.key === input.key,
     );
@@ -1309,6 +1389,7 @@ export async function submitReservationDocument(
     if (current.phase !== 'awaiting_documents' && current.phase !== 'awaiting_documents_review') {
       leaseBookingFail('not_ready');
     }
+    assertTenantAttested(current.lifecycle);
     const requirements = current.lifecycle.requirements ?? [];
     const target = requirements.find((item) => item.code === input.code);
     if (!target) leaseBookingFail('requirement_not_found');
@@ -1391,6 +1472,7 @@ export async function signReservationContract(
       };
     }
     if (current.phase !== 'awaiting_tenant_signature' || !contract) leaseBookingFail('not_ready');
+    assertTenantAttested(current.lifecycle);
 
     const orgId = current.match.organizationId;
     const signedAt = new Date();

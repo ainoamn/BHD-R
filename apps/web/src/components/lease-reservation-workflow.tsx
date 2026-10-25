@@ -20,6 +20,7 @@ import {
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
+import type { ApprovalPolicy } from '@/lib/approval-policy';
 import {
   REQUIREMENT_CATALOGUE,
   documentsPhase,
@@ -1611,6 +1612,9 @@ function ContractDraftEditor({
   const ar = locale === 'ar';
   const sale = mode === 'sale';
   const [bankAccounts, setBankAccounts] = useState<LeaseBankAccountOption[]>([]);
+  const [deferUntilHandover, setDeferUntilHandover] = useState<
+    ReadonlyArray<'meters' | 'handoverOn'>
+  >(lifecycle.autoFlow?.deferUntilHandover ?? []);
   const [requirements, setRequirements] = useState(
     (lifecycle.requirements ?? []).map(({ code, labelAr, labelEn }) => ({
       code,
@@ -1642,10 +1646,26 @@ function ContractDraftEditor({
         );
       })
       .catch(() => undefined);
+    void fetch(
+      `/api/owner/approval-policy?propertyId=${encodeURIComponent(propertyId)}`,
+      { credentials: 'same-origin' },
+    )
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          own?: { policy?: ApprovalPolicy } | null;
+          inherited?: { policy?: ApprovalPolicy } | null;
+        };
+        const policy = data.own?.policy ?? data.inherited?.policy;
+        if (!cancelled && policy?.deferUntilHandover) {
+          setDeferUntilHandover(policy.deferUntilHandover);
+        }
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [sale]);
+  }, [sale, propertyId]);
   const savedLease = lifecycle.contractDraft?.lease as
     { tenant?: LeaseContractPayload['tenant']; terms?: LeaseTermsDraft } | undefined;
   const digits = minorDigitsFor(currency);
@@ -1779,6 +1799,7 @@ function ContractDraftEditor({
         busy={busy}
         bankAccounts={bankAccounts}
         propertyId={propertyId}
+        deferUntilHandover={deferUntilHandover}
         heading={ar ? 'بيانات عقد الإيجار' : 'Lease contract details'}
         submitLabel={ar ? 'حفظ العقد والمستندات' : 'Save contract & documents'}
         footnote={footnote}
