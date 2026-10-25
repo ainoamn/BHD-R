@@ -17,6 +17,7 @@ import {
 import {
   findViewingNotifyTarget,
   notifyOwnersOfViewingRequest,
+  tryAutoScheduleViewingRequest,
 } from '@/lib/viewing-requests-neon';
 
 async function loadViewerContact(userId: string): Promise<{ email: string; displayName: string }> {
@@ -114,6 +115,7 @@ export async function createViewingRequestNestOrNeon(
               unitId: target.unitId,
               reference: target.reference,
             });
+            void tryAutoScheduleViewingRequest(target.viewingId).catch(() => false);
           }
           return {
             accepted: true,
@@ -139,6 +141,7 @@ export async function createViewingRequestNestOrNeon(
       unitId: neon.unitId,
       reference: neon.reference,
     });
+    void tryAutoScheduleViewingRequest(neon.id).catch(() => false);
   }
   return {
     accepted: true,

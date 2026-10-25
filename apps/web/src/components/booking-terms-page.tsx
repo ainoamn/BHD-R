@@ -5,8 +5,7 @@ import { ApprovalPolicyCard } from '@/components/approval-policy-card';
 import { BookingTermsEditor } from '@/components/booking-terms-editor';
 import { LeaseDocumentRulesCard } from '@/components/lease-document-rules-card';
 import { LeaseMinTermCard } from '@/components/lease-min-term-card';
-import { DEFAULT_APPROVAL_POLICY } from '@/lib/approval-policy';
-import { loadOwnerApprovalPolicy } from '@/lib/approval-policy-neon';
+import { loadOwnerApprovalPolicyBundle } from '@/lib/approval-policy-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadOwnerBookingTerms } from '@/lib/booking-terms-neon';
 import { DEFAULT_LEASE_DOCUMENT_RULES } from '@/lib/lease-document-rules';
@@ -39,7 +38,7 @@ export async function BookingTermsPage({
   const [data, minTerm, approval, documentRules] = await Promise.all([
     loadOwnerBookingTerms(scope, propertyId),
     loadOwnerLeaseMinTerm(scope, propertyId).catch(() => null),
-    loadOwnerApprovalPolicy(scope, propertyId).catch(() => null),
+    loadOwnerApprovalPolicyBundle(scope, propertyId).catch(() => null),
     loadOwnerLeaseDocumentRules(scope, propertyId).catch(() => null),
   ]);
   if (!data) notFound();
@@ -50,9 +49,12 @@ export async function BookingTermsPage({
         <ApprovalPolicyCard
           locale={locale}
           propertyId={propertyId}
-          initialPolicy={approval.own?.policy ?? null}
-          delegateName={approval.own?.delegate?.name ?? null}
-          inherited={approval.inherited ?? { source: 'default', policy: DEFAULT_APPROVAL_POLICY }}
+          kinds={approval.kinds.map((row) => ({
+            kind: row.kind,
+            initialPolicy: row.own?.policy ?? null,
+            delegateName: row.own?.delegate?.name ?? null,
+            inherited: row.inherited,
+          }))}
         />
       ) : null}
       {documentRules ? (

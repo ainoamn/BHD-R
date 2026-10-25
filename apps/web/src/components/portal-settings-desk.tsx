@@ -4,8 +4,7 @@ import { ApprovalPolicyCard } from '@/components/approval-policy-card';
 import { LeaseDocumentRulesCard } from '@/components/lease-document-rules-card';
 import { StayReschedulePolicyBoard } from '@/components/stay-reschedule-policy-board';
 import { Link } from '@/i18n/navigation';
-import { DEFAULT_APPROVAL_POLICY } from '@/lib/approval-policy';
-import { loadOwnerApprovalPolicy } from '@/lib/approval-policy-neon';
+import { loadOwnerApprovalPolicyBundle } from '@/lib/approval-policy-neon';
 import { DEFAULT_LEASE_DOCUMENT_RULES } from '@/lib/lease-document-rules';
 import { loadOwnerLeaseDocumentRules } from '@/lib/lease-document-rules-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -40,7 +39,7 @@ export async function PortalSettingsDesk({
   };
   const claims = await readSessionClaimsFromCookies();
   const [approval, documentRules, stayUnits] = await Promise.all([
-    loadOwnerApprovalPolicy(scope, null).catch(() => null),
+    loadOwnerApprovalPolicyBundle(scope, null).catch(() => null),
     loadOwnerLeaseDocumentRules(scope, null).catch(() => null),
     claims?.organizationId && isStaysPlatformEnabled()
       ? loadPropertyStaySettingsOnNeon(claims, null).catch(
@@ -95,8 +94,8 @@ export async function PortalSettingsDesk({
         <h1>{ar ? 'الضبط' : 'Control'}</h1>
         <p>
           {ar
-            ? 'اضبط اعتمادات الموقع التلقائية، تعديل تواريخ الإقامات، والصلاحيات من مكان واحد.'
-            : 'Set site auto-approvals, daily-stay date changes, and permissions from one place.'}
+            ? 'اضبط اعتماد كل نوع عقد (يومي، طويل الأجل، شراء)، مستندات المستأجر، أتمتة المعاينة، وصلاحيات الفريق.'
+            : 'Configure each contract type (daily, long-term, purchase), tenant documents, viewing automation, and team permissions.'}
         </p>
       </header>
 
@@ -104,9 +103,12 @@ export async function PortalSettingsDesk({
         <ApprovalPolicyCard
           locale={locale}
           propertyId={null}
-          initialPolicy={approval.own?.policy ?? null}
-          delegateName={approval.own?.delegate?.name ?? null}
-          inherited={{ source: 'default', policy: DEFAULT_APPROVAL_POLICY }}
+          kinds={approval.kinds.map((row) => ({
+            kind: row.kind,
+            initialPolicy: row.own?.policy ?? null,
+            delegateName: row.own?.delegate?.name ?? null,
+            inherited: row.inherited,
+          }))}
         />
       ) : (
         <section className="portal-settings__card">

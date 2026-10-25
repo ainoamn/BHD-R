@@ -674,6 +674,7 @@ export async function completeLeaseSandboxPayment(
       transaction,
       match.organizationId,
       match.propertyId,
+      snapshot.mode === 'sale' ? 'sale' : 'rent',
     );
     const lifecycle = lifecycleOf(snapshot);
     const nextSnapshot: LeaseBookingSnapshot = {

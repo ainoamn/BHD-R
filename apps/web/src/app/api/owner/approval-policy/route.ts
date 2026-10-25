@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import type { SessionClaims } from '@bhd-r/authz';
-import { loadOwnerApprovalPolicy, saveApprovalPolicy } from '@/lib/approval-policy-neon';
+import {
+  loadOwnerApprovalPolicy,
+  loadOwnerApprovalPolicyBundle,
+  saveApprovalPolicy,
+} from '@/lib/approval-policy-neon';
+import { isContractApprovalKind } from '@/lib/approval-policy';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
@@ -12,10 +17,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const mode = z.enum(['manual', 'auto']);
+const kindSchema = z.enum(['daily', 'rent', 'sale']);
 
 const bodySchema = z
   .object({
     propertyId: z.string().uuid().nullable(),
+    kind: kindSchema.default('rent'),
     policy: z
       .object({
         booking: mode,
@@ -27,13 +34,18 @@ const bodySchema = z
           .max(2)
           .default([]),
         requireTenantAttestation: z.boolean().default(true),
+        electronicSignature: z.boolean().default(true),
+        viewingAutoSchedule: z.boolean().default(false),
       })
       .strict()
       .nullable(),
   })
   .strict();
 
-/** GET /api/owner/approval-policy?propertyId= — effective policy for org or one property. */
+/**
+ * GET /api/owner/approval-policy?propertyId=&kind=
+ * Without kind: returns all three contract kinds. With kind: one view.
+ */
 export async function GET(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -45,23 +57,33 @@ export async function GET(request: Request) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });
   }
-  if (!claims.organizationId || !claims.permissions.includes('reservation.read')) {
+  if (
+    !claims.organizationId ||
+    !(
+      claims.permissions.includes('reservation.read') ||
+      claims.permissions.includes('stay.booking.read') ||
+      claims.permissions.includes('sale.read')
+    )
+  ) {
     return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
   }
   const url = new URL(request.url);
   const raw = url.searchParams.get('propertyId');
   const propertyId = raw && z.string().uuid().safeParse(raw).success ? raw : null;
+  const kindRaw = url.searchParams.get('kind');
+  const scope = {
+    organizationId: claims.organizationId,
+    userId: claims.sub,
+    partyId: ownerPartyScope(claims),
+    roles: claims.roles,
+  };
   try {
-    const view = await loadOwnerApprovalPolicy(
-      {
-        organizationId: claims.organizationId,
-        userId: claims.sub,
-        partyId: ownerPartyScope(claims),
-        roles: claims.roles,
-      },
-      propertyId,
-    );
-    return NextResponse.json(view, { headers: { 'cache-control': 'no-store' } });
+    if (kindRaw && isContractApprovalKind(kindRaw)) {
+      const view = await loadOwnerApprovalPolicy(scope, propertyId, kindRaw);
+      return NextResponse.json(view, { headers: { 'cache-control': 'no-store' } });
+    }
+    const bundle = await loadOwnerApprovalPolicyBundle(scope, propertyId);
+    return NextResponse.json(bundle, { headers: { 'cache-control': 'no-store' } });
   } catch (error) {
     const code = clientSafeErrorCode(error, 'load_failed');
     return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });
@@ -70,8 +92,7 @@ export async function GET(request: Request) {
 
 /**
  * PUT /api/owner/approval-policy
- * Whether website bookings of the organization (`propertyId` null) or one property are approved
- * by hand or by the system on the owner's behalf. `policy` null falls back to the wider policy.
+ * Save one contract kind's approval / e-sign / viewing automation settings.
  */
 export async function PUT(request: Request) {
   if (!hasDatabaseUrl()) {
@@ -85,13 +106,10 @@ export async function PUT(request: Request) {
     const mapped = guardErrorResponse(error);
     return NextResponse.json(mapped.body, { status: mapped.status });
   }
-  if (!claims.organizationId || !claims.permissions.includes('reservation.manage')) {
-    return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
-  }
 
   const limited = assertRouteRateLimit({
     key: hashRateKey(['owner-approval-policy', claims.sub, clientIp(request)]),
-    limit: 20,
+    limit: 30,
     windowMs: 60_000,
   });
   if (!limited.ok) {
@@ -109,9 +127,10 @@ export async function PUT(request: Request) {
   }
 
   try {
-    return NextResponse.json(await saveApprovalPolicy(claims, body.propertyId, body.policy), {
-      headers: { 'cache-control': 'no-store' },
-    });
+    return NextResponse.json(
+      await saveApprovalPolicy(claims, body.propertyId, body.policy, body.kind),
+      { headers: { 'cache-control': 'no-store' } },
+    );
   } catch (error) {
     const code = clientSafeErrorCode(error, 'update_failed');
     if (code === 'update_failed') console.error('PUT /api/owner/approval-policy', error);

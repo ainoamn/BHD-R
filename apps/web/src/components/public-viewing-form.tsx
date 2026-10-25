@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, type FormEvent } from 'react';
-import { browserPublicMutation } from '@/lib/api';
 
 function formText(form: FormData, name: string): string {
   const entry = form.get(name);
@@ -12,6 +11,7 @@ export function PublicViewingForm({ unitId, locale }: { unitId: string; locale: 
   const submissionId = useRef<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
+  const [autoScheduled, setAutoScheduled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ar = locale === 'ar';
 
@@ -23,9 +23,10 @@ export function PublicViewingForm({ unitId, locale }: { unitId: string; locale: 
     const preferredAt = formText(form, 'preferredAt');
     submissionId.current ??= crypto.randomUUID();
     try {
-      const result = await browserPublicMutation<{ reference?: string }>(
-        `/v1/public/units/${encodeURIComponent(unitId)}/viewing-requests`,
-        {
+      const response = await fetch('/api/public/guest-viewing-requests', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify({
           submissionId: submissionId.current,
           unitId,
           displayName: formText(form, 'displayName'),
@@ -34,11 +35,17 @@ export function PublicViewingForm({ unitId, locale }: { unitId: string; locale: 
           preferredAt: preferredAt ? new Date(preferredAt).toISOString() : undefined,
           notes: formText(form, 'notes') || undefined,
           locale: ar ? 'ar' : 'en',
-          consent: form.get('consent') === 'on',
+          consent: true,
           website: formText(form, 'website') || undefined,
-        },
-      );
+        }),
+      });
+      if (!response.ok) throw new Error('failed');
+      const result = (await response.json()) as {
+        reference?: string;
+        autoScheduled?: boolean;
+      };
       setReference(result.reference ?? 'accepted');
+      setAutoScheduled(Boolean(result.autoScheduled));
       event.currentTarget.reset();
     } catch {
       setError(
@@ -54,11 +61,23 @@ export function PublicViewingForm({ unitId, locale }: { unitId: string; locale: 
   if (reference)
     return (
       <div className="viewing-success" role="status">
-        <strong>{ar ? 'تم استلام طلبك' : 'Your request was received'}</strong>
+        <strong>
+          {autoScheduled
+            ? ar
+              ? 'تم تأكيد موعد المعاينة'
+              : 'Your viewing is confirmed'
+            : ar
+              ? 'تم استلام طلبك'
+              : 'Your request was received'}
+        </strong>
         <p>
-          {ar
-            ? 'سيتواصل معك فريق إدارة العقار لتأكيد الموعد.'
-            : 'The property team will contact you to confirm the appointment.'}
+          {autoScheduled
+            ? ar
+              ? 'أرسلنا الموعد إليك وإلى فريق العقار والحارس. ستصلك بطاقة الزيارة على بريدك.'
+              : 'We sent the appointment to you, the property team, and the guard. Check your email for the visit pass.'
+            : ar
+              ? 'سيتواصل معك فريق إدارة العقار لتأكيد الموعد.'
+              : 'The property team will contact you to confirm the appointment.'}
         </p>
         {reference !== 'accepted' ? (
           <small>

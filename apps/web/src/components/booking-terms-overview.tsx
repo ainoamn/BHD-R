@@ -3,8 +3,7 @@ import { EmptyState } from '@bhd-r/ui';
 import { ApprovalPolicyCard } from '@/components/approval-policy-card';
 import { BookingTermsEditor } from '@/components/booking-terms-editor';
 import { LeaseDocumentRulesCard } from '@/components/lease-document-rules-card';
-import { DEFAULT_APPROVAL_POLICY } from '@/lib/approval-policy';
-import { loadOwnerApprovalPolicy } from '@/lib/approval-policy-neon';
+import { loadOwnerApprovalPolicyBundle } from '@/lib/approval-policy-neon';
 import { DEFAULT_LEASE_DOCUMENT_RULES } from '@/lib/lease-document-rules';
 import { loadOwnerLeaseDocumentRules } from '@/lib/lease-document-rules-neon';
 import { BookingTermsPropertyList } from '@/components/booking-terms-property-list';
@@ -42,7 +41,7 @@ export async function BookingTermsOverview({
     console.error('booking terms overview failed', error);
   }
   const [approval, documentRules] = await Promise.all([
-    loadOwnerApprovalPolicy(scope, null).catch(() => null),
+    loadOwnerApprovalPolicyBundle(scope, null).catch(() => null),
     loadOwnerLeaseDocumentRules(scope, null).catch(() => null),
   ]);
 
@@ -67,9 +66,12 @@ export async function BookingTermsOverview({
         <ApprovalPolicyCard
           locale={locale}
           propertyId={null}
-          initialPolicy={approval.own?.policy ?? null}
-          delegateName={approval.own?.delegate?.name ?? null}
-          inherited={{ source: 'default', policy: DEFAULT_APPROVAL_POLICY }}
+          kinds={approval.kinds.map((row) => ({
+            kind: row.kind,
+            initialPolicy: row.own?.policy ?? null,
+            delegateName: row.own?.delegate?.name ?? null,
+            inherited: row.inherited,
+          }))}
         />
       ) : null}
       {documentRules ? (

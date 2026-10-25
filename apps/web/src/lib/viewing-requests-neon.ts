@@ -1628,3 +1628,111 @@ export async function assertViewingPassNoteAssist(token: string): Promise<void> 
   if (pass.status === 'cancelled' || pass.status === 'no_show') fail('viewing_closed');
   if (pass.guestDecision) fail('viewing_decision_locked');
 }
+
+/**
+ * When the property's rent/sale approval policy enables viewing automation and the guest
+ * chose a preferred time, confirm that slot and notify guest / guard / managers.
+ */
+export async function tryAutoScheduleViewingRequest(viewingId: string): Promise<boolean> {
+  const { elevatedTx, rowsOf } = await import('@/lib/elevated-db');
+  const { resolveApprovalPolicy } = await import('@/lib/approval-policy-neon');
+  const { getDatabase } = await import('@/lib/public-booking-neon');
+  const { accessFromMemberships, customRoleIds } = await import('@bhd-r/authz');
+  const { loadSavedRolePermissions } = await import('@/lib/organization-roles-read');
+  const { randomUUID } = await import('node:crypto');
+
+  type Facts = {
+    status: string;
+    preferred_at: Date | null;
+    organization_id: string;
+    property_id: string;
+    viewing_contact_user_id: string | null;
+    notes: string | null;
+  };
+
+  const facts = await elevatedTx(async (tx) => {
+    const rows = rowsOf<Facts>(
+      await tx.execute(sql`
+        select vr.status, vr.preferred_at, vr.organization_id, p.id as property_id,
+               p.viewing_contact_user_id, vr.notes
+        from viewing_requests vr
+        join units u on u.id = vr.unit_id
+        join properties p on p.id = u.property_id
+        where vr.id = ${viewingId}::uuid
+        limit 1`),
+    );
+    return rows[0] ?? null;
+  });
+  if (!facts || facts.status !== 'requested' || !facts.preferred_at) return false;
+  if (!facts.viewing_contact_user_id) return false;
+
+  const notes = (facts.notes ?? '').toLowerCase();
+  const kind =
+    notes.includes('شراء') || notes.includes('purchase') || notes.includes('sale')
+      ? ('sale' as const)
+      : ('rent' as const);
+
+  const { db } = getDatabase();
+  const allowed = await db.transaction(async (tx) => {
+    const resolved = await resolveApprovalPolicy(
+      tx,
+      facts.organization_id,
+      facts.property_id,
+      kind,
+    );
+    return resolved.policy.viewingAutoSchedule;
+  });
+  if (!allowed) return false;
+
+  const actor = await elevatedTx(async (tx) => {
+    const rows = await tx
+      .select({
+        userId: memberships.userId,
+        roleKey: memberships.roleKey,
+        partyId: memberships.partyId,
+        permissions: memberships.permissions,
+      })
+      .from(memberships)
+      .where(
+        and(
+          eq(memberships.organizationId, facts.organization_id),
+          eq(memberships.status, 'active'),
+        ),
+      );
+    const savedRoles = await loadSavedRolePermissions(
+      tx,
+      facts.organization_id,
+      customRoleIds(rows),
+    );
+    for (const row of rows) {
+      const access = accessFromMemberships([row], savedRoles);
+      if (!access.permissions.includes('viewing.manage')) continue;
+      const claims: SessionClaims = {
+        sub: row.userId,
+        sid: randomUUID(),
+        organizationId: facts.organization_id,
+        partyId: access.partyId,
+        roles: access.roles,
+        permissions: access.permissions,
+        locale: 'ar',
+        sessionVersion: 0,
+      };
+      return claims;
+    }
+    return null;
+  });
+  if (!actor) return false;
+
+  try {
+    await respondToViewingRequest(actor, viewingId, {
+      action: 'schedule',
+      scheduledAt: new Date(facts.preferred_at).toISOString(),
+      note:
+        'موعد تلقائي حسب الوقت المفضّل للزائر وسياسة أتمتة المعاينة · Auto-scheduled from preferred time',
+    });
+    return true;
+  } catch (error) {
+    console.error('viewing auto-schedule failed', viewingId, error);
+    return false;
+  }
+}

@@ -1597,7 +1597,7 @@ function ContractDraftEditor({
       })
       .catch(() => undefined);
     void fetch(
-      `/api/owner/approval-policy?propertyId=${encodeURIComponent(propertyId)}`,
+      `/api/owner/approval-policy?propertyId=${encodeURIComponent(propertyId)}&kind=rent`,
       { credentials: 'same-origin' },
     )
       .then(async (response) => {

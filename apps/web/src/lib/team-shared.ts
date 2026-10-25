@@ -237,8 +237,8 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       },
       {
         id: 'bookings',
-        ar: 'إدارة الحجوزات والدخول والمغادرة',
-        en: 'Manage bookings, check-in and check-out',
+        ar: 'إدارة كل الحجوزات (يومي وطويل الأجل والمعاينات)',
+        en: 'Manage all bookings (daily, long-term, and viewings)',
         permissions: [
           'stay.booking.read',
           'stay.booking.manage',
@@ -249,10 +249,28 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
         ],
       },
       {
+        id: 'bookings_daily',
+        ar: 'إدارة التأجير اليومي فقط',
+        en: 'Manage daily rentals only',
+        permissions: ['stay.booking.read', 'stay.booking.manage'],
+      },
+      {
+        id: 'bookings_lease',
+        ar: 'إدارة الإيجار طويل الأجل فقط',
+        en: 'Manage long-term leases only',
+        permissions: ['reservation.read', 'reservation.manage'],
+      },
+      {
         id: 'handover',
         ar: 'تسليم العقار للمستأجر بمسح رمزه',
         en: 'Hand over premises by scanning the tenant code',
         permissions: ['reservation.handover'],
+      },
+      {
+        id: 'viewings_manage',
+        ar: 'إدارة طلبات المعاينة وجدولة المواعيد',
+        en: 'Manage viewing requests and schedule appointments',
+        permissions: ['viewing.read', 'viewing.manage'],
       },
       {
         id: 'viewing_checkin',

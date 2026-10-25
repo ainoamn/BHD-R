@@ -640,7 +640,7 @@ async function resolveStayContractSignerClaims(
   orgId: string,
   propertyId: string,
 ): Promise<SessionClaims | null> {
-  const resolved = await resolveApprovalPolicy(tx, orgId, propertyId);
+  const resolved = await resolveApprovalPolicy(tx, orgId, propertyId, 'daily');
   if (resolved.policy.contract !== 'auto') return null;
   if (resolved.delegate) {
     const signed = await delegateClaims(tx, orgId, resolved.delegate);
@@ -1045,7 +1045,7 @@ export async function approveStayBookingOnNeon(
       };
     }
 
-    const resolved = await resolveApprovalPolicy(tx, orgId, property.id);
+    const resolved = await resolveApprovalPolicy(tx, orgId, property.id, 'daily');
     // Manual issue button on an already-accepted booking always creates the contract.
     // Approving a pending request only auto-issues when policy.contract === 'auto'.
     const shouldIssue = !startedPending || resolved.policy.contract === 'auto';

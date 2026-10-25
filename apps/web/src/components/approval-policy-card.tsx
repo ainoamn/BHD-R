@@ -1,61 +1,71 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import {
   APPROVAL_STEPS,
+  CONTRACT_APPROVAL_KINDS,
   DEFERRED_LEASE_FIELDS,
+  DEFAULT_APPROVAL_POLICY_BY_KIND,
   FULL_AUTO_APPROVAL_POLICY,
   approvalStepHelp,
   approvalStepLabel,
+  approvalStepsForKind,
+  contractApprovalKindHint,
+  contractApprovalKindLabel,
   deferredLeaseFieldLabel,
   type ApprovalMode,
   type ApprovalPolicy,
   type ApprovalPolicySource,
+  type ContractApprovalKind,
   type DeferredLeaseField,
 } from '@/lib/approval-policy';
+
+export type ApprovalPolicyKindState = {
+  kind: ContractApprovalKind;
+  initialPolicy: ApprovalPolicy | null;
+  delegateName: string | null;
+  inherited: { source: ApprovalPolicySource; policy: ApprovalPolicy };
+};
 
 function policyEqual(a: ApprovalPolicy, b: ApprovalPolicy): boolean {
   if (APPROVAL_STEPS.some((step) => a[step] !== b[step])) return false;
   if (a.requireTenantAttestation !== b.requireTenantAttestation) return false;
+  if (a.electronicSignature !== b.electronicSignature) return false;
+  if (a.viewingAutoSchedule !== b.viewingAutoSchedule) return false;
   const left = [...a.deferUntilHandover].sort().join(',');
   const right = [...b.deferUntilHandover].sort().join(',');
   return left === right;
 }
 
-/**
- * Owner chooses, step by step, whether website bookings wait for them or the system approves
- * on their behalf — for the whole organization, or overriding it for one property.
- */
-export function ApprovalPolicyCard({
+function KindEditor({
   locale,
   propertyId,
-  initialPolicy,
-  delegateName,
-  inherited,
+  state,
 }: {
   locale: 'ar' | 'en';
   propertyId: string | null;
-  /** The policy saved at this level; null when it inherits. */
-  initialPolicy: ApprovalPolicy | null;
-  delegateName: string | null;
-  /** What applies without an override: the organization policy for a property, else the default. */
-  inherited: { source: ApprovalPolicySource; policy: ApprovalPolicy };
+  state: ApprovalPolicyKindState;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
-  const [saved, setSaved] = useState<ApprovalPolicy | null>(initialPolicy);
-  const [draft, setDraft] = useState<ApprovalPolicy>(initialPolicy ?? inherited.policy);
-  const [signer, setSigner] = useState(delegateName);
+  const kind = state.kind;
+  const [saved, setSaved] = useState<ApprovalPolicy | null>(state.initialPolicy);
+  const [draft, setDraft] = useState<ApprovalPolicy>(
+    state.initialPolicy ?? state.inherited.policy,
+  );
+  const [signer, setSigner] = useState(state.delegateName);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const effective = saved ?? inherited.policy;
+  const effective = saved ?? state.inherited.policy;
   const dirty = !policyEqual(draft, effective) || !saved;
-  const fallbackLabel = propertyId
-    ? inherited.source === 'organization'
+  const steps = approvalStepsForKind(kind);
+  const fallbackLabel =
+    state.inherited.source === 'organization'
       ? t('سياسة المؤسسة', 'the organization policy')
-      : t('الإعداد الافتراضي', 'the default')
-    : t('الإعداد الافتراضي', 'the default');
+      : state.inherited.source === 'legacy'
+        ? t('السياسة السابقة المشتركة', 'the previous shared policy')
+        : t('الإعداد الافتراضي', 'the default');
 
   async function save(policy: ApprovalPolicy | null) {
     setBusy(true);
@@ -66,10 +76,10 @@ export function ApprovalPolicyCard({
         delegateName: string | null;
       }>('/api/owner/approval-policy', {
         method: 'PUT',
-        body: JSON.stringify({ propertyId, policy }),
+        body: JSON.stringify({ propertyId, kind, policy }),
       });
       setSaved(result.policy);
-      setDraft(result.policy ?? inherited.policy);
+      setDraft(result.policy ?? state.inherited.policy);
       setSigner(result.delegateName);
       setMessage({ ok: true, text: t('تم حفظ سياسة الاعتماد.', 'Approval policy saved.') });
     } catch (caught) {
@@ -83,7 +93,10 @@ export function ApprovalPolicyCard({
                 'Automatic contract approval signs in the name of whoever enables it — you need contract signing rights.',
               )
             : code === 'forbidden'
-              ? t('لا تملك صلاحية إدارة الحجوزات.', 'You cannot manage bookings.')
+              ? t(
+                  'لا تملك صلاحية إدارة هذا النوع من العقود.',
+                  'You cannot manage this contract type.',
+                )
               : t('تعذّر الحفظ — أعد المحاولة.', 'Could not save — try again.'),
       });
     } finally {
@@ -106,37 +119,11 @@ export function ApprovalPolicyCard({
     });
   };
 
-  const anyAuto = APPROVAL_STEPS.some((step) => draft[step] === 'auto');
+  const anyAuto = steps.some((step) => draft[step] === 'auto');
 
   return (
-    <section className="approval-policy" aria-labelledby="approval-policy-title">
-      <header className="approval-policy__head">
-        <div>
-          <h2 id="approval-policy-title">
-            {propertyId
-              ? t('سياسة اعتماد حجوزات هذا العقار', 'Booking approvals for this property')
-              : t('سياسة اعتماد الحجوزات والتعديلات', 'Booking and change approval policy')}
-          </h2>
-          <p className="muted">
-            {propertyId
-              ? t(
-                  'اضبط كل خطوات الاعتماد مرة واحدة لهذا العقار: حجز، عقد، دفع، تعديلات، حقول مؤجّلة، وإقرار المستأجر.',
-                  'Configure every approval step once for this property: booking, contract, payment, changes, deferred fields, and tenant attestation.',
-                )
-              : t(
-                  'اضبط كل خطوات الاعتماد مرة واحدة لكل عقاراتك (حجز، عقد إلكتروني، دفع، تعديلات). يمكن تخصيص أي عقار من صفحة شروطه.',
-                  'Configure every approval step once for all your properties (booking, e-contract, payment, changes). Any property can override from its terms page.',
-                )}
-          </p>
-        </div>
-        <span className={`approval-policy__source${saved ? ' approval-policy__source--own' : ''}`}>
-          {saved
-            ? propertyId
-              ? t('مخصّصة لهذا العقار', 'Custom for this property')
-              : t('سياسة المؤسسة', 'Organization policy')
-            : t(`تتبع ${fallbackLabel}`, `Follows ${fallbackLabel}`)}
-        </span>
-      </header>
+    <div className="approval-policy__kind">
+      <p className="muted">{contractApprovalKindHint(kind, ar)}</p>
 
       <div className="approval-policy__actions approval-policy__actions--top">
         <button
@@ -147,10 +134,17 @@ export function ApprovalPolicyCard({
         >
           {t('تفعيل المسار الإلكتروني الكامل', 'Enable full electronic path')}
         </button>
+        <span className={`approval-policy__source${saved ? ' approval-policy__source--own' : ''}`}>
+          {saved
+            ? propertyId
+              ? t('مخصّصة لهذا العقار', 'Custom for this property')
+              : t('سياسة المؤسسة', 'Organization policy')
+            : t(`تتبع ${fallbackLabel}`, `Follows ${fallbackLabel}`)}
+        </span>
       </div>
 
       <div className="approval-policy__steps">
-        {APPROVAL_STEPS.map((step) => (
+        {steps.map((step) => (
           <fieldset key={step} className="approval-policy__step">
             <legend>{approvalStepLabel(step, ar)}</legend>
             <div className="approval-policy__options">
@@ -161,7 +155,7 @@ export function ApprovalPolicyCard({
                 >
                   <input
                     type="radio"
-                    name={`approval-${propertyId ?? 'org'}-${step}`}
+                    name={`approval-${propertyId ?? 'org'}-${kind}-${step}`}
                     checked={draft[step] === mode}
                     onChange={() => set(step, mode)}
                   />
@@ -184,85 +178,147 @@ export function ApprovalPolicyCard({
       </div>
 
       <fieldset className="approval-policy__step">
-        <legend>
-          {t(
-            'حقول تُؤجَّل لما بعد توقيع المستأجر وقبل التسليم',
-            'Fields deferred until after tenant sign, before handover',
-          )}
-        </legend>
-        <p className="muted">
-          {t(
-            'عند تفعيلها يمكن تركها فارغة أثناء إعداد العقد؛ تُستكمل عند التسليم. يسهّل الاعتماد الإلكتروني دون انتظار كل التفاصيل.',
-            'When enabled they may stay empty while preparing the contract and are completed at handover — smoother electronic approval.',
-          )}
-        </p>
-        <div className="approval-policy__options">
-          {DEFERRED_LEASE_FIELDS.map((field) => (
-            <label
-              key={field}
-              className={`approval-policy__option${
-                draft.deferUntilHandover.includes(field) ? ' approval-policy__option--on' : ''
-              }`}
-            >
-              <input
-                type="checkbox"
-                checked={draft.deferUntilHandover.includes(field)}
-                onChange={() => toggleDefer(field)}
-              />
-              <span>
-                <strong>{deferredLeaseFieldLabel(field, ar)}</strong>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-
-      <fieldset className="approval-policy__step">
-        <legend>
-          {t('إقرار المستأجر بصحة البيانات', 'Tenant attestation of accurate data')}
-        </legend>
+        <legend>{t('التوقيع الإلكتروني', 'Electronic signature')}</legend>
         <label
           className={`approval-policy__option${
-            draft.requireTenantAttestation ? ' approval-policy__option--on' : ''
+            draft.electronicSignature ? ' approval-policy__option--on' : ''
           }`}
         >
           <input
             type="checkbox"
-            checked={draft.requireTenantAttestation}
+            checked={draft.electronicSignature}
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
-                requireTenantAttestation: event.target.checked,
+                electronicSignature: event.target.checked,
               }))
             }
           />
           <span>
             <strong>
               {t(
-                'إلزام المستأجر بالتأكيد قبل رفع المستندات أو توقيع العقد',
-                'Require tenant confirmation before uploads or contract signature',
+                'إلزام العميل بالتوقيع الإلكتروني لهذا النوع',
+                'Require the customer’s electronic signature for this type',
               )}
             </strong>
             <small>
               {t(
-                'يؤكد أن بياناته ومستنداته صحيحة، ويعلم أن المراجعة اليدوية تتم قبل التسليم، وأن للمالك إلغاء الحجز عند الاختلاف مع تحمّل المستأجر المسؤولية.',
-                'They confirm details/docs are accurate, know manual review happens before handover, and that the owner may cancel if invalid — tenant bears responsibility.',
+                'عند الإيقاف يمكن إكمال المسار دون توقيع إلكتروني من العميل (يبقى اعتمادك أنت كما ضبطته أعلاه).',
+                'When off, the flow may continue without the customer’s e-sign (your own approvals still follow the steps above).',
               )}
             </small>
           </span>
         </label>
       </fieldset>
 
+      {kind !== 'daily' ? (
+        <fieldset className="approval-policy__step">
+          <legend>{t('أتمتة مواعيد المعاينة', 'Viewing appointment automation')}</legend>
+          <label
+            className={`approval-policy__option${
+              draft.viewingAutoSchedule ? ' approval-policy__option--on' : ''
+            }`}
+          >
+            <input
+              type="checkbox"
+              checked={draft.viewingAutoSchedule}
+              onChange={(event) =>
+                setDraft((current) => ({
+                  ...current,
+                  viewingAutoSchedule: event.target.checked,
+                }))
+              }
+            />
+            <span>
+              <strong>
+                {t(
+                  'تأكيد الموعد تلقائياً عند استلام الطلب',
+                  'Confirm the preferred time automatically when a request arrives',
+                )}
+              </strong>
+              <small>
+                {t(
+                  'إن اختار الزائر وقتاً مفضّلاً يعتمد النظام الموعد ويرسله للمالك والموظف والحارس. أوقف الخيار للجدولة اليدوية من مكتب المعاينات.',
+                  'If the visitor picks a preferred time, the system confirms it and notifies the owner, staff, and guard. Turn off for manual scheduling from the viewing desk.',
+                )}
+              </small>
+            </span>
+          </label>
+        </fieldset>
+      ) : null}
+
+      {kind === 'rent' ? (
+        <>
+          <fieldset className="approval-policy__step">
+            <legend>
+              {t(
+                'حقول تُؤجَّل لما بعد توقيع المستأجر وقبل التسليم',
+                'Fields deferred until after tenant sign, before handover',
+              )}
+            </legend>
+            <div className="approval-policy__options">
+              {DEFERRED_LEASE_FIELDS.map((field) => (
+                <label
+                  key={field}
+                  className={`approval-policy__option${
+                    draft.deferUntilHandover.includes(field) ? ' approval-policy__option--on' : ''
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={draft.deferUntilHandover.includes(field)}
+                    onChange={() => toggleDefer(field)}
+                  />
+                  <span>
+                    <strong>{deferredLeaseFieldLabel(field, ar)}</strong>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="approval-policy__step">
+            <legend>
+              {t('إقرار المستأجر بصحة البيانات', 'Tenant attestation of accurate data')}
+            </legend>
+            <label
+              className={`approval-policy__option${
+                draft.requireTenantAttestation ? ' approval-policy__option--on' : ''
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={draft.requireTenantAttestation}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    requireTenantAttestation: event.target.checked,
+                  }))
+                }
+              />
+              <span>
+                <strong>
+                  {t(
+                    'إلزام المستأجر بالتأكيد قبل رفع المستندات أو توقيع العقد',
+                    'Require tenant confirmation before uploads or contract signature',
+                  )}
+                </strong>
+              </span>
+            </label>
+          </fieldset>
+        </>
+      ) : null}
+
       {draft.contract === 'auto' ? (
         <p className="notice notice--info">
           {signer && saved?.contract === 'auto'
             ? t(
-                `يوقَّع العقد تلقائياً باسم ${signer} الذي فعّل هذه السياسة. إن فقد صلاحية التوقيع يعود الاعتماد يدوياً.`,
-                `Contracts are signed automatically in the name of ${signer}, who enabled this policy. If they lose signing rights, approval goes back to manual.`,
+                `يوقَّع العقد تلقائياً باسم ${signer} الذي فعّل هذه السياسة.`,
+                `Contracts are signed automatically in the name of ${signer}, who enabled this policy.`,
               )
             : t(
-                'يوقَّع العقد تلقائياً باسمك أنت عند الحفظ. إن فقدت صلاحية التوقيع يعود الاعتماد يدوياً.',
-                'Contracts will be signed automatically in your name. If you lose signing rights, approval goes back to manual.',
+                'يوقَّع العقد تلقائياً باسمك أنت عند الحفظ.',
+                'Contracts will be signed automatically in your name.',
               )}
         </p>
       ) : null}
@@ -272,8 +328,8 @@ export function ApprovalPolicyCard({
           <strong>{t('ما يراه العميل عند الاعتماد الإلكتروني', 'What the client sees')}</strong>
           <p>
             {t(
-              'تنبيه: تم الاعتماد إلكترونياً؛ سيراجع الفريق المستندات يدوياً قبل التسليم. إن وُجد اختلاف أو عدم صحة يحق للمالك إلغاء الحجز والطلب ويتحمّل المستأجر كامل المسؤولية — لذلك يُطلب منه التأكيد قبل المتابعة.',
-              'Notice: approved electronically; the team will manually review documents before handover. If anything is wrong or mismatched, the owner may cancel the booking and the tenant bears full responsibility — so confirmation is required before continuing.',
+              'تنبيه: تم الاعتماد إلكترونياً؛ قد تُراجع المستندات يدوياً قبل التسليم.',
+              'Notice: approved electronically; documents may still be reviewed manually before handover.',
             )}
           </p>
         </div>
@@ -286,7 +342,7 @@ export function ApprovalPolicyCard({
           disabled={busy || !dirty}
           onClick={() => void save(draft)}
         >
-          {busy ? t('جارٍ الحفظ…', 'Saving…') : t('حفظ السياسة', 'Save policy')}
+          {busy ? t('جارٍ الحفظ…', 'Saving…') : t('حفظ سياسة هذا النوع', 'Save this type’s policy')}
         </button>
         {saved ? (
           <button
@@ -304,6 +360,80 @@ export function ApprovalPolicyCard({
           {message.text}
         </p>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Three contract kinds — daily rental, long-term lease, purchase — each with its own
+ * booking approval, e-contract, e-sign, and (for rent/sale) viewing automation.
+ */
+export function ApprovalPolicyCard({
+  locale,
+  propertyId,
+  kinds,
+}: {
+  locale: 'ar' | 'en';
+  propertyId: string | null;
+  kinds: ApprovalPolicyKindState[];
+}) {
+  const ar = locale === 'ar';
+  const t = (arText: string, enText: string) => (ar ? arText : enText);
+  const ordered = useMemo(() => {
+    const map = new Map(kinds.map((row) => [row.kind, row]));
+    return CONTRACT_APPROVAL_KINDS.map(
+      (kind) =>
+        map.get(kind) ?? {
+          kind,
+          initialPolicy: null,
+          delegateName: null,
+          inherited: {
+            source: 'default' as const,
+            policy: DEFAULT_APPROVAL_POLICY_BY_KIND[kind],
+          },
+        },
+    );
+  }, [kinds]);
+  const [active, setActive] = useState<ContractApprovalKind>('rent');
+
+  return (
+    <section className="approval-policy" aria-labelledby="approval-policy-title">
+      <header className="approval-policy__head">
+        <div>
+          <h2 id="approval-policy-title">
+            {propertyId
+              ? t('اعتماد العقود لهذا العقار', 'Contract approvals for this property')
+              : t('اعتماد العقود حسب النوع', 'Contract approvals by type')}
+          </h2>
+          <p className="muted">
+            {t(
+              'لكل نوع عقد (يومي، طويل الأجل، شراء) ضبط منفصل: اعتماد الحجز، العقد الإلكتروني، التوقيع الإلكتروني، وأتمتة المعاينة حيث تنطبق.',
+              'Each contract type (daily, long-term, purchase) has its own booking approval, e-contract, e-signature, and viewing automation where it applies.',
+            )}
+          </p>
+        </div>
+      </header>
+
+      <div className="approval-policy__tabs" role="tablist" aria-label={t('نوع العقد', 'Contract type')}>
+        {ordered.map((row) => (
+          <button
+            key={row.kind}
+            type="button"
+            role="tab"
+            aria-selected={active === row.kind}
+            className={`button ${active === row.kind ? 'button--primary' : 'button--quiet'}`}
+            onClick={() => setActive(row.kind)}
+          >
+            {contractApprovalKindLabel(row.kind, ar)}
+          </button>
+        ))}
+      </div>
+
+      {ordered.map((row) =>
+        row.kind === active ? (
+          <KindEditor key={row.kind} locale={locale} propertyId={propertyId} state={row} />
+        ) : null,
+      )}
     </section>
   );
 }

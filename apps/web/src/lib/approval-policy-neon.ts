@@ -11,10 +11,13 @@ import {
 import { memberships, properties, stayPolicies, stayProfiles, units, users } from '@bhd-r/db';
 import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
 import {
-  DEFAULT_APPROVAL_POLICY,
+  DEFAULT_APPROVAL_POLICY_BY_KIND,
+  isContractApprovalKind,
   sanitizeApprovalPolicy,
   type ApprovalPolicy,
   type ApprovalPolicySource,
+  type ContractApprovalKind,
+  CONTRACT_APPROVAL_KINDS,
 } from '@/lib/approval-policy';
 import {
   applyMemberScope,
@@ -34,8 +37,32 @@ const CONTRACT_DELEGATE_PERMISSIONS: Permission[] = [
   'lease.create',
 ];
 
-function policyCode(propertyId: string | null) {
+/** Who may save each contract kind's policy. */
+const KIND_MANAGE_PERMISSIONS: Record<ContractApprovalKind, Permission[]> = {
+  daily: ['stay.booking.manage', 'reservation.manage'],
+  rent: ['reservation.manage'],
+  sale: ['sale.manage', 'reservation.manage'],
+};
+
+function legacyPolicyCode(propertyId: string | null) {
   return `approval_policy:${propertyId ?? ORGANIZATION_SCOPE}`;
+}
+
+function policyCode(kind: ContractApprovalKind, propertyId: string | null) {
+  return `approval_policy:${kind}:${propertyId ?? ORGANIZATION_SCOPE}`;
+}
+
+function kindNames(kind: ContractApprovalKind, propertyId: string | null) {
+  const labels: Record<ContractApprovalKind, [string, string]> = {
+    daily: ['سياسة اعتماد الإيجار اليومي', 'Daily rental approval policy'],
+    rent: ['سياسة اعتماد الإيجار طويل الأجل', 'Long-term lease approval policy'],
+    sale: ['سياسة اعتماد عقود الشراء', 'Purchase contract approval policy'],
+  };
+  const [ar, en] = labels[kind];
+  return {
+    nameAr: propertyId ? `${ar} — عقار` : `${ar} — المؤسسة`,
+    nameEn: propertyId ? `${en} — property` : `${en} — organization`,
+  };
 }
 
 /** The member who set the policy; automatic contract approval signs in their name. */
@@ -45,25 +72,37 @@ export type StoredApprovalPolicy = {
   policy: ApprovalPolicy;
   delegate: ApprovalDelegate | null;
   updatedAt: string;
+  kind: ContractApprovalKind;
 };
 
 export type ResolvedApprovalPolicy = {
   source: ApprovalPolicySource;
   policy: ApprovalPolicy;
   delegate: ApprovalDelegate | null;
+  kind: ContractApprovalKind;
 };
 
-/** Caller must already be scoped to `organizationId`. */
-export async function readApprovalPolicy(
+function parseDelegate(rules: { delegate?: unknown }): ApprovalDelegate | null {
+  const delegate = rules.delegate as Partial<ApprovalDelegate> | undefined;
+  return delegate && typeof delegate.userId === 'string'
+    ? {
+        userId: delegate.userId,
+        name: typeof delegate.name === 'string' ? delegate.name : null,
+      }
+    : null;
+}
+
+async function readPolicyRow(
   transaction: Tx,
   organizationId: string,
-  propertyId: string | null,
+  code: string,
+  kind: ContractApprovalKind,
 ): Promise<StoredApprovalPolicy | null> {
   const row = await transaction.query.stayPolicies.findFirst({
     where: and(
       eq(stayPolicies.organizationId, organizationId),
       eq(stayPolicies.kind, POLICY_KIND),
-      eq(stayPolicies.code, policyCode(propertyId)),
+      eq(stayPolicies.code, code),
       eq(stayPolicies.status, 'active'),
     ),
     orderBy: [desc(stayPolicies.version)],
@@ -71,82 +110,213 @@ export async function readApprovalPolicy(
   });
   if (!row) return null;
   const rules = (row.rulesJson ?? {}) as { policy?: unknown; delegate?: unknown };
-  const delegate = rules.delegate as Partial<ApprovalDelegate> | undefined;
   return {
-    policy: sanitizeApprovalPolicy(rules.policy),
-    delegate:
-      delegate && typeof delegate.userId === 'string'
-        ? {
-            userId: delegate.userId,
-            name: typeof delegate.name === 'string' ? delegate.name : null,
-          }
-        : null,
+    policy: sanitizeApprovalPolicy(rules.policy, kind),
+    delegate: parseDelegate(rules),
     updatedAt: row.updatedAt.toISOString(),
+    kind,
   };
 }
 
-/** Property override → organization policy → platform default (everything by hand except payment). */
+/** Caller must already be scoped to `organizationId`. */
+export async function readApprovalPolicy(
+  transaction: Tx,
+  organizationId: string,
+  propertyId: string | null,
+  kind: ContractApprovalKind = 'rent',
+): Promise<StoredApprovalPolicy | null> {
+  const typed = await readPolicyRow(
+    transaction,
+    organizationId,
+    policyCode(kind, propertyId),
+    kind,
+  );
+  if (typed) return typed;
+  // Legacy unscoped policy (pre per-kind) — reuse until the owner saves a typed one.
+  return readPolicyRow(transaction, organizationId, legacyPolicyCode(propertyId), kind);
+}
+
+/**
+ * Property typed → property legacy → org typed → org legacy → kind default.
+ */
 export async function resolveApprovalPolicy(
   transaction: Tx,
   organizationId: string,
   propertyId: string,
+  kind: ContractApprovalKind = 'rent',
 ): Promise<ResolvedApprovalPolicy> {
   return withElevatedRead(transaction, async () => {
-    const own = await readApprovalPolicy(transaction, organizationId, propertyId);
-    if (own) return { source: 'property' as const, policy: own.policy, delegate: own.delegate };
-    const shared = await readApprovalPolicy(transaction, organizationId, null);
-    if (shared) {
-      return { source: 'organization' as const, policy: shared.policy, delegate: shared.delegate };
+    const propertyTyped = await readPolicyRow(
+      transaction,
+      organizationId,
+      policyCode(kind, propertyId),
+      kind,
+    );
+    if (propertyTyped) {
+      return {
+        source: 'property' as const,
+        policy: propertyTyped.policy,
+        delegate: propertyTyped.delegate,
+        kind,
+      };
     }
-    return { source: 'default' as const, policy: DEFAULT_APPROVAL_POLICY, delegate: null };
+    const propertyLegacy = await readPolicyRow(
+      transaction,
+      organizationId,
+      legacyPolicyCode(propertyId),
+      kind,
+    );
+    if (propertyLegacy) {
+      return {
+        source: 'legacy' as const,
+        policy: propertyLegacy.policy,
+        delegate: propertyLegacy.delegate,
+        kind,
+      };
+    }
+    const orgTyped = await readPolicyRow(
+      transaction,
+      organizationId,
+      policyCode(kind, null),
+      kind,
+    );
+    if (orgTyped) {
+      return {
+        source: 'organization' as const,
+        policy: orgTyped.policy,
+        delegate: orgTyped.delegate,
+        kind,
+      };
+    }
+    const orgLegacy = await readPolicyRow(
+      transaction,
+      organizationId,
+      legacyPolicyCode(null),
+      kind,
+    );
+    if (orgLegacy) {
+      return {
+        source: 'legacy' as const,
+        policy: orgLegacy.policy,
+        delegate: orgLegacy.delegate,
+        kind,
+      };
+    }
+    return {
+      source: 'default' as const,
+      policy: DEFAULT_APPROVAL_POLICY_BY_KIND[kind],
+      delegate: null,
+      kind,
+    };
   });
 }
 
 export type OwnerApprovalPolicyView = {
+  kind: ContractApprovalKind;
   own: StoredApprovalPolicy | null;
-  /** The organization policy a property inherits; null on the organization page itself. */
-  inherited: { source: ApprovalPolicySource; policy: ApprovalPolicy } | null;
+  /** What applies without an override at this level. */
+  inherited: { source: ApprovalPolicySource; policy: ApprovalPolicy };
+};
+
+export type OwnerApprovalPolicyBundle = {
+  kinds: OwnerApprovalPolicyView[];
 };
 
 export async function loadOwnerApprovalPolicy(
   scope: MemberScope,
   propertyId: string | null,
+  kind: ContractApprovalKind = 'rent',
 ): Promise<OwnerApprovalPolicyView> {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     await applyMemberScope(transaction, scope);
-    const own = await readApprovalPolicy(transaction, scope.organizationId, propertyId);
-    if (!propertyId) return { own, inherited: null };
-    const shared = await readApprovalPolicy(transaction, scope.organizationId, null);
-    return {
-      own,
-      inherited: shared
-        ? { source: 'organization', policy: shared.policy }
-        : { source: 'default', policy: DEFAULT_APPROVAL_POLICY },
-    };
+    const ownTyped = await readPolicyRow(
+      transaction,
+      scope.organizationId,
+      policyCode(kind, propertyId),
+      kind,
+    );
+    if (!propertyId) {
+      const legacy = ownTyped
+        ? null
+        : await readPolicyRow(
+            transaction,
+            scope.organizationId,
+            legacyPolicyCode(null),
+            kind,
+          );
+      return {
+        kind,
+        own: ownTyped,
+        inherited: {
+          source: legacy ? 'legacy' : 'default',
+          policy: legacy?.policy ?? DEFAULT_APPROVAL_POLICY_BY_KIND[kind],
+        },
+      };
+    }
+    const orgTyped = await readPolicyRow(
+      transaction,
+      scope.organizationId,
+      policyCode(kind, null),
+      kind,
+    );
+    const orgLegacy = orgTyped
+      ? null
+      : await readPolicyRow(transaction, scope.organizationId, legacyPolicyCode(null), kind);
+    const propertyLegacy = ownTyped
+      ? null
+      : await readPolicyRow(
+          transaction,
+          scope.organizationId,
+          legacyPolicyCode(propertyId),
+          kind,
+        );
+    const inherited = propertyLegacy
+      ? { source: 'legacy' as const, policy: propertyLegacy.policy }
+      : orgTyped
+        ? { source: 'organization' as const, policy: orgTyped.policy }
+        : orgLegacy
+          ? { source: 'legacy' as const, policy: orgLegacy.policy }
+          : { source: 'default' as const, policy: DEFAULT_APPROVAL_POLICY_BY_KIND[kind] };
+    return { kind, own: ownTyped, inherited };
   });
 }
 
+export async function loadOwnerApprovalPolicyBundle(
+  scope: MemberScope,
+  propertyId: string | null,
+): Promise<OwnerApprovalPolicyBundle> {
+  const kinds = await Promise.all(
+    CONTRACT_APPROVAL_KINDS.map((kind) => loadOwnerApprovalPolicy(scope, propertyId, kind)),
+  );
+  return { kinds };
+}
+
+function canManageKind(claims: SessionClaims, kind: ContractApprovalKind): boolean {
+  return KIND_MANAGE_PERMISSIONS[kind].some((permission) => hasPermission(claims, permission));
+}
+
 /**
- * Saves the policy for a property (`propertyId`) or the whole organization (null).
- * `policy` null removes the override: a property falls back to the organization, the
- * organization to the platform default.
+ * Saves the policy for one contract kind at property or organization scope.
+ * `policy` null removes the typed override (falls back to legacy / wider / default).
  */
 export async function saveApprovalPolicy(
   claims: SessionClaims,
   propertyId: string | null,
   policy: ApprovalPolicy | null,
-): Promise<{ policy: ApprovalPolicy | null; delegateName: string | null }> {
+  kind: ContractApprovalKind = 'rent',
+): Promise<{ policy: ApprovalPolicy | null; delegateName: string | null; kind: ContractApprovalKind }> {
   const organizationId = claims.organizationId;
   if (!organizationId) throw new Error('organization_required');
-  if (!hasPermission(claims, 'reservation.manage')) throw new Error('forbidden');
+  if (!isContractApprovalKind(kind)) throw new Error('invalid_body');
+  if (!canManageKind(claims, kind)) throw new Error('forbidden');
   if (
     policy?.contract === 'auto' &&
     !CONTRACT_DELEGATE_PERMISSIONS.every((permission) => hasPermission(claims, permission))
   ) {
     throw new Error('approval_delegate_forbidden');
   }
-  const code = policyCode(propertyId);
+  const code = policyCode(kind, propertyId);
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     await applyMemberScope(transaction, {
@@ -177,7 +347,7 @@ export async function saveApprovalPolicy(
           eq(stayPolicies.status, 'active'),
         ),
       );
-    if (!policy) return { policy: null, delegateName: null };
+    if (!policy) return { policy: null, delegateName: null, kind };
 
     const [latest] = await transaction
       .select({ version: sql<number>`coalesce(max(${stayPolicies.version}), 0)::int` })
@@ -194,16 +364,18 @@ export async function saveApprovalPolicy(
       .from(users)
       .where(eq(users.id, claims.sub))
       .limit(1);
-    const clean = sanitizeApprovalPolicy(policy);
+    const clean = sanitizeApprovalPolicy(policy, kind);
+    const names = kindNames(kind, propertyId);
     await transaction.insert(stayPolicies).values({
       organizationId,
       kind: POLICY_KIND,
       code,
-      nameAr: propertyId ? 'سياسة اعتماد الحجوزات — عقار' : 'سياسة اعتماد الحجوزات — المؤسسة',
-      nameEn: propertyId ? 'Booking approval policy — property' : 'Booking approval policy',
+      nameAr: names.nameAr,
+      nameEn: names.nameEn,
       version: (latest?.version ?? 0) + 1,
       rulesJson: {
         scope: 'approval_policy',
+        contractKind: kind,
         propertyId,
         policy: clean,
         delegate: { userId: claims.sub, name: viewer?.name ?? null },
@@ -211,17 +383,19 @@ export async function saveApprovalPolicy(
       },
       status: 'active',
     });
-    await syncStayRescheduleApprovalInTx(
-      transaction,
-      organizationId,
-      propertyId,
-      clean.reschedule === 'auto',
-    );
-    return { policy: clean, delegateName: viewer?.name ?? null };
+    if (kind === 'daily') {
+      await syncStayRescheduleApprovalInTx(
+        transaction,
+        organizationId,
+        propertyId,
+        clean.reschedule === 'auto',
+      );
+    }
+    return { policy: clean, delegateName: viewer?.name ?? null, kind };
   });
 }
 
-/** Keep stay profile toggles aligned with the org/property reschedule approval step. */
+/** Keep stay profile toggles aligned with the daily reschedule approval step. */
 async function syncStayRescheduleApprovalInTx(
   transaction: Tx,
   organizationId: string,

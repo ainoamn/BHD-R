@@ -820,6 +820,7 @@ async function ownerActionInTx(
           tx,
           row.orgId,
           row.propertyId,
+          sale ? 'sale' : 'rent',
         );
         const deferUntilHandover = approvalPolicy.deferUntilHandover;
         let draft: NonNullable<ReservationLifecycle['contractDraft']>;
@@ -1027,6 +1028,7 @@ export async function runReservationAutomation(
             orgId: reservations.organizationId,
             propertyId: units.propertyId,
             flow: sql<string | null>`${reservations.termsSnapshot}->>'flow'`,
+            mode: sql<string | null>`${reservations.termsSnapshot}->>'mode'`,
           })
           .from(reservations)
           .innerJoin(units, eq(units.id, reservations.unitId))
@@ -1034,7 +1036,12 @@ export async function runReservationAutomation(
           .limit(1),
       );
       if (!base || base.flow !== LEASE_BOOKING_FLOW) return null;
-      const resolved = await resolveApprovalPolicy(tx, base.orgId, base.propertyId);
+      const resolved = await resolveApprovalPolicy(
+        tx,
+        base.orgId,
+        base.propertyId,
+        base.mode === 'sale' ? 'sale' : 'rent',
+      );
       const { policy, delegate } = resolved;
       const signer =
         policy.contract === 'auto' && delegate
