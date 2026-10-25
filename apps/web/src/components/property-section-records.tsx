@@ -3,7 +3,12 @@
 import { useSearchParams } from 'next/navigation';
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link } from '@/i18n/navigation';
-import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
+import {
+  LeaseContractForm,
+  type LeaseBankAccountOption,
+  type LeaseContractPayload,
+} from '@/components/lease-contract-form';
+import type { AccountingSettings } from '@/lib/accounting-integrity';
 import { LeaseTermsView, parseLeaseTerms, parseTenantDetails } from '@/components/lease-terms-view';
 import { ModalPortal } from '@/components/modal-portal';
 import { NoteTranslateBar } from '@/components/note-translate';
@@ -1284,6 +1289,7 @@ export function PropertySectionRecords({
     null,
   );
   const [formOpen, setFormOpen] = useState(false);
+  const [bankAccounts, setBankAccounts] = useState<LeaseBankAccountOption[]>([]);
   const [stampForm, setStampForm] = useState<{
     rowId: string;
     kind: StampKind;
@@ -2071,6 +2077,35 @@ export function PropertySectionRecords({
       : section === 'sales' && viewer.canCreateSale
         ? 'sale'
         : null;
+
+  useEffect(() => {
+    if (!formOpen || manualKind !== 'lease') return;
+    let cancelled = false;
+    void fetch('/api/owner/accounting/settings', { credentials: 'same-origin' })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as { settings?: AccountingSettings };
+        if (cancelled || !data.settings?.bankAccounts) return;
+        setBankAccounts(
+          data.settings.bankAccounts.map((row) => ({
+            id: row.id,
+            labelAr: row.labelAr,
+            labelEn: row.labelEn,
+            bankName: row.bankName,
+            accountHolderName: row.accountHolderName,
+            accountHolderNameEn: row.accountHolderNameEn,
+            defaultForRent: row.defaultForRent,
+            active: row.active,
+            propertyIds: row.propertyIds,
+          })),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [formOpen, manualKind]);
+
   const showActions = ACTION_SECTIONS.has(section) || Boolean(config.href);
 
   return (
@@ -2162,6 +2197,8 @@ export function PropertySectionRecords({
           canSign={viewer.canSignContracts}
           locale={locale}
           busy={busyId === 'form'}
+          bankAccounts={bankAccounts}
+          propertyId={propertyId}
           onSubmit={(payload) => void createManual('lease', payload)}
           onCancel={() => setFormOpen(false)}
         />

@@ -113,6 +113,7 @@ export function LeaseReservationDetail({
         mode={booking.mode}
         phase={booking.phase}
         lifecycle={booking.ownerLifecycle}
+        propertyId={booking.propertyId}
         unit={booking.formUnit}
         tenant={booking.formTenant}
         party={booking.party}

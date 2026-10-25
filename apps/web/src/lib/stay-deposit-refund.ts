@@ -34,18 +34,32 @@ export const REFUND_CONSENT: { ar: readonly string[]; en: readonly string[] } = 
   ],
 };
 
-/** Suggestions for the bank field; any other bank can be typed. */
+/**
+ * Licensed banks operating in the Sultanate (CBO list + common Islamic windows).
+ * Values stay bilingual so owner and tenant UIs share one string.
+ */
 export const OMAN_BANKS: readonly string[] = [
   'بنك مسقط · Bank Muscat',
   'البنك الوطني العماني · National Bank of Oman',
   'بنك ظفار · Bank Dhofar',
   'صحار الدولي · Sohar International',
-  'البنك العربي العماني · Oman Arab Bank',
-  'بنك إتش إس بي سي عمان · HSBC Oman',
+  'بنك عمان العربي · Oman Arab Bank',
   'البنك الأهلي · Ahli Bank',
   'بنك نزوى · Bank Nizwa',
   'العز الإسلامي · Alizz Islamic Bank',
   'بنك الإسكان العماني · Oman Housing Bank',
+  'بنك التنمية العماني · Oman Development Bank',
+  'بنك ستاندرد تشارترد · Standard Chartered Bank',
+  'بنك أبوظبي الأول · First Abu Dhabi Bank',
+  'بنك قطر الوطني · Qatar National Bank',
+  'بنك بيروت · Bank of Beirut',
+  'بنك الدولة الهندي · State Bank of India',
+  'بنك بارودا · Bank of Baroda',
+  'بنك ملي إيران · Bank Melli Iran',
+  'بنك صادرات إيران · Bank Saderat Iran',
+  'بنك الخليج الدولي · Gulf International Bank',
+  'إتش إس بي سي الشرق الأوسط · HSBC Middle East',
+  'بنك المشرق · Mashreq Bank',
 ];
 
 /** Where the money goes: a bank account (or IBAN) or a phone number linked to a bank. */

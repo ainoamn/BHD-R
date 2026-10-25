@@ -201,8 +201,10 @@ export type LeaseBankAccountOption = {
   labelEn: string;
   bankName: string;
   accountHolderName: string;
+  accountHolderNameEn?: string;
   defaultForRent?: boolean;
   active?: boolean;
+  propertyIds?: string[];
 };
 
 export function LeaseContractForm({
@@ -220,6 +222,7 @@ export function LeaseContractForm({
   submitLabel,
   footnote,
   bankAccounts = [],
+  propertyId = null,
 }: {
   units: PropertyRecordUnit[];
   tenants: PropertyRecordTenant[];
@@ -240,6 +243,8 @@ export function LeaseContractForm({
   footnote?: string | undefined;
   /** Org bank accounts from accounting settings — bind rent receipts. */
   bankAccounts?: LeaseBankAccountOption[] | undefined;
+  /** Property for auto-selecting a linked rent bank account. */
+  propertyId?: string | null | undefined;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
@@ -278,6 +283,34 @@ export function LeaseContractForm({
     () => bankAccounts.filter((row) => row.active !== false),
     [bankAccounts],
   );
+
+  useEffect(() => {
+    if ((draft.rentBankAccountId ?? '').trim()) return;
+    if (!activeBankAccounts.length) return;
+    const linked = propertyId
+      ? activeBankAccounts.find((row) => row.propertyIds?.includes(propertyId))
+      : undefined;
+    const picked =
+      linked ?? activeBankAccounts.find((row) => row.defaultForRent) ?? activeBankAccounts[0];
+    if (!picked) return;
+    const payee = (picked.accountHolderNameEn || picked.accountHolderName).trim();
+    setDraft((current) => ({
+      ...current,
+      rentBankAccountId: picked.id,
+      ...(current.paymentMethod === 'cheque'
+        ? {
+            chequeBankName: current.chequeBankName?.trim()
+              ? current.chequeBankName
+              : picked.bankName,
+            chequeAccountName: current.chequeAccountName?.trim()
+              ? current.chequeAccountName
+              : payee,
+          }
+        : {}),
+    }));
+    // Auto-bind once when bank accounts / property become available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot seed
+  }, [activeBankAccounts, propertyId]);
 
   const scheduleRentMinor = useMemo(() => {
     if (draft.rentCalcMode === 'per_meter') {
@@ -1248,29 +1281,36 @@ export function LeaseContractForm({
               onChange={(event) => {
                 const id = event.target.value;
                 const account = activeBankAccounts.find((row) => row.id === id);
-                setDraft((current) => ({
-                  ...current,
-                  rentBankAccountId: id,
-                  ...(account && current.paymentMethod === 'cheque'
-                    ? {
-                        chequeBankName: current.chequeBankName?.trim()
-                          ? current.chequeBankName
-                          : account.bankName,
-                        chequeAccountName: current.chequeAccountName?.trim()
-                          ? current.chequeAccountName
-                          : account.accountHolderName,
-                      }
-                    : {}),
-                }));
+                setDraft((current) => {
+                  const payee = account
+                    ? (account.accountHolderNameEn || account.accountHolderName).trim()
+                    : '';
+                  return {
+                    ...current,
+                    rentBankAccountId: id,
+                    ...(account && current.paymentMethod === 'cheque'
+                      ? {
+                          chequeBankName: account.bankName,
+                          chequeAccountName: payee || current.chequeAccountName,
+                        }
+                      : {}),
+                  };
+                });
               }}
             >
               <option value="">{t('— بدون ربط —', '— Not linked —')}</option>
-              {activeBankAccounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {ar ? account.labelAr : account.labelEn || account.labelAr}
-                  {account.defaultForRent ? t(' (افتراضي)', ' (default)') : ''}
-                </option>
-              ))}
+              {activeBankAccounts.map((account) => {
+                const forProperty =
+                  propertyId && account.propertyIds?.includes(propertyId)
+                    ? t(' (مرتبط بالعقار)', ' (linked to property)')
+                    : '';
+                return (
+                  <option key={account.id} value={account.id}>
+                    {ar ? account.labelAr : account.labelEn || account.labelAr}
+                    {forProperty || (account.defaultForRent ? t(' (افتراضي)', ' (default)') : '')}
+                  </option>
+                );
+              })}
             </select>
           </Field>
         ) : null}

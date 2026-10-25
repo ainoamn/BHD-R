@@ -37,15 +37,43 @@ export type AccountingBankAccount = {
   labelEn: string;
   bankName: string;
   accountHolderName: string;
+  /** Latin / English holder name (cheques and transfers). */
+  accountHolderNameEn: string;
   iban: string;
   accountNumber: string;
   currency: string;
   active: boolean;
   /** Prefer this account when binding a new lease's rent receipts. */
   defaultForRent: boolean;
+  /**
+   * Properties that should auto-use this account on new leases.
+   * Empty = org-wide (only via defaultForRent / manual pick).
+   */
+  propertyIds: string[];
   /** Optional GL cash/bank leaf created under Cash & Bank. */
   ledgerAccountId: string | null;
 };
+
+/** Prefer property-linked account, else the org default, else the first active. */
+export function resolveRentBankAccount(
+  accounts: AccountingBankAccount[] | null | undefined,
+  propertyId: string | null | undefined,
+): AccountingBankAccount | null {
+  const active = (accounts ?? []).filter((row) => row.active);
+  if (!active.length) return null;
+  if (propertyId) {
+    const linked = active.find((row) => row.propertyIds.includes(propertyId));
+    if (linked) return linked;
+  }
+  return active.find((row) => row.defaultForRent) ?? active[0] ?? null;
+}
+
+export function bankAccountPayeeName(account: AccountingBankAccount, preferEn = true): string {
+  const en = account.accountHolderNameEn.trim();
+  const ar = account.accountHolderName.trim();
+  if (preferEn) return en || ar;
+  return ar || en;
+}
 
 export type AccountingSettings = {
   vatEnabled: boolean;
@@ -178,12 +206,21 @@ export function normalizeAccountingSettings(raw: unknown): AccountingSettings {
             String(item.labelEn ?? '')
               .trim()
               .slice(0, 120) || labelAr;
+          const propertyIds = Array.isArray(item.propertyIds)
+            ? item.propertyIds
+                .map((value) => String(value ?? '').trim().slice(0, 64))
+                .filter((value) => /^[0-9a-f-]{36}$/i.test(value))
+                .slice(0, 200)
+            : [];
           return {
             id,
             labelAr,
             labelEn,
             bankName,
             accountHolderName,
+            accountHolderNameEn: String(item.accountHolderNameEn ?? '')
+              .trim()
+              .slice(0, 160),
             iban: String(item.iban ?? '')
               .trim()
               .slice(0, 64),
@@ -193,6 +230,7 @@ export function normalizeAccountingSettings(raw: unknown): AccountingSettings {
             currency: /^[A-Z]{3}$/.test(currency) ? currency : base.baseCurrency,
             active: item.active !== false,
             defaultForRent: Boolean(item.defaultForRent),
+            propertyIds,
             ledgerAccountId:
               typeof item.ledgerAccountId === 'string' && item.ledgerAccountId.trim()
                 ? item.ledgerAccountId.trim().slice(0, 64)

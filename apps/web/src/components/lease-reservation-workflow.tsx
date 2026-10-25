@@ -78,6 +78,7 @@ type Props = {
   mode: 'rent' | 'sale';
   phase: LeaseJourneyPhase;
   lifecycle: ReservationLifecycle;
+  propertyId: string;
   unit: PropertyRecordUnit;
   tenant: PropertyRecordTenant;
   /** Tenant or buyer details the customer filled in while booking. */
@@ -1592,6 +1593,7 @@ function ContractDraftEditor({
   locale,
   mode,
   lifecycle,
+  propertyId,
   unit,
   tenant,
   party,
@@ -1632,8 +1634,10 @@ function ContractDraftEditor({
             labelEn: row.labelEn,
             bankName: row.bankName,
             accountHolderName: row.accountHolderName,
+            accountHolderNameEn: row.accountHolderNameEn,
             defaultForRent: row.defaultForRent,
             active: row.active,
+            propertyIds: row.propertyIds,
           })),
         );
       })
@@ -1774,6 +1778,7 @@ function ContractDraftEditor({
         locale={locale}
         busy={busy}
         bankAccounts={bankAccounts}
+        propertyId={propertyId}
         heading={ar ? 'بيانات عقد الإيجار' : 'Lease contract details'}
         submitLabel={ar ? 'حفظ العقد والمستندات' : 'Save contract & documents'}
         footnote={footnote}
