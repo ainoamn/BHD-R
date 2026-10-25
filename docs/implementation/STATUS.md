@@ -1,8 +1,8 @@
 # Implementation status
 
-**Updated:** 2026-10-20  
-**Product version:** 0.8.134  
-**Active focus:** Viewing AI notes + guard schedule gate + bookings table + soft-nav notifications (0.8.134); next: editable templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
+**Updated:** 2026-10-25  
+**Product version:** 0.8.134.138  
+**Active focus:** Per-contract-type approvals + smart tenant documents + viewing auto-schedule (0.8.134.138); next: editable notification templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
 
 
 
@@ -19,7 +19,7 @@
 **Lease registration reference:** [`LEASE-REGISTRATION-AR.md`](./LEASE-REGISTRATION-AR.md)  
 **Session handoff:** [`../handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md`](../handoffs/2026-10-12-session-0.2.24-to-0.8.33/README.md) (full session 2026-08-25 → 2026-10-12, release index with times, redacted chat)
 
-## Recent releases (2026-10-07 → 2026-10-11)
+## Recent releases (2026-10-07 → 2026-10-25)
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
