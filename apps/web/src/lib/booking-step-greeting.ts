@@ -33,7 +33,7 @@ export function stayCheckoutGreeting(
             heading: place
               ? `أهلاً بك في ${place}! لنرتّب إقامتك على ذوقك`
               : 'أهلاً بك! لنرتّب إقامتك على ذوقك',
-            body: 'شريحة بعد شريحة: نوع الإقامة ثم التواريخ ثم الضيوف — ننتقل تلقائياً بعد كل اختيار، ويمكنك الرجوع للتعديل في أي وقت.',
+            body: 'نوع الإقامة، ثم التواريخ، ثم الضيوف — ننتقل تلقائياً ويمكنك الرجوع للتعديل.',
           }
         : {
             kind: 'stay',
@@ -41,7 +41,7 @@ export function stayCheckoutGreeting(
             heading: place
               ? `Welcome to ${place}! Let’s plan your stay`
               : 'Welcome! Let’s plan your stay',
-            body: 'One slide at a time: stay type, then dates, then guests — we advance after each choice, and you can go back to edit anytime.',
+            body: 'Stay type, then dates, then guests — we advance automatically, and you can go back to edit.',
           };
     case 'guest':
       return ar
