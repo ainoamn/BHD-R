@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.128 — 2026-10-25
+
+- **إصلاح بناء الإنتاج:** إكمال حقول `stayType` في اختبارات مساحة المستأجر بعد عرض فترة نصف اليوم.
+
 ## 0.8.134.127 — 2026-10-25
 
 - **فترة نصف اليوم في مساحة المستأجر:** عقود وحجوزات day_use تظهر يوماً واحداً لا يومين؛ وفي حجوزات المالك يظهر التأمين بشارة مدفوع/غير مدفوع.

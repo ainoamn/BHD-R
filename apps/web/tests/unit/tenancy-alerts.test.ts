@@ -29,6 +29,7 @@ function contract(patch: Partial<TenancyContract>): TenancyContract {
     amountMinor: '180000',
     currency: 'OMR',
     stayReference: null,
+    stayType: null,
     createdAt: '2026-10-10T00:00:00.000Z',
     ...patch,
   };
@@ -74,6 +75,7 @@ function stay(patch: Partial<TenancyStay>): TenancyStay {
     status: 'confirmed',
     checkInOn: '2026-10-20',
     checkOutOn: '2026-10-22',
+    stayType: null,
     totalMinor: '40000',
     currency: 'OMR',
     titleAr: null,
