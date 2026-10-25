@@ -13,6 +13,7 @@
 
 
 
+**Release 0.8.134.138:** [`RELEASE-0.8.134.138-AR.md`](./RELEASE-0.8.134.138-AR.md)  
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
 **Release 0.6.1:** [`RELEASE-0.6.1-AR.md`](./RELEASE-0.6.1-AR.md)  
@@ -23,6 +24,12 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.134.138     | Per-type approval (daily/rent/sale), e-sign toggle, viewing auto-schedule, team capability splits |
+| 0.8.134.137     | Smart tenant document matrix (person/company × Omani/expat + signatories) |
+| 0.8.134.136     | Full electronic approval path, deferred lease fields, tenant attestation |
+| 0.8.134.135     | Required lease meter/handover fields; cheque payee locked to bank accounts |
+| 0.8.134.134     | Bank accounts UI: Oman banks, translate holder, property link |
+| 0.8.134.133     | Tenant cheque details after cheque-payment contracts; bank accounts in accounting |
 | 0.8.134         | Viewing desk AI/suggestions; hide unscheduled viewings from guards; bookings table layout; bilingual email footers; soft-nav notifications |
 | 0.8.133         | Responsive email layout on all devices; bilingual cheerful WhatsApp formatter + studio device preview |
 | 0.8.132         | Owner/developer studio: preview email & WhatsApp notification templates |
