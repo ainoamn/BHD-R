@@ -22653,6 +22653,58 @@ button.lrw__step-body:focus-visible {
 .terms-acceptance__view {
   font-size: 0.88rem;
 }
+.terms-acceptance__view--required {
+  border: 2px solid #c62828;
+  background: #c62828;
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 6px 16px rgb(198 40 40 / 0.28);
+}
+.terms-acceptance__view--required:hover,
+.terms-acceptance__view--required:focus-visible {
+  background: #b71c1c;
+  border-color: #b71c1c;
+  color: #fff;
+}
+.terms-acceptance__collapsed-hint {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.65rem;
+  background: #f7faf8;
+  color: var(--muted, #5c6b64);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.lease-checkout .stays-checkout__summary {
+  gap: 0.45rem 0.75rem;
+}
+.lease-checkout .stays-checkout__panel {
+  gap: 0.7rem;
+}
+.lease-checkout .party-form__property {
+  margin-bottom: 0.35rem;
+}
+@media (max-width: 899px) {
+  .lease-checkout .stays-checkout__steps {
+    margin: 0.25rem 0 0.4rem;
+  }
+  .lease-checkout .stays-checkout__summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .terms-acceptance__scroll {
+    max-height: min(36vh, 14rem);
+  }
+  .terms-acceptance__view--required {
+    width: 100%;
+    justify-content: center;
+    min-height: 2.6rem;
+  }
+  .terms-acceptance__toolbar {
+    display: grid;
+    gap: 0.45rem;
+  }
+}
 .lease-checkout__question {
   margin: 0 0 0.5rem;
   font-weight: 700;
@@ -22897,17 +22949,20 @@ button.lrw__step-body:focus-visible {
 }
 .terms-acceptance__toolbar {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin: 0 0 0.5rem;
 }
 .terms-acceptance__scroll {
-  max-height: 24rem;
+  max-height: min(42vh, 18rem);
   overflow-y: auto;
-  margin: 0 0 0.75rem;
-  padding: 0.6rem;
+  margin: 0;
+  padding: 0.75rem 0.9rem;
   border: 1px solid #d7e1db;
   border-radius: 0.75rem;
-  background: #fbfcfb;
+  background: #fff;
 }
 .terms-acceptance__scroll:focus-visible {
   outline: 2px solid var(--bhd-teal);

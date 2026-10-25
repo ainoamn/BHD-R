@@ -5,12 +5,10 @@ import { TermsDocument } from '@/components/terms-document';
 import { TermsPrintButton } from '@/components/terms-print-button';
 import type { NumberedTermsBlock, TermsLetterhead } from '@/lib/booking-terms';
 
-const BOTTOM_TOLERANCE_PX = 8;
-
 /**
  * Terms acceptance for booking checkouts.
- * - `consent` (default): checkbox always available; optional “view terms” expands the document.
- * - `scroll`: legacy lease flow — checkbox only after scrolling to the end.
+ * Document stays collapsed until the guest opens it; the open CTA is a red
+ * “must read” control. Acceptance is available after they open at least once.
  */
 export function TermsAcceptance({
   ar,
@@ -21,7 +19,6 @@ export function TermsAcceptance({
   onAcceptedChange,
   resetKey,
   id = 'booking-terms',
-  mode = 'consent',
 }: {
   ar: boolean;
   blocks: NumberedTermsBlock[];
@@ -31,64 +28,51 @@ export function TermsAcceptance({
   onAcceptedChange: (accepted: boolean) => void;
   resetKey: string;
   id?: string;
+  /** @deprecated Always collapsed + openable; kept for call-site compatibility. */
   mode?: 'consent' | 'scroll';
 }) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [reachedEnd, setReachedEnd] = useState(mode === 'consent');
   const [termsOpen, setTermsOpen] = useState(false);
+  const [hasOpened, setHasOpened] = useState(false);
 
-  const checkEnd = useCallback(() => {
-    const node = scrollRef.current;
-    if (!node) return;
-    if (node.scrollHeight - node.scrollTop - node.clientHeight <= BOTTOM_TOLERANCE_PX) {
-      setReachedEnd(true);
-    }
+  useEffect(() => {
+    setTermsOpen(false);
+    setHasOpened(false);
+  }, [resetKey]);
+
+  const openTerms = useCallback(() => {
+    setTermsOpen(true);
+    setHasOpened(true);
   }, []);
 
-  useEffect(() => {
-    if (mode === 'consent') {
-      setReachedEnd(true);
-      return;
-    }
-    setReachedEnd(false);
-    const node = scrollRef.current;
-    if (node) node.scrollTop = 0;
-    const frame = window.requestAnimationFrame(checkEnd);
-    return () => window.cancelAnimationFrame(frame);
-  }, [resetKey, checkEnd, mode]);
-
-  useEffect(() => {
-    if (mode !== 'scroll') return;
-    const node = scrollRef.current;
-    if (!node || typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(() => checkEnd());
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [checkEnd, mode, termsOpen]);
-
-  const showDocument = mode === 'scroll' || termsOpen;
-  const canAccept = mode === 'consent' || reachedEnd;
-
   return (
-    <div className={`terms-acceptance terms-acceptance--${mode}`}>
+    <div className="terms-acceptance terms-acceptance--consent">
       <div className="terms-acceptance__toolbar">
-        {mode === 'consent' ? (
-          <button
-            type="button"
-            className="button button--quiet terms-acceptance__view"
-            onClick={() => setTermsOpen((open) => !open)}
-            aria-expanded={termsOpen}
-            aria-controls={id}
-          >
-            {termsOpen
-              ? ar
-                ? 'إخفاء الشروط والأحكام'
-                : 'Hide terms & conditions'
-              : ar
-                ? 'اطّلع على الشروط والأحكام'
-                : 'View terms & conditions'}
-          </button>
-        ) : null}
+        <button
+          type="button"
+          className={
+            termsOpen
+              ? 'button button--quiet terms-acceptance__view'
+              : 'button terms-acceptance__view terms-acceptance__view--required'
+          }
+          onClick={() => {
+            if (termsOpen) {
+              setTermsOpen(false);
+              return;
+            }
+            openTerms();
+          }}
+          aria-expanded={termsOpen}
+          aria-controls={id}
+        >
+          {termsOpen
+            ? ar
+              ? 'إخفاء الشروط والأحكام'
+              : 'Hide terms & conditions'
+            : ar
+              ? 'اقرأ الشروط والأحكام (إلزامي)'
+              : 'Read terms & conditions (required)'}
+        </button>
         <TermsPrintButton
           ar={ar}
           blocks={blocks}
@@ -98,7 +82,7 @@ export function TermsAcceptance({
         />
       </div>
 
-      {showDocument ? (
+      {termsOpen ? (
         <div
           ref={scrollRef}
           id={id}
@@ -106,13 +90,18 @@ export function TermsAcceptance({
           tabIndex={0}
           role="region"
           aria-label={ar ? 'الشروط والأحكام' : 'Terms and conditions'}
-          onScroll={mode === 'scroll' ? checkEnd : undefined}
         >
           <TermsDocument blocks={blocks} />
         </div>
-      ) : null}
+      ) : (
+        <p className="terms-acceptance__collapsed-hint" role="status">
+          {ar
+            ? 'الشروط مطوية — اضغط الزر الأحمر لقراءتها قبل المتابعة.'
+            : 'Terms are collapsed — tap the red button to read them before continuing.'}
+        </p>
+      )}
 
-      {canAccept ? (
+      {hasOpened ? (
         <label className="checkbox-row lease-checkout__accept terms-acceptance__consent">
           <input
             type="checkbox"
@@ -128,8 +117,8 @@ export function TermsAcceptance({
       ) : (
         <p className="terms-acceptance__hint" role="status">
           {ar
-            ? '↓ مرّر إلى أسفل الشروط والأحكام حتى النهاية لإظهار زر الموافقة.'
-            : '↓ Scroll to the end of the terms to show the acceptance checkbox.'}
+            ? 'يجب فتح الشروط والأحكام وقراءتها قبل الموافقة.'
+            : 'You must open and read the terms before accepting.'}
         </p>
       )}
     </div>

@@ -365,15 +365,41 @@ export function LeaseDepositCheckout({
     }
   }
 
+  const showScene = step === 'terms';
+  const denseChrome = !showScene;
+  const leaseGreeting = leaseCheckoutGreeting(step, {
+    ar,
+    sale: mode === 'sale',
+    name: greetingName(contacts.self.fullName),
+  });
+
   return (
     <section
-      className="stays-checkout stays-checkout--wizard stays-checkout--page"
+      className={[
+        'stays-checkout stays-checkout--wizard stays-checkout--page lease-checkout',
+        denseChrome ? 'stays-checkout--dense' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       aria-labelledby="lease-checkout-title"
     >
-      <h2 id="lease-checkout-title">{ar ? 'إكمال الحجز' : 'Complete your booking'}</h2>
-      <p className="stays-checkout__property muted">{title}</p>
+      <h2
+        id="lease-checkout-title"
+        className={denseChrome ? 'stays-checkout__title--sr' : undefined}
+      >
+        {ar ? 'إكمال الحجز' : 'Complete your booking'}
+      </h2>
+      {title && !denseChrome ? <p className="stays-checkout__property muted">{title}</p> : null}
 
-      <ol className="stays-checkout__steps" aria-label={ar ? 'خطوات الحجز' : 'Booking steps'}>
+      <ol
+        className={[
+          'stays-checkout__steps',
+          denseChrome ? 'stays-checkout__steps--quiet' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-label={ar ? 'خطوات الحجز' : 'Booking steps'}
+      >
         {steps.map((item, index) => {
           const active = item.id === step;
           const done = index < currentIndex;
@@ -395,21 +421,31 @@ export function LeaseDepositCheckout({
         })}
       </ol>
 
-      <BookingStepScene
-        greeting={leaseCheckoutGreeting(step, {
-          ar,
-          sale: mode === 'sale',
-          name: greetingName(contacts.self.fullName),
-        })}
-        label={steps[currentIndex]!.label}
-        stepNo={currentIndex + 1}
-        stepCount={steps.length}
-        ar={ar}
-      />
+      {showScene ? (
+        <BookingStepScene
+          greeting={leaseGreeting}
+          label={steps[currentIndex]!.label}
+          stepNo={currentIndex + 1}
+          stepCount={steps.length}
+          ar={ar}
+        />
+      ) : (
+        <div className="stays-checkout__compact-head">
+          <p className="stays-checkout__compact-meta">
+            <span>{steps[currentIndex]!.label}</span>
+            <span dir="ltr">
+              {currentIndex + 1} / {steps.length}
+            </span>
+          </p>
+          <h3>{leaseGreeting.heading}</h3>
+        </div>
+      )}
 
       {step === 'terms' ? (
         <div className="stays-checkout__panel">
-          <h3>{ar ? 'الشروط والأحكام' : 'Terms & conditions'}</h3>
+          <h3 className="stays-checkout__section-title">
+            {ar ? 'الشروط والأحكام' : 'Terms & conditions'}
+          </h3>
           {allowedModes.length > 1 ? (
             <div
               className="lease-checkout__modes"
@@ -473,16 +509,17 @@ export function LeaseDepositCheckout({
             onAcceptedChange={setAccepted}
             resetKey={`${mode}:${termsRef}`}
             id="lease-booking-terms"
-            mode="scroll"
           />
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={!accepted}
-            onClick={continueFromTerms}
-          >
-            {ar ? 'متابعة' : 'Continue'}
-          </button>
+          <div className="stays-checkout__nav stays-checkout__nav--sticky">
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={!accepted}
+              onClick={continueFromTerms}
+            >
+              {ar ? 'متابعة' : 'Continue'}
+            </button>
+          </div>
         </div>
       ) : null}
 
@@ -624,7 +661,7 @@ export function LeaseDepositCheckout({
               </span>
             </label>
           ) : null}
-          <div className="stays-checkout__nav">
+          <div className="stays-checkout__nav stays-checkout__nav--sticky">
             <button type="button" className="button button--quiet" onClick={() => setStep('terms')}>
               {ar ? 'رجوع' : 'Back'}
             </button>
@@ -739,7 +776,7 @@ export function LeaseDepositCheckout({
             minMonths={minLeaseMonths}
             locale={locale}
           />
-          <div className="stays-checkout__nav">
+          <div className="stays-checkout__nav stays-checkout__nav--sticky">
             <button
               type="button"
               className="button button--quiet"
@@ -838,7 +875,7 @@ export function LeaseDepositCheckout({
               ? 'يُحجز العقار باسمك فقط بعد دفع مبلغ الضمان بنجاح، ثم تنتقل مباشرة لتوقيع العقد وإرفاق المستندات.'
               : 'The property is reserved for you only after the deposit is paid; you then sign the contract and attach documents.'}
           </p>
-          <div className="stays-checkout__nav">
+          <div className="stays-checkout__nav stays-checkout__nav--sticky">
             <button type="button" className="button button--quiet" onClick={() => setStep('party')}>
               {ar ? 'رجوع' : 'Back'}
             </button>
@@ -886,7 +923,7 @@ export function LeaseDepositCheckout({
               ? 'أكمل الدفع خلال 30 دقيقة للاحتفاظ بالحجز، وبعده يُفتح العقد للتوقيع.'
               : 'Pay within 30 minutes to keep the booking; the contract opens for signing right after.'}
           </p>
-          <div className="stays-checkout__nav">
+          <div className="stays-checkout__nav stays-checkout__nav--sticky">
             <button
               type="button"
               className="button button--primary"
