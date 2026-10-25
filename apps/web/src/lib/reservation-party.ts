@@ -1,5 +1,10 @@
 import { z } from 'zod';
 import { CONTRACT_USES, type ContractUse } from '@/lib/lease-terms';
+import {
+  missingCompanyFields,
+  missingPersonFields,
+  type PartyDocAttach,
+} from '@/lib/profile-completeness';
 import { countryName, isCountryCode, isInternationalPhone } from '@/lib/world-countries';
 
 /**
@@ -11,11 +16,25 @@ export const MAX_LEASE_MONTHS = 120;
 /** A commercial registration must stay valid at least this long after booking. */
 export const CR_MIN_VALID_MONTHS = 2;
 
+const docAttachSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    mime: z.string().trim().min(3).max(120),
+    size: z.number().int().positive().max(1_200_000),
+    dataUrl: z.string().max(1_600_000).optional(),
+  })
+  .strict();
+
 export type PartySignatory = {
   name: string;
   civilId: string;
   phone: string;
   nationality?: string | undefined;
+  passport?: string | undefined;
+  civilIdExpiresOn?: string | undefined;
+  passportExpiresOn?: string | undefined;
+  civilIdCopy?: PartyDocAttach | undefined;
+  passportCopy?: PartyDocAttach | undefined;
 };
 
 export type ReservationPerson = {
@@ -27,6 +46,11 @@ export type ReservationPerson = {
   phone: string;
   altPhone: string;
   email: string;
+  civilIdExpiresOn?: string | undefined;
+  passportExpiresOn?: string | undefined;
+  civilIdCopy?: PartyDocAttach | undefined;
+  passportCopy?: PartyDocAttach | undefined;
+  emailVerified?: boolean | undefined;
 };
 
 export type ReservationCompany = {
@@ -42,6 +66,8 @@ export type ReservationCompany = {
   activity: string;
   signingMode: 'single' | 'joint';
   signatories: PartySignatory[];
+  crCopy?: PartyDocAttach | undefined;
+  emailVerified?: boolean | undefined;
 };
 
 export type ReservationParty = {
@@ -61,13 +87,20 @@ export type ReservationPartyError =
   | 'passport_required'
   | 'cr_expired'
   | 'cr_expiring_soon'
-  | 'term_too_short';
+  | 'term_too_short'
+  | 'email_unverified'
+  | 'documents_incomplete';
 
 const text = (max: number) => z.string().trim().max(max);
 const required = (max: number) => z.string().trim().min(2).max(max);
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const optionalIso = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  isoDate.optional(),
+);
 const phone = z.string().trim().refine(isInternationalPhone);
 const email = z.string().trim().max(254).email();
+const optionalDoc = docAttachSchema.optional();
 
 const personSchema = z
   .object({
@@ -79,6 +112,11 @@ const personSchema = z
     phone,
     altPhone: phone,
     email,
+    civilIdExpiresOn: optionalIso,
+    passportExpiresOn: optionalIso,
+    civilIdCopy: optionalDoc,
+    passportCopy: optionalDoc,
+    emailVerified: z.boolean().optional(),
   })
   .strict();
 
@@ -87,11 +125,15 @@ const signatorySchema = z
     name: required(160),
     civilId: text(32),
     phone: z.string().trim().max(20),
-    /** ISO country code; older bookings may omit it. */
     nationality: z.preprocess(
       (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
       z.string().length(2).refine(isCountryCode).optional(),
     ),
+    passport: text(32).optional(),
+    civilIdExpiresOn: optionalIso,
+    passportExpiresOn: optionalIso,
+    civilIdCopy: optionalDoc,
+    passportCopy: optionalDoc,
   })
   .strict();
 
@@ -109,6 +151,8 @@ const companySchema = z
     activity: required(200),
     signingMode: z.enum(['single', 'joint']),
     signatories: z.array(signatorySchema).min(1).max(10),
+    crCopy: optionalDoc,
+    emailVerified: z.boolean().optional(),
   })
   .strict();
 
@@ -130,9 +174,8 @@ function addMonthsIso(iso: string, months: number): string {
 }
 
 /**
- * Business rules on top of the shape: passport for non-Omanis, a commercial registration that
- * is valid for at least two more months, signatories that match the signing mode, and a lease
- * term no shorter than the owner's minimum (one year by default).
+ * Business rules on top of the shape: passport for non-Omanis, CR validity, signatories,
+ * email OTP verification, and identity document copies with expiry dates.
  */
 export function reservationPartyError(
   party: ReservationParty,
@@ -150,6 +193,8 @@ export function reservationPartyError(
       return 'passport_required';
     }
     if (person.phone === person.altPhone) return 'tenant_details_invalid';
+    if (!person.emailVerified) return 'email_unverified';
+    if (missingPersonFields(person).length) return 'documents_incomplete';
     return null;
   }
   const company = party.company;
@@ -165,14 +210,8 @@ export function reservationPartyError(
   if (company.signingMode === 'joint' && company.signatories.length < 2) {
     return 'tenant_details_invalid';
   }
-  if (
-    company.signingMode === 'single' &&
-    company.signatories.some(
-      (row) => row.civilId.trim().length < 4 || !isInternationalPhone(row.phone),
-    )
-  ) {
-    return 'tenant_details_invalid';
-  }
+  if (!company.emailVerified) return 'email_unverified';
+  if (missingCompanyFields(company).length) return 'documents_incomplete';
   return null;
 }
 
@@ -181,23 +220,25 @@ export function partyErrorText(code: string, ar: boolean): string {
     case 'passport_required':
       return ar
         ? 'رقم الجواز إلزامي لغير العمانيين.'
-        : 'A passport number is required for non-Omanis.';
+        : 'Passport number is required for non-Omani tenants.';
     case 'cr_expired':
-      return ar
-        ? 'السجل التجاري منتهٍ — يجب تجديده أولاً.'
-        : 'The commercial registration has expired — renew it first.';
+      return ar ? 'السجل التجاري منتهٍ.' : 'The commercial registration has expired.';
     case 'cr_expiring_soon':
       return ar
-        ? 'السجل التجاري ينتهي خلال أقل من شهرين — يجب تجديده أولاً.'
-        : 'The commercial registration expires in under two months — renew it first.';
+        ? 'السجل التجاري ينتهي خلال أقل من شهرين.'
+        : 'The commercial registration expires in less than two months.';
     case 'term_too_short':
+      return ar ? 'مدة العقد أقصر من الحد الأدنى للعقار.' : 'The term is shorter than the property minimum.';
+    case 'email_unverified':
       return ar
-        ? 'مدة العقد أقل من الحد الأدنى الذي حدده المالك.'
-        : 'The contract term is shorter than the owner’s minimum.';
+        ? 'أكّد البريد الإلكتروني برمز التحقق المرسل إلى بريدك.'
+        : 'Verify the email with the OTP sent to your inbox.';
+    case 'documents_incomplete':
+      return ar
+        ? 'أكمل الحقول والمستندات الناقصة (نسخ البطاقات/الجواز وتواريخ الانتهاء).'
+        : 'Complete the missing fields and documents (ID/passport copies and expiry dates).';
     default:
-      return ar
-        ? 'أكمل بيانات المستأجر أو المشتري بشكل صحيح.'
-        : 'Complete the tenant or buyer details correctly.';
+      return ar ? 'تحقّق من بيانات الطرف المتعاقد.' : 'Check the contracting party details.';
   }
 }
 

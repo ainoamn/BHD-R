@@ -100,6 +100,7 @@ const KNOWN_CODES = new Set([
   'requirements_invalid',
   'requirement_not_found',
   'documents_incomplete',
+  'email_unverified',
   'contract_awaiting_counterparty',
   'handover_invalid',
   'sale_decision_not_open',
@@ -225,6 +226,7 @@ export function statusForSafeCode(code: string): number {
     case 'reservation_not_ready':
     case 'reservation_closed':
     case 'documents_incomplete':
+    case 'email_unverified':
     case 'contract_awaiting_counterparty':
       return 409;
     case 'requirements_invalid':

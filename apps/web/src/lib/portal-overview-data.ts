@@ -318,6 +318,35 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
   });
 }
 
+async function withProfileCompletenessAlerts(
+  claims: SessionClaims,
+  overview: PortalOverview,
+): Promise<PortalOverview> {
+  try {
+    const { loadProfileCompletenessSummary } = await import('@/lib/profile-completeness-neon');
+    const completeness = await loadProfileCompletenessSummary(claims);
+    const alerts = [...(overview.alerts ?? [])];
+    if (completeness.ownerMissing > 0) {
+      alerts.push({
+        severity: 'warning',
+        code: 'incomplete_owner_profile',
+        count: completeness.ownerMissing,
+      });
+    }
+    if (completeness.buildingsMissing > 0) {
+      alerts.push({
+        severity: 'warning',
+        code: 'incomplete_buildings',
+        count: completeness.buildingsMissing,
+      });
+    }
+    return { ...overview, alerts };
+  } catch (error) {
+    console.error('profile completeness alerts', error);
+    return overview;
+  }
+}
+
 async function tenantOverviewFromDb(claims: SessionClaims): Promise<PortalOverview> {
   return withinViewerTenant(claims, async (transaction) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -491,8 +520,10 @@ export const loadPortalOverview = cache(async (portal: PortalRole): Promise<Port
           );
         }
         const overview = await withTimeoutFallback(
-          organizationOverviewFromDb(claims),
-          3_000,
+          organizationOverviewFromDb(claims).then((row) =>
+            withProfileCompletenessAlerts(claims, row),
+          ),
+          4_000,
           emptyOverview(),
           'org-overview-neon',
         );

@@ -2,8 +2,16 @@
 
 import { useMemo } from 'react';
 import { BilingualNameField } from '@/components/bilingual-name-field';
+import { EmailOtpField } from '@/components/email-otp-field';
 import { InternationalPhoneField } from '@/components/international-phone-field';
+import { MissingFieldsBanner } from '@/components/missing-fields-banner';
+import { PartyDocAttachField } from '@/components/party-doc-attach';
 import type { ContractUse } from '@/lib/lease-terms';
+import {
+  missingCompanyFields,
+  missingPersonFields,
+  type PartyDocAttach,
+} from '@/lib/profile-completeness';
 import {
   CR_MIN_VALID_MONTHS,
   MAX_LEASE_MONTHS,
@@ -14,7 +22,17 @@ import {
 } from '@/lib/reservation-party';
 import { sortedCountries } from '@/lib/world-countries';
 
-type SignatoryForm = { name: string; civilId: string; phone: string; nationality: string };
+type SignatoryForm = {
+  name: string;
+  civilId: string;
+  phone: string;
+  nationality: string;
+  passport: string;
+  civilIdExpiresOn: string;
+  passportExpiresOn: string;
+  civilIdCopy?: PartyDocAttach | undefined;
+  passportCopy?: PartyDocAttach | undefined;
+};
 
 export type PartyForm = {
   contractType: ContractUse;
@@ -29,6 +47,11 @@ export type PartyForm = {
     phone: string;
     altPhone: string;
     email: string;
+    civilIdExpiresOn: string;
+    passportExpiresOn: string;
+    civilIdCopy?: PartyDocAttach | undefined;
+    passportCopy?: PartyDocAttach | undefined;
+    emailVerified: boolean;
   };
   company: {
     nameAr: string;
@@ -43,6 +66,8 @@ export type PartyForm = {
     activity: string;
     signingMode: 'single' | 'joint';
     signatories: SignatoryForm[];
+    crCopy?: PartyDocAttach | undefined;
+    emailVerified: boolean;
   };
 };
 
@@ -51,6 +76,9 @@ const EMPTY_SIGNATORY: SignatoryForm = {
   civilId: '',
   phone: '',
   nationality: 'OM',
+  passport: '',
+  civilIdExpiresOn: '',
+  passportExpiresOn: '',
 };
 
 export function emptyPartyForm(
@@ -70,6 +98,9 @@ export function emptyPartyForm(
       phone: '',
       altPhone: '',
       email: '',
+      civilIdExpiresOn: '',
+      passportExpiresOn: '',
+      emailVerified: false,
     },
     company: {
       nameAr: '',
@@ -84,6 +115,7 @@ export function emptyPartyForm(
       activity: '',
       signingMode: 'single',
       signatories: [{ ...EMPTY_SIGNATORY }],
+      emailVerified: false,
     },
   };
 }
@@ -204,8 +236,12 @@ export function ReservationPartyForm({
       ),
     });
 
+  const missing =
+    entityType === 'person' ? missingPersonFields(person) : missingCompanyFields(company);
+
   return (
     <div className="party-form">
+      <MissingFieldsBanner locale={locale} fields={missing} />
       {!sale ? (
         <fieldset className="party-form__section">
           <legend>{ar ? 'العقد' : 'Contract'}</legend>
@@ -324,25 +360,70 @@ export function ReservationPartyForm({
                 onChange={(event) => setPerson({ civilId: event.target.value })}
               />
             </div>
+            <div className="field">
+              <label htmlFor="party-civil-expiry">
+                {ar ? 'انتهاء البطاقة' : 'Civil ID expiry'}
+                <span aria-hidden="true"> *</span>
+              </label>
+              <input
+                id="party-civil-expiry"
+                className="input"
+                type="date"
+                required
+                min={muscatToday()}
+                value={person.civilIdExpiresOn}
+                onChange={(event) => setPerson({ civilIdExpiresOn: event.target.value })}
+              />
+            </div>
+            <PartyDocAttachField
+              id="party-civil-copy"
+              label={ar ? 'نسخة البطاقة' : 'Civil ID copy'}
+              locale={locale}
+              required
+              value={person.civilIdCopy}
+              onChange={(civilIdCopy) => setPerson({ civilIdCopy })}
+            />
             {!omani ? (
-              <div className="field">
-                <label htmlFor="party-passport">
-                  {ar ? 'رقم الجواز' : 'Passport number'}
-                  <span aria-hidden="true"> *</span>
-                </label>
-                <input
-                  id="party-passport"
-                  className="input"
-                  dir="ltr"
+              <>
+                <div className="field">
+                  <label htmlFor="party-passport">
+                    {ar ? 'رقم الجواز' : 'Passport number'}
+                    <span aria-hidden="true"> *</span>
+                  </label>
+                  <input
+                    id="party-passport"
+                    className="input"
+                    dir="ltr"
+                    required
+                    maxLength={32}
+                    value={person.passport}
+                    onChange={(event) => setPerson({ passport: event.target.value })}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="party-passport-expiry">
+                    {ar ? 'انتهاء الجواز' : 'Passport expiry'}
+                    <span aria-hidden="true"> *</span>
+                  </label>
+                  <input
+                    id="party-passport-expiry"
+                    className="input"
+                    type="date"
+                    required
+                    min={muscatToday()}
+                    value={person.passportExpiresOn}
+                    onChange={(event) => setPerson({ passportExpiresOn: event.target.value })}
+                  />
+                </div>
+                <PartyDocAttachField
+                  id="party-passport-copy"
+                  label={ar ? 'نسخة الجواز' : 'Passport copy'}
+                  locale={locale}
                   required
-                  maxLength={32}
-                  value={person.passport}
-                  onChange={(event) => setPerson({ passport: event.target.value })}
+                  value={person.passportCopy}
+                  onChange={(passportCopy) => setPerson({ passportCopy })}
                 />
-                <p className="field__hint muted">
-                  {ar ? 'إلزامي لغير العمانيين.' : 'Required for non-Omanis.'}
-                </p>
-              </div>
+              </>
             ) : null}
             <InternationalPhoneField
               id="party-phone"
@@ -376,9 +457,17 @@ export function ReservationPartyForm({
                 required
                 maxLength={254}
                 value={person.email}
-                onChange={(event) => setPerson({ email: event.target.value })}
+                onChange={(event) =>
+                  setPerson({ email: event.target.value, emailVerified: false })
+                }
               />
             </div>
+            <EmailOtpField
+              email={person.email}
+              verified={person.emailVerified}
+              locale={locale}
+              onVerified={(emailVerified) => setPerson({ emailVerified })}
+            />
           </div>
         </fieldset>
       ) : (
@@ -446,6 +535,14 @@ export function ReservationPartyForm({
                     : 'Expired or expiring within two months is not accepted — renew first.'}
                 </p>
               </div>
+              <PartyDocAttachField
+                id="party-cr-copy"
+                label={ar ? 'نسخة السجل التجاري' : 'CR document copy'}
+                locale={locale}
+                required
+                value={company.crCopy}
+                onChange={(crCopy) => setCompany({ crCopy })}
+              />
               <div className="field">
                 <label htmlFor="party-company-email">
                   {ar ? 'البريد الإلكتروني' : 'Email'}
@@ -459,9 +556,17 @@ export function ReservationPartyForm({
                   required
                   maxLength={254}
                   value={company.email}
-                  onChange={(event) => setCompany({ email: event.target.value })}
+                  onChange={(event) =>
+                    setCompany({ email: event.target.value, emailVerified: false })
+                  }
                 />
               </div>
+              <EmailOtpField
+                email={company.email}
+                verified={company.emailVerified}
+                locale={locale}
+                onVerified={(emailVerified) => setCompany({ emailVerified })}
+              />
               <InternationalPhoneField
                 id="party-company-phone"
                 label={ar ? 'رقم التواصل' : 'Contact number'}
@@ -606,6 +711,77 @@ export function ReservationPartyForm({
                       onChange={(event) => setSignatory(index, { civilId: event.target.value })}
                     />
                   </div>
+                  <div className="field">
+                    <label htmlFor={`party-sig-civil-expiry-${index}`}>
+                      {ar ? 'انتهاء البطاقة' : 'ID expiry'}
+                      <span aria-hidden="true"> *</span>
+                    </label>
+                    <input
+                      id={`party-sig-civil-expiry-${index}`}
+                      className="input"
+                      type="date"
+                      required
+                      min={muscatToday()}
+                      value={row.civilIdExpiresOn}
+                      onChange={(event) =>
+                        setSignatory(index, { civilIdExpiresOn: event.target.value })
+                      }
+                    />
+                  </div>
+                  <PartyDocAttachField
+                    id={`party-sig-civil-copy-${index}`}
+                    label={ar ? 'نسخة البطاقة' : 'ID copy'}
+                    locale={locale}
+                    required
+                    value={row.civilIdCopy}
+                    onChange={(civilIdCopy) => setSignatory(index, { civilIdCopy })}
+                  />
+                  {row.nationality && row.nationality !== 'OM' ? (
+                    <>
+                      <div className="field">
+                        <label htmlFor={`party-sig-passport-${index}`}>
+                          {ar ? 'رقم الجواز' : 'Passport'}
+                          <span aria-hidden="true"> *</span>
+                        </label>
+                        <input
+                          id={`party-sig-passport-${index}`}
+                          className="input"
+                          dir="ltr"
+                          required
+                          maxLength={32}
+                          value={row.passport}
+                          onChange={(event) =>
+                            setSignatory(index, { passport: event.target.value })
+                          }
+                        />
+                      </div>
+                      <div className="field">
+                        <label htmlFor={`party-sig-passport-expiry-${index}`}>
+                          {ar ? 'انتهاء الجواز' : 'Passport expiry'}
+                          <span aria-hidden="true"> *</span>
+                        </label>
+                        <input
+                          id={`party-sig-passport-expiry-${index}`}
+                          className="input"
+                          type="date"
+                          required
+                          min={muscatToday()}
+                          value={row.passportExpiresOn}
+                          onChange={(event) =>
+                            setSignatory(index, { passportExpiresOn: event.target.value })
+                          }
+                        />
+                      </div>
+                      <PartyDocAttachField
+                        id={`party-sig-passport-copy-${index}`}
+                        label={ar ? 'نسخة الجواز' : 'Passport copy'}
+                        locale={locale}
+                        required
+                        value={row.passportCopy}
+                        onChange={(passportCopy) => setSignatory(index, { passportCopy })}
+                      />
+                    </>
+                  ) : null}
                   <InternationalPhoneField
                     id={`party-sig-phone-${index}`}
                     label={ar ? 'رقم الهاتف' : 'Phone'}

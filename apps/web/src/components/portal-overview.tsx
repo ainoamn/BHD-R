@@ -53,6 +53,14 @@ function alertCopy(
       return t('Portal.alertDepositRefunds', { count });
     case 'guest_reviews':
       return t('Portal.alertGuestReviews', { count });
+    case 'incomplete_owner_profile':
+      return locale === 'ar'
+        ? `${count} حقل ناقص في بيانات المالك (اسم، بطاقة، هاتف، نسخة البطاقة/الوكالة)`
+        : `${count} missing owner field${count === 1 ? '' : 's'} (name, ID, phone, ID copy / PoA)`;
+    case 'incomplete_buildings':
+      return locale === 'ar'
+        ? `${count} مبنى/عقار ببيانات ناقصة (اسم، موقع، خريطة)`
+        : `${count} building${count === 1 ? '' : 's'} with incomplete details (name, location, map)`;
     default:
       return `${code}: ${count}`;
   }
@@ -70,6 +78,10 @@ function alertHref(portal: PortalRole, code: string): string {
       return `/${portal}/bookings`;
     case 'stay_bookings':
       return `/${portal}/bookings?tab=daily`;
+    case 'incomplete_owner_profile':
+      return `/${portal}/contacts`;
+    case 'incomplete_buildings':
+      return `/${portal}/properties`;
     default:
       return `/${portal}`;
   }

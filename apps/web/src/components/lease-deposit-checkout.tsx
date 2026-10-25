@@ -31,6 +31,8 @@ const PARTY_ERRORS = new Set([
   'cr_expired',
   'cr_expiring_soon',
   'term_too_short',
+  'email_unverified',
+  'documents_incomplete',
 ]);
 type ContactForm = { fullName: string; phone: string; email: string };
 

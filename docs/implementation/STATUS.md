@@ -1,8 +1,8 @@
 # Implementation status
 
 **Updated:** 2026-10-25  
-**Product version:** 0.8.134.138  
-**Active focus:** Per-contract-type approvals + smart tenant documents + viewing auto-schedule (0.8.134.138); next: editable notification templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
+**Product version:** 0.8.134.139  
+**Active focus:** Profile completeness alerts + booking email OTP (0.8.134.139); next: WhatsApp phone OTP, editable notification templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
 
 
 
@@ -10,10 +10,9 @@
 
 
 
-
-
-
+**Release 0.8.134.139:** [`RELEASE-0.8.134.139-AR.md`](./RELEASE-0.8.134.139-AR.md)  
 **Release 0.8.134.138:** [`RELEASE-0.8.134.138-AR.md`](./RELEASE-0.8.134.138-AR.md)  
+
 **Release 0.6.3:** [`RELEASE-0.6.3-AR.md`](./RELEASE-0.6.3-AR.md)  
 **Release 0.6.2:** [`RELEASE-0.6.2-AR.md`](./RELEASE-0.6.2-AR.md)  
 **Release 0.6.1:** [`RELEASE-0.6.1-AR.md`](./RELEASE-0.6.1-AR.md)  
@@ -24,6 +23,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.134.139     | Profile completeness (owner/tenant/building) live alerts; booking email OTP; doc expiry + copies |
 | 0.8.134.138     | Per-type approval (daily/rent/sale), e-sign toggle, viewing auto-schedule, team capability splits |
 | 0.8.134.137     | Smart tenant document matrix (person/company × Omani/expat + signatories) |
 | 0.8.134.136     | Full electronic approval path, deferred lease fields, tenant attestation |

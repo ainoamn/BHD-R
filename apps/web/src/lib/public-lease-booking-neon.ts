@@ -172,6 +172,16 @@ const ERRORS = {
     'أكمل بيانات المستأجر أو المشتري بشكل صحيح.',
     'Complete the tenant or buyer details correctly.',
   ],
+  email_unverified: [
+    400,
+    'أكّد البريد الإلكتروني برمز التحقق المرسل إلى بريدك.',
+    'Verify the email with the OTP sent to your inbox.',
+  ],
+  documents_incomplete: [
+    400,
+    'أكمل الحقول والمستندات الناقصة (نسخ البطاقات/الجواز وتواريخ الانتهاء).',
+    'Complete the missing fields and documents (ID/passport copies and expiry dates).',
+  ],
   passport_required: [
     400,
     'رقم الجواز إلزامي لغير العمانيين.',
