@@ -17,12 +17,16 @@ import {
   type LeaseBankAccountOption,
   type LeaseContractPayload,
 } from '@/components/lease-contract-form';
+import { LeaseRequirementsPicker } from '@/components/lease-requirements-picker';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
 import type { ApprovalPolicy } from '@/lib/approval-policy';
 import {
-  REQUIREMENT_CATALOGUE,
+  DEFAULT_LEASE_DOCUMENT_RULES,
+  type LeaseDocumentRules,
+} from '@/lib/lease-document-rules';
+import {
   documentsPhase,
   documentsToVerify,
   leaseJourneyStageIndex,
@@ -1437,82 +1441,6 @@ function RequirementsReview({
   );
 }
 
-function RequirementsPicker({
-  ar,
-  sale,
-  value,
-  onChange,
-}: {
-  ar: boolean;
-  sale: boolean;
-  value: Array<{ code: string; labelAr: string; labelEn: string }>;
-  onChange: (next: Array<{ code: string; labelAr: string; labelEn: string }>) => void;
-}) {
-  const [custom, setCustom] = useState('');
-  const options = REQUIREMENT_CATALOGUE.filter((item) => (sale ? item.sale : item.rent));
-  const chosen = new Set(value.map((item) => item.code));
-  const customs = value.filter((item) => !options.some((option) => option.code === item.code));
-  function toggle(option: { code: string; labelAr: string; labelEn: string }) {
-    onChange(
-      chosen.has(option.code)
-        ? value.filter((item) => item.code !== option.code)
-        : [...value, { code: option.code, labelAr: option.labelAr, labelEn: option.labelEn }],
-    );
-  }
-  function addCustom() {
-    const label = custom.trim();
-    if (label.length < 2 || value.length >= 12) return;
-    let index = 1;
-    while (chosen.has(`custom_${index}`)) index += 1;
-    onChange([...value, { code: `custom_${index}`, labelAr: label, labelEn: label }]);
-    setCustom('');
-  }
-  return (
-    <fieldset className="lcf-section lrw__picker">
-      <legend>{ar ? '📎 المستندات المطلوبة من العميل' : '📎 Documents to request'}</legend>
-      <p className="muted">
-        {ar
-          ? 'اختر ما يلزم لإتمام العقد. ستظهر القائمة للعميل في صفحة حجزه ليرفعها، ثم تراجعها هنا.'
-          : 'Pick what the contract needs. The client sees this list on their booking page.'}
-      </p>
-      <div className="lrw__chips">
-        {options.map((option) => (
-          <label key={option.code} className="lrw__chip">
-            <input
-              type="checkbox"
-              checked={chosen.has(option.code)}
-              onChange={() => toggle(option)}
-            />
-            <span>{ar ? option.labelAr : option.labelEn}</span>
-          </label>
-        ))}
-        {customs.map((item) => (
-          <label key={item.code} className="lrw__chip">
-            <input
-              type="checkbox"
-              checked
-              onChange={() => onChange(value.filter((entry) => entry.code !== item.code))}
-            />
-            <span>{item.labelAr}</span>
-          </label>
-        ))}
-      </div>
-      <div className="lrw__custom">
-        <input
-          className="input"
-          value={custom}
-          maxLength={120}
-          placeholder={ar ? 'مستند آخر… (مثال: شهادة لا مانع)' : 'Another document…'}
-          onChange={(event) => setCustom(event.target.value)}
-        />
-        <button type="button" className="button button--quiet" onClick={addCustom}>
-          {ar ? 'إضافة' : 'Add'}
-        </button>
-      </div>
-    </fieldset>
-  );
-}
-
 /** What the client chose while booking, beside the unit's facts, so the contract matches it. */
 function ClientRequest({
   ar,
@@ -1615,6 +1543,10 @@ function ContractDraftEditor({
   const [deferUntilHandover, setDeferUntilHandover] = useState<
     ReadonlyArray<'meters' | 'handoverOn'>
   >(lifecycle.autoFlow?.deferUntilHandover ?? []);
+  const [documentRules, setDocumentRules] = useState<LeaseDocumentRules>(
+    DEFAULT_LEASE_DOCUMENT_RULES,
+  );
+  const requirementsLocked = (lifecycle.requirements ?? []).length > 0;
   const [requirements, setRequirements] = useState(
     (lifecycle.requirements ?? []).map(({ code, labelAr, labelEn }) => ({
       code,
@@ -1624,8 +1556,26 @@ function ContractDraftEditor({
   );
 
   useEffect(() => {
-    if (sale) return;
     let cancelled = false;
+    void fetch(
+      `/api/owner/lease-document-rules?propertyId=${encodeURIComponent(propertyId)}`,
+      { credentials: 'same-origin' },
+    )
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as {
+          own?: { rules?: LeaseDocumentRules } | null;
+          inherited?: { rules?: LeaseDocumentRules } | null;
+        };
+        const rules = data.own?.rules ?? data.inherited?.rules;
+        if (!cancelled && rules) setDocumentRules(rules);
+      })
+      .catch(() => undefined);
+    if (sale) {
+      return () => {
+        cancelled = true;
+      };
+    }
     void fetch('/api/owner/accounting/settings', { credentials: 'same-origin' })
       .then(async (response) => {
         if (!response.ok) return;
@@ -1706,7 +1656,27 @@ function ContractDraftEditor({
         salePriceMinor={salePriceMinor}
         locale={locale}
       />
-      <RequirementsPicker ar={ar} sale={sale} value={requirements} onChange={setRequirements} />
+      {sale ? (
+        <LeaseRequirementsPicker
+          ar={ar}
+          sale
+          value={requirements}
+          onChange={setRequirements}
+          rules={documentRules}
+          lockInitial={requirementsLocked}
+          context={{
+            entityType: party?.entityType === 'company' ? 'company' : 'person',
+            nationality:
+              party?.entityType === 'person'
+                ? party.person?.nationality
+                : undefined,
+            signatoryNationality:
+              party?.entityType === 'company'
+                ? party.company?.signatories[0]?.nationality
+                : undefined,
+          }}
+        />
+      ) : null}
     </div>
   );
 
@@ -1800,6 +1770,10 @@ function ContractDraftEditor({
         bankAccounts={bankAccounts}
         propertyId={propertyId}
         deferUntilHandover={deferUntilHandover}
+        requirements={requirements}
+        onRequirementsChange={setRequirements}
+        documentRules={documentRules}
+        requirementsLocked={requirementsLocked}
         heading={ar ? 'بيانات عقد الإيجار' : 'Lease contract details'}
         submitLabel={ar ? 'حفظ العقد والمستندات' : 'Save contract & documents'}
         footnote={footnote}

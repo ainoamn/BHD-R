@@ -14,7 +14,7 @@ import {
 } from '@/lib/reservation-party';
 import { sortedCountries } from '@/lib/world-countries';
 
-type SignatoryForm = { name: string; civilId: string; phone: string };
+type SignatoryForm = { name: string; civilId: string; phone: string; nationality: string };
 
 export type PartyForm = {
   contractType: ContractUse;
@@ -46,7 +46,12 @@ export type PartyForm = {
   };
 };
 
-const EMPTY_SIGNATORY: SignatoryForm = { name: '', civilId: '', phone: '' };
+const EMPTY_SIGNATORY: SignatoryForm = {
+  name: '',
+  civilId: '',
+  phone: '',
+  nationality: 'OM',
+};
 
 export function emptyPartyForm(
   minMonths: number,
@@ -565,6 +570,26 @@ export function ReservationPartyForm({
                       value={row.name}
                       onChange={(event) => setSignatory(index, { name: event.target.value })}
                     />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={`party-sig-nationality-${index}`}>
+                      {ar ? 'الجنسية' : 'Nationality'}
+                      <span aria-hidden="true"> *</span>
+                    </label>
+                    <select
+                      id={`party-sig-nationality-${index}`}
+                      className="select"
+                      value={row.nationality || 'OM'}
+                      onChange={(event) =>
+                        setSignatory(index, { nationality: event.target.value })
+                      }
+                    >
+                      {countries.map((country) => (
+                        <option key={country.code} value={country.code}>
+                          {ar ? country.nameAr : country.nameEn}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="field">
                     <label htmlFor={`party-sig-civil-${index}`}>

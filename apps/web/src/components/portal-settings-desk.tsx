@@ -1,10 +1,13 @@
 import 'server-only';
 import { EmptyState } from '@bhd-r/ui';
 import { ApprovalPolicyCard } from '@/components/approval-policy-card';
+import { LeaseDocumentRulesCard } from '@/components/lease-document-rules-card';
 import { StayReschedulePolicyBoard } from '@/components/stay-reschedule-policy-board';
 import { Link } from '@/i18n/navigation';
 import { DEFAULT_APPROVAL_POLICY } from '@/lib/approval-policy';
 import { loadOwnerApprovalPolicy } from '@/lib/approval-policy-neon';
+import { DEFAULT_LEASE_DOCUMENT_RULES } from '@/lib/lease-document-rules';
+import { loadOwnerLeaseDocumentRules } from '@/lib/lease-document-rules-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import type { PropertyStaySettingsUnit } from '@/lib/property-stay-settings';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
@@ -36,8 +39,9 @@ export async function PortalSettingsDesk({
     roles: viewer.roles,
   };
   const claims = await readSessionClaimsFromCookies();
-  const [approval, stayUnits] = await Promise.all([
+  const [approval, documentRules, stayUnits] = await Promise.all([
     loadOwnerApprovalPolicy(scope, null).catch(() => null),
+    loadOwnerLeaseDocumentRules(scope, null).catch(() => null),
     claims?.organizationId && isStaysPlatformEnabled()
       ? loadPropertyStaySettingsOnNeon(claims, null).catch(
           (): PropertyStaySettingsUnit[] => [],
@@ -111,6 +115,24 @@ export async function PortalSettingsDesk({
             {ar
               ? 'تعذّر تحميل سياسة الاعتماد — حدّث الصفحة.'
               : 'Could not load the approval policy — refresh the page.'}
+          </p>
+        </section>
+      )}
+
+      {documentRules ? (
+        <LeaseDocumentRulesCard
+          locale={locale}
+          propertyId={null}
+          initialRules={documentRules.own?.rules ?? null}
+          inherited={{ source: 'default', rules: DEFAULT_LEASE_DOCUMENT_RULES }}
+        />
+      ) : (
+        <section className="portal-settings__card">
+          <h2>{ar ? 'مستندات المستأجر المطلوبة' : 'Required tenant documents'}</h2>
+          <p className="notice notice--error" role="alert">
+            {ar
+              ? 'تعذّر تحميل قواعد المستندات — حدّث الصفحة.'
+              : 'Could not load document rules — refresh the page.'}
           </p>
         </section>
       )}

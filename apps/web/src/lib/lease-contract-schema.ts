@@ -30,6 +30,7 @@ export const leaseTenantSchema = z
     crExpiry: isoDateSchema.optional().or(z.literal('').transform(() => undefined)),
     signatoryName: short(200),
     signatoryCivilId: short(40),
+    signatoryNationality: short(80),
     phone: short(40),
     email: z
       .string()

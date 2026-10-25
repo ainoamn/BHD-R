@@ -1411,6 +1411,7 @@ export type ManualLeaseTenantInput = {
   crExpiry?: string | undefined;
   signatoryName?: string | undefined;
   signatoryCivilId?: string | undefined;
+  signatoryNationality?: string | undefined;
   phone?: string | undefined;
   email?: string | undefined;
 };
@@ -1435,6 +1436,7 @@ function tenantDetails(input: ManualLeaseTenantInput) {
     crExpiry: company ? clean(input.crExpiry, 10) : null,
     signatoryName: company ? clean(input.signatoryName, 200) : null,
     signatoryCivilId: company ? clean(input.signatoryCivilId, 40) : null,
+    signatoryNationality: company ? clean(input.signatoryNationality, 80) : null,
     phone: clean(input.phone, 40),
     email: clean(input.email, 320)?.toLowerCase() ?? null,
   };

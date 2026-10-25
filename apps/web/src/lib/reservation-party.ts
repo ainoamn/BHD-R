@@ -11,7 +11,12 @@ export const MAX_LEASE_MONTHS = 120;
 /** A commercial registration must stay valid at least this long after booking. */
 export const CR_MIN_VALID_MONTHS = 2;
 
-export type PartySignatory = { name: string; civilId: string; phone: string };
+export type PartySignatory = {
+  name: string;
+  civilId: string;
+  phone: string;
+  nationality?: string | undefined;
+};
 
 export type ReservationPerson = {
   nameAr: string;
@@ -78,7 +83,16 @@ const personSchema = z
   .strict();
 
 const signatorySchema = z
-  .object({ name: required(160), civilId: text(32), phone: z.string().trim().max(20) })
+  .object({
+    name: required(160),
+    civilId: text(32),
+    phone: z.string().trim().max(20),
+    /** ISO country code; older bookings may omit it. */
+    nationality: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z.string().length(2).refine(isCountryCode).optional(),
+    ),
+  })
   .strict();
 
 const companySchema = z
@@ -218,6 +232,9 @@ export function partyToLeaseTenant(party: ReservationParty) {
           ? company.signatories.map((row) => row.name).join('، ')
           : (first?.name ?? ''),
       signatoryCivilId: company.signingMode === 'joint' ? '' : (first?.civilId ?? ''),
+      signatoryNationality: first?.nationality
+        ? countryName(first.nationality, 'ar')
+        : '',
       phone: company.phone,
       email: company.email,
     };
@@ -234,6 +251,7 @@ export function partyToLeaseTenant(party: ReservationParty) {
     crExpiry: '',
     signatoryName: '',
     signatoryCivilId: '',
+    signatoryNationality: '',
     phone: person?.phone ?? '',
     email: person?.email ?? '',
   };

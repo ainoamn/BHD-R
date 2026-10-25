@@ -11,10 +11,16 @@ import {
   periodText,
   pick,
 } from '@/components/lease-terms-view';
+import { LeaseRequirementsPicker } from '@/components/lease-requirements-picker';
 import { NoteTranslateBar } from '@/components/note-translate';
 import { browserNextMutation } from '@/lib/api';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
 import { formatMoney } from '@/lib/format';
+import {
+  DEFAULT_LEASE_DOCUMENT_RULES,
+  type DocumentRequirementPick,
+  type LeaseDocumentRules,
+} from '@/lib/lease-document-rules';
 import {
   ADJUSTMENT_RECURRENCES,
   ADJUSTMENT_SCOPES,
@@ -53,6 +59,8 @@ export type LeaseTenantDraft = {
   crExpiry: string;
   signatoryName: string;
   signatoryCivilId: string;
+  /** Used for smart document suggestions (Omani vs expatriate signatory). */
+  signatoryNationality: string;
   phone: string;
   email: string;
 };
@@ -75,6 +83,7 @@ const EMPTY_TENANT: LeaseTenantDraft = {
   crExpiry: '',
   signatoryName: '',
   signatoryCivilId: '',
+  signatoryNationality: '',
   phone: '',
   email: '',
 };
@@ -239,6 +248,10 @@ export function LeaseContractForm({
   bankAccounts = [],
   propertyId = null,
   deferUntilHandover = [],
+  requirements,
+  onRequirementsChange,
+  documentRules = DEFAULT_LEASE_DOCUMENT_RULES,
+  requirementsLocked = false,
 }: {
   units: PropertyRecordUnit[];
   tenants: PropertyRecordTenant[];
@@ -263,6 +276,12 @@ export function LeaseContractForm({
   propertyId?: string | null | undefined;
   /** From approval policy: fields filled after tenant sign / at handover. */
   deferUntilHandover?: ReadonlyArray<'meters' | 'handoverOn'> | undefined;
+  /** When set with onRequirementsChange, shows the smart documents picker. */
+  requirements?: DocumentRequirementPick[] | undefined;
+  onRequirementsChange?: ((next: DocumentRequirementPick[]) => void) | undefined;
+  documentRules?: LeaseDocumentRules | undefined;
+  /** True when a saved requirements list should not be auto-replaced. */
+  requirementsLocked?: boolean | undefined;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
@@ -838,6 +857,33 @@ export function LeaseContractForm({
                   onChange={(event) => setTenantField('signatoryCivilId', event.target.value)}
                 />
               </Field>
+              <Field
+                id="lcf-sign-nationality"
+                label={t('جنسية المفوض', 'Signatory nationality')}
+                hint={t(
+                  'تحدد مستندات المفوض: عماني (بطاقة) أو وافد (جواز وإقامة).',
+                  'Drives signatory docs: Omani (civil ID) or expatriate (passport & residence).',
+                )}
+              >
+                <input
+                  id="lcf-sign-nationality"
+                  className="input"
+                  maxLength={80}
+                  list="lcf-sign-nationalities"
+                  value={tenant.signatoryNationality}
+                  onChange={(event) =>
+                    setTenantField('signatoryNationality', event.target.value)
+                  }
+                />
+                <datalist id="lcf-sign-nationalities">
+                  <option value={t('عماني', 'Omani')} />
+                  <option value={t('هندي', 'Indian')} />
+                  <option value={t('باكستاني', 'Pakistani')} />
+                  <option value={t('بنغلاديشي', 'Bangladeshi')} />
+                  <option value={t('مصري', 'Egyptian')} />
+                  <option value={t('فلبيني', 'Filipino')} />
+                </datalist>
+              </Field>
             </>
           )}
           <Field id="lcf-phone" label={t('رقم الجوال', 'Mobile')}>
@@ -864,6 +910,22 @@ export function LeaseContractForm({
           </Field>
         </div>
       </Section>
+
+      {requirements && onRequirementsChange ? (
+        <LeaseRequirementsPicker
+          ar={ar}
+          sale={false}
+          value={requirements}
+          onChange={onRequirementsChange}
+          rules={documentRules}
+          lockInitial={requirementsLocked}
+          context={{
+            entityType: tenant.entityType,
+            nationality: tenant.nationality,
+            signatoryNationality: tenant.signatoryNationality,
+          }}
+        />
+      ) : null}
 
       <Section title={t('🏢 الوحدة والعدادات', '🏢 Unit & meters')}>
         <dl className="lcf-facts">
