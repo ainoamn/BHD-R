@@ -94,21 +94,32 @@ export function OperationsWorkspaceClient({
         setHydrating(false);
       });
     };
-    // Live change from another account: refetch in place, keep showing current rows.
-    const onLiveChange = () => {
-      void fetchOpsPayload(portal, section).then((fresh) => {
-        if (!cancelled && fresh && !fresh.loadError) setPayload(fresh);
-      });
-    };
     window.addEventListener('bhd-r-ops-refresh', onRefresh);
-    window.addEventListener(LIVE_CHANGE_EVENT, onLiveChange);
 
     return () => {
       cancelled = true;
       window.removeEventListener('bhd-r-ops-refresh', onRefresh);
-      window.removeEventListener(LIVE_CHANGE_EVENT, onLiveChange);
     };
   }, [portal, section, locale, active]);
+
+  // Keep visited panes warm even while hidden so switching back shows fresh rows.
+  useEffect(() => {
+    let cancelled = false;
+    const onLiveChange = () => {
+      void fetchOpsPayload(portal, section).then((fresh) => {
+        if (!cancelled && fresh && !fresh.loadError) {
+          setPayload(fresh);
+          setStatusReady(true);
+          setHydrating(false);
+        }
+      });
+    };
+    window.addEventListener(LIVE_CHANGE_EVENT, onLiveChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(LIVE_CHANGE_EVENT, onLiveChange);
+    };
+  }, [portal, section]);
 
   return (
     <div className="portal-ops-pane" data-section={section}>

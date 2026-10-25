@@ -1,13 +1,12 @@
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
+import { PortalPendingApprovalsPanel } from '@/components/portal-pending-approvals-panel';
 import { formatMoney } from '@/lib/format';
 import { loadViewerPendingApprovals } from '@/lib/pending-approvals-neon';
 import {
   EMPTY_PENDING_APPROVALS,
   pendingApprovalHref,
-  pendingApprovalAmount,
-  pendingApprovalTitle,
   type PendingApprovals,
 } from '@/lib/pending-approvals-shared';
 import { canOpenPortalPath } from '@/lib/portal-access';
@@ -365,57 +364,16 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         </Link>
       ) : null}
 
-      {approvals.total ? (
-        <section
-          id="pending-approvals"
-          className="dash-approvals"
-          aria-label={t('Portal.approvalsTitle')}
-        >
-          <div className="dash-section-head dash-section-head--compact">
-            <h2>
-              {t('Portal.approvalsTitle')}
-              <span className="dash-approvals__count">{approvals.total}</span>
-            </h2>
-            <p className="dash-section-hint">{t('Portal.approvalsHint')}</p>
-          </div>
-          <ul className="dash-approvals__list">
-            {approvals.items.slice(0, 6).map((item) => (
-              <li key={`${item.kind}:${item.id}`}>
-                <Link href={pendingApprovalHref(portal, item)} prefetch>
-                  <span className="dash-approvals__title">
-                    {pendingApprovalTitle(item, locale === 'ar')}
-                  </span>
-                  <span className="dash-approvals__ref" dir="ltr">
-                    {item.reference}
-                  </span>
-                  <span className="dash-approvals__meta">
-                    {[
-                      locale === 'ar'
-                        ? item.propertyNameAr
-                        : item.propertyNameEn || item.propertyNameAr,
-                      item.unitCode,
-                      item.party,
-                      item.fromOn,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </span>
-                  {pendingApprovalAmount(item, locale === 'ar' ? 'ar' : 'en') ? (
-                    <strong className="dash-approvals__meta">
-                      {pendingApprovalAmount(item, locale === 'ar' ? 'ar' : 'en')}
-                    </strong>
-                  ) : null}
-                  <em className="dash-approvals__open">{t('Portal.approvalsOpen')}</em>
-                </Link>
-              </li>
-            ))}
-          </ul>
-          {approvals.total > 6 ? (
-            <p className="dash-section-hint">
-              {t('Portal.approvalsMore', { count: approvals.total - 6 })}
-            </p>
-          ) : null}
-        </section>
+      {managesProperties ? (
+        <PortalPendingApprovalsPanel
+          portal={portal}
+          locale={locale}
+          initial={approvals}
+          title={t('Portal.approvalsTitle')}
+          hint={t('Portal.approvalsHint')}
+          openLabel={t('Portal.approvalsOpen')}
+          moreLabel={(count) => t('Portal.approvalsMore', { count })}
+        />
       ) : null}
 
       <section className="dash-metrics-block" aria-label={t('Portal.liveStats')}>

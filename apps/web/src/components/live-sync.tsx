@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
@@ -19,28 +19,34 @@ const BACKOFF_MS = 5 * 60_000;
  */
 export function LiveSync({ booking, reference }: { booking?: string; reference?: string }) {
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  /** Survives effect restarts so `router.refresh()` cannot clear the last seen version. */
+  const lastRef = useRef<string | null>(null);
 
   useEffect(() => {
     const query =
       booking && reference
         ? `?booking=${encodeURIComponent(booking)}&ref=${encodeURIComponent(reference)}`
         : '';
-    let last: string | null = null;
     let timer: number | undefined;
     let cancelled = false;
 
     const schedule = (ms: number) => {
-      if (!cancelled) timer = window.setTimeout(() => void tick(), ms);
+      if (cancelled) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void tick(), ms);
     };
 
     const announce = () => {
       markOpsCacheStale();
       window.dispatchEvent(new Event(LIVE_CHANGE_EVENT));
       window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
-      router.refresh();
+      routerRef.current.refresh();
     };
 
     async function tick() {
+      if (cancelled) return;
       if (document.hidden) return schedule(POLL_MS);
       try {
         const response = await fetch(`/api/live/pulse${query}`, {
@@ -52,20 +58,26 @@ export function LiveSync({ booking, reference }: { booking?: string; reference?:
         if (!response.ok) return schedule(BACKOFF_MS);
         const { v } = (await response.json()) as { v?: string | null };
         if (!v) return schedule(BACKOFF_MS);
-        if (last !== null && v !== last && !cancelled) announce();
-        last = v;
+        if (lastRef.current !== null && v !== lastRef.current && !cancelled) announce();
+        lastRef.current = v;
       } catch {
         /* network hiccup: try again on the next beat */
       }
       schedule(POLL_MS);
     }
 
+    const onVisible = () => {
+      if (!document.hidden) schedule(0);
+    };
+
     schedule(500);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [booking, reference, router]);
+  }, [booking, reference]);
 
   return null;
 }
