@@ -157,7 +157,7 @@ const SECTIONS: Record<PropertyRecordSection, SectionConfig> = {
       { key: 'fromOn', ar: 'الفترة', en: 'Dates', format: 'period' },
       { key: 'checkedInAt', ar: 'الدخول والمغادرة', en: 'Check-in / out', format: 'stayLog' },
       { key: 'amountMinor', ar: 'المبلغ', en: 'Amount', format: 'money' },
-      { key: 'refundStatus', ar: 'استرداد التأمين', en: 'Deposit refund', format: 'refund' },
+      { key: 'refundStatus', ar: 'التأمين', en: 'Deposit', format: 'refund' },
       { key: 'termsAcceptedOn', ar: 'الشروط والأحكام', en: 'Terms', format: 'terms' },
       { key: 'status', ar: 'حالة العقد', en: 'Contract status', format: 'status' },
       { key: 'contractReference', ar: 'العقد', en: 'Contract', format: 'contractLink' },

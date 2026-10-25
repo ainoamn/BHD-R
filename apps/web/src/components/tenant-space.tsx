@@ -29,6 +29,7 @@ import {
   tenantPaymentCategoryLabel,
   tenantPaymentHoldStatus,
 } from '@/lib/stay-booking-payment-labels';
+import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import {
   invoiceOutstandingMinor,
   reservationHref,
@@ -64,9 +65,19 @@ function formatDate(value: string | null | undefined, ar: boolean): string {
   return new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-OM', { dateStyle: 'medium' }).format(date);
 }
 
-function period(from: string | null, to: string | null, ar: boolean): string {
+function period(
+  from: string | null,
+  to: string | null,
+  ar: boolean,
+  stayType?: string | null,
+): string {
   if (!from && !to) return '—';
-  return `${formatDate(from, ar)} ${ar ? '←' : '→'} ${formatDate(to, ar)}`;
+  const displayTo =
+    from && to && stayType ? displayStayCheckoutOn(stayType, from, to) : to;
+  if (from && displayTo && from.slice(0, 10) === displayTo.slice(0, 10)) {
+    return formatDate(from, ar);
+  }
+  return `${formatDate(from, ar)} ${ar ? '←' : '→'} ${formatDate(displayTo, ar)}`;
 }
 
 function money(amountMinor: string | null, currency: string | null, locale: string): string {
@@ -483,7 +494,7 @@ function ContractsTable({ ar, locale, data }: Ctx) {
               </div>
               <div>
                 <dt>{ar ? 'المدة' : 'Term'}</dt>
-                <dd>{period(contract.startsOn, contract.endsOn, ar)}</dd>
+                <dd>{period(contract.startsOn, contract.endsOn, ar, contract.stayType)}</dd>
               </div>
               <div>
                 <dt>{ar ? 'القيمة' : 'Value'}</dt>
@@ -838,7 +849,7 @@ function bookingPreviewItems(
       id: `stay:${stay.id}`,
       title,
       eyebrow: ar ? 'إقامة يومية' : 'Daily stay',
-      summary: period(stay.checkInOn, stay.checkOutOn, ar),
+      summary: period(stay.checkInOn, stay.checkOutOn, ar, stay.stayType),
       status: (
         <Status
           label={stayStatusLabel(stay.status, ar)}
@@ -853,7 +864,10 @@ function bookingPreviewItems(
       ),
       facts: [
         { label: ar ? 'المرجع' : 'Reference', value: <bdi>{stay.referenceCode}</bdi> },
-        { label: ar ? 'الفترة' : 'Dates', value: period(stay.checkInOn, stay.checkOutOn, ar) },
+        {
+          label: ar ? 'الفترة' : 'Dates',
+          value: period(stay.checkInOn, stay.checkOutOn, ar, stay.stayType),
+        },
         {
           label: ar ? 'المبلغ' : 'Amount',
           value: money(stay.totalMinor, stay.currency, locale),
@@ -925,12 +939,15 @@ function contractPreviewItems(
         : ar
           ? 'عقد إيجار'
           : 'Lease contract',
-      summary: `${tenancyUnitLabel(contract, ar)} · ${period(contract.startsOn, contract.endsOn, ar)}`,
+      summary: `${tenancyUnitLabel(contract, ar)} · ${period(contract.startsOn, contract.endsOn, ar, contract.stayType)}`,
       status: contractStatusCell(contract, ar),
       facts: [
         { label: ar ? 'الوحدة' : 'Unit', value: tenancyUnitLabel(contract, ar) },
         { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(contract.landlord, ar) },
-        { label: ar ? 'المدة' : 'Term', value: period(contract.startsOn, contract.endsOn, ar) },
+        {
+          label: ar ? 'المدة' : 'Term',
+          value: period(contract.startsOn, contract.endsOn, ar, contract.stayType),
+        },
         {
           label: ar ? 'القيمة' : 'Value',
           value: money(contract.amountMinor, contract.currency, locale),

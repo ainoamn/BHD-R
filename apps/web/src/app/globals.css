@@ -24724,8 +24724,15 @@ button.lrw__step-body:focus-visible {
   padding-top: 0.35rem;
 }
 .psr-refund__deposit {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
   color: var(--calm-muted, #6c7b75);
   font-weight: 700;
+}
+.psr-refund__deposit .pmh-badge {
+  font-size: 0.68rem;
 }
 .psr-refund__line {
   line-height: 1.45;

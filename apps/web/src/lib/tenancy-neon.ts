@@ -741,6 +741,7 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
         amountMinor: str(amount.amountMinor),
         currency: str(amount.currency),
         stayReference: source.type === 'stay_booking' ? str(source.referenceCode) : null,
+        stayType: str(payload.stayType),
         createdAt: iso(row.createdAt),
       };
     });
@@ -880,6 +881,7 @@ async function loadStays(userId: string, links: TenancyLink[]): Promise<TenancyS
       status: item.status,
       checkInOn: item.checkInOn,
       checkOutOn: item.checkOutOn,
+      stayType: item.stayType ?? null,
       totalMinor: item.totalMinor,
       currency: item.currency,
       titleAr: item.listingTitleAr ?? null,

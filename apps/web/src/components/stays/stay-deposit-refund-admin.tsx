@@ -147,9 +147,28 @@ export function DepositRefundCell({
   const currency = row.currency ?? 'OMR';
   const money = (minor: string | null | undefined) =>
     minor ? formatMoney(minor, currency, locale) : '—';
+  const depositPayBadge = (() => {
+    switch (row.depositStatus) {
+      case 'paid':
+        return (
+          <span className="pmh-badge pmh-badge--ready">{ar ? 'مدفوع' : 'Paid'}</span>
+        );
+      case 'waived':
+        return (
+          <span className="pmh-badge pmh-badge--info">{ar ? 'معفى' : 'Waived'}</span>
+        );
+      case 'unpaid':
+        return (
+          <span className="pmh-badge pmh-badge--warn">{ar ? 'غير مدفوع' : 'Unpaid'}</span>
+        );
+      default:
+        return null;
+    }
+  })();
   const deposit = (
     <span className="psr-refund__deposit">
       {ar ? 'التأمين' : 'Deposit'} <bdi dir="ltr">{money(row.depositMinor)}</bdi>
+      {depositPayBadge}
     </span>
   );
   const lateLabel = ar ? row.lateReturnLabelAr : row.lateReturnLabelEn;

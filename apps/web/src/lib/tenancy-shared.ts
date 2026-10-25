@@ -26,6 +26,8 @@ export type TenancyContract = {
   currency: string | null;
   /** Reference of the daily stay booking the contract was issued for. */
   stayReference: string | null;
+  /** day_use / overnight_only / overnight_stay when the contract is for a stay booking. */
+  stayType: string | null;
   createdAt: string;
 };
 
@@ -130,6 +132,8 @@ export type TenancyStay = {
   status: string;
   checkInOn: string;
   checkOutOn: string;
+  /** day_use / overnight_only / overnight_stay — drives same-day display for half-day stays. */
+  stayType: string | null;
   totalMinor: string;
   currency: string;
   titleAr: string | null;
