@@ -21821,13 +21821,8 @@ button.lrw__step-body:focus-visible {
     margin: 0 0 0.45rem;
   }
   .stays-book-shell--wide-form .booking-scene-block .stay-scene {
+    height: 6.5rem;
     max-height: 6.5rem;
-    aspect-ratio: 600 / 120;
-  }
-  .stays-book-shell--wide-form .booking-scene-block .stay-scene svg {
-    display: block;
-    width: 100%;
-    height: 100%;
   }
   .stays-book-shell--wide-form .stay-trip__board {
     gap: 0.35rem 0.55rem;
@@ -21955,6 +21950,7 @@ button.lrw__step-body:focus-visible {
 }
 @media (min-width: 900px) and (max-height: 860px) {
   .stays-book-shell--wide-form .booking-scene-block .stay-scene {
+    height: 5.25rem;
     max-height: 5.25rem;
   }
   .stays-book-shell--wide-form .booking-greeting p {
