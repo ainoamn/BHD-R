@@ -1046,50 +1046,65 @@ export function StayCheckout({
       </h2>
       {title && !denseChrome ? <p className="stays-checkout__property muted">{title}</p> : null}
 
-      {step === 'stay' && (staySlide === 'dates' || staySlide === 'guests') ? null : (
-        <ol className="stays-checkout__steps" aria-label={ar ? 'خطوات الحجز' : 'Booking steps'}>
-          {steps.map((item, index) => {
-            const current = stepIndex(step);
-            const done = index < current || (step === 'payment' && item.id !== 'payment');
-            const active = item.id === step;
-            return (
-              <li
-                key={item.id}
-                className={
-                  active
-                    ? 'stays-checkout__step is-active'
-                    : done
-                      ? 'stays-checkout__step is-done'
-                      : 'stays-checkout__step'
-                }
-              >
-                <span aria-hidden="true">{index + 1}</span>
-                {item.label}
-              </li>
-            );
-          })}
-        </ol>
-      )}
+      <ol
+        className={[
+          'stays-checkout__steps',
+          step === 'stay' && (staySlide === 'dates' || staySlide === 'guests')
+            ? 'stays-checkout__steps--quiet'
+            : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        aria-label={ar ? 'خطوات الحجز' : 'Booking steps'}
+      >
+        {steps.map((item, index) => {
+          const current = stepIndex(step);
+          const done = index < current || (step === 'payment' && item.id !== 'payment');
+          const active = item.id === step;
+          return (
+            <li
+              key={item.id}
+              className={
+                active
+                  ? 'stays-checkout__step is-active'
+                  : done
+                    ? 'stays-checkout__step is-done'
+                    : 'stays-checkout__step'
+              }
+            >
+              <span aria-hidden="true">{index + 1}</span>
+              {item.label}
+            </li>
+          );
+        })}
+      </ol>
 
-      {showStayScene ? (
-        <BookingStepScene
-          greeting={stayGreeting}
-          label={steps[stepIndex(step)]!.label}
-          stepNo={stepIndex(step) + 1}
-          stepCount={steps.length}
-          ar={ar}
-        />
-      ) : denseChrome && step !== 'stay' ? (
-        <div className="stays-checkout__compact-head">
-          <p className="stays-checkout__compact-meta">
-            <span>{steps[stepIndex(step)]!.label}</span>
-            <span dir="ltr">
-              {stepIndex(step) + 1} / {steps.length}
-            </span>
-          </p>
-          <h3>{stayGreeting.heading}</h3>
-        </div>
-      ) : null}
+      <div
+        className={[
+          'stays-checkout__chrome',
+          showStayScene ? 'stays-checkout__chrome--scene' : 'stays-checkout__chrome--compact',
+        ].join(' ')}
+      >
+        {showStayScene ? (
+          <BookingStepScene
+            greeting={stayGreeting}
+            label={steps[stepIndex(step)]!.label}
+            stepNo={stepIndex(step) + 1}
+            stepCount={steps.length}
+            ar={ar}
+          />
+        ) : denseChrome ? (
+          <div className="stays-checkout__compact-head">
+            <p className="stays-checkout__compact-meta">
+              <span>{steps[stepIndex(step)]!.label}</span>
+              <span dir="ltr">
+                {stepIndex(step) + 1} / {steps.length}
+              </span>
+            </p>
+            <h3>{stayGreeting.heading}</h3>
+          </div>
+        ) : null}
+      </div>
 
       {step === 'stay' ? (
         <div

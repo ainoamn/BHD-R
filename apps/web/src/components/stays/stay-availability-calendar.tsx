@@ -663,97 +663,114 @@ export function StayAvailabilityCalendar({
         })}
       </div>
 
-      {dense ? null : (
-        <ul
-          className="stays-calendar__legend"
-          aria-label={ar ? 'دليل حالات الأيام' : 'Day status legend'}
-        >
-          <li className="stays-calendar__legend-item is-selected-range">
-            <span className="stays-calendar__swatch is-selected-range" aria-hidden="true" />
-            <span>{ar ? 'التواريخ المختارة' : 'Selected dates'}</span>
-          </li>
-          {(['available', 'booked', 'hold', 'blocked'] as const).map((status) => (
-            <li key={status} className={`stays-calendar__legend-item ${statusClass(status)}`}>
-              <span className={`stays-calendar__swatch ${statusClass(status)}`} aria-hidden="true" />
-              <span>{statusLabel(status, ar)}</span>
-            </li>
-          ))}
-          <li className="stays-calendar__legend-item is-partial">
-            <span className="stays-calendar__swatch is-partial" aria-hidden="true" />
-            <span>{ar ? 'محجوز جزئياً' : 'Partly booked'}</span>
-          </li>
-        </ul>
-      )}
-      {dense ? null : (
-        <ul
-          className="stays-calendar__legend stays-calendar__legend--slots"
-          aria-label={ar ? 'دليل الفترات' : 'Slot legend'}
-        >
-          <li className="stays-calendar__legend-item">
-            <span className="stays-calendar__slot is-available" aria-hidden="true">
-              {ar ? 'ص' : 'AM'}
-            </span>
-            <span>{ar ? 'الفترة الصباحية (بدون مبيت)' : 'Morning slot (day use)'}</span>
-          </li>
-          <li className="stays-calendar__legend-item">
-            <span className="stays-calendar__slot is-available" aria-hidden="true">
-              {ar ? 'م' : 'PM'}
-            </span>
-            <span>{ar ? 'الفترة المسائية (مبيت فقط)' : 'Evening slot (overnight only)'}</span>
-          </li>
-          <li className="stays-calendar__legend-item">
-            <span className="stays-calendar__slot is-available" aria-hidden="true">
-              ✓
-            </span>
-            <span>{ar ? 'الفترة شاغرة' : 'Slot free'}</span>
-          </li>
-          <li className="stays-calendar__legend-item">
-            <span className="stays-calendar__slot is-booked" aria-hidden="true">
-              ✗
-            </span>
-            <span>{ar ? 'الفترة محجوزة' : 'Slot booked'}</span>
-          </li>
-          <li className="stays-calendar__legend-item">
-            <span className="stays-calendar__legend-price" aria-hidden="true">
-              {ar ? '٨٠' : '80'}
-            </span>
-            <span>{ar ? 'سعر الفترة المتبقية' : 'Remaining slot price'}</span>
-          </li>
-        </ul>
-      )}
-
-      {!dense && partialDays.length ? (
-        <div className="stays-calendar__partials">
-          <h4>{ar ? 'أيام محجوزة جزئياً' : 'Partly booked days'}</h4>
-          <ul>
-            {partialDays.map((day) => {
-              const currency = day.currency ?? data?.currency ?? null;
-              return (
-                <li key={day.stayDate}>
-                  <strong dir="ltr">{day.stayDate}</strong>
-                  <span>{partialSummary(day, ar)}</span>
-                  {day.remainingSlot ? (
-                    <span className="stays-calendar__partial-price">
-                      {ar ? 'المتبقي: الفترة ' : 'Remaining: '}
-                      {slotName(day.remainingSlot, ar)}
-                      {day.remainingRateMinor && currency
-                        ? ` — ${formatMoney(day.remainingRateMinor, currency, locale)}`
-                        : ''}
-                    </span>
-                  ) : null}
+      {(() => {
+        const legendBody = (
+          <>
+            <ul
+              className="stays-calendar__legend"
+              aria-label={ar ? 'دليل حالات الأيام' : 'Day status legend'}
+            >
+              <li className="stays-calendar__legend-item is-selected-range">
+                <span className="stays-calendar__swatch is-selected-range" aria-hidden="true" />
+                <span>{ar ? 'التواريخ المختارة' : 'Selected dates'}</span>
+              </li>
+              {(['available', 'booked', 'hold', 'blocked'] as const).map((status) => (
+                <li key={status} className={`stays-calendar__legend-item ${statusClass(status)}`}>
+                  <span
+                    className={`stays-calendar__swatch ${statusClass(status)}`}
+                    aria-hidden="true"
+                  />
+                  <span>{statusLabel(status, ar)}</span>
                 </li>
-              );
-            })}
-          </ul>
-          {mode === 'public' && onRangeChange ? (
-            <p className="muted stays-calendar__partials-hint">
-              {ar
-                ? 'اضغط على اليوم المحجوز جزئياً لحجز الفترة المتبقية فقط.'
-                : 'Tap a partly booked day to book only the remaining slot.'}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+              ))}
+              <li className="stays-calendar__legend-item is-partial">
+                <span className="stays-calendar__swatch is-partial" aria-hidden="true" />
+                <span>{ar ? 'محجوز جزئياً' : 'Partly booked'}</span>
+              </li>
+            </ul>
+            <ul
+              className="stays-calendar__legend stays-calendar__legend--slots"
+              aria-label={ar ? 'دليل الفترات' : 'Slot legend'}
+            >
+              <li className="stays-calendar__legend-item">
+                <span className="stays-calendar__slot is-available" aria-hidden="true">
+                  {ar ? 'ص' : 'AM'}
+                </span>
+                <span>{ar ? 'الفترة الصباحية (بدون مبيت)' : 'Morning slot (day use)'}</span>
+              </li>
+              <li className="stays-calendar__legend-item">
+                <span className="stays-calendar__slot is-available" aria-hidden="true">
+                  {ar ? 'م' : 'PM'}
+                </span>
+                <span>{ar ? 'الفترة المسائية (مبيت فقط)' : 'Evening slot (overnight only)'}</span>
+              </li>
+              <li className="stays-calendar__legend-item">
+                <span className="stays-calendar__slot is-available" aria-hidden="true">
+                  ✓
+                </span>
+                <span>{ar ? 'الفترة شاغرة' : 'Slot free'}</span>
+              </li>
+              <li className="stays-calendar__legend-item">
+                <span className="stays-calendar__slot is-booked" aria-hidden="true">
+                  ✗
+                </span>
+                <span>{ar ? 'الفترة محجوزة' : 'Slot booked'}</span>
+              </li>
+              <li className="stays-calendar__legend-item">
+                <span className="stays-calendar__legend-price" aria-hidden="true">
+                  {ar ? '٨٠' : '80'}
+                </span>
+                <span>{ar ? 'سعر الفترة المتبقية' : 'Remaining slot price'}</span>
+              </li>
+            </ul>
+            {partialDays.length ? (
+              <div className="stays-calendar__partials">
+                <h4>{ar ? 'أيام محجوزة جزئياً' : 'Partly booked days'}</h4>
+                <ul>
+                  {partialDays.map((day) => {
+                    const currency = day.currency ?? data?.currency ?? null;
+                    return (
+                      <li key={day.stayDate}>
+                        <strong dir="ltr">{day.stayDate}</strong>
+                        <span>{partialSummary(day, ar)}</span>
+                        {day.remainingSlot ? (
+                          <span className="stays-calendar__partial-price">
+                            {ar ? 'المتبقي: الفترة ' : 'Remaining: '}
+                            {slotName(day.remainingSlot, ar)}
+                            {day.remainingRateMinor && currency
+                              ? ` — ${formatMoney(day.remainingRateMinor, currency, locale)}`
+                              : ''}
+                          </span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+                {mode === 'public' && onRangeChange ? (
+                  <p className="muted stays-calendar__partials-hint">
+                    {ar
+                      ? 'اضغط على اليوم المحجوز جزئياً لحجز الفترة المتبقية فقط.'
+                      : 'Tap a partly booked day to book only the remaining slot.'}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        );
+
+        if (dense) {
+          return (
+            <details className="stays-calendar__legend-panel">
+              <summary className="stays-calendar__legend-toggle">
+                {ar ? 'دليل ألوان التقويم' : 'Calendar key'}
+              </summary>
+              <div className="stays-calendar__legend-body">{legendBody}</div>
+            </details>
+          );
+        }
+
+        return legendBody;
+      })()}
 
       {mode === 'ops' && data?.locks?.length ? (
         <div className="stays-calendar__locks">
