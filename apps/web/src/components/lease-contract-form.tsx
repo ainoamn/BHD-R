@@ -12,6 +12,8 @@ import {
   pick,
 } from '@/components/lease-terms-view';
 import { NoteTranslateBar } from '@/components/note-translate';
+import { browserNextMutation } from '@/lib/api';
+import type { AccountingSettings } from '@/lib/accounting-integrity';
 import { formatMoney } from '@/lib/format';
 import {
   ADJUSTMENT_RECURRENCES,
@@ -36,6 +38,7 @@ import {
   type LeaseTermsDraft,
   type LeaseTermsError,
 } from '@/lib/lease-terms';
+import { OMAN_BANKS } from '@/lib/stay-deposit-refund';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 
 export type LeaseTenantDraft = {
@@ -100,6 +103,18 @@ const ERROR_TEXT: Record<LeaseTermsError, [string, string]> = {
   invalid_terms: [
     'تحقّق من النسب والمبالغ وبنود الإضافات والتأمين.',
     'Check rates, amounts, extra items and deposit lines.',
+  ],
+  meters_required: [
+    'قراءة عداد الكهرباء والماء إلزامية.',
+    'Electricity and water meter readings are required.',
+  ],
+  handover_required: [
+    'تاريخ استلام الوحدة إلزامي (لحساب فترة السماح).',
+    'Unit handover date is required (for the grace period).',
+  ],
+  bank_account_required: [
+    'اختر حساباً بنكياً لتُكتب الشيكات باسمه، أو أضف حساباً جديداً.',
+    'Choose a bank account for the cheque payee, or add a new one.',
   ],
   duplicate_cheque_number: [
     'رقم شيك مكرر في العقد. لكل شيك رقم مختلف.',
@@ -271,6 +286,15 @@ export function LeaseContractForm({
     !initialTerms && termsSeed?.months ? String(termsSeed.months) : '12',
   );
   const [localError, setLocalError] = useState<string | null>(null);
+  const [localBanks, setLocalBanks] = useState(bankAccounts);
+  const [editingBankLink, setEditingBankLink] = useState(false);
+  const [addingBank, setAddingBank] = useState(false);
+  const [newBank, setNewBank] = useState({
+    bankName: OMAN_BANKS[0] ?? '',
+    accountHolderName: '',
+    accountHolderNameEn: '',
+  });
+  const [savingBank, setSavingBank] = useState(false);
 
   const set = <K extends keyof LeaseTermsDraft>(key: K, value: LeaseTermsDraft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
@@ -279,10 +303,118 @@ export function LeaseContractForm({
   const money = (minor: number) => (
     <span dir="ltr">{formatMoney(String(Math.round(minor)), currency, locale)}</span>
   );
+
+  useEffect(() => {
+    setLocalBanks(bankAccounts);
+  }, [bankAccounts]);
+
   const activeBankAccounts = useMemo(
-    () => bankAccounts.filter((row) => row.active !== false),
-    [bankAccounts],
+    () => localBanks.filter((row) => row.active !== false),
+    [localBanks],
   );
+  const selectedBank = activeBankAccounts.find((row) => row.id === draft.rentBankAccountId);
+  const selectedPayee = selectedBank
+    ? (selectedBank.accountHolderNameEn || selectedBank.accountHolderName).trim()
+    : '';
+
+  function bindBankAccount(id: string, accounts: LeaseBankAccountOption[] = activeBankAccounts) {
+    const account = accounts.find((row) => row.id === id);
+    const payee = account
+      ? (account.accountHolderNameEn || account.accountHolderName).trim()
+      : '';
+    setDraft((current) => ({
+      ...current,
+      rentBankAccountId: id,
+      ...(account
+        ? {
+            chequeBankName: account.bankName,
+            chequeAccountName: payee,
+          }
+        : { chequeBankName: '', chequeAccountName: '' }),
+    }));
+    setEditingBankLink(false);
+  }
+
+  async function saveNewBankAccount() {
+    const bankName = newBank.bankName.trim();
+    const accountHolderName = newBank.accountHolderName.trim();
+    const accountHolderNameEn = newBank.accountHolderNameEn.trim();
+    if (bankName.length < 2 || accountHolderName.length < 2) {
+      setLocalError(
+        t(
+          'أدخل اسم البنك واسم صاحب الحساب لإضافة الحساب.',
+          'Enter the bank and account holder to add an account.',
+        ),
+      );
+      return;
+    }
+    setSavingBank(true);
+    setLocalError(null);
+    try {
+      const current = await fetch('/api/owner/accounting/settings', {
+        credentials: 'same-origin',
+      }).then(async (response) => {
+        if (!response.ok) throw new Error(t('تعذر تحميل الحسابات.', 'Could not load accounts.'));
+        return (await response.json()) as { settings: AccountingSettings };
+      });
+      const id =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `bank-${Date.now().toString(36)}`;
+      const nextSettings: AccountingSettings = {
+        ...current.settings,
+        bankAccounts: [
+          ...current.settings.bankAccounts,
+          {
+            id,
+            labelAr: accountHolderName.slice(0, 120),
+            labelEn: (accountHolderNameEn || accountHolderName).slice(0, 120),
+            bankName: bankName.slice(0, 160),
+            accountHolderName: accountHolderName.slice(0, 160),
+            accountHolderNameEn: accountHolderNameEn.slice(0, 160),
+            iban: '',
+            accountNumber: '',
+            currency: current.settings.baseCurrency || currency,
+            active: true,
+            defaultForRent: current.settings.bankAccounts.every((row) => !row.defaultForRent),
+            propertyIds: propertyId ? [propertyId] : [],
+            ledgerAccountId: null,
+          },
+        ],
+      };
+      const saved = await browserNextMutation<{ settings: AccountingSettings }>(
+        '/api/owner/accounting/settings',
+        { method: 'PUT', body: JSON.stringify(nextSettings) },
+      );
+      const mapped: LeaseBankAccountOption[] = saved.settings.bankAccounts.map((row) => ({
+        id: row.id,
+        labelAr: row.labelAr,
+        labelEn: row.labelEn,
+        bankName: row.bankName,
+        accountHolderName: row.accountHolderName,
+        accountHolderNameEn: row.accountHolderNameEn,
+        defaultForRent: row.defaultForRent,
+        active: row.active,
+        propertyIds: row.propertyIds,
+      }));
+      setLocalBanks(mapped);
+      bindBankAccount(id, mapped);
+      setAddingBank(false);
+      setNewBank({
+        bankName: OMAN_BANKS[0] ?? '',
+        accountHolderName: '',
+        accountHolderNameEn: '',
+      });
+    } catch (error) {
+      setLocalError(
+        error instanceof Error
+          ? error.message
+          : t('تعذّر حفظ الحساب البنكي.', 'Could not save the bank account.'),
+      );
+    } finally {
+      setSavingBank(false);
+    }
+  }
 
   useEffect(() => {
     if ((draft.rentBankAccountId ?? '').trim()) return;
@@ -293,21 +425,7 @@ export function LeaseContractForm({
     const picked =
       linked ?? activeBankAccounts.find((row) => row.defaultForRent) ?? activeBankAccounts[0];
     if (!picked) return;
-    const payee = (picked.accountHolderNameEn || picked.accountHolderName).trim();
-    setDraft((current) => ({
-      ...current,
-      rentBankAccountId: picked.id,
-      ...(current.paymentMethod === 'cheque'
-        ? {
-            chequeBankName: current.chequeBankName?.trim()
-              ? current.chequeBankName
-              : picked.bankName,
-            chequeAccountName: current.chequeAccountName?.trim()
-              ? current.chequeAccountName
-              : payee,
-          }
-        : {}),
-    }));
+    bindBankAccount(picked.id);
     // Auto-bind once when bank accounts / property become available.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot seed
   }, [activeBankAccounts, propertyId]);
@@ -762,23 +880,28 @@ export function LeaseContractForm({
           </div>
         </dl>
         <div className="form-grid">
-          <Field id="lcf-elec" label={t('قراءة عداد الكهرباء', 'Electricity meter reading')}>
+          <Field
+            id="lcf-elec"
+            label={t('قراءة عداد الكهرباء *', 'Electricity meter reading *')}
+          >
             <input
               id="lcf-elec"
               className="input"
               dir="ltr"
               inputMode="decimal"
+              required
               maxLength={40}
               value={draft.electricityReading ?? ''}
               onChange={(event) => set('electricityReading', event.target.value)}
             />
           </Field>
-          <Field id="lcf-water" label={t('قراءة عداد الماء', 'Water meter reading')}>
+          <Field id="lcf-water" label={t('قراءة عداد الماء *', 'Water meter reading *')}>
             <input
               id="lcf-water"
               className="input"
               dir="ltr"
               inputMode="decimal"
+              required
               maxLength={40}
               value={draft.waterReading ?? ''}
               onChange={(event) => set('waterReading', event.target.value)}
@@ -876,11 +999,19 @@ export function LeaseContractForm({
               {period ? periodText(period.months, period.extraDays, ar) : '—'}
             </output>
           </Field>
-          <Field id="lcf-handover" label={t('تاريخ استلام الوحدة', 'Unit handover date')}>
+          <Field
+            id="lcf-handover"
+            label={t('تاريخ استلام الوحدة *', 'Unit handover date *')}
+            hint={t(
+              'إلزامي لحساب فترة السماح من الاستلام إلى البداية.',
+              'Required to compute the grace period from handover to start.',
+            )}
+          >
             <input
               id="lcf-handover"
               className="input"
               type="date"
+              required
               max={draft.startsOn}
               value={draft.handoverOn ?? ''}
               onChange={(event) => set('handoverOn', event.target.value)}
@@ -916,20 +1047,22 @@ export function LeaseContractForm({
           </Field>
           <Field
             id="lcf-grace"
-            label={t('فترة السماح', 'Grace period')}
+            label={t('فترة السماح *', 'Grace period *')}
             hint={t(
-              'تُحسب تلقائياً: من تاريخ الاستلام إلى تاريخ البداية. مبلغ السماح = (الإيجار ÷ 30) × الأيام.',
-              'Auto: handover to start. Grace amount = (rent ÷ 30) × days.',
+              'تُحسب تلقائياً من تاريخ الاستلام إلى تاريخ البداية. مبلغ السماح = (الإيجار ÷ 30) × الأيام.',
+              'Auto from handover to start. Grace amount = (rent ÷ 30) × days.',
             )}
           >
-            <output id="lcf-grace" className="input lcf-output">
-              {graceDays
-                ? `${graceDays} ${t('يوم', 'days')} · ${formatMoney(
-                    String(Math.round((scheduleRentMinor / 30) * graceDays)),
-                    currency,
-                    locale,
-                  )}`
-                : t('لا يوجد', 'None')}
+            <output id="lcf-grace" className="input lcf-output" aria-live="polite">
+              {(draft.handoverOn ?? '').trim()
+                ? graceDays
+                  ? `${graceDays} ${t('يوم', 'days')} · ${formatMoney(
+                      String(Math.round((scheduleRentMinor / 30) * graceDays)),
+                      currency,
+                      locale,
+                    )}`
+                  : t('٠ يوم (الاستلام يوم البداية)', '0 days (handover on start date)')
+                : t('أدخل تاريخ الاستلام أولاً', 'Enter the handover date first')}
             </output>
           </Field>
           <label className="checkbox-row span-2">
@@ -944,7 +1077,10 @@ export function LeaseContractForm({
           </label>
           <Field
             id="lcf-day"
-            label={t('يوم دفع الإيجار المتفق عليه (1–31)', 'Agreed rent payment day (1–31)')}
+            label={t(
+              'يوم دفع الإيجار المتفق عليه (1–31) *',
+              'Agreed rent payment day (1–31) *',
+            )}
           >
             <input
               id="lcf-day"
@@ -962,9 +1098,14 @@ export function LeaseContractForm({
               id="lcf-method"
               className="select"
               value={draft.paymentMethod}
-              onChange={(event) =>
-                set('paymentMethod', event.target.value as LeaseTermsDraft['paymentMethod'])
-              }
+              onChange={(event) => {
+                const method = event.target.value as LeaseTermsDraft['paymentMethod'];
+                set('paymentMethod', method);
+                if (method === 'cheque' && draft.rentBankAccountId) {
+                  bindBankAccount(draft.rentBankAccountId);
+                  setEditingBankLink(false);
+                }
+              }}
             >
               {PAYMENT_METHODS.map((method) => (
                 <option key={method} value={method}>
@@ -1236,84 +1377,151 @@ export function LeaseContractForm({
             'Dates follow the payment day and frequency; amounts follow the monthly rent. Any row can be edited (custom rent). Changing rent or term rebuilds the table but keeps cheque numbers.',
           )}
         </p>
-        {isCheque ? (
-          <div className="form-grid">
-            <Field id="lcf-bank" label={t('بنك الشيكات', 'Cheques bank')}>
-              <input
-                id="lcf-bank"
-                className="input"
-                maxLength={160}
-                value={draft.chequeBankName ?? ''}
-                onChange={(event) => set('chequeBankName', event.target.value)}
-              />
-            </Field>
-            <Field
-              id="lcf-account"
-              label={t('الشيكات تكتب باسم من؟', 'Cheques payable to')}
-            >
-              <input
-                id="lcf-account"
-                className="input"
-                required
-                maxLength={160}
-                placeholder={t('اسم المؤجر أو المستفيد', 'Landlord or payee name')}
-                value={draft.chequeAccountName ?? ''}
-                onChange={(event) => set('chequeAccountName', event.target.value)}
-              />
-            </Field>
-            <p className="muted lcf-help" style={{ gridColumn: '1 / -1' }}>
-              {t(
-                'يظهر هذا الاسم للمستأجر عند تعبئة شيكات الإيجار — يجب أن يكتب الشيكات بهذا الاسم.',
-                'Shown to the tenant when they prepare rent cheques — they must write cheques to this name.',
-              )}
-            </p>
-          </div>
-        ) : null}
-        {activeBankAccounts.length ? (
+        <div className="lcf-bank-bind">
           <Field
             id="lcf-rent-bank"
-            label={t('حساب استلام الإيجار (محاسبي)', 'Rent receipt bank account')}
+            label={
+              isCheque
+                ? t('الشيكات تكتب باسم من؟ *', 'Cheques payable to *')
+                : t('حساب استلام الإيجار (محاسبي)', 'Rent receipt bank account')
+            }
           >
-            <select
-              id="lcf-rent-bank"
-              className="select"
-              value={draft.rentBankAccountId ?? ''}
-              onChange={(event) => {
-                const id = event.target.value;
-                const account = activeBankAccounts.find((row) => row.id === id);
-                setDraft((current) => {
-                  const payee = account
-                    ? (account.accountHolderNameEn || account.accountHolderName).trim()
-                    : '';
-                  return {
-                    ...current,
-                    rentBankAccountId: id,
-                    ...(account && current.paymentMethod === 'cheque'
-                      ? {
-                          chequeBankName: account.bankName,
-                          chequeAccountName: payee || current.chequeAccountName,
-                        }
-                      : {}),
-                  };
-                });
+            {isCheque && selectedBank && selectedPayee && !editingBankLink && !addingBank ? (
+              <div className="lcf-payee-locked">
+                <output id="lcf-rent-bank" className="input lcf-output" aria-live="polite">
+                  <strong>{selectedPayee}</strong>
+                  <small dir="auto">{selectedBank.bankName}</small>
+                </output>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => setEditingBankLink(true)}
+                >
+                  {t('تعديل الربط', 'Edit link')}
+                </button>
+              </div>
+            ) : (
+              <select
+                id="lcf-rent-bank"
+                className="select"
+                required={isCheque}
+                value={draft.rentBankAccountId ?? ''}
+                onChange={(event) => bindBankAccount(event.target.value)}
+              >
+                <option value="">
+                  {isCheque
+                    ? t('— اختر الحساب البنكي —', '— Select bank account —')
+                    : t('— بدون ربط —', '— Not linked —')}
+                </option>
+                {activeBankAccounts.map((account) => {
+                  const payee = (account.accountHolderNameEn || account.accountHolderName).trim();
+                  const forProperty =
+                    propertyId && account.propertyIds?.includes(propertyId)
+                      ? t(' · مرتبط بالعقار', ' · linked to property')
+                      : '';
+                  return (
+                    <option key={account.id} value={account.id}>
+                      {payee || (ar ? account.labelAr : account.labelEn || account.labelAr)}
+                      {forProperty ||
+                        (account.defaultForRent ? t(' · افتراضي', ' · default') : '')}
+                    </option>
+                  );
+                })}
+              </select>
+            )}
+          </Field>
+          {isCheque ? (
+            <p className="muted lcf-help">
+              {t(
+                'الاسم يظهر للمستأجر كما هو من الحساب البنكي — لا يُكتب يدوياً. اختر حساباً أو أضف حساباً جديداً.',
+                'The tenant sees this name from the bank account — it is not typed by hand. Pick an account or add a new one.',
+              )}
+            </p>
+          ) : null}
+          <div className="lcf-bank-bind__actions">
+            <button
+              type="button"
+              className="button button--quiet button--sm"
+              onClick={() => {
+                setAddingBank((open) => !open);
+                setEditingBankLink(true);
               }}
             >
-              <option value="">{t('— بدون ربط —', '— Not linked —')}</option>
-              {activeBankAccounts.map((account) => {
-                const forProperty =
-                  propertyId && account.propertyIds?.includes(propertyId)
-                    ? t(' (مرتبط بالعقار)', ' (linked to property)')
-                    : '';
-                return (
-                  <option key={account.id} value={account.id}>
-                    {ar ? account.labelAr : account.labelEn || account.labelAr}
-                    {forProperty || (account.defaultForRent ? t(' (افتراضي)', ' (default)') : '')}
-                  </option>
-                );
-              })}
-            </select>
-          </Field>
-        ) : null}
+              {addingBank
+                ? t('إلغاء إضافة حساب', 'Cancel new account')
+                : t('＋ إضافة حساب بنكي جديد', '＋ Add new bank account')}
+            </button>
+          </div>
+          {addingBank ? (
+            <div className="lcf-bank-new form-grid">
+              <Field id="lcf-new-bank" label={t('اسم البنك *', 'Bank name *')}>
+                <select
+                  id="lcf-new-bank"
+                  className="select"
+                  required
+                  value={newBank.bankName}
+                  onChange={(event) =>
+                    setNewBank((current) => ({ ...current, bankName: event.target.value }))
+                  }
+                >
+                  {OMAN_BANKS.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field
+                id="lcf-new-holder-ar"
+                label={t('اسم صاحب الحساب (عربي) *', 'Account holder (Arabic) *')}
+              >
+                <input
+                  id="lcf-new-holder-ar"
+                  className="input"
+                  required
+                  maxLength={160}
+                  value={newBank.accountHolderName}
+                  onChange={(event) =>
+                    setNewBank((current) => ({
+                      ...current,
+                      accountHolderName: event.target.value,
+                    }))
+                  }
+                />
+              </Field>
+              <Field
+                id="lcf-new-holder-en"
+                label={t('اسم صاحب الحساب (إنجليزي)', 'Account holder (English)')}
+              >
+                <input
+                  id="lcf-new-holder-en"
+                  className="input"
+                  dir="ltr"
+                  maxLength={160}
+                  value={newBank.accountHolderNameEn}
+                  onChange={(event) =>
+                    setNewBank((current) => ({
+                      ...current,
+                      accountHolderNameEn: event.target.value,
+                    }))
+                  }
+                />
+              </Field>
+              <div className="form-actions" style={{ gridColumn: '1 / -1' }}>
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={savingBank}
+                  onClick={() => void saveNewBankAccount()}
+                >
+                  {savingBank
+                    ? t('جارٍ الحفظ…', 'Saving…')
+                    : t('حفظ الحساب وربطه', 'Save account & link')}
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
         {draft.schedule.length ? (
           <div className="data-table-wrap">
             <table className="data-table lcf-table">

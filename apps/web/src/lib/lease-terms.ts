@@ -338,6 +338,9 @@ export type LeaseTermsError =
   | 'invalid_amount'
   | 'invalid_schedule'
   | 'invalid_terms'
+  | 'meters_required'
+  | 'handover_required'
+  | 'bank_account_required'
   | 'duplicate_cheque_number';
 
 export type LeaseTermsResult =
@@ -478,9 +481,11 @@ export function computeLeaseTerms(
     return fail('invalid_dates');
   }
   const handoverOn = text(draft.handoverOn, 10);
-  if (handoverOn && (!isIsoDate(handoverOn) || handoverOn > draft.startsOn)) {
-    return fail('invalid_dates');
-  }
+  if (!handoverOn || !isIsoDate(handoverOn)) return fail('handover_required');
+  if (handoverOn > draft.startsOn) return fail('invalid_dates');
+  const electricityReading = text(draft.electricityReading, 40);
+  const waterReading = text(draft.waterReading, 40);
+  if (!electricityReading || !waterReading) return fail('meters_required');
 
   let monthlyRentMinor: number | null;
   let rentAreaSqm: string | null = null;
@@ -525,6 +530,11 @@ export function computeLeaseTerms(
   const vatWithRent = vatEnabled && draft.vatMode === 'with_rent';
   const isCheque = draft.paymentMethod === 'cheque';
   const chequeBankName = text(draft.chequeBankName, 160);
+  const chequeAccountName = text(draft.chequeAccountName, 160);
+  const rentBankAccountId = text(draft.rentBankAccountId, 64);
+  if (isCheque && (!chequeBankName || !chequeAccountName || !rentBankAccountId)) {
+    return fail('bank_account_required');
+  }
 
   if (!draft.schedule.length || draft.schedule.length > MAX_SCHEDULE_ROWS) {
     return fail('invalid_schedule');
@@ -698,15 +708,15 @@ export function computeLeaseTerms(
       },
       otherTax,
       chequeBankName: isCheque ? chequeBankName : null,
-      chequeAccountName: isCheque ? text(draft.chequeAccountName, 160) : null,
-      rentBankAccountId: text(draft.rentBankAccountId, 64),
+      chequeAccountName: isCheque ? chequeAccountName : null,
+      rentBankAccountId,
       depositItems,
       schedule,
       vatCheques,
       adjustments,
       meters: {
-        electricityReading: text(draft.electricityReading, 40),
-        waterReading: text(draft.waterReading, 40),
+        electricityReading,
+        waterReading,
       },
       notes: text(draft.notes, 2000),
       totals: {
