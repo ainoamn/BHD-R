@@ -12,9 +12,14 @@ import {
   type ReactNode,
 } from 'react';
 import { FilePreviewDialog, type PreviewFile } from '@/components/file-preview';
-import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
+import {
+  LeaseContractForm,
+  type LeaseBankAccountOption,
+  type LeaseContractPayload,
+} from '@/components/lease-contract-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import type { AccountingSettings } from '@/lib/accounting-integrity';
 import {
   REQUIREMENT_CATALOGUE,
   documentsPhase,
@@ -665,16 +670,29 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                     )
                   }
                 />
+                <ChequesReview
+                  {...props}
+                  busy={busy}
+                  fileHref={fileHref}
+                  onReview={(key, decision, note) =>
+                    act({
+                      action: 'review_cheque',
+                      key,
+                      decision,
+                      ...(note ? { note } : {}),
+                    })
+                  }
+                />
                 <div className="lrw__approve">
                   <p className="muted">
                     {phase === 'awaiting_contract_approval'
                       ? t(
-                          'المستندات مكتملة. باعتمادك يوقَّع العقد باسم المالك ويُرسل للعميل ليوقّعه إلكترونياً.',
-                          'Documents are complete. Approving signs for the owner and sends the contract to the client to e-sign.',
+                          'المستندات والشيكات مكتملة. باعتمادك يوقَّع العقد باسم المالك ويُرسل للعميل ليوقّعه إلكترونياً.',
+                          'Documents and cheques are complete. Approving signs for the owner and sends the contract to the client to e-sign.',
                         )
                       : t(
-                          'يُفتح اعتماد العقد بعد أن يرفع العميل كل المستندات المطلوبة وتقبلها.',
-                          'Contract approval opens once every required document is uploaded and accepted.',
+                          'يُفتح اعتماد العقد بعد أن يرفع العميل كل المستندات والشيكات المطلوبة وتقبلها.',
+                          'Contract approval opens once every required document and cheque is uploaded and accepted.',
                         )}
                   </p>
                   <button
@@ -1192,6 +1210,121 @@ function DraftSummary({ lifecycle, locale, currency, mode }: Props) {
   );
 }
 
+function ChequesReview({
+  lifecycle,
+  locale,
+  busy,
+  canManage,
+  fileHref,
+  onReview,
+}: Props & {
+  busy: boolean;
+  fileHref: (file: string) => string;
+  onReview: (key: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
+}) {
+  const ar = locale === 'ar';
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+  const instructions = lifecycle.chequeInstructions ?? [];
+  if (!instructions.length) return null;
+  const byKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
+  return (
+    <div className="lrw__docs">
+      <h4>{ar ? 'شيكات الإيجار من العميل' : 'Tenant rent cheques'}</h4>
+      {lifecycle.chequePayableTo ? (
+        <p className="muted">
+          {ar ? 'تُكتب باسم: ' : 'Payable to: '}
+          <strong>{lifecycle.chequePayableTo}</strong>
+          {lifecycle.chequeBankName ? ` · ${lifecycle.chequeBankName}` : ''}
+        </p>
+      ) : null}
+      <ul>
+        {instructions.map((item) => {
+          const submitted = byKey.get(item.key);
+          const status = submitted?.status ?? 'pending';
+          return (
+            <li key={item.key} className={`lrw__doc lrw__doc--${status}`}>
+              <div className="lrw__doc-main">
+                <strong>{ar ? item.labelAr : item.labelEn}</strong>
+                <span className="lrw__doc-status">
+                  {STATUS_TEXT[status][ar ? 0 : 1]}
+                  {submitted?.chequeNumber ? ` · #${submitted.chequeNumber}` : ''}
+                </span>
+                {submitted ? (
+                  <small className="muted" dir="auto">
+                    {submitted.bankName}
+                    {submitted.accountHolderName ? ` · ${submitted.accountHolderName}` : ''}
+                  </small>
+                ) : null}
+                {submitted?.note && status === 'rejected' ? (
+                  <small className="muted">{submitted.note}</small>
+                ) : null}
+              </div>
+              <div className="lrw__doc-actions">
+                {submitted?.file ? (
+                  <ViewFileButton
+                    href={fileHref(`cheque-${item.key}`)}
+                    label={ar ? item.labelAr : item.labelEn}
+                    ar={ar}
+                  />
+                ) : null}
+                {canManage && status === 'submitted' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      disabled={busy}
+                      onClick={() => void onReview(item.key, 'approved')}
+                    >
+                      {ar ? 'قبول' : 'Accept'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      disabled={busy}
+                      onClick={() => {
+                        setRejecting(item.key);
+                        setNote('');
+                      }}
+                    >
+                      {ar ? 'رفض' : 'Reject'}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+              {rejecting === item.key ? (
+                <form
+                  className="lrw__reject"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!note.trim()) return;
+                    void onReview(item.key, 'rejected', note.trim()).then(() => setRejecting(null));
+                  }}
+                >
+                  <label htmlFor={`reject-cheque-${item.key}`}>
+                    {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
+                  </label>
+                  <input
+                    id={`reject-cheque-${item.key}`}
+                    className="input"
+                    required
+                    maxLength={500}
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                  />
+                  <button type="submit" className="button button--primary" disabled={busy}>
+                    {ar ? 'تأكيد الرفض' : 'Confirm rejection'}
+                  </button>
+                </form>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 function RequirementsReview({
   lifecycle,
   locale,
@@ -1208,8 +1341,9 @@ function RequirementsReview({
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const requirements = lifecycle.requirements ?? [];
+  const hasCheques = (lifecycle.chequeInstructions ?? []).length > 0;
   if (!requirements.length) {
-    return (
+    return hasCheques ? null : (
       <p className="muted">
         {ar
           ? 'لم تطلب مستندات من العميل؛ يمكنك اعتماد العقد مباشرة.'
@@ -1474,6 +1608,7 @@ function ContractDraftEditor({
 }) {
   const ar = locale === 'ar';
   const sale = mode === 'sale';
+  const [bankAccounts, setBankAccounts] = useState<LeaseBankAccountOption[]>([]);
   const [requirements, setRequirements] = useState(
     (lifecycle.requirements ?? []).map(({ code, labelAr, labelEn }) => ({
       code,
@@ -1481,6 +1616,32 @@ function ContractDraftEditor({
       labelEn,
     })),
   );
+
+  useEffect(() => {
+    if (sale) return;
+    let cancelled = false;
+    void fetch('/api/owner/accounting/settings', { credentials: 'same-origin' })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as { settings?: AccountingSettings };
+        if (cancelled || !data.settings?.bankAccounts) return;
+        setBankAccounts(
+          data.settings.bankAccounts.map((row) => ({
+            id: row.id,
+            labelAr: row.labelAr,
+            labelEn: row.labelEn,
+            bankName: row.bankName,
+            accountHolderName: row.accountHolderName,
+            defaultForRent: row.defaultForRent,
+            active: row.active,
+          })),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [sale]);
   const savedLease = lifecycle.contractDraft?.lease as
     { tenant?: LeaseContractPayload['tenant']; terms?: LeaseTermsDraft } | undefined;
   const digits = minorDigitsFor(currency);
@@ -1612,6 +1773,7 @@ function ContractDraftEditor({
         canSign={canSign}
         locale={locale}
         busy={busy}
+        bankAccounts={bankAccounts}
         heading={ar ? 'بيانات عقد الإيجار' : 'Lease contract details'}
         submitLabel={ar ? 'حفظ العقد والمستندات' : 'Save contract & documents'}
         footnote={footnote}

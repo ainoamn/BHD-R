@@ -30,12 +30,30 @@ export type AccountingFxRate = {
   minorUnit: number;
 };
 
+/** Org bank account used for rent receipts and shown when cheques/transfers are due. */
+export type AccountingBankAccount = {
+  id: string;
+  labelAr: string;
+  labelEn: string;
+  bankName: string;
+  accountHolderName: string;
+  iban: string;
+  accountNumber: string;
+  currency: string;
+  active: boolean;
+  /** Prefer this account when binding a new lease's rent receipts. */
+  defaultForRent: boolean;
+  /** Optional GL cash/bank leaf created under Cash & Bank. */
+  ledgerAccountId: string | null;
+};
+
 export type AccountingSettings = {
   vatEnabled: boolean;
   vatRatePercent: number;
   otherTaxes: AccountingTaxRow[];
   baseCurrency: string;
   currencies: AccountingFxRate[];
+  bankAccounts: AccountingBankAccount[];
   /** Online / source-linked journals need an explicit refund confirmation before reverse. */
   requireRefundConfirmForOnline: boolean;
   /** Online reverse waits for a second approver (approval.decide). */
@@ -54,6 +72,7 @@ export const DEFAULT_ACCOUNTING_SETTINGS: AccountingSettings = {
     { code: 'AED', rateToBase: '0.105', minorUnit: 2 },
     { code: 'EUR', rateToBase: '0.420', minorUnit: 2 },
   ],
+  bankAccounts: [],
   requireRefundConfirmForOnline: true,
   requireSecondApproverForOnline: false,
   blockUnpostForLinked: true,
@@ -132,12 +151,75 @@ export function normalizeAccountingSettings(raw: unknown): AccountingSettings {
     .trim()
     .toUpperCase()
     .slice(0, 3);
+  const bankAccounts = Array.isArray(input.bankAccounts)
+    ? input.bankAccounts
+        .map((row) => {
+          if (!row || typeof row !== 'object') return null;
+          const item = row as Record<string, unknown>;
+          const id = String(item.id ?? '')
+            .trim()
+            .slice(0, 64);
+          const bankName = String(item.bankName ?? '')
+            .trim()
+            .slice(0, 160);
+          const accountHolderName = String(item.accountHolderName ?? '')
+            .trim()
+            .slice(0, 160);
+          if (!id || !bankName || !accountHolderName) return null;
+          const currency = String(item.currency ?? base.baseCurrency)
+            .trim()
+            .toUpperCase()
+            .slice(0, 3);
+          const labelAr =
+            String(item.labelAr ?? '')
+              .trim()
+              .slice(0, 120) || bankName;
+          const labelEn =
+            String(item.labelEn ?? '')
+              .trim()
+              .slice(0, 120) || labelAr;
+          return {
+            id,
+            labelAr,
+            labelEn,
+            bankName,
+            accountHolderName,
+            iban: String(item.iban ?? '')
+              .trim()
+              .slice(0, 64),
+            accountNumber: String(item.accountNumber ?? '')
+              .trim()
+              .slice(0, 64),
+            currency: /^[A-Z]{3}$/.test(currency) ? currency : base.baseCurrency,
+            active: item.active !== false,
+            defaultForRent: Boolean(item.defaultForRent),
+            ledgerAccountId:
+              typeof item.ledgerAccountId === 'string' && item.ledgerAccountId.trim()
+                ? item.ledgerAccountId.trim().slice(0, 64)
+                : null,
+          } satisfies AccountingBankAccount;
+        })
+        .filter((row): row is AccountingBankAccount => Boolean(row))
+        .slice(0, 24)
+    : base.bankAccounts;
+  const defaultRentCount = bankAccounts.filter((row) => row.defaultForRent && row.active).length;
+  const normalizedBanks =
+    defaultRentCount <= 1
+      ? bankAccounts
+      : bankAccounts.map((row, index) => ({
+          ...row,
+          defaultForRent:
+            row.defaultForRent &&
+            index === bankAccounts.findIndex((entry) => entry.defaultForRent && entry.active),
+        }));
+
   return {
     vatEnabled: input.vatEnabled !== false,
     vatRatePercent: vatRate,
     otherTaxes,
     baseCurrency: /^[A-Z]{3}$/.test(baseCurrency) ? baseCurrency : base.baseCurrency,
     currencies,
+    bankAccounts: normalizedBanks,
     requireRefundConfirmForOnline: input.requireRefundConfirmForOnline !== false,
     requireSecondApproverForOnline: Boolean(input.requireSecondApproverForOnline),
     blockUnpostForLinked: input.blockUnpostForLinked !== false,

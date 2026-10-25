@@ -21638,6 +21638,24 @@ button.lrw__step-body:focus-visible {
 .lease-docs__upload {
   cursor: pointer;
 }
+.lease-docs__heading {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.lease-cheques__payable {
+  margin: 0;
+}
+.lease-cheques__fields {
+  display: grid;
+  gap: 0.45rem;
+  width: min(100%, 22rem);
+}
+.lease-cheques__fields label {
+  display: grid;
+  gap: 0.2rem;
+  font-size: 0.82rem;
+  color: #3d5248;
+}
 .lease-sign {
   display: grid;
   gap: 0.75rem;

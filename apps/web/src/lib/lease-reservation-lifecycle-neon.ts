@@ -38,10 +38,17 @@ import {
   type HandoverPhotoMeta,
   type LeaseJourneyPhase,
   type ReservationCancelReason,
+  type ReservationChequeInstruction,
+  type ReservationChequeSubmission,
   type ReservationLifecycle,
   type ReservationRequirement,
   type ReservationSaleDraft,
 } from '@/lib/lease-reservation-lifecycle';
+import {
+  computeLeaseTerms,
+  minorDigitsFor,
+  type LeaseTermsDraft,
+} from '@/lib/lease-terms';
 import {
   assertLeaseTermsValid,
   completeCounterpartySignatureInTx,
@@ -207,6 +214,12 @@ export type ReservationOwnerAction =
       decision: 'approved' | 'rejected';
       note?: string | undefined;
     }
+  | {
+      action: 'review_cheque';
+      key: string;
+      decision: 'approved' | 'rejected';
+      note?: string | undefined;
+    }
   | { action: 'issue_contract' }
   | {
       action: 'record_handover';
@@ -233,6 +246,120 @@ function cleanRequirements(
     const kept = existing.find((entry) => entry.code === code);
     return kept ? { ...kept, labelAr, labelEn } : { code, labelAr, labelEn, status: 'pending' };
   });
+}
+
+/** Seed per-installment cheque rows the tenant must complete on the confirmed page. */
+function buildChequeInstructions(
+  draft: LeaseTermsDraft,
+  currency: string,
+): {
+  payableTo: string | null;
+  bankName: string | null;
+  rentBankAccountId: string | null;
+  instructions: ReservationChequeInstruction[];
+} {
+  const computed = computeLeaseTerms(draft, currency, minorDigitsFor(currency));
+  if (!computed.ok || computed.terms.paymentMethod !== 'cheque') {
+    return {
+      payableTo: null,
+      bankName: null,
+      rentBankAccountId: draft.rentBankAccountId?.trim().slice(0, 64) || null,
+      instructions: [],
+    };
+  }
+  const terms = computed.terms;
+  const instructions: ReservationChequeInstruction[] = [];
+  for (const [index, row] of terms.schedule.entries()) {
+    instructions.push({
+      key: `rent-${index}`,
+      kind: 'rent',
+      labelAr: `شيك إيجار #${index + 1}`,
+      labelEn: `Rent cheque #${index + 1}`,
+      dueOn: row.dueOn,
+      amountMinor: row.totalMinor,
+      currency,
+      suggestedChequeNumber: row.chequeNumber,
+    });
+  }
+  for (const [index, row] of terms.vatCheques.entries()) {
+    instructions.push({
+      key: `vat-${index}`,
+      kind: 'vat',
+      labelAr: `شيك ضريبة #${index + 1}`,
+      labelEn: `VAT cheque #${index + 1}`,
+      dueOn: row.dueOn,
+      amountMinor: row.amountMinor,
+      currency,
+      suggestedChequeNumber: row.chequeNumber,
+    });
+  }
+  terms.depositItems.forEach((item, index) => {
+    if (item.method !== 'cheque') return;
+    instructions.push({
+      key: `deposit-${index}`,
+      kind: 'deposit',
+      labelAr: `شيك تأمين #${index + 1}`,
+      labelEn: `Deposit cheque #${index + 1}`,
+      dueOn: item.dueOn,
+      amountMinor: item.amountMinor,
+      currency,
+      suggestedChequeNumber: item.reference,
+    });
+  });
+  return {
+    payableTo: terms.chequeAccountName,
+    bankName: terms.chequeBankName,
+    rentBankAccountId: terms.rentBankAccountId,
+    instructions,
+  };
+}
+
+/** Keep approved/submitted cheque rows when the schedule keys still match. */
+function mergeChequeSubmissions(
+  instructions: ReservationChequeInstruction[],
+  existing: ReservationChequeSubmission[] | undefined,
+): ReservationChequeSubmission[] {
+  if (!instructions.length || !existing?.length) return [];
+  const allowed = new Set(instructions.map((row) => row.key));
+  return existing.filter((row) => allowed.has(row.key));
+}
+
+/** Copy tenant cheque numbers/banks onto the lease draft before the contract is issued. */
+function applyChequeSubmissionsToLease(
+  lease: ManualLeaseInput,
+  submissions: ReservationChequeSubmission[],
+): ManualLeaseInput {
+  if (!submissions.length) return lease;
+  const byKey = new Map(submissions.map((row) => [row.key, row]));
+  const terms: LeaseTermsDraft = {
+    ...lease.terms,
+    schedule: lease.terms.schedule.map((row, index) => {
+      const submitted = byKey.get(`rent-${index}`);
+      if (!submitted) return row;
+      return {
+        ...row,
+        chequeNumber: submitted.chequeNumber,
+        bankName: submitted.bankName,
+      };
+    }),
+    vatChequeNumbers: (lease.terms.vatChequeNumbers ?? []).map((value, index) => {
+      const submitted = byKey.get(`vat-${index}`);
+      return submitted?.chequeNumber ?? value;
+    }),
+    depositItems: lease.terms.depositItems.map((item, index) => {
+      if (item.method !== 'cheque') return item;
+      const submitted = byKey.get(`deposit-${index}`);
+      if (!submitted) return item;
+      return {
+        ...item,
+        reference: submitted.chequeNumber,
+        bankName: submitted.bankName,
+      };
+    }),
+  };
+  const first = submissions[0];
+  if (first && !terms.chequeBankName) terms.chequeBankName = first.bankName;
+  return { ...lease, terms };
 }
 
 function assertOpen(row: OwnerRow) {
@@ -271,17 +398,18 @@ async function issueReservationContract(
   } else {
     if (!hasPermission(claims, 'lease.create') || !draft.lease) fail('forbidden');
     const lease = draft.lease as unknown as ManualLeaseInput;
-    outcome = await issueManualLeaseInTx(
-      tx,
-      claims,
-      row.propertyId,
+    const withCheques = applyChequeSubmissionsToLease(
       {
         ...lease,
         unitId: row.unitId,
         tenant: { ...lease.tenant, partyId: row.tenantPartyId },
       },
-      { source, awaitCounterparty: true },
+      lifecycle.chequeSubmissions ?? [],
     );
+    outcome = await issueManualLeaseInTx(tx, claims, row.propertyId, withCheques, {
+      source,
+      awaitCounterparty: true,
+    });
   }
   const next: ReservationLifecycle = {
     ...lifecycle,
@@ -565,6 +693,7 @@ const AUTOMATION_TRIGGERS = new Set<ReservationOwnerAction['action']>([
   'confirm_payment',
   'save_contract',
   'review_document',
+  'review_cheque',
 ]);
 
 async function ownerActionInTx(
@@ -693,6 +822,12 @@ async function ownerActionInTx(
         } else {
           if (!input.lease) fail('invalid_body');
           assertLeaseTermsValid(input.lease.terms, row.currency);
+          if (
+            input.lease.terms.paymentMethod === 'cheque' &&
+            !(input.lease.terms.chequeAccountName?.trim())
+          ) {
+            fail('invalid_body');
+          }
           const lease: ManualLeaseInput = {
             ...input.lease,
             unitId: row.unitId,
@@ -704,9 +839,32 @@ async function ownerActionInTx(
           input.requirements,
           row.lifecycle.requirements ?? [],
         );
-        await saveLifecycle(tx, row, { ...row.lifecycle, contractDraft: draft, requirements });
+        const chequeSeed =
+          !sale && input.lease
+            ? buildChequeInstructions(input.lease.terms, row.currency)
+            : {
+                payableTo: null,
+                bankName: null,
+                rentBankAccountId: null,
+                instructions: [] as ReservationChequeInstruction[],
+              };
+        const chequeSubmissions = mergeChequeSubmissions(
+          chequeSeed.instructions,
+          row.lifecycle.chequeSubmissions,
+        );
+        await saveLifecycle(tx, row, {
+          ...row.lifecycle,
+          contractDraft: draft,
+          requirements,
+          chequePayableTo: chequeSeed.payableTo,
+          chequeBankName: chequeSeed.bankName,
+          rentBankAccountId: chequeSeed.rentBankAccountId,
+          chequeInstructions: chequeSeed.instructions,
+          chequeSubmissions,
+        });
         await event('reservation.contract_prepared', {
           requirements: requirements.map((item) => item.code),
+          cheques: chequeSeed.instructions.map((item) => item.key),
         });
         break;
       }
@@ -732,6 +890,31 @@ async function ownerActionInTx(
         );
         await saveLifecycle(tx, row, { ...row.lifecycle, requirements: next });
         await event(`reservation.document_${input.decision}`, { code: input.code });
+        break;
+      }
+
+      case 'review_cheque': {
+        if (row.lifecycle.contract) fail('reservation_not_ready');
+        const instructions = row.lifecycle.chequeInstructions ?? [];
+        if (!instructions.some((item) => item.key === input.key)) fail('requirement_not_found');
+        const submissions = row.lifecycle.chequeSubmissions ?? [];
+        const target = submissions.find((item) => item.key === input.key);
+        if (!target?.file) fail('reservation_not_ready');
+        const note = input.note?.trim().slice(0, 500) || null;
+        if (input.decision === 'rejected' && !note) fail('invalid_body');
+        const next = submissions.map((item) =>
+          item.key === input.key
+            ? {
+                ...item,
+                status: input.decision,
+                note: input.decision === 'rejected' ? note : null,
+                reviewedAt: at,
+                reviewedByName: byName,
+              }
+            : item,
+        );
+        await saveLifecycle(tx, row, { ...row.lifecycle, chequeSubmissions: next });
+        await event(`reservation.cheque_${input.decision}`, { key: input.key });
         break;
       }
 
@@ -907,10 +1090,25 @@ export async function runReservationAutomation(
         const submitted = (lifecycle.requirements ?? []).filter(
           (item) => item.status === 'submitted',
         );
-        if (submitted.length) {
+        const submittedCheques = (lifecycle.chequeSubmissions ?? []).filter(
+          (item) => item.status === 'submitted',
+        );
+        if (submitted.length || submittedCheques.length) {
           lifecycle = {
             ...lifecycle,
             requirements: (lifecycle.requirements ?? []).map((item) =>
+              item.status === 'submitted'
+                ? {
+                    ...item,
+                    status: 'approved' as const,
+                    note: null,
+                    autoApproved: true,
+                    reviewedAt: at,
+                    reviewedByName: SYSTEM_APPROVER_AR,
+                  }
+                : item,
+            ),
+            chequeSubmissions: (lifecycle.chequeSubmissions ?? []).map((item) =>
               item.status === 'submitted'
                 ? {
                     ...item,
@@ -926,6 +1124,7 @@ export async function runReservationAutomation(
           await saveLifecycle(tx, row, lifecycle);
           await event('reservation.documents_auto_accepted', {
             codes: submitted.map((item) => item.code),
+            cheques: submittedCheques.map((item) => item.key),
           });
         }
         try {
@@ -978,6 +1177,114 @@ async function customerReservation(transaction: Tx, userId: string, referenceCod
     lifecycle,
     phase: phaseOf(fresh.status, snapshot, lifecycle),
   };
+}
+
+/** Tenant submits one rent/VAT/deposit cheque (number + photo) from the confirmed page. */
+export async function submitReservationCheque(
+  claims: SessionClaims,
+  referenceCode: string,
+  input: {
+    key: string;
+    bankName: string;
+    accountHolderName: string;
+    chequeNumber: string;
+    fileName: string;
+    dataUrl: string;
+  },
+) {
+  const parsed = DATA_URL.exec(input.dataUrl);
+  if (
+    !parsed ||
+    !REQUIREMENT_FILE_TYPES.includes(parsed[1]!) ||
+    input.dataUrl.length > REQUIREMENT_FILE_MAX_CHARS
+  ) {
+    leaseBookingFail('invalid_file');
+  }
+  const bankName = input.bankName.trim().slice(0, 160);
+  const accountHolderName = input.accountHolderName.trim().slice(0, 160);
+  const chequeNumber = input.chequeNumber.trim().slice(0, 80);
+  if (bankName.length < 2 || accountHolderName.length < 2 || chequeNumber.length < 1) {
+    leaseBookingFail('tenant_details_invalid');
+  }
+  const mime = parsed[1]!;
+  const size = Math.floor((parsed[2]!.length * 3) / 4);
+  const { db } = getDatabase();
+  const reservationId = await db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    if (current.phase !== 'awaiting_documents' && current.phase !== 'awaiting_documents_review') {
+      leaseBookingFail('not_ready');
+    }
+    const instruction = (current.lifecycle.chequeInstructions ?? []).find(
+      (item) => item.key === input.key,
+    );
+    if (!instruction) leaseBookingFail('requirement_not_found');
+    const existing = (current.lifecycle.chequeSubmissions ?? []).find(
+      (item) => item.key === input.key,
+    );
+    if (existing?.status === 'approved') leaseBookingFail('not_ready');
+
+    const submittedAt = new Date().toISOString();
+    const name = input.fileName.trim().slice(0, 120) || `${input.key}.jpg`;
+    const [stored] = await transaction
+      .insert(workflowEvents)
+      .values({
+        organizationId: current.match.organizationId,
+        actorUserId: claims.sub,
+        resourceType: 'reservation_cheque',
+        resourceId: current.match.id,
+        eventType: 'reservation.cheque_file',
+        metadata: {
+          referenceCode: current.snapshot.referenceCode,
+          key: input.key,
+          name,
+          mime,
+          size,
+          bankName,
+          accountHolderName,
+          chequeNumber,
+          dataUrl: input.dataUrl,
+        },
+      })
+      .returning({ id: workflowEvents.id });
+
+    const nextRow: ReservationChequeSubmission = {
+      key: input.key,
+      bankName,
+      accountHolderName,
+      chequeNumber,
+      file: { eventId: stored!.id, name, mime, size, submittedAt },
+      status: 'submitted',
+      note: null,
+    };
+    const others = (current.lifecycle.chequeSubmissions ?? []).filter(
+      (item) => item.key !== input.key,
+    );
+    await saveLifecycle(
+      transaction,
+      { id: current.match.id, snapshot: current.snapshot },
+      { ...current.lifecycle, chequeSubmissions: [...others, nextRow] },
+    );
+    await logEvent(transaction, {
+      orgId: current.match.organizationId,
+      actorUserId: claims.sub,
+      reservationId: current.match.id,
+      eventType: 'reservation.cheque_submitted',
+      status: current.status,
+      metadata: {
+        referenceCode: current.snapshot.referenceCode,
+        key: input.key,
+        chequeNumber,
+      },
+    });
+    return current.match.id;
+  });
+  await notifyOwnersOfCustomerStep(reservationId, {
+    subject: '🧾 رفع العميل بيانات شيك للمراجعة',
+    title: 'شيك جديد ينتظر مراجعتك',
+    line: 'أدخل العميل رقم شيك وصورته على حجزه. راجعه واعتمده ليمضي الحجز إلى العقد.',
+  });
+  await runReservationAutomation(reservationId, claims.sub);
+  return { submitted: true as const, key: input.key };
 }
 
 /** The customer sends one of the documents the owner asked for (image or PDF as a data URL). */
@@ -1159,7 +1466,13 @@ export async function signReservationContract(
 }
 
 export type ReservationFileKind =
-  'signature' | 'id-front' | 'id-back' | 'selfie' | 'contract-signature' | `doc-${string}`;
+  | 'signature'
+  | 'id-front'
+  | 'id-back'
+  | 'selfie'
+  | 'contract-signature'
+  | `doc-${string}`
+  | `cheque-${string}`;
 
 const ESIGN_FIELDS: Record<string, string> = {
   signature: 'signaturePng',
@@ -1211,6 +1524,13 @@ export async function readReservationFileForStaff(
       );
       eventId = requirement?.file?.eventId ?? null;
       name = requirement?.file?.name ?? file;
+      path = ['dataUrl'];
+    } else if (file.startsWith('cheque-')) {
+      const submission = (lifecycle.chequeSubmissions ?? []).find(
+        (item) => item.key === file.slice(7),
+      );
+      eventId = submission?.file?.eventId ?? null;
+      name = submission?.file?.name ?? file;
       path = ['dataUrl'];
     }
     if (!eventId || !path.length) return null;

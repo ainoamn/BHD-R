@@ -83,6 +83,7 @@ export const leaseTermsSchema = z
       .max(20),
     chequeBankName: short(160),
     chequeAccountName: short(160),
+    rentBankAccountId: short(64),
     schedule: z
       .array(
         z

@@ -228,6 +228,8 @@ export type LeaseTermsDraft = {
   depositItems: LeaseDepositItemDraft[];
   chequeBankName?: string | undefined;
   chequeAccountName?: string | undefined;
+  /** Accounting bank-account id rent receipts should credit. */
+  rentBankAccountId?: string | undefined;
   schedule: LeaseScheduleDraftRow[];
   vatChequeNumbers: string[];
   adjustments: LeaseAdjustmentDraft[];
@@ -321,6 +323,7 @@ export type LeaseTerms = {
   otherTax: { name: string; rateBasisPoints: number } | null;
   chequeBankName: string | null;
   chequeAccountName: string | null;
+  rentBankAccountId: string | null;
   depositItems: LeaseDepositItem[];
   schedule: LeaseScheduleRow[];
   vatCheques: LeaseVatCheque[];
@@ -696,6 +699,7 @@ export function computeLeaseTerms(
       otherTax,
       chequeBankName: isCheque ? chequeBankName : null,
       chequeAccountName: isCheque ? text(draft.chequeAccountName, 160) : null,
+      rentBankAccountId: text(draft.rentBankAccountId, 64),
       depositItems,
       schedule,
       vatCheques,

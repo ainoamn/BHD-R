@@ -10,6 +10,7 @@ import { StaySendPhone } from '@/components/stays/stay-send-phone';
 import { StayTrip } from '@/components/stays/stay-trip';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { compressImageFile } from '@/lib/compress-image';
+import { formatMoney } from '@/lib/format';
 import { leaseScreens, type LeaseJourneyProps } from '@/lib/lease-journey-screens';
 import {
   REQUIREMENT_FILE_MAX_CHARS,
@@ -130,8 +131,18 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
           {ar ? 'عرض اتفاقية الحجز الموقّعة' : 'View signed booking agreement'}
         </Link>
       ) : null}
-      {screen.action === 'documents' && !past ? <LeaseDocuments {...props} /> : null}
-      {screen.action === 'documents' && past ? <LeaseDocumentList {...props} /> : null}
+      {screen.action === 'documents' && !past ? (
+        <>
+          <LeaseDocuments {...props} />
+          <LeaseCheques {...props} />
+        </>
+      ) : null}
+      {screen.action === 'documents' && past ? (
+        <>
+          <LeaseDocumentList {...props} />
+          <LeaseCheques {...props} readOnly />
+        </>
+      ) : null}
       {screen.action === 'sign_contract' && !past ? <LeaseContractSign {...props} /> : null}
       {screen.action === 'view_contract' && props.lifecycle.contract ? (
         <Link
@@ -168,7 +179,11 @@ const REQUIREMENT_STATUS: Record<string, [string, string]> = {
 };
 
 function requirementStatus(
-  item: LeaseJourneyProps['lifecycle']['requirements'][number],
+  item: {
+    status: 'pending' | 'submitted' | 'approved' | 'rejected';
+    autoApproved?: boolean;
+    verified?: boolean;
+  },
   ar: boolean,
 ): string | undefined {
   if (item.autoApproved && item.status === 'approved' && !item.verified) {
@@ -231,8 +246,13 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
     }
   }
 
+  if (!lifecycle.requirements.length) return null;
+
   return (
     <div className="lease-docs-wrap">
+      <h3 className="lease-docs__heading">
+        {ar ? '📎 المستندات المطلوبة' : '📎 Required documents'}
+      </h3>
       {error ? (
         <p className="notice notice--error" role="alert">
           {error}
@@ -277,6 +297,222 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
                     onChange={(event) => void upload(item.code, event)}
                   />
                 </label>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+type ChequeDraft = {
+  bankName: string;
+  accountHolderName: string;
+  chequeNumber: string;
+};
+
+function LeaseCheques({
+  lifecycle,
+  locale,
+  referenceCode,
+  readOnly = false,
+}: LeaseJourneyProps & { readOnly?: boolean }) {
+  const ar = locale === 'ar';
+  const router = useRouter();
+  const cheques = lifecycle.cheques ?? [];
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [drafts, setDrafts] = useState<Record<string, ChequeDraft>>(() => {
+    const initial: Record<string, ChequeDraft> = {};
+    for (const item of cheques) {
+      initial[item.key] = {
+        bankName: item.bankName ?? lifecycle.chequeBankName ?? '',
+        accountHolderName: item.accountHolderName ?? '',
+        chequeNumber: item.chequeNumber ?? item.suggestedChequeNumber ?? '',
+      };
+    }
+    return initial;
+  });
+
+  if (!cheques.length) return null;
+
+  async function submit(key: string, event: ChangeEvent<HTMLInputElement>) {
+    const picked = event.target.files?.[0];
+    event.target.value = '';
+    if (!picked) return;
+    const draft = drafts[key] ?? { bankName: '', accountHolderName: '', chequeNumber: '' };
+    if (
+      draft.bankName.trim().length < 2 ||
+      draft.accountHolderName.trim().length < 2 ||
+      !draft.chequeNumber.trim()
+    ) {
+      setError(
+        ar
+          ? 'أكمل بنك الشيك واسم صاحب الحساب ورقم الشيك قبل رفع الصورة.'
+          : 'Fill bank, account holder and cheque number before uploading the photo.',
+      );
+      return;
+    }
+    setError(null);
+    setBusy(key);
+    try {
+      const file = picked.type.startsWith('image/') ? await compressImageFile(picked) : picked;
+      if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
+        throw new Error(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
+      }
+      const dataUrl = await readAsDataUrl(file);
+      if (dataUrl.length > REQUIREMENT_FILE_MAX_CHARS) {
+        throw new Error(
+          ar
+            ? 'الملف كبير جداً (الحد نحو 1 ميغابايت). صوّره بدقة أقل.'
+            : 'The file is too large (about 1 MB max).',
+        );
+      }
+      await browserNextMutation(
+        `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/cheques`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            key,
+            bankName: draft.bankName.trim(),
+            accountHolderName: draft.accountHolderName.trim(),
+            chequeNumber: draft.chequeNumber.trim(),
+            fileName: picked.name.slice(0, 200),
+            dataUrl,
+          }),
+        },
+      );
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? errorText(caught, ar) : (caught as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="lease-docs-wrap lease-cheques">
+      <h3 className="lease-docs__heading">{ar ? '🧾 شيكات الإيجار' : '🧾 Rent cheques'}</h3>
+      {lifecycle.chequePayableTo ? (
+        <p className="lease-cheques__payable notice">
+          {ar ? 'اكتب الشيكات باسم: ' : 'Make cheques payable to: '}
+          <strong>{lifecycle.chequePayableTo}</strong>
+          {lifecycle.chequeBankName ? (
+            <>
+              {' · '}
+              {ar ? 'البنك: ' : 'Bank: '}
+              {lifecycle.chequeBankName}
+            </>
+          ) : null}
+        </p>
+      ) : null}
+      <p className="muted">
+        {ar
+          ? 'لكل قسط إيجار: أدخل بنك الشيك، اسم صاحب الحساب، رقم الشيك، ثم ارفق صورة الشيك.'
+          : 'For each rent installment: enter the bank, account holder, cheque number, then attach a photo of the cheque.'}
+      </p>
+      {error ? (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <ul className="lease-docs lease-cheques__list">
+        {cheques.map((item) => {
+          const draft = drafts[item.key] ?? {
+            bankName: lifecycle.chequeBankName ?? '',
+            accountHolderName: '',
+            chequeNumber: item.suggestedChequeNumber ?? '',
+          };
+          const canEdit = !readOnly && item.status !== 'approved';
+          return (
+            <li key={item.key} className={`lease-docs__item lease-docs__item--${item.status}`}>
+              <div className="lease-docs__text">
+                <strong>{ar ? item.labelAr : item.labelEn}</strong>
+                <span>
+                  {formatMoney(String(item.amountMinor), item.currency, ar ? 'ar' : 'en')}
+                  {item.dueOn ? ` · ${item.dueOn}` : ''}
+                </span>
+                <span>{requirementStatus(item, ar)}</span>
+                {item.status === 'rejected' && item.note ? (
+                  <small>
+                    {ar ? 'ملاحظة المالك: ' : 'Owner note: '}
+                    {item.note}
+                  </small>
+                ) : null}
+                {item.fileName && item.status !== 'rejected' ? (
+                  <small dir="auto">
+                    {item.chequeNumber ? `#${item.chequeNumber} · ` : ''}
+                    {item.fileName}
+                  </small>
+                ) : null}
+              </div>
+              {canEdit ? (
+                <div className="lease-cheques__fields">
+                  <label>
+                    {ar ? 'بنك الشيكات' : 'Cheque bank'}
+                    <input
+                      className="input"
+                      maxLength={160}
+                      value={draft.bankName}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [item.key]: { ...draft, bankName: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    {ar ? 'اسم صاحب الحساب' : 'Account holder'}
+                    <input
+                      className="input"
+                      maxLength={160}
+                      value={draft.accountHolderName}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [item.key]: { ...draft, accountHolderName: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    {ar ? 'رقم الشيك' : 'Cheque number'}
+                    <input
+                      className="input"
+                      dir="ltr"
+                      maxLength={80}
+                      value={draft.chequeNumber}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [item.key]: { ...draft, chequeNumber: event.target.value },
+                        }))
+                      }
+                    />
+                  </label>
+                  <label className="button button--quiet lease-docs__upload">
+                    {busy === item.key
+                      ? ar
+                        ? 'جارٍ الإرسال…'
+                        : 'Sending…'
+                      : item.status === 'pending'
+                        ? ar
+                          ? 'رفع صورة الشيك'
+                          : 'Upload cheque photo'
+                        : ar
+                          ? 'استبدال الصورة'
+                          : 'Replace photo'}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      hidden
+                      disabled={busy !== null}
+                      onChange={(event) => void submit(item.key, event)}
+                    />
+                  </label>
+                </div>
               ) : null}
             </li>
           );

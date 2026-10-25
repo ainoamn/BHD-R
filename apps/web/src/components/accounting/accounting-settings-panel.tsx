@@ -3,11 +3,17 @@
 import { useEffect, useState } from 'react';
 import {
   DEFAULT_ACCOUNTING_SETTINGS,
+  type AccountingBankAccount,
   type AccountingFxRate,
   type AccountingSettings,
   type AccountingTaxRow,
 } from '@/lib/accounting-integrity';
 import { browserNextMutation } from '@/lib/api';
+
+function newBankAccountId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `bank-${Date.now().toString(36)}`;
+}
 
 export function AccountingSettingsPanel({
   locale,
@@ -84,6 +90,15 @@ export function AccountingSettingsPanel({
     setSettings((current) => ({
       ...current,
       currencies: current.currencies.map((row, i) => (i === index ? { ...row, ...patch } : row)),
+    }));
+  };
+
+  const updateBank = (index: number, patch: Partial<AccountingBankAccount>) => {
+    setSettings((current) => ({
+      ...current,
+      bankAccounts: current.bankAccounts.map((row, i) =>
+        i === index ? { ...row, ...patch } : row,
+      ),
     }));
   };
 
@@ -273,6 +288,141 @@ export function AccountingSettingsPanel({
           }
         >
           {ar ? '＋ عملة' : '+ Currency'}
+        </button>
+      </fieldset>
+
+      <fieldset className="accounting-settings__block" disabled={!canManage || busy}>
+        <legend>{ar ? 'الحسابات البنكية لاستلام الإيجار' : 'Bank accounts for rent receipts'}</legend>
+        <p className="accounting-hub__muted">
+          {ar
+            ? 'أضف حسابات البنك التي تُربط بعقود الإيجار. عند الدفع يُوجَّه تحصيل الإيجار للحساب المربوط بالعقد (قابل للتغيير لاحقاً).'
+            : 'Add bank accounts to bind to leases. Rent collection targets the account linked on the contract (changeable later).'}
+        </p>
+        {(settings.bankAccounts ?? []).map((account, index) => (
+          <div key={account.id} className="accounting-hub__form-grid">
+            <label>
+              {ar ? 'التسمية عربي' : 'Label AR'}
+              <input
+                value={account.labelAr}
+                onChange={(event) =>
+                  updateBank(index, { labelAr: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {ar ? 'التسمية إنجليزي' : 'Label EN'}
+              <input
+                value={account.labelEn}
+                onChange={(event) =>
+                  updateBank(index, { labelEn: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {ar ? 'اسم البنك' : 'Bank name'}
+              <input
+                value={account.bankName}
+                onChange={(event) => updateBank(index, { bankName: event.target.value })}
+              />
+            </label>
+            <label>
+              {ar ? 'اسم صاحب الحساب' : 'Account holder'}
+              <input
+                value={account.accountHolderName}
+                onChange={(event) =>
+                  updateBank(index, { accountHolderName: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {ar ? 'رقم الحساب' : 'Account number'}
+              <input
+                value={account.accountNumber}
+                dir="ltr"
+                onChange={(event) =>
+                  updateBank(index, { accountNumber: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              IBAN
+              <input
+                value={account.iban}
+                dir="ltr"
+                onChange={(event) => updateBank(index, { iban: event.target.value })}
+              />
+            </label>
+            <label>
+              {ar ? 'العملة' : 'Currency'}
+              <input
+                value={account.currency}
+                maxLength={3}
+                onChange={(event) =>
+                  updateBank(index, { currency: event.target.value.toUpperCase() })
+                }
+              />
+            </label>
+            <label className="accounting-settings__check">
+              <input
+                type="checkbox"
+                checked={account.defaultForRent}
+                onChange={(event) =>
+                  setSettings((current) => ({
+                    ...current,
+                    bankAccounts: current.bankAccounts.map((row, i) => ({
+                      ...row,
+                      defaultForRent: i === index ? event.target.checked : false,
+                    })),
+                  }))
+                }
+              />
+              {ar ? 'افتراضي لإيجار جديد' : 'Default for new leases'}
+            </label>
+            <label className="accounting-settings__check">
+              <input
+                type="checkbox"
+                checked={account.active}
+                onChange={(event) => updateBank(index, { active: event.target.checked })}
+              />
+              {ar ? 'نشط' : 'Active'}
+            </label>
+            <button
+              type="button"
+              className="button button--quiet button--sm"
+              onClick={() =>
+                setSettings((current) => ({
+                  ...current,
+                  bankAccounts: current.bankAccounts.filter((_, i) => i !== index),
+                }))
+              }
+            >
+              {ar ? 'حذف' : 'Remove'}
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          className="button button--quiet button--sm"
+          onClick={() =>
+            setSettings((current) => {
+              const row: AccountingBankAccount = {
+                id: newBankAccountId(),
+                labelAr: 'حساب بنكي',
+                labelEn: 'Bank account',
+                bankName: '',
+                accountHolderName: '',
+                iban: '',
+                accountNumber: '',
+                currency: current.baseCurrency,
+                active: true,
+                defaultForRent: current.bankAccounts.every((item) => !item.defaultForRent),
+                ledgerAccountId: null,
+              };
+              return { ...current, bankAccounts: [...current.bankAccounts, row] };
+            })
+          }
+        >
+          {ar ? '＋ حساب بنكي' : '+ Bank account'}
         </button>
       </fieldset>
 

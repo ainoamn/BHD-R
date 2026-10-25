@@ -115,6 +115,47 @@ export type ReservationLifecycle = {
       byName: string | null;
     } | null;
   };
+  /**
+   * When rent is by cheque: who the tenant must write cheques to, bank hint, and one row per
+   * rent / VAT / deposit cheque the customer must photograph and number.
+   */
+  chequePayableTo?: string | null;
+  chequeBankName?: string | null;
+  /** Accounting bank-account id rent receipts should credit (from org accounting settings). */
+  rentBankAccountId?: string | null;
+  chequeInstructions?: ReservationChequeInstruction[];
+  chequeSubmissions?: ReservationChequeSubmission[];
+};
+
+/** One cheque the tenant must prepare after the owner saves a cheque-payment contract. */
+export type ReservationChequeInstruction = {
+  key: string;
+  kind: 'rent' | 'vat' | 'deposit';
+  labelAr: string;
+  labelEn: string;
+  dueOn: string | null;
+  amountMinor: number;
+  currency: string;
+  suggestedChequeNumber?: string | null;
+};
+
+export type ReservationChequeSubmission = {
+  key: string;
+  bankName: string;
+  accountHolderName: string;
+  chequeNumber: string;
+  file: {
+    eventId: string;
+    name: string;
+    mime: string;
+    size: number;
+    submittedAt: string;
+  };
+  status: RequirementStatus;
+  note?: string | null;
+  reviewedAt?: string | null;
+  reviewedByName?: string | null;
+  autoApproved?: boolean;
 };
 
 /** A stored handover photo without its bytes. */
@@ -344,11 +385,32 @@ export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
 /** Once the draft is ready: waiting on the client's documents, on their review, or on approval. */
 export function documentsPhase(lifecycle: ReservationLifecycle): LeaseJourneyPhase {
   const requirements = requirementsOf(lifecycle);
-  if (requirements.some((item) => item.status === 'pending' || item.status === 'rejected')) {
+  const chequeStatuses = chequeStatusesOf(lifecycle);
+  if (
+    requirements.some((item) => item.status === 'pending' || item.status === 'rejected') ||
+    chequeStatuses.some((status) => status === 'pending' || status === 'rejected')
+  ) {
     return 'awaiting_documents';
   }
-  if (requirements.some((item) => item.status === 'submitted')) return 'awaiting_documents_review';
+  if (
+    requirements.some((item) => item.status === 'submitted') ||
+    chequeStatuses.some((status) => status === 'submitted')
+  ) {
+    return 'awaiting_documents_review';
+  }
   return 'awaiting_contract_approval';
+}
+
+/** Status per cheque instruction (missing submission counts as pending). */
+export function chequeStatusesOf(lifecycle: ReservationLifecycle | null | undefined): RequirementStatus[] {
+  const instructions = lifecycle?.chequeInstructions ?? [];
+  if (!instructions.length) return [];
+  const byKey = new Map((lifecycle?.chequeSubmissions ?? []).map((row) => [row.key, row]));
+  return instructions.map((item) => byKey.get(item.key)?.status ?? 'pending');
+}
+
+export function chequeInstructionsOf(lifecycle: ReservationLifecycle | null | undefined) {
+  return lifecycle?.chequeInstructions ?? [];
 }
 
 const PHASE_STAGE: Record<LeaseJourneyPhase, number> = {

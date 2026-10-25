@@ -244,7 +244,7 @@ export function LeaseTermsView({
             ],
             [ar ? 'دورية الدفع' : 'Frequency', pick(FREQUENCY_LABELS[terms.paymentFrequency], ar)],
             [ar ? 'بنك الشيكات' : 'Cheque bank', terms.chequeBankName],
-            [ar ? 'اسم الحساب' : 'Account name', terms.chequeAccountName],
+            [ar ? 'الشيكات تكتب باسم' : 'Cheques payable to', terms.chequeAccountName],
             [
               ar ? 'الضريبة المضافة' : 'VAT',
               terms.vat.enabled

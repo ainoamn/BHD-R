@@ -150,8 +150,8 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
               'The owner asked for a replacement — the reason is next to it. Upload again and we tell the owner right away.',
             )
           : t(
-              `ليكتمل ${contractWord}، يحتاج المالك المستندات التالية. صوّرها بهاتفك أو ارفع ملف PDF — كل مستند يصل للمالك مباشرة.`,
-              `To complete the ${contractWord}, the owner needs the documents below. Snap them with your phone or upload a PDF.`,
+              `ليكتمل ${contractWord}، أكمل المستندات المطلوبة${lifecycle.cheques?.length ? ' وبيانات شيكات الإيجار (بنك، صاحب الحساب، رقم الشيك وصورة لكل قسط)' : ''}. كل ملف يصل للمالك مباشرة.`,
+              `To complete the ${contractWord}, upload the required documents${lifecycle.cheques?.length ? ' and each rent cheque (bank, holder, number and photo)' : ''}. Everything reaches the owner at once.`,
             ),
         action: 'documents',
       };

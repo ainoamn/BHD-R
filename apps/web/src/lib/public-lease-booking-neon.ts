@@ -800,6 +800,29 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
       autoApproved: Boolean(item.autoApproved),
       verified: Boolean(item.verifiedAt) && item.status === 'approved',
     })),
+    chequePayableTo: lifecycle.chequePayableTo ?? null,
+    chequeBankName: lifecycle.chequeBankName ?? null,
+    rentBankAccountId: lifecycle.rentBankAccountId ?? null,
+    cheques: (lifecycle.chequeInstructions ?? []).map((item) => {
+      const submitted = (lifecycle.chequeSubmissions ?? []).find((row) => row.key === item.key);
+      return {
+        key: item.key,
+        kind: item.kind,
+        labelAr: item.labelAr,
+        labelEn: item.labelEn,
+        dueOn: item.dueOn,
+        amountMinor: item.amountMinor,
+        currency: item.currency,
+        suggestedChequeNumber: item.suggestedChequeNumber ?? null,
+        status: submitted?.status ?? ('pending' as const),
+        note: submitted?.note ?? null,
+        bankName: submitted?.bankName ?? null,
+        accountHolderName: submitted?.accountHolderName ?? null,
+        chequeNumber: submitted?.chequeNumber ?? null,
+        fileName: submitted?.file?.name ?? null,
+        submittedAt: submitted?.file?.submittedAt ?? null,
+      };
+    }),
     contract: lifecycle.contract
       ? {
           id: lifecycle.contract.id,

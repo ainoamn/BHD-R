@@ -147,6 +147,7 @@ function initialDraft(unit: PropertyRecordUnit | undefined): LeaseTermsDraft {
     depositItems: [],
     chequeBankName: '',
     chequeAccountName: '',
+    rentBankAccountId: '',
     schedule: [],
     vatChequeNumbers: [],
     adjustments: [],
@@ -194,6 +195,16 @@ const MONEY_PATTERN = '\\d{1,12}(\\.\\d{1,3})?';
  * (person or company), unit and meters, rent and term, VAT and fees, deposit,
  * payment schedule with cheques, VAT cheques, extra charges / discounts and summary.
  */
+export type LeaseBankAccountOption = {
+  id: string;
+  labelAr: string;
+  labelEn: string;
+  bankName: string;
+  accountHolderName: string;
+  defaultForRent?: boolean;
+  active?: boolean;
+};
+
 export function LeaseContractForm({
   units,
   tenants,
@@ -208,6 +219,7 @@ export function LeaseContractForm({
   heading,
   submitLabel,
   footnote,
+  bankAccounts = [],
 }: {
   units: PropertyRecordUnit[];
   tenants: PropertyRecordTenant[];
@@ -226,6 +238,8 @@ export function LeaseContractForm({
   submitLabel?: string | undefined;
   /** Replaces the note on who approves the contract. */
   footnote?: string | undefined;
+  /** Org bank accounts from accounting settings — bind rent receipts. */
+  bankAccounts?: LeaseBankAccountOption[] | undefined;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
@@ -259,6 +273,10 @@ export function LeaseContractForm({
     setTenant((current) => ({ ...current, [key]: value }));
   const money = (minor: number) => (
     <span dir="ltr">{formatMoney(String(Math.round(minor)), currency, locale)}</span>
+  );
+  const activeBankAccounts = useMemo(
+    () => bankAccounts.filter((row) => row.active !== false),
+    [bankAccounts],
   );
 
   const scheduleRentMinor = useMemo(() => {
@@ -1196,16 +1214,65 @@ export function LeaseContractForm({
                 onChange={(event) => set('chequeBankName', event.target.value)}
               />
             </Field>
-            <Field id="lcf-account" label={t('اسم صاحب الحساب', 'Account holder name')}>
+            <Field
+              id="lcf-account"
+              label={t('الشيكات تكتب باسم من؟', 'Cheques payable to')}
+            >
               <input
                 id="lcf-account"
                 className="input"
+                required
                 maxLength={160}
+                placeholder={t('اسم المؤجر أو المستفيد', 'Landlord or payee name')}
                 value={draft.chequeAccountName ?? ''}
                 onChange={(event) => set('chequeAccountName', event.target.value)}
               />
             </Field>
+            <p className="muted lcf-help" style={{ gridColumn: '1 / -1' }}>
+              {t(
+                'يظهر هذا الاسم للمستأجر عند تعبئة شيكات الإيجار — يجب أن يكتب الشيكات بهذا الاسم.',
+                'Shown to the tenant when they prepare rent cheques — they must write cheques to this name.',
+              )}
+            </p>
           </div>
+        ) : null}
+        {activeBankAccounts.length ? (
+          <Field
+            id="lcf-rent-bank"
+            label={t('حساب استلام الإيجار (محاسبي)', 'Rent receipt bank account')}
+          >
+            <select
+              id="lcf-rent-bank"
+              className="select"
+              value={draft.rentBankAccountId ?? ''}
+              onChange={(event) => {
+                const id = event.target.value;
+                const account = activeBankAccounts.find((row) => row.id === id);
+                setDraft((current) => ({
+                  ...current,
+                  rentBankAccountId: id,
+                  ...(account && current.paymentMethod === 'cheque'
+                    ? {
+                        chequeBankName: current.chequeBankName?.trim()
+                          ? current.chequeBankName
+                          : account.bankName,
+                        chequeAccountName: current.chequeAccountName?.trim()
+                          ? current.chequeAccountName
+                          : account.accountHolderName,
+                      }
+                    : {}),
+                }));
+              }}
+            >
+              <option value="">{t('— بدون ربط —', '— Not linked —')}</option>
+              {activeBankAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {ar ? account.labelAr : account.labelEn || account.labelAr}
+                  {account.defaultForRent ? t(' (افتراضي)', ' (default)') : ''}
+                </option>
+              ))}
+            </select>
+          </Field>
         ) : null}
         {draft.schedule.length ? (
           <div className="data-table-wrap">
