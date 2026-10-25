@@ -80,6 +80,28 @@ function period(
   return `${formatDate(from, ar)} ${ar ? '←' : '→'} ${formatDate(displayTo, ar)}`;
 }
 
+function clockTime(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})/);
+  return match ? `${match[1]!.padStart(2, '0')}:${match[2]}` : value.trim();
+}
+
+function dayWithTime(
+  dateOn: string | null | undefined,
+  time: string | null | undefined,
+  ar: boolean,
+): string {
+  if (!dateOn) return '—';
+  const day = formatDate(dateOn, ar);
+  const clock = clockTime(time);
+  return clock ? `${day} · ${clock}` : day;
+}
+
+function contractDisplayEndsOn(contract: TenancyContract): string | null {
+  if (!contract.startsOn || !contract.endsOn) return contract.endsOn;
+  return displayStayCheckoutOn(contract.stayType, contract.startsOn, contract.endsOn);
+}
+
 function money(amountMinor: string | null, currency: string | null, locale: string): string {
   return amountMinor && currency ? formatMoney(amountMinor, currency, locale) : '—';
 }
@@ -434,34 +456,57 @@ function PreviewList({
   );
 }
 
-function contractStatusCell(contract: TenancyContract, ar: boolean) {
+function contractLifecycleLabel(contract: TenancyContract, ar: boolean): {
+  label: string;
+  tone: 'action' | 'good' | 'warn' | 'quiet' | 'info' | undefined;
+} {
   const awaitingMe =
     ['sent', 'partially_signed'].includes(contract.status) && !contract.tenantSigned;
-  const cancelled = contract.status === 'terminated' || contract.status === 'void';
-  return (
-    <Status
-      label={
-        awaitingMe
-          ? ar
-            ? 'بانتظار توقيعك'
-            : 'Awaiting your signature'
-          : cancelled
-            ? ar
-              ? 'ملغى'
-              : 'Cancelled'
-            : domainStatusLabel(contract.status, ar)
-      }
-      tone={
-        awaitingMe
-          ? 'action'
-          : cancelled
-            ? 'quiet'
-            : contract.status === 'signed'
-              ? 'good'
-              : 'info'
-      }
-    />
-  );
+  if (awaitingMe) {
+    return {
+      label: ar ? 'بانتظار توقيعك' : 'Awaiting your signature',
+      tone: 'action',
+    };
+  }
+  if (contract.status === 'terminated' || contract.status === 'void') {
+    return { label: ar ? 'ملغى' : 'Cancelled', tone: 'quiet' };
+  }
+
+  const stay = contract.stayBookingStatus;
+  if (stay) {
+    switch (stay) {
+      case 'no_show':
+        return { label: ar ? 'تخلف عن الحضور' : 'No-show', tone: 'warn' };
+      case 'cancelled':
+      case 'expired':
+      case 'payment_failed':
+        return { label: ar ? 'ملغى' : 'Cancelled', tone: 'quiet' };
+      case 'checked_out':
+      case 'closed':
+        return { label: ar ? 'منتهٍ' : 'Ended', tone: 'info' };
+      case 'checked_in':
+        return { label: ar ? 'ساري' : 'Active', tone: 'good' };
+      case 'confirmed':
+      case 'paid':
+      case 'pre_arrival':
+        return { label: ar ? 'ساري' : 'Active', tone: 'good' };
+      case 'payment_pending':
+      case 'request_pending':
+        return { label: stayStatusLabel(stay, ar), tone: 'action' };
+      default:
+        return { label: stayStatusLabel(stay, ar), tone: 'info' };
+    }
+  }
+
+  if (contract.status === 'signed') {
+    return { label: ar ? 'ساري' : 'Active', tone: 'good' };
+  }
+  return { label: domainStatusLabel(contract.status, ar), tone: 'info' };
+}
+
+function contractStatusCell(contract: TenancyContract, ar: boolean) {
+  const { label, tone } = contractLifecycleLabel(contract, ar);
+  return <Status label={label} tone={tone} />;
 }
 
 function ContractsTable({ ar, locale, data }: Ctx) {
@@ -469,64 +514,84 @@ function ContractsTable({ ar, locale, data }: Ctx) {
   if (!groups.length) return <EmptyState title={ar ? 'لا عقود بعد' : 'No contracts yet'} />;
   return (
     <ul className="tenant-contract-list">
-      {groups.map(({ root: contract, attachments }) => (
-        <li key={contract.id} className="tenant-contract-card">
-          <div className="tenant-contract-card__main">
-            <div className="tenant-contract-card__head">
-              <bdi className="tenant-contract-card__ref">{contract.reference}</bdi>
-              {contractStatusCell(contract, ar)}
+      {groups.map(({ root: contract, attachments }) => {
+        const endsOn = contractDisplayEndsOn(contract);
+        const daily = Boolean(contract.stayReference || contract.stayType);
+        return (
+          <li key={contract.id} className="tenant-contract-card">
+            <div className="tenant-contract-card__main">
+              <div className="tenant-contract-card__head">
+                <bdi className="tenant-contract-card__ref">{contract.reference}</bdi>
+                {contractStatusCell(contract, ar)}
+              </div>
+              <dl className="tenant-contract-card__meta">
+                <div>
+                  <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
+                  <dd>
+                    {tenancyUnitLabel(contract, ar)}
+                    {contract.stayReference ? (
+                      <small className="tenant-table__sub">
+                        {ar ? 'إقامة يومية' : 'Daily stay'} · <bdi>{contract.stayReference}</bdi>
+                      </small>
+                    ) : null}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'المالك' : 'Landlord'}</dt>
+                  <dd>{tenancyLandlordName(contract.landlord, ar)}</dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'تاريخ البدء' : 'Starts'}</dt>
+                  <dd>
+                    {dayWithTime(
+                      contract.startsOn,
+                      daily ? contract.checkInTime : null,
+                      ar,
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'تاريخ الانتهاء' : 'Ends'}</dt>
+                  <dd>
+                    {dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar)}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'الحالة' : 'Status'}</dt>
+                  <dd>{contractLifecycleLabel(contract, ar).label}</dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'القيمة' : 'Value'}</dt>
+                  <dd>{money(contract.amountMinor, contract.currency, locale)}</dd>
+                </div>
+              </dl>
+              {attachments.length ? (
+                <details className="tenant-contract-attach">
+                  <summary>
+                    {ar ? `المرفقات (${attachments.length})` : `Attached (${attachments.length})`}
+                  </summary>
+                  <ul>
+                    {attachments.map((item) => (
+                      <li key={item.id}>
+                        <Link href={`/tenant/contracts/${item.id}`}>
+                          <bdi>{item.reference}</bdi>
+                        </Link>
+                        <span>
+                          {tenancyContractKindLabel(item.kind, ar)} ·{' '}
+                          {domainStatusLabel(item.status, ar)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ) : null}
             </div>
-            <dl className="tenant-contract-card__meta">
-              <div>
-                <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
-                <dd>
-                  {tenancyUnitLabel(contract, ar)}
-                  {contract.stayReference ? (
-                    <small className="tenant-table__sub">
-                      {ar ? 'إقامة يومية' : 'Daily stay'} · <bdi>{contract.stayReference}</bdi>
-                    </small>
-                  ) : null}
-                </dd>
-              </div>
-              <div>
-                <dt>{ar ? 'المالك' : 'Landlord'}</dt>
-                <dd>{tenancyLandlordName(contract.landlord, ar)}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'المدة' : 'Term'}</dt>
-                <dd>{period(contract.startsOn, contract.endsOn, ar, contract.stayType)}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'القيمة' : 'Value'}</dt>
-                <dd>{money(contract.amountMinor, contract.currency, locale)}</dd>
-              </div>
-            </dl>
-            {attachments.length ? (
-              <details className="tenant-contract-attach">
-                <summary>
-                  {ar ? `المرفقات (${attachments.length})` : `Attached (${attachments.length})`}
-                </summary>
-                <ul>
-                  {attachments.map((item) => (
-                    <li key={item.id}>
-                      <Link href={`/tenant/contracts/${item.id}`}>
-                        <bdi>{item.reference}</bdi>
-                      </Link>
-                      <span>
-                        {tenancyContractKindLabel(item.kind, ar)} ·{' '}
-                        {domainStatusLabel(item.status, ar)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            ) : null}
-          </div>
-          <Link className="button button--secondary" href={`/tenant/contracts/${contract.id}`}>
-            {ar ? 'عرض العقد' : 'View contract'}
-          </Link>
-        </li>
-      ))}
+            <Link className="button button--secondary" href={`/tenant/contracts/${contract.id}`}>
+              {ar ? 'عرض العقد' : 'View contract'}
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -929,41 +994,51 @@ function contractPreviewItems(
   limit?: number,
 ): PreviewItem[] {
   return takeRows(tenancyContractGroups(data.contracts), limit).map(
-    ({ root: contract, attachments }) => ({
-      id: `contract:${contract.id}`,
-      title: contract.reference,
-      eyebrow: contract.stayReference
-        ? ar
-          ? 'عقد إقامة يومية'
-          : 'Daily stay contract'
-        : ar
-          ? 'عقد إيجار'
-          : 'Lease contract',
-      summary: `${tenancyUnitLabel(contract, ar)} · ${period(contract.startsOn, contract.endsOn, ar, contract.stayType)}`,
-      status: contractStatusCell(contract, ar),
-      facts: [
-        { label: ar ? 'الوحدة' : 'Unit', value: tenancyUnitLabel(contract, ar) },
-        { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(contract.landlord, ar) },
-        {
-          label: ar ? 'المدة' : 'Term',
-          value: period(contract.startsOn, contract.endsOn, ar, contract.stayType),
-        },
-        {
-          label: ar ? 'القيمة' : 'Value',
-          value: money(contract.amountMinor, contract.currency, locale),
-        },
-        ...(attachments.length
-          ? [
-              {
-                label: ar ? 'المرفقات' : 'Attachments',
-                value: String(attachments.length),
-              },
-            ]
-          : []),
-      ],
-      href: `/tenant/contracts/${contract.id}`,
-      hrefLabel: ar ? 'عرض العقد' : 'View contract',
-    }),
+    ({ root: contract, attachments }) => {
+      const endsOn = contractDisplayEndsOn(contract);
+      const daily = Boolean(contract.stayReference || contract.stayType);
+      const lifecycle = contractLifecycleLabel(contract, ar);
+      return {
+        id: `contract:${contract.id}`,
+        title: contract.reference,
+        eyebrow: contract.stayReference
+          ? ar
+            ? 'عقد إقامة يومية'
+            : 'Daily stay contract'
+          : ar
+            ? 'عقد إيجار'
+            : 'Lease contract',
+        summary: `${tenancyUnitLabel(contract, ar)} · ${dayWithTime(contract.startsOn, daily ? contract.checkInTime : null, ar)} → ${dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar)}`,
+        status: contractStatusCell(contract, ar),
+        facts: [
+          { label: ar ? 'الوحدة' : 'Unit', value: tenancyUnitLabel(contract, ar) },
+          { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(contract.landlord, ar) },
+          {
+            label: ar ? 'تاريخ البدء' : 'Starts',
+            value: dayWithTime(contract.startsOn, daily ? contract.checkInTime : null, ar),
+          },
+          {
+            label: ar ? 'تاريخ الانتهاء' : 'Ends',
+            value: dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar),
+          },
+          { label: ar ? 'الحالة' : 'Status', value: lifecycle.label },
+          {
+            label: ar ? 'القيمة' : 'Value',
+            value: money(contract.amountMinor, contract.currency, locale),
+          },
+          ...(attachments.length
+            ? [
+                {
+                  label: ar ? 'المرفقات' : 'Attachments',
+                  value: String(attachments.length),
+                },
+              ]
+            : []),
+        ],
+        href: `/tenant/contracts/${contract.id}`,
+        hrefLabel: ar ? 'عرض العقد' : 'View contract',
+      };
+    },
   );
 }
 
@@ -1284,13 +1359,7 @@ export function TenantSpaceContent({
             empty={ar ? 'لا حجوزات بعد.' : 'No bookings yet.'}
           />
         ) : null}
-        {view === 'contracts' ? (
-          <PreviewList
-            items={contractPreviewItems(data, ar, locale)}
-            ar={ar}
-            empty={ar ? 'لا عقود بعد.' : 'No contracts yet.'}
-          />
-        ) : null}
+        {view === 'contracts' ? <ContractsTable ar={ar} locale={locale} data={data} /> : null}
         {view === 'leases' ? (
           <PreviewList
             items={leasePreviewItems(data, ar, locale)}

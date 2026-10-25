@@ -22,7 +22,7 @@ const STAY_STATUS: Record<string, { ar: string; en: string }> = {
   closed: { ar: 'مكتمل', en: 'Completed' },
   cancelled: { ar: 'ملغى', en: 'Cancelled' },
   expired: { ar: 'منتهٍ', en: 'Expired' },
-  no_show: { ar: 'لم يحضر', en: 'No-show' },
+  no_show: { ar: 'تخلف عن الحضور', en: 'No-show' },
   payment_failed: { ar: 'فشل الدفع', en: 'Payment failed' },
 };
 

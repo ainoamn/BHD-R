@@ -720,11 +720,37 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
     const requestItems: TenantRequest[] = requestRows.map((row) => tenantRequestFromRow(row, org));
 
     const signed = new Set(signedRows.map((row) => row.contractId));
+    const stayBookingIds = [
+      ...new Set(
+        contractRows
+          .map((row) => {
+            const source = obj(obj(row.payload).source);
+            return source.type === 'stay_booking'
+              ? str(source.stayBookingId) ?? str(source.bookingId)
+              : null;
+          })
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const stayStatusById = new Map<string, string>();
+    if (stayBookingIds.length) {
+      const stayStatusRows = await tx
+        .select({ id: stayBookings.id, status: stayBookings.status })
+        .from(stayBookings)
+        .where(
+          and(eq(stayBookings.organizationId, org), inArray(stayBookings.id, stayBookingIds)),
+        );
+      for (const row of stayStatusRows) stayStatusById.set(row.id, row.status);
+    }
     const contractItems: TenancyContract[] = contractRows.map((row) => {
       const payload = obj(row.payload);
       const unit = obj(payload.unit);
       const amount = obj(payload.amount);
       const source = obj(payload.source);
+      const stayBookingId =
+        source.type === 'stay_booking'
+          ? str(source.stayBookingId) ?? str(source.bookingId)
+          : null;
       return {
         id: row.id,
         landlord,
@@ -742,6 +768,9 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
         currency: str(amount.currency),
         stayReference: source.type === 'stay_booking' ? str(source.referenceCode) : null,
         stayType: str(payload.stayType),
+        checkInTime: str(payload.checkInTime),
+        checkOutTime: str(payload.checkOutTime),
+        stayBookingStatus: stayBookingId ? (stayStatusById.get(stayBookingId) ?? null) : null,
         createdAt: iso(row.createdAt),
       };
     });

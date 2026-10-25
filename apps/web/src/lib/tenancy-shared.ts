@@ -28,6 +28,10 @@ export type TenancyContract = {
   stayReference: string | null;
   /** day_use / overnight_only / overnight_stay when the contract is for a stay booking. */
   stayType: string | null;
+  checkInTime: string | null;
+  checkOutTime: string | null;
+  /** Linked stay booking status (`confirmed`, `no_show`, …) when this is a daily-stay contract. */
+  stayBookingStatus: string | null;
   createdAt: string;
 };
 

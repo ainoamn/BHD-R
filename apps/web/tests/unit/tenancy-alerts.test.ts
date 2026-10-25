@@ -30,6 +30,9 @@ function contract(patch: Partial<TenancyContract>): TenancyContract {
     currency: 'OMR',
     stayReference: null,
     stayType: null,
+    checkInTime: null,
+    checkOutTime: null,
+    stayBookingStatus: null,
     createdAt: '2026-10-10T00:00:00.000Z',
     ...patch,
   };
