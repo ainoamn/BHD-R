@@ -156,13 +156,7 @@ export function StayEsignWizard({
             <span style={{ width: `${progressPct}%` }} />
           </div>
         </header>
-      ) : (
-        <div className="stay-esign__sticky-cta">
-          <button type="button" className="button button--primary" onClick={goToConfirmed}>
-            {ar ? 'متابعة إلى تفاصيل الحجز' : 'Continue to booking details'}
-          </button>
-        </div>
-      )}
+      ) : null}
 
       <div className="stay-esign__body">
         {step === 'contract' ? (
@@ -431,6 +425,14 @@ export function StayEsignWizard({
               : ar
                 ? 'إتمام التوقيع الإلكتروني'
                 : 'Complete e-signature'}
+          </button>
+        </footer>
+      ) : null}
+
+      {step === 'done' ? (
+        <footer className="stay-esign__dock stay-esign__dock--done">
+          <button type="button" className="button button--primary" onClick={goToConfirmed}>
+            {ar ? 'متابعة إلى تفاصيل الحجز' : 'Continue to booking details'}
           </button>
         </footer>
       ) : null}
