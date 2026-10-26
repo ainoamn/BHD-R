@@ -1838,53 +1838,66 @@ function ContractDraftEditor({
     ? 'يُحفظ العقد مسودةً ويظهر للعميل أن عقده قيد الإعداد مع قائمة المستندات. بعد اكتمال المستندات تعتمد العقد فيُرسل للتوقيع.'
     : 'Saved as a draft; the client sees the contract is being prepared with the documents list.';
 
-  const intro = (
+  const clientRequest = (
+    <ClientRequest
+      ar={ar}
+      sale={sale}
+      party={party}
+      unit={unit}
+      currency={currency}
+      salePriceMinor={salePriceMinor}
+      locale={locale}
+    />
+  );
+
+  const saleIntro = (
     <div className="lrw__card lrw__card--action">
-      <h3>
-        {ar
-          ? sale
-            ? 'بيانات عقد البيع والمستندات المطلوبة'
-            : 'بيانات عقد الإيجار والمستندات المطلوبة'
-          : sale
-            ? 'Sale contract details & documents'
-            : 'Lease contract details & documents'}
-      </h3>
+      <h3>{ar ? 'بيانات عقد البيع والمستندات المطلوبة' : 'Sale contract details & documents'}</h3>
       <p>
         {ar
           ? 'الحجز معتمد. عبّئ بيانات العقد كاملة واختر المستندات التي يلزم أن يوفرها العميل.'
           : 'The booking is approved. Fill in the contract and choose the documents the client must provide.'}
       </p>
-      <ClientRequest
+      {clientRequest}
+      <LeaseRequirementsPicker
         ar={ar}
-        sale={sale}
-        party={party}
-        unit={unit}
-        currency={currency}
-        salePriceMinor={salePriceMinor}
-        locale={locale}
+        sale
+        value={requirements}
+        onChange={setRequirements}
+        rules={documentRules}
+        lockInitial={requirementsLocked}
+        context={{
+          entityType: party?.entityType === 'company' ? 'company' : 'person',
+          nationality:
+            party?.entityType === 'person' ? party.person?.nationality : undefined,
+          signatoryNationality:
+            party?.entityType === 'company'
+              ? party.company?.signatories[0]?.nationality
+              : undefined,
+        }}
       />
-      {sale ? (
-        <LeaseRequirementsPicker
-          ar={ar}
-          sale
-          value={requirements}
-          onChange={setRequirements}
-          rules={documentRules}
-          lockInitial={requirementsLocked}
-          context={{
-            entityType: party?.entityType === 'company' ? 'company' : 'person',
-            nationality:
-              party?.entityType === 'person'
-                ? party.person?.nationality
-                : undefined,
-            signatoryNationality:
-              party?.entityType === 'company'
-                ? party.company?.signatories[0]?.nationality
-                : undefined,
-          }}
-        />
-      ) : null}
     </div>
+  );
+
+  const leaseLead = (
+    <details className="lrw__fold">
+      <summary className="lrw__fold-summary">
+        <span className="lrw__fold-title">
+          {ar ? 'بيانات عقد الإيجار وطلب العميل' : 'Lease details & client request'}
+        </span>
+        <span className="lrw__fold-hint muted">
+          {ar ? 'مطوي — اضغط للعرض' : 'Collapsed — tap to expand'}
+        </span>
+      </summary>
+      <div className="lrw__fold-body">
+        <p className="muted">
+          {ar
+            ? 'الحجز معتمد. الأقسام أدناه للتعبئة خطوة بخطوة؛ في آخر خطوة تراجع كل الحقول ثم تحفظ.'
+            : 'Booking approved. Fill step by step below; the last step reviews every field before you save.'}
+        </p>
+        {clientRequest}
+      </div>
+    </details>
   );
 
   if (sale) {
@@ -1902,7 +1915,7 @@ function ContractDraftEditor({
     };
     return (
       <>
-        {intro}
+        {saleIntro}
         <form className="psr-form" onSubmit={submit}>
           <div className="form-grid">
             <div className="field">
@@ -1966,8 +1979,7 @@ function ContractDraftEditor({
   }
 
   return (
-    <>
-      {intro}
+    <div className="lrw__contract-focus">
       <LeaseContractForm
         units={[unit]}
         tenants={[tenant]}
@@ -1982,7 +1994,8 @@ function ContractDraftEditor({
         onRequirementsChange={setRequirements}
         documentRules={documentRules}
         requirementsLocked={requirementsLocked}
-        heading={ar ? 'بيانات عقد الإيجار' : 'Lease contract details'}
+        lead={leaseLead}
+        heading={undefined}
         submitLabel={ar ? 'حفظ العقد والمستندات' : 'Save contract & documents'}
         footnote={footnote}
         initialTenant={{
@@ -2011,6 +2024,6 @@ function ContractDraftEditor({
         }
         onCancel={() => (lifecycle.contractDraft ? onCancel() : undefined)}
       />
-    </>
+    </div>
   );
 }

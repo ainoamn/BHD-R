@@ -343,6 +343,7 @@ export function LeaseContractForm({
   onRequirementsChange,
   documentRules = DEFAULT_LEASE_DOCUMENT_RULES,
   requirementsLocked = false,
+  lead = null,
 }: {
   units: PropertyRecordUnit[];
   tenants: PropertyRecordTenant[];
@@ -378,6 +379,8 @@ export function LeaseContractForm({
   documentRules?: LeaseDocumentRules | undefined;
   /** True when a saved requirements list should not be auto-replaced. */
   requirementsLocked?: boolean | undefined;
+  /** Shown under the step progress (e.g. collapsible client request on bookings). */
+  lead?: ReactNode | undefined;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
@@ -627,10 +630,14 @@ export function LeaseContractForm({
   );
   const gap = (code: string) => missingCodes.has(code);
 
+  /**
+   * Fill path: only steps that need input. Optional taxes / extras / notes appear
+   * on the final review step (research-backed progressive disclosure + review).
+   */
   const wizardSteps = useMemo((): WizardStepId[] => {
     const steps: WizardStepId[] = ['main', 'tenant'];
     if (requirements && onRequirementsChange) steps.push('docs');
-    steps.push('unit', 'rent', 'taxes', 'extras', 'deposit', 'schedule', 'notes', 'summary');
+    steps.push('unit', 'rent', 'deposit', 'schedule', 'summary');
     return steps;
   }, [requirements, onRequirementsChange]);
 
@@ -643,7 +650,8 @@ export function LeaseContractForm({
   const stepIndex = Math.max(0, wizardSteps.indexOf(wizardStep));
   const isFirstStep = stepIndex <= 0;
   const isLastStep = stepIndex >= wizardSteps.length - 1;
-  const stepActive = (id: WizardStepId) => wizardStep === id;
+  const reviewMode = wizardStep === 'summary';
+  const stepActive = (id: WizardStepId) => reviewMode || wizardStep === id;
 
   const stepTitles: Record<WizardStepId, [string, string]> = {
     main: ['📝 بيانات العقد الرئيسية', '📝 Main contract data'],
@@ -656,7 +664,7 @@ export function LeaseContractForm({
     deposit: ['🛡️ التأمين (الوديعة)', '🛡️ Insurance (deposit)'],
     schedule: ['📅 جدول الدفع', '📅 Payment schedule'],
     notes: ['🗒️ ملاحظات', '🗒️ Notes'],
-    summary: ['📊 الملخص المالي', '📊 Financial summary'],
+    summary: ['✅ مراجعة والتحقق', '✅ Review & confirm'],
   };
 
   const currentStepGaps = useMemo(
@@ -814,15 +822,17 @@ export function LeaseContractForm({
   }
 
   return (
-    <form className="psr-form lcf lcf--wizard" onSubmit={submit}>
-      <h3>{heading ?? t('عقد تأجير يدوي', 'Manual lease contract')}</h3>
+    <form className="psr-form lcf lcf--wizard lcf--focus" onSubmit={submit}>
+      {heading ? <h3 className="lcf__heading">{heading}</h3> : null}
 
       <nav className="lcf-wizard-progress" aria-label={t('أقسام العقد', 'Contract sections')}>
         <p className="lcf-wizard-progress__meta">
-          {t(
-            `القسم ${stepIndex + 1} من ${wizardSteps.length}`,
-            `Step ${stepIndex + 1} of ${wizardSteps.length}`,
-          )}
+          {reviewMode
+            ? t('مراجعة كل الحقول — عدّل ما يلزم ثم احفظ', 'Review all fields — edit if needed, then save')
+            : t(
+                `القسم ${stepIndex + 1} من ${wizardSteps.length}`,
+                `Step ${stepIndex + 1} of ${wizardSteps.length}`,
+              )}
         </p>
         <ol className="lcf-wizard-progress__list">
           {wizardSteps.map((id, index) => {
@@ -831,19 +841,19 @@ export function LeaseContractForm({
             const tone =
               id === 'taxes' ? 'tax' : id === 'extras' ? 'extra' : (id as SectionTone);
             return (
-              <li key={id}>
+              <li key={id} className={current ? 'lcf-wizard-chip-wrap--current' : undefined}>
                 <button
                   type="button"
                   className={`lcf-wizard-chip lcf-wizard-chip--${tone}${
                     current ? ' lcf-wizard-chip--current' : ''
                   }${done ? ' lcf-wizard-chip--done' : ''}`}
                   onClick={() => {
-                    if (index <= stepIndex) {
+                    if (reviewMode || index <= stepIndex) {
                       setLocalError(null);
                       setWizardStep(id);
                     }
                   }}
-                  disabled={index > stepIndex}
+                  disabled={!reviewMode && index > stepIndex}
                   title={pick(stepTitles[id], ar)}
                 >
                   <span className="lcf-wizard-chip__dot" aria-hidden="true" />
@@ -855,6 +865,17 @@ export function LeaseContractForm({
         </ol>
       </nav>
 
+      {lead}
+
+      {reviewMode ? (
+        <p className="notice notice--info lcf-review-note" role="status">
+          {t(
+            'هذه صفحة التحقق: كل الأقسام ظاهرة وقابلة للتعديل (بما فيها الضرائب والإضافات والملاحظات).',
+            'Review page: every section is visible and editable (including taxes, extras, and notes).',
+          )}
+        </p>
+      ) : null}
+
       {isLastStep || (STEP_GAP_CODES[wizardStep] ?? []).length > 0 ? (
         <MissingFieldsBanner
           locale={locale}
@@ -862,8 +883,8 @@ export function LeaseContractForm({
           title={
             (isLastStep ? missingFields : currentStepGaps).length
               ? t(
-                  `${(isLastStep ? missingFields : currentStepGaps).length} حقل إلزامي ناقص في هذا القسم`,
-                  `${(isLastStep ? missingFields : currentStepGaps).length} required field(s) missing in this section`,
+                  `${(isLastStep ? missingFields : currentStepGaps).length} حقل إلزامي ناقص${isLastStep ? '' : ' في هذا القسم'}`,
+                  `${(isLastStep ? missingFields : currentStepGaps).length} required field(s) missing${isLastStep ? '' : ' in this section'}`,
                 )
               : undefined
           }
