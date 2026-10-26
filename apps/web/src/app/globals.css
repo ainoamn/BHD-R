@@ -1167,9 +1167,231 @@ a.pmh-actionbar__title[aria-current='page'] {
   border-radius: 0.8rem;
 }
 .lcf-section legend {
-  padding: 0 0.4rem;
-  font-size: 0.92rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.95rem;
   font-weight: 800;
+}
+.lcf-section__swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+.lcf-section--main {
+  border-color: #7eb6d6;
+  background: linear-gradient(180deg, #f3f9fc 0%, #fff 2.5rem);
+}
+.lcf-section--main legend {
+  color: #1a5a8a;
+  background: #e3f1f8;
+}
+.lcf-section--tenant {
+  border-color: #9b8fd4;
+  background: linear-gradient(180deg, #f7f4ff 0%, #fff 2.5rem);
+}
+.lcf-section--tenant legend {
+  color: #5b4a9a;
+  background: #ebe6ff;
+}
+.lcf-section--docs {
+  border-color: #c4a35a;
+  background: linear-gradient(180deg, #fbf6ea 0%, #fff 2.5rem);
+}
+.lcf-section--docs legend {
+  color: #8a6a1f;
+  background: #f7edd4;
+}
+.lcf-section--unit {
+  border-color: #5fad8a;
+  background: linear-gradient(180deg, #eef8f3 0%, #fff 2.5rem);
+}
+.lcf-section--unit legend {
+  color: #0f6b52;
+  background: #d9f0e6;
+}
+.lcf-section--rent {
+  border-color: #e0b15c;
+  background: linear-gradient(180deg, #fff8ea 0%, #fff 2.5rem);
+}
+.lcf-section--rent legend {
+  color: #9a5b08;
+  background: #ffe9c2;
+}
+.lcf-section--tax {
+  border-color: #d4886a;
+  background: linear-gradient(180deg, #fff4ef 0%, #fff 2.5rem);
+}
+.lcf-section--tax legend {
+  color: #a1331f;
+  background: #fde4dc;
+}
+.lcf-section--extra {
+  border-color: #6aa8c4;
+  background: linear-gradient(180deg, #eef7fb 0%, #fff 2.5rem);
+}
+.lcf-section--extra legend {
+  color: #1f6f8a;
+  background: #d7eef6;
+}
+.lcf-section--deposit {
+  border-color: #6b8fd4;
+  background: linear-gradient(180deg, #eef3fc 0%, #fff 2.5rem);
+}
+.lcf-section--deposit legend {
+  color: #2f4f9a;
+  background: #dde7fa;
+}
+.lcf-section--schedule {
+  border-color: #7a9b6b;
+  background: linear-gradient(180deg, #f2f7ef 0%, #fff 2.5rem);
+}
+.lcf-section--schedule legend {
+  color: #3d6b2f;
+  background: #e0edd8;
+}
+.lcf-section--notes {
+  border-color: #a0a7b0;
+  background: linear-gradient(180deg, #f5f6f7 0%, #fff 2.5rem);
+}
+.lcf-section--notes legend {
+  color: #4a5560;
+  background: #e8eaed;
+}
+.lcf-section--summary {
+  border-color: #2f8f6b;
+  background: linear-gradient(180deg, #e9f7f1 0%, #fff 2.5rem);
+}
+.lcf-section--summary legend {
+  color: #0f6b52;
+  background: #cfeedf;
+}
+
+.lcf-wizard-progress {
+  display: grid;
+  gap: 0.55rem;
+  margin-block-end: 0.35rem;
+}
+.lcf-wizard-progress__meta {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #5b6b65;
+}
+.lcf-wizard-progress__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.lcf-wizard-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid #d5ddd8;
+  border-radius: 999px;
+  background: #f7f9f8;
+  color: #5b6b65;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.lcf-wizard-chip:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.lcf-wizard-chip__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+.lcf-wizard-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 11rem;
+}
+.lcf-wizard-chip--current {
+  box-shadow: 0 0 0 2px rgb(9 45 36 / 0.12);
+  font-weight: 800;
+}
+.lcf-wizard-chip--done {
+  opacity: 1;
+}
+.lcf-wizard-chip--main {
+  color: #1a5a8a;
+  border-color: #7eb6d6;
+  background: #e3f1f8;
+}
+.lcf-wizard-chip--tenant {
+  color: #5b4a9a;
+  border-color: #9b8fd4;
+  background: #ebe6ff;
+}
+.lcf-wizard-chip--docs {
+  color: #8a6a1f;
+  border-color: #c4a35a;
+  background: #f7edd4;
+}
+.lcf-wizard-chip--unit {
+  color: #0f6b52;
+  border-color: #5fad8a;
+  background: #d9f0e6;
+}
+.lcf-wizard-chip--rent {
+  color: #9a5b08;
+  border-color: #e0b15c;
+  background: #ffe9c2;
+}
+.lcf-wizard-chip--tax {
+  color: #a1331f;
+  border-color: #d4886a;
+  background: #fde4dc;
+}
+.lcf-wizard-chip--extra {
+  color: #1f6f8a;
+  border-color: #6aa8c4;
+  background: #d7eef6;
+}
+.lcf-wizard-chip--deposit {
+  color: #2f4f9a;
+  border-color: #6b8fd4;
+  background: #dde7fa;
+}
+.lcf-wizard-chip--schedule {
+  color: #3d6b2f;
+  border-color: #7a9b6b;
+  background: #e0edd8;
+}
+.lcf-wizard-chip--notes {
+  color: #4a5560;
+  border-color: #a0a7b0;
+  background: #e8eaed;
+}
+.lcf-wizard-chip--summary {
+  color: #0f6b52;
+  border-color: #2f8f6b;
+  background: #cfeedf;
+}
+.lcf-wizard-actions {
+  position: sticky;
+  bottom: 0.35rem;
+  z-index: 3;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, #fff 92%, #eef2f0);
+  border: 1px solid #e5ebe8;
+  box-shadow: 0 -6px 18px rgb(9 45 36 / 0.06);
 }
 .lcf-help {
   margin: 0;

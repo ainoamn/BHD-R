@@ -184,10 +184,71 @@ function initialDraft(unit: PropertyRecordUnit | undefined): LeaseTermsDraft {
   };
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+type SectionTone =
+  | 'main'
+  | 'tenant'
+  | 'docs'
+  | 'unit'
+  | 'rent'
+  | 'tax'
+  | 'extra'
+  | 'deposit'
+  | 'schedule'
+  | 'notes'
+  | 'summary';
+
+type WizardStepId =
+  | 'main'
+  | 'tenant'
+  | 'docs'
+  | 'unit'
+  | 'rent'
+  | 'taxes'
+  | 'extras'
+  | 'deposit'
+  | 'schedule'
+  | 'notes'
+  | 'summary';
+
+const STEP_GAP_CODES: Record<WizardStepId, readonly string[]> = {
+  main: ['unit'],
+  tenant: ['tenant_name', 'civil_id', 'phone', 'cr_number', 'cr_expiry', 'signatory'],
+  docs: [],
+  unit: ['electricity', 'water'],
+  rent: ['monthly_rent', 'area', 'rent_sqm', 'handover', 'starts', 'ends', 'payment_day'],
+  taxes: [],
+  extras: [],
+  deposit: ['deposit'],
+  schedule: [
+    'schedule',
+    'schedule_rows',
+    'rent_bank',
+    'cheque_bank',
+    'cheque_name',
+    'cheque_numbers',
+  ],
+  notes: [],
+  summary: [],
+};
+
+function Section({
+  title,
+  tone,
+  active,
+  children,
+}: {
+  title: string;
+  tone: SectionTone;
+  active: boolean;
+  children: ReactNode;
+}) {
+  if (!active) return null;
   return (
-    <fieldset className="lcf-section">
-      <legend>{title}</legend>
+    <fieldset className={`lcf-section lcf-section--${tone}`}>
+      <legend>
+        <span className="lcf-section__swatch" aria-hidden="true" />
+        {title}
+      </legend>
       {children}
     </fieldset>
   );
@@ -314,6 +375,7 @@ export function LeaseContractForm({
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
   const [unitId, setUnitId] = useState(units[0]?.id ?? '');
+  const [wizardStep, setWizardStep] = useState<WizardStepId>('main');
   const unit = units.find((item) => item.id === unitId);
   const currency = unit?.currency ?? 'OMR';
   const digits = minorDigitsFor(currency);
@@ -557,6 +619,67 @@ export function LeaseContractForm({
     [missingFields],
   );
   const gap = (code: string) => missingCodes.has(code);
+
+  const wizardSteps = useMemo((): WizardStepId[] => {
+    const steps: WizardStepId[] = ['main', 'tenant'];
+    if (requirements && onRequirementsChange) steps.push('docs');
+    steps.push('unit', 'rent', 'taxes', 'extras', 'deposit', 'schedule', 'notes', 'summary');
+    return steps;
+  }, [requirements, onRequirementsChange]);
+
+  useEffect(() => {
+    if (!wizardSteps.includes(wizardStep)) {
+      setWizardStep(wizardSteps[0] ?? 'main');
+    }
+  }, [wizardSteps, wizardStep]);
+
+  const stepIndex = Math.max(0, wizardSteps.indexOf(wizardStep));
+  const isFirstStep = stepIndex <= 0;
+  const isLastStep = stepIndex >= wizardSteps.length - 1;
+  const stepActive = (id: WizardStepId) => wizardStep === id;
+
+  const stepTitles: Record<WizardStepId, [string, string]> = {
+    main: ['📝 بيانات العقد الرئيسية', '📝 Main contract data'],
+    tenant: ['👤 المستأجر', '👤 Tenant'],
+    docs: ['📎 مستندات المستأجر', '📎 Tenant documents'],
+    unit: ['🏢 الوحدة والعدادات', '🏢 Unit & meters'],
+    rent: ['💰 الإيجار والمدة', '💰 Rent & term'],
+    taxes: ['🧾 الضرائب والرسوم', '🧾 Taxes & fees'],
+    extras: ['➕ مبالغ إضافية / خصومات', '➕ Extra charges & discounts'],
+    deposit: ['🛡️ التأمين (الوديعة)', '🛡️ Insurance (deposit)'],
+    schedule: ['📅 جدول الدفع', '📅 Payment schedule'],
+    notes: ['🗒️ ملاحظات', '🗒️ Notes'],
+    summary: ['📊 الملخص المالي', '📊 Financial summary'],
+  };
+
+  const currentStepGaps = useMemo(
+    () =>
+      missingFields.filter((field) =>
+        (STEP_GAP_CODES[wizardStep] ?? []).includes(field.code),
+      ),
+    [missingFields, wizardStep],
+  );
+
+  function goNext() {
+    if (currentStepGaps.length) {
+      setLocalError(
+        t(
+          `أكمل حقول هذا القسم أولاً (${currentStepGaps.length} ناقص).`,
+          `Complete this section first (${currentStepGaps.length} missing).`,
+        ),
+      );
+      return;
+    }
+    setLocalError(null);
+    const next = wizardSteps[stepIndex + 1];
+    if (next) setWizardStep(next);
+  }
+
+  function goBack() {
+    setLocalError(null);
+    const prev = wizardSteps[stepIndex - 1];
+    if (prev) setWizardStep(prev);
+  }
   const period =
     isIsoDate(draft.startsOn) && isIsoDate(draft.endsOn) && draft.endsOn > draft.startsOn
       ? contractPeriod(draft.startsOn, draft.endsOn)
@@ -684,23 +807,67 @@ export function LeaseContractForm({
   }
 
   return (
-    <form className="psr-form lcf" onSubmit={submit}>
+    <form className="psr-form lcf lcf--wizard" onSubmit={submit}>
       <h3>{heading ?? t('عقد تأجير يدوي', 'Manual lease contract')}</h3>
 
-      <MissingFieldsBanner
-        locale={locale}
-        fields={missingFields}
-        title={
-          missingFields.length
-            ? t(
-                `${missingFields.length} حقل إلزامي ناقص — أكملها قبل حفظ العقد`,
-                `${missingFields.length} required field${missingFields.length === 1 ? '' : 's'} missing — complete before saving`,
-              )
-            : undefined
-        }
-      />
+      <nav className="lcf-wizard-progress" aria-label={t('أقسام العقد', 'Contract sections')}>
+        <p className="lcf-wizard-progress__meta">
+          {t(
+            `القسم ${stepIndex + 1} من ${wizardSteps.length}`,
+            `Step ${stepIndex + 1} of ${wizardSteps.length}`,
+          )}
+        </p>
+        <ol className="lcf-wizard-progress__list">
+          {wizardSteps.map((id, index) => {
+            const done = index < stepIndex;
+            const current = index === stepIndex;
+            const tone =
+              id === 'taxes' ? 'tax' : id === 'extras' ? 'extra' : (id as SectionTone);
+            return (
+              <li key={id}>
+                <button
+                  type="button"
+                  className={`lcf-wizard-chip lcf-wizard-chip--${tone}${
+                    current ? ' lcf-wizard-chip--current' : ''
+                  }${done ? ' lcf-wizard-chip--done' : ''}`}
+                  onClick={() => {
+                    if (index <= stepIndex) {
+                      setLocalError(null);
+                      setWizardStep(id);
+                    }
+                  }}
+                  disabled={index > stepIndex}
+                  title={pick(stepTitles[id], ar)}
+                >
+                  <span className="lcf-wizard-chip__dot" aria-hidden="true" />
+                  <span className="lcf-wizard-chip__label">{pick(stepTitles[id], ar)}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
 
-      <Section title={t('📝 بيانات العقد الرئيسية', '📝 Main contract data')}>
+      {isLastStep || (STEP_GAP_CODES[wizardStep] ?? []).length > 0 ? (
+        <MissingFieldsBanner
+          locale={locale}
+          fields={isLastStep ? missingFields : currentStepGaps}
+          title={
+            (isLastStep ? missingFields : currentStepGaps).length
+              ? t(
+                  `${(isLastStep ? missingFields : currentStepGaps).length} حقل إلزامي ناقص في هذا القسم`,
+                  `${(isLastStep ? missingFields : currentStepGaps).length} required field(s) missing in this section`,
+                )
+              : undefined
+          }
+        />
+      ) : null}
+
+      <Section
+        tone="main"
+        active={stepActive('main')}
+        title={t('📝 بيانات العقد الرئيسية', '📝 Main contract data')}
+      >
         <div className="form-grid">
           <Field
             id="lcf-unit"
@@ -772,7 +939,7 @@ export function LeaseContractForm({
         </div>
       </Section>
 
-      <Section title={t('👤 المستأجر', '👤 Tenant')}>
+      <Section tone="tenant" active={stepActive('tenant')} title={t('👤 المستأجر', '👤 Tenant')}>
         <div className="form-grid">
           {tenants.length ? (
             <Field
@@ -1014,22 +1181,32 @@ export function LeaseContractForm({
       </Section>
 
       {requirements && onRequirementsChange ? (
-        <LeaseRequirementsPicker
-          ar={ar}
-          sale={false}
-          value={requirements}
-          onChange={onRequirementsChange}
-          rules={documentRules}
-          lockInitial={requirementsLocked}
-          context={{
-            entityType: tenant.entityType,
-            nationality: tenant.nationality,
-            signatoryNationality: tenant.signatoryNationality,
-          }}
-        />
+        <Section
+          tone="docs"
+          active={stepActive('docs')}
+          title={t('📎 مستندات المستأجر', '📎 Tenant documents')}
+        >
+          <LeaseRequirementsPicker
+            ar={ar}
+            sale={false}
+            value={requirements}
+            onChange={onRequirementsChange}
+            rules={documentRules}
+            lockInitial={requirementsLocked}
+            context={{
+              entityType: tenant.entityType,
+              nationality: tenant.nationality,
+              signatoryNationality: tenant.signatoryNationality,
+            }}
+          />
+        </Section>
       ) : null}
 
-      <Section title={t('🏢 الوحدة والعدادات', '🏢 Unit & meters')}>
+      <Section
+        tone="unit"
+        active={stepActive('unit')}
+        title={t('🏢 الوحدة والعدادات', '🏢 Unit & meters')}
+      >
         <dl className="lcf-facts">
           <div>
             <dt>{t('الطابق', 'Floor')}</dt>
@@ -1094,7 +1271,7 @@ export function LeaseContractForm({
         </div>
       </Section>
 
-      <Section title={t('💰 الإيجار والمدة', '💰 Rent & term')}>
+      <Section tone="rent" active={stepActive('rent')} title={t('💰 الإيجار والمدة', '💰 Rent & term')}>
         <div className="form-grid">
           <Field id="lcf-calc" label={t('طريقة احتساب الإيجار', 'Rent calculation mode')}>
             <select
@@ -1351,7 +1528,7 @@ export function LeaseContractForm({
         </div>
       </Section>
 
-      <Section title={t('🧾 الضرائب والرسوم', '🧾 Taxes & fees')}>
+      <Section tone="tax" active={stepActive('taxes')} title={t('🧾 الضرائب والرسوم', '🧾 Taxes & fees')}>
         <div className="form-grid">
           <Field
             id="lcf-vat"
@@ -1508,7 +1685,11 @@ export function LeaseContractForm({
         </div>
       </Section>
 
-      <Section title={t('➕ مبالغ إضافية / خصومات', '➕ Extra charges & discounts')}>
+      <Section
+        tone="extra"
+        active={stepActive('extras')}
+        title={t('➕ مبالغ إضافية / خصومات', '➕ Extra charges & discounts')}
+      >
         <p className="muted lcf-help">
           {t(
             'حدّد هل المبلغ يُدفع مرة واحدة أو مع التجديد أو كل 3 أشهر أو شهرياً، وحتى نهاية العقد أو سنة أو مدة مخصصة.',
@@ -1650,7 +1831,11 @@ export function LeaseContractForm({
         </button>
       </Section>
 
-      <Section title={t('🛡️ التأمين (الوديعة)', '🛡️ Insurance (deposit)')}>
+      <Section
+        tone="deposit"
+        active={stepActive('deposit')}
+        title={t('🛡️ التأمين (الوديعة)', '🛡️ Insurance (deposit)')}
+      >
         <div className="form-grid">
           <Field
             id="lcf-deposit"
@@ -1756,7 +1941,11 @@ export function LeaseContractForm({
         </button>
       </Section>
 
-      <Section title={t('📅 جدول الدفع', '📅 Payment schedule')}>
+      <Section
+        tone="schedule"
+        active={stepActive('schedule')}
+        title={t('📅 جدول الدفع', '📅 Payment schedule')}
+      >
         <p className="muted lcf-help">
           {t(
             'تُحسب التواريخ من «يوم دفع الإيجار» ودورية الدفع، والمبالغ من الإيجار الشهري. يمكن تعديل أي تاريخ أو مبلغ (إيجارات مخصصة). تغيير الإيجار أو المدة يعيد بناء الجدول مع الإبقاء على أرقام الشيكات.',
@@ -2013,8 +2202,12 @@ export function LeaseContractForm({
         ) : null}
       </Section>
 
-      {terms?.vatCheques.length ? (
-        <Section title={t('🧾 شيكات الضريبة المضافة (إضافية)', '🧾 Additional VAT cheques')}>
+      {terms?.vatCheques.length && stepActive('schedule') ? (
+        <Section
+          tone="schedule"
+          active
+          title={t('🧾 شيكات الضريبة المضافة (إضافية)', '🧾 Additional VAT cheques')}
+        >
           <div className="data-table-wrap">
             <table className="data-table lcf-table">
               <thead>
@@ -2053,7 +2246,7 @@ export function LeaseContractForm({
         </Section>
       ) : null}
 
-      <Section title={t('🗒️ ملاحظات', '🗒️ Notes')}>
+      <Section tone="notes" active={stepActive('notes')} title={t('🗒️ ملاحظات', '🗒️ Notes')}>
         <textarea
           className="textarea"
           rows={3}
@@ -2071,7 +2264,11 @@ export function LeaseContractForm({
         />
       </Section>
 
-      <Section title={t('📊 الملخص المالي', '📊 Financial summary')}>
+      <Section
+        tone="summary"
+        active={stepActive('summary')}
+        title={t('📊 الملخص المالي', '📊 Financial summary')}
+      >
         {terms ? (
           <LeaseTotalsSummary terms={terms} locale={locale} />
         ) : (
@@ -2079,6 +2276,20 @@ export function LeaseContractForm({
             {pick(ERROR_TEXT[result.ok ? 'invalid_terms' : result.error], ar)}
           </p>
         )}
+        {isLastStep ? (
+          <p className="muted">
+            {footnote ??
+              (canSign
+                ? t(
+                    'سيُعتمد العقد فوراً ويوقّعه النظام باسمك نيابة عن المالك، وتُسجَّل الشيكات للمراجعة المحاسبية.',
+                    'The contract is approved at once and system-signed in your name; cheques go to accounting review.',
+                  )
+                : t(
+                    'لا تملك صلاحية اعتماد العقود، لذلك سيُرسل العقد إلى المدير لاعتماده.',
+                    'You cannot approve contracts, so it will be sent to the manager for approval.',
+                  ))}
+          </p>
+        ) : null}
       </Section>
 
       {localError ? (
@@ -2086,24 +2297,27 @@ export function LeaseContractForm({
           {localError}
         </div>
       ) : null}
-      <p className="muted">
-        {footnote ??
-          (canSign
-            ? t(
-                'سيُعتمد العقد فوراً ويوقّعه النظام باسمك نيابة عن المالك، وتُسجَّل الشيكات للمراجعة المحاسبية.',
-                'The contract is approved at once and system-signed in your name; cheques go to accounting review.',
-              )
-            : t(
-                'لا تملك صلاحية اعتماد العقود، لذلك سيُرسل العقد إلى المدير لاعتماده.',
-                'You cannot approve contracts, so it will be sent to the manager for approval.',
-              ))}
-      </p>
-      <div className="form-actions">
-        <button type="submit" className="button button--primary" disabled={busy || !units.length}>
-          {busy
-            ? t('جارٍ الحفظ…', 'Saving…')
-            : (submitLabel ?? t('إنشاء عقد الإيجار', 'Create lease contract'))}
+
+      <div className="form-actions lcf-wizard-actions">
+        <button
+          type="button"
+          className="button button--quiet"
+          disabled={busy || isFirstStep}
+          onClick={goBack}
+        >
+          {t('← رجوع', '← Back')}
         </button>
+        {!isLastStep ? (
+          <button type="button" className="button button--primary" disabled={busy} onClick={goNext}>
+            {t('التالي →', 'Next →')}
+          </button>
+        ) : (
+          <button type="submit" className="button button--primary" disabled={busy || !units.length}>
+            {busy
+              ? t('جارٍ الحفظ…', 'Saving…')
+              : (submitLabel ?? t('إنشاء عقد الإيجار', 'Create lease contract'))}
+          </button>
+        )}
         <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
           {t('إلغاء', 'Cancel')}
         </button>
