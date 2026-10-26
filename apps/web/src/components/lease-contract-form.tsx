@@ -876,18 +876,14 @@ export function LeaseContractForm({
         </p>
       ) : null}
 
-      {isLastStep || (STEP_GAP_CODES[wizardStep] ?? []).length > 0 ? (
+      {(isLastStep ? missingFields : currentStepGaps).length > 0 ? (
         <MissingFieldsBanner
           locale={locale}
           fields={isLastStep ? missingFields : currentStepGaps}
-          title={
-            (isLastStep ? missingFields : currentStepGaps).length
-              ? t(
-                  `${(isLastStep ? missingFields : currentStepGaps).length} حقل إلزامي ناقص${isLastStep ? '' : ' في هذا القسم'}`,
-                  `${(isLastStep ? missingFields : currentStepGaps).length} required field(s) missing${isLastStep ? '' : ' in this section'}`,
-                )
-              : undefined
-          }
+          title={t(
+            `${(isLastStep ? missingFields : currentStepGaps).length} حقل إلزامي ناقص${isLastStep ? '' : ' في هذا القسم'}`,
+            `${(isLastStep ? missingFields : currentStepGaps).length} required field(s) missing${isLastStep ? '' : ' in this section'}`,
+          )}
         />
       ) : null}
 
