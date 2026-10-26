@@ -26,7 +26,8 @@ const createSchema = z
   .object({
     occasion: z.string().min(1).max(120),
     occasionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    meaning: z.string().min(1).max(800),
+    /** Optional notes — AI writes the ceremonial greeting. */
+    meaning: z.string().max(800).optional().default(''),
     audience: audienceSchema.optional(),
     generateDesign: z.boolean().optional(),
     changeRequest: z.string().max(500).nullable().optional(),
@@ -46,6 +47,7 @@ export function GET(request: Request) {
 export function POST(request: Request) {
   return siteAdminRoute('POST /api/site-admin/greetings', async () => {
     const claims = await requireLiveSession(request, { requireCsrf: true });
+    const oidcToken = request.headers.get('x-vercel-oidc-token');
     const raw = await request.json().catch(() => null);
     if (raw && typeof raw === 'object' && (raw as { estimate?: boolean }).estimate === true) {
       const body = estimateSchema.parse(raw);
@@ -54,6 +56,6 @@ export function POST(request: Request) {
       };
     }
     const body = createSchema.parse(raw);
-    return createGreetingCampaign(claims, body);
+    return createGreetingCampaign(claims, { ...body, oidcToken });
   });
 }

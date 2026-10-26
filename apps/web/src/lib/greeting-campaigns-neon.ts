@@ -292,11 +292,13 @@ async function estimateAudience(
 export type CreateGreetingInput = {
   occasion: string;
   occasionDate: string;
+  /** Optional notes; AI rewrites ceremonial copy into the design + stored meaning. */
   meaning: string;
   audience?: GreetingAudience | undefined;
   /** Generate the first AI design immediately. */
   generateDesign?: boolean | undefined;
   changeRequest?: string | null | undefined;
+  oidcToken?: string | null | undefined;
 };
 
 export async function createGreetingCampaign(
@@ -309,20 +311,25 @@ export async function createGreetingCampaign(
 
   const occasion = input.occasion.trim().slice(0, 120);
   const occasionDate = input.occasionDate.trim().slice(0, 10);
-  const meaning = input.meaning.trim().slice(0, 800);
-  if (!occasion || !/^\d{4}-\d{2}-\d{2}$/.test(occasionDate) || !meaning) fail('invalid_body');
+  const notes = input.meaning.trim().slice(0, 800);
+  if (!occasion || !/^\d{4}-\d{2}-\d{2}$/.test(occasionDate)) fail('invalid_body');
 
   let designs: GreetingDesignVersion[] = [];
   if (input.generateDesign !== false) {
     designs = [
-      await generateGreetingDesign({
-        occasion,
-        occasionDate,
-        meaning,
-        changeRequest: input.changeRequest ?? null,
-      }),
+      await generateGreetingDesign(
+        {
+          occasion,
+          occasionDate,
+          meaning: notes || occasion,
+          changeRequest: input.changeRequest ?? null,
+        },
+        input.oidcToken ?? null,
+      ),
     ];
   }
+
+  const meaning = designs[0]?.bodyAr?.trim() || notes || occasion;
 
   return elevatedTx(async (tx) => {
     await requireRoot(claims);
@@ -434,6 +441,7 @@ export async function redesignGreetingCampaign(
   claims: SessionClaims,
   id: string,
   changeRequest?: string | null,
+  oidcToken?: string | null,
 ): Promise<{ campaign: GreetingCampaign }> {
   const brief = await elevatedTx(async (tx) => {
     await requireRoot(claims);
@@ -449,10 +457,13 @@ export async function redesignGreetingCampaign(
     };
   });
 
-  const design = await generateGreetingDesign({
-    ...brief,
-    changeRequest: changeRequest ?? null,
-  });
+  const design = await generateGreetingDesign(
+    {
+      ...brief,
+      changeRequest: changeRequest ?? null,
+    },
+    oidcToken ?? null,
+  );
 
   return elevatedTx(async (tx) => {
     await requireRoot(claims);
@@ -465,6 +476,7 @@ export async function redesignGreetingCampaign(
     const designs = [design, ...campaign.designs].slice(0, MAX_DESIGNS);
     const next: GreetingCampaign = {
       ...campaign,
+      meaning: design.bodyAr || campaign.meaning,
       designs,
       currentDesignId: design.id,
       updatedAt: new Date().toISOString(),

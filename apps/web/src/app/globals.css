@@ -34990,3 +34990,19 @@ button.handover-shots__item {
   height: auto;
   border-radius: 6px;
 }
+.sa-greetings__copy {
+  margin: 0.85rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #eef8f7;
+  border: 1px solid #cfe5e3;
+}
+.sa-greetings__copy h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+  color: #174b70;
+}
+.sa-greetings__copy p {
+  margin: 0.25rem 0;
+  line-height: 1.65;
+}

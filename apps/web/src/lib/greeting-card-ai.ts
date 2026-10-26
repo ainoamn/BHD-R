@@ -13,10 +13,9 @@ import { publicWebOrigin } from '@/lib/seo';
 export type GreetingCardBrief = {
   occasion: string;
   occasionDate: string;
+  /** Admin notes / raw meaning — AI rewrites into ceremonial copy. */
   meaning: string;
-  /** Prior design feedback from the admin. */
   changeRequest?: string | null | undefined;
-  /** Avoid repeating the same palette/motif. */
   avoidMotifs?: string[] | undefined;
 };
 
@@ -53,18 +52,22 @@ function parseSpec(raw: Record<string, unknown>, brief: GreetingCardBrief): AiDe
   return {
     headlineAr: asString(raw.headlineAr, `تهنئة بمناسبة ${brief.occasion}`, 80),
     headlineEn: asString(raw.headlineEn, `Happy ${brief.occasion}`, 80),
-    bodyAr: asString(raw.bodyAr, brief.meaning || 'نتمنى لكم يوماً سعيداً من عائلة بن حمود.', 280),
+    bodyAr: asString(
+      raw.bodyAr,
+      'بأسمى آيات التهاني والتبريكات، تتقدم عائلة بن حمود للتطوير بأطيب الأمنيات في هذه المناسبة العزيزة.',
+      320,
+    ),
     bodyEn: asString(
       raw.bodyEn,
-      brief.meaning || 'Warm wishes from the Bin Hamood family.',
-      280,
+      'Bin Hamood Development extends its warmest congratulations on this cherished occasion.',
+      320,
     ),
     accent: asHex(raw.accent, '#0b8f8a'),
     accentSoft: asHex(raw.accentSoft, '#e6f6f5'),
     motif: asString(raw.motif, 'omani celebration', 60),
     imagePrompt: asString(
       raw.imagePrompt,
-      `Photorealistic Oman celebration greeting card for ${brief.occasion}`,
+      `Photorealistic vertical Oman greeting card for ${brief.occasion}, traditional dress, fort and mosque, teal and gold`,
       900,
     ),
   };
@@ -75,25 +78,24 @@ async function designSpec(endpoint: AiEndpoint, brief: GreetingCardBrief): Promi
   const raw = await aiChatJson(
     endpoint,
     [
-      'You art-direct photorealistic digital greeting cards for BHD R / Bin Hamood Development in Oman.',
-      'Return JSON only.',
-      'Tone: warm, respectful, festive; never political or polarizing.',
-      'Colors: hex #rrggbb; prefer teal #0b8f8a, navy #174b70, gold #c49a3c, sand — avoid purple neon.',
-      'headlineAr: short Arabic festive title. bodyAr: 1–2 poetic Arabic sentences.',
-      'headlineEn/bodyEn: short English mirrors.',
-      'motif: short English visual theme tag that must differ from avoidMotifs.',
-      'imagePrompt: detailed ENGLISH scene prompt for an image model of a finished vertical greeting CARD:',
-      'photorealistic Omani people in traditional dress when relevant, iconic Oman landmarks (fort, mosque, flag),',
-      'teal wave graphic frames, gold accents, Islamic geometric corner pattern,',
-      'exact Arabic headline and body text rendered clearly on the card, date ribbon if a date is given,',
-      'leave a clean pale band at the very top (~12% height) with no people/faces for a logo overlay,',
-      'no English brand logos, no watermarks, no QR codes, no fake company marks.',
+      'You are a senior bilingual copywriter and art director for Bin Hamood Development (BHD R) in Oman.',
+      'Return JSON only. Never copy the admin notes verbatim — rewrite into polished ceremonial greeting copy.',
+      'headlineAr: elegant Modern Standard Arabic title (max ~12 words), e.g. تهنئة بمناسبة …',
+      'bodyAr: 1–2 poetic Arabic sentences suitable for a corporate national greeting card;',
+      'mention youth / nation / occasion naturally when relevant; warm, dignified, non-political.',
+      'headlineEn/bodyEn: matching formal English.',
+      'Colors: hex #rrggbb; teal #0b8f8a, navy #174b70, gold #c49a3c — avoid purple neon.',
+      'motif: short English visual theme DIFFERENT from avoidMotifs.',
+      'imagePrompt: detailed ENGLISH prompt for a finished vertical PHOTOGRAPHIC greeting CARD:',
+      'Omani people in traditional dress when fitting, forts/mosque/flag, teal wave frames, gold accents,',
+      'Islamic geometric corner, CLEAR Arabic headline+body rendered on the card, date ribbon if dated,',
+      'clean pale top band (~12%) with no faces for logo overlay; no English brand logos or watermarks.',
     ].join(' '),
-    'Design copy and a rich imagePrompt for this occasion. Vary the look if avoidMotifs or changeRequest is set.',
+    'Write professional card copy and an imagePrompt from this occasion brief.',
     {
       occasion: brief.occasion,
       occasionDate: brief.occasionDate,
-      meaning: brief.meaning,
+      adminNotes: brief.meaning,
       changeRequest: brief.changeRequest ?? null,
       avoidMotifs: avoid,
       brandAr: COMPANY_NAME_AR,
@@ -103,12 +105,24 @@ async function designSpec(endpoint: AiEndpoint, brief: GreetingCardBrief): Promi
     'greeting-card-design',
     60_000,
   );
-  return parseSpec(raw, brief);
+  const spec = parseSpec(raw, brief);
+  // Reject near-copies of raw admin notes as "professional" copy.
+  if (
+    brief.meaning &&
+    spec.bodyAr.replace(/\s+/g, '') === brief.meaning.trim().replace(/\s+/g, '') &&
+    brief.meaning.trim().length > 40
+  ) {
+    spec.bodyAr = asString(
+      null,
+      'بأسمى آيات التهاني والتبريكات، تتقدم شركة بن حمود للتطوير بأطيب الأمنيات لجميع أبنائنا في هذه المناسبة الغالية.',
+      320,
+    );
+  }
+  return spec;
 }
 
 type ImageEndpoint = { url: string; apiKey: string; model: string; kind: 'gateway' | 'openai' };
 
-/** OpenAI-compatible `/images/generations` for gateway or direct OpenAI. */
 export function resolveAiImageEndpoint(oidcToken: string | null = null): ImageEndpoint | null {
   const modelOverride = process.env.AI_IMAGE_MODEL?.trim();
   const gatewayKey = process.env.AI_GATEWAY_API_KEY?.trim();
@@ -155,38 +169,35 @@ function buildFullImagePrompt(spec: AiDesignSpec, brief: GreetingCardBrief): str
     : '';
   return [
     spec.imagePrompt,
-    `Finished vertical digital greeting card, 3:4 composition, print quality.`,
-    `Render this Arabic headline clearly: «${spec.headlineAr}».`,
-    `Render this Arabic greeting clearly: «${spec.bodyAr}».`,
-    dateLabel ? `Gold date ribbon with «${dateLabel}» and subtle Omani khanjar emblem.` : '',
-    `Brand palette teal ${spec.accent} and navy #174b70 with soft gold highlights.`,
-    `Theme: ${spec.motif}.`,
-    brief.changeRequest ? `Admin revision: ${brief.changeRequest}` : '',
-    `Top 12% of the image must be a clean soft gradient band (no faces) for logo placement.`,
-    `No English logos, no watermark, no UI chrome.`,
+    `Finished vertical digital greeting card, 3:4, photorealistic print quality.`,
+    `Render Arabic headline clearly: «${spec.headlineAr}».`,
+    `Render Arabic greeting clearly: «${spec.bodyAr}».`,
+    dateLabel ? `Gold ribbon with «${dateLabel}» and subtle Omani khanjar emblem.` : '',
+    `Palette teal ${spec.accent}, navy #174b70, soft gold. Theme: ${spec.motif}.`,
+    brief.changeRequest ? `Revision: ${brief.changeRequest}` : '',
+    `Top 12% clean soft band (no faces) for logo. No English logos, no watermark.`,
   ]
     .filter(Boolean)
     .join(' ');
 }
 
-async function generateRaster(
-  imageEndpoint: ImageEndpoint,
-  prompt: string,
-): Promise<Buffer> {
+async function generateRaster(imageEndpoint: ImageEndpoint, prompt: string): Promise<Buffer> {
   const isGptImage = /gpt-image/i.test(imageEndpoint.model);
+  const isDale = /dall-e/i.test(imageEndpoint.model);
   const body: Record<string, unknown> = {
     model: imageEndpoint.model,
-    prompt: prompt.slice(0, 3200),
+    prompt: prompt.slice(0, 3000),
     n: 1,
     size: isGptImage ? '1024x1536' : '1024x1024',
   };
   if (isGptImage) {
-    body.quality = 'high';
+    body.quality = 'medium';
     body.output_format = 'jpeg';
-  } else {
-    // dall-e-3 and similar
+  } else if (isDale) {
     body.response_format = 'b64_json';
     body.quality = 'hd';
+  } else {
+    body.response_format = 'b64_json';
   }
 
   const response = await fetch(imageEndpoint.url, {
@@ -202,6 +213,7 @@ async function generateRaster(
   if (!response.ok) {
     console.error(
       'greeting image gen failed',
+      imageEndpoint.model,
       response.status,
       (await response.text()).slice(0, 400),
     );
@@ -218,6 +230,120 @@ async function generateRaster(
     return Buffer.from(await img.arrayBuffer());
   }
   throw new Error('ai_failed');
+}
+
+/** Multimodal chat models that return images (Vercel AI Gateway). */
+async function generateRasterViaChat(chat: AiEndpoint, prompt: string): Promise<Buffer> {
+  const models =
+    chat.url.includes('ai-gateway.vercel.sh')
+      ? [
+          'google/gemini-2.5-flash-image-preview',
+          'google/gemini-2.0-flash-preview-image-generation',
+          'openai/gpt-4.1',
+        ]
+      : [];
+  for (const model of models) {
+    try {
+      const response = await fetch(chat.url, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${chat.apiKey}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'user',
+              content: `Generate one finished greeting-card image (no explanation).\n\n${prompt.slice(0, 2800)}`,
+            },
+          ],
+          modalities: ['text', 'image'],
+        }),
+        signal: AbortSignal.timeout(110_000),
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        console.error(
+          'greeting chat-image failed',
+          model,
+          response.status,
+          (await response.text()).slice(0, 300),
+        );
+        continue;
+      }
+      const json = (await response.json()) as {
+        choices?: Array<{
+          message?: {
+            content?: unknown;
+            images?: unknown;
+          };
+        }>;
+      };
+      const message = json.choices?.[0]?.message;
+      const extracted = extractImageBuffer(message);
+      if (extracted) return extracted;
+    } catch (error) {
+      console.error('greeting chat-image error', model, error instanceof Error ? error.message : error);
+    }
+  }
+  throw new Error('ai_failed');
+}
+
+function extractImageBuffer(message: { content?: unknown; images?: unknown } | undefined): Buffer | null {
+  if (!message) return null;
+  const fromImages = readImageList(message.images);
+  if (fromImages) return fromImages;
+  if (Array.isArray(message.content)) {
+    for (const part of message.content) {
+      if (!part || typeof part !== 'object') continue;
+      const row = part as Record<string, unknown>;
+      if (row.type === 'image_url' && row.image_url && typeof row.image_url === 'object') {
+        const url = (row.image_url as { url?: string }).url;
+        const buf = dataUrlToBuffer(url);
+        if (buf) return buf;
+      }
+      if (typeof row.b64_json === 'string') return Buffer.from(row.b64_json, 'base64');
+      if (typeof row.image === 'string') {
+        const buf = dataUrlToBuffer(row.image) ?? Buffer.from(row.image, 'base64');
+        if (buf.length > 1000) return buf;
+      }
+    }
+  }
+  if (typeof message.content === 'string') {
+    const match = message.content.match(/data:image\/[a-zA-Z+]+;base64,([A-Za-z0-9+/=]+)/);
+    if (match?.[1]) return Buffer.from(match[1], 'base64');
+  }
+  return null;
+}
+
+function readImageList(value: unknown): Buffer | null {
+  if (!Array.isArray(value)) return null;
+  for (const item of value) {
+    if (!item || typeof item !== 'object') continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.b64_json === 'string') return Buffer.from(row.b64_json, 'base64');
+    if (typeof row.image_url === 'string') {
+      const buf = dataUrlToBuffer(row.image_url);
+      if (buf) return buf;
+    }
+    if (row.image_url && typeof row.image_url === 'object') {
+      const buf = dataUrlToBuffer((row.image_url as { url?: string }).url);
+      if (buf) return buf;
+    }
+    if (typeof row.url === 'string') {
+      const buf = dataUrlToBuffer(row.url);
+      if (buf) return buf;
+    }
+  }
+  return null;
+}
+
+function dataUrlToBuffer(value: string | null | undefined): Buffer | null {
+  if (!value) return null;
+  const match = value.match(/^data:image\/[a-zA-Z+]+;base64,([A-Za-z0-9+/=]+)$/);
+  if (match?.[1]) return Buffer.from(match[1], 'base64');
+  return null;
 }
 
 function brandOverlaySvg(width: number, height: number, companyAr: string): Buffer {
@@ -248,7 +374,6 @@ function brandOverlaySvg(width: number, height: number, companyAr: string): Buff
   );
 }
 
-/** Bake the official BHD mark onto the AI card and compress for storage/email. */
 async function brandAndCompress(raster: Buffer): Promise<{ mime: string; base64: string }> {
   const resized = await sharp(raster, { failOn: 'none', limitInputPixels: 40_000_000 })
     .rotate()
@@ -266,8 +391,6 @@ async function brandAndCompress(raster: Buffer): Promise<{ mime: string; base64:
     .composite([{ input: brandOverlaySvg(width, height, COMPANY_NAME_AR), top: 0, left: 0 }])
     .jpeg({ quality: 82, mozjpeg: true })
     .toBuffer();
-
-  // Cap ~450KB base64 (~340KB binary) so platform_settings stays manageable.
   let output = jpeg;
   if (output.length > 340_000) {
     output = await sharp(jpeg).jpeg({ quality: 70, mozjpeg: true }).toBuffer();
@@ -275,157 +398,73 @@ async function brandAndCompress(raster: Buffer): Promise<{ mime: string; base64:
   return { mime: 'image/jpeg', base64: output.toString('base64') };
 }
 
-function escapeXml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&apos;');
-}
-
-function wrapLines(text: string, maxChars: number, maxLines: number): string[] {
-  const words = text.trim().split(/\s+/).filter(Boolean);
-  const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    const next = current ? `${current} ${word}` : word;
-    if (next.length > maxChars && current) {
-      lines.push(current);
-      current = word;
-      if (lines.length >= maxLines) break;
-    } else {
-      current = next;
-    }
-  }
-  if (current && lines.length < maxLines) lines.push(current);
-  return lines.length ? lines : [text.slice(0, maxChars)];
-}
-
-/** Text-only SVG fallback when image models are unavailable. */
-export function composeGreetingSvg(spec: AiDesignSpec, options: { seed: string }): string {
-  const seedNum = [...options.seed].reduce((n, c) => n + c.charCodeAt(0), 0);
-  const tilt = ((seedNum % 17) - 8) * 0.4;
-  const orbX = 520 + (seedNum % 40);
-  const orbY = 80 + (seedNum % 30);
-  const headAr = wrapLines(spec.headlineAr, 22, 2);
-  const bodyAr = wrapLines(spec.bodyAr, 36, 4);
-
-  const arLines = headAr
-    .map(
-      (line, i) =>
-        `<text x="600" y="${250 + i * 42}" text-anchor="middle" fill="#10243a" font-family="Tahoma, Arial, sans-serif" font-size="34" font-weight="700">${escapeXml(line)}</text>`,
-    )
-    .join('');
-  const bodyArLines = bodyAr
-    .map(
-      (line, i) =>
-        `<text x="600" y="${380 + i * 28}" text-anchor="middle" fill="#24384d" font-family="Tahoma, Arial, sans-serif" font-size="18">${escapeXml(line)}</text>`,
-    )
-    .join('');
-
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675" role="img">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${spec.accentSoft}"/>
-      <stop offset="55%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="${spec.accent}22"/>
-    </linearGradient>
-    <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="${spec.accent}"/>
-      <stop offset="100%" stop-color="#174b70"/>
-    </linearGradient>
-  </defs>
-  <rect width="1200" height="675" rx="28" fill="url(#bg)"/>
-  <rect x="0" y="0" width="1200" height="14" fill="url(#band)"/>
-  <circle cx="${orbX}" cy="${orbY}" r="120" fill="${spec.accent}" opacity="0.12"/>
-  <g transform="rotate(${tilt.toFixed(1)} 600 340)">
-    <rect x="80" y="70" width="1040" height="535" rx="22" fill="#ffffff" opacity="0.78" stroke="${spec.accent}33" stroke-width="2"/>
-  </g>
-  <svg x="476" y="96" width="248" height="77" viewBox="0 0 548 171">${MARK_PATHS}</svg>
-  <text x="600" y="200" text-anchor="middle" fill="#174b70" font-family="Tahoma, Arial, sans-serif" font-size="14" font-weight="700">${escapeXml(COMPANY_NAME_AR)}</text>
-  <text x="600" y="220" text-anchor="middle" fill="#8a99a8" font-family="Georgia, serif" font-size="12">${escapeXml(PRODUCT_NAME)} · ${escapeXml(COMPANY_NAME_EN)}</text>
-  ${arLines}
-  <rect x="520" y="345" width="160" height="4" rx="2" fill="${spec.accent}"/>
-  ${bodyArLines}
-  <text x="600" y="610" text-anchor="middle" fill="${spec.accent}" font-family="Tahoma, Arial, sans-serif" font-size="13" font-weight="700">${escapeXml(spec.motif)}</text>
-  <rect x="0" y="661" width="1200" height="14" fill="url(#band)"/>
-</svg>`;
-}
-
 /**
- * Generate a new design version: AI photorealistic card + BHD logo bake-in.
- * Previous versions stay in campaign history. Falls back to branded SVG if image API fails.
+ * Generate AI copy + photorealistic card with BHD logo.
+ * Throws `ai_unconfigured` / `ai_failed` / `ai_image_failed` — never returns a fake text-only success.
  */
 export async function generateGreetingDesign(
   brief: GreetingCardBrief,
   oidcToken: string | null = null,
 ): Promise<GreetingDesignVersion> {
   const chatEndpoint = resolveAiEndpoint(oidcToken);
-  let spec: AiDesignSpec;
-  if (chatEndpoint) {
-    try {
-      spec = await designSpec(chatEndpoint, brief);
-    } catch (error) {
-      console.error('greeting design AI failed', error instanceof Error ? error.message : error);
-      spec = parseSpec({}, brief);
-      spec.motif = `festive ${brief.occasion} ${Date.now().toString(36)}`.slice(0, 60);
-      spec.accent = ['#0b8f8a', '#174b70', '#c49a3c', '#b85c38'][
-        Math.floor(Math.random() * 4)
-      ]!;
-      spec.accentSoft = '#eef7f6';
-    }
-  } else {
-    spec = parseSpec({}, brief);
-    spec.motif = `celebration ${Date.now().toString(36)}`;
-    spec.accent = '#0b8f8a';
-    spec.accentSoft = '#e6f6f5';
-  }
+  if (!chatEndpoint) throw new Error('ai_unconfigured');
 
-  const id = randomUUID();
+  const spec = await designSpec(chatEndpoint, brief);
+  const prompt = buildFullImagePrompt(spec, brief);
+  const imageEndpoint = resolveAiImageEndpoint(oidcToken);
+
   let imageMime: string | null = null;
   let imageBase64: string | null = null;
-  let svg = '';
 
-  const imageEndpoint = resolveAiImageEndpoint(oidcToken);
+  const imageCandidates: ImageEndpoint[] = [];
   if (imageEndpoint) {
-    const prompt = buildFullImagePrompt(spec, brief);
-    const candidates =
-      imageEndpoint.kind === 'gateway'
-        ? [
-            imageEndpoint,
-            { ...imageEndpoint, model: 'openai/gpt-image-1' },
-            { ...imageEndpoint, model: 'openai/dall-e-3' },
-          ]
-        : [
-            imageEndpoint,
-            { ...imageEndpoint, model: 'gpt-image-1' },
-            { ...imageEndpoint, model: 'dall-e-3' },
-          ];
-    for (const candidate of candidates) {
-      try {
-        const raster = await generateRaster(candidate, prompt);
-        const branded = await brandAndCompress(raster);
-        imageMime = branded.mime;
-        imageBase64 = branded.base64;
-        break;
-      } catch (error) {
-        console.error(
-          'greeting raster failed',
-          candidate.model,
-          error instanceof Error ? error.message : error,
-        );
-      }
+    if (imageEndpoint.kind === 'gateway') {
+      imageCandidates.push(
+        imageEndpoint,
+        { ...imageEndpoint, model: 'openai/gpt-image-1' },
+        { ...imageEndpoint, model: 'openai/dall-e-3' },
+        { ...imageEndpoint, model: 'bfl/flux-2-pro' },
+      );
+    } else {
+      imageCandidates.push(
+        imageEndpoint,
+        { ...imageEndpoint, model: 'gpt-image-1' },
+        { ...imageEndpoint, model: 'dall-e-3' },
+      );
+    }
+  }
+
+  for (const candidate of imageCandidates) {
+    try {
+      const raster = await generateRaster(candidate, prompt);
+      const branded = await brandAndCompress(raster);
+      imageMime = branded.mime;
+      imageBase64 = branded.base64;
+      break;
+    } catch (error) {
+      console.error(
+        'greeting raster failed',
+        candidate.model,
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 
   if (!imageBase64) {
-    svg = composeGreetingSvg(spec, { seed: id });
+    try {
+      const raster = await generateRasterViaChat(chatEndpoint, prompt);
+      const branded = await brandAndCompress(raster);
+      imageMime = branded.mime;
+      imageBase64 = branded.base64;
+    } catch (error) {
+      console.error('greeting chat-image fallback failed', error instanceof Error ? error.message : error);
+    }
   }
 
+  if (!imageBase64 || !imageMime) throw new Error('ai_image_failed');
+
   return {
-    id,
+    id: randomUUID(),
     createdAt: new Date().toISOString(),
     promptNote: brief.changeRequest?.trim() || null,
     headlineAr: spec.headlineAr,
@@ -436,7 +475,7 @@ export async function generateGreetingDesign(
     accentSoft: spec.accentSoft,
     motif: spec.motif,
     imagePrompt: spec.imagePrompt,
-    svg,
+    svg: '',
     imageMime,
     imageBase64,
   };

@@ -23,11 +23,12 @@ type Params = { params: Promise<{ id: string }> };
 export function POST(request: Request, { params }: Params) {
   return siteAdminRoute('POST /api/site-admin/greetings/:id/design', async () => {
     const claims = await requireLiveSession(request, { requireCsrf: true });
+    const oidcToken = request.headers.get('x-vercel-oidc-token');
     const { id } = await params;
     const body = await readJson(request, (value) => bodySchema.parse(value));
     if (body.selectDesignId) {
       return selectGreetingDesign(claims, id, body.selectDesignId);
     }
-    return redesignGreetingCampaign(claims, id, body.changeRequest);
+    return redesignGreetingCampaign(claims, id, body.changeRequest, oidcToken);
   });
 }

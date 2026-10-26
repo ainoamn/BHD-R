@@ -458,6 +458,16 @@ const ERRORS: Record<string, { status: number; ar: string; en: string }> = {
     ar: 'تعذّر توليد التصميم بالذكاء الاصطناعي. أعد المحاولة.',
     en: 'AI design failed. Please try again.',
   },
+  ai_unconfigured: {
+    status: 503,
+    ar: 'خدمة الذكاء الاصطناعي غير مفعّلة على الخادم (AI_GATEWAY_API_KEY أو OPENAI_API_KEY).',
+    en: 'AI is not configured on the server (AI_GATEWAY_API_KEY or OPENAI_API_KEY).',
+  },
+  ai_image_failed: {
+    status: 502,
+    ar: 'صيغ النص بنجاح لكن تعذّر رسم الصورة الرقمية. أعد المحاولة بعد لحظات.',
+    en: 'Copy was prepared but the digital image could not be rendered. Try again shortly.',
+  },
 };
 
 export function adminErrorBody(code: string): {

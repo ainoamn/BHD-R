@@ -187,10 +187,10 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
   }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reload fields when selection changes
 
   async function createCampaign() {
-    if (!form.occasion.trim() || !form.occasionDate || !form.meaning.trim()) {
+    if (!form.occasion.trim() || !form.occasionDate) {
       setNotice({
         tone: 'error',
-        text: ar ? 'أكمل المناسبة والتاريخ والمعنى.' : 'Fill occasion, date and meaning.',
+        text: ar ? 'أكمل اسم المناسبة والتاريخ.' : 'Fill the occasion name and date.',
       });
       return;
     }
@@ -494,7 +494,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
               />
             </label>
             <label className="sa-greetings__full">
-              {ar ? 'ماذا تعني هذه المناسبة؟' : 'What does this occasion mean?'}
+              {ar ? 'ملاحظات للمناسبة (اختياري)' : 'Occasion notes (optional)'}
               <textarea
                 value={form.meaning}
                 onChange={(e) => setForm({ ...form, meaning: e.target.value })}
@@ -502,8 +502,8 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 maxLength={800}
                 placeholder={
                   ar
-                    ? 'اكتب باختصار روح المناسبة والجملة التي تريد إيصالها…'
-                    : 'Briefly describe the spirit of the occasion…'
+                    ? 'اتركه فارغاً ليصوغ الذكاء الاصطناعي نص التهنئة، أو اكتب توجيهات قصيرة…'
+                    : 'Leave blank for AI ceremonial copy, or add short guidance…'
                 }
               />
             </label>
@@ -640,7 +640,14 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
 
           {selected && design ? (
             <div className="sa-greetings__preview">
-              <h2>{ar ? 'معاينة البطاقة' : 'Card preview'}</h2>
+              <h2>{ar ? 'معاينة الصورة الرقمية' : 'Digital image preview'}</h2>
+              {!design.imageBase64 ? (
+                <p className="notice notice--error" role="alert">
+                  {ar
+                    ? 'هذا التصميم قديم (نص فقط). اضغط «إعادة رسم الصورة» لتوليد صورة بالذكاء الاصطناعي.'
+                    : 'This is a legacy text-only design. Click “AI re-render image” for a photorealistic card.'}
+                </p>
+              ) : null}
               <div className="sa-greetings__frame">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -649,8 +656,18 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                   alt={design.headlineAr}
                 />
               </div>
+              <div className="sa-greetings__copy">
+                <h3>{ar ? 'النص الذي صاغه الذكاء الاصطناعي' : 'AI ceremonial copy'}</h3>
+                <p>
+                  <strong>{design.headlineAr}</strong>
+                </p>
+                <p>{design.bodyAr}</p>
+                <p className="muted" dir="ltr">
+                  {design.headlineEn} — {design.bodyEn}
+                </p>
+              </div>
               <p className="muted">
-                {design.headlineAr} · {design.motif}
+                {design.motif}
                 {selected.scheduledAt
                   ? ` · ${ar ? 'مجدول' : 'scheduled'} ${adminDate(selected.scheduledAt, ar)}`
                   : null}
