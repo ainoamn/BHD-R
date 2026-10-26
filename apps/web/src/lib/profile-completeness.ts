@@ -7,7 +7,7 @@ export type MissingField = {
   code: string;
   labelAr: string;
   labelEn: string;
-  group: 'owner' | 'tenant' | 'company' | 'signatory' | 'building' | 'agent';
+  group: 'owner' | 'tenant' | 'company' | 'signatory' | 'building' | 'agent' | 'lease';
 };
 
 export type PartyDocAttach = {

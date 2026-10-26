@@ -12,6 +12,7 @@ import {
   pick,
 } from '@/components/lease-terms-view';
 import { LeaseRequirementsPicker } from '@/components/lease-requirements-picker';
+import { MissingFieldsBanner } from '@/components/missing-fields-banner';
 import { NoteTranslateBar } from '@/components/note-translate';
 import { browserNextMutation } from '@/lib/api';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
@@ -21,6 +22,7 @@ import {
   type DocumentRequirementPick,
   type LeaseDocumentRules,
 } from '@/lib/lease-document-rules';
+import { missingLeaseContractFields } from '@/lib/lease-form-missing';
 import {
   ADJUSTMENT_RECURRENCES,
   ADJUSTMENT_SCOPES,
@@ -196,17 +198,38 @@ function Field({
   label,
   hint,
   wide,
+  required,
+  missing,
   children,
 }: {
   id: string;
   label: string;
   hint?: string | undefined;
   wide?: boolean;
+  required?: boolean | undefined;
+  missing?: boolean | undefined;
   children: ReactNode;
 }) {
+  const classes = [
+    'field',
+    wide ? 'span-2' : '',
+    required ? 'field--required-mark' : '',
+    missing ? 'field--missing' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const cleanLabel = label.replace(/\s*\*\s*$/, '');
   return (
-    <div className={wide ? 'field span-2' : 'field'}>
-      <label htmlFor={id}>{label}</label>
+    <div className={classes}>
+      <label htmlFor={id}>
+        {cleanLabel}
+        {required ? (
+          <span className="field__required" title="مطلوب">
+            {' '}
+            *
+          </span>
+        ) : null}
+      </label>
       {children}
       {hint ? <p className="field__hint muted">{hint}</p> : null}
     </div>
@@ -513,6 +536,23 @@ export function LeaseContractForm({
     [draft, currency, digits, deferUntilHandover],
   );
   const terms = result.ok ? result.terms : null;
+  const missingFields = useMemo(
+    () =>
+      missingLeaseContractFields({
+        unitId,
+        tenant,
+        draft,
+        digits,
+        deferMeters,
+        deferHandover,
+      }),
+    [unitId, tenant, draft, digits, deferMeters, deferHandover],
+  );
+  const missingCodes = useMemo(
+    () => new Set(missingFields.map((field) => field.code)),
+    [missingFields],
+  );
+  const gap = (code: string) => missingCodes.has(code);
   const period =
     isIsoDate(draft.startsOn) && isIsoDate(draft.endsOn) && draft.endsOn > draft.startsOn
       ? contractPeriod(draft.startsOn, draft.endsOn)
@@ -617,6 +657,15 @@ export function LeaseContractForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (missingFields.length) {
+      setLocalError(
+        t(
+          `أكمل ${missingFields.length} حقلاً إلزامياً ناقصاً قبل الحفظ.`,
+          `Complete ${missingFields.length} required field${missingFields.length === 1 ? '' : 's'} before saving.`,
+        ),
+      );
+      return;
+    }
     if (!result.ok) {
       setLocalError(pick(ERROR_TEXT[result.error], ar));
       return;
@@ -634,9 +683,27 @@ export function LeaseContractForm({
     <form className="psr-form lcf" onSubmit={submit}>
       <h3>{heading ?? t('عقد تأجير يدوي', 'Manual lease contract')}</h3>
 
+      <MissingFieldsBanner
+        locale={locale}
+        fields={missingFields}
+        title={
+          missingFields.length
+            ? t(
+                `${missingFields.length} حقل إلزامي ناقص — أكملها قبل حفظ العقد`,
+                `${missingFields.length} required field${missingFields.length === 1 ? '' : 's'} missing — complete before saving`,
+              )
+            : undefined
+        }
+      />
+
       <Section title={t('📝 بيانات العقد الرئيسية', '📝 Main contract data')}>
         <div className="form-grid">
-          <Field id="lcf-unit" label={t('الوحدة', 'Unit')}>
+          <Field
+            id="lcf-unit"
+            label={t('الوحدة', 'Unit')}
+            required
+            missing={gap('unit')}
+          >
             <select
               id="lcf-unit"
               className="select"
@@ -749,7 +816,12 @@ export function LeaseContractForm({
               <option value="company">{t('شركة', 'Company')}</option>
             </select>
           </Field>
-          <Field id="lcf-name-ar" label={t('اسم المستأجر (عربي) *', 'Tenant name (Arabic) *')}>
+          <Field
+            id="lcf-name-ar"
+            label={t('اسم المستأجر (عربي)', 'Tenant name (Arabic)')}
+            required
+            missing={gap('tenant_name')}
+          >
             <input
               id="lcf-name-ar"
               className="input"
@@ -772,7 +844,12 @@ export function LeaseContractForm({
           </Field>
           {tenant.entityType === 'person' ? (
             <>
-              <Field id="lcf-civil" label={t('الرقم المدني', 'Civil ID no.')}>
+              <Field
+                id="lcf-civil"
+                label={t('الرقم المدني', 'Civil ID no.')}
+                required
+                missing={gap('civil_id')}
+              >
                 <input
                   id="lcf-civil"
                   className="input"
@@ -820,7 +897,12 @@ export function LeaseContractForm({
             </>
           ) : (
             <>
-              <Field id="lcf-cr" label={t('السجل التجاري', 'Commercial registration no.')}>
+              <Field
+                id="lcf-cr"
+                label={t('السجل التجاري', 'Commercial registration no.')}
+                required
+                missing={gap('cr_number')}
+              >
                 <input
                   id="lcf-cr"
                   className="input"
@@ -830,7 +912,12 @@ export function LeaseContractForm({
                   onChange={(event) => setTenantField('crNumber', event.target.value)}
                 />
               </Field>
-              <Field id="lcf-cr-exp" label={t('انتهاء السجل التجاري', 'CR expiry date')}>
+              <Field
+                id="lcf-cr-exp"
+                label={t('انتهاء السجل التجاري', 'CR expiry date')}
+                required
+                missing={gap('cr_expiry')}
+              >
                 <input
                   id="lcf-cr-exp"
                   className="input"
@@ -839,7 +926,12 @@ export function LeaseContractForm({
                   onChange={(event) => setTenantField('crExpiry', event.target.value)}
                 />
               </Field>
-              <Field id="lcf-sign-name" label={t('المفوض بالتوقيع', 'Authorized signatory')}>
+              <Field
+                id="lcf-sign-name"
+                label={t('المفوض بالتوقيع', 'Authorized signatory')}
+                required
+                missing={gap('signatory')}
+              >
                 <input
                   id="lcf-sign-name"
                   className="input"
@@ -887,7 +979,12 @@ export function LeaseContractForm({
               </Field>
             </>
           )}
-          <Field id="lcf-phone" label={t('رقم الجوال', 'Mobile')}>
+          <Field
+            id="lcf-phone"
+            label={t('رقم الجوال', 'Mobile')}
+            required
+            missing={gap('phone')}
+          >
             <input
               id="lcf-phone"
               className="input"
@@ -953,8 +1050,10 @@ export function LeaseContractForm({
             label={
               deferMeters
                 ? t('قراءة عداد الكهرباء (مؤجّل للتسليم)', 'Electricity reading (deferred to handover)')
-                : t('قراءة عداد الكهرباء *', 'Electricity meter reading *')
+                : t('قراءة عداد الكهرباء', 'Electricity meter reading')
             }
+            required={!deferMeters}
+            missing={gap('electricity')}
           >
             <input
               id="lcf-elec"
@@ -972,8 +1071,10 @@ export function LeaseContractForm({
             label={
               deferMeters
                 ? t('قراءة عداد الماء (مؤجّل للتسليم)', 'Water reading (deferred to handover)')
-                : t('قراءة عداد الماء *', 'Water meter reading *')
+                : t('قراءة عداد الماء', 'Water meter reading')
             }
+            required={!deferMeters}
+            missing={gap('water')}
           >
             <input
               id="lcf-water"
@@ -1006,7 +1107,12 @@ export function LeaseContractForm({
           </Field>
           {draft.rentCalcMode === 'per_meter' ? (
             <>
-              <Field id="lcf-area" label={t('عدد الأمتار (م²)', 'Area (m²)')}>
+              <Field
+                id="lcf-area"
+                label={t('عدد الأمتار (م²)', 'Area (m²)')}
+                required
+                missing={gap('area')}
+              >
                 <input
                   id="lcf-area"
                   className="input"
@@ -1021,6 +1127,8 @@ export function LeaseContractForm({
               <Field
                 id="lcf-rate"
                 label={t(`قيمة المتر (${currency})`, `Rate per m² (${currency})`)}
+                required
+                missing={gap('rent_sqm')}
               >
                 <input
                   id="lcf-rate"
@@ -1045,7 +1153,9 @@ export function LeaseContractForm({
           ) : (
             <Field
               id="lcf-rent"
-              label={t(`الإيجار الشهري (${currency}) *`, `Monthly rent (${currency}) *`)}
+              label={t(`الإيجار الشهري (${currency})`, `Monthly rent (${currency})`)}
+              required
+              missing={gap('monthly_rent')}
             >
               <input
                 id="lcf-rent"
@@ -1083,8 +1193,10 @@ export function LeaseContractForm({
             label={
               deferHandover
                 ? t('تاريخ استلام الوحدة (مؤجّل للتسليم)', 'Unit handover date (deferred to handover)')
-                : t('تاريخ استلام الوحدة *', 'Unit handover date *')
+                : t('تاريخ استلام الوحدة', 'Unit handover date')
             }
+            required={!deferHandover}
+            missing={gap('handover')}
             hint={
               deferHandover
                 ? t(
@@ -1107,7 +1219,12 @@ export function LeaseContractForm({
               onChange={(event) => set('handoverOn', event.target.value)}
             />
           </Field>
-          <Field id="lcf-start" label={t('تاريخ البداية *', 'Start date *')}>
+          <Field
+            id="lcf-start"
+            label={t('تاريخ البداية', 'Start date')}
+            required
+            missing={gap('starts')}
+          >
             <input
               id="lcf-start"
               className="input"
@@ -1119,7 +1236,9 @@ export function LeaseContractForm({
           </Field>
           <Field
             id="lcf-end"
-            label={t('تاريخ النهاية *', 'End date *')}
+            label={t('تاريخ النهاية', 'End date')}
+            required
+            missing={gap('ends')}
             hint={t(
               'تُحسب من المدة تلقائياً ويمكن تعديلها.',
               'Computed from the period; editable.',
@@ -1173,10 +1292,9 @@ export function LeaseContractForm({
           </label>
           <Field
             id="lcf-day"
-            label={t(
-              'يوم دفع الإيجار المتفق عليه (1–31) *',
-              'Agreed rent payment day (1–31) *',
-            )}
+            label={t('يوم دفع الإيجار المتفق عليه (1–31)', 'Agreed rent payment day (1–31)')}
+            required
+            missing={gap('payment_day')}
           >
             <input
               id="lcf-day"
@@ -1533,6 +1651,8 @@ export function LeaseContractForm({
           <Field
             id="lcf-deposit"
             label={t(`مبلغ التأمين (${currency})`, `Deposit amount (${currency})`)}
+            required
+            missing={gap('deposit')}
           >
             <input
               id="lcf-deposit"
@@ -1644,9 +1764,11 @@ export function LeaseContractForm({
             id="lcf-rent-bank"
             label={
               isCheque
-                ? t('الشيكات تكتب باسم من؟ *', 'Cheques payable to *')
+                ? t('الشيكات تكتب باسم من؟', 'Cheques payable to')
                 : t('حساب استلام الإيجار (محاسبي)', 'Rent receipt bank account')
             }
+            required={isCheque}
+            missing={gap('rent_bank')}
           >
             {isCheque && selectedBank && selectedPayee && !editingBankLink && !addingBank ? (
               <div className="lcf-payee-locked">
@@ -1847,9 +1969,10 @@ export function LeaseContractForm({
                       {isCheque ? (
                         <td>
                           <input
-                            className="input lcf-cell"
+                            className={`input lcf-cell${!row.chequeNumber?.trim() ? ' lcf-cell--missing' : ''}`}
                             dir="ltr"
                             maxLength={80}
+                            required
                             aria-label={t('رقم الشيك', 'Cheque no.')}
                             value={row.chequeNumber ?? ''}
                             onChange={(event) =>

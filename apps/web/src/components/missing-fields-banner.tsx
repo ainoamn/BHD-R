@@ -11,7 +11,7 @@ export function MissingFieldsBanner({
 }: {
   fields: MissingField[];
   locale: 'ar' | 'en';
-  title?: string;
+  title?: string | undefined;
 }) {
   const ar = locale === 'ar';
   if (!fields.length) {
@@ -22,7 +22,7 @@ export function MissingFieldsBanner({
     );
   }
   return (
-    <div className="notice notice--warning party-form__missing" role="status">
+    <div className="notice notice--error party-form__missing" role="alert">
       <strong>
         {title ??
           (ar

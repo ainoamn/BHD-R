@@ -2183,11 +2183,33 @@ a.pmh-actionbar__title[aria-current='page'] {
   margin: 0;
   font-size: 0.78rem;
 }
+.field--required-mark > label {
+  color: #9b1c1c;
+}
+.field--required-mark {
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.5rem;
+  background: color-mix(in srgb, #c0392b 6%, #fff);
+}
+.field--missing {
+  background: #fff1f0;
+  border: 1px solid #f1b0aa;
+  border-radius: 0.55rem;
+  padding: 0.45rem 0.55rem;
+}
+.field--missing > label {
+  color: #9b1c1c;
+}
 .field--missing .input,
 .field--missing .select,
 .field--missing .textarea {
   border-color: #c0392b;
   box-shadow: 0 0 0 3px rgb(192 57 43 / 0.12);
+}
+.lcf-cell--missing {
+  border-color: #c0392b !important;
+  box-shadow: 0 0 0 2px rgb(192 57 43 / 0.14);
+  background: #fff7f6;
 }
 .field--ok .input,
 .field--ok .select,
@@ -14536,6 +14558,12 @@ button.ops-row-key {
 }
 .party-form__missing {
   margin-block-end: 0.75rem;
+}
+.lcf > .party-form__missing {
+  position: sticky;
+  top: 0.35rem;
+  z-index: 4;
+  box-shadow: 0 6px 18px rgb(155 28 28 / 0.12);
 }
 .party-form__missing-list {
   margin: 0.4rem 0 0;
