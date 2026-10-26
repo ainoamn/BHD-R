@@ -50,8 +50,8 @@ const bhdErrors: Record<string, { ar: string; en: string }> = {
     en: 'Token claims (iss/aud) do not match the bhd-r client settings.',
   },
   db: {
-    ar: 'تعذّر الاتصال بقاعدة بيانات BHD R.',
-    en: 'Could not reach the BHD R database.',
+    ar: 'تعذّر الاتصال بقاعدة بيانات BHD R. غالباً انتهت حصة Neon (quota) — راجع مشروع «bhd r» في console.neon.tech وقم بالترقية أو انتظر إعادة تعيين الحصة.',
+    en: 'Could not reach the BHD R database. Often the Neon quota is exhausted — check the «bhd r» project in console.neon.tech and upgrade or wait for the quota reset.',
   },
   upsert: {
     ar: 'تعذّر ربط أو إنشاء مستخدم المنتج بعد الدخول.',

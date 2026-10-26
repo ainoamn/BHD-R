@@ -43,7 +43,13 @@ function classifySessionError(error: unknown): { code: string } {
   if (/identity_session_issue|session_secret/i.test(message)) {
     return { code: 'session' };
   }
-  if (/DATABASE|connect|ECONN|timeout|ssl|Neon/i.test(message)) return { code: 'db' };
+  if (
+    /DATABASE|connect|ECONN|timeout|ssl|Neon|quota|402|exceeded the quota|compute.*suspend/i.test(
+      message,
+    )
+  ) {
+    return { code: 'db' };
+  }
   return { code: 'session' };
 }
 
