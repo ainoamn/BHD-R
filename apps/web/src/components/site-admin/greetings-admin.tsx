@@ -684,8 +684,8 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                   maxLength={500}
                   placeholder={
                     ar
-                      ? 'مثال: ألوان أفتح، تركيز على العلم، جملة أقصر…'
-                      : 'e.g. lighter colours, shorter copy…'
+                      ? 'مثال: مزيد من الشباب، قلعة نزوى أوضح، إضاءة صباحية… (النص والعلم يُركَّبان تلقائياً)'
+                      : 'e.g. more youth, clearer Nizwa fort, morning light… (Arabic text & Oman flag are composited)'
                   }
                 />
               </label>
