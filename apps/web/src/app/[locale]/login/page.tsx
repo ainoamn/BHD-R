@@ -62,12 +62,16 @@ const bhdErrors: Record<string, { ar: string; en: string }> = {
     en: 'Could not create a BHD R session after identity verification.',
   },
   account: {
-    ar: 'تعذّر ربط حساب الهوية بهذا المنتج.',
-    en: 'Could not link this identity account to BHD R.',
+    ar: 'حساب الهوية غير مسموح له بالدخول إلى BHD R (معطّل أو غير مربوط).',
+    en: 'This identity account cannot sign in to BHD R (disabled or not linked).',
   },
   discovery: {
     ar: 'تعذّر الوصول إلى اكتشاف الهوية.',
     en: 'Identity discovery is unreachable.',
+  },
+  unsafe: {
+    ar: 'نقطة تبادل التوكن من الهوية غير آمنة أو غير متوقعة.',
+    en: 'The identity token endpoint looks unsafe or unexpected.',
   },
 };
 

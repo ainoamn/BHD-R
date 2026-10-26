@@ -19,9 +19,21 @@ export function isBookingSandboxAllowed(): boolean {
   return process.env.ALLOW_BOOKING_SANDBOX !== '0';
 }
 
+function cleanSecret(value: string | undefined): string {
+  return (
+    value
+      ?.replace(/^\uFEFF/, '')
+      .replace(/\\r\\n$/gi, '')
+      .replace(/\\n$/gi, '')
+      .replace(/\r\n$/g, '')
+      .replace(/\n$/g, '')
+      .trim() || ''
+  );
+}
+
 export function requireSessionSecret(): Uint8Array {
-  const value = process.env.BHD_R_SESSION_SECRET?.trim();
-  if (value && value.length >= 32) {
+  const value = cleanSecret(process.env.BHD_R_SESSION_SECRET);
+  if (value.length >= 32) {
     return new TextEncoder().encode(value);
   }
   if (isProductionRuntime()) {
@@ -32,9 +44,8 @@ export function requireSessionSecret(): Uint8Array {
 
 export function requireOidcStateSecret(): string {
   const value =
-    process.env.BHD_R_OIDC_STATE_SECRET?.trim() ||
-    process.env.BHD_R_SESSION_SECRET?.trim() ||
-    '';
+    cleanSecret(process.env.BHD_R_OIDC_STATE_SECRET) ||
+    cleanSecret(process.env.BHD_R_SESSION_SECRET);
   if (value.length >= 32) return value;
   if (isProductionRuntime()) {
     throw new Error('BHD_R_OIDC_STATE_SECRET_required');
@@ -43,13 +54,7 @@ export function requireOidcStateSecret(): string {
 }
 
 export function requireCsrfSecret(): string {
-  const value =
-    process.env.CSRF_SECRET?.replace(/^\uFEFF/, '')
-      .replace(/\\r\\n$/gi, '')
-      .replace(/\\n$/gi, '')
-      .replace(/\r\n$/g, '')
-      .replace(/\n$/g, '')
-      .trim() || '';
+  const value = cleanSecret(process.env.CSRF_SECRET);
   if (value.length >= 32) return value;
   if (isProductionRuntime()) {
     throw new Error('CSRF_SECRET_required');

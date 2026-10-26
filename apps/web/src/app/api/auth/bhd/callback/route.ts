@@ -26,6 +26,9 @@ function classifySessionError(error: unknown): { code: string } {
   console.error('[bhd callback] session detail', message.slice(0, 200));
   if (/identity_email_unverified/.test(message)) return { code: 'email_unverified' };
   if (/identity_email_taken/.test(message)) return { code: 'email_taken' };
+  if (/Identity account cannot sign in|identity_account_missing|disabled/i.test(message)) {
+    return { code: 'account' };
+  }
   if (
     /identity_verify_failed|userinfo|access:|id_token:|jwks:|missing_access_token|missing_hs256/i.test(
       message,
@@ -40,15 +43,15 @@ function classifySessionError(error: unknown): { code: string } {
   if (/identity_provision|membership|organization|insert|unique|constraint/i.test(message)) {
     return { code: 'upsert' };
   }
-  if (/identity_session_issue|session_secret/i.test(message)) {
-    return { code: 'session' };
-  }
   if (
     /DATABASE|connect|ECONN|timeout|ssl|Neon|quota|402|exceeded the quota|compute.*suspend/i.test(
       message,
     )
   ) {
     return { code: 'db' };
+  }
+  if (/identity_session_issue|session_secret|BHD_R_SESSION_SECRET|CSRF_SECRET/i.test(message)) {
+    return { code: 'session' };
   }
   return { code: 'session' };
 }

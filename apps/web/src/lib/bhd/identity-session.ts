@@ -20,7 +20,7 @@ import {
   type SessionClaims,
 } from '@bhd-r/authz';
 import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
-import { requireCsrfSecret } from '@/lib/runtime-env';
+import { requireCsrfSecret, requireSessionSecret } from '@/lib/runtime-env';
 import { createCsrfToken } from '@bhd-r/security';
 import { inferProviders, type RosterAccount } from '@/lib/bhd/account-roster-shared';
 import { verifyBhdIdToken } from '@/lib/bhd/verify-id-token';
@@ -43,17 +43,7 @@ const PLACEHOLDER_EMAIL_DOMAIN = 'identity.bhd-om.local';
 const MERGE_SKIPPED_TABLES = new Set(['users', 'memberships', 'sessions']);
 
 function sessionSecret(): Uint8Array {
-  const raw =
-    process.env.BHD_R_SESSION_SECRET?.replace(/^\uFEFF/, '')
-      .replace(/\\r\\n$/gi, '')
-      .replace(/\\n$/gi, '')
-      .replace(/\r\n$/g, '')
-      .replace(/\n$/g, '')
-      .trim() || '';
-  if (raw.length < 32) {
-    throw new Error('session_secret_too_short');
-  }
-  return new TextEncoder().encode(raw);
+  return requireSessionSecret();
 }
 
 async function withSystem<T>(work: (tx: Tx) => Promise<T>): Promise<T> {
