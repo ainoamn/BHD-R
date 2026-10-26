@@ -1,8 +1,9 @@
 # Implementation status
 
 **Updated:** 2026-10-26  
-**Product version:** 0.8.134.140  
-**Active focus:** Org + per-building approval settings in الضبط (0.8.134.140); next: WhatsApp phone OTP, editable notification templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
+**Product version:** 0.8.134.141  
+**Active focus:** Portal owner/tenant space chooser (0.8.134.141); next: WhatsApp phone OTP, editable notification templates + Meta WhatsApp Cloud API, Oman tax/e-invoice, OCR/AI approvals  
+
 
 
 
@@ -26,6 +27,7 @@
 
 | Version         | Focus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8.134.141     | /portal space chooser: owner vs tenant (+ top bar switch) |
 | 0.8.134.140     | الضبط: general approval defaults + per-building overrides (booking/contract/viewing mix) |
 | 0.8.134.139     | Profile completeness (owner/tenant/building) live alerts; booking email OTP; doc expiry + copies |
 | 0.8.134.138     | Per-type approval (daily/rent/sale), e-sign toggle, viewing auto-schedule, team capability splits |

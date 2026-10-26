@@ -7,6 +7,7 @@ import { BhdAppSwitcher } from '@/components/bhd-app-switcher';
 import { HeaderStayAlerts } from '@/components/header-stay-alerts';
 import { PortalApprovalsBell } from '@/components/portal-approvals-bell';
 import { lawyerParty } from '@/lib/portal-access';
+import { persistPortalSpacePref } from '@/lib/portal-space-pref';
 import type { PortalRole, Viewer } from '@/lib/types';
 
 export function PortalHeader({
@@ -68,6 +69,7 @@ export function PortalHeader({
                     ? 'مساحة المالك: العقارات التي تؤجّرها أو تديرها'
                     : 'Owner space: properties you let or manage'
                 }
+                onClick={() => persistPortalSpacePref(managerPortal)}
               >
                 {managerPortal === 'developer'
                   ? ar
@@ -89,6 +91,7 @@ export function PortalHeader({
                     ? 'مساحة المستأجر: ما استأجرته أو حجزته'
                     : 'Tenant space: what you rent or booked'
                 }
+                onClick={() => persistPortalSpacePref('tenant')}
               >
                 {ar ? 'المستأجر' : 'Tenant'}
               </Link>
