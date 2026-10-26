@@ -214,7 +214,8 @@ function Field({
     'field',
     wide ? 'span-2' : '',
     required ? 'field--required-mark' : '',
-    missing ? 'field--missing' : '',
+    required && missing ? 'field--missing' : '',
+    required && !missing ? 'field--ok' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -224,7 +225,10 @@ function Field({
       <label htmlFor={id}>
         {cleanLabel}
         {required ? (
-          <span className="field__required" title="مطلوب">
+          <span
+            className={missing ? 'field__required' : 'field__ok-mark'}
+            title={missing ? 'مطلوب' : 'مكتمل'}
+          >
             {' '}
             *
           </span>
@@ -1969,7 +1973,9 @@ export function LeaseContractForm({
                       {isCheque ? (
                         <td>
                           <input
-                            className={`input lcf-cell${!row.chequeNumber?.trim() ? ' lcf-cell--missing' : ''}`}
+                            className={`input lcf-cell${
+                              !row.chequeNumber?.trim() ? ' lcf-cell--missing' : ' lcf-cell--ok'
+                            }`}
                             dir="ltr"
                             maxLength={80}
                             required

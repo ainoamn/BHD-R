@@ -2183,19 +2183,13 @@ a.pmh-actionbar__title[aria-current='page'] {
   margin: 0;
   font-size: 0.78rem;
 }
-.field--required-mark > label {
-  color: #9b1c1c;
-}
 .field--required-mark {
   border-radius: 0.55rem;
   padding: 0.4rem 0.5rem;
-  background: color-mix(in srgb, #c0392b 6%, #fff);
 }
 .field--missing {
   background: #fff1f0;
   border: 1px solid #f1b0aa;
-  border-radius: 0.55rem;
-  padding: 0.45rem 0.55rem;
 }
 .field--missing > label {
   color: #9b1c1c;
@@ -2211,11 +2205,27 @@ a.pmh-actionbar__title[aria-current='page'] {
   box-shadow: 0 0 0 2px rgb(192 57 43 / 0.14);
   background: #fff7f6;
 }
+.field--ok {
+  background: #f1faf5;
+  border: 1px solid #a8d5bf;
+}
+.field--ok > label {
+  color: #0f6b52;
+}
+.field__ok-mark {
+  color: #0f6b52;
+  font-weight: 800;
+}
 .field--ok .input,
 .field--ok .select,
 .field--ok .textarea {
   border-color: #16734b;
   box-shadow: 0 0 0 3px rgb(22 115 75 / 0.1);
+}
+.lcf-cell--ok {
+  border-color: #16734b !important;
+  box-shadow: 0 0 0 2px rgb(22 115 75 / 0.12);
+  background: #f3fbf7;
 }
 .input,
 .select,
