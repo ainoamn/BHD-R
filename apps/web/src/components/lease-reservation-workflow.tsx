@@ -37,6 +37,7 @@ import {
   type ReservationRequirement,
 } from '@/lib/lease-reservation-lifecycle';
 import { minorDigitsFor, type LeaseTermsDraft } from '@/lib/lease-terms';
+import { PartyNationalityTag } from '@/components/party-nationality-tag';
 import {
   partyDisplayName,
   partyToLeaseTenant,
@@ -79,7 +80,7 @@ const ERROR_TEXT: Record<string, [string, string]> = {
   invalid_body: ['البيانات غير مكتملة.', 'Incomplete data.'],
 };
 
-type Props = {
+export type LeaseReservationWorkflowProps = {
   reservationId: string;
   referenceCode: string;
   locale: 'ar' | 'en';
@@ -100,7 +101,12 @@ type Props = {
   hasEsign: boolean;
   canManage: boolean;
   canSign: boolean;
+  /** Controlled stepper review index (completed stage), or null for the live stage. */
+  viewing?: number | null | undefined;
+  onViewingChange?: ((next: number | null) => void) | undefined;
 };
+
+type Props = LeaseReservationWorkflowProps;
 
 const PreviewContext = createContext<(file: PreviewFile) => void>(() => undefined);
 
@@ -386,7 +392,11 @@ export function LeaseReservationWorkflow(serverProps: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [viewing, setViewing] = useState<number | null>(null);
+  const [localViewing, setLocalViewing] = useState<number | null>(null);
+  const viewing = serverProps.onViewingChange
+    ? (serverProps.viewing ?? null)
+    : localViewing;
+  const setViewing = serverProps.onViewingChange ?? setLocalViewing;
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const [decisions, setDecisions] = useState<Record<string, DocumentDecision>>({});
 
@@ -423,6 +433,8 @@ export function LeaseReservationWorkflow(serverProps: Props) {
   const labels = leaseJourneyStageLabels(sale, ar);
   /** A completed stage the owner opened to review; later stages stay locked. */
   const reviewing = viewing !== null && viewing < stage ? viewing : null;
+  const shownStage = reviewing !== null ? reviewing : stage;
+  const showBookingStageDetails = shownStage === 0;
   const fileHref = (file: string) =>
     `/api/owner/bookings/${encodeURIComponent(reservationId)}/files/${file}`;
   const contractHref = lifecycle.contract
@@ -864,7 +876,9 @@ export function LeaseReservationWorkflow(serverProps: Props) {
           </>
         ) : null}
 
-        {props.hasEsign && canManage ? <IdentityGallery ar={ar} fileHref={fileHref} /> : null}
+        {showBookingStageDetails && props.hasEsign && canManage ? (
+          <IdentityGallery ar={ar} fileHref={fileHref} />
+        ) : null}
       </section>
       {preview ? (
         <FilePreviewDialog file={preview} ar={ar} onClose={() => setPreview(null)} />
@@ -1681,9 +1695,12 @@ function ClientRequest({
   if (party) {
     rows.push([
       sale ? (ar ? 'المشتري' : 'Buyer') : ar ? 'المستأجر' : 'Tenant',
-      `${partyDisplayName(party, ar)} · ${
-        party.entityType === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Individual'
-      }`,
+      <>
+        {partyDisplayName(party, ar)}{' '}
+        <PartyNationalityTag party={party} locale={locale} />
+        {' · '}
+        {party.entityType === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Individual'}
+      </>,
     ]);
   }
   return (

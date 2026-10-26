@@ -254,6 +254,16 @@ export function partyDisplayName(party: ReservationParty, ar = true): string {
   return ar ? row.nameAr : row.nameEn || row.nameAr;
 }
 
+/** ISO nationality: person, or first company signatory. */
+export function partyNationalityCode(party: ReservationParty): string | null {
+  if (party.entityType === 'person') {
+    const code = party.person?.nationality?.trim().toUpperCase();
+    return code || null;
+  }
+  const code = party.company?.signatories[0]?.nationality?.trim().toUpperCase();
+  return code || null;
+}
+
 /** Tenant fields the lease contract form and the printed contract understand. */
 export function partyToLeaseTenant(party: ReservationParty) {
   if (party.entityType === 'company' && party.company) {

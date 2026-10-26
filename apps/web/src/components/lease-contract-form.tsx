@@ -47,6 +47,7 @@ import {
   type LeaseTermsError,
 } from '@/lib/lease-terms';
 import { OMAN_BANKS } from '@/lib/stay-deposit-refund';
+import { isOmaniNationality } from '@/lib/lease-document-rules';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 
 export type LeaseTenantDraft = {
@@ -1013,15 +1014,28 @@ export function LeaseContractForm({
             required
             missing={gap('tenant_name')}
           >
-            <input
-              id="lcf-name-ar"
-              className="input"
-              required
-              minLength={2}
-              maxLength={200}
-              value={tenant.nameAr}
-              onChange={(event) => setTenantField('nameAr', event.target.value)}
-            />
+            <div className="lcf-name-with-nationality">
+              <input
+                id="lcf-name-ar"
+                className="input"
+                required
+                minLength={2}
+                maxLength={200}
+                value={tenant.nameAr}
+                onChange={(event) => setTenantField('nameAr', event.target.value)}
+              />
+              {tenant.entityType === 'person' && tenant.nationality.trim() ? (
+                <span
+                  className={`party-nationality${
+                    isOmaniNationality(tenant.nationality)
+                      ? ' party-nationality--omani'
+                      : ' party-nationality--foreign'
+                  }`}
+                >
+                  ({tenant.nationality.trim()})
+                </span>
+              ) : null}
+            </div>
           </Field>
           <Field id="lcf-name-en" label={t('اسم المستأجر بالإنجليزية', 'Tenant name (English)')}>
             <input

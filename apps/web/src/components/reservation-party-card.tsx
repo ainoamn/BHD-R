@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ReservationParty } from '@/lib/reservation-party';
+import { PartyNationalityTag } from '@/components/party-nationality-tag';
+import { isOmaniNationality } from '@/lib/lease-document-rules';
 import { countryName } from '@/lib/world-countries';
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -80,12 +82,22 @@ export function ReservationPartyCard({
         </Row>
         {person ? (
           <>
-            <Row label={ar ? 'الاسم (عربي)' : 'Name (Arabic)'}>{person.nameAr}</Row>
+            <Row label={ar ? 'الاسم (عربي)' : 'Name (Arabic)'}>
+              {person.nameAr} <PartyNationalityTag party={party} locale={locale} />
+            </Row>
             <Row label={ar ? 'الاسم (إنجليزي)' : 'Name (English)'}>
               <bdi dir="ltr">{person.nameEn}</bdi>
             </Row>
             <Row label={ar ? 'الجنسية' : 'Nationality'}>
-              {countryName(person.nationality, locale)}
+              <span
+                className={`party-nationality${
+                  isOmaniNationality(person.nationality)
+                    ? ' party-nationality--omani'
+                    : ' party-nationality--foreign'
+                }`}
+              >
+                {countryName(person.nationality, locale)}
+              </span>
             </Row>
             <Row label={ar ? 'الرقم المدني' : 'Civil ID'}>
               <Ltr value={person.civilId} />
@@ -110,7 +122,9 @@ export function ReservationPartyCard({
         ) : null}
         {company ? (
           <>
-            <Row label={ar ? 'اسم الشركة (عربي)' : 'Company name (Arabic)'}>{company.nameAr}</Row>
+            <Row label={ar ? 'اسم الشركة (عربي)' : 'Company name (Arabic)'}>
+              {company.nameAr} <PartyNationalityTag party={party} locale={locale} />
+            </Row>
             <Row label={ar ? 'اسم الشركة (إنجليزي)' : 'Company name (English)'}>
               <bdi dir="ltr">{company.nameEn}</bdi>
             </Row>

@@ -4,7 +4,7 @@ import { ContractArticle, type ContractArticleLinks } from '@/components/contrac
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { ContractDocumentToolbar } from '@/components/contract-document-toolbar';
 import type { BadgeChip } from '@/lib/badges-shared';
-import { LeaseReservationWorkflow } from '@/components/lease-reservation-workflow';
+import { LeaseReservationStageBody } from '@/components/lease-reservation-stage-body';
 import { ReservationPartyCard } from '@/components/reservation-party-card';
 import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
@@ -74,59 +74,8 @@ export function LeaseReservationDetail({
   const awaitingApproval = booking.phase === 'awaiting_owner_approval';
   const bookingsHref = `/${locale}/${portal}/properties/${encodeURIComponent(booking.propertyId)}?section=bookings&focus=${encodeURIComponent(booking.reservationId)}`;
 
-  return (
-    <div className="form-shell contract-detail contract-detail--document">
-      <header className="portal-topbar contract-detail__topbar">
-        <div>
-          <span className="ops-kicker">
-            {sale ? 'BHD R · PURCHASE BOOKING' : 'BHD R · RENT BOOKING'}
-          </span>
-          <h1>
-            <bdi dir="ltr">{booking.referenceCode}</bdi>
-          </h1>
-          <p className="name-with-mark">
-            <span>{property}</span>
-            <BadgeChips badges={badges?.property} locale={locale} />
-            <span>
-              · {booking.unitCode} {unit ? `(${unit})` : ''}
-            </span>
-          </p>
-        </div>
-        <Link className="button button--quiet" href={bookingsHref} prefetch={false}>
-          {ar ? 'حجوزات العقار' : 'Property bookings'}
-        </Link>
-      </header>
-
-      {awaitingApproval ? (
-        <p className="notice notice--info">
-          {ar
-            ? `دفع العميل العربون ووقّع اتفاقية الحجز. الوحدة محجوزة له حتى ${day(booking.reservedUntil)}؛ اعتمد الحجز ثم جهّز ${sale ? 'عقد البيع' : 'عقد الإيجار'} النهائي.`
-            : `The client paid the deposit and signed the reservation agreement. The unit is held until ${day(booking.reservedUntil)}; approve the booking, then prepare the final ${sale ? 'sale' : 'lease'} contract.`}
-        </p>
-      ) : null}
-
-      <LeaseReservationWorkflow
-        reservationId={booking.reservationId}
-        referenceCode={booking.referenceCode}
-        locale={locale}
-        portal={portal}
-        mode={booking.mode}
-        phase={booking.phase}
-        lifecycle={booking.ownerLifecycle}
-        propertyId={booking.propertyId}
-        unit={booking.formUnit}
-        tenant={booking.formTenant}
-        party={booking.party}
-        salePriceMinor={booking.salePriceMinor}
-        currency={booking.currency}
-        depositLabel={deposit}
-        depositPaidAt={booking.depositPaidAt}
-        termsAcceptedAt={booking.termsAcceptedAt}
-        hasEsign={Boolean(signature)}
-        canManage={permissions.canManage}
-        canSign={permissions.canSign}
-      />
-
+  const bookingDetails = (
+    <>
       <section className="ops-metrics" aria-label={ar ? 'ملخص الحجز' : 'Booking summary'}>
         <article>
           <span>{ar ? 'حالة الحجز' : 'Booking status'}</span>
@@ -250,6 +199,64 @@ export function LeaseReservationDetail({
         pdfUrl={null}
       />
       <ContractArticle id={AGREEMENT_ID} contract={head} doc={doc} locale={locale} links={links} />
+    </>
+  );
+
+  return (
+    <div className="form-shell contract-detail contract-detail--document">
+      <header className="portal-topbar contract-detail__topbar">
+        <div>
+          <span className="ops-kicker">
+            {sale ? 'BHD R · PURCHASE BOOKING' : 'BHD R · RENT BOOKING'}
+          </span>
+          <h1>
+            <bdi dir="ltr">{booking.referenceCode}</bdi>
+          </h1>
+          <p className="name-with-mark">
+            <span>{property}</span>
+            <BadgeChips badges={badges?.property} locale={locale} />
+            <span>
+              · {booking.unitCode} {unit ? `(${unit})` : ''}
+            </span>
+          </p>
+        </div>
+        <Link className="button button--quiet" href={bookingsHref} prefetch={false}>
+          {ar ? 'حجوزات العقار' : 'Property bookings'}
+        </Link>
+      </header>
+
+      {awaitingApproval ? (
+        <p className="notice notice--info">
+          {ar
+            ? `دفع العميل العربون ووقّع اتفاقية الحجز. الوحدة محجوزة له حتى ${day(booking.reservedUntil)}؛ اعتمد الحجز ثم جهّز ${sale ? 'عقد البيع' : 'عقد الإيجار'} النهائي.`
+            : `The client paid the deposit and signed the reservation agreement. The unit is held until ${day(booking.reservedUntil)}; approve the booking, then prepare the final ${sale ? 'sale' : 'lease'} contract.`}
+        </p>
+      ) : null}
+
+      <LeaseReservationStageBody
+        workflow={{
+          reservationId: booking.reservationId,
+          referenceCode: booking.referenceCode,
+          locale,
+          portal,
+          mode: booking.mode,
+          phase: booking.phase,
+          lifecycle: booking.ownerLifecycle,
+          propertyId: booking.propertyId,
+          unit: booking.formUnit,
+          tenant: booking.formTenant,
+          party: booking.party,
+          salePriceMinor: booking.salePriceMinor,
+          currency: booking.currency,
+          depositLabel: deposit,
+          depositPaidAt: booking.depositPaidAt,
+          termsAcceptedAt: booking.termsAcceptedAt,
+          hasEsign: Boolean(signature),
+          canManage: permissions.canManage,
+          canSign: permissions.canSign,
+        }}
+        bookingDetails={bookingDetails}
+      />
     </div>
   );
 }

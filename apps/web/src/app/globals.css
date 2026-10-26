@@ -14751,6 +14751,26 @@ button.ops-row-key {
   margin: 0;
   font-size: 0.95rem;
 }
+.party-nationality {
+  font-weight: 800;
+  white-space: nowrap;
+}
+.party-nationality--omani {
+  color: #0f6b52;
+}
+.party-nationality--foreign {
+  color: #b42318;
+}
+.lcf-name-with-nationality {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+.lcf-name-with-nationality .input {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
 .lrw__request {
   display: grid;
   gap: 0.4rem;
