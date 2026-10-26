@@ -163,6 +163,7 @@ function initialDraft(unit: PropertyRecordUnit | undefined): LeaseTermsDraft {
     vatMode: 'with_rent',
     vatChequeCount: '1',
     municipalityFeeEnabled: true,
+    municipalityFeePayer: 'owner',
     registrationFee: '1',
     otherTaxName: '',
     otherTaxRate: '',
@@ -1312,12 +1313,36 @@ export function LeaseContractForm({
               onChange={(event) => set('municipalityFeeEnabled', event.target.checked)}
             />
             <span>
-              {t('رسوم البلدية 3% من إجمالي الإيجار', 'Municipality fee: 3% of the total rent')}
+              {t(
+                'إظهار رسوم البلدية 3% في العقد',
+                'Show municipality fee 3% on the contract',
+              )}
               {terms?.totals.municipalityFeeMinor ? (
                 <> · {money(terms.totals.municipalityFeeMinor)}</>
               ) : null}
             </span>
           </label>
+          {draft.municipalityFeeEnabled ? (
+            <Field
+              id="lcf-muni-payer"
+              label={t('من يتحمّل رسوم البلدية؟', 'Who pays the municipality fee?')}
+            >
+              <select
+                id="lcf-muni-payer"
+                className="select"
+                value={draft.municipalityFeePayer ?? 'owner'}
+                onChange={(event) =>
+                  set(
+                    'municipalityFeePayer',
+                    event.target.value === 'tenant' ? 'tenant' : 'owner',
+                  )
+                }
+              >
+                <option value="owner">{t('المالك (افتراضي)', 'Owner (default)')}</option>
+                <option value="tenant">{t('المستأجر', 'Tenant')}</option>
+              </select>
+            </Field>
+          ) : null}
           <Field
             id="lcf-reg"
             label={t(
@@ -1359,6 +1384,148 @@ export function LeaseContractForm({
             />
           </Field>
         </div>
+      </Section>
+
+      <Section title={t('➕ مبالغ إضافية / خصومات', '➕ Extra charges & discounts')}>
+        <p className="muted lcf-help">
+          {t(
+            'حدّد هل المبلغ يُدفع مرة واحدة أو مع التجديد أو كل 3 أشهر أو شهرياً، وحتى نهاية العقد أو سنة أو مدة مخصصة.',
+            'Choose whether the amount is paid once, with renewal, every 3 months or monthly — until contract end, one year or a custom period.',
+          )}
+        </p>
+        <datalist id="lcf-extra-suggestions">
+          {EXTRA_SUGGESTIONS.map(([arText, enText]) => (
+            <option key={enText} value={ar ? arText : enText} />
+          ))}
+        </datalist>
+        {draft.adjustments.map((item, index) => {
+          const line = terms?.adjustments[index];
+          return (
+            <div key={index} className="lcf-line">
+              <select
+                className="select"
+                aria-label={t('النوع', 'Type')}
+                value={item.kind}
+                onChange={(event) =>
+                  updateAdjustment(index, {
+                    kind: event.target.value as LeaseAdjustmentDraft['kind'],
+                  })
+                }
+              >
+                <option value="add">{t('إضافة', 'Charge')}</option>
+                <option value="discount">{t('خصم', 'Discount')}</option>
+              </select>
+              <input
+                className="input"
+                required
+                maxLength={120}
+                list="lcf-extra-suggestions"
+                aria-label={t('البند', 'Item')}
+                placeholder={t('البند (مثال: إنترنت، مواقف)', 'Item (e.g. internet, parking)')}
+                value={item.title}
+                onChange={(event) => updateAdjustment(index, { title: event.target.value })}
+              />
+              <input
+                className="input"
+                dir="ltr"
+                inputMode="decimal"
+                required
+                pattern={MONEY_PATTERN}
+                aria-label={t('المبلغ', 'Amount')}
+                placeholder={t('المبلغ', 'Amount')}
+                value={item.amount}
+                onChange={(event) => updateAdjustment(index, { amount: event.target.value })}
+              />
+              <select
+                className="select"
+                aria-label={t('التكرار', 'Recurrence')}
+                value={item.recurrence}
+                onChange={(event) =>
+                  updateAdjustment(index, {
+                    recurrence: event.target.value as LeaseAdjustmentDraft['recurrence'],
+                  })
+                }
+              >
+                {ADJUSTMENT_RECURRENCES.map((value) => (
+                  <option key={value} value={value}>
+                    {pick(RECURRENCE_LABELS[value], ar)}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="select"
+                aria-label={t('المدة', 'Scope')}
+                value={item.scope}
+                onChange={(event) =>
+                  updateAdjustment(index, {
+                    scope: event.target.value as LeaseAdjustmentDraft['scope'],
+                  })
+                }
+              >
+                {ADJUSTMENT_SCOPES.map((value) => (
+                  <option key={value} value={value}>
+                    {pick(SCOPE_LABELS[value], ar)}
+                  </option>
+                ))}
+              </select>
+              {item.scope === 'custom_months' ? (
+                <input
+                  className="input lcf-short"
+                  type="number"
+                  min={1}
+                  max={240}
+                  required
+                  aria-label={t('عدد الأشهر', 'Months')}
+                  placeholder={t('أشهر', 'Months')}
+                  value={item.months ?? ''}
+                  onChange={(event) => updateAdjustment(index, { months: event.target.value })}
+                />
+              ) : null}
+              <span className="lcf-line__total">
+                {line
+                  ? line.recurrence === 'with_renewal'
+                    ? t('يُحصَّل عند التجديد', 'Charged at renewal')
+                    : `${line.kind === 'discount' ? '− ' : ''}${formatMoney(
+                        String(line.lineTotalMinor),
+                        currency,
+                        locale,
+                      )}`
+                  : ''}
+              </span>
+              <button
+                type="button"
+                className="button button--quiet psr-action"
+                onClick={() =>
+                  set(
+                    'adjustments',
+                    draft.adjustments.filter((_, i) => i !== index),
+                  )
+                }
+              >
+                {t('حذف', 'Remove')}
+              </button>
+            </div>
+          );
+        })}
+        <button
+          type="button"
+          className="button button--quiet psr-action"
+          onClick={() =>
+            set('adjustments', [
+              ...draft.adjustments,
+              {
+                kind: 'add',
+                title: '',
+                amount: '',
+                recurrence: 'monthly',
+                scope: 'contract_end',
+                months: '',
+              },
+            ])
+          }
+        >
+          {t('＋ إضافة بند', '＋ Add item')}
+        </button>
       </Section>
 
       <Section title={t('🛡️ التأمين (الوديعة)', '🛡️ Insurance (deposit)')}>
@@ -1756,148 +1923,6 @@ export function LeaseContractForm({
           </div>
         </Section>
       ) : null}
-
-      <Section title={t('➕ مبالغ إضافية / خصومات', '➕ Extra charges & discounts')}>
-        <p className="muted lcf-help">
-          {t(
-            'حدّد هل المبلغ يُدفع مرة واحدة أو مع التجديد أو كل 3 أشهر أو شهرياً، وحتى نهاية العقد أو سنة أو مدة مخصصة.',
-            'Choose whether the amount is paid once, with renewal, every 3 months or monthly — until contract end, one year or a custom period.',
-          )}
-        </p>
-        <datalist id="lcf-extra-suggestions">
-          {EXTRA_SUGGESTIONS.map(([arText, enText]) => (
-            <option key={enText} value={ar ? arText : enText} />
-          ))}
-        </datalist>
-        {draft.adjustments.map((item, index) => {
-          const line = terms?.adjustments[index];
-          return (
-            <div key={index} className="lcf-line">
-              <select
-                className="select"
-                aria-label={t('النوع', 'Type')}
-                value={item.kind}
-                onChange={(event) =>
-                  updateAdjustment(index, {
-                    kind: event.target.value as LeaseAdjustmentDraft['kind'],
-                  })
-                }
-              >
-                <option value="add">{t('إضافة', 'Charge')}</option>
-                <option value="discount">{t('خصم', 'Discount')}</option>
-              </select>
-              <input
-                className="input"
-                required
-                maxLength={120}
-                list="lcf-extra-suggestions"
-                aria-label={t('البند', 'Item')}
-                placeholder={t('البند (مثال: إنترنت، مواقف)', 'Item (e.g. internet, parking)')}
-                value={item.title}
-                onChange={(event) => updateAdjustment(index, { title: event.target.value })}
-              />
-              <input
-                className="input"
-                dir="ltr"
-                inputMode="decimal"
-                required
-                pattern={MONEY_PATTERN}
-                aria-label={t('المبلغ', 'Amount')}
-                placeholder={t('المبلغ', 'Amount')}
-                value={item.amount}
-                onChange={(event) => updateAdjustment(index, { amount: event.target.value })}
-              />
-              <select
-                className="select"
-                aria-label={t('التكرار', 'Recurrence')}
-                value={item.recurrence}
-                onChange={(event) =>
-                  updateAdjustment(index, {
-                    recurrence: event.target.value as LeaseAdjustmentDraft['recurrence'],
-                  })
-                }
-              >
-                {ADJUSTMENT_RECURRENCES.map((value) => (
-                  <option key={value} value={value}>
-                    {pick(RECURRENCE_LABELS[value], ar)}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="select"
-                aria-label={t('المدة', 'Scope')}
-                value={item.scope}
-                onChange={(event) =>
-                  updateAdjustment(index, {
-                    scope: event.target.value as LeaseAdjustmentDraft['scope'],
-                  })
-                }
-              >
-                {ADJUSTMENT_SCOPES.map((value) => (
-                  <option key={value} value={value}>
-                    {pick(SCOPE_LABELS[value], ar)}
-                  </option>
-                ))}
-              </select>
-              {item.scope === 'custom_months' ? (
-                <input
-                  className="input lcf-short"
-                  type="number"
-                  min={1}
-                  max={240}
-                  required
-                  aria-label={t('عدد الأشهر', 'Months')}
-                  placeholder={t('أشهر', 'Months')}
-                  value={item.months ?? ''}
-                  onChange={(event) => updateAdjustment(index, { months: event.target.value })}
-                />
-              ) : null}
-              <span className="lcf-line__total">
-                {line
-                  ? line.recurrence === 'with_renewal'
-                    ? t('يُحصَّل عند التجديد', 'Charged at renewal')
-                    : `${line.kind === 'discount' ? '− ' : ''}${formatMoney(
-                        String(line.lineTotalMinor),
-                        currency,
-                        locale,
-                      )}`
-                  : ''}
-              </span>
-              <button
-                type="button"
-                className="button button--quiet psr-action"
-                onClick={() =>
-                  set(
-                    'adjustments',
-                    draft.adjustments.filter((_, i) => i !== index),
-                  )
-                }
-              >
-                {t('حذف', 'Remove')}
-              </button>
-            </div>
-          );
-        })}
-        <button
-          type="button"
-          className="button button--quiet psr-action"
-          onClick={() =>
-            set('adjustments', [
-              ...draft.adjustments,
-              {
-                kind: 'add',
-                title: '',
-                amount: '',
-                recurrence: 'monthly',
-                scope: 'contract_end',
-                months: '',
-              },
-            ])
-          }
-        >
-          {t('＋ إضافة بند', '＋ Add item')}
-        </button>
-      </Section>
 
       <Section title={t('🗒️ ملاحظات', '🗒️ Notes')}>
         <textarea

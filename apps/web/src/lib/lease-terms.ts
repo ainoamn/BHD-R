@@ -6,7 +6,11 @@
  * recomputation before the contract is stored). Money is integer minor units.
  */
 
-export const LEASE_TERMS_VERSION = 1;
+export const LEASE_TERMS_VERSION = 2;
+
+/** Who bears the municipality fee on the lease (always shown; default owner). */
+export const MUNICIPALITY_FEE_PAYERS = ['owner', 'tenant'] as const;
+export type MunicipalityFeePayer = (typeof MUNICIPALITY_FEE_PAYERS)[number];
 
 export const PAYMENT_METHODS = ['cheque', 'cash', 'bank_transfer'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -220,6 +224,8 @@ export type LeaseTermsDraft = {
   vatMode: VatMode;
   vatChequeCount: string;
   municipalityFeeEnabled: boolean;
+  /** Who pays the 3% municipality fee — default owner (fee still printed on the contract). */
+  municipalityFeePayer?: MunicipalityFeePayer | undefined;
   registrationFee: string;
   otherTaxName?: string | undefined;
   otherTaxRate?: string | undefined;
@@ -285,12 +291,16 @@ export type LeaseTotals = {
   monthlyRentInclVatMinor: number;
   vatMinor: number;
   municipalityFeeMinor: number;
+  /** Portion of the municipality fee charged to the tenant (0 when owner pays). */
+  municipalityFeeOnTenantMinor: number;
   registrationFeeMinor: number;
   otherTaxMinor: number;
   additionsMinor: number;
   graceDiscountMinor: number;
   discountsMinor: number;
   totalDiscountsMinor: number;
+  /** Sum of amounts added to the tenant contract total before discounts. */
+  chargesMinor: number;
   grandTotalMinor: number;
   depositMinor: number;
 };
@@ -319,7 +329,11 @@ export type LeaseTerms = {
   paymentMethod: PaymentMethod;
   paymentFrequency: PaymentFrequency;
   vat: { enabled: boolean; rateBasisPoints: number; mode: VatMode; chequeCount: number };
-  municipalityFee: { enabled: boolean; rateBasisPoints: number };
+  municipalityFee: {
+    enabled: boolean;
+    rateBasisPoints: number;
+    payer: MunicipalityFeePayer;
+  };
   otherTax: { name: string; rateBasisPoints: number } | null;
   chequeBankName: string | null;
   chequeAccountName: string | null;
@@ -660,9 +674,14 @@ export function computeLeaseTerms(
   ].filter((value): value is string => Boolean(value));
   if (new Set(chequeNumbers).size !== chequeNumbers.length) return fail('duplicate_cheque_number');
 
+  // Municipality fee is always computed for the contract printout when enabled (default on).
   const municipalityFeeMinor = draft.municipalityFeeEnabled
     ? applyRate(rentTotal, MUNICIPALITY_FEE_BASIS_POINTS)
     : 0;
+  const municipalityFeePayer: MunicipalityFeePayer =
+    draft.municipalityFeePayer === 'tenant' ? 'tenant' : 'owner';
+  const municipalityFeeOnTenantMinor =
+    municipalityFeePayer === 'tenant' ? municipalityFeeMinor : 0;
   const otherTaxName = text(draft.otherTaxName, 80);
   const otherTax =
     otherTaxName && otherTaxRate > 0 ? { name: otherTaxName, rateBasisPoints: otherTaxRate } : null;
@@ -675,10 +694,10 @@ export function computeLeaseTerms(
     .reduce((sum, line) => sum + line.lineTotalMinor, 0);
   const graceDiscountMinor = draft.graceAsDiscount ? graceAmountMinor : 0;
   const totalDiscountsMinor = graceDiscountMinor + discountsMinor;
-  const grossMinor =
+  const chargesMinor =
     rentTotal +
     vatMinor +
-    municipalityFeeMinor +
+    municipalityFeeOnTenantMinor +
     registrationFeeMinor +
     otherTaxMinor +
     additionsMinor;
@@ -718,6 +737,7 @@ export function computeLeaseTerms(
       municipalityFee: {
         enabled: Boolean(draft.municipalityFeeEnabled),
         rateBasisPoints: MUNICIPALITY_FEE_BASIS_POINTS,
+        payer: municipalityFeePayer,
       },
       otherTax,
       chequeBankName: isCheque ? chequeBankName : null,
@@ -738,13 +758,15 @@ export function computeLeaseTerms(
         monthlyRentInclVatMinor: monthlyRentMinor + (vatWithRent ? monthlyVatMinor : 0),
         vatMinor,
         municipalityFeeMinor,
+        municipalityFeeOnTenantMinor,
         registrationFeeMinor,
         otherTaxMinor,
         additionsMinor,
         graceDiscountMinor,
         discountsMinor,
         totalDiscountsMinor,
-        grandTotalMinor: Math.max(0, grossMinor - totalDiscountsMinor),
+        chargesMinor,
+        grandTotalMinor: Math.max(0, chargesMinor - totalDiscountsMinor),
         depositMinor,
       },
     },

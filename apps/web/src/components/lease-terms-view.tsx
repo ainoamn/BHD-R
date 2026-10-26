@@ -88,85 +88,176 @@ function Money({
   currency: string;
   locale: 'ar' | 'en';
 }) {
-  return <span dir="ltr">{formatMoney(String(Math.round(minor)), currency, locale)}</span>;
+  return (
+    <span className="lcf-money" dir="ltr">
+      {formatMoney(String(Math.round(minor)), currency, locale)}
+    </span>
+  );
 }
 
-/** Financial summary in the order of the original contract screen (rent, VAT, fees, discounts, total). */
+type SummaryLine = {
+  key: string;
+  label: string;
+  value: number;
+  tone?: 'plus' | 'minus' | 'total' | 'info' | 'sub';
+  hint?: string;
+};
+
+/** Financial summary: rent, taxes/fees, extras, discounts/grace, contract total, then deposit. */
 export function LeaseTotalsSummary({ terms, locale }: { terms: LeaseTerms; locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const { totals, currency } = terms;
   const money = (minor: number) => <Money minor={minor} currency={currency} locale={locale} />;
-  const lines: Array<{ label: string; value: number; tone?: 'minus' | 'total' | 'info' }> = [
-    { label: ar ? '١ إجمالي الإيجارات' : '1 Total rent', value: totals.rentMinor },
+  const payer = terms.municipalityFee.payer ?? 'owner';
+  const municipalityOnTenant =
+    totals.municipalityFeeOnTenantMinor ??
+    (payer === 'tenant' ? totals.municipalityFeeMinor : 0);
+
+  const lines: SummaryLine[] = [
+    {
+      key: 'rent',
+      label: ar ? 'إجمالي الإيجارات' : 'Total rent',
+      value: totals.rentMinor,
+      tone: 'plus',
+    },
   ];
-  if (terms.vat.enabled) {
+
+  if (terms.vat.enabled && totals.vatMinor) {
     lines.push({
+      key: 'vat',
       label: ar
-        ? `٢ الضريبة المضافة ${percent(terms.vat.rateBasisPoints)} (${terms.vat.mode === 'with_rent' ? 'مع الإيجار' : 'شيكات منفصلة'})`
-        : `2 VAT ${percent(terms.vat.rateBasisPoints)} (${terms.vat.mode === 'with_rent' ? 'with rent' : 'separate cheques'})`,
+        ? `ضريبة القيمة المضافة ${percent(terms.vat.rateBasisPoints)}`
+        : `VAT ${percent(terms.vat.rateBasisPoints)}`,
       value: totals.vatMinor,
+      tone: 'plus',
+      hint:
+        terms.vat.mode === 'with_rent'
+          ? ar
+            ? 'مدرجة مع الإيجار'
+            : 'Included with rent'
+          : ar
+            ? 'شيكات منفصلة'
+            : 'Separate cheques',
     });
   }
-  if (terms.municipalityFee.enabled) {
+
+  if (terms.municipalityFee.enabled || totals.municipalityFeeMinor) {
     lines.push({
-      label: ar ? '٣ رسوم البلدية 3%' : '3 Municipality fee 3%',
+      key: 'municipality',
+      label: ar ? 'رسوم البلدية 3%' : 'Municipality fee 3%',
       value: totals.municipalityFeeMinor,
+      tone: municipalityOnTenant ? 'plus' : 'info',
+      hint:
+        payer === 'owner'
+          ? ar
+            ? 'يتحمّلها المالك — لا تُضاف لإجمالي المستأجر'
+            : 'Borne by owner — not added to tenant total'
+          : ar
+            ? 'يتحمّلها المستأجر'
+            : 'Borne by tenant',
     });
   }
+
   if (totals.registrationFeeMinor) {
     lines.push({
-      label: ar ? 'رسوم تسجيل العقد' : 'Registration fee',
+      key: 'registration',
+      label: ar ? 'رسوم تسجيل العقد' : 'Contract registration fee',
       value: totals.registrationFeeMinor,
+      tone: 'plus',
     });
   }
-  if (terms.otherTax) {
+
+  if (terms.otherTax && totals.otherTaxMinor) {
     lines.push({
+      key: 'other-tax',
       label: `${terms.otherTax.name} ${percent(terms.otherTax.rateBasisPoints)}`,
       value: totals.otherTaxMinor,
+      tone: 'plus',
     });
   }
-  if (totals.additionsMinor) {
-    lines.push({ label: ar ? 'المبالغ الإضافية' : 'Extra charges', value: totals.additionsMinor });
-  }
-  if (totals.graceDiscountMinor) {
+
+  for (const [index, line] of terms.adjustments.entries()) {
+    if (line.recurrence === 'with_renewal') {
+      lines.push({
+        key: `adj-renewal-${index}`,
+        label: line.title,
+        value: line.amountMinor,
+        tone: 'info',
+        hint: ar ? 'عند التجديد (خارج إجمالي هذا العقد)' : 'At renewal (outside this contract total)',
+      });
+      continue;
+    }
+    const signed = line.kind === 'discount' ? -line.lineTotalMinor : line.lineTotalMinor;
     lines.push({
+      key: `adj-${index}`,
+      label: line.title,
+      value: signed,
+      tone: line.kind === 'discount' ? 'minus' : 'plus',
+      hint:
+        line.occurrences > 1
+          ? ar
+            ? `${line.occurrences}× ${pick(RECURRENCE_LABELS[line.recurrence], true)}`
+            : `${line.occurrences}× ${pick(RECURRENCE_LABELS[line.recurrence], false)}`
+          : pick(RECURRENCE_LABELS[line.recurrence], ar),
+    });
+  }
+
+  if (terms.graceDays > 0) {
+    lines.push({
+      key: 'grace',
       label: ar
-        ? `٤ خصم فترة السماح (${terms.graceDays} يوم)`
-        : `4 Grace discount (${terms.graceDays} days)`,
-      value: -totals.graceDiscountMinor,
-      tone: 'minus',
+        ? `فترة السماح (${terms.graceDays} يوم)`
+        : `Grace period (${terms.graceDays} days)`,
+      value: terms.graceAsDiscount ? -terms.graceAmountMinor : terms.graceAmountMinor,
+      tone: terms.graceAsDiscount ? 'minus' : 'info',
+      hint: terms.graceAsDiscount
+        ? ar
+          ? 'مخصومة من إجمالي العقد'
+          : 'Deducted from contract total'
+        : ar
+          ? 'محسوبة دون خصم من الإجمالي'
+          : 'Shown only — not deducted',
     });
   }
-  if (totals.discountsMinor) {
-    lines.push({
-      label: ar ? 'الخصومات' : 'Discounts',
-      value: -totals.discountsMinor,
-      tone: 'minus',
-    });
-  }
+
   lines.push({
-    label: ar ? '٥ إجمالي العقد' : '5 Contract total',
+    key: 'total',
+    label: ar ? 'إجمالي العقد (على المستأجر)' : 'Contract total (tenant)',
     value: totals.grandTotalMinor,
     tone: 'total',
   });
+
   if (totals.depositMinor) {
     lines.push({
-      label: ar ? 'التأمين (يُحصَّل منفصلاً ويُسترد)' : 'Deposit (separate, refundable)',
+      key: 'deposit',
+      label: ar ? 'التأمين (وديعة)' : 'Deposit',
       value: totals.depositMinor,
       tone: 'info',
+      hint: ar ? 'يُحصَّل منفصلاً ويُسترد' : 'Collected separately and refundable',
     });
   }
+
   return (
-    <dl className="lcf-totals">
-      {lines.map((line) => (
-        <div key={line.label} className={line.tone ? `lcf-totals__${line.tone}` : undefined}>
-          <dt>{line.label}</dt>
-          <dd>
-            {line.tone === 'minus' ? '− ' : ''}
-            {money(Math.abs(line.value))}
-          </dd>
-        </div>
-      ))}
+    <dl className="lcf-totals lcf-totals--rich">
+      {lines.map((line) => {
+        const sign =
+          line.tone === 'minus' ? '−' : line.tone === 'plus' && line.value >= 0 ? '+' : '';
+        return (
+          <div
+            key={line.key}
+            className={line.tone ? `lcf-totals__${line.tone}` : undefined}
+          >
+            <dt>
+              <span>{line.label}</span>
+              {line.hint ? <small>{line.hint}</small> : null}
+            </dt>
+            <dd>
+              {sign ? <span className="lcf-totals__sign">{sign}</span> : null}
+              {money(Math.abs(line.value))}
+            </dd>
+          </div>
+        );
+      })}
     </dl>
   );
 }
@@ -460,7 +551,31 @@ export function parseLeaseTerms(json: string | null | undefined): LeaseTerms | n
   if (!json) return null;
   try {
     const value = JSON.parse(json) as LeaseTerms;
-    return value && Array.isArray(value.schedule) && value.totals ? value : null;
+    if (!value || !Array.isArray(value.schedule) || !value.totals) return null;
+    const payer =
+      value.municipalityFee?.payer === 'tenant' || value.municipalityFee?.payer === 'owner'
+        ? value.municipalityFee.payer
+        : 'owner';
+    const municipalityFeeMinor = value.totals.municipalityFeeMinor ?? 0;
+    const municipalityFeeOnTenantMinor =
+      value.totals.municipalityFeeOnTenantMinor ??
+      (payer === 'tenant' ? municipalityFeeMinor : 0);
+    return {
+      ...value,
+      municipalityFee: {
+        enabled: Boolean(value.municipalityFee?.enabled),
+        rateBasisPoints: value.municipalityFee?.rateBasisPoints ?? 300,
+        payer,
+      },
+      totals: {
+        ...value.totals,
+        municipalityFeeMinor,
+        municipalityFeeOnTenantMinor,
+        chargesMinor:
+          value.totals.chargesMinor ??
+          value.totals.grandTotalMinor + (value.totals.totalDiscountsMinor ?? 0),
+      },
+    };
   } catch {
     return null;
   }

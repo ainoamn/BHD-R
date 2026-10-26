@@ -1274,22 +1274,56 @@ a.pmh-actionbar__title[aria-current='page'] {
   margin: 0;
   font-weight: 700;
 }
+.lcf-money {
+  display: inline-block;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
 .lcf-totals {
   display: grid;
-  gap: 0.35rem;
-  max-width: 34rem;
+  gap: 0.2rem;
+  max-width: 38rem;
   margin: 0;
+  padding: 0.35rem;
+  border: 1px solid var(--pmh-line, #e5ebe8);
+  border-radius: 0.75rem;
+  background: #fafcfb;
 }
 .lcf-totals div {
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
-  padding: 0.35rem 0.6rem;
-  border-bottom: 1px dashed var(--pmh-line);
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px dashed var(--pmh-line, #e5ebe8);
+}
+.lcf-totals div:last-child {
+  border-bottom: none;
+}
+.lcf-totals dt {
+  display: grid;
+  gap: 0.15rem;
+  font-weight: 600;
+}
+.lcf-totals dt small {
+  font-weight: 500;
+  font-size: 0.78rem;
+  color: var(--ink-600, #5b6670);
 }
 .lcf-totals dd {
   margin: 0;
   font-weight: 700;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+.lcf-totals__sign {
+  font-weight: 800;
+  color: inherit;
+}
+.lcf-totals__plus dd {
+  color: #0f6b52;
 }
 .lcf-totals__minus dd {
   color: #a1331f;
@@ -1298,12 +1332,20 @@ a.pmh-actionbar__title[aria-current='page'] {
   background: #eef6f1;
   border-radius: 0.5rem;
   border-bottom: none !important;
-  font-size: 1.02rem;
+  font-size: 1.05rem;
   font-weight: 800;
+  margin-top: 0.25rem;
+}
+.lcf-totals__total dt,
+.lcf-totals__total dd {
+  color: var(--oman-deep, #092d24);
 }
 .lcf-totals__info {
   color: var(--ink-600, #5b6670);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
+}
+.lcf-totals__info dd {
+  font-weight: 600;
 }
 .lcf-view {
   display: grid;

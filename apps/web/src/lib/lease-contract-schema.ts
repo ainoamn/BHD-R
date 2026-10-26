@@ -64,6 +64,7 @@ export const leaseTermsSchema = z
     vatMode: z.enum(VAT_MODES),
     vatChequeCount: z.string().max(4),
     municipalityFeeEnabled: z.boolean(),
+    municipalityFeePayer: z.enum(['owner', 'tenant']).default('owner'),
     registrationFee: money,
     otherTaxName: short(80),
     otherTaxRate: short(8),
