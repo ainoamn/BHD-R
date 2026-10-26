@@ -1726,7 +1726,9 @@ function ClientRequest({
 }
 
 function ContractDraftEditor({
+  reservationId,
   locale,
+  portal,
   mode,
   lifecycle,
   propertyId,
@@ -1735,6 +1737,7 @@ function ContractDraftEditor({
   party,
   salePriceMinor,
   currency,
+  depositLabel,
   canSign,
   busy,
   onSave,
@@ -1990,6 +1993,9 @@ function ContractDraftEditor({
         propertyId={propertyId}
         deferUntilHandover={deferUntilHandover}
         municipalAfterHandover
+        lockTenantName={Boolean(party)}
+        arabonReceiptHref={`/${locale}/${portal === 'developer' ? 'developer' : 'owner'}/properties/${encodeURIComponent(propertyId)}?section=bookings&focus=${encodeURIComponent(reservationId)}`}
+        arabonReceiptLabel={depositLabel}
         requirements={requirements}
         onRequirementsChange={setRequirements}
         documentRules={documentRules}

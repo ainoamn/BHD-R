@@ -3,6 +3,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { PartyBadgesPanel } from '@/components/badges/subject-badges-panel';
 import { BadgeChips } from '@/components/badges/badge-chips';
+import { BilingualNameField } from '@/components/bilingual-name-field';
 import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { Link } from '@/i18n/navigation';
 import { ApiError, browserNextMutation } from '@/lib/api';
@@ -112,6 +113,7 @@ function Section({
 
 type FormState = {
   displayName: string;
+  nameEn: string;
   type: 'person' | 'company';
   phone: string;
   email: string;
@@ -131,6 +133,7 @@ function formFrom(detail: ContactDetail): FormState {
   const { party } = detail;
   return {
     displayName: party.displayName,
+    nameEn: party.nameEn ?? '',
     type: party.type,
     phone: party.phone ?? '',
     email: party.email ?? '',
@@ -205,6 +208,7 @@ export function ContactWorkspace({
     const hasAddress = [form.governorate, form.wilayat, form.city].some((value) => value.trim());
     const body: ContactUpdate = {
       displayName: form.displayName,
+      nameEn: form.nameEn.trim() || null,
       type: form.type,
       phone: form.phone.trim() || null,
       email: form.email.trim() || null,
@@ -455,15 +459,22 @@ export function ContactWorkspace({
         <form className="contact-edit" onSubmit={(event) => void save(event)}>
           <fieldset>
             <legend>{ar ? 'البيانات الأساسية' : 'Details'}</legend>
-            <label className="field">
-              <span>{ar ? 'الاسم' : 'Name'}</span>
-              <input
-                required
-                maxLength={200}
-                value={form.displayName}
-                onChange={(event) => set('displayName', event.target.value)}
-              />
-            </label>
+            <BilingualNameField
+              idPrefix="contact-name"
+              labelAr={ar ? 'الاسم بالعربية' : 'Name (Arabic)'}
+              labelEn={ar ? 'الاسم بالإنجليزية' : 'Name (English)'}
+              valueAr={form.displayName}
+              valueEn={form.nameEn}
+              locale={locale}
+              kind={form.type === 'company' ? 'company' : 'person'}
+              onChange={(patch) =>
+                setForm((current) => ({
+                  ...current,
+                  ...(patch.nameAr !== undefined ? { displayName: patch.nameAr } : {}),
+                  ...(patch.nameEn !== undefined ? { nameEn: patch.nameEn } : {}),
+                }))
+              }
+            />
             <label className="field">
               <span>{ar ? 'النوع' : 'Type'}</span>
               <select

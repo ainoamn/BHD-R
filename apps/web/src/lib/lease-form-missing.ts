@@ -74,11 +74,24 @@ export function missingLeaseContractFields(input: {
   }
   if (blank(draft.paymentDay)) out.push(gap('payment_day', 'يوم دفع الإيجار', 'Payment day'));
 
+  if (!draft.paymentMethod) {
+    out.push(gap('payment_method', 'طريقة الدفع', 'Payment method'));
+  }
+  if (!draft.paymentFrequency) {
+    out.push(gap('payment_frequency', 'دورية الدفع', 'Payment frequency'));
+  }
+
   if (!deferMeters) {
     if (blank(draft.electricityReading)) {
       out.push(gap('electricity', 'قراءة الكهرباء', 'Electricity reading'));
     }
     if (blank(draft.waterReading)) out.push(gap('water', 'قراءة الماء', 'Water reading'));
+    if (blank(draft.electricityReadingPhoto)) {
+      out.push(gap('electricity_photo', 'صورة عداد الكهرباء', 'Electricity meter photo'));
+    }
+    if (blank(draft.waterReadingPhoto)) {
+      out.push(gap('water_photo', 'صورة عداد الماء', 'Water meter photo'));
+    }
   }
 
   if (isCheque) {
@@ -91,16 +104,7 @@ export function missingLeaseContractFields(input: {
     if (blank(draft.chequeAccountName)) {
       out.push(gap('cheque_name', 'اسم صاحب الحساب على الشيك', 'Cheque account name'));
     }
-    const missingCheques = draft.schedule.filter((row) => blank(row.chequeNumber)).length;
-    if (missingCheques) {
-      out.push(
-        gap(
-          'cheque_numbers',
-          `أرقام شيكات الإيجار (${missingCheques} ناقص)`,
-          `Rent cheque numbers (${missingCheques} missing)`,
-        ),
-      );
-    }
+    // Rent/deposit cheque numbers are filled by the tenant with uploads — not required here.
   }
 
   if (!draft.schedule.length) {

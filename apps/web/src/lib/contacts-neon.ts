@@ -349,13 +349,15 @@ async function readContactRows(
       phone: string | null;
       status: string;
       notes: string | null;
+      name_en: string | null;
       source: string | null;
       created_at: Date | string;
       member: boolean;
     }>(
       await tx.execute(sql`
         select p.id, p.display_name, p.type, p.email, p.phone, p.status,
-          p.metadata->>'notes' as notes, p.metadata->>'source' as source, p.created_at,
+          p.metadata->>'notes' as notes, p.metadata->>'nameEn' as name_en,
+          p.metadata->>'source' as source, p.created_at,
           exists (select 1 from memberships m
             where m.organization_id = p.organization_id and m.party_id = p.id) as member
         from parties p
@@ -594,6 +596,7 @@ async function readContactRows(
       party: {
         id: party.id,
         displayName: party.display_name,
+        nameEn: party.name_en,
         type: party.type,
         email: party.email,
         phone: party.phone,
@@ -729,9 +732,11 @@ export async function updateContact(
       phone: string | null;
       status: string;
       notes: string | null;
+      name_en: string | null;
     }>(
       await tx.execute(sql`
-        select display_name, type, email, phone, status, metadata->>'notes' as notes
+        select display_name, type, email, phone, status,
+          metadata->>'notes' as notes, metadata->>'nameEn' as name_en
         from parties where organization_id = ${orgId} and id = ${partyId}
         for update
       `),
@@ -794,6 +799,17 @@ export async function updateContact(
           next
             ? sql`metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('notes', ${next}::text)`
             : sql`metadata = coalesce(metadata, '{}'::jsonb) - 'notes'`,
+        );
+      }
+    }
+    if (input.nameEn !== undefined) {
+      const next = (input.nameEn ?? '').trim().slice(0, 200) || null;
+      if (next !== current.name_en) {
+        changed.push('nameEn');
+        sets.push(
+          next
+            ? sql`metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('nameEn', ${next}::text)`
+            : sql`metadata = coalesce(metadata, '{}'::jsonb) - 'nameEn'`,
         );
       }
     }

@@ -241,6 +241,9 @@ export type LeaseTermsDraft = {
   adjustments: LeaseAdjustmentDraft[];
   electricityReading?: string | undefined;
   waterReading?: string | undefined;
+  /** Optional meter photo data-URL (required when meters are not deferred). */
+  electricityReadingPhoto?: string | undefined;
+  waterReadingPhoto?: string | undefined;
   notes?: string | undefined;
 };
 

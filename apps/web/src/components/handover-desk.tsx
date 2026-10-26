@@ -541,10 +541,17 @@ function HandoverForm({
   const [keys, setKeys] = useState('');
   const [electricity, setElectricity] = useState('');
   const [water, setWater] = useState('');
+  const [elecPhoto, setElecPhoto] = useState<Photo[]>([]);
+  const [waterPhoto, setWaterPhoto] = useState<Photo[]>([]);
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const metersReady =
+    electricity.trim().length > 0 &&
+    water.trim().length > 0 &&
+    elecPhoto.length > 0 &&
+    waterPhoto.length > 0;
   const unitName =
     locale === 'ar' ? preview.unit.nameAr : preview.unit.nameEn || preview.unit.nameAr;
   const propertyName =
@@ -552,6 +559,14 @@ function HandoverForm({
 
   async function submit() {
     if (recipientName.trim().length < 2) return;
+    if (!metersReady) {
+      setError(
+        ar
+          ? 'أدخل قراءة الكهرباء والماء وأرفق صورة لكل عداد.'
+          : 'Enter electricity and water readings and attach a photo of each meter.',
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -565,7 +580,7 @@ function HandoverForm({
           electricityReading: electricity.trim() || undefined,
           waterReading: water.trim() || undefined,
           notes: notes.trim() || undefined,
-          photos,
+          photos: [...elecPhoto, ...waterPhoto, ...photos],
         }),
       });
       onDone();
@@ -690,25 +705,51 @@ function HandoverForm({
               />
             </label>
             <label>
-              <span>{ar ? 'قراءة عداد الكهرباء' : 'Electricity reading'}</span>
+              <span>
+                {ar ? 'قراءة عداد الكهرباء' : 'Electricity reading'}
+                <span aria-hidden="true"> *</span>
+              </span>
               <input
                 className="input"
                 dir="ltr"
+                required
                 value={electricity}
                 maxLength={40}
                 onChange={(event) => setElectricity(event.target.value)}
               />
             </label>
+            <div className="handover-desk__wide">
+              <PhotoPicker
+                ar={ar}
+                label={ar ? 'صورة عداد الكهرباء *' : 'Electricity meter photo *'}
+                max={1}
+                photos={elecPhoto}
+                onChange={setElecPhoto}
+              />
+            </div>
             <label>
-              <span>{ar ? 'قراءة عداد الماء' : 'Water reading'}</span>
+              <span>
+                {ar ? 'قراءة عداد الماء' : 'Water reading'}
+                <span aria-hidden="true"> *</span>
+              </span>
               <input
                 className="input"
                 dir="ltr"
+                required
                 value={water}
                 maxLength={40}
                 onChange={(event) => setWater(event.target.value)}
               />
             </label>
+            <div className="handover-desk__wide">
+              <PhotoPicker
+                ar={ar}
+                label={ar ? 'صورة عداد الماء *' : 'Water meter photo *'}
+                max={1}
+                photos={waterPhoto}
+                onChange={setWaterPhoto}
+              />
+            </div>
             <label className="handover-desk__wide">
               <span>
                 {ar
@@ -747,7 +788,12 @@ function HandoverForm({
             <button
               type="button"
               className="button button--primary"
-              disabled={busy || recipientName.trim().length < 2 || !preview.handlerSelfieAt}
+              disabled={
+                busy ||
+                recipientName.trim().length < 2 ||
+                !preview.handlerSelfieAt ||
+                !metersReady
+              }
               onClick={() => void submit()}
             >
               {busy

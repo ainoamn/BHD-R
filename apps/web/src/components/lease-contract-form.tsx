@@ -208,28 +208,33 @@ type WizardStepId =
   | 'extras'
   | 'deposit'
   | 'schedule'
+  | 'totals'
   | 'notes'
-  | 'summary';
+  | 'review';
 
 const STEP_GAP_CODES: Record<WizardStepId, readonly string[]> = {
   main: ['unit'],
   tenant: ['tenant_name', 'civil_id', 'phone', 'cr_number', 'cr_expiry', 'signatory'],
   docs: [],
-  unit: ['electricity', 'water'],
-  rent: ['monthly_rent', 'area', 'rent_sqm', 'handover', 'starts', 'ends', 'payment_day'],
+  unit: ['electricity', 'water', 'electricity_photo', 'water_photo'],
+  rent: [
+    'monthly_rent',
+    'area',
+    'rent_sqm',
+    'handover',
+    'starts',
+    'ends',
+    'payment_day',
+    'payment_method',
+    'payment_frequency',
+  ],
   taxes: [],
   extras: [],
   deposit: ['deposit'],
-  schedule: [
-    'schedule',
-    'schedule_rows',
-    'rent_bank',
-    'cheque_bank',
-    'cheque_name',
-    'cheque_numbers',
-  ],
+  schedule: ['schedule', 'schedule_rows', 'rent_bank', 'cheque_bank', 'cheque_name'],
+  totals: [],
   notes: [],
-  summary: [],
+  review: [],
 };
 
 function Section({
@@ -339,6 +344,9 @@ export function LeaseContractForm({
   propertyId = null,
   deferUntilHandover = [],
   municipalAfterHandover = false,
+  lockTenantName = false,
+  arabonReceiptHref = null,
+  arabonReceiptLabel = null,
   requirements,
   onRequirementsChange,
   documentRules = DEFAULT_LEASE_DOCUMENT_RULES,
@@ -373,6 +381,11 @@ export function LeaseContractForm({
    * on the booking page after premises handover.
    */
   municipalAfterHandover?: boolean | undefined;
+  /** Booking flow: Arabic tenant name is read-only from the client profile. */
+  lockTenantName?: boolean | undefined;
+  /** Link to the booking arabon receipt in accounting / records. */
+  arabonReceiptHref?: string | null | undefined;
+  arabonReceiptLabel?: string | null | undefined;
   /** When set with onRequirementsChange, shows the smart documents picker. */
   requirements?: DocumentRequirementPick[] | undefined;
   onRequirementsChange?: ((next: DocumentRequirementPick[]) => void) | undefined;
@@ -386,6 +399,7 @@ export function LeaseContractForm({
   const t = (arText: string, enText: string) => (ar ? arText : enText);
   const [unitId, setUnitId] = useState(units[0]?.id ?? '');
   const [wizardStep, setWizardStep] = useState<WizardStepId>('main');
+  const [showAllFields, setShowAllFields] = useState(false);
   const unit = units.find((item) => item.id === unitId);
   const currency = unit?.currency ?? 'OMR';
   const digits = minorDigitsFor(currency);
@@ -630,14 +644,10 @@ export function LeaseContractForm({
   );
   const gap = (code: string) => missingCodes.has(code);
 
-  /**
-   * Fill path: only steps that need input. Optional taxes / extras / notes appear
-   * on the final review step (research-backed progressive disclosure + review).
-   */
   const wizardSteps = useMemo((): WizardStepId[] => {
     const steps: WizardStepId[] = ['main', 'tenant'];
     if (requirements && onRequirementsChange) steps.push('docs');
-    steps.push('unit', 'rent', 'deposit', 'schedule', 'summary');
+    steps.push('unit', 'rent', 'taxes', 'extras', 'deposit', 'schedule', 'totals', 'review');
     return steps;
   }, [requirements, onRequirementsChange]);
 
@@ -647,25 +657,71 @@ export function LeaseContractForm({
     }
   }, [wizardSteps, wizardStep]);
 
+  useEffect(() => {
+    if (!municipalAfterHandover) return;
+    setDraft((current) => {
+      if (current.depositItems.length) return current;
+      return {
+        ...current,
+        depositItems: [
+          {
+            method: 'cheque',
+            amount: current.deposit,
+            reference: '',
+            bankName: '',
+            dueOn: '',
+          },
+        ],
+      };
+    });
+  }, [municipalAfterHandover]);
+
   const stepIndex = Math.max(0, wizardSteps.indexOf(wizardStep));
   const isFirstStep = stepIndex <= 0;
   const isLastStep = stepIndex >= wizardSteps.length - 1;
-  const reviewMode = wizardStep === 'summary';
+  const reviewMode = wizardStep === 'review';
   const stepActive = (id: WizardStepId) => reviewMode || wizardStep === id;
+  /** Essentials-only: hide optional filled chrome unless the user opts into «show all». */
+  const showExtra = showAllFields || reviewMode;
 
   const stepTitles: Record<WizardStepId, [string, string]> = {
     main: ['📝 بيانات العقد الرئيسية', '📝 Main contract data'],
     tenant: ['👤 المستأجر', '👤 Tenant'],
-    docs: ['📎 مستندات المستأجر', '📎 Tenant documents'],
+    docs: ['📎 المستندات المطلوبة من العميل', '📎 Documents required from client'],
     unit: ['🏢 الوحدة والعدادات', '🏢 Unit & meters'],
     rent: ['💰 الإيجار والمدة', '💰 Rent & term'],
     taxes: ['🧾 الضرائب والرسوم', '🧾 Taxes & fees'],
     extras: ['➕ مبالغ إضافية / خصومات', '➕ Extra charges & discounts'],
     deposit: ['🛡️ التأمين (الوديعة)', '🛡️ Insurance (deposit)'],
     schedule: ['📅 جدول الدفع', '📅 Payment schedule'],
+    totals: ['📊 الملخص المالي', '📊 Financial summary'],
     notes: ['🗒️ ملاحظات', '🗒️ Notes'],
-    summary: ['✅ مراجعة والتحقق', '✅ Review & confirm'],
+    review: ['✅ مراجعة والتحقق', '✅ Review & confirm'],
   };
+
+  async function readMeterPhoto(
+    file: File | null,
+    key: 'electricityReadingPhoto' | 'waterReadingPhoto',
+  ) {
+    if (!file) {
+      set(key, '');
+      return;
+    }
+    if (!file.type.startsWith('image/') || file.size > 1_200_000) {
+      setLocalError(
+        t('ارفع صورة واضحة للعداد (حتى نحو 1 ميغابايت).', 'Upload a clear meter photo (up to ~1 MB).'),
+      );
+      return;
+    }
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ''));
+      reader.onerror = () => reject(new Error('read_failed'));
+      reader.readAsDataURL(file);
+    });
+    setLocalError(null);
+    set(key, dataUrl);
+  }
 
   const currentStepGaps = useMemo(
     () =>
@@ -826,20 +882,39 @@ export function LeaseContractForm({
       {heading ? <h3 className="lcf__heading">{heading}</h3> : null}
 
       <nav className="lcf-wizard-progress" aria-label={t('أقسام العقد', 'Contract sections')}>
-        <p className="lcf-wizard-progress__meta">
-          {reviewMode
-            ? t('مراجعة كل الحقول — عدّل ما يلزم ثم احفظ', 'Review all fields — edit if needed, then save')
-            : t(
-                `القسم ${stepIndex + 1} من ${wizardSteps.length}`,
-                `Step ${stepIndex + 1} of ${wizardSteps.length}`,
-              )}
-        </p>
+        <div className="lcf-wizard-progress__row">
+          <p className="lcf-wizard-progress__meta">
+            {reviewMode
+              ? t(
+                  'مراجعة كل الحقول — عدّل ما يلزم ثم احفظ',
+                  'Review all fields — edit if needed, then save',
+                )
+              : t(
+                  `القسم ${stepIndex + 1} من ${wizardSteps.length}`,
+                  `Step ${stepIndex + 1} of ${wizardSteps.length}`,
+                )}
+          </p>
+          <label className="lcf-show-all">
+            <input
+              type="checkbox"
+              checked={showAllFields}
+              onChange={(event) => setShowAllFields(event.target.checked)}
+            />
+            <span>{t('إظهار كافة البيانات', 'Show all fields')}</span>
+          </label>
+        </div>
         <ol className="lcf-wizard-progress__list">
           {wizardSteps.map((id, index) => {
             const done = index < stepIndex;
             const current = index === stepIndex;
             const tone =
-              id === 'taxes' ? 'tax' : id === 'extras' ? 'extra' : (id as SectionTone);
+              id === 'taxes'
+                ? 'tax'
+                : id === 'extras'
+                  ? 'extra'
+                  : id === 'totals' || id === 'review'
+                    ? 'summary'
+                    : (id as SectionTone);
             return (
               <li key={id} className={current ? 'lcf-wizard-chip-wrap--current' : undefined}>
                 <button
@@ -1030,17 +1105,31 @@ export function LeaseContractForm({
             label={t('اسم المستأجر (عربي)', 'Tenant name (Arabic)')}
             required
             missing={gap('tenant_name')}
+            hint={
+              lockTenantName
+                ? t(
+                    'يُجلب من ملف العميل ولا يُعدَّل هنا. على العميل تعبئة الاسم بالعربي والإنجليزي في صفحته الشخصية (مع الترجمة الفورية).',
+                    'Taken from the client profile and locked here. The client must enter Arabic and English names on their personal page (with instant translate).',
+                  )
+                : undefined
+            }
           >
             <div className="lcf-name-with-nationality">
-              <input
-                id="lcf-name-ar"
-                className="input"
-                required
-                minLength={2}
-                maxLength={200}
-                value={tenant.nameAr}
-                onChange={(event) => setTenantField('nameAr', event.target.value)}
-              />
+              {lockTenantName ? (
+                <output id="lcf-name-ar" className="input lcf-output" aria-live="polite">
+                  {tenant.nameAr || '—'}
+                </output>
+              ) : (
+                <input
+                  id="lcf-name-ar"
+                  className="input"
+                  required
+                  minLength={2}
+                  maxLength={200}
+                  value={tenant.nameAr}
+                  onChange={(event) => setTenantField('nameAr', event.target.value)}
+                />
+              )}
               {tenant.entityType === 'person' && tenant.nationality.trim() ? (
                 <span
                   className={`party-nationality${
@@ -1054,16 +1143,19 @@ export function LeaseContractForm({
               ) : null}
             </div>
           </Field>
-          <Field id="lcf-name-en" label={t('اسم المستأجر بالإنجليزية', 'Tenant name (English)')}>
-            <input
-              id="lcf-name-en"
-              className="input"
-              dir="ltr"
-              maxLength={200}
-              value={tenant.nameEn}
-              onChange={(event) => setTenantField('nameEn', event.target.value)}
-            />
-          </Field>
+          {showExtra || !lockTenantName ? (
+            <Field id="lcf-name-en" label={t('اسم المستأجر بالإنجليزية', 'Tenant name (English)')}>
+              <input
+                id="lcf-name-en"
+                className="input"
+                dir="ltr"
+                maxLength={200}
+                value={tenant.nameEn}
+                readOnly={lockTenantName}
+                onChange={(event) => setTenantField('nameEn', event.target.value)}
+              />
+            </Field>
+          ) : null}
           {tenant.entityType === 'person' ? (
             <>
               <Field
@@ -1293,10 +1385,37 @@ export function LeaseContractForm({
               dir="ltr"
               inputMode="decimal"
               required={!deferMeters}
+              disabled={deferMeters}
               maxLength={40}
               value={draft.electricityReading ?? ''}
               onChange={(event) => set('electricityReading', event.target.value)}
             />
+          </Field>
+          <Field
+            id="lcf-elec-photo"
+            label={
+              deferMeters
+                ? t('صورة عداد الكهرباء (إلزامية عند التسليم)', 'Electricity meter photo (required at handover)')
+                : t('صورة عداد الكهرباء', 'Electricity meter photo')
+            }
+            required={!deferMeters}
+            missing={gap('electricity_photo')}
+          >
+            <input
+              id="lcf-elec-photo"
+              className="input"
+              type="file"
+              accept="image/*"
+              disabled={deferMeters}
+              required={!deferMeters && !draft.electricityReadingPhoto}
+              onChange={(event) =>
+                void readMeterPhoto(event.target.files?.[0] ?? null, 'electricityReadingPhoto')
+              }
+            />
+            {draft.electricityReadingPhoto ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={draft.electricityReadingPhoto} alt="" className="lcf-meter-thumb" />
+            ) : null}
           </Field>
           <Field
             id="lcf-water"
@@ -1314,12 +1433,47 @@ export function LeaseContractForm({
               dir="ltr"
               inputMode="decimal"
               required={!deferMeters}
+              disabled={deferMeters}
               maxLength={40}
               value={draft.waterReading ?? ''}
               onChange={(event) => set('waterReading', event.target.value)}
             />
           </Field>
+          <Field
+            id="lcf-water-photo"
+            label={
+              deferMeters
+                ? t('صورة عداد الماء (إلزامية عند التسليم)', 'Water meter photo (required at handover)')
+                : t('صورة عداد الماء', 'Water meter photo')
+            }
+            required={!deferMeters}
+            missing={gap('water_photo')}
+          >
+            <input
+              id="lcf-water-photo"
+              className="input"
+              type="file"
+              accept="image/*"
+              disabled={deferMeters}
+              required={!deferMeters && !draft.waterReadingPhoto}
+              onChange={(event) =>
+                void readMeterPhoto(event.target.files?.[0] ?? null, 'waterReadingPhoto')
+              }
+            />
+            {draft.waterReadingPhoto ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={draft.waterReadingPhoto} alt="" className="lcf-meter-thumb" />
+            ) : null}
+          </Field>
         </div>
+        {deferMeters ? (
+          <p className="muted lcf-help">
+            {t(
+              'القراءة وصورة كل عداد تُسجَّلان إلزامياً عند تسليم العقار من شاشة التسليم.',
+              'Reading and a photo for each meter are required at handover on the handover screen.',
+            )}
+          </p>
+        ) : null}
       </Section>
 
       <Section tone="rent" active={stepActive('rent')} title={t('💰 الإيجار والمدة', '💰 Rent & term')}>
@@ -1539,10 +1693,16 @@ export function LeaseContractForm({
               onChange={(event) => set('paymentDay', event.target.value)}
             />
           </Field>
-          <Field id="lcf-method" label={t('طريقة الدفع', 'Payment method')}>
+          <Field
+            id="lcf-method"
+            label={t('طريقة الدفع', 'Payment method')}
+            required
+            missing={gap('payment_method')}
+          >
             <select
               id="lcf-method"
               className="select"
+              required
               value={draft.paymentMethod}
               onChange={(event) => {
                 const method = event.target.value as LeaseTermsDraft['paymentMethod'];
@@ -1560,10 +1720,16 @@ export function LeaseContractForm({
               ))}
             </select>
           </Field>
-          <Field id="lcf-freq" label={t('دورية الدفع', 'Payment frequency')}>
+          <Field
+            id="lcf-freq"
+            label={t('دورية الدفع', 'Payment frequency')}
+            required
+            missing={gap('payment_frequency')}
+          >
             <select
               id="lcf-freq"
               className="select"
+              required
               value={draft.paymentFrequency}
               onChange={(event) =>
                 set('paymentFrequency', event.target.value as LeaseTermsDraft['paymentFrequency'])
@@ -1904,11 +2070,22 @@ export function LeaseContractForm({
               onChange={(event) => set('deposit', event.target.value)}
             />
           </Field>
+          {arabonReceiptHref ? (
+            <div className="field">
+              <span className="field__hint">
+                {t('إيصال العربون من الحسابات', 'Booking deposit receipt from accounting')}
+                {arabonReceiptLabel ? ` · ${arabonReceiptLabel}` : ''}
+              </span>
+              <a className="button button--quiet" href={arabonReceiptHref}>
+                {t('فتح إيصال العربون', 'Open arabon receipt')}
+              </a>
+            </div>
+          ) : null}
         </div>
         <p className="muted lcf-help">
           {t(
-            'تفاصيل دفع التأمين: شيك أو نقداً أو تحويل — مع رقم الشيك أو الإيصال.',
-            'Deposit payment lines: cheque, cash or transfer — with the cheque or receipt number.',
+            'تفاصيل دفع التأمين: شيك أو نقداً أو تحويل. رقم شيك التأمين يعبّئه المستأجر ويرفق نسخته ضمن المستندات المطلوبة.',
+            'Deposit lines: cheque, cash or transfer. The tenant enters the deposit cheque number and uploads a copy among required documents.',
           )}
         </p>
         {draft.depositItems.map((item, index) => (
@@ -1945,8 +2122,13 @@ export function LeaseContractForm({
               dir="ltr"
               maxLength={80}
               aria-label={t('رقم الشيك / الإيصال', 'Cheque / receipt no.')}
-              placeholder={t('رقم الشيك / الإيصال', 'Cheque / receipt no.')}
+              placeholder={
+                item.method === 'cheque'
+                  ? t('يعبّئه المستأجر مع المرفق', 'Filled by tenant with upload')
+                  : t('رقم الشيك / الإيصال', 'Cheque / receipt no.')
+              }
               value={item.reference ?? ''}
+              readOnly={municipalAfterHandover && item.method === 'cheque'}
               onChange={(event) => updateDepositItem(index, { reference: event.target.value })}
             />
             <input
@@ -2297,27 +2479,29 @@ export function LeaseContractForm({
         </Section>
       ) : null}
 
-      <Section tone="notes" active={stepActive('notes')} title={t('🗒️ ملاحظات', '🗒️ Notes')}>
-        <textarea
-          className="textarea"
-          rows={3}
-          maxLength={2000}
-          aria-label={t('ملاحظات', 'Notes')}
-          value={draft.notes ?? ''}
-          onChange={(event) => set('notes', event.target.value)}
-        />
-        <NoteTranslateBar
-          value={draft.notes ?? ''}
-          onChange={(next) => set('notes', next)}
-          locale={locale}
-          max={2000}
-          disabled={busy}
-        />
-      </Section>
+      {showExtra || reviewMode || (draft.notes ?? '').trim() ? (
+        <Section tone="notes" active={stepActive('notes')} title={t('🗒️ ملاحظات', '🗒️ Notes')}>
+          <textarea
+            className="textarea"
+            rows={3}
+            maxLength={2000}
+            aria-label={t('ملاحظات', 'Notes')}
+            value={draft.notes ?? ''}
+            onChange={(event) => set('notes', event.target.value)}
+          />
+          <NoteTranslateBar
+            value={draft.notes ?? ''}
+            onChange={(next) => set('notes', next)}
+            locale={locale}
+            max={2000}
+            disabled={busy}
+          />
+        </Section>
+      ) : null}
 
       <Section
         tone="summary"
-        active={stepActive('summary')}
+        active={stepActive('totals')}
         title={t('📊 الملخص المالي', '📊 Financial summary')}
       >
         {terms ? (
@@ -2327,21 +2511,22 @@ export function LeaseContractForm({
             {pick(ERROR_TEXT[result.ok ? 'invalid_terms' : result.error], ar)}
           </p>
         )}
-        {isLastStep ? (
-          <p className="muted">
-            {footnote ??
-              (canSign
-                ? t(
-                    'سيُعتمد العقد فوراً ويوقّعه النظام باسمك نيابة عن المالك، وتُسجَّل الشيكات للمراجعة المحاسبية.',
-                    'The contract is approved at once and system-signed in your name; cheques go to accounting review.',
-                  )
-                : t(
-                    'لا تملك صلاحية اعتماد العقود، لذلك سيُرسل العقد إلى المدير لاعتماده.',
-                    'You cannot approve contracts, so it will be sent to the manager for approval.',
-                  ))}
-          </p>
-        ) : null}
       </Section>
+
+      {reviewMode ? (
+        <p className="muted lcf-review-footnote">
+          {footnote ??
+            (canSign
+              ? t(
+                  'سيُعتمد العقد فوراً ويوقّعه النظام باسمك نيابة عن المالك، وتُسجَّل الشيكات للمراجعة المحاسبية.',
+                  'The contract is approved at once and system-signed in your name; cheques go to accounting review.',
+                )
+              : t(
+                  'لا تملك صلاحية اعتماد العقود، لذلك سيُرسل العقد إلى المدير لاعتماده.',
+                  'You cannot approve contracts, so it will be sent to the manager for approval.',
+                ))}
+        </p>
+      ) : null}
 
       {localError ? (
         <div className="notice notice--error" role="alert">

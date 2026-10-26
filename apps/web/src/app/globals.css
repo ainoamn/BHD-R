@@ -1343,11 +1343,40 @@ a.pmh-actionbar__title[aria-current='page'] {
   background: color-mix(in srgb, #fff 94%, #e8f2ec);
   box-shadow: 0 6px 14px rgb(9 45 36 / 0.05);
 }
+.lcf-wizard-progress__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+}
 .lcf-wizard-progress__meta {
   margin: 0;
   font-size: 0.78rem;
   font-weight: 800;
   color: #1f3d34;
+}
+.lcf-show-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1f3d34;
+  cursor: pointer;
+}
+.lcf-show-all input {
+  width: 1rem;
+  height: 1rem;
+}
+.lcf-meter-thumb {
+  display: block;
+  margin-top: 0.35rem;
+  max-width: 8rem;
+  max-height: 5.5rem;
+  object-fit: cover;
+  border-radius: 0.4rem;
+  border: 1px solid #d5ddd8;
 }
 .lcf-wizard-progress__list {
   list-style: none;

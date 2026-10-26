@@ -100,6 +100,8 @@ export type ContactDetail = {
   party: {
     id: string;
     displayName: string;
+    /** English name from party metadata (AI translate on the contact page). */
+    nameEn: string | null;
     type: 'person' | 'company';
     email: string | null;
     phone: string | null;
@@ -199,6 +201,7 @@ export type ContactDetail = {
 
 export type ContactUpdate = {
   displayName?: string | undefined;
+  nameEn?: string | null | undefined;
   type?: 'person' | 'company' | undefined;
   email?: string | null | undefined;
   phone?: string | null | undefined;

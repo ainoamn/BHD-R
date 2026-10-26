@@ -116,6 +116,8 @@ export const leaseTermsSchema = z
       .max(50),
     electricityReading: short(40),
     waterReading: short(40),
+    electricityReadingPhoto: z.string().max(1_600_000).optional(),
+    waterReadingPhoto: z.string().max(1_600_000).optional(),
     notes: short(2000),
   })
   .strict();
