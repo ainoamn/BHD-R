@@ -21406,6 +21406,102 @@ button.lrw__step-body:focus-visible {
   margin: 0;
 }
 
+.approval-buildings {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.1rem 1.15rem 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--oman-deep, #092d24) 12%, #e8ecea);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+.approval-buildings__head h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: var(--oman-deep, #092d24);
+}
+.approval-buildings__head .muted {
+  margin: 0;
+  max-width: 46rem;
+}
+.approval-buildings__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+.approval-buildings__toolbar .input {
+  flex: 1 1 12rem;
+  min-width: 10rem;
+}
+.approval-buildings__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.approval-buildings__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+  max-height: 18rem;
+  overflow: auto;
+}
+.approval-buildings__item {
+  width: 100%;
+  display: grid;
+  gap: 0.2rem;
+  text-align: start;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid #e5ebe8;
+  border-radius: 0.65rem;
+  background: #fafcfb;
+  cursor: pointer;
+}
+.approval-buildings__item:hover {
+  border-color: color-mix(in srgb, var(--oman-gold, #c4a35a) 55%, #e5ebe8);
+}
+.approval-buildings__item--on {
+  border-color: var(--oman-deep, #092d24);
+  background: color-mix(in srgb, var(--oman-deep, #092d24) 6%, #fff);
+}
+.approval-buildings__item strong {
+  font-size: 0.95rem;
+}
+.approval-buildings__badge {
+  font-size: 0.8rem;
+  color: #5b6b65;
+}
+.approval-buildings__badge--custom {
+  color: #8a6a1f;
+  font-weight: 600;
+}
+.approval-buildings__editor {
+  display: grid;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #e8ecea;
+}
+.approval-buildings__editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.approval-buildings__editor-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.approval-buildings__editor .approval-policy {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+.approval-buildings__hint {
+  margin: 0;
+}
+
 /* -------------------------------------------------------------------------- */
 /* Portal settings (الضبط) — org approvals, stay reschedule, related links      */
 /* -------------------------------------------------------------------------- */

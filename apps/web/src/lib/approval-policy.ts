@@ -51,6 +51,15 @@ export type ApprovalPolicy = {
 
 export type ApprovalPolicySource = 'property' | 'organization' | 'default' | 'legacy';
 
+/** Building row for the settings desk per-property override list (client-safe). */
+export type ApprovalPolicyBuildingRow = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  /** Contract kinds that already have a property-level override (not inheriting org). */
+  overrideKinds: ContractApprovalKind[];
+};
+
 export const APPROVAL_STEPS = ['booking', 'contract', 'payment', 'reschedule'] as const;
 
 export type ApprovalStep = (typeof APPROVAL_STEPS)[number];

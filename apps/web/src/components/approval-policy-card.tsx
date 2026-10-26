@@ -42,10 +42,12 @@ function KindEditor({
   locale,
   propertyId,
   state,
+  onOverrideChange,
 }: {
   locale: 'ar' | 'en';
   propertyId: string | null;
   state: ApprovalPolicyKindState;
+  onOverrideChange?: ((kind: ContractApprovalKind, hasOwn: boolean) => void) | undefined;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
@@ -81,6 +83,7 @@ function KindEditor({
       setSaved(result.policy);
       setDraft(result.policy ?? state.inherited.policy);
       setSigner(result.delegateName);
+      onOverrideChange?.(kind, result.policy != null);
       setMessage({ ok: true, text: t('تم حفظ سياسة الاعتماد.', 'Approval policy saved.') });
     } catch (caught) {
       const code = caught instanceof ApiError ? caught.code : '';
@@ -372,10 +375,13 @@ export function ApprovalPolicyCard({
   locale,
   propertyId,
   kinds,
+  onOverrideChange,
 }: {
   locale: 'ar' | 'en';
   propertyId: string | null;
   kinds: ApprovalPolicyKindState[];
+  /** Fired after save/clear so parent lists can show custom vs inherited. */
+  onOverrideChange?: ((kind: ContractApprovalKind, hasOwn: boolean) => void) | undefined;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
@@ -402,14 +408,19 @@ export function ApprovalPolicyCard({
         <div>
           <h2 id="approval-policy-title">
             {propertyId
-              ? t('اعتماد العقود لهذا العقار', 'Contract approvals for this property')
-              : t('اعتماد العقود حسب النوع', 'Contract approvals by type')}
+              ? t('إعدادات خاصة لهذا المبنى', 'Custom settings for this building')
+              : t('إعدادات عامة — كل المباني', 'General settings — all buildings')}
           </h2>
           <p className="muted">
-            {t(
-              'لكل نوع عقد (يومي، طويل الأجل، شراء) ضبط منفصل: اعتماد الحجز، العقد الإلكتروني، التوقيع الإلكتروني، وأتمتة المعاينة حيث تنطبق.',
-              'Each contract type (daily, long-term, purchase) has its own booking approval, e-contract, e-signature, and viewing automation where it applies.',
-            )}
+            {propertyId
+              ? t(
+                  'هذه القيم تتجاوز الإعدادات العامة لهذا المبنى فقط. احفظ نوع العقد الذي تغيّره، أو ارجع للإعدادات العامة من زر «العودة».',
+                  'These values override the general settings for this building only. Save each contract type you change, or return to the general settings with “Use …”.',
+                )
+              : t(
+                  'تطبَّق على كل المباني ما لم تخصّص مبنىً أدناه. لكل نوع عقد (يومي، طويل الأجل، شراء): اعتماد الحجز، العقد، التوقيع الإلكتروني، وأتمتة المعاينة حيث تنطبق.',
+                  'Applies to every building unless you customize one below. Each contract type (daily, long-term, purchase) has booking approval, contract, e-signature, and viewing automation where it applies.',
+                )}
           </p>
         </div>
       </header>
@@ -431,7 +442,13 @@ export function ApprovalPolicyCard({
 
       {ordered.map((row) =>
         row.kind === active ? (
-          <KindEditor key={row.kind} locale={locale} propertyId={propertyId} state={row} />
+          <KindEditor
+            key={row.kind}
+            locale={locale}
+            propertyId={propertyId}
+            state={row}
+            onOverrideChange={onOverrideChange}
+          />
         ) : null,
       )}
     </section>

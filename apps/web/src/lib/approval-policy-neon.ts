@@ -15,6 +15,7 @@ import {
   isContractApprovalKind,
   sanitizeApprovalPolicy,
   type ApprovalPolicy,
+  type ApprovalPolicyBuildingRow,
   type ApprovalPolicySource,
   type ContractApprovalKind,
   CONTRACT_APPROVAL_KINDS,
@@ -290,6 +291,74 @@ export async function loadOwnerApprovalPolicyBundle(
     CONTRACT_APPROVAL_KINDS.map((kind) => loadOwnerApprovalPolicy(scope, propertyId, kind)),
   );
   return { kinds };
+}
+
+/**
+ * Buildings the owner can customize, plus which contract kinds already diverge from org defaults.
+ */
+export async function loadApprovalPolicyBuildingIndex(
+  scope: MemberScope,
+): Promise<ApprovalPolicyBuildingRow[]> {
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    await applyMemberScope(transaction, scope);
+    const propertyRows = await transaction
+      .select({
+        id: properties.id,
+        nameAr: properties.nameAr,
+        nameEn: properties.nameEn,
+      })
+      .from(properties)
+      .where(
+        and(
+          eq(properties.organizationId, scope.organizationId),
+          sql`${properties.status} <> 'archived'`,
+        ),
+      )
+      .orderBy(properties.nameAr)
+      .limit(500);
+
+    const policyRows = await transaction
+      .select({ code: stayPolicies.code })
+      .from(stayPolicies)
+      .where(
+        and(
+          eq(stayPolicies.organizationId, scope.organizationId),
+          eq(stayPolicies.kind, POLICY_KIND),
+          eq(stayPolicies.status, 'active'),
+          sql`${stayPolicies.code} like 'approval_policy:%'`,
+        ),
+      );
+
+    const overrides = new Map<string, Set<ContractApprovalKind>>();
+    for (const row of policyRows) {
+      const parts = row.code.split(':');
+      // Typed: approval_policy:{kind}:{propertyId|org}
+      // Legacy: approval_policy:{propertyId|org}
+      if (parts.length === 3) {
+        const kind = parts[1];
+        const scopeId = parts[2];
+        if (!scopeId || scopeId === ORGANIZATION_SCOPE) continue;
+        if (!isContractApprovalKind(kind)) continue;
+        const set = overrides.get(scopeId) ?? new Set<ContractApprovalKind>();
+        set.add(kind);
+        overrides.set(scopeId, set);
+      } else if (parts.length === 2) {
+        const scopeId = parts[1];
+        if (!scopeId || scopeId === ORGANIZATION_SCOPE) continue;
+        const set = overrides.get(scopeId) ?? new Set<ContractApprovalKind>();
+        for (const kind of CONTRACT_APPROVAL_KINDS) set.add(kind);
+        overrides.set(scopeId, set);
+      }
+    }
+
+    return propertyRows.map((row) => ({
+      id: row.id,
+      nameAr: row.nameAr,
+      nameEn: row.nameEn ?? row.nameAr,
+      overrideKinds: [...(overrides.get(row.id) ?? [])],
+    }));
+  });
 }
 
 function canManageKind(claims: SessionClaims, kind: ContractApprovalKind): boolean {

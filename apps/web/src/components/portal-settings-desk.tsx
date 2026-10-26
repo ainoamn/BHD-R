@@ -1,10 +1,14 @@
 import 'server-only';
 import { EmptyState } from '@bhd-r/ui';
+import { ApprovalPolicyBuildingsPanel } from '@/components/approval-policy-buildings-panel';
 import { ApprovalPolicyCard } from '@/components/approval-policy-card';
 import { LeaseDocumentRulesCard } from '@/components/lease-document-rules-card';
 import { StayReschedulePolicyBoard } from '@/components/stay-reschedule-policy-board';
 import { Link } from '@/i18n/navigation';
-import { loadOwnerApprovalPolicyBundle } from '@/lib/approval-policy-neon';
+import {
+  loadApprovalPolicyBuildingIndex,
+  loadOwnerApprovalPolicyBundle,
+} from '@/lib/approval-policy-neon';
 import { DEFAULT_LEASE_DOCUMENT_RULES } from '@/lib/lease-document-rules';
 import { loadOwnerLeaseDocumentRules } from '@/lib/lease-document-rules-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -38,7 +42,7 @@ export async function PortalSettingsDesk({
     roles: viewer.roles,
   };
   const claims = await readSessionClaimsFromCookies();
-  const [approval, documentRules, stayUnits] = await Promise.all([
+  const [approval, documentRules, stayUnits, approvalBuildings] = await Promise.all([
     loadOwnerApprovalPolicyBundle(scope, null).catch(() => null),
     loadOwnerLeaseDocumentRules(scope, null).catch(() => null),
     claims?.organizationId && isStaysPlatformEnabled()
@@ -46,6 +50,7 @@ export async function PortalSettingsDesk({
           (): PropertyStaySettingsUnit[] => [],
         )
       : Promise.resolve([] as PropertyStaySettingsUnit[]),
+    loadApprovalPolicyBuildingIndex(scope).catch(() => []),
   ]);
 
   const links = [
@@ -94,8 +99,8 @@ export async function PortalSettingsDesk({
         <h1>{ar ? 'الضبط' : 'Control'}</h1>
         <p>
           {ar
-            ? 'اضبط اعتماد كل نوع عقد (يومي، طويل الأجل، شراء)، مستندات المستأجر، أتمتة المعاينة، وصلاحيات الفريق.'
-            : 'Configure each contract type (daily, long-term, purchase), tenant documents, viewing automation, and team permissions.'}
+            ? 'إعدادات عامة لكل المباني، ثم تخصيص مبنى بعينه (حجز تلقائي / عقد يدوي / معاينة مؤتمتة)، ومستندات المستأجر وصلاحيات الفريق.'
+            : 'General settings for all buildings, then per-building overrides (auto booking / manual contract / auto viewing), tenant documents, and team permissions.'}
         </p>
       </header>
 
@@ -120,6 +125,12 @@ export async function PortalSettingsDesk({
           </p>
         </section>
       )}
+
+      <ApprovalPolicyBuildingsPanel
+        locale={locale}
+        portal={portal}
+        buildings={approvalBuildings}
+      />
 
       {documentRules ? (
         <LeaseDocumentRulesCard
