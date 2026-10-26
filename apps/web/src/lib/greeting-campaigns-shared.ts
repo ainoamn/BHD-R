@@ -41,8 +41,11 @@ export type GreetingDesignVersion = {
   accentSoft: string;
   motif: string;
   imagePrompt: string;
-  /** Self-contained SVG card (logos + AI copy). */
+  /** Text-only SVG fallback when raster generation is unavailable. */
   svg: string;
+  /** Photorealistic AI card (JPEG/PNG/WebP), preferred over `svg`. */
+  imageMime: string | null;
+  imageBase64: string | null;
 };
 
 export type GreetingCampaign = {

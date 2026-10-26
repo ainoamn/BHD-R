@@ -581,7 +581,13 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 disabled={busy}
                 onClick={() => void createCampaign()}
               >
-                {busy ? (ar ? 'جارٍ التصميم…' : 'Designing…') : ar ? 'إنشاء وتصميم البطاقة' : 'Create & design card'}
+                {busy
+                  ? ar
+                    ? 'جارٍ رسم الصورة…'
+                    : 'Rendering image…'
+                  : ar
+                    ? 'إنشاء ورسم صورة التهنئة'
+                    : 'Create & render AI image'}
               </button>
             ) : (
               <>
@@ -674,11 +680,11 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
               >
                 {busy
                   ? ar
-                    ? 'جارٍ إعادة التصميم…'
-                    : 'Redesigning…'
+                    ? 'جارٍ رسم صورة جديدة…'
+                    : 'Rendering new image…'
                   : ar
-                    ? 'إعادة التصميم بالذكاء الاصطناعي'
-                    : 'AI redesign'}
+                    ? 'إعادة رسم الصورة بالذكاء الاصطناعي'
+                    : 'AI re-render image'}
               </button>
 
               {selected.designs.length > 1 ? (

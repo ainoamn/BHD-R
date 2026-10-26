@@ -24,7 +24,7 @@ import { siteAdminAccess } from '@/lib/site-admin-neon';
 
 const STORE_KEY = 'greeting_campaigns';
 const MAX_CAMPAIGNS = 80;
-const MAX_DESIGNS = 12;
+const MAX_DESIGNS = 8;
 const SEND_BATCH = 80;
 
 function fail(code: string): never {
@@ -628,17 +628,43 @@ export async function dispatchDueGreetingCampaigns(deadlineMs: number): Promise<
   return { processed, sent: sentTotal };
 }
 
-/** Public image lookup (no auth) — only exposes SVG for known campaign/design ids. */
-export async function loadGreetingDesignSvg(
+export type GreetingDesignAsset = {
+  body: Buffer;
+  contentType: string;
+};
+
+/** Public image lookup (no auth) — raster preferred, SVG fallback. */
+export async function loadGreetingDesignAsset(
   campaignId: string,
   designId: string,
-): Promise<string | null> {
+): Promise<GreetingDesignAsset | null> {
   return elevatedTx(async (tx) => {
     const store = await readStore(tx);
     const campaign = store.campaigns.find((c) => c.id === campaignId);
     const design = campaign?.designs.find((d) => d.id === designId);
-    return design?.svg ?? null;
+    if (!design) return null;
+    if (design.imageBase64 && design.imageMime) {
+      return {
+        body: Buffer.from(design.imageBase64, 'base64'),
+        contentType: design.imageMime,
+      };
+    }
+    if (design.svg) {
+      return { body: Buffer.from(design.svg, 'utf8'), contentType: 'image/svg+xml; charset=utf-8' };
+    }
+    return null;
   });
+}
+
+/** @deprecated use loadGreetingDesignAsset */
+export async function loadGreetingDesignSvg(
+  campaignId: string,
+  designId: string,
+): Promise<string | null> {
+  const asset = await loadGreetingDesignAsset(campaignId, designId);
+  if (!asset) return null;
+  if (asset.contentType.startsWith('image/svg')) return asset.body.toString('utf8');
+  return null;
 }
 
 export async function estimateGreetingAudience(
