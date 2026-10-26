@@ -60,6 +60,9 @@ const SitePagesAdmin = dynamic(() =>
 const MaintenanceAdmin = dynamic(() =>
   import('@/components/site-admin/maintenance-admin').then((m) => m.MaintenanceAdmin),
 );
+const GreetingsAdmin = dynamic(() =>
+  import('@/components/site-admin/greetings-admin').then((m) => m.GreetingsAdmin),
+);
 
 function Panel({
   id,
@@ -127,6 +130,12 @@ function renderSection(
       return (
         <div className="site-admin--wide">
           <NotificationTemplatesStudio locale={locale} />
+        </div>
+      );
+    case 'greetings':
+      return (
+        <div className="site-admin--wide">
+          <GreetingsAdmin locale={locale} />
         </div>
       );
     case 'badges':

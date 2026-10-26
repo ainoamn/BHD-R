@@ -40,6 +40,8 @@ export type BrandedEmailInput = {
   cta?: { label: string; url: string } | undefined;
   /** Small print under the button, e.g. why they got this email. */
   footnote?: string | undefined;
+  /** Absolute https URL of a hero image (e.g. greeting card); never a data: URL. */
+  heroImageUrl?: string | undefined;
 };
 
 type ToneStyle = { icon: string; accent: string; soft: string; badge: string; wishes: string[] };
@@ -511,8 +513,14 @@ export function renderBrandedEmail(
       <div style="color:#8a99a8;font-size:11px;letter-spacing:1px;word-break:break-word">${PRODUCT_NAME} · ${COMPANY_NAME_EN}</div>
     </td></tr>
     <tr><td class="bhd-pad" style="background:#ffffff;padding:14px 16px 0;text-align:center">
-      <div class="bhd-icon" style="display:inline-block;width:72px;height:72px;line-height:72px;border-radius:50%;background:${tone.soft};font-size:36px">${tone.icon}</div>
-      <div style="margin-top:10px"><span style="display:inline-block;background:${tone.soft};color:${tone.accent};border-radius:999px;padding:4px 12px;font-size:11px;font-weight:700;line-height:1.4;max-width:100%;box-sizing:border-box;word-break:break-word">${escape(tone.badge)}</span></div>
+      ${
+        input.heroImageUrl && /^https:\/\//i.test(input.heroImageUrl)
+          ? `<a href="${escape(input.heroImageUrl)}" style="display:block;text-decoration:none">
+        <img src="${escape(input.heroImageUrl)}" alt="${escape(input.title)}" width="568" style="display:block;width:100%;max-width:568px;height:auto;margin:0 auto 12px;border:0;border-radius:16px">
+      </a>`
+          : `<div class="bhd-icon" style="display:inline-block;width:72px;height:72px;line-height:72px;border-radius:50%;background:${tone.soft};font-size:36px">${tone.icon}</div>
+      <div style="margin-top:10px"><span style="display:inline-block;background:${tone.soft};color:${tone.accent};border-radius:999px;padding:4px 12px;font-size:11px;font-weight:700;line-height:1.4;max-width:100%;box-sizing:border-box;word-break:break-word">${escape(tone.badge)}</span></div>`
+      }
       <h1 class="bhd-title" style="margin:12px 0 4px;color:#10243a;font-size:20px;line-height:1.45;font-weight:700;word-break:break-word;overflow-wrap:anywhere">${escape(input.title)}</h1>
     </td></tr>
     <tr><td class="bhd-pad bhd-body" style="background:#ffffff;padding:8px 16px 4px;color:#24384d;font-size:15px;line-height:1.75;text-align:right;word-break:break-word;overflow-wrap:anywhere">

@@ -59,6 +59,7 @@ export type SiteConsoleSectionId =
   | 'pages'
   | 'maintenance'
   | 'notifications'
+  | 'greetings'
   | 'badges'
   | 'apiKeys'
   | 'labReset'
@@ -147,6 +148,14 @@ export const SITE_CONSOLE_SECTIONS: Array<{
     scope: null,
     ar: 'قوالب الإشعارات',
     en: 'Notification templates',
+  },
+  {
+    id: 'greetings',
+    path: '/admin/greetings',
+    scope: null,
+    rootOnly: true,
+    ar: 'التهاني المجدولة',
+    en: 'Scheduled greetings',
   },
   {
     id: 'badges',
@@ -423,6 +432,31 @@ const ERRORS: Record<string, { status: number; ar: string; en: string }> = {
     status: 400,
     ar: 'تعذّر التحقق من مفاتيح البوابة. راجع المفتاح ونقطة النهاية ثم أعد المحاولة.',
     en: 'Could not verify the gateway keys. Check the key and endpoint, then try again.',
+  },
+  greeting_not_found: {
+    status: 404,
+    ar: 'حملة التهنئة غير موجودة.',
+    en: 'Greeting campaign not found.',
+  },
+  greeting_design_not_found: {
+    status: 404,
+    ar: 'نسخة التصميم غير موجودة.',
+    en: 'Greeting design version not found.',
+  },
+  greeting_no_design: {
+    status: 400,
+    ar: 'صمّم البطاقة أولاً قبل الإرسال.',
+    en: 'Generate a card design before sending.',
+  },
+  greeting_locked: {
+    status: 409,
+    ar: 'هذه الحملة قيد الإرسال أو أُرسلت مسبقاً.',
+    en: 'This campaign is sending or already sent.',
+  },
+  ai_failed: {
+    status: 502,
+    ar: 'تعذّر توليد التصميم بالذكاء الاصطناعي. أعد المحاولة.',
+    en: 'AI design failed. Please try again.',
   },
 };
 

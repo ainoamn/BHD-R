@@ -34850,3 +34850,143 @@ button.handover-shots__item {
   background: #fef2f2;
   color: #991b1b;
 }
+
+/* Site admin — scheduled AI greetings */
+.sa-greetings__grid {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .sa-greetings__grid {
+    grid-template-columns: 1fr;
+  }
+}
+.sa-greetings__list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.sa-greetings__list button {
+  width: 100%;
+  text-align: inherit;
+  border: 1px solid #d7e2e8;
+  background: #fff;
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.15rem;
+}
+.sa-greetings__list button.is-active {
+  border-color: #0b8f8a;
+  background: #eef8f7;
+}
+.sa-greetings__list button span {
+  color: #5b6b7a;
+  font-size: 0.85rem;
+}
+.sa-greetings__fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+.sa-greetings__full {
+  grid-column: 1 / -1;
+}
+.sa-greetings__fields label,
+.sa-greetings__editor > label,
+.sa-greetings__nat {
+  display: grid;
+  gap: 0.35rem;
+  font-weight: 600;
+  color: #174b70;
+}
+.sa-greetings__fields input,
+.sa-greetings__fields textarea,
+.sa-greetings__editor > label input,
+.sa-greetings__preview textarea,
+.sa-greetings__nat input {
+  font: inherit;
+  border: 1px solid #cfdbe3;
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+}
+.sa-greetings__audience {
+  border: 1px solid #d7e2e8;
+  border-radius: 14px;
+  padding: 0.85rem 1rem 1rem;
+  margin: 1rem 0;
+}
+.sa-greetings__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.75rem;
+}
+.sa-greetings__chips button {
+  border: 1px solid #cfdbe3;
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+}
+.sa-greetings__chips button.is-active {
+  background: #0b8f8a;
+  border-color: #0b8f8a;
+  color: #fff;
+}
+.sa-greetings__nat span {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.sa-greetings__hint {
+  font-size: 0.85rem;
+}
+.sa-greetings__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+}
+.sa-greetings__frame {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #d7e2e8;
+  background: #eef5f5;
+}
+.sa-greetings__frame img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sa-greetings__history ul {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+}
+.sa-greetings__history button {
+  border: 1px solid #d7e2e8;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.35rem;
+  cursor: pointer;
+  display: grid;
+  gap: 0.25rem;
+}
+.sa-greetings__history button.is-active {
+  border-color: #0b8f8a;
+}
+.sa-greetings__history img {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+}

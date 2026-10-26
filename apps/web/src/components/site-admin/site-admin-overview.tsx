@@ -84,6 +84,13 @@ const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintE
     hintEn: 'Email and alert wording',
   },
   {
+    href: '/admin/greetings',
+    ar: 'التهاني المجدولة',
+    en: 'Scheduled greetings',
+    hintAr: 'بطاقات ذكاء اصطناعي وجمهور وجدولة',
+    hintEn: 'AI cards, audience and schedule',
+  },
+  {
     href: '/admin/badges',
     ar: 'الشارات',
     en: 'Badges',
