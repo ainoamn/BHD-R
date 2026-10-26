@@ -337,6 +337,7 @@ export function LeaseContractForm({
   bankAccounts = [],
   propertyId = null,
   deferUntilHandover = [],
+  municipalAfterHandover = false,
   requirements,
   onRequirementsChange,
   documentRules = DEFAULT_LEASE_DOCUMENT_RULES,
@@ -365,6 +366,11 @@ export function LeaseContractForm({
   propertyId?: string | null | undefined;
   /** From approval policy: fields filled after tenant sign / at handover. */
   deferUntilHandover?: ReadonlyArray<'meters' | 'handoverOn'> | undefined;
+  /**
+   * Website bookings: hide municipal form/contract numbers here; they are required
+   * on the booking page after premises handover.
+   */
+  municipalAfterHandover?: boolean | undefined;
   /** When set with onRequirementsChange, shows the smart documents picker. */
   requirements?: DocumentRequirementPick[] | undefined;
   onRequirementsChange?: ((next: DocumentRequirementPick[]) => void) | undefined;
@@ -916,26 +922,40 @@ export function LeaseContractForm({
               <option value="commercial">{t('تجاري', 'Commercial')}</option>
             </select>
           </Field>
-          <Field id="lcf-mform" label={t('رقم استمارة العقد البلدي', 'Municipal form no.')}>
-            <input
-              id="lcf-mform"
-              className="input"
-              dir="ltr"
-              maxLength={80}
-              value={draft.municipalFormNo ?? ''}
-              onChange={(event) => set('municipalFormNo', event.target.value)}
-            />
-          </Field>
-          <Field id="lcf-mcontract" label={t('رقم العقد البلدي', 'Municipal contract no.')}>
-            <input
-              id="lcf-mcontract"
-              className="input"
-              dir="ltr"
-              maxLength={80}
-              value={draft.municipalContractNo ?? ''}
-              onChange={(event) => set('municipalContractNo', event.target.value)}
-            />
-          </Field>
+          {municipalAfterHandover ? (
+            <p className="muted span-2">
+              {t(
+                'رقم استمارة العقد البلدي ورقم العقد البلدي يُدخلان بعد تسليم العقار من صفحة الحجز.',
+                'Municipal form and contract numbers are entered after handover on the booking page.',
+              )}
+            </p>
+          ) : (
+            <>
+              <Field id="lcf-mform" label={t('رقم استمارة العقد البلدي', 'Municipal form no.')}>
+                <input
+                  id="lcf-mform"
+                  className="input"
+                  dir="ltr"
+                  maxLength={80}
+                  value={draft.municipalFormNo ?? ''}
+                  onChange={(event) => set('municipalFormNo', event.target.value)}
+                />
+              </Field>
+              <Field
+                id="lcf-mcontract"
+                label={t('رقم العقد البلدي', 'Municipal contract no.')}
+              >
+                <input
+                  id="lcf-mcontract"
+                  className="input"
+                  dir="ltr"
+                  maxLength={80}
+                  value={draft.municipalContractNo ?? ''}
+                  onChange={(event) => set('municipalContractNo', event.target.value)}
+                />
+              </Field>
+            </>
+          )}
         </div>
       </Section>
 

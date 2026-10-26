@@ -63,6 +63,10 @@ const ERROR_TEXT: Record<string, [string, string]> = {
     'Check the required documents list.',
   ],
   handover_invalid: ['أدخل تاريخ التسليم واسم المستلم.', 'Enter the handover date and recipient.'],
+  municipal_registration_invalid: [
+    'أدخل رقم استمارة العقد البلدي ورقم العقد البلدي.',
+    'Enter the municipal form number and municipal contract number.',
+  ],
   lease_overlap: [
     'يوجد عقد إيجار آخر على الوحدة في نفس الفترة.',
     'Another lease overlaps this period on the unit.',
@@ -833,6 +837,30 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 ) : null}
               </div>
             ) : null}
+
+            {!sale &&
+            phase === 'handed_over' &&
+            lifecycle.handover &&
+            (!lifecycle.handover.status || lifecycle.handover.status === 'accepted') ? (
+              <MunicipalRegistrationCard
+                ar={ar}
+                t={t}
+                busy={busy}
+                canManage={canManage}
+                registration={lifecycle.municipalRegistration}
+                draftTerms={
+                  (lifecycle.contractDraft?.lease as { terms?: LeaseTermsDraft } | undefined)
+                    ?.terms
+                }
+                onSave={(formNo, contractNo) =>
+                  void act({
+                    action: 'save_municipal_registration',
+                    formNo,
+                    contractNo,
+                  })
+                }
+              />
+            ) : null}
           </>
         ) : null}
 
@@ -842,6 +870,168 @@ export function LeaseReservationWorkflow(serverProps: Props) {
         <FilePreviewDialog file={preview} ar={ar} onClose={() => setPreview(null)} />
       ) : null}
     </PreviewContext.Provider>
+  );
+}
+
+function MunicipalRegistrationCard({
+  ar,
+  t,
+  busy,
+  canManage,
+  registration,
+  draftTerms,
+  onSave,
+}: {
+  ar: boolean;
+  t: (arText: string, enText: string) => string;
+  busy: boolean;
+  canManage: boolean;
+  registration: ReservationLifecycle['municipalRegistration'];
+  draftTerms?: LeaseTermsDraft | undefined;
+  onSave: (formNo: string, contractNo: string) => void;
+}) {
+  const [formNo, setFormNo] = useState(
+    registration?.formNo ?? draftTerms?.municipalFormNo ?? '',
+  );
+  const [contractNo, setContractNo] = useState(
+    registration?.contractNo ?? draftTerms?.municipalContractNo ?? '',
+  );
+  const [editing, setEditing] = useState(!registration);
+
+  useEffect(() => {
+    if (registration) {
+      setFormNo(registration.formNo);
+      setContractNo(registration.contractNo);
+      setEditing(false);
+    }
+  }, [registration]);
+
+  const formMissing = !formNo.trim();
+  const contractMissing = !contractNo.trim();
+
+  if (registration && !editing) {
+    return (
+      <div className="lrw__card">
+        <h3>{t('تسجيل العقد البلدي', 'Municipal contract registration')}</h3>
+        <dl className="contract-detail__facts">
+          <div>
+            <dt>{t('رقم استمارة العقد البلدي', 'Municipal form no.')}</dt>
+            <dd dir="ltr">{registration.formNo}</dd>
+          </div>
+          <div>
+            <dt>{t('رقم العقد البلدي', 'Municipal contract no.')}</dt>
+            <dd dir="ltr">{registration.contractNo}</dd>
+          </div>
+          <div>
+            <dt>{t('سُجّل', 'Recorded')}</dt>
+            <dd>
+              {stampText(registration.at, ar)}
+              {registration.byName ? ` · ${registration.byName}` : ''}
+            </dd>
+          </div>
+        </dl>
+        {canManage ? (
+          <button
+            type="button"
+            className="button button--quiet"
+            disabled={busy}
+            onClick={() => setEditing(true)}
+          >
+            {t('تعديل الأرقام', 'Edit numbers')}
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
+  return (
+    <div className="lrw__card lrw__card--action">
+      <h3>{t('تسجيل العقد البلدي', 'Municipal contract registration')}</h3>
+      <p>
+        {t(
+          'بعد تسليم العقار أدخل رقم استمارة العقد البلدي ورقم العقد البلدي — الحقلان إلزاميان.',
+          'After handover, enter the municipal form number and municipal contract number — both are required.',
+        )}
+      </p>
+      <form
+        className="form-grid"
+        onSubmit={(event: FormEvent) => {
+          event.preventDefault();
+          if (formMissing || contractMissing) return;
+          onSave(formNo.trim(), contractNo.trim());
+        }}
+      >
+        <div className={`field field--required-mark${formMissing ? ' field--missing' : ' field--ok'}`}>
+          <label htmlFor="lrw-mform">
+            {t('رقم استمارة العقد البلدي', 'Municipal form no.')}
+            <span className="field__req" aria-hidden="true">
+              *
+            </span>
+          </label>
+          <input
+            id="lrw-mform"
+            className="input"
+            dir="ltr"
+            required
+            maxLength={80}
+            disabled={busy || !canManage}
+            value={formNo}
+            onChange={(event) => setFormNo(event.target.value)}
+          />
+        </div>
+        <div
+          className={`field field--required-mark${contractMissing ? ' field--missing' : ' field--ok'}`}
+        >
+          <label htmlFor="lrw-mcontract">
+            {t('رقم العقد البلدي', 'Municipal contract no.')}
+            <span className="field__req" aria-hidden="true">
+              *
+            </span>
+          </label>
+          <input
+            id="lrw-mcontract"
+            className="input"
+            dir="ltr"
+            required
+            maxLength={80}
+            disabled={busy || !canManage}
+            value={contractNo}
+            onChange={(event) => setContractNo(event.target.value)}
+          />
+        </div>
+        {canManage ? (
+          <div className="form-actions span-2">
+            <button
+              type="submit"
+              className="button button--primary"
+              disabled={busy || formMissing || contractMissing}
+            >
+              {busy
+                ? t('جارٍ الحفظ…', 'Saving…')
+                : t('حفظ أرقام البلدية', 'Save municipal numbers')}
+            </button>
+            {registration ? (
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={busy}
+                onClick={() => {
+                  setFormNo(registration.formNo);
+                  setContractNo(registration.contractNo);
+                  setEditing(false);
+                }}
+              >
+                {t('إلغاء', 'Cancel')}
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <p className="muted span-2">
+            {t('يلزم صلاحية إدارة الحجوزات لإدخال الأرقام.', 'Booking manage permission is required.')}
+          </p>
+        )}
+      </form>
+    </div>
   );
 }
 
@@ -1770,6 +1960,7 @@ function ContractDraftEditor({
         bankAccounts={bankAccounts}
         propertyId={propertyId}
         deferUntilHandover={deferUntilHandover}
+        municipalAfterHandover
         requirements={requirements}
         onRequirementsChange={setRequirements}
         documentRules={documentRules}

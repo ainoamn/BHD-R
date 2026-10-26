@@ -68,6 +68,16 @@ export type ReservationLifecycle = {
     note: string | null;
     code?: string | null;
   };
+  /**
+   * Muscat municipality registration numbers — entered by the owner after premises
+   * handover (not during contract prep).
+   */
+  municipalRegistration?: {
+    formNo: string;
+    contractNo: string;
+    at: string;
+    byName: string | null;
+  };
   handover?: {
     at: string;
     on: string;

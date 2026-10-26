@@ -88,6 +88,13 @@ const bodySchema = z.discriminatedUnion('action', [
       notes: z.string().max(1000).optional(),
     })
     .strict(),
+  z
+    .object({
+      action: z.literal('save_municipal_registration'),
+      formNo: z.string().trim().min(1).max(80),
+      contractNo: z.string().trim().min(1).max(80),
+    })
+    .strict(),
 ]);
 
 /**

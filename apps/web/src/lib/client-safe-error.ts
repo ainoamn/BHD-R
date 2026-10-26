@@ -103,6 +103,7 @@ const KNOWN_CODES = new Set([
   'email_unverified',
   'contract_awaiting_counterparty',
   'handover_invalid',
+  'municipal_registration_invalid',
   'sale_decision_not_open',
   'tenant_details_invalid',
   'cr_expired',
@@ -231,6 +232,7 @@ export function statusForSafeCode(code: string): number {
       return 409;
     case 'requirements_invalid':
     case 'handover_invalid':
+    case 'municipal_registration_invalid':
     case 'tenant_details_invalid':
     case 'cr_expired':
     case 'cr_expiring_soon':

@@ -229,6 +229,11 @@ export type ReservationOwnerAction =
       electricityReading?: string | undefined;
       waterReading?: string | undefined;
       notes?: string | undefined;
+    }
+  | {
+      action: 'save_municipal_registration';
+      formNo: string;
+      contractNo: string;
     };
 
 function cleanRequirements(
@@ -994,6 +999,68 @@ async function ownerActionInTx(
         };
         await saveLifecycle(tx, row, lifecycle);
         await event('reservation.handed_over', { on: input.on, recipientName });
+        break;
+      }
+
+      case 'save_municipal_registration': {
+        if (row.snapshot.mode === 'sale') fail('reservation_not_ready');
+        const handover = row.lifecycle.handover;
+        if (!handover || (handover.status && handover.status !== 'accepted')) {
+          fail('reservation_not_ready');
+        }
+        const formNo = input.formNo.trim().slice(0, 80);
+        const contractNo = input.contractNo.trim().slice(0, 80);
+        if (!formNo || !contractNo) fail('municipal_registration_invalid');
+        const registration = {
+          formNo,
+          contractNo,
+          at,
+          byName,
+        };
+        const draft = row.lifecycle.contractDraft;
+        let nextDraft = draft;
+        if (draft?.lease && typeof draft.lease === 'object') {
+          const lease = draft.lease as { terms?: Record<string, unknown> };
+          const terms =
+            lease.terms && typeof lease.terms === 'object' ? { ...lease.terms } : {};
+          terms.municipalFormNo = formNo;
+          terms.municipalContractNo = contractNo;
+          nextDraft = {
+            ...draft,
+            savedAt: at,
+            byName,
+            lease: { ...lease, terms },
+          };
+        }
+        const lifecycle: ReservationLifecycle = {
+          ...row.lifecycle,
+          ...(nextDraft ? { contractDraft: nextDraft } : {}),
+          municipalRegistration: registration,
+        };
+        await saveLifecycle(tx, row, lifecycle);
+        const contractId = row.lifecycle.contract?.id;
+        if (contractId) {
+          const [contract] = await tx
+            .select({ payloadSnapshot: contracts.payloadSnapshot })
+            .from(contracts)
+            .where(and(eq(contracts.id, contractId), eq(contracts.organizationId, row.orgId)))
+            .limit(1);
+          if (contract?.payloadSnapshot && typeof contract.payloadSnapshot === 'object') {
+            const payload = { ...(contract.payloadSnapshot as Record<string, unknown>) };
+            const leaseTerms =
+              payload.leaseTerms && typeof payload.leaseTerms === 'object'
+                ? { ...(payload.leaseTerms as Record<string, unknown>) }
+                : {};
+            leaseTerms.municipalFormNo = formNo;
+            leaseTerms.municipalContractNo = contractNo;
+            payload.leaseTerms = leaseTerms;
+            await tx
+              .update(contracts)
+              .set({ payloadSnapshot: payload, updatedAt: new Date(at) })
+              .where(and(eq(contracts.id, contractId), eq(contracts.organizationId, row.orgId)));
+          }
+        }
+        await event('reservation.municipal_registration_saved', { formNo, contractNo });
         break;
       }
     }
