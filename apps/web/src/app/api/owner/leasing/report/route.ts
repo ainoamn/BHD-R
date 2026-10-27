@@ -11,7 +11,7 @@ import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-li
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const rowSchema = z
   .object({
@@ -37,7 +37,8 @@ const postSchema = z
 
 /**
  * POST — seal the filtered leasing list as a verifiable report snapshot.
- * GET  — download Excel/CSV for a sealed token (`?token=&format=xlsx|csv`).
+ * GET  — download Excel/CSV/PDF for a sealed token
+ *        (`?token=&format=xlsx|csv|pdf&orientation=portrait|landscape`).
  */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
@@ -99,18 +100,27 @@ export async function GET(request: Request) {
   }
   const url = new URL(request.url);
   const token = url.searchParams.get('token') ?? '';
-  const format = url.searchParams.get('format') === 'csv' ? 'csv' : 'xlsx';
+  const formatParam = url.searchParams.get('format');
+  const format =
+    formatParam === 'csv' ? 'csv' : formatParam === 'pdf' ? 'pdf' : 'xlsx';
+  const orientation =
+    url.searchParams.get('orientation') === 'landscape' ? 'landscape' : 'portrait';
   const snapshot = await loadLeasingOpsReport(token);
   if (!snapshot) {
     return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
   }
-  const file = await leasingReportFile(snapshot, format);
-  return new NextResponse(Buffer.from(file.bytes), {
-    status: 200,
-    headers: {
-      'content-type': file.mime,
-      'content-disposition': `attachment; filename="${file.filename}"`,
-      'cache-control': 'no-store',
-    },
-  });
+  try {
+    const file = await leasingReportFile(snapshot, format, orientation);
+    return new NextResponse(Buffer.from(file.bytes), {
+      status: 200,
+      headers: {
+        'content-type': file.mime,
+        'content-disposition': `attachment; filename="${file.filename}"`,
+        'cache-control': 'no-store',
+      },
+    });
+  } catch (error) {
+    const code = error instanceof Error ? error.message : 'render_failed';
+    return NextResponse.json({ error: { code } }, { status: 500 });
+  }
 }

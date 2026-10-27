@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import type { LeasingReportSnapshot } from '@/lib/leasing-report-neon';
 
+type LeasingPdfOrientation = 'portrait' | 'landscape';
+
 function stamp(iso: string, ar: boolean): string {
   return new Date(iso).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
     timeZone: 'Asia/Muscat',
@@ -12,8 +14,7 @@ function stamp(iso: string, ar: boolean): string {
 }
 
 /**
- * Formal leasing list report: letterhead, sealed QR for public verify, Excel download,
- * and browser print (Save as PDF).
+ * Formal leasing list report: letterhead, sealed QR, real PDF (portrait/landscape), Excel.
  */
 export function LeasingOpsReportView({
   locale,
@@ -29,66 +30,113 @@ export function LeasingOpsReportView({
   mode: 'owner' | 'verify';
 }) {
   const ar = locale === 'ar';
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<'xlsx' | LeasingPdfOrientation | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function downloadExcel() {
-    setBusy(true);
+  async function download(format: 'xlsx' | 'pdf', orientation?: LeasingPdfOrientation) {
+    setBusy(format === 'pdf' ? (orientation ?? 'portrait') : 'xlsx');
     setError(null);
     try {
-      const response = await fetch(
-        `/api/owner/leasing/report?token=${encodeURIComponent(snapshot.token)}&format=xlsx`,
-        { credentials: 'same-origin', cache: 'no-store' },
-      );
+      const params = new URLSearchParams({
+        token: snapshot.token,
+        format,
+      });
+      if (format === 'pdf') params.set('orientation', orientation ?? 'portrait');
+      const response = await fetch(`/api/owner/leasing/report?${params}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
       if (!response.ok) throw new Error('download_failed');
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
+      const stampDay = snapshot.issuedAt.slice(0, 10);
       anchor.href = url;
-      anchor.download = `bhd-r-leasing-${snapshot.issuedAt.slice(0, 10)}.xlsx`;
+      anchor.download =
+        format === 'pdf'
+          ? `bhd-r-leasing-${stampDay}-${orientation ?? 'portrait'}.pdf`
+          : `bhd-r-leasing-${stampDay}.xlsx`;
       anchor.rel = 'noopener';
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 2_000);
     } catch {
-      setError(ar ? 'تعذّر تنزيل ملف Excel.' : 'Could not download the Excel file.');
+      setError(
+        format === 'pdf'
+          ? ar
+            ? 'تعذّر تنزيل ملف PDF.'
+            : 'Could not download the PDF file.'
+          : ar
+            ? 'تعذّر تنزيل ملف Excel.'
+            : 'Could not download the Excel file.',
+      );
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
   return (
     <div className="leasing-report" dir={ar ? 'rtl' : 'ltr'}>
-      <style>{`
-        @media print {
-          .leasing-report__toolbar, .site-header, .site-footer, .portal-nav { display: none !important; }
-          .leasing-report { box-shadow: none; border: 0; }
-          body { background: white; }
-        }
-      `}</style>
       {mode === 'owner' ? (
         <div className="leasing-report__toolbar no-print">
-          <button
-            type="button"
-            className="button button--primary"
-            onClick={() => window.print()}
-          >
-            {ar ? 'طباعة / حفظ PDF' : 'Print / Save PDF'}
-          </button>
+          <div className="leasing-report__pdf-group" role="group" aria-label={ar ? 'تنزيل PDF' : 'Download PDF'}>
+            <span className="leasing-report__pdf-label">
+              {ar ? 'تنزيل PDF رسمي' : 'Official PDF download'}
+            </span>
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy !== null}
+              onClick={() => void download('pdf', 'portrait')}
+            >
+              {busy === 'portrait'
+                ? ar
+                  ? 'جارٍ التجهيز…'
+                  : 'Preparing…'
+                : ar
+                  ? 'طولي (Portrait)'
+                  : 'Portrait'}
+            </button>
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy !== null}
+              onClick={() => void download('pdf', 'landscape')}
+            >
+              {busy === 'landscape'
+                ? ar
+                  ? 'جارٍ التجهيز…'
+                  : 'Preparing…'
+                : ar
+                  ? 'عرضي (Landscape)'
+                  : 'Landscape'}
+            </button>
+          </div>
           <button
             type="button"
             className="button button--quiet"
-            disabled={busy}
-            onClick={() => void downloadExcel()}
+            disabled={busy !== null}
+            onClick={() => void download('xlsx')}
           >
-            {busy ? (ar ? 'جارٍ التنزيل…' : 'Downloading…') : ar ? 'تنزيل Excel' : 'Download Excel'}
+            {busy === 'xlsx'
+              ? ar
+                ? 'جارٍ التنزيل…'
+                : 'Downloading…'
+              : ar
+                ? 'تنزيل Excel'
+                : 'Download Excel'}
           </button>
           {error ? (
             <p className="notice notice--error" role="alert">
               {error}
             </p>
           ) : null}
+          <p className="leasing-report__hint muted">
+            {ar
+              ? 'الملف يُنزَّل كـ PDF حقيقي بحجم A4 متناسق — اختر طولي للجداول القصيرة أو عرضي لأعمدة أوضح.'
+              : 'Downloads a real A4 PDF — choose portrait for short lists or landscape for clearer columns.'}
+          </p>
         </div>
       ) : null}
 

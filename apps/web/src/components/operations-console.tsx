@@ -6061,8 +6061,8 @@ ${depositHtml}${
                   </h2>
                   <p>
                     {ar
-                      ? 'اختر النوع: ملف Excel للتنزيل المباشر، أو تقرير PDF رسمي (شعار وباركود تحقق) للطباعة أو الحفظ كـ PDF.'
-                      : 'Choose a type: Excel for direct download, or an official PDF report (logo and verification barcode) to print or save as PDF.'}
+                      ? 'اختر النوع: ملف Excel للتنزيل المباشر، أو تقرير PDF رسمي (شعار وباركود) ثم اختر طولي أو عرضي للتنزيل كملف حقيقي.'
+                      : 'Choose a type: Excel for direct download, or an official PDF report (logo and barcode) then pick portrait or landscape for a real file download.'}
                   </p>
                 </div>
                 <button

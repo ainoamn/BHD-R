@@ -11943,6 +11943,22 @@ body:has(.stays-booking-receipt) #main-content {
   align-items: center;
   margin-bottom: 1rem;
 }
+.leasing-report__pdf-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+.leasing-report__pdf-label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #2a3b34;
+}
+.leasing-report__hint {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.8rem;
+}
 .leasing-report__sheet {
   padding: 1.25rem 1.35rem 1.5rem;
   background: #fff;

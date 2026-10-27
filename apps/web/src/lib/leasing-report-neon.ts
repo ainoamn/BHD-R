@@ -11,8 +11,14 @@ import {
   renderLeasingXlsx,
   type LeasingReportSheet,
 } from '@/lib/leasing-report-files';
+import {
+  renderLeasingPdf,
+  type LeasingPdfOrientation,
+} from '@/lib/leasing-report-pdf';
 import type { LeasingPrintRow } from '@/lib/leasing-ops-table';
 import { publicWebOrigin } from '@/lib/seo';
+
+export type { LeasingPdfOrientation };
 
 const TOKEN_RE = /^blr_[a-f0-9]{16}_[a-f0-9]{8}$/i;
 const RESOURCE = 'leasing_ops_report';
@@ -206,8 +212,12 @@ export async function loadLeasingOpsReport(
 
 export async function leasingReportFile(
   snapshot: LeasingReportSnapshot,
-  format: 'xlsx' | 'csv',
+  format: 'xlsx' | 'csv' | 'pdf',
+  orientation: LeasingPdfOrientation = 'portrait',
 ): Promise<{ bytes: Uint8Array; filename: string; mime: string }> {
+  if (format === 'pdf') {
+    return renderLeasingPdf(snapshot, orientation);
+  }
   const sheet = sheetOf(snapshot);
   const stamp = snapshot.issuedAt.slice(0, 10);
   if (format === 'csv') {
