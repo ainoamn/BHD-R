@@ -83,6 +83,15 @@ const ERROR_TEXT: Record<string, [string, string]> = {
     'Another lease overlaps this period on the unit.',
   ],
   cheque_number_taken: ['رقم شيك مستخدم من قبل.', 'A cheque number is already used.'],
+  meters_required: [
+    'أدخل قراءات الكهرباء والماء، أو أجّلها حتى التسليم من سياسة الاعتماد.',
+    'Enter electricity and water readings, or defer them until handover in the approval policy.',
+  ],
+  handover_required: ['أدخل تاريخ التسليم.', 'Enter the handover date.'],
+  bank_account_required: [
+    'اختر حساب البنك واسم المستفيد للشيكات.',
+    'Choose the bank account and cheque payee name.',
+  ],
   invalid_amount: ['المبلغ غير صحيح.', 'The amount is invalid.'],
   invalid_dates: ['تحقّق من التواريخ.', 'Check the dates.'],
   invalid_schedule: ['جدول الدفع غير مكتمل.', 'The payment schedule is incomplete.'],
@@ -1726,7 +1735,7 @@ function ChequesReview({
                     ar={ar}
                   />
                 ) : null}
-                {canManage && status === 'submitted' ? (
+                {canManage && (status === 'submitted' || status === 'pending') && submitted?.file ? (
                   <>
                     <button
                       type="button"
@@ -1734,7 +1743,7 @@ function ChequesReview({
                       disabled={busy}
                       onClick={() => void onReview(item.key, 'approved')}
                     >
-                      {ar ? 'قبول' : 'Accept'}
+                      {ar ? 'اعتماد الشيك' : 'Approve cheque'}
                     </button>
                     <button
                       type="button"

@@ -421,9 +421,11 @@ async function issueReservationContract(
       },
       lifecycle.chequeSubmissions ?? [],
     );
+    const deferUntilHandover = lifecycle.autoFlow?.deferUntilHandover;
     outcome = await issueManualLeaseInTx(tx, claims, row.propertyId, withCheques, {
       source,
       awaitCounterparty: true,
+      ...(deferUntilHandover?.length ? { deferUntilHandover } : {}),
     });
   }
   const next: ReservationLifecycle = {
@@ -1358,6 +1360,8 @@ export async function runReservationAutomation(
         const submittedCheques = (lifecycle.chequeSubmissions ?? []).filter(
           (item) => item.status === 'submitted',
         );
+        const autoApprovedCodes = new Set(submitted.map((item) => item.code));
+        const autoApprovedChequeKeys = new Set(submittedCheques.map((item) => item.key));
         if (submitted.length || submittedCheques.length) {
           lifecycle = {
             ...lifecycle,
@@ -1406,6 +1410,33 @@ export async function runReservationAutomation(
             signedForOwnerBy: delegate?.name ?? null,
           });
         } catch (error) {
+          // Keep docs/cheques as submitted so the owner still sees Accept/Reject.
+          if (autoApprovedCodes.size || autoApprovedChequeKeys.size) {
+            lifecycle = {
+              ...lifecycle,
+              requirements: (lifecycle.requirements ?? []).map((item) => {
+                if (!autoApprovedCodes.has(item.code) || !item.autoApproved) return item;
+                const {
+                  autoApproved: _a,
+                  reviewedAt: _r,
+                  reviewedByName: _n,
+                  ...rest
+                } = item;
+                return { ...rest, status: 'submitted' as const, note: null };
+              }),
+              chequeSubmissions: (lifecycle.chequeSubmissions ?? []).map((item) => {
+                if (!autoApprovedChequeKeys.has(item.key) || !item.autoApproved) return item;
+                const {
+                  autoApproved: _a,
+                  reviewedAt: _r,
+                  reviewedByName: _n,
+                  ...rest
+                } = item;
+                return { ...rest, status: 'submitted' as const, note: null };
+              }),
+            };
+            await saveLifecycle(tx, row, lifecycle);
+          }
           await event('reservation.auto_contract_skipped', {
             reason: clientSafeErrorCode(error, 'issue_failed'),
           });

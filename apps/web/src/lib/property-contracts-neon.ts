@@ -1479,12 +1479,18 @@ export async function issueManualLeaseInTx(
   claims: SessionClaims,
   propertyId: string,
   input: ManualLeaseInput,
-  options: { source: Record<string, unknown>; awaitCounterparty?: boolean },
+  options: {
+    source: Record<string, unknown>;
+    awaitCounterparty?: boolean;
+    deferUntilHandover?: ReadonlyArray<'meters' | 'handoverOn'>;
+  },
 ): Promise<ContractOutcome & { leaseId: string | null }> {
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${input.unitId}::text))`);
   const { orgId, property } = await loadProperty(tx, claims, propertyId);
   const unit = await loadUnit(tx, orgId, property.id, input.unitId);
-  const computed = computeLeaseTerms(input.terms, unit.currency, minorUnitsFor(unit.currency));
+  const computed = computeLeaseTerms(input.terms, unit.currency, minorUnitsFor(unit.currency), {
+    deferUntilHandover: options.deferUntilHandover,
+  });
   if (!computed.ok) fail(computed.error);
   const terms = computed.terms;
 

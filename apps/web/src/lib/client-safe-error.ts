@@ -53,6 +53,9 @@ const KNOWN_CODES = new Set([
   'invalid_amount',
   'invalid_schedule',
   'invalid_terms',
+  'meters_required',
+  'handover_required',
+  'bank_account_required',
   'duplicate_cheque_number',
   'cheque_number_taken',
   'party_not_found',
@@ -315,6 +318,9 @@ export function statusForSafeCode(code: string): number {
     case 'invalid_amount':
     case 'invalid_schedule':
     case 'invalid_terms':
+    case 'meters_required':
+    case 'handover_required':
+    case 'bank_account_required':
     case 'duplicate_cheque_number':
     case 'viewing_contact_invalid':
     case 'viewing_contact_phone_required':
