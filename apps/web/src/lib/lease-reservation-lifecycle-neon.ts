@@ -200,7 +200,8 @@ export type ReservationOwnerAction =
   | {
       action: 'verify_document';
       code: string;
-      decision: 'verified' | 'rejected';
+      /** rejected = ask for a replacement; cancel_booking = void the booking. */
+      decision: 'verified' | 'rejected' | 'cancel_booking';
       note?: string | undefined;
     }
   | {
@@ -629,15 +630,31 @@ function ownerStepNotice(
         title: 'العقد يُجهَّز، وبقيت مستنداتك',
         line: 'جهّز المالك مسودة العقد وحدّد المستندات المطلوبة. ارفعها من صفحة الحجز ليُكمل الإجراءات.',
       };
-    case 'verify_document':
-    case 'review_document': {
-      const ok = input.decision === 'verified' || input.decision === 'approved';
+    case 'verify_document': {
+      if (input.decision === 'cancel_booking') {
+        return {
+          subject: '⛔ أُلغي حجزك بسبب المستندات',
+          title: 'أُلغي الحجز',
+          line: `بعد المراجعة تبيّن أن أحد المستندات يخالف الاشتراطات${input.note ? `: «${input.note}»` : ''}. أُلغي الحجز كما نُبّهت عند الاعتماد الإلكتروني.`,
+        };
+      }
+      const ok = input.decision === 'verified';
       return {
         subject: ok ? '📄 اعتُمد أحد مستنداتك' : '📄 أحد مستنداتك يحتاج تعديلاً',
         title: ok ? 'مستندك مقبول، أحسنت!' : 'مستند يحتاج إعادة رفع',
         line: ok
           ? 'راجع المالك المستند واعتمده.'
-          : `راجع المالك المستند ولم يعتمده${input.note ? `: «${input.note}»` : ''}. ارفع نسخة أوضح من صفحة الحجز.`,
+          : `راجع المالك المستند وطلب استبداله${input.note ? `: «${input.note}»` : ''}. ارفع نسخة أوضح من صفحة الحجز.`,
+      };
+    }
+    case 'review_document': {
+      const ok = input.decision === 'approved';
+      return {
+        subject: ok ? '📄 اعتُمد أحد مستنداتك' : '📄 أحد مستنداتك يحتاج تعديلاً',
+        title: ok ? 'مستندك مقبول، أحسنت!' : 'مستند يحتاج إعادة رفع',
+        line: ok
+          ? 'راجع المالك المستند واعتمده.'
+          : `راجع المالك المستند وطلب استبداله${input.note ? `: «${input.note}»` : ''}. ارفع نسخة أوضح من صفحة الحجز.`,
       };
     }
     case 'add_requirements': {
@@ -793,23 +810,36 @@ async function ownerActionInTx(
                 ...item,
                 status: 'rejected' as const,
                 note,
-                verifiedAt: at,
-                verifiedByName: byName,
+                autoApproved: false,
+                verifiedAt: null,
+                verifiedByName: null,
+                reviewedAt: at,
+                reviewedByName: byName,
               }
             : item,
         );
-        await cancelReservationInTx(
-          tx,
-          row,
-          { ...row.lifecycle, requirements: next },
-          {
-            actorUserId: claims.sub,
-            byName,
-            reason: 'documents_invalid',
-            note,
-            code: input.code,
-          },
-        );
+        // Default reject asks for a clearer file. Cancelling the booking is an explicit choice.
+        if (input.decision === 'cancel_booking') {
+          await cancelReservationInTx(
+            tx,
+            row,
+            { ...row.lifecycle, requirements: next },
+            {
+              actorUserId: claims.sub,
+              byName,
+              reason: 'documents_invalid',
+              note,
+              code: input.code,
+            },
+          );
+          break;
+        }
+        await saveLifecycle(tx, row, {
+          ...row.lifecycle,
+          requirements: next,
+          customerDocumentsSentAt: null,
+        });
+        await event('reservation.document_rejected', { code: input.code, replacement: true });
         break;
       }
 

@@ -268,8 +268,8 @@ function PaymentReviewCard({
 }
 
 /**
- * Documents the system accepted for the owner: the team confirms each one, or rejects one as
- * breaking the requirements, which cancels the booking straight away.
+ * Documents the system accepted for the owner: confirm each one, ask for a replacement,
+ * or — only with an explicit second action — cancel the booking for a fatal violation.
  */
 function VerificationPanel({
   lifecycle,
@@ -280,11 +280,16 @@ function VerificationPanel({
 }: Props & {
   busy: boolean;
   fileHref: (file: string) => string;
-  onVerify: (code: string, decision: 'verified' | 'rejected', note?: string) => Promise<void>;
+  onVerify: (
+    code: string,
+    decision: 'verified' | 'rejected' | 'cancel_booking',
+    note?: string,
+  ) => Promise<void>;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
   const [rejecting, setRejecting] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const pending = documentsToVerify(lifecycle);
   return (
@@ -297,8 +302,8 @@ function VerificationPanel({
       </h3>
       <p>
         {t(
-          'قبل النظام هذه المستندات نيابةً عنك. راجع كل مستند: إن كان سليماً أكّده، وإن خالف الاشتراطات أو لم يكن ملائماً فرفضه يلغي الحجز مباشرة كما أُبلغ العميل.',
-          'The system accepted these for you. Check each one: confirm it if it is fine; rejecting one for breaking the requirements cancels the booking at once, as the client was told.',
+          'قبل النظام هذه المستندات نيابةً عنك. أكّد السليم، أو ارفض مع طلب استبدال. إلغاء الحجز خيار منفصل للمخالفة الجسيمة فقط.',
+          'The system accepted these for you. Confirm a valid file, or reject and ask for a replacement. Cancelling the booking is a separate choice for a serious violation only.',
         )}
       </p>
       <ul className="lrw__docs-list">
@@ -330,6 +335,19 @@ function VerificationPanel({
                 disabled={busy}
                 onClick={() => {
                   setRejecting(item.code);
+                  setCancelling(null);
+                  setNote('');
+                }}
+              >
+                {t('رفض وطلب استبدال', 'Reject & request replacement')}
+              </button>
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={busy}
+                onClick={() => {
+                  setCancelling(item.code);
+                  setRejecting(null);
                   setNote('');
                 }}
               >
@@ -346,7 +364,7 @@ function VerificationPanel({
                 }}
               >
                 <label htmlFor={`verify-${item.code}`}>
-                  {t('سبب المخالفة (يظهر للعميل)', 'What is wrong (shown to the client)')}
+                  {t('سبب الرفض (يظهر للعميل)', 'Reason (shown to the client)')}
                 </label>
                 <input
                   id={`verify-${item.code}`}
@@ -355,11 +373,52 @@ function VerificationPanel({
                   maxLength={500}
                   required
                   onChange={(event) => setNote(event.target.value)}
+                  placeholder={t('مثال: الصورة غير واضحة — أعد الرفع', 'e.g. Image unclear — please re-upload')}
+                />
+                <p className="notice notice--info">
+                  {t(
+                    'يبقى الحجز قائماً ويُطلب من العميل رفع بديل. لا يُلغى الحجز.',
+                    'The booking stays open and the client must upload a replacement. No cancellation.',
+                  )}
+                </p>
+                <button type="submit" className="button button--primary" disabled={busy}>
+                  {t('تأكيد الرفض وطلب الاستبدال', 'Confirm reject & ask for replacement')}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => setRejecting(null)}
+                >
+                  {t('تراجع', 'Back')}
+                </button>
+              </form>
+            ) : null}
+            {cancelling === item.code ? (
+              <form
+                className="lrw__reject"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!note.trim()) return;
+                  void onVerify(item.code, 'cancel_booking', note.trim()).then(() =>
+                    setCancelling(null),
+                  );
+                }}
+              >
+                <label htmlFor={`cancel-${item.code}`}>
+                  {t('سبب المخالفة (يظهر للعميل)', 'What is wrong (shown to the client)')}
+                </label>
+                <input
+                  id={`cancel-${item.code}`}
+                  className="input"
+                  value={note}
+                  maxLength={500}
+                  required
+                  onChange={(event) => setNote(event.target.value)}
                 />
                 <p className="notice notice--error">
                   {t(
-                    'سيُلغى الحجز فوراً، ويُلغى العقد المرتبط به إن صدر، ويُبلَّغ العميل بالسبب.',
-                    'The booking is cancelled at once, any issued contract is voided, and the client sees the reason.',
+                    'سيُلغى الحجز فوراً، ويُلغى العقد المرتبط به إن صدر، ويُبلَّغ العميل بالسبب. استخدم هذا فقط للمخالفة الجسيمة — لطلب صورة أوضح اختر «رفض وطلب استبدال».',
+                    'The booking is cancelled at once and any issued contract is voided. Use this only for a serious violation — for a clearer photo choose “Reject & request replacement”.',
                   )}
                 </p>
                 <button type="submit" className="button button--danger" disabled={busy}>
@@ -368,7 +427,7 @@ function VerificationPanel({
                 <button
                   type="button"
                   className="button button--quiet"
-                  onClick={() => setRejecting(null)}
+                  onClick={() => setCancelling(null)}
                 >
                   {t('تراجع', 'Back')}
                 </button>
@@ -622,9 +681,14 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                     ? decide(
                         code,
                         { status: 'approved', verifiedAt: new Date().toISOString() },
-                        { action: 'verify_document', code, decision },
+                        { action: 'verify_document', code, decision: 'verified' },
                       )
-                    : act({ action: 'verify_document', code, decision, ...(note ? { note } : {}) })
+                    : act({
+                        action: 'verify_document',
+                        code,
+                        decision,
+                        ...(note ? { note } : {}),
+                      })
                 }
               />
             ) : null}

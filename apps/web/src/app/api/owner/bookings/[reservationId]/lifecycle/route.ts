@@ -25,7 +25,7 @@ const bodySchema = z.discriminatedUnion('action', [
     .object({
       action: z.literal('verify_document'),
       code: requirementCode,
-      decision: z.enum(['verified', 'rejected']),
+      decision: z.enum(['verified', 'rejected', 'cancel_booking']),
       note: z.string().max(500).optional(),
     })
     .strict(),
