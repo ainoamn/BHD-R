@@ -66,6 +66,20 @@ import {
   type PropertyOfferingChannel,
   type PropertyOfferingFilter,
 } from '@/lib/property-offering-channels';
+import {
+  EMPTY_LEASING_FILTER,
+  leasingFilterActive,
+  leasingRowProperty,
+  leasingRowUnit,
+  matchesLeasingColumnFilter,
+  printLeasingReport,
+  readLeasingIntroCollapsed,
+  sortLeasingRows,
+  toggleLeasingSort,
+  writeLeasingIntroCollapsed,
+  type LeasingColumnKey,
+  type LeasingTableFilter,
+} from '@/lib/leasing-ops-table';
 
 type DataRow = Record<string, unknown>;
 
@@ -338,13 +352,17 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     titleAr: 'إدارة التأجير',
     titleEn: 'Leasing management',
     introAr:
-      'عقد قيد الإجراء: إيجار وضمان وسماح وشيكات وسلسلة اعتماد (محاسب/مالي/إدارة) ثم توقيع إلكتروني وتفعيل ليصبح ساري المفعول. حالة العقد موحّدة مع الحجوزات والعقود (ساري / منتهي / ملغي / معلق).',
+      'عقود الإيجار السارية والمعلّقة والمنتهية: صفِّ حسب المبنى أو الوحدة أو المالك أو المستأجر، وافرِز من عناوين الأعمدة، واطبع تقرير القائمة المعروضة.',
     introEn:
-      'In-progress lease: rent, deposit, grace, cheques, approval chain, e-sign, then activation. Status matches bookings and contracts (in force / ended / cancelled / pending).',
+      'In-force, pending and ended leases: filter by building, unit, owner or tenant, sort from column headers, and print a report of the visible list.',
     createAr: 'تحويل لعقد إيجار',
     createEn: 'Convert to lease',
     columns: [
       { key: 'reference', fallbackKeys: ['contractId', 'id'], ar: 'العقد', en: 'Contract' },
+      { key: 'property', ar: 'المبنى', en: 'Building' },
+      { key: 'unit', ar: 'الوحدة', en: 'Unit' },
+      { key: 'owner', ar: 'المالك', en: 'Owner' },
+      { key: 'tenant', ar: 'المستأجر', en: 'Tenant' },
       { key: 'state', ar: 'الحالة', en: 'Status', format: 'contract_state' },
       { key: 'startsOn', ar: 'البداية', en: 'Starts', format: 'date' },
       { key: 'endsOn', ar: 'النهاية', en: 'Ends', format: 'date' },
@@ -2469,6 +2487,10 @@ export function OperationsConsole({
     if (section === 'leasing') {
       return loadedRecords.map((row) => ({
         ...row,
+        property: leasingRowProperty(row, ar),
+        unit: leasingRowUnit(row, ar),
+        owner: safeString(row.ownerName),
+        tenant: safeString(row.tenantName),
         state: leaseOwnerLifecycleState({
           leaseStatus: safeString(row.status),
           endsOn: safeString(row.endsOn),
@@ -2492,7 +2514,7 @@ export function OperationsConsole({
         }),
       }))
       .filter((row) => !contractKind || row.category === contractKind);
-  }, [loadedRecords, section, contractKind, today]);
+  }, [loadedRecords, section, contractKind, today, ar]);
   const manageMode =
     section === 'properties' && new URLSearchParams(search).get('mode') === 'manage';
   const showActionColumn = section !== 'properties' || manageMode;
@@ -2507,11 +2529,21 @@ export function OperationsConsole({
   const [statusFilter, setStatusFilter] = useState('');
   const [contractFilter, setContractFilter] = useState(EMPTY_CONTRACT_FILTER);
   const contractFilterActive = Object.values(contractFilter).some(Boolean);
+  const [leasingFilter, setLeasingFilter] = useState<LeasingTableFilter>(EMPTY_LEASING_FILTER);
+  const leasingColumnsActive = leasingFilterActive(leasingFilter);
+  const [leasingIntroCollapsed, setLeasingIntroCollapsed] = useState(false);
+  useEffect(() => {
+    if (section === 'leasing') setLeasingIntroCollapsed(readLeasingIntroCollapsed());
+  }, [section]);
   useEffect(() => {
     if (section !== 'contracts') return;
     setContractFilter(EMPTY_CONTRACT_FILTER);
     setStatusFilter('');
   }, [section, contractKind]);
+  useEffect(() => {
+    if (section !== 'leasing') return;
+    setLeasingFilter(EMPTY_LEASING_FILTER);
+  }, [section]);
   const [archiveMode, setArchiveMode] = useState(false);
   const [archiveRecords, setArchiveRecords] = useState<DataRow[] | null>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
@@ -2682,6 +2714,9 @@ export function OperationsConsole({
       if (section === 'contracts' && !matchesContractFilter(row, contractFilter)) {
         return false;
       }
+      if (section === 'leasing' && !matchesLeasingColumnFilter(row, leasingFilter, ar)) {
+        return false;
+      }
       if (!normalized) return true;
       return JSON.stringify(row).toLocaleLowerCase().includes(normalized);
     });
@@ -2690,6 +2725,7 @@ export function OperationsConsole({
     sourceRecords,
     statusFilter,
     contractFilter,
+    leasingFilter,
     propertyFilter,
     propertyOfferingFilter,
     context.units,
@@ -2697,6 +2733,7 @@ export function OperationsConsole({
     section,
     archiveMode,
     bookingPurposeTab,
+    ar,
   ]);
 
   const dailyStayItems = useMemo(() => {
@@ -2766,6 +2803,9 @@ export function OperationsConsole({
     if (section === 'contracts') {
       return contractGroups.map((group) => group.root);
     }
+    if (section === 'leasing') {
+      return sortLeasingRows(filtered, leasingFilter, ar);
+    }
     if (section !== 'properties') return filtered;
     const rows: DataRow[] = [];
     for (const row of filtered) {
@@ -2780,7 +2820,7 @@ export function OperationsConsole({
       }
     }
     return rows;
-  }, [expandedProperties, filtered, section, contractGroups]);
+  }, [expandedProperties, filtered, section, contractGroups, leasingFilter, ar]);
   const openCount = records.filter((row) => {
     const status = safeString(
       section === 'contracts' || section === 'leasing' ? row.state : row.status,
@@ -3368,9 +3408,17 @@ ${depositHtml}${
         : 'No matching records';
   return (
     <div className={`ops-workspace ops-workspace--${section}`}>
-      <header className="ops-header">
+      <header
+        className={
+          section === 'leasing' && leasingIntroCollapsed
+            ? 'ops-header ops-header--leasing-collapsed'
+            : 'ops-header'
+        }
+      >
         <div>
-          <span className="ops-kicker">BHD R · {portal.toUpperCase()}</span>
+          {section === 'leasing' && leasingIntroCollapsed ? null : (
+            <span className="ops-kicker">BHD R · {portal.toUpperCase()}</span>
+          )}
           {manageMode ? (
             <>
               <h1>{ar ? 'إدارة العقارات' : 'Manage properties'}</h1>
@@ -3380,7 +3428,7 @@ ${depositHtml}${
                   : 'Choose the property or unit you want to manage.'}
               </p>
             </>
-          ) : (
+          ) : section === 'leasing' && leasingIntroCollapsed ? null : (
             <>
               <h1>{ar ? definition.titleAr : definition.titleEn}</h1>
               <p>{ar ? definition.introAr : definition.introEn}</p>
@@ -3522,100 +3570,138 @@ ${depositHtml}${
           ) : null}
         </div>
         <div className="ops-header__actions">
-          {section === 'properties' ? (
-            <>
-              <button
-                type="button"
-                className={`button ${archiveMode ? 'button--primary' : 'button--quiet'}`}
-                disabled={archiveBusy}
-                onClick={() => {
-                  if (archiveMode) {
-                    setArchiveMode(false);
-                    setStatusFilter('');
-                    return;
-                  }
-                  setArchiveBusy(true);
-                  void (async () => {
-                    try {
-                      const path =
-                        portal === 'developer'
-                          ? '/v1/developer/projects?view=archive'
-                          : '/v1/owner/properties?view=archive';
-                      const response = await fetch(browserApiPath(path), {
-                        credentials: 'same-origin',
-                        headers: { accept: 'application/json' },
-                        cache: 'no-store',
-                        signal: AbortSignal.timeout(20_000),
-                      });
-                      if (!response.ok) throw new Error('archive_load_failed');
-                      const payload = (await response.json()) as DataRow[] | { items?: DataRow[] };
-                      const rows = Array.isArray(payload)
-                        ? payload
-                        : Array.isArray(payload.items)
-                          ? payload.items
-                          : [];
-                      setArchiveRecords(rows);
-                      setArchiveMode(true);
-                      setStatusFilter('archived');
-                    } catch {
-                      setError(
-                        ar
-                          ? 'تعذر تحميل الأرشيف — تحقق من Nest ثم أعد المحاولة.'
-                          : 'Could not load archive — check Nest and retry.',
-                      );
-                    } finally {
-                      setArchiveBusy(false);
-                    }
-                  })();
-                }}
-              >
-                {archiveMode
-                  ? ar
-                    ? 'العقارات النشطة'
-                    : 'Active properties'
-                  : ar
-                    ? 'الأرشيف'
-                    : 'Archive'}
-              </button>
-              {!archiveMode ? (
-                <Link
-                  className="button button--primary"
-                  href={`/${portal}/properties/new`}
-                  prefetch
-                >
-                  ＋ {ar ? definition.createAr : definition.createEn}
-                </Link>
-              ) : null}
-            </>
-          ) : null}
-          {section === 'accounting' && !context.ledgerAccounts?.length ? (
+          {section === 'leasing' ? (
             <button
+              type="button"
               className="button button--quiet"
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                void browserMutation('/v1/accounting/accounts/bootstrap', {
-                  method: 'POST',
-                  body: '{}',
-                }).then(() => refreshWorkspace())
-              }
-            >
-              {ar ? 'تهيئة دليل الحسابات' : 'Initialize chart of accounts'}
-            </button>
-          ) : null}
-          {canCreate && !(section === 'bookings' && bookingPurposeTab === 'daily') ? (
-            <button
-              className="button button--primary"
-              type="button"
+              aria-expanded={!leasingIntroCollapsed}
               onClick={() => {
-                setApiKeySecret(null);
-                setApiKeyCopied(false);
-                setShowCreate(true);
+                const next = !leasingIntroCollapsed;
+                setLeasingIntroCollapsed(next);
+                writeLeasingIntroCollapsed(next);
               }}
             >
-              ＋ {ar ? definition.createAr : definition.createEn}
+              {leasingIntroCollapsed
+                ? ar
+                  ? 'توسيع'
+                  : 'Expand'
+                : ar
+                  ? 'طي'
+                  : 'Collapse'}
             </button>
           ) : null}
+          {section === 'leasing' && leasingIntroCollapsed ? (
+            canCreate ? (
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={() => {
+                  setApiKeySecret(null);
+                  setApiKeyCopied(false);
+                  setShowCreate(true);
+                }}
+              >
+                ＋ {ar ? definition.createAr : definition.createEn}
+              </button>
+            ) : null
+          ) : (
+            <>
+              {section === 'properties' ? (
+                <>
+                  <button
+                    type="button"
+                    className={`button ${archiveMode ? 'button--primary' : 'button--quiet'}`}
+                    disabled={archiveBusy}
+                    onClick={() => {
+                      if (archiveMode) {
+                        setArchiveMode(false);
+                        setStatusFilter('');
+                        return;
+                      }
+                      setArchiveBusy(true);
+                      void (async () => {
+                        try {
+                          const path =
+                            portal === 'developer'
+                              ? '/v1/developer/projects?view=archive'
+                              : '/v1/owner/properties?view=archive';
+                          const response = await fetch(browserApiPath(path), {
+                            credentials: 'same-origin',
+                            headers: { accept: 'application/json' },
+                            cache: 'no-store',
+                            signal: AbortSignal.timeout(20_000),
+                          });
+                          if (!response.ok) throw new Error('archive_load_failed');
+                          const payload = (await response.json()) as DataRow[] | { items?: DataRow[] };
+                          const rows = Array.isArray(payload)
+                            ? payload
+                            : Array.isArray(payload.items)
+                              ? payload.items
+                              : [];
+                          setArchiveRecords(rows);
+                          setArchiveMode(true);
+                          setStatusFilter('archived');
+                        } catch {
+                          setError(
+                            ar
+                              ? 'تعذر تحميل الأرشيف — تحقق من Nest ثم أعد المحاولة.'
+                              : 'Could not load archive — check Nest and retry.',
+                          );
+                        } finally {
+                          setArchiveBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    {archiveMode
+                      ? ar
+                        ? 'العقارات النشطة'
+                        : 'Active properties'
+                      : ar
+                        ? 'الأرشيف'
+                        : 'Archive'}
+                  </button>
+                  {!archiveMode ? (
+                    <Link
+                      className="button button--primary"
+                      href={`/${portal}/properties/new`}
+                      prefetch
+                    >
+                      ＋ {ar ? definition.createAr : definition.createEn}
+                    </Link>
+                  ) : null}
+                </>
+              ) : null}
+              {section === 'accounting' && !context.ledgerAccounts?.length ? (
+                <button
+                  className="button button--quiet"
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void browserMutation('/v1/accounting/accounts/bootstrap', {
+                      method: 'POST',
+                      body: '{}',
+                    }).then(() => refreshWorkspace())
+                  }
+                >
+                  {ar ? 'تهيئة دليل الحسابات' : 'Initialize chart of accounts'}
+                </button>
+              ) : null}
+              {canCreate && !(section === 'bookings' && bookingPurposeTab === 'daily') ? (
+                <button
+                  className="button button--primary"
+                  type="button"
+                  onClick={() => {
+                    setApiKeySecret(null);
+                    setApiKeyCopied(false);
+                    setShowCreate(true);
+                  }}
+                >
+                  ＋ {ar ? definition.createAr : definition.createEn}
+                </button>
+              ) : null}
+            </>
+          )}
         </div>
       </header>
 
@@ -4214,17 +4300,27 @@ ${depositHtml}${
                       ? ar
                         ? 'ابحث برقم العقد أو المستأجر أو العقار أو الوحدة…'
                         : 'Search contract no., tenant, property or unit…'
-                      : ar
-                        ? 'ابحث بالاسم أو المرجع أو الحالة…'
-                        : 'Search name, reference or status…'
+                      : section === 'leasing'
+                        ? ar
+                          ? 'ابحث بالعقد أو المبنى أو الوحدة أو المالك أو المستأجر…'
+                          : 'Search contract, building, unit, owner or tenant…'
+                        : ar
+                          ? 'ابحث بالاسم أو المرجع أو الحالة…'
+                          : 'Search name, reference or status…'
                   }
                 />
               </label>
               <label>
                 <span className="sr-only">{ar ? 'تصفية الحالة' : 'Filter status'}</span>
                 <select
-                  value={statusFilter}
-                  onChange={(event) => setStatusFilter(event.target.value)}
+                  value={section === 'leasing' ? leasingFilter.state || statusFilter : statusFilter}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setStatusFilter(value);
+                    if (section === 'leasing') {
+                      setLeasingFilter((current) => ({ ...current, state: value }));
+                    }
+                  }}
                 >
                   <option value="">{ar ? 'كل الحالات' : 'All statuses'}</option>
                   {definition.flow.map((stage) => (
@@ -4235,9 +4331,70 @@ ${depositHtml}${
                 </select>
               </label>
               <span className="ops-result-count">
-                {(section === 'contracts' ? tableRows.length : filtered.length)}{' '}
+                {(section === 'contracts' || section === 'leasing'
+                  ? tableRows.length
+                  : filtered.length)}{' '}
                 {ar ? 'نتيجة' : 'results'}
               </span>
+              {section === 'leasing' ? (
+                <span className="ops-inline-actions">
+                  <button
+                    type="button"
+                    className="button button--quiet button--sm"
+                    disabled={!tableRows.length}
+                    onClick={() => {
+                      const ok = printLeasingReport({
+                        ar,
+                        title: ar ? 'تقرير إدارة التأجير' : 'Leasing management report',
+                        generatedAt: new Date().toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+                          timeZone: 'Asia/Muscat',
+                        }),
+                        rows: tableRows.map((row) => {
+                          const stateValue = safeString(row.state);
+                          const stateLabel =
+                            definition.flow.find((item) => item.value === stateValue) ?? null;
+                          return {
+                            reference:
+                              safeString(row.reference) ||
+                              safeString(row.contractId) ||
+                              safeString(row.id),
+                            property: safeString(row.property),
+                            unit: safeString(row.unit),
+                            owner: safeString(row.owner),
+                            tenant: safeString(row.tenant),
+                            state: stateLabel
+                              ? ar
+                                ? stateLabel.ar
+                                : stateLabel.en
+                              : stateValue || '—',
+                            startsOn: safeString(row.startsOn).slice(0, 10) || '—',
+                            endsOn: safeString(row.endsOn).slice(0, 10) || '—',
+                            rent: moneyFromRecord(row, 'rentMinor', locale),
+                          };
+                        }),
+                      });
+                      if (!ok) {
+                        setError(ar ? 'اسمح بالنوافذ المنبثقة للطباعة' : 'Allow pop-ups to print');
+                      }
+                    }}
+                  >
+                    {ar ? 'طباعة التقرير' : 'Print report'}
+                  </button>
+                  {leasingColumnsActive || query || statusFilter ? (
+                    <button
+                      type="button"
+                      className="button button--quiet button--sm"
+                      onClick={() => {
+                        setLeasingFilter(EMPTY_LEASING_FILTER);
+                        setQuery('');
+                        setStatusFilter('');
+                      }}
+                    >
+                      {ar ? 'مسح التصفية' : 'Clear filters'}
+                    </button>
+                  ) : null}
+                </span>
+              ) : null}
               {section === 'accounting' ? (
                 <span className="ops-inline-actions ops-toolbar__accounting">
                   <button
@@ -4364,9 +4521,122 @@ ${depositHtml}${
                 <table className="data-table ops-table">
                   <thead>
                     <tr>
-                      {definition.columns.map((column) => (
-                        <th key={column.key}>{ar ? column.ar : column.en}</th>
-                      ))}
+                      {definition.columns.map((column) =>
+                        section === 'leasing' ? (
+                          <th key={column.key} className="ops-th-filter">
+                            <button
+                              type="button"
+                              className="ops-th-sort"
+                              onClick={() =>
+                                setLeasingFilter((current) =>
+                                  toggleLeasingSort(current, column.key as LeasingColumnKey),
+                                )
+                              }
+                            >
+                              <span>{ar ? column.ar : column.en}</span>
+                              {leasingFilter.sortKey === column.key ? (
+                                <span aria-hidden="true">
+                                  {leasingFilter.sortDir === 'asc' ? ' ↑' : ' ↓'}
+                                </span>
+                              ) : null}
+                            </button>
+                            {column.key === 'startsOn' || column.key === 'endsOn' ? (
+                              <div className="ops-th-dates">
+                                <input
+                                  type="date"
+                                  aria-label={ar ? 'من' : 'From'}
+                                  value={
+                                    column.key === 'startsOn'
+                                      ? leasingFilter.startsFrom
+                                      : leasingFilter.endsFrom
+                                  }
+                                  onChange={(event) =>
+                                    setLeasingFilter((current) =>
+                                      column.key === 'startsOn'
+                                        ? { ...current, startsFrom: event.target.value }
+                                        : { ...current, endsFrom: event.target.value },
+                                    )
+                                  }
+                                />
+                                <input
+                                  type="date"
+                                  aria-label={ar ? 'إلى' : 'To'}
+                                  value={
+                                    column.key === 'startsOn'
+                                      ? leasingFilter.startsTo
+                                      : leasingFilter.endsTo
+                                  }
+                                  onChange={(event) =>
+                                    setLeasingFilter((current) =>
+                                      column.key === 'startsOn'
+                                        ? { ...current, startsTo: event.target.value }
+                                        : { ...current, endsTo: event.target.value },
+                                    )
+                                  }
+                                />
+                              </div>
+                            ) : column.key === 'state' ? (
+                              <select
+                                className="ops-th-select"
+                                aria-label={ar ? 'تصفية الحالة' : 'Filter status'}
+                                value={leasingFilter.state}
+                                onChange={(event) => {
+                                  const value = event.target.value;
+                                  setLeasingFilter((current) => ({ ...current, state: value }));
+                                  setStatusFilter(value);
+                                }}
+                              >
+                                <option value="">{ar ? 'الكل' : 'All'}</option>
+                                {definition.flow.map((stage) => (
+                                  <option key={stage.value} value={stage.value}>
+                                    {ar ? stage.ar : stage.en}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <label className="ops-th-search">
+                                <span aria-hidden="true">⌕</span>
+                                <input
+                                  value={
+                                    column.key === 'reference'
+                                      ? leasingFilter.reference
+                                      : column.key === 'property'
+                                        ? leasingFilter.property
+                                        : column.key === 'unit'
+                                          ? leasingFilter.unit
+                                          : column.key === 'owner'
+                                            ? leasingFilter.owner
+                                            : column.key === 'tenant'
+                                              ? leasingFilter.tenant
+                                              : column.key === 'rentMinor'
+                                                ? leasingFilter.rent
+                                                : ''
+                                  }
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+                                    setLeasingFilter((current) => {
+                                      if (column.key === 'reference')
+                                        return { ...current, reference: value };
+                                      if (column.key === 'property')
+                                        return { ...current, property: value };
+                                      if (column.key === 'unit') return { ...current, unit: value };
+                                      if (column.key === 'owner') return { ...current, owner: value };
+                                      if (column.key === 'tenant')
+                                        return { ...current, tenant: value };
+                                      if (column.key === 'rentMinor')
+                                        return { ...current, rent: value };
+                                      return current;
+                                    });
+                                  }}
+                                  placeholder={ar ? 'بحث' : 'Search'}
+                                />
+                              </label>
+                            )}
+                          </th>
+                        ) : (
+                          <th key={column.key}>{ar ? column.ar : column.en}</th>
+                        ),
+                      )}
                       {showActionColumn ? (
                         <th>
                           {manageMode
@@ -4881,7 +5151,7 @@ ${depositHtml}${
                         </tr>
                       );
                     })}
-                    {!filtered.length ? (
+                    {!tableRows.length ? (
                       <tr>
                         <td colSpan={definition.columns.length + (showActionColumn ? 1 : 0)}>
                           <div className="ops-empty">
@@ -4920,7 +5190,10 @@ ${depositHtml}${
                 </table>
               </div>
               <div className="ops-mobile-cards" aria-label={ar ? 'قائمة السجلات' : 'Records list'}>
-                {(section === 'bookings' || section === 'contracts' ? tableRows : filtered).map(
+                {(section === 'bookings' || section === 'contracts' || section === 'leasing'
+                  ? tableRows
+                  : filtered
+                ).map(
                   (row, index) => {
                   const serial = safeString(row.serialNumber);
                   const contractAttachments =
@@ -4928,19 +5201,35 @@ ${depositHtml}${
                       ? (contractAttachmentsById.get(safeString(row.id)) ?? [])
                       : [];
                   const name =
-                    (section === 'contracts' ? safeString(row.reference) : '') ||
+                    (section === 'contracts' || section === 'leasing'
+                      ? safeString(row.reference)
+                      : '') ||
                     safeString(row.nameAr) ||
                     safeString(row.nameEn) ||
                     safeString(row.displayName) ||
                     safeString(row.name) ||
                     '—';
                   const location =
-                    safeString(row.location) ||
-                    [safeString(row.governorate), safeString(row.city)]
-                      .filter(Boolean)
-                      .join(' · ') ||
+                    section === 'leasing'
+                      ? [
+                          safeString(row.property),
+                          safeString(row.unit),
+                          safeString(row.owner),
+                          safeString(row.tenant),
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') || '—'
+                      : safeString(row.location) ||
+                        [safeString(row.governorate), safeString(row.city)]
+                          .filter(Boolean)
+                          .join(' · ') ||
+                        '—';
+                  const statusRaw =
+                    (section === 'leasing' || section === 'contracts'
+                      ? safeString(row.state)
+                      : '') ||
+                    safeString(row.status) ||
                     '—';
-                  const statusRaw = safeString(row.status) || '—';
                   const statusLabeled =
                     definition.flow.find((item) => item.value === statusRaw) ?? null;
                   const status = statusLabeled

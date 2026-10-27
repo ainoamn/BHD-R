@@ -1,5 +1,6 @@
 import 'server-only';
 import { and, count, desc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   cheques,
@@ -28,6 +29,9 @@ import {
   workTasks,
   type Database,
 } from '@bhd-r/db';
+
+const ownerParties = alias(parties, 'lease_owner_parties');
+const tenantParties = alias(parties, 'lease_tenant_parties');
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { contractCategory, contractTerm, propertyUsage } from '@/lib/contract-list-facets';
 import { ownerPartyScope, readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
@@ -209,6 +213,17 @@ async function loadLeasing(tx: OpsTransaction, orgId: string): Promise<NeonSecti
       createdAt: leases.createdAt,
       updatedAt: leases.updatedAt,
       contractStatus: contracts.status,
+      propertyId: units.propertyId,
+      propertyNameAr: properties.nameAr,
+      propertyNameEn: properties.nameEn,
+      unitCode: units.code,
+      unitNameAr: units.nameAr,
+      unitNameEn: units.nameEn,
+      ownerName: ownerParties.displayName,
+      tenantName: sql<string | null>`coalesce(
+        ${tenantParties.displayName},
+        ${snapshot}->'tenant'->>'displayName'
+      )`,
       sourceType: sql<string | null>`${snapshot}->'source'->>'type'`,
       linkedBookingStatus: sql<string | null>`(
         select b.status from stay_bookings b
@@ -221,6 +236,19 @@ async function loadLeasing(tx: OpsTransaction, orgId: string): Promise<NeonSecti
     .leftJoin(
       contracts,
       and(eq(contracts.id, leases.contractId), eq(contracts.organizationId, orgId)),
+    )
+    .leftJoin(units, and(eq(units.id, leases.unitId), eq(units.organizationId, orgId)))
+    .leftJoin(
+      properties,
+      and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
+    )
+    .leftJoin(
+      ownerParties,
+      and(eq(ownerParties.id, leases.ownerPartyId), eq(ownerParties.organizationId, orgId)),
+    )
+    .leftJoin(
+      tenantParties,
+      and(eq(tenantParties.id, leases.tenantPartyId), eq(tenantParties.organizationId, orgId)),
     )
     .where(eq(leases.organizationId, orgId))
     .orderBy(desc(leases.createdAt))
