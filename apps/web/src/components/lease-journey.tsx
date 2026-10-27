@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, type ChangeEvent } from 'react';
 import { Link } from '@/i18n/navigation';
+import { DocStatusMark, docStatusLabel } from '@/components/doc-status-mark';
 import { FilePreviewDialog, type PreviewFile } from '@/components/file-preview';
 import { EsignSignaturePad } from '@/components/stays/esign/esign-signature-pad';
 import { StayApprovalDesk } from '@/components/stays/stay-approval-desk';
@@ -468,11 +469,14 @@ function requirementStatus(
 function LeaseDocumentList({ lifecycle, locale }: LeaseJourneyProps) {
   const ar = locale === 'ar';
   return (
-    <ul className="lease-docs">
+    <ul className="lease-docs lease-docs--checklist">
       {lifecycle.requirements.map((item) => (
         <li key={item.code} className={`lease-docs__item lease-docs__item--${item.status}`}>
-          <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-          <span>{requirementStatus(item, ar)}</span>
+          <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
+          <div className="lease-docs__text">
+            <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
+            <span>{docStatusLabel(item.status, ar, 'tenant')}</span>
+          </div>
         </li>
       ))}
     </ul>
@@ -535,17 +539,80 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
 
   if (!lifecycle.requirements.length) return null;
 
+  const cheques = lifecycle.cheques ?? [];
+  const remainingDocs = lifecycle.requirements.filter((item) => item.status !== 'approved');
+  const remainingCheques = cheques.filter((item) => item.status !== 'approved');
+  const remaining = [
+    ...remainingDocs.map((item) => ({
+      key: `doc-${item.code}`,
+      status: item.status,
+      label: ar ? item.labelAr : item.labelEn || item.labelAr,
+    })),
+    ...remainingCheques.map((item) => ({
+      key: `cheque-${item.key}`,
+      status: item.status,
+      label: ar ? item.labelAr : item.labelEn || item.labelAr,
+    })),
+  ];
+  const totalItems = lifecycle.requirements.length + cheques.length;
+  const approvedCount = totalItems - remaining.length;
+
   return (
     <div className="lease-docs-wrap">
       <h3 className="lease-docs__heading">
         {ar ? '📎 المستندات المطلوبة' : '📎 Required documents'}
       </h3>
+      <ul className="doc-status-legend" aria-label={ar ? 'مفتاح الحالات' : 'Status key'}>
+        <li>
+          <DocStatusMark status="approved" ar={ar} viewer="tenant" />
+          <span>{ar ? 'معتمدة' : 'Approved'}</span>
+        </li>
+        <li>
+          <DocStatusMark status="pending" ar={ar} viewer="tenant" />
+          <span>{ar ? 'لم تُفتح' : 'Not opened'}</span>
+        </li>
+        <li>
+          <DocStatusMark status="rejected" ar={ar} viewer="tenant" />
+          <span>{ar ? 'مطلوب الاستبدال' : 'Replace'}</span>
+        </li>
+        <li>
+          <DocStatusMark status="rejected" ar={ar} viewer="tenant" hardReject />
+          <span>{ar ? 'مرفوضة' : 'Rejected'}</span>
+        </li>
+      </ul>
+      {remaining.length ? (
+        <div className="lease-docs-remaining" role="status">
+          <strong>
+            {ar
+              ? `المتبقي للاعتماد: ${remaining.length}`
+              : `Still awaiting approval: ${remaining.length}`}
+          </strong>
+          <span className="muted">
+            {ar
+              ? `${approvedCount} معتمدة من ${totalItems}`
+              : `${approvedCount} of ${totalItems} approved`}
+          </span>
+          <ul className="lease-docs-remaining__list">
+            {remaining.map((item) => (
+              <li key={item.key}>
+                <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
+                <span>{item.label}</span>
+                <small>{docStatusLabel(item.status, ar, 'tenant')}</small>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : (
+        <p className="notice notice--success" role="status">
+          {ar ? 'كل المستندات والشيكات معتمدة ✓' : 'Every document and cheque is approved ✓'}
+        </p>
+      )}
       {error ? (
         <p className="notice notice--error" role="alert">
           {error}
         </p>
       ) : null}
-      <ul className="lease-docs">
+      <ul className="lease-docs lease-docs--checklist">
         {lifecycle.requirements.map((item) => {
           const canUpload = item.status !== 'approved';
           const fileHref = item.fileName
@@ -553,9 +620,14 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
             : null;
           return (
             <li key={item.code} className={`lease-docs__item lease-docs__item--${item.status}`}>
+              <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
               <div className="lease-docs__text">
                 <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-                <span>{requirementStatus(item, ar)}</span>
+                <span>
+                  {item.autoApproved && item.status === 'approved' && !item.verified
+                    ? requirementStatus(item, ar)
+                    : docStatusLabel(item.status, ar, 'tenant')}
+                </span>
                 {item.status === 'rejected' && item.note ? (
                   <small>
                     {ar ? 'ملاحظة المالك: ' : 'Owner note: '}
@@ -878,7 +950,10 @@ function LeaseCheques({
                 <tr key={item.key} className={`lease-cheques__row lease-cheques__row--${item.status}`}>
                   <td>
                     <strong>{ar ? item.labelAr : item.labelEn}</strong>
-                    <span className="lease-cheques__status">{requirementStatus(item, ar)}</span>
+                    <span className="lease-cheques__status">
+                      <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
+                      {docStatusLabel(item.status, ar, 'tenant')}
+                    </span>
                     {item.status === 'rejected' && item.note ? (
                       <small className="lease-cheques__note">
                         {ar ? 'ملاحظة: ' : 'Note: '}

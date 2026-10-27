@@ -19,13 +19,14 @@ import {
   type LeaseContractPayload,
 } from '@/components/lease-contract-form';
 import { LeaseRequirementsPicker } from '@/components/lease-requirements-picker';
+import { DocStatusMark, docStatusLabel } from '@/components/doc-status-mark';
 import { NoteTranslateBar, OWNER_NOTE_SERVICE } from '@/components/note-translate';
 import { ApiError, browserNextMutation } from '@/lib/api';
+import type { AccountingSettings } from '@/lib/accounting-integrity';
 import { formatMoney } from '@/lib/format';
 import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
 
 const BOOKING_NOTE_MAX = Math.min(1000, NOTE_TRANSLATE_MAX);
-import type { AccountingSettings } from '@/lib/accounting-integrity';
 import type { ApprovalPolicy } from '@/lib/approval-policy';
 import {
   DEFAULT_LEASE_DOCUMENT_RULES,
@@ -1705,16 +1706,17 @@ function ChequesReview({
           {lifecycle.chequeBankName ? ` · ${lifecycle.chequeBankName}` : ''}
         </p>
       ) : null}
-      <ul>
+      <ul className="lrw__docs-checklist">
         {instructions.map((item) => {
           const submitted = byKey.get(item.key);
           const status = submitted?.status ?? 'pending';
           return (
             <li key={item.key} className={`lrw__doc lrw__doc--${status}`}>
+              <DocStatusMark status={status} ar={ar} viewer="owner" />
               <div className="lrw__doc-main">
                 <strong>{ar ? item.labelAr : item.labelEn}</strong>
                 <span className="lrw__doc-status">
-                  {STATUS_TEXT[status][ar ? 0 : 1]}
+                  {docStatusLabel(status, ar, 'owner')}
                   {submitted?.chequeNumber ? ` · #${submitted.chequeNumber}` : ''}
                 </span>
                 {submitted ? (
@@ -1904,6 +1906,10 @@ function RequirementsReview({
     );
   }
 
+  const awaitingOpen = requirements.filter((item) => item.status === 'submitted').length;
+  const needsReplace = requirements.filter((item) => item.status === 'rejected').length;
+  const notUploaded = requirements.filter((item) => item.status === 'pending').length;
+
   return (
     <div className="lrw__docs lrw__docs--panel">
       <header className="lrw__docs-head">
@@ -1912,6 +1918,47 @@ function RequirementsReview({
           {approvedCount}/{requirements.length || 0}
         </span>
       </header>
+
+      {requirements.length ? (
+        <ul className="doc-status-legend" aria-label={ar ? 'مفتاح الحالات' : 'Status key'}>
+          <li>
+            <DocStatusMark status="approved" ar={ar} viewer="owner" />
+            <span>{ar ? 'معتمدة' : 'Approved'}</span>
+          </li>
+          <li>
+            <DocStatusMark status="pending" ar={ar} viewer="owner" />
+            <span>{ar ? 'لم تُفتح' : 'Not opened'}</span>
+          </li>
+          <li>
+            <DocStatusMark status="rejected" ar={ar} viewer="owner" />
+            <span>{ar ? 'مطلوب الاستبدال' : 'Replace'}</span>
+          </li>
+          <li>
+            <DocStatusMark status="rejected" ar={ar} viewer="owner" hardReject />
+            <span>{ar ? 'مرفوضة' : 'Rejected'}</span>
+          </li>
+        </ul>
+      ) : null}
+
+      {awaitingOpen || needsReplace || notUploaded ? (
+        <p className="lrw__docs-remaining muted" role="status">
+          {ar
+            ? [
+                awaitingOpen ? `${awaitingOpen} بانتظار فتحك` : null,
+                notUploaded ? `${notUploaded} لم تُرفع` : null,
+                needsReplace ? `${needsReplace} مطلوب استبدالها` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')
+            : [
+                awaitingOpen ? `${awaitingOpen} to open` : null,
+                notUploaded ? `${notUploaded} not uploaded` : null,
+                needsReplace ? `${needsReplace} need replacement` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+        </p>
+      ) : null}
 
       {canManage && submitted.length ? (
         <div className="lrw__review-bar">
@@ -2047,12 +2094,17 @@ function RequirementsReview({
       ) : null}
 
       {requirements.length ? (
-        <ul>
+        <ul className="lrw__docs-checklist">
           {requirements.map((item) => (
             <li key={item.code} className={`lrw__doc lrw__doc--${item.status}`}>
+              <DocStatusMark status={item.status} ar={ar} viewer="owner" />
               <div className="lrw__doc-main">
                 <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-                <span className="lrw__doc-status">{requirementStatusText(item, ar)}</span>
+                <span className="lrw__doc-status">
+                  {item.status === 'approved' && item.autoApproved
+                    ? requirementStatusText(item, ar)
+                    : docStatusLabel(item.status, ar, 'owner')}
+                </span>
                 {item.note && item.status === 'rejected' ? (
                   <small className="muted">
                     {ar ? 'ملاحظة للعميل: ' : 'Note to client: '}

@@ -22121,6 +22121,17 @@ button.lrw__step-body:focus-visible {
   padding: 0;
   list-style: none;
 }
+.lrw__docs-checklist {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lrw__docs-remaining {
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+}
 .lrw__doc {
   display: flex;
   flex-wrap: wrap;
@@ -22131,6 +22142,14 @@ button.lrw__step-body:focus-visible {
   border: 1px solid #e1e8e4;
   border-inline-start: 4px solid #c9d3ce;
   border-radius: 0.6rem;
+}
+.lrw__docs-checklist > .lrw__doc {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+}
+.lrw__docs-checklist > .lrw__doc .lrw__reject {
+  grid-column: 1 / -1;
 }
 .lrw__doc--submitted {
   border-inline-start-color: #c98a12;
@@ -22729,6 +22748,101 @@ button.lrw__step-body:focus-visible {
   background: #fff;
   color: #123528;
 }
+.lease-docs--checklist > .lease-docs__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+}
+.doc-status-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: #5b6b63;
+}
+.doc-status-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.doc-status-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  line-height: 1;
+  flex: 0 0 auto;
+  margin-top: 0.1rem;
+}
+.doc-status-mark__glyph {
+  display: block;
+}
+.doc-status-mark--ok {
+  color: #0d5c45;
+  background: #e7f6ef;
+  border: 1px solid #9fd0b8;
+}
+.doc-status-mark--alert {
+  color: #8a5a00;
+  background: #fff6e0;
+  border: 1px solid #e6c56a;
+}
+.doc-status-mark--spin {
+  color: #0b5f8a;
+  background: #e8f5fb;
+  border: 1px solid #8cc5e0;
+}
+.doc-status-mark--spin .doc-status-mark__glyph {
+  animation: doc-status-spin 1.1s linear infinite;
+}
+.doc-status-mark--error {
+  color: #a11228;
+  background: #ffeff1;
+  border: 1px solid #e8a0aa;
+}
+@keyframes doc-status-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.lease-docs-remaining {
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 0 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid #ecd7a2;
+  background: #fff8e8;
+}
+.lease-docs-remaining strong {
+  font-size: 0.95rem;
+  color: #5c4310;
+}
+.lease-docs-remaining__list {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lease-docs-remaining__list li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.4rem 0.55rem;
+  align-items: center;
+  font-size: 0.88rem;
+  color: #234438;
+}
+.lease-docs-remaining__list small {
+  color: #5b6b63;
+  font-size: 0.78rem;
+}
 .lease-docs__item--submitted {
   border-inline-start-color: #2f6f8f;
 }
@@ -22832,6 +22946,18 @@ button.lrw__step-body:focus-visible {
   margin-top: 0.15rem;
   font-size: 0.75rem;
   color: #5a6f64;
+}
+.lease-cheques__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.3rem;
+}
+.lease-cheques__status .doc-status-mark {
+  margin-top: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  font-size: 0.72rem;
 }
 .lease-cheques__note {
   color: #9a4a2a;
