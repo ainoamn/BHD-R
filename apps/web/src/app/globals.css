@@ -22743,6 +22743,10 @@ button.lrw__step-body:focus-visible {
   color: #2f463c;
   font-weight: 600;
 }
+.lease-cheques__shared .select,
+.lease-cheques__shared .input {
+  font-weight: 400;
+}
 .lease-cheques__shared-read {
   margin: 0.5rem 0 0.75rem;
 }

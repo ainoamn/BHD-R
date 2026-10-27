@@ -18,6 +18,9 @@ import {
   REQUIREMENT_FILE_MAX_CHARS,
   leaseJourneyStageLabels,
 } from '@/lib/lease-reservation-lifecycle';
+import { OMAN_BANKS } from '@/lib/stay-deposit-refund';
+
+const BANK_OTHER = '__other__';
 
 function readAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -564,7 +567,17 @@ function LeaseCheques({
     };
   })();
   const [bankName, setBankName] = useState(seededShared.bankName);
+  const [bankOther, setBankOther] = useState(
+    () =>
+      Boolean(seededShared.bankName) &&
+      !(OMAN_BANKS as readonly string[]).includes(seededShared.bankName),
+  );
   const [accountHolderName, setAccountHolderName] = useState(seededShared.accountHolderName);
+  const bankSelectValue = bankOther
+    ? BANK_OTHER
+    : (OMAN_BANKS as readonly string[]).includes(bankName)
+      ? bankName
+      : '';
   const [numbers, setNumbers] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     const seeded = cheques.map(
@@ -690,8 +703,8 @@ function LeaseCheques({
       {blocked ? (
         <p className="notice notice--info" role="status">
           {ar
-            ? 'أكّد صحة بياناتك أعلاه أولاً ثم أكمل جدول الشيكات.'
-            : 'Confirm your details above first, then complete the cheque table.'}
+            ? 'يمكنك تعبئة البنك والأرقام الآن. لرفع صور الشيكات: أكّد صحة بياناتك أعلاه أولاً.'
+            : 'You can fill bank and numbers now. To upload cheque photos, confirm your details above first.'}
         </p>
       ) : null}
       {error ? (
@@ -704,22 +717,50 @@ function LeaseCheques({
         <div className="lease-cheques__shared">
           <label>
             {ar ? 'بنك الحساب (مرة واحدة لكل الشيكات)' : 'Account bank (once for all cheques)'}
-            <input
-              className="input"
-              maxLength={160}
-              value={bankName}
-              disabled={blocked || busy !== null}
-              onChange={(event) => setBankName(event.target.value)}
-              placeholder={ar ? 'مثال: بنك مسقط' : 'e.g. Bank Muscat'}
-            />
+            <select
+              className="select"
+              value={bankSelectValue}
+              disabled={busy !== null}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (value === BANK_OTHER) {
+                  setBankOther(true);
+                  if ((OMAN_BANKS as readonly string[]).includes(bankName)) setBankName('');
+                  return;
+                }
+                setBankOther(false);
+                setBankName(value);
+              }}
+            >
+              <option value="">{ar ? '— اختر البنك —' : '— Select bank —'}</option>
+              {OMAN_BANKS.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+              <option value={BANK_OTHER}>{ar ? 'بنك آخر…' : 'Other bank…'}</option>
+            </select>
           </label>
+          {bankOther ? (
+            <label>
+              {ar ? 'اسم البنك (يدوي)' : 'Bank name (custom)'}
+              <input
+                className="input"
+                maxLength={160}
+                value={bankName}
+                disabled={busy !== null}
+                onChange={(event) => setBankName(event.target.value)}
+                placeholder={ar ? 'اكتب اسم البنك' : 'Type the bank name'}
+              />
+            </label>
+          ) : null}
           <label>
             {ar ? 'اسم صاحب الحساب (مرة واحدة)' : 'Account holder (once)'}
             <input
               className="input"
               maxLength={160}
               value={accountHolderName}
-              disabled={blocked || busy !== null}
+              disabled={busy !== null}
               onChange={(event) => setAccountHolderName(event.target.value)}
               placeholder={ar ? 'الاسم كما على دفتر الشيكات' : 'Name as on the cheque book'}
             />
@@ -773,7 +814,7 @@ function LeaseCheques({
                         dir="ltr"
                         maxLength={80}
                         value={numbers[item.key] ?? ''}
-                        disabled={blocked || busy !== null}
+                        disabled={busy !== null}
                         aria-label={ar ? `رقم ${item.labelAr}` : `Number for ${item.labelEn}`}
                         onChange={(event) => {
                           const value = event.target.value;
