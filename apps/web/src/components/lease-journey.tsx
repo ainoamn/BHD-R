@@ -519,11 +519,25 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   );
 }
 
-type ChequeDraft = {
-  bankName: string;
-  accountHolderName: string;
-  chequeNumber: string;
-};
+/** Fill following cheque numbers from a starting value (keeps prefix/suffix and zero-padding). */
+function sequenceChequeNumbers(start: string, count: number): string[] {
+  const trimmed = start.trim();
+  if (!trimmed || count <= 0) return Array.from({ length: count }, () => '');
+  const match = trimmed.match(/^(.*?)(\d+)(\D*)$/);
+  if (!match) {
+    return Array.from({ length: count }, (_, index) => (index === 0 ? trimmed : ''));
+  }
+  const prefix = match[1] ?? '';
+  const digits = match[2] ?? '0';
+  const suffix = match[3] ?? '';
+  const width = digits.length;
+  let value = BigInt(digits);
+  return Array.from({ length: count }, () => {
+    const next = `${prefix}${value.toString().padStart(width, '0')}${suffix}`;
+    value += 1n;
+    return next;
+  });
+}
 
 function LeaseCheques({
   lifecycle,
@@ -540,19 +554,46 @@ function LeaseCheques({
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const blocked =
     !readOnly && lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
-  const [drafts, setDrafts] = useState<Record<string, ChequeDraft>>(() => {
-    const initial: Record<string, ChequeDraft> = {};
-    for (const item of cheques) {
-      initial[item.key] = {
-        bankName: item.bankName ?? lifecycle.chequeBankName ?? '',
-        accountHolderName: item.accountHolderName ?? '',
-        chequeNumber: item.chequeNumber ?? item.suggestedChequeNumber ?? '',
-      };
-    }
+
+  const seededShared = (() => {
+    const withBank = cheques.find((item) => item.bankName?.trim());
+    const withHolder = cheques.find((item) => item.accountHolderName?.trim());
+    return {
+      bankName: withBank?.bankName?.trim() ?? '',
+      accountHolderName: withHolder?.accountHolderName?.trim() ?? '',
+    };
+  })();
+  const [bankName, setBankName] = useState(seededShared.bankName);
+  const [accountHolderName, setAccountHolderName] = useState(seededShared.accountHolderName);
+  const [numbers, setNumbers] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    const seeded = cheques.map(
+      (item) => item.chequeNumber ?? item.suggestedChequeNumber ?? '',
+    );
+    const first = seeded.find((value) => value.trim()) ?? '';
+    const sequenced = first ? sequenceChequeNumbers(first, cheques.length) : seeded;
+    cheques.forEach((item, index) => {
+      const existing = item.chequeNumber?.trim();
+      initial[item.key] = existing || sequenced[index] || seeded[index] || '';
+    });
     return initial;
   });
 
   if (!cheques.length) return null;
+
+  function applySequenceFrom(index: number, value: string) {
+    setNumbers((current) => {
+      const next = { ...current };
+      const keys = cheques.slice(index).map((item) => item.key);
+      const sequenced = sequenceChequeNumbers(value, keys.length);
+      keys.forEach((key, offset) => {
+        const row = cheques[index + offset];
+        if (!row || row.status === 'approved') return;
+        next[key] = sequenced[offset] ?? '';
+      });
+      return next;
+    });
+  }
 
   function pick(key: string, event: ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
@@ -566,16 +607,17 @@ function LeaseCheques({
       );
       return;
     }
-    const draft = drafts[key] ?? { bankName: '', accountHolderName: '', chequeNumber: '' };
-    if (
-      draft.bankName.trim().length < 2 ||
-      draft.accountHolderName.trim().length < 2 ||
-      !draft.chequeNumber.trim()
-    ) {
+    if (bankName.trim().length < 2 || accountHolderName.trim().length < 2) {
       setError(
         ar
-          ? 'أكمل بنك الشيك واسم صاحب الحساب ورقم الشيك قبل رفع الصورة.'
-          : 'Fill bank, account holder and cheque number before uploading the photo.',
+          ? 'أدخل البنك واسم صاحب الحساب مرة واحدة أعلى الجدول قبل رفع الصور.'
+          : 'Enter bank and account holder once above the table before uploading photos.',
+      );
+      return;
+    }
+    if (!(numbers[key] ?? '').trim()) {
+      setError(
+        ar ? 'أدخل رقم الشيك قبل رفع الصورة.' : 'Enter the cheque number before uploading the photo.',
       );
       return;
     }
@@ -588,7 +630,6 @@ function LeaseCheques({
   }
 
   async function send(key: string, prepared: File) {
-    const draft = drafts[key] ?? { bankName: '', accountHolderName: '', chequeNumber: '' };
     setBusy(key);
     setPending(null);
     try {
@@ -609,9 +650,9 @@ function LeaseCheques({
           method: 'POST',
           body: JSON.stringify({
             key,
-            bankName: draft.bankName.trim(),
-            accountHolderName: draft.accountHolderName.trim(),
-            chequeNumber: draft.chequeNumber.trim(),
+            bankName: bankName.trim(),
+            accountHolderName: accountHolderName.trim(),
+            chequeNumber: (numbers[key] ?? '').trim(),
             fileName: prepared.name.slice(0, 200),
             dataUrl,
           }),
@@ -643,14 +684,14 @@ function LeaseCheques({
       ) : null}
       <p className="muted">
         {ar
-          ? 'لكل شيك: أدخل البنك واسم صاحب الحساب ورقم الشيك، ثم ارفق صورة الشيك (يمكنك قصّها وضبط إضاءتها قبل الإرسال).'
-          : 'For each cheque: enter bank, account holder and number, then attach a photo (crop and brighten before sending).'}
+          ? 'أدخل بنك الحساب واسم صاحبه مرة واحدة، ثم رقم أول شيك — يُملأ الباقي تلقائياً ويمكنك تعديله. المبلغ من النظام، والمرفق لصورة كل شيك.'
+          : 'Enter bank and account holder once, then the first cheque number — the rest fill automatically and stay editable. Amounts come from the system; attach each cheque photo in the last column.'}
       </p>
       {blocked ? (
         <p className="notice notice--info" role="status">
           {ar
-            ? 'الحقول ظاهرة أدناه — أكّد صحة بياناتك أعلاه أولاً ثم ارفع صور الشيكات.'
-            : 'Fields are shown below — confirm your details above first, then upload cheque photos.'}
+            ? 'أكّد صحة بياناتك أعلاه أولاً ثم أكمل جدول الشيكات.'
+            : 'Confirm your details above first, then complete the cheque table.'}
         </p>
       ) : null}
       {error ? (
@@ -658,92 +699,139 @@ function LeaseCheques({
           {error}
         </p>
       ) : null}
-      <ul className="lease-docs lease-cheques__list">
-        {cheques.map((item) => {
-          const draft = drafts[item.key] ?? {
-            bankName: lifecycle.chequeBankName ?? '',
-            accountHolderName: '',
-            chequeNumber: item.suggestedChequeNumber ?? '',
-          };
-          const canEdit = !readOnly && item.status !== 'approved';
-          const fileHref = item.fileName
-            ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/cheque-${encodeURIComponent(item.key)}`
-            : null;
-          return (
-            <li
-              key={item.key}
-              className={`lease-docs__item lease-docs__item--stack lease-docs__item--${item.status}`}
-            >
-              <div className="lease-docs__text">
-                <strong>{ar ? item.labelAr : item.labelEn}</strong>
-                <span>
-                  {formatMoney(String(item.amountMinor), item.currency, ar ? 'ar' : 'en')}
-                  {item.dueOn ? ` · ${item.dueOn}` : ''}
-                </span>
-                <span>{requirementStatus(item, ar)}</span>
-                {item.status === 'rejected' && item.note ? (
-                  <small>
-                    {ar ? 'ملاحظة المالك: ' : 'Owner note: '}
-                    {item.note}
-                  </small>
-                ) : null}
-                {item.fileName && item.status !== 'rejected' ? (
-                  <small dir="auto">
-                    {item.chequeNumber ? `#${item.chequeNumber} · ` : ''}
-                    {item.fileName}
-                  </small>
-                ) : null}
-              </div>
-              {canEdit ? (
-                <div className="lease-cheques__fields">
-                  <label>
-                    {ar ? 'بنك الشيك' : 'Cheque bank'}
-                    <input
-                      className="input"
-                      maxLength={160}
-                      value={draft.bankName}
-                      disabled={blocked || busy !== null}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [item.key]: { ...draft, bankName: event.target.value },
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    {ar ? 'اسم صاحب الحساب' : 'Account holder'}
-                    <input
-                      className="input"
-                      maxLength={160}
-                      value={draft.accountHolderName}
-                      disabled={blocked || busy !== null}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [item.key]: { ...draft, accountHolderName: event.target.value },
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    {ar ? 'رقم الشيك' : 'Cheque number'}
-                    <input
-                      className="input"
-                      dir="ltr"
-                      maxLength={80}
-                      value={draft.chequeNumber}
-                      disabled={blocked || busy !== null}
-                      onChange={(event) =>
-                        setDrafts((current) => ({
-                          ...current,
-                          [item.key]: { ...draft, chequeNumber: event.target.value },
-                        }))
-                      }
-                    />
-                  </label>
-                  <div className="lease-docs__actions">
-                    {fileHref ? (
+
+      {!readOnly ? (
+        <div className="lease-cheques__shared">
+          <label>
+            {ar ? 'بنك الحساب (مرة واحدة لكل الشيكات)' : 'Account bank (once for all cheques)'}
+            <input
+              className="input"
+              maxLength={160}
+              value={bankName}
+              disabled={blocked || busy !== null}
+              onChange={(event) => setBankName(event.target.value)}
+              placeholder={ar ? 'مثال: بنك مسقط' : 'e.g. Bank Muscat'}
+            />
+          </label>
+          <label>
+            {ar ? 'اسم صاحب الحساب (مرة واحدة)' : 'Account holder (once)'}
+            <input
+              className="input"
+              maxLength={160}
+              value={accountHolderName}
+              disabled={blocked || busy !== null}
+              onChange={(event) => setAccountHolderName(event.target.value)}
+              placeholder={ar ? 'الاسم كما على دفتر الشيكات' : 'Name as on the cheque book'}
+            />
+          </label>
+        </div>
+      ) : bankName || accountHolderName ? (
+        <p className="lease-cheques__shared-read muted">
+          {[bankName, accountHolderName].filter(Boolean).join(' · ')}
+        </p>
+      ) : null}
+
+      <div className="lease-cheques__table-wrap">
+        <table className="lease-cheques__table">
+          <thead>
+            <tr>
+              <th scope="col">{ar ? 'الشيك' : 'Cheque'}</th>
+              <th scope="col">{ar ? 'المبلغ' : 'Amount'}</th>
+              <th scope="col">{ar ? 'الاستحقاق' : 'Due'}</th>
+              <th scope="col">{ar ? 'رقم الشيك' : 'Number'}</th>
+              <th scope="col">{ar ? 'المرفق' : 'Attachment'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cheques.map((item, index) => {
+              const canEdit = !readOnly && item.status !== 'approved';
+              const fileHref = item.fileName
+                ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/cheque-${encodeURIComponent(item.key)}`
+                : null;
+              return (
+                <tr key={item.key} className={`lease-cheques__row lease-cheques__row--${item.status}`}>
+                  <td>
+                    <strong>{ar ? item.labelAr : item.labelEn}</strong>
+                    <span className="lease-cheques__status">{requirementStatus(item, ar)}</span>
+                    {item.status === 'rejected' && item.note ? (
+                      <small className="lease-cheques__note">
+                        {ar ? 'ملاحظة: ' : 'Note: '}
+                        {item.note}
+                      </small>
+                    ) : null}
+                  </td>
+                  <td className="lease-cheques__amount" dir="ltr">
+                    {formatMoney(String(item.amountMinor), item.currency, ar ? 'ar' : 'en')}
+                  </td>
+                  <td className="lease-cheques__due" dir="ltr">
+                    {item.dueOn || '—'}
+                  </td>
+                  <td>
+                    {canEdit ? (
+                      <input
+                        className="input lease-cheques__number"
+                        dir="ltr"
+                        maxLength={80}
+                        value={numbers[item.key] ?? ''}
+                        disabled={blocked || busy !== null}
+                        aria-label={ar ? `رقم ${item.labelAr}` : `Number for ${item.labelEn}`}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (index === 0 || (value.trim() && /\d/.test(value))) {
+                            applySequenceFrom(index, value);
+                          } else {
+                            setNumbers((current) => ({ ...current, [item.key]: value }));
+                          }
+                        }}
+                        onBlur={(event) => {
+                          if (index === 0 && event.target.value.trim()) {
+                            applySequenceFrom(0, event.target.value);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <span dir="ltr">{item.chequeNumber || numbers[item.key] || '—'}</span>
+                    )}
+                  </td>
+                  <td className="lease-cheques__file">
+                    {canEdit ? (
+                      <div className="lease-docs__actions">
+                        {fileHref ? (
+                          <button
+                            type="button"
+                            className="button button--quiet"
+                            onClick={() =>
+                              setPreview({
+                                href: fileHref,
+                                label: ar ? item.labelAr : item.labelEn,
+                              })
+                            }
+                          >
+                            {ar ? 'معاينة' : 'Preview'}
+                          </button>
+                        ) : null}
+                        <label className="button button--quiet lease-docs__upload">
+                          {busy === item.key
+                            ? ar
+                              ? 'جارٍ…'
+                              : '…'
+                            : item.status === 'pending'
+                              ? ar
+                                ? 'رفع صورة'
+                                : 'Upload'
+                              : ar
+                                ? 'استبدال'
+                                : 'Replace'}
+                          <input
+                            type="file"
+                            accept="image/*,application/pdf"
+                            hidden
+                            disabled={busy !== null || blocked}
+                            onChange={(event) => pick(item.key, event)}
+                          />
+                        </label>
+                      </div>
+                    ) : fileHref ? (
                       <button
                         type="button"
                         className="button button--quiet"
@@ -756,47 +844,16 @@ function LeaseCheques({
                       >
                         {ar ? 'معاينة' : 'Preview'}
                       </button>
-                    ) : null}
-                    <label className="button button--quiet lease-docs__upload">
-                      {busy === item.key
-                        ? ar
-                          ? 'جارٍ الإرسال…'
-                          : 'Sending…'
-                        : item.status === 'pending'
-                          ? ar
-                            ? 'رفع صورة الشيك'
-                            : 'Upload cheque photo'
-                          : ar
-                            ? 'استبدال الصورة'
-                            : 'Replace photo'}
-                      <input
-                        type="file"
-                        accept="image/*,application/pdf"
-                        hidden
-                        disabled={busy !== null || blocked}
-                        onChange={(event) => pick(item.key, event)}
-                      />
-                    </label>
-                  </div>
-                </div>
-              ) : fileHref ? (
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  onClick={() =>
-                    setPreview({
-                      href: fileHref,
-                      label: ar ? item.labelAr : item.labelEn,
-                    })
-                  }
-                >
-                  {ar ? 'معاينة الملف' : 'Preview file'}
-                </button>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       {pending ? (
         <UploadPrepareDialog
           file={pending.file}

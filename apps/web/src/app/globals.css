@@ -22726,6 +22726,89 @@ button.lrw__step-body:focus-visible {
 .lease-cheques__payable {
   margin: 0;
 }
+.lease-cheques__shared {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem 0.85rem;
+  margin: 0.75rem 0 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.7rem;
+  border: 1px solid #d5e3db;
+  background: #f7fbf8;
+}
+.lease-cheques__shared label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.84rem;
+  color: #2f463c;
+  font-weight: 600;
+}
+.lease-cheques__shared-read {
+  margin: 0.5rem 0 0.75rem;
+}
+.lease-cheques__table-wrap {
+  overflow-x: auto;
+  margin-top: 0.35rem;
+  border: 1px solid #d5e3db;
+  border-radius: 0.7rem;
+  background: #fff;
+}
+.lease-cheques__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 36rem;
+  font-size: 0.88rem;
+}
+.lease-cheques__table th,
+.lease-cheques__table td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid #e5eee9;
+  text-align: start;
+  vertical-align: middle;
+}
+.lease-cheques__table th {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #3d5248;
+  background: #f3f8f5;
+  white-space: nowrap;
+}
+.lease-cheques__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.lease-cheques__row--rejected {
+  background: #fff8f4;
+}
+.lease-cheques__row--approved {
+  background: #f4faf6;
+}
+.lease-cheques__table td strong {
+  display: block;
+  font-size: 0.9rem;
+}
+.lease-cheques__status,
+.lease-cheques__note {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: #5a6f64;
+}
+.lease-cheques__note {
+  color: #9a4a2a;
+}
+.lease-cheques__amount,
+.lease-cheques__due {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.lease-cheques__number {
+  width: 7.5rem;
+  max-width: 100%;
+  min-width: 5.5rem;
+}
+.lease-cheques__file .lease-docs__actions {
+  flex-wrap: nowrap;
+}
 .lease-cheques__fields {
   display: grid;
   gap: 0.5rem;
@@ -22737,6 +22820,11 @@ button.lrw__step-body:focus-visible {
   gap: 0.2rem;
   font-size: 0.82rem;
   color: #3d5248;
+}
+@media (max-width: 720px) {
+  .lease-cheques__shared {
+    grid-template-columns: 1fr;
+  }
 }
 .lease-docs__item--stack {
   flex-direction: column;
