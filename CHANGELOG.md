@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.197 — 2026-10-27
+
+- **إصلاح نص تقرير PDF:** تحميل خطوط Noto صراحةً في Resvg (عربي + لاتيني) حتى تظهر عناوين الجدول والبيانات بدل صفحة شبه فارغة.
+
 ## 0.8.134.196 — 2026-10-27
 
 - **PDF تأجير حقيقي طولي/عرضي:** بدل طباعة الشاشة، يُنزَّل ملف PDF بحجم A4 مع خيار Portrait أو Landscape وتخطيط متناسق (شعار، جدول، باركود تحقق).

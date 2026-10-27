@@ -27,7 +27,12 @@ const A4_PT = { w: 595.28, h: 841.89 };
 const DPI_SCALE = 2;
 
 function fontCandidates(): string[] {
-  const names = ['NotoNaskhArabic-Bold.ttf', 'NotoNaskhArabic-Regular.ttf'];
+  const names = [
+    'NotoNaskhArabic-Bold.ttf',
+    'NotoNaskhArabic-Regular.ttf',
+    'NotoSans-Bold.ttf',
+    'NotoSans-Regular.ttf',
+  ];
   const dirs = [
     path.join(MODULE_DIR, '../../assets/fonts'),
     path.join(MODULE_DIR, '../../../assets/fonts'),
@@ -45,15 +50,25 @@ function fontCandidates(): string[] {
   return [...new Set(found)];
 }
 
-function loadFontCss(): string {
-  return fontCandidates()
+function fontFaceFamily(file: string): 'NotoNaskhReport' | 'NotoSansReport' {
+  return /NotoSans/i.test(path.basename(file)) ? 'NotoSansReport' : 'NotoNaskhReport';
+}
+
+/** Resvg needs explicit `fontFiles` — CSS @font-face alone does not paint text. */
+function loadFonts(): { css: string; files: string[] } {
+  const files = fontCandidates();
+  const css = files
     .map((file) => {
       const bold = /Bold/i.test(path.basename(file));
+      const family = fontFaceFamily(file);
       const b64 = readFileSync(file).toString('base64');
-      return `@font-face{font-family:'NotoNaskhReport';font-weight:${bold ? 700 : 400};font-style:normal;src:url('data:font/ttf;base64,${b64}') format('truetype');}`;
+      return `@font-face{font-family:'${family}';font-weight:${bold ? 700 : 400};font-style:normal;src:url('data:font/ttf;base64,${b64}') format('truetype');}`;
     })
     .join('');
+  return { css, files };
 }
+
+const REPORT_FONT_STACK = `'NotoNaskhReport', 'NotoSansReport', sans-serif`;
 
 function logoDataUri(): string | null {
   const candidates = [
@@ -238,7 +253,7 @@ function buildPageSvg(input: {
   const headerCells = labels
     .map((label, i) => {
       const cx = colX[i]! + colW[i]! / 2;
-      return `<rect x="${colX[i]}" y="${tableTop}" width="${colW[i]}" height="${rowH}" fill="#07543E"/><text x="${cx}" y="${tableTop + rowH * 0.68}" text-anchor="${anchor}" direction="${dir}" font-family="NotoNaskhReport" font-size="${headerFont}" font-weight="700" fill="#ffffff">${escapeXml(label)}</text>`;
+      return `<rect x="${colX[i]}" y="${tableTop}" width="${colW[i]}" height="${rowH}" fill="#07543E"/><text x="${cx}" y="${tableTop + rowH * 0.68}" text-anchor="${anchor}" direction="${dir}" font-family="${REPORT_FONT_STACK}" font-size="${headerFont}" font-weight="700" fill="#ffffff">${escapeXml(label)}</text>`;
     })
     .join('');
 
@@ -263,7 +278,7 @@ function buildPageSvg(input: {
           .map((value, i) => {
             const cx = colX[i]! + colW[i]! / 2;
             const text = truncate(String(value ?? ''), maxChars[i] ?? 12);
-            return `<text x="${cx}" y="${y + rowH * 0.68}" text-anchor="${anchor}" direction="${dir}" font-family="NotoNaskhReport" font-size="${fontSize}" font-weight="400" fill="#1f2924">${escapeXml(text)}</text>`;
+            return `<text x="${cx}" y="${y + rowH * 0.68}" text-anchor="${anchor}" direction="${dir}" font-family="${REPORT_FONT_STACK}" font-size="${fontSize}" font-weight="400" fill="#1f2924">${escapeXml(text)}</text>`;
           })
           .join('')
       );
@@ -305,28 +320,28 @@ function buildPageSvg(input: {
 <svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" viewBox="0 0 ${widthPx} ${heightPx}">
   <defs><style><![CDATA[
     ${fontCss}
-    text { font-family: 'NotoNaskhReport', 'Noto Naskh Arabic', sans-serif; }
+    text { font-family: ${REPORT_FONT_STACK}; }
   ]]></style></defs>
   <rect width="100%" height="100%" fill="#ffffff"/>
   <rect x="0" y="0" width="${widthPx}" height="8" fill="#07543E"/>
   ${logo}
-  <text x="${titleX}" y="${margin + 28}" text-anchor="${titleAnchor}" direction="${dir}" font-family="NotoNaskhReport" font-size="14" font-weight="700" fill="#0b7a74">BHD R · ${ar ? 'تقرير رسمي' : 'Official report'}</text>
-  <text x="${titleX}" y="${margin + 56}" text-anchor="${titleAnchor}" direction="${dir}" font-family="NotoNaskhReport" font-size="${orientation === 'landscape' ? 26 : 24}" font-weight="700" fill="#12201a">${escapeXml(snapshot.title)}</text>
+  <text x="${titleX}" y="${margin + 28}" text-anchor="${titleAnchor}" direction="${dir}" font-family="${REPORT_FONT_STACK}" font-size="14" font-weight="700" fill="#0b7a74">BHD R · ${ar ? 'تقرير رسمي' : 'Official report'}</text>
+  <text x="${titleX}" y="${margin + 56}" text-anchor="${titleAnchor}" direction="${dir}" font-family="${REPORT_FONT_STACK}" font-size="${orientation === 'landscape' ? 26 : 24}" font-weight="700" fill="#12201a">${escapeXml(snapshot.title)}</text>
   ${metaLines
     .map(
       (line, i) =>
-        `<text x="${titleX}" y="${margin + 84 + i * 20}" text-anchor="${titleAnchor}" direction="${dir}" font-family="NotoNaskhReport" font-size="13" font-weight="400" fill="#4b5d55">${escapeXml(line)}</text>`,
+        `<text x="${titleX}" y="${margin + 84 + i * 20}" text-anchor="${titleAnchor}" direction="${dir}" font-family="${REPORT_FONT_STACK}" font-size="13" font-weight="400" fill="#4b5d55">${escapeXml(line)}</text>`,
     )
     .join('')}
   <image href="${qrDataUri}" x="${qrX}" y="${qrY}" width="${qrSize}" height="${qrSize}" preserveAspectRatio="xMidYMid meet"/>
-  <text x="${qrX + qrSize / 2}" y="${qrY + qrSize + 16}" text-anchor="middle" direction="${dir}" font-family="NotoNaskhReport" font-size="11" font-weight="700" fill="#5a6a63">${ar ? 'امسح للتحقق' : 'Scan to verify'}</text>
+  <text x="${qrX + qrSize / 2}" y="${qrY + qrSize + 16}" text-anchor="middle" direction="${dir}" font-family="${REPORT_FONT_STACK}" font-size="11" font-weight="700" fill="#5a6a63">${ar ? 'امسح للتحقق' : 'Scan to verify'}</text>
   ${headerCells}
   ${bodyRows}
   ${gridLines}
   ${vLines}
   <line x1="${margin}" y1="${heightPx - margin - footerH + 8}" x2="${margin + contentW}" y2="${heightPx - margin - footerH + 8}" stroke="#d5e0da" stroke-width="1"/>
-  <text x="${ar ? widthPx - margin : margin}" y="${heightPx - margin - 36}" text-anchor="${ar ? 'end' : 'start'}" direction="${dir}" font-family="NotoNaskhReport" font-size="12" font-weight="400" fill="#4b5d55">${ar ? 'التحقق:' : 'Verify:'} ${escapeXml(verifyUrl)}</text>
-  <text x="${ar ? widthPx - margin : margin}" y="${heightPx - margin - 14}" text-anchor="${ar ? 'end' : 'start'}" direction="${dir}" font-family="NotoNaskhReport" font-size="11" font-weight="400" fill="#6a7771">${ar ? 'صدر إلكترونياً من منصة BHD R — بن حمود للتطوير.' : 'Issued electronically by BHD R — Bin Hamood Development.'}</text>
+  <text x="${ar ? widthPx - margin : margin}" y="${heightPx - margin - 36}" text-anchor="${ar ? 'end' : 'start'}" direction="${dir}" font-family="${REPORT_FONT_STACK}" font-size="12" font-weight="400" fill="#4b5d55">${ar ? 'التحقق:' : 'Verify:'} ${escapeXml(verifyUrl)}</text>
+  <text x="${ar ? widthPx - margin : margin}" y="${heightPx - margin - 14}" text-anchor="${ar ? 'end' : 'start'}" direction="${dir}" font-family="${REPORT_FONT_STACK}" font-size="11" font-weight="400" fill="#6a7771">${ar ? 'صدر إلكترونياً من منصة BHD R — بن حمود للتطوير.' : 'Issued electronically by BHD R — Bin Hamood Development.'}</text>
 </svg>`;
 }
 
@@ -341,7 +356,10 @@ export async function renderLeasingPdf(
   const pagePt = pageSizePt(orientation);
   const widthPx = Math.round(pagePt.w * DPI_SCALE);
   const heightPx = Math.round(pagePt.h * DPI_SCALE);
-  const fontCss = loadFontCss();
+  const { css: fontCss, files: fontFiles } = loadFonts();
+  if (!fontFiles.some((file) => /NotoNaskhArabic/i.test(file))) {
+    throw new Error('report_fonts_missing');
+  }
   const logoUri = logoDataUri();
   const verifyUrl = `${publicWebOrigin()}/${snapshot.locale}/verify/leasing/${encodeURIComponent(snapshot.token)}`;
   const qrSvg = await serverBrandedQrSvg(verifyUrl, {
@@ -379,7 +397,12 @@ export async function renderLeasingPdf(
     });
     const png = new Resvg(svg, {
       fitTo: { mode: 'width', value: widthPx },
-      font: { loadSystemFonts: false, defaultFontFamily: 'NotoNaskhReport' },
+      font: {
+        fontFiles,
+        // Fallback for rare glyphs; primary faces come from bundled TTFs above.
+        loadSystemFonts: true,
+        defaultFontFamily: 'NotoNaskhReport',
+      },
     })
       .render()
       .asPng();

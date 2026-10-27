@@ -41,6 +41,7 @@ const config: NextConfig = {
   outputFileTracingIncludes: {
     '/api/site-admin/greetings/**/*': ['./assets/fonts/**/*', './public/fonts/**/*'],
     '/api/public/greeting-card/**/*': ['./assets/fonts/**/*', './public/fonts/**/*'],
+    '/api/owner/leasing/report/**/*': ['./assets/fonts/**/*', './public/fonts/**/*'],
   },
   poweredByHeader: false,
   reactStrictMode: true,
