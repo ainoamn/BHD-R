@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
-import { browserMutation, browserApiPath } from '@/lib/api';
+import { browserMutation, browserNextMutation, browserApiPath } from '@/lib/api';
 import type { BadgeChip } from '@/lib/badges-shared';
 import { BadgeChips } from './badges/badge-chips';
 import {
@@ -74,12 +74,12 @@ import {
   leasingRowUnit,
   leasingTextFilterValue,
   matchesLeasingColumnFilter,
-  printLeasingReport,
   readLeasingIntroCollapsed,
   sortLeasingRows,
   withLeasingTextFilter,
   writeLeasingIntroCollapsed,
   type LeasingColumnKey,
+  type LeasingPrintRow,
   type LeasingTableFilter,
 } from '@/lib/leasing-ops-table';
 
@@ -2535,6 +2535,8 @@ export function OperationsConsole({
   const leasingColumnsActive = leasingFilterActive(leasingFilter);
   const [leasingOpenFilter, setLeasingOpenFilter] = useState<LeasingColumnKey | null>(null);
   const [leasingIntroCollapsed, setLeasingIntroCollapsed] = useState(false);
+  const [leasingReportOpen, setLeasingReportOpen] = useState(false);
+  const [leasingReportBusy, setLeasingReportBusy] = useState(false);
   useEffect(() => {
     if (section === 'leasing') setLeasingIntroCollapsed(readLeasingIntroCollapsed());
   }, [section]);
@@ -4345,44 +4347,10 @@ ${depositHtml}${
                   <button
                     type="button"
                     className="button button--quiet button--sm"
-                    disabled={!tableRows.length}
-                    onClick={() => {
-                      const ok = printLeasingReport({
-                        ar,
-                        title: ar ? 'تقرير إدارة التأجير' : 'Leasing management report',
-                        generatedAt: new Date().toLocaleString(ar ? 'ar-OM' : 'en-GB', {
-                          timeZone: 'Asia/Muscat',
-                        }),
-                        rows: tableRows.map((row) => {
-                          const stateValue = safeString(row.state);
-                          const stateLabel =
-                            definition.flow.find((item) => item.value === stateValue) ?? null;
-                          return {
-                            reference:
-                              safeString(row.reference) ||
-                              safeString(row.contractId) ||
-                              safeString(row.id),
-                            property: safeString(row.property),
-                            unit: safeString(row.unit),
-                            owner: safeString(row.owner),
-                            tenant: safeString(row.tenant),
-                            state: stateLabel
-                              ? ar
-                                ? stateLabel.ar
-                                : stateLabel.en
-                              : stateValue || '—',
-                            startsOn: safeString(row.startsOn).slice(0, 10) || '—',
-                            endsOn: safeString(row.endsOn).slice(0, 10) || '—',
-                            rent: moneyFromRecord(row, 'rentMinor', locale),
-                          };
-                        }),
-                      });
-                      if (!ok) {
-                        setError(ar ? 'اسمح بالنوافذ المنبثقة للطباعة' : 'Allow pop-ups to print');
-                      }
-                    }}
+                    disabled={!tableRows.length || leasingReportBusy}
+                    onClick={() => setLeasingReportOpen(true)}
                   >
-                    {ar ? 'طباعة التقرير' : 'Print report'}
+                    {ar ? 'تقرير / تنزيل' : 'Report / download'}
                   </button>
                   {leasingColumnsActive || query || statusFilter ? (
                     <button
@@ -5838,6 +5806,187 @@ ${depositHtml}${
                   </button>
                 </div>
               </form>
+            </section>
+          </div>
+        </ModalPortal>
+      ) : null}
+
+      {leasingReportOpen ? (
+        <ModalPortal onClose={() => !leasingReportBusy && setLeasingReportOpen(false)}>
+          <div
+            className="ops-modal"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget && !leasingReportBusy) {
+                setLeasingReportOpen(false);
+              }
+            }}
+          >
+            <section
+              className="ops-modal__card"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="leasing-report-title"
+            >
+              <header>
+                <div>
+                  <span className="ops-kicker">BHD R · REPORT</span>
+                  <h2 id="leasing-report-title">
+                    {ar ? 'تنزيل تقرير التأجير' : 'Download leasing report'}
+                  </h2>
+                  <p>
+                    {ar
+                      ? 'اختر النوع: ملف Excel للتنزيل المباشر، أو تقرير PDF رسمي (شعار وباركود تحقق) للطباعة أو الحفظ كـ PDF.'
+                      : 'Choose a type: Excel for direct download, or an official PDF report (logo and verification barcode) to print or save as PDF.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  disabled={leasingReportBusy}
+                  onClick={() => setLeasingReportOpen(false)}
+                >
+                  {ar ? 'إغلاق' : 'Close'}
+                </button>
+              </header>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={leasingReportBusy || !tableRows.length}
+                  onClick={() => {
+                    void (async () => {
+                      setLeasingReportBusy(true);
+                      setError(null);
+                      try {
+                        const rows: LeasingPrintRow[] = tableRows.map((row) => {
+                          const stateValue = safeString(row.state);
+                          const stateLabel =
+                            definition.flow.find((item) => item.value === stateValue) ?? null;
+                          return {
+                            reference:
+                              safeString(row.reference) ||
+                              safeString(row.contractId) ||
+                              safeString(row.id),
+                            property: safeString(row.property),
+                            unit: safeString(row.unit),
+                            owner: safeString(row.owner),
+                            tenant: safeString(row.tenant),
+                            state: stateLabel
+                              ? ar
+                                ? stateLabel.ar
+                                : stateLabel.en
+                              : stateValue || '—',
+                            startsOn: safeString(row.startsOn).slice(0, 10) || '—',
+                            endsOn: safeString(row.endsOn).slice(0, 10) || '—',
+                            rent: moneyFromRecord(row, 'rentMinor', locale),
+                          };
+                        });
+                        const issued = await browserNextMutation<{
+                          token: string;
+                          reportPath: string;
+                        }>('/api/owner/leasing/report', {
+                          method: 'POST',
+                          body: JSON.stringify({
+                            locale,
+                            title: ar ? 'تقرير إدارة التأجير' : 'Leasing management report',
+                            rows,
+                          }),
+                        });
+                        setLeasingReportOpen(false);
+                        window.location.assign(issued.reportPath);
+                      } catch (caught) {
+                        setError(
+                          caught instanceof Error && caught.message
+                            ? caught.message
+                            : ar
+                              ? 'تعذّر إنشاء تقرير PDF.'
+                              : 'Could not create the PDF report.',
+                        );
+                      } finally {
+                        setLeasingReportBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  {leasingReportBusy
+                    ? ar
+                      ? 'جارٍ التجهيز…'
+                      : 'Preparing…'
+                    : ar
+                      ? 'تقرير PDF (رسمي)'
+                      : 'PDF report (official)'}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  disabled={leasingReportBusy || !tableRows.length}
+                  onClick={() => {
+                    void (async () => {
+                      setLeasingReportBusy(true);
+                      setError(null);
+                      try {
+                        const rows: LeasingPrintRow[] = tableRows.map((row) => {
+                          const stateValue = safeString(row.state);
+                          const stateLabel =
+                            definition.flow.find((item) => item.value === stateValue) ?? null;
+                          return {
+                            reference:
+                              safeString(row.reference) ||
+                              safeString(row.contractId) ||
+                              safeString(row.id),
+                            property: safeString(row.property),
+                            unit: safeString(row.unit),
+                            owner: safeString(row.owner),
+                            tenant: safeString(row.tenant),
+                            state: stateLabel
+                              ? ar
+                                ? stateLabel.ar
+                                : stateLabel.en
+                              : stateValue || '—',
+                            startsOn: safeString(row.startsOn).slice(0, 10) || '—',
+                            endsOn: safeString(row.endsOn).slice(0, 10) || '—',
+                            rent: moneyFromRecord(row, 'rentMinor', locale),
+                          };
+                        });
+                        const issued = await browserNextMutation<{ token: string }>(
+                          '/api/owner/leasing/report',
+                          {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              locale,
+                              title: ar ? 'تقرير إدارة التأجير' : 'Leasing management report',
+                              rows,
+                            }),
+                          },
+                        );
+                        const response = await fetch(
+                          `/api/owner/leasing/report?token=${encodeURIComponent(issued.token)}&format=xlsx`,
+                          { credentials: 'same-origin', cache: 'no-store' },
+                        );
+                        if (!response.ok) throw new Error('download_failed');
+                        const blob = await response.blob();
+                        const url = URL.createObjectURL(blob);
+                        const anchor = document.createElement('a');
+                        anchor.href = url;
+                        anchor.download = `bhd-r-leasing-${new Date().toISOString().slice(0, 10)}.xlsx`;
+                        anchor.rel = 'noopener';
+                        document.body.appendChild(anchor);
+                        anchor.click();
+                        anchor.remove();
+                        window.setTimeout(() => URL.revokeObjectURL(url), 2_000);
+                        setLeasingReportOpen(false);
+                      } catch {
+                        setError(ar ? 'تعذّر تنزيل ملف Excel.' : 'Could not download Excel.');
+                      } finally {
+                        setLeasingReportBusy(false);
+                      }
+                    })();
+                  }}
+                >
+                  {ar ? 'تنزيل Excel' : 'Download Excel'}
+                </button>
+              </div>
             </section>
           </div>
         </ModalPortal>

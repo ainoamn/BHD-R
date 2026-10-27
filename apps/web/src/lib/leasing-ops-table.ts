@@ -277,14 +277,6 @@ export function toggleLeasingSort(
   return { ...filter, sortKey: key, sortDir: key === 'startsOn' || key === 'endsOn' ? 'desc' : 'asc' };
 }
 
-function esc(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
-}
-
 export type LeasingPrintRow = {
   reference: string;
   property: string;
@@ -296,63 +288,3 @@ export type LeasingPrintRow = {
   endsOn: string;
   rent: string;
 };
-
-/** Opens a printable leasing report for the currently filtered rows. */
-export function printLeasingReport(input: {
-  ar: boolean;
-  title: string;
-  generatedAt: string;
-  rows: LeasingPrintRow[];
-}): boolean {
-  const { ar, title, generatedAt, rows } = input;
-  const headers = ar
-    ? ['العقد', 'المبنى', 'الوحدة', 'المالك', 'المستأجر', 'الحالة', 'البداية', 'النهاية', 'الإيجار']
-    : [
-        'Contract',
-        'Building',
-        'Unit',
-        'Owner',
-        'Tenant',
-        'Status',
-        'Starts',
-        'Ends',
-        'Rent',
-      ];
-  const body = rows
-    .map(
-      (row) => `<tr>
-<td dir="ltr">${esc(row.reference)}</td>
-<td>${esc(row.property)}</td>
-<td dir="ltr">${esc(row.unit)}</td>
-<td>${esc(row.owner)}</td>
-<td>${esc(row.tenant)}</td>
-<td>${esc(row.state)}</td>
-<td dir="ltr">${esc(row.startsOn)}</td>
-<td dir="ltr">${esc(row.endsOn)}</td>
-<td dir="ltr">${esc(row.rent)}</td>
-</tr>`,
-    )
-    .join('');
-  const html = `<!DOCTYPE html><html lang="${ar ? 'ar' : 'en'}" dir="${ar ? 'rtl' : 'ltr'}"><head>
-<meta charset="utf-8"/><title>${esc(title)}</title>
-<style>
-body{font-family:Tahoma,Arial,sans-serif;margin:1.2rem;color:#122018}
-h1{font-size:1.15rem;margin:0 0 .35rem}
-p{margin:0 0 1rem;color:#4b5d55;font-size:.85rem}
-table{width:100%;border-collapse:collapse;font-size:.78rem}
-th,td{border:1px solid #c9d2cc;padding:.35rem .45rem;text-align:start;vertical-align:top}
-th{background:#eef3f0}
-@media print{body{margin:.6rem}}
-</style></head><body>
-<h1>${esc(title)}</h1>
-<p>${esc(generatedAt)} · ${rows.length} ${ar ? 'سجل' : 'rows'}</p>
-<table><thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>
-<tbody>${body || `<tr><td colspan="9">${ar ? 'لا توجد نتائج' : 'No results'}</td></tr>`}</tbody></table>
-<script>window.onload=()=>{window.print();}</script></body></html>`;
-  const popup = window.open('', '_blank', 'noopener,noreferrer,width=1024,height=768');
-  if (!popup) return false;
-  popup.document.open();
-  popup.document.write(html);
-  popup.document.close();
-  return true;
-}
