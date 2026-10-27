@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@bhd-r/ui';
 import type { Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
+import { MAP_TILE_ATTRIBUTION, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '@/lib/map-tiles';
 import {
   googleMapsLinkFromCoords,
   type MapCoordinates,
@@ -63,9 +64,10 @@ export function MapLocationPicker({
         zoom: initial ? 16 : 12,
         scrollWheelZoom: true,
       });
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap',
-        maxZoom: 19,
+      L.tileLayer(MAP_TILE_URL, {
+        attribution: MAP_TILE_ATTRIBUTION,
+        subdomains: MAP_TILE_SUBDOMAINS,
+        maxZoom: 20,
       }).addTo(map);
 
       const pin = L.divIcon({

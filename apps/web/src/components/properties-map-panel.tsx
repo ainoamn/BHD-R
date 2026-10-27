@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import type { Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
 import type { CatalogueListing } from '@/lib/listing-market-status';
 import { formatMoney, localizedName } from '@/lib/format';
+import { MAP_TILE_ATTRIBUTION, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '@/lib/map-tiles';
 
 export function PropertiesMapPanel({
   open,
@@ -62,9 +63,10 @@ export function PropertiesMapPanel({
         zoom: pinned.length ? 12 : 10,
         scrollWheelZoom: true,
       });
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap',
-        maxZoom: 19,
+      L.tileLayer(MAP_TILE_URL, {
+        attribution: MAP_TILE_ATTRIBUTION,
+        subdomains: MAP_TILE_SUBDOMAINS,
+        maxZoom: 20,
       }).addTo(map);
       mapRef.current = map;
 

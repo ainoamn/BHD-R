@@ -1,12 +1,12 @@
 import type { PropertyLocation } from '@/lib/contract-document';
+import { mapTileSrc } from '@/lib/map-tiles';
 
 const BRAND_LOGO = '/brand/bhd-official-symbol.svg';
 const ZOOM = 16;
 const TILE = 256;
-const TILE_ORIGIN = 'https://tile.openstreetmap.org';
 
 /**
- * OpenStreetMap tiles around the pin, positioned from the map's centre so the pin sits in
+ * Map tiles around the pin, positioned from the map's centre so the pin sits in
  * the middle at any width up to 1024px. Plain images: no script, and they print.
  */
 function tilesAround(latitude: number, longitude: number) {
@@ -23,7 +23,7 @@ function tilesAround(latitude: number, longitude: number) {
       const wrappedX = ((tileX % count) + count) % count;
       tiles.push({
         key: `${tileX}:${tileY}`,
-        src: `${TILE_ORIGIN}/${ZOOM}/${wrappedX}/${tileY}.png`,
+        src: mapTileSrc(ZOOM, wrappedX, tileY),
         left: Math.round((tileX - x) * TILE),
         top: Math.round((tileY - y) * TILE),
       });
@@ -104,7 +104,7 @@ export function PropertyLocationMap({
             <i>R</i>
           </span>
           <span className="loc-map__attrib" dir="ltr">
-            © OpenStreetMap
+            © OpenStreetMap · © CARTO
           </span>
         </a>
       ) : null}
