@@ -6063,6 +6063,59 @@ body:has(.stays-booking-receipt) #main-content {
   flex-wrap: wrap;
   gap: 0.45rem;
 }
+.ops-action-menu {
+  position: relative;
+  display: inline-block;
+}
+.ops-action-menu > summary {
+  list-style: none;
+}
+.ops-action-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.ops-action-menu__trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--green-900, #0a4b3b) 18%, #d7e5dd);
+  border-radius: 999px;
+  background: color-mix(in srgb, #edf7f1 70%, #fff);
+  color: var(--ink, #12201a);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  user-select: none;
+}
+.ops-action-menu__trigger:hover,
+.ops-action-menu[open] > .ops-action-menu__trigger {
+  border-color: color-mix(in srgb, var(--green-900, #0a4b3b) 35%, #add8bf);
+  background: #edf7f1;
+}
+.ops-action-menu__panel {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 0.3rem);
+  z-index: 40;
+  display: grid;
+  gap: 0.15rem;
+  min-width: 12.5rem;
+  padding: 0.35rem;
+  border: 1px solid color-mix(in srgb, var(--green-900, #0a4b3b) 16%, #d7e5dd);
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(18, 32, 26, 0.12);
+}
+.ops-action-menu__panel .ops-action {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: start;
+  border-radius: 0.5rem;
+  white-space: nowrap;
+}
 .ops-action--danger {
   color: var(--danger);
 }

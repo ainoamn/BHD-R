@@ -1107,6 +1107,219 @@ function displayCellValue(
   return safeString(value).replaceAll('_', ' ');
 }
 
+function closeOpsActionMenu(from: EventTarget | null) {
+  const host =
+    from instanceof Element ? from.closest('details.ops-action-menu') : null;
+  host?.removeAttribute('open');
+}
+
+function OpsActionMenu({
+  ar,
+  children,
+}: {
+  ar: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details
+      className="ops-action-menu"
+      onClick={(event) => event.stopPropagation()}
+    >
+      <summary
+        className="ops-action-menu__trigger"
+        aria-label={ar ? 'الإجراء التالي' : 'Next action'}
+        onClick={(event) => {
+          const current = event.currentTarget.parentElement;
+          const scope =
+            current?.closest('tbody, .ops-mobile-list, .ops-panel') ?? document;
+          scope.querySelectorAll('details.ops-action-menu[open]').forEach((el) => {
+            if (el !== current) el.removeAttribute('open');
+          });
+        }}
+      >
+        <span aria-hidden="true">⋯</span>
+      </summary>
+      <div className="ops-action-menu__panel" role="menu">
+        {children}
+      </div>
+    </details>
+  );
+}
+
+function LeasingNextActions({
+  row,
+  ar,
+  busy,
+  onLifecycle,
+  onRenew,
+}: {
+  row: DataRow;
+  ar: boolean;
+  busy: boolean;
+  onLifecycle: (
+    row: DataRow,
+    action:
+      | 'activate'
+      | 'end'
+      | 'request_cancellation'
+      | 'approve_cancellation'
+      | 'clear_cancellation'
+      | 'terminate'
+      | 'confirm_renewal'
+      | 'waive_renewal_gate',
+  ) => void;
+  onRenew: (row: DataRow) => void;
+}) {
+  const status = safeString(row.status);
+  const items: ReactNode[] = [];
+
+  if (status === 'draft') {
+    items.push(
+      <button
+        key="activate"
+        className="ops-action"
+        type="button"
+        role="menuitem"
+        disabled={busy}
+        onClick={(event) => {
+          closeOpsActionMenu(event.currentTarget);
+          void onLifecycle(row, 'activate');
+        }}
+      >
+        {ar ? 'تفعيل (ساري)' : 'Activate'}
+      </button>,
+      <button
+        key="void"
+        className="ops-action ops-action--danger"
+        type="button"
+        role="menuitem"
+        disabled={busy}
+        onClick={(event) => {
+          closeOpsActionMenu(event.currentTarget);
+          void onLifecycle(row, 'terminate');
+        }}
+      >
+        {ar ? 'إلغاء مسودة' : 'Void draft'}
+      </button>,
+    );
+  }
+
+  if (status === 'active') {
+    items.push(
+      <button
+        key="renew"
+        className="ops-action"
+        type="button"
+        role="menuitem"
+        disabled={busy}
+        onClick={(event) => {
+          closeOpsActionMenu(event.currentTarget);
+          onRenew(row);
+        }}
+      >
+        {ar ? 'تجديد' : 'Renew'}
+      </button>,
+    );
+    if (row.renewalPendingContractId) {
+      items.push(
+        <button
+          key="confirm-renewal"
+          className="ops-action"
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={(event) => {
+            closeOpsActionMenu(event.currentTarget);
+            void onLifecycle(row, 'confirm_renewal');
+          }}
+        >
+          {ar ? 'اعتماد تجديد (محاسب)' : 'Confirm renewal'}
+        </button>,
+        <button
+          key="waive-renewal"
+          className="ops-action"
+          type="button"
+          role="menuitem"
+          disabled={busy}
+          onClick={(event) => {
+            closeOpsActionMenu(event.currentTarget);
+            void onLifecycle(row, 'waive_renewal_gate');
+          }}
+        >
+          {ar ? 'استثناء مدير' : 'Manager waive'}
+        </button>,
+      );
+    }
+    items.push(
+      <button
+        key="end"
+        className="ops-action"
+        type="button"
+        role="menuitem"
+        disabled={busy}
+        onClick={(event) => {
+          closeOpsActionMenu(event.currentTarget);
+          void onLifecycle(row, 'end');
+        }}
+      >
+        {ar ? 'إنهاء → محاسب' : 'End → clearance'}
+      </button>,
+      <button
+        key="cancel-request"
+        className="ops-action ops-action--danger"
+        type="button"
+        role="menuitem"
+        disabled={busy}
+        onClick={(event) => {
+          closeOpsActionMenu(event.currentTarget);
+          void onLifecycle(row, 'request_cancellation');
+        }}
+      >
+        {ar ? 'طلب إلغاء' : 'Request cancel'}
+      </button>,
+    );
+  }
+
+  if (status === 'cancel_requested') {
+    items.push(
+      <button
+        key="approve-cancel"
+        className="ops-action"
+        type="button"
+        role="menuitem"
+        disabled={busy}
+        onClick={(event) => {
+          closeOpsActionMenu(event.currentTarget);
+          void onLifecycle(row, 'approve_cancellation');
+        }}
+      >
+        {ar ? 'اعتماد الإدارة + تاريخ' : 'Admin approve + date'}
+      </button>,
+    );
+  }
+
+  if (status === 'clearance_pending') {
+    items.push(
+      <button
+        key="clear-cancel"
+        className="ops-action"
+        type="button"
+        role="menuitem"
+        disabled={busy}
+        onClick={(event) => {
+          closeOpsActionMenu(event.currentTarget);
+          void onLifecycle(row, 'clear_cancellation');
+        }}
+      >
+        {ar ? 'تصفية محاسب (لا متأخرات)' : 'Accountant clear'}
+      </button>,
+    );
+  }
+
+  if (!items.length) return <span>—</span>;
+  return <OpsActionMenu ar={ar}>{items}</OpsActionMenu>;
+}
+
 function SelectOptions({
   name,
   label,
@@ -4840,115 +5053,16 @@ ${depositHtml}${
                           {showActionColumn ? (
                             <td>
                               {section === 'leasing' ? (
-                                <span className="ops-inline-actions">
-                                  {safeString(row.status) === 'draft' ? (
-                                    <button
-                                      className="ops-action"
-                                      type="button"
-                                      disabled={busy}
-                                      onClick={() => void leaseLifecycle(row, 'activate')}
-                                    >
-                                      {ar ? 'تفعيل (ساري)' : 'Activate'}
-                                    </button>
-                                  ) : null}
-                                  {safeString(row.status) === 'active' ? (
-                                    <>
-                                      <button
-                                        className="ops-action"
-                                        type="button"
-                                        disabled={busy}
-                                        onClick={() => {
-                                          setError(null);
-                                          setRenewingLease(row);
-                                        }}
-                                      >
-                                        {ar ? 'تجديد' : 'Renew'}
-                                      </button>
-                                      {row.renewalPendingContractId ? (
-                                        <>
-                                          <button
-                                            className="ops-action"
-                                            type="button"
-                                            disabled={busy}
-                                            onClick={() =>
-                                              void leaseLifecycle(row, 'confirm_renewal')
-                                            }
-                                          >
-                                            {ar ? 'اعتماد تجديد (محاسب)' : 'Confirm renewal'}
-                                          </button>
-                                          <button
-                                            className="ops-action"
-                                            type="button"
-                                            disabled={busy}
-                                            onClick={() =>
-                                              void leaseLifecycle(row, 'waive_renewal_gate')
-                                            }
-                                          >
-                                            {ar ? 'استثناء مدير' : 'Manager waive'}
-                                          </button>
-                                        </>
-                                      ) : null}
-                                      <button
-                                        className="ops-action"
-                                        type="button"
-                                        disabled={busy}
-                                        onClick={() => void leaseLifecycle(row, 'end')}
-                                      >
-                                        {ar ? 'إنهاء → محاسب' : 'End → clearance'}
-                                      </button>
-                                      <button
-                                        className="ops-action ops-action--danger"
-                                        type="button"
-                                        disabled={busy}
-                                        onClick={() =>
-                                          void leaseLifecycle(row, 'request_cancellation')
-                                        }
-                                      >
-                                        {ar ? 'طلب إلغاء' : 'Request cancel'}
-                                      </button>
-                                    </>
-                                  ) : null}
-                                  {safeString(row.status) === 'cancel_requested' ? (
-                                    <button
-                                      className="ops-action"
-                                      type="button"
-                                      disabled={busy}
-                                      onClick={() =>
-                                        void leaseLifecycle(row, 'approve_cancellation')
-                                      }
-                                    >
-                                      {ar ? 'اعتماد الإدارة + تاريخ' : 'Admin approve + date'}
-                                    </button>
-                                  ) : null}
-                                  {safeString(row.status) === 'clearance_pending' ? (
-                                    <button
-                                      className="ops-action"
-                                      type="button"
-                                      disabled={busy}
-                                      onClick={() => void leaseLifecycle(row, 'clear_cancellation')}
-                                    >
-                                      {ar ? 'تصفية محاسب (لا متأخرات)' : 'Accountant clear'}
-                                    </button>
-                                  ) : null}
-                                  {safeString(row.status) === 'draft' ? (
-                                    <button
-                                      className="ops-action ops-action--danger"
-                                      type="button"
-                                      disabled={busy}
-                                      onClick={() => void leaseLifecycle(row, 'terminate')}
-                                    >
-                                      {ar ? 'إلغاء مسودة' : 'Void draft'}
-                                    </button>
-                                  ) : null}
-                                  {![
-                                    'draft',
-                                    'active',
-                                    'cancel_requested',
-                                    'clearance_pending',
-                                  ].includes(safeString(row.status))
-                                    ? '—'
-                                    : null}
-                                </span>
+                                <LeasingNextActions
+                                  row={row}
+                                  ar={ar}
+                                  busy={busy}
+                                  onLifecycle={leaseLifecycle}
+                                  onRenew={(target) => {
+                                    setError(null);
+                                    setRenewingLease(target);
+                                  }}
+                                />
                               ) : section === 'team' ? (
                                 <button
                                   className={`ops-action ${safeString(row.status) === 'active' ? 'ops-action--danger' : ''}`}
@@ -5450,6 +5564,19 @@ ${depositHtml}${
                           >
                             {ar ? 'المستندات' : 'Documents'}
                           </Link>
+                        </div>
+                      ) : section === 'leasing' ? (
+                        <div className="ops-action-group">
+                          <LeasingNextActions
+                            row={row}
+                            ar={ar}
+                            busy={busy}
+                            onLifecycle={leaseLifecycle}
+                            onRenew={(target) => {
+                              setError(null);
+                              setRenewingLease(target);
+                            }}
+                          />
                         </div>
                       ) : null}
                     </article>
