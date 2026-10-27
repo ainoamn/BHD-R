@@ -1429,7 +1429,6 @@ export async function submitReservationCheque(
     if (current.phase !== 'awaiting_documents' && current.phase !== 'awaiting_documents_review') {
       leaseBookingFail('not_ready');
     }
-    assertTenantAttested(current.lifecycle);
     const instruction = (current.lifecycle.chequeInstructions ?? []).find(
       (item) => item.key === input.key,
     );
@@ -1525,7 +1524,6 @@ export async function submitReservationDocument(
     if (current.phase !== 'awaiting_documents' && current.phase !== 'awaiting_documents_review') {
       leaseBookingFail('not_ready');
     }
-    assertTenantAttested(current.lifecycle);
     const requirements = current.lifecycle.requirements ?? [];
     const target = requirements.find((item) => item.code === input.code);
     if (!target) leaseBookingFail('requirement_not_found');

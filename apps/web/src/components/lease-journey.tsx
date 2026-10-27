@@ -207,8 +207,8 @@ function DocumentsNeededNotice({
             : 'Your files arrived and are under review by the owner or their representative.'
           : needsAttest
             ? ar
-              ? 'أكّد صحة بياناتك أدناه، ثم ارفع المستندات المطلوبة وأدخل أرقام الشيكات مع صورة كل شيك.'
-              : 'Confirm your details below, then upload the required documents and enter each cheque number with its photo.'
+              ? 'ارفع المستندات والشيكات الآن، وأكّد صحة بياناتك (الإقرار أعلاه) قبل توقيع العقد لاحقاً.'
+              : 'Upload documents and cheques now, and confirm your details (attestation above) before signing the contract later.'
             : ar
               ? 'ارفع المستندات المطلوبة، وأدخل رقم كل شيك مع صورة الشيك لإرسالها للمراجعة.'
               : 'Upload the required documents and enter each cheque number with its photo for review.'}
@@ -296,12 +296,12 @@ function TenantAttestationGate({
   return (
     <div className="lease-attestation" role="group" aria-labelledby="lease-attest-title">
       <h3 id="lease-attest-title">
-        {ar ? 'تأكيد صحة البيانات قبل المتابعة' : 'Confirm your details before continuing'}
+        {ar ? 'تأكيد صحة البيانات' : 'Confirm your details'}
       </h3>
       <p className="muted">
         {ar
-          ? 'المستندات ستُراجع يدوياً قبل التسليم. أي اختلاف أو عدم صحة يمنح المالك حق إلغاء الحجز والطلب مع تحمّلك كامل المسؤولية.'
-          : 'Documents are reviewed manually before handover. Any mismatch lets the owner cancel the booking, and you bear full responsibility.'}
+          ? 'يمكنك رفع المستندات والشيكات الآن. هذا الإقرار مطلوب قبل توقيع العقد لاحقاً — المستندات تُراجع يدوياً قبل التسليم، وأي اختلاف يمنح المالك حق الإلغاء مع تحمّلك المسؤولية.'
+          : 'You can upload documents and cheques now. This confirmation is required before signing the contract later — documents are reviewed manually before handover, and any mismatch lets the owner cancel with you bearing responsibility.'}
       </p>
       <label className="lease-attestation__check">
         <input
@@ -374,21 +374,11 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ code: string; file: File } | null>(null);
   const [preview, setPreview] = useState<PreviewFile | null>(null);
-  const blocked =
-    lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
 
   function pick(code: string, event: ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
     event.target.value = '';
     if (!picked) return;
-    if (blocked) {
-      setError(
-        ar
-          ? 'أكّد صحة بياناتك أولاً قبل رفع المستندات.'
-          : 'Confirm your details first before uploading documents.',
-      );
-      return;
-    }
     if (picked.type !== 'application/pdf' && !picked.type.startsWith('image/')) {
       setError(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
       return;
@@ -496,7 +486,7 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
                       type="file"
                       accept="image/*,application/pdf"
                       hidden
-                      disabled={busy !== null || blocked}
+                      disabled={busy !== null}
                       onChange={(event) => pick(item.code, event)}
                     />
                   </label>
@@ -555,8 +545,6 @@ function LeaseCheques({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ key: string; file: File } | null>(null);
   const [preview, setPreview] = useState<PreviewFile | null>(null);
-  const blocked =
-    !readOnly && lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
 
   const seededShared = (() => {
     const withBank = cheques.find((item) => item.bankName?.trim());
@@ -612,14 +600,6 @@ function LeaseCheques({
     const picked = event.target.files?.[0];
     event.target.value = '';
     if (!picked) return;
-    if (blocked) {
-      setError(
-        ar
-          ? 'أكّد صحة بياناتك أولاً قبل رفع الشيكات.'
-          : 'Confirm your details first before uploading cheques.',
-      );
-      return;
-    }
     if (bankName.trim().length < 2 || accountHolderName.trim().length < 2) {
       setError(
         ar
@@ -700,13 +680,6 @@ function LeaseCheques({
           ? 'أدخل بنك الحساب واسم صاحبه مرة واحدة، ثم رقم أول شيك — يُملأ الباقي تلقائياً ويمكنك تعديله. المبلغ من النظام، والمرفق لصورة كل شيك.'
           : 'Enter bank and account holder once, then the first cheque number — the rest fill automatically and stay editable. Amounts come from the system; attach each cheque photo in the last column.'}
       </p>
-      {blocked ? (
-        <p className="notice notice--info" role="status">
-          {ar
-            ? 'يمكنك تعبئة البنك والأرقام الآن. لرفع صور الشيكات: أكّد صحة بياناتك أعلاه أولاً.'
-            : 'You can fill bank and numbers now. To upload cheque photos, confirm your details above first.'}
-        </p>
-      ) : null}
       {error ? (
         <p className="notice notice--error" role="alert">
           {error}
@@ -867,7 +840,7 @@ function LeaseCheques({
                             type="file"
                             accept="image/*,application/pdf"
                             hidden
-                            disabled={busy !== null || blocked}
+                            disabled={busy !== null}
                             onChange={(event) => pick(item.key, event)}
                           />
                         </label>
