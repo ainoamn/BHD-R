@@ -150,7 +150,7 @@ async function saveLifecycle(
   row: { id: string; snapshot: LeaseBookingSnapshot },
   lifecycle: ReservationLifecycle,
   patch: {
-    status?: 'converted' | 'cancelled';
+    status?: 'converted' | 'cancelled' | 'confirmed';
     convertedLeaseId?: string | null;
     expiresAt?: Date;
   } = {},
@@ -240,7 +240,8 @@ export type ReservationOwnerAction =
       action: 'save_municipal_registration';
       formNo: string;
       contractNo: string;
-    };
+    }
+  | { action: 'restore_reservation'; note: string };
 
 function cleanRequirements(
   input: RequirementInput[],
@@ -674,6 +675,12 @@ function ownerStepNotice(
         title: 'المفتاح صار في يدك!',
         line: `سُجّل تسليم العقار بتاريخ ${input.on.split('-').reverse().join('/')}. نتمنى لك إقامة سعيدة، ونحن هنا لأي طلب صيانة أو استفسار.`,
       };
+    case 'restore_reservation':
+      return {
+        subject: '♻️ أُعيد فتح حجزك',
+        title: 'حجزك عاد نشطاً',
+        line: `استرجع المالك حجزك وأعاد فتحه${input.note ? `: «${input.note}»` : ''}. تابع صفحة الحجز لرفع أي مستند مطلوب.`,
+      };
     default:
       return null;
   }
@@ -745,7 +752,7 @@ async function ownerActionInTx(
   if (!hasPermission(claims, 'reservation.manage')) fail('forbidden');
   return withinViewerTenant(claims, async (tx) => {
     const row = await loadForOwner(tx, claims, reservationId);
-    assertOpen(row);
+    if (input.action !== 'restore_reservation') assertOpen(row);
     const now = new Date();
     const at = now.toISOString();
     const byName = await viewerName(tx, claims.sub);
@@ -763,6 +770,67 @@ async function ownerActionInTx(
       });
 
     switch (input.action) {
+      case 'restore_reservation': {
+        const previous = row.lifecycle.cancellation;
+        if (row.status !== 'cancelled' || !previous) fail('reservation_not_ready');
+        if (row.lifecycle.handover) fail('reservation_not_ready');
+        const note = input.note.trim().slice(0, 500);
+        if (note.length < 2) fail('invalid_body');
+        const [conflict] = await tx
+          .select({ id: reservations.id })
+          .from(reservations)
+          .where(
+            and(
+              eq(reservations.organizationId, row.orgId),
+              eq(reservations.unitId, row.unitId),
+              inArray(reservations.status, ['pending', 'confirmed']),
+              sql`${reservations.id} <> ${row.id}`,
+            ),
+          )
+          .limit(1);
+        if (conflict) fail('unit_already_reserved');
+
+        let next: ReservationLifecycle = { ...row.lifecycle };
+        delete next.cancellation;
+        if (next.contract) {
+          const [contractRow] = await tx
+            .select({ status: contracts.status })
+            .from(contracts)
+            .where(and(eq(contracts.id, next.contract.id), eq(contracts.organizationId, row.orgId)))
+            .limit(1);
+          if (
+            !contractRow ||
+            contractRow.status === 'void' ||
+            contractRow.status === 'terminated'
+          ) {
+            delete next.contract;
+            delete next.tenantSignature;
+          }
+        }
+        next = {
+          ...next,
+          customerDocumentsSentAt: null,
+          restoration: {
+            at,
+            byName,
+            note,
+            previousCancellation: {
+              at: previous.at,
+              byName: previous.byName,
+              reason: previous.reason,
+              note: previous.note,
+              ...(previous.code ? { code: previous.code } : {}),
+            },
+          },
+        };
+        await saveLifecycle(tx, row, next, {
+          status: 'confirmed',
+          expiresAt: extendedHold(row.expiresAt),
+        });
+        await event('reservation.restored', { note, previousReason: previous.reason }, 'confirmed');
+        break;
+      }
+
       case 'confirm_payment': {
         const review = row.lifecycle.paymentReview;
         if (!review || review.status !== 'pending') break;

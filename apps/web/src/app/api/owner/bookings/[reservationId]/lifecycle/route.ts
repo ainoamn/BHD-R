@@ -112,6 +112,12 @@ const bodySchema = z.discriminatedUnion('action', [
       contractNo: z.string().trim().min(1).max(80),
     })
     .strict(),
+  z
+    .object({
+      action: z.literal('restore_reservation'),
+      note: z.string().trim().min(2).max(500),
+    })
+    .strict(),
 ]);
 
 /**

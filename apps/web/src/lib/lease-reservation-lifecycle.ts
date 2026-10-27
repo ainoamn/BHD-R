@@ -68,6 +68,19 @@ export type ReservationLifecycle = {
     note: string | null;
     code?: string | null;
   };
+  /** Last time an owner reopened a cancelled booking (keeps the prior cancellation for audit). */
+  restoration?: {
+    at: string;
+    byName: string | null;
+    note: string;
+    previousCancellation: {
+      at: string;
+      byName: string | null;
+      reason: ReservationCancelReason;
+      note: string | null;
+      code?: string | null;
+    };
+  };
   /**
    * Muscat municipality registration numbers — entered by the owner after premises
    * handover (not during contract prep).

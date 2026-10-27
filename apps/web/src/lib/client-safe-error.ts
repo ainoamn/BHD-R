@@ -97,6 +97,7 @@ const KNOWN_CODES = new Set([
   'reservation_not_found',
   'reservation_not_ready',
   'reservation_closed',
+  'unit_already_reserved',
   'requirements_invalid',
   'requirement_not_found',
   'documents_incomplete',
@@ -226,6 +227,7 @@ export function statusForSafeCode(code: string): number {
       return 409;
     case 'reservation_not_ready':
     case 'reservation_closed':
+    case 'unit_already_reserved':
     case 'documents_incomplete':
     case 'email_unverified':
     case 'contract_awaiting_counterparty':

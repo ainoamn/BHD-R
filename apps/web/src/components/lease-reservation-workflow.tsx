@@ -57,6 +57,10 @@ const ERROR_TEXT: Record<string, [string, string]> = {
     'This step is not open at the current stage — refresh the page.',
   ],
   reservation_closed: ['هذا الحجز ملغى أو منتهٍ.', 'This booking is cancelled or expired.'],
+  unit_already_reserved: [
+    'لا يمكن الاسترجاع: توجد حجز نشط آخر على نفس الوحدة.',
+    'Cannot restore: another active booking already holds this unit.',
+  ],
   documents_incomplete: [
     'لم تكتمل المستندات المطلوبة أو لم تُراجع كلها بعد.',
     'Required documents are missing or not all reviewed yet.',
@@ -182,6 +186,108 @@ function cancelReasonText(
     : ar
       ? 'أُلغي الحجز لعدم استلام مبلغ العربون.'
       : 'Cancelled because the deposit was not received.';
+}
+
+function RestoreCancelledBooking({
+  ar,
+  t,
+  busy,
+  canManage,
+  cancellation,
+  onRestore,
+}: {
+  ar: boolean;
+  t: (arText: string, enText: string) => string;
+  busy: boolean;
+  canManage: boolean;
+  cancellation: NonNullable<ReservationLifecycle['cancellation']>;
+  onRestore: (note: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState('');
+
+  return (
+    <div className="lrw__card lrw__card--cancelled">
+      <h3>{t('الحجز ملغى', 'Booking cancelled')}</h3>
+      <p>{cancelReasonText(cancellation.reason, ar)}</p>
+      {cancellation.note ? (
+        <p className="muted">
+          {t('الملاحظة المرسلة للعميل: ', 'Note sent to the client: ')}
+          {cancellation.note}
+        </p>
+      ) : null}
+      <p className="muted">
+        {new Date(cancellation.at).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+          timeZone: 'Asia/Muscat',
+          dateStyle: 'medium',
+          timeStyle: 'short',
+        })}
+        {cancellation.byName ? ` · ${cancellation.byName}` : ''}
+      </p>
+      {canManage ? (
+        open ? (
+          <form
+            className="lrw__reject"
+            onSubmit={(event: FormEvent) => {
+              event.preventDefault();
+              if (note.trim().length < 2) return;
+              void onRestore(note.trim()).then(() => {
+                setOpen(false);
+                setNote('');
+              });
+            }}
+          >
+            <label htmlFor="restore-booking-note">
+              {t('سبب الاسترجاع (يظهر للعميل)', 'Reason for restore (shown to the client)')}
+            </label>
+            <textarea
+              id="restore-booking-note"
+              className="textarea"
+              rows={3}
+              maxLength={500}
+              required
+              value={note}
+              disabled={busy}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder={t(
+                'مثال: رُفض المستند بالخطأ — يُعاد فتح الحجز لرفع بديل',
+                'e.g. Document was rejected by mistake — reopening so a replacement can be uploaded',
+              )}
+            />
+            <p className="notice notice--info">
+              {t(
+                'يُعاد فتح الحجز ويُبلَّغ العميل. إن وُجد عقد ملغى يبقى ملغى ويُستكمل المسار من المستندات/العقد.',
+                'The booking reopens and the client is notified. A voided contract stays void; the journey continues from documents/contract.',
+              )}
+            </p>
+            <button type="submit" className="button button--primary" disabled={busy || note.trim().length < 2}>
+              {busy ? t('جارٍ الاسترجاع…', 'Restoring…') : t('تأكيد استرجاع الحجز', 'Confirm restore booking')}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={busy}
+              onClick={() => {
+                setOpen(false);
+                setNote('');
+              }}
+            >
+              {t('إلغاء', 'Cancel')}
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={busy}
+            onClick={() => setOpen(true)}
+          >
+            {t('استرجاع الحجز', 'Restore booking')}
+          </button>
+        )
+      ) : null}
+    </div>
+  );
 }
 
 /** The channel reported the deposit paid; the owner confirms the money actually arrived. */
@@ -651,24 +757,14 @@ export function LeaseReservationWorkflow(serverProps: Props) {
             ) : null}
 
             {phase === 'closed' && lifecycle.cancellation ? (
-              <div className="lrw__card lrw__card--cancelled">
-                <h3>{t('الحجز ملغى', 'Booking cancelled')}</h3>
-                <p>{cancelReasonText(lifecycle.cancellation.reason, ar)}</p>
-                {lifecycle.cancellation.note ? (
-                  <p className="muted">
-                    {t('الملاحظة المرسلة للعميل: ', 'Note sent to the client: ')}
-                    {lifecycle.cancellation.note}
-                  </p>
-                ) : null}
-                <p className="muted">
-                  {new Date(lifecycle.cancellation.at).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
-                    timeZone: 'Asia/Muscat',
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                  {lifecycle.cancellation.byName ? ` · ${lifecycle.cancellation.byName}` : ''}
-                </p>
-              </div>
+              <RestoreCancelledBooking
+                ar={ar}
+                t={t}
+                busy={busy}
+                canManage={canManage}
+                cancellation={lifecycle.cancellation}
+                onRestore={(note) => act({ action: 'restore_reservation', note })}
+              />
             ) : null}
 
             {canManage && phase !== 'closed' && documentsToVerify(lifecycle).length ? (
