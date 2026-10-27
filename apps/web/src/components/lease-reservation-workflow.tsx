@@ -11,6 +11,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
+
 import { FilePreviewDialog, type PreviewFile } from '@/components/file-preview';
 import {
   LeaseContractForm,
@@ -32,6 +33,7 @@ import {
   leaseJourneyStageIndex,
   leaseJourneyStageLabels,
   leasePhaseLabel,
+  REQUIREMENT_CATALOGUE,
   type LeaseJourneyPhase,
   type ReservationLifecycle,
   type ReservationRequirement,
@@ -707,6 +709,9 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                         { status: decision, ...(note ? { note } : {}) },
                         { action: 'review_document', code, decision, ...(note ? { note } : {}) },
                       )
+                    }
+                    onAddRequirements={(requirements) =>
+                      void act({ action: 'add_requirements', requirements })
                     }
                   />
                   <ChequesReview
@@ -1583,21 +1588,97 @@ function ChequesReview({
 function RequirementsReview({
   lifecycle,
   locale,
+  mode,
   busy,
   canManage,
   fileHref,
   onReview,
+  onAddRequirements,
 }: Props & {
   busy: boolean;
   fileHref: (file: string) => string;
   onReview: (code: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
+  onAddRequirements: (
+    requirements: Array<{ code: string; labelAr: string; labelEn: string }>,
+  ) => void;
 }) {
   const ar = locale === 'ar';
+  const sale = mode === 'sale';
+  const preview = useContext(PreviewContext);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [note, setNote] = useState('');
+  const [reviewCode, setReviewCode] = useState<string | null>(null);
+  const [customLabel, setCustomLabel] = useState('');
+  const [pickedExtras, setPickedExtras] = useState<string[]>([]);
   const requirements = lifecycle.requirements ?? [];
   const hasCheques = (lifecycle.chequeInstructions ?? []).length > 0;
-  if (!requirements.length) {
+  const submitted = requirements.filter((item) => item.status === 'submitted' && item.file);
+  const approvedCount = requirements.filter((item) => item.status === 'approved').length;
+  const existingCodes = new Set(requirements.map((item) => item.code));
+  const catalogue = REQUIREMENT_CATALOGUE.filter(
+    (item) => (sale ? item.sale : item.rent) && !existingCodes.has(item.code),
+  );
+  const reviewItem =
+    (reviewCode && requirements.find((item) => item.code === reviewCode)) ||
+    submitted[0] ||
+    null;
+  const reviewIndex = reviewItem
+    ? submitted.findIndex((item) => item.code === reviewItem.code)
+    : -1;
+
+  function openReview(code: string) {
+    const item = requirements.find((row) => row.code === code);
+    if (!item?.file) return;
+    setReviewCode(code);
+    setRejecting(null);
+    setNote('');
+    preview({
+      href: fileHref(`doc-${code}`),
+      label: ar ? item.labelAr : item.labelEn || item.labelAr,
+    });
+  }
+
+  async function decideCurrent(decision: 'approved' | 'rejected', rejectNote?: string) {
+    if (!reviewItem) return;
+    await onReview(reviewItem.code, decision, rejectNote);
+    const remaining = submitted.filter((item) => item.code !== reviewItem.code);
+    if (remaining[0]) {
+      openReview(remaining[0].code);
+    } else {
+      setReviewCode(null);
+      setRejecting(null);
+      setNote('');
+    }
+  }
+
+  function submitExtras(event: FormEvent) {
+    event.preventDefault();
+    const fromCatalogue = catalogue
+      .filter((item) => pickedExtras.includes(item.code))
+      .map((item) => ({
+        code: item.code,
+        labelAr: item.labelAr,
+        labelEn: item.labelEn,
+      }));
+    const label = customLabel.trim();
+    const custom =
+      label.length >= 2
+        ? (() => {
+            let index = 1;
+            while (existingCodes.has(`extra_${index}`) || pickedExtras.includes(`extra_${index}`)) {
+              index += 1;
+            }
+            return [{ code: `extra_${index}`, labelAr: label, labelEn: label }];
+          })()
+        : [];
+    const next = [...fromCatalogue, ...custom];
+    if (!next.length) return;
+    onAddRequirements(next);
+    setPickedExtras([]);
+    setCustomLabel('');
+  }
+
+  if (!requirements.length && !canManage) {
     return hasCheques ? null : (
       <p className="muted">
         {ar
@@ -1606,92 +1687,304 @@ function RequirementsReview({
       </p>
     );
   }
-  const approvedCount = requirements.filter((item) => item.status === 'approved').length;
+
   return (
     <div className="lrw__docs lrw__docs--panel">
       <header className="lrw__docs-head">
         <h4>{ar ? 'المستندات المطلوبة' : 'Required documents'}</h4>
         <span className="lrw__docs-count">
-          {approvedCount}/{requirements.length}
+          {approvedCount}/{requirements.length || 0}
         </span>
       </header>
-      <ul>
-        {requirements.map((item) => (
-          <li key={item.code} className={`lrw__doc lrw__doc--${item.status}`}>
-            <div className="lrw__doc-main">
-              <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-              <span className="lrw__doc-status">{requirementStatusText(item, ar)}</span>
-              {item.note && item.status === 'rejected' ? (
-                <small className="muted">{item.note}</small>
-              ) : null}
-            </div>
-            <div className="lrw__doc-actions">
-              {item.file ? (
-                <ViewFileButton
-                  href={fileHref(`doc-${item.code}`)}
-                  label={ar ? item.labelAr : item.labelEn || item.labelAr}
-                  ar={ar}
-                />
-              ) : null}
-              {canManage && item.status === 'submitted' ? (
-                <>
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    disabled={busy}
-                    onClick={() => void onReview(item.code, 'approved')}
-                  >
-                    {ar ? 'قبول' : 'Accept'}
-                  </button>
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    disabled={busy}
-                    onClick={() => {
-                      setRejecting(item.code);
-                      setNote('');
-                    }}
-                  >
-                    {ar ? 'رفض' : 'Reject'}
-                  </button>
-                </>
-              ) : null}
-            </div>
-            {rejecting === item.code ? (
-              <form
-                className="lrw__reject"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  if (!note.trim()) return;
-                  void onReview(item.code, 'rejected', note.trim()).then(() => setRejecting(null));
-                }}
-              >
-                <label htmlFor={`reject-${item.code}`}>
-                  {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
-                </label>
-                <input
-                  id={`reject-${item.code}`}
-                  className="input"
-                  value={note}
-                  maxLength={500}
-                  required
-                  onChange={(event) => setNote(event.target.value)}
-                />
-                <button type="submit" className="button button--primary" disabled={busy}>
-                  {ar ? 'إرسال الرفض' : 'Send rejection'}
+
+      {canManage && submitted.length ? (
+        <div className="lrw__review-bar">
+          <p>
+            {ar
+              ? `${submitted.length} مستند بانتظار مراجعتك — استعرضه ثم اقبله أو ارفضه مع ملاحظة.`
+              : `${submitted.length} document(s) awaiting review — preview, then accept or reject with a note.`}
+          </p>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={busy}
+            onClick={() => openReview(submitted[0]!.code)}
+          >
+            {ar ? 'بدء المراجعة واحداً تلو الآخر' : 'Review one by one'}
+          </button>
+        </div>
+      ) : null}
+
+      {reviewItem && canManage && reviewItem.status === 'submitted' ? (
+        <div className="lrw__review-card">
+          <div className="lrw__review-card-head">
+            <strong>
+              {ar ? reviewItem.labelAr : reviewItem.labelEn || reviewItem.labelAr}
+            </strong>
+            <span className="muted">
+              {reviewIndex >= 0
+                ? ar
+                  ? `${reviewIndex + 1} من ${submitted.length}`
+                  : `${reviewIndex + 1} of ${submitted.length}`
+                : null}
+            </span>
+          </div>
+          <div className="lrw__doc-actions">
+            <ViewFileButton
+              href={fileHref(`doc-${reviewItem.code}`)}
+              label={ar ? reviewItem.labelAr : reviewItem.labelEn || reviewItem.labelAr}
+              ar={ar}
+            />
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy}
+              onClick={() => void decideCurrent('approved')}
+            >
+              {ar ? 'قبول' : 'Accept'}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={busy}
+              onClick={() => {
+                setRejecting(reviewItem.code);
+                setNote('');
+              }}
+            >
+              {ar ? 'رفض مع ملاحظة' : 'Reject with note'}
+            </button>
+            {submitted.length > 1 ? (
+              <>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  disabled={busy || reviewIndex <= 0}
+                  onClick={() => {
+                    const prev = submitted[reviewIndex - 1];
+                    if (prev) openReview(prev.code);
+                  }}
+                >
+                  {ar ? 'السابق' : 'Previous'}
                 </button>
                 <button
                   type="button"
                   className="button button--quiet"
-                  onClick={() => setRejecting(null)}
+                  disabled={busy || reviewIndex < 0 || reviewIndex >= submitted.length - 1}
+                  onClick={() => {
+                    const next = submitted[reviewIndex + 1];
+                    if (next) openReview(next.code);
+                  }}
                 >
-                  {ar ? 'إلغاء' : 'Cancel'}
+                  {ar ? 'التالي' : 'Next'}
                 </button>
-              </form>
+              </>
             ) : null}
-          </li>
-        ))}
-      </ul>
+          </div>
+          {rejecting === reviewItem.code ? (
+            <form
+              className="lrw__reject"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!note.trim()) return;
+                void decideCurrent('rejected', note.trim());
+              }}
+            >
+              <label htmlFor={`reject-focus-${reviewItem.code}`}>
+                {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
+              </label>
+              <textarea
+                id={`reject-focus-${reviewItem.code}`}
+                className="textarea"
+                rows={2}
+                value={note}
+                maxLength={500}
+                required
+                onChange={(event) => setNote(event.target.value)}
+                placeholder={
+                  ar
+                    ? 'مثال: الصورة غير واضحة — أعد الرفع بدقة أعلى'
+                    : 'e.g. Image is unclear — please re-upload sharper'
+                }
+              />
+              <button type="submit" className="button button--primary" disabled={busy}>
+                {ar ? 'تأكيد الرفض وإظهار الملاحظة للعميل' : 'Confirm reject & show note to client'}
+              </button>
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setRejecting(null)}
+              >
+                {ar ? 'إلغاء' : 'Cancel'}
+              </button>
+            </form>
+          ) : null}
+        </div>
+      ) : null}
+
+      {requirements.length ? (
+        <ul>
+          {requirements.map((item) => (
+            <li key={item.code} className={`lrw__doc lrw__doc--${item.status}`}>
+              <div className="lrw__doc-main">
+                <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
+                <span className="lrw__doc-status">{requirementStatusText(item, ar)}</span>
+                {item.note && item.status === 'rejected' ? (
+                  <small className="muted">
+                    {ar ? 'ملاحظة للعميل: ' : 'Note to client: '}
+                    {item.note}
+                  </small>
+                ) : null}
+                {item.file?.name ? (
+                  <small className="muted" dir="auto">
+                    {item.file.name}
+                  </small>
+                ) : null}
+              </div>
+              <div className="lrw__doc-actions">
+                {item.file ? (
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => openReview(item.code)}
+                  >
+                    {ar ? 'عرض' : 'View'}
+                  </button>
+                ) : null}
+                {canManage && item.status === 'submitted' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="button button--primary"
+                      disabled={busy}
+                      onClick={() => void onReview(item.code, 'approved')}
+                    >
+                      {ar ? 'قبول' : 'Accept'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      disabled={busy}
+                      onClick={() => {
+                        setReviewCode(item.code);
+                        setRejecting(item.code);
+                        setNote('');
+                        if (item.file) {
+                          preview({
+                            href: fileHref(`doc-${item.code}`),
+                            label: ar ? item.labelAr : item.labelEn || item.labelAr,
+                          });
+                        }
+                      }}
+                    >
+                      {ar ? 'رفض' : 'Reject'}
+                    </button>
+                  </>
+                ) : null}
+              </div>
+              {rejecting === item.code && reviewCode !== item.code ? (
+                <form
+                  className="lrw__reject"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    if (!note.trim()) return;
+                    void onReview(item.code, 'rejected', note.trim()).then(() => {
+                      setRejecting(null);
+                      setNote('');
+                    });
+                  }}
+                >
+                  <label htmlFor={`reject-${item.code}`}>
+                    {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
+                  </label>
+                  <textarea
+                    id={`reject-${item.code}`}
+                    className="textarea"
+                    rows={2}
+                    value={note}
+                    maxLength={500}
+                    required
+                    onChange={(event) => setNote(event.target.value)}
+                  />
+                  <button type="submit" className="button button--primary" disabled={busy}>
+                    {ar ? 'إرسال الرفض' : 'Send rejection'}
+                  </button>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setRejecting(null)}
+                  >
+                    {ar ? 'إلغاء' : 'Cancel'}
+                  </button>
+                </form>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">
+          {ar
+            ? 'لا مستندات بعد — يمكنك طلب مستندات أدناه.'
+            : 'No documents yet — you can request some below.'}
+        </p>
+      )}
+
+      {canManage ? (
+        <form className="lrw__extra-docs" onSubmit={submitExtras}>
+          <h5>{ar ? 'طلب مستند إضافي من العميل' : 'Request an extra document from the client'}</h5>
+          <p className="muted">
+            {ar
+              ? 'سيظهر المستند الجديد فوراً في صفحة حجز العميل ليرفعه، ويُرسل له تنبيه بالبريد.'
+              : 'The new item appears at once on the client booking page, and they get an email notice.'}
+          </p>
+          {catalogue.length ? (
+            <div className="lrw__extra-docs-chips">
+              {catalogue.map((item) => {
+                const active = pickedExtras.includes(item.code);
+                return (
+                  <button
+                    key={item.code}
+                    type="button"
+                    className={`lrw__chip${active ? ' is-active' : ''}`}
+                    disabled={busy || requirements.length + pickedExtras.length >= 12}
+                    onClick={() =>
+                      setPickedExtras((current) =>
+                        active
+                          ? current.filter((code) => code !== item.code)
+                          : [...current, item.code],
+                      )
+                    }
+                  >
+                    {ar ? item.labelAr : item.labelEn}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <label>
+            {ar ? 'أو اكتب مستنداً مخصصاً' : 'Or type a custom document'}
+            <input
+              className="input"
+              maxLength={120}
+              value={customLabel}
+              disabled={busy || requirements.length >= 12}
+              placeholder={ar ? 'مثال: عقد عمل / كشف راتب حديث' : 'e.g. Employment contract'}
+              onChange={(event) => setCustomLabel(event.target.value)}
+            />
+          </label>
+          <button
+            type="submit"
+            className="button button--primary"
+            disabled={
+              busy ||
+              requirements.length >= 12 ||
+              (!pickedExtras.length && customLabel.trim().length < 2)
+            }
+          >
+            {ar ? 'إضافة وإظهار للعميل' : 'Add & show to client'}
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

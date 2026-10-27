@@ -70,6 +70,23 @@ const bodySchema = z.discriminatedUnion('action', [
     .strict(),
   z
     .object({
+      action: z.literal('add_requirements'),
+      requirements: z
+        .array(
+          z
+            .object({
+              code: requirementCode,
+              labelAr: z.string().trim().min(2).max(120),
+              labelEn: z.string().trim().max(120),
+            })
+            .strict(),
+        )
+        .min(1)
+        .max(12),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal('review_cheque'),
       key: z.string().regex(/^(rent|vat|deposit)-\d{1,3}$/),
       decision: z.enum(['approved', 'rejected']),

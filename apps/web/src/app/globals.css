@@ -21855,6 +21855,74 @@ body:has(.stay-esign-shell) {
   margin: 0 0 0.55rem;
   font-size: 0.88rem;
 }
+.lrw__review-bar {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  background: #fff8e8;
+  border: 1px solid #ecd7a2;
+}
+.lrw__review-bar p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+.lrw__review-bar .button {
+  justify-self: start;
+}
+.lrw__review-card {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 0.7rem;
+  border: 1px solid #0d5c45;
+  background: linear-gradient(180deg, #f3faf6, #fff 70%);
+}
+.lrw__review-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+.lrw__extra-docs {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #d7e1db;
+}
+.lrw__extra-docs h5 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.lrw__extra-docs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.lrw__chip {
+  border: 1px solid #cfe0d7;
+  border-radius: 999px;
+  padding: 0.3rem 0.7rem;
+  background: #fff;
+  color: #234438;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.lrw__chip.is-active {
+  border-color: #0d5c45;
+  background: #e8f5ef;
+  color: #0d5c45;
+  font-weight: 700;
+}
+.lrw__chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 @media (max-width: 860px) {
   .lrw__desk-grid {
     grid-template-columns: 1fr;

@@ -215,6 +215,10 @@ export type ReservationOwnerAction =
       note?: string | undefined;
     }
   | {
+      action: 'add_requirements';
+      requirements: RequirementInput[];
+    }
+  | {
       action: 'review_cheque';
       key: string;
       decision: 'approved' | 'rejected';
@@ -635,6 +639,17 @@ function ownerStepNotice(
           : `راجع المالك المستند ولم يعتمده${input.note ? `: «${input.note}»` : ''}. ارفع نسخة أوضح من صفحة الحجز.`,
       };
     }
+    case 'add_requirements': {
+      const labels = input.requirements.map((item) => item.labelAr).filter(Boolean);
+      const list = labels.slice(0, 4).join('، ');
+      return {
+        subject: '📎 طلب المالك مستندات إضافية',
+        title: 'مستندات جديدة مطلوبة منك',
+        line: list
+          ? `طلب المالك مستندات إضافية: ${list}${labels.length > 4 ? '…' : ''}. ارفعها من صفحة الحجز.`
+          : 'طلب المالك مستندات إضافية. ارفعها من صفحة الحجز.',
+      };
+    }
     case 'record_handover':
       return {
         subject: '🗝️ سُلّم العقار — أهلاً بك في بيتك الجديد',
@@ -910,6 +925,53 @@ async function ownerActionInTx(
         );
         await saveLifecycle(tx, row, { ...row.lifecycle, requirements: next });
         await event(`reservation.document_${input.decision}`, { code: input.code });
+        break;
+      }
+
+      case 'add_requirements': {
+        if (row.lifecycle.contract) fail('reservation_not_ready');
+        if (
+          phase !== 'awaiting_contract_draft' &&
+          phase !== 'awaiting_documents' &&
+          phase !== 'awaiting_documents_review' &&
+          phase !== 'awaiting_contract_approval'
+        ) {
+          fail('reservation_not_ready');
+        }
+        const existing = row.lifecycle.requirements ?? [];
+        const existingCodes = new Set(existing.map((item) => item.code));
+        const additions = input.requirements
+          .map((item) => ({
+            code: item.code.trim(),
+            labelAr: item.labelAr.trim().slice(0, 120),
+            labelEn: (item.labelEn.trim() || item.labelAr).trim().slice(0, 120),
+          }))
+          .filter(
+            (item) =>
+              /^[a-z0-9_]{2,40}$/.test(item.code) &&
+              item.labelAr.length >= 2 &&
+              !existingCodes.has(item.code),
+          );
+        if (!additions.length) fail('invalid_body');
+        if (existing.length + additions.length > MAX_REQUIREMENTS) fail('requirements_invalid');
+        const seen = new Set<string>();
+        for (const item of additions) {
+          if (seen.has(item.code)) fail('requirements_invalid');
+          seen.add(item.code);
+        }
+        const next: ReservationRequirement[] = [
+          ...existing,
+          ...additions.map((item) => ({
+            code: item.code,
+            labelAr: item.labelAr,
+            labelEn: item.labelEn,
+            status: 'pending' as const,
+          })),
+        ];
+        await saveLifecycle(tx, row, { ...row.lifecycle, requirements: next });
+        await event('reservation.requirements_added', {
+          codes: additions.map((item) => item.code),
+        });
         break;
       }
 
