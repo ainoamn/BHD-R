@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash, randomUUID } from 'node:crypto';
-import { and, desc, eq } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { users, workflowEvents } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -36,9 +36,28 @@ function fail(code: string): never {
   throw error;
 }
 
+/** Fixed key order — jsonb round-trips reorder keys and would otherwise break the seal. */
+function normalizePrintRows(rows: unknown): LeasingPrintRow[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.map((raw) => {
+    const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+    return {
+      reference: String(row.reference ?? ''),
+      property: String(row.property ?? ''),
+      unit: String(row.unit ?? ''),
+      owner: String(row.owner ?? ''),
+      tenant: String(row.tenant ?? ''),
+      state: String(row.state ?? ''),
+      startsOn: String(row.startsOn ?? ''),
+      endsOn: String(row.endsOn ?? ''),
+      rent: String(row.rent ?? ''),
+    };
+  });
+}
+
 function fingerprintOf(rows: LeasingPrintRow[], issuedAt: string): string {
   return createHash('sha256')
-    .update(JSON.stringify({ v: 1, issuedAt, rows }))
+    .update(JSON.stringify({ v: 1, issuedAt, rows: normalizePrintRows(rows) }))
     .digest('hex');
 }
 
@@ -102,7 +121,9 @@ export async function issueLeasingOpsReport(
 
   const orgId = claims.organizationId;
   const issuedAt = new Date().toISOString();
-  const fingerprint = fingerprintOf(input.rows, issuedAt);
+  const rows = normalizePrintRows(input.rows);
+  if (!rows.length) fail('invalid_body');
+  const fingerprint = fingerprintOf(rows, issuedAt);
   const token = makeToken(fingerprint, orgId, issuedAt);
   const title =
     input.title.trim().slice(0, 120) ||
@@ -123,8 +144,8 @@ export async function issueLeasingOpsReport(
       issuedAt,
       byName,
       organizationId: orgId,
-      rowCount: input.rows.length,
-      rows: input.rows,
+      rowCount: rows.length,
+      rows,
     };
     await tx.insert(workflowEvents).values({
       organizationId: orgId,
@@ -149,28 +170,37 @@ export async function loadLeasingOpsReport(
 ): Promise<LeasingReportSnapshot | null> {
   if (!hasDatabaseUrl() || !TOKEN_RE.test(token)) return null;
   return elevatedTx(async (tx) => {
-    const recent = await tx
+    const [match] = await tx
       .select({
         metadata: workflowEvents.metadata,
         organizationId: workflowEvents.organizationId,
       })
       .from(workflowEvents)
-      .where(and(eq(workflowEvents.resourceType, RESOURCE), eq(workflowEvents.eventType, EVENT)))
+      .where(
+        and(
+          eq(workflowEvents.resourceType, RESOURCE),
+          eq(workflowEvents.eventType, EVENT),
+          sql`${workflowEvents.metadata}->>'token' = ${token}`,
+        ),
+      )
       .orderBy(desc(workflowEvents.occurredAt))
-      .limit(200);
+      .limit(1);
 
-    const match = recent.find((item) => {
-      const meta = item.metadata as Partial<LeasingReportSnapshot> | null;
-      return meta && typeof meta === 'object' && meta.token === token;
-    });
     if (!match?.metadata || typeof match.metadata !== 'object') return null;
     const snapshot = match.metadata as LeasingReportSnapshot;
-    if (!Array.isArray(snapshot.rows) || !snapshot.issuedAt || !snapshot.fingerprint) return null;
+    if (!snapshot.issuedAt || !snapshot.fingerprint) return null;
+    const rows = normalizePrintRows(snapshot.rows);
+    if (!rows.length) return null;
     const expected = makeToken(snapshot.fingerprint, match.organizationId, snapshot.issuedAt);
     if (expected !== token) return null;
-    const recomputed = fingerprintOf(snapshot.rows, snapshot.issuedAt);
+    const recomputed = fingerprintOf(rows, snapshot.issuedAt);
     if (recomputed !== snapshot.fingerprint) return null;
-    return { ...snapshot, organizationId: match.organizationId };
+    return {
+      ...snapshot,
+      rows,
+      rowCount: rows.length,
+      organizationId: match.organizationId,
+    };
   });
 }
 
