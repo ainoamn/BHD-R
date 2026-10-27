@@ -1426,23 +1426,36 @@ export function LeaseContractForm({
               required={tenantFromDirectory}
               missing={tenantFromDirectory && !tenant.partyId && !tenant.nameAr}
               hint={t(
-                'ابحث بالاسم أو الهاتف أو الرقم المدني أو رقم السجل التجاري، ثم اختر النتيجة.',
-                'Search by name, phone, civil ID or commercial registration, then pick a result.',
+                'اختر من القائمة المنسدلة، أو ابحث بالاسم / الهاتف / الرقم المدني / السجل التجاري.',
+                'Pick from the dropdown, or search by name / phone / civil ID / CR number.',
               )}
             >
               <div className="lcf-tenant-pick">
-                <input
+                <select
                   id="lcf-book"
-                  className="input"
-                  type="search"
-                  autoComplete="off"
-                  placeholder={t(
-                    'اسم · هاتف · رقم مدني · سجل تجاري',
-                    'Name · phone · civil ID · CR no.',
+                  className="select"
+                  value={tenant.partyId}
+                  aria-label={t('قائمة جهات الاتصال', 'Contacts list')}
+                  onChange={(event) => void pickTenant(event.target.value)}
+                >
+                  {tenantFromDirectory ? (
+                    <option value={bookingTenantSnapshot.current.partyId || ''}>
+                      {bookingTenantSnapshot.current.nameAr
+                        ? `${t('مستأجر الحجز', 'Booking tenant')} · ${bookingTenantSnapshot.current.nameAr}`
+                        : t('— اختر جهة اتصال —', '— Choose a contact —')}
+                    </option>
+                  ) : (
+                    <option value="">{t('— مستأجر جديد —', '— New tenant —')}</option>
                   )}
-                  value={directoryQuery}
-                  onChange={(event) => setDirectoryQuery(event.target.value)}
-                />
+                  {directory
+                    .filter((item) => item.id !== bookingTenantSnapshot.current.partyId)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.displayName}
+                        {item.phone ? ` · ${item.phone}` : item.email ? ` · ${item.email}` : ''}
+                      </option>
+                    ))}
+                </select>
                 {tenantFromDirectory ? (
                   <button
                     type="button"
@@ -1455,68 +1468,61 @@ export function LeaseContractForm({
                   </button>
                 ) : null}
               </div>
-              {tenant.nameAr ? (
-                <p className="lcf-tenant-selected muted">
-                  {t('المختار:', 'Selected:')}{' '}
-                  <strong>{tenant.nameAr}</strong>
-                  {tenant.phone ? (
-                    <>
-                      {' · '}
-                      <bdi dir="ltr">{tenant.phone}</bdi>
-                    </>
-                  ) : null}
-                  {tenantFromDirectory &&
-                  tenant.partyId !== bookingTenantSnapshot.current.partyId ? (
-                    <>
-                      {' · '}
-                      <button
-                        type="button"
-                        className="button button--quiet"
-                        onClick={() => void pickTenant(bookingTenantSnapshot.current.partyId || '')}
-                      >
-                        {t('العودة لمستأجر الحجز', 'Back to booking tenant')}
-                      </button>
-                    </>
-                  ) : null}
-                </p>
-              ) : null}
-              {directoryQuery.trim() ? (
-                <ul className="lcf-tenant-hits" role="listbox" aria-label={t('نتائج البحث', 'Search results')}>
-                  {directorySearching ? (
-                    <li className="lcf-tenant-hits__empty muted">
-                      {t('جارٍ البحث…', 'Searching…')}
-                    </li>
-                  ) : null}
-                  {!directorySearching && directoryHits.length === 0 ? (
-                    <li className="lcf-tenant-hits__empty muted">
-                      {t('لا توجد نتائج مطابقة.', 'No matching contacts.')}
-                    </li>
-                  ) : null}
-                  {directoryHits.map((item) => (
-                    <li key={item.id}>
-                      <button
-                        type="button"
-                        className={`lcf-tenant-hit${
-                          item.id === tenant.partyId ? ' lcf-tenant-hit--active' : ''
-                        }`}
-                        onClick={() => void pickTenant(item.id)}
-                      >
-                        <strong>{item.displayName}</strong>
-                        <span>
-                          {[
-                            item.phone,
-                            item.civilId ? `${t('مدني', 'Civil')} ${item.civilId}` : null,
-                            item.crNumber ? `${t('س.ت', 'CR')} ${item.crNumber}` : null,
-                            item.email,
-                          ]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
+              <div className="lcf-tenant-search">
+                <input
+                  id="lcf-book-search"
+                  className="input"
+                  type="search"
+                  autoComplete="off"
+                  placeholder={t(
+                    'بحث: اسم · هاتف · رقم مدني · سجل تجاري',
+                    'Search: name · phone · civil ID · CR',
+                  )}
+                  value={directoryQuery}
+                  onChange={(event) => setDirectoryQuery(event.target.value)}
+                />
+                {directoryQuery.trim() ? (
+                  <ul
+                    className="lcf-tenant-hits"
+                    role="listbox"
+                    aria-label={t('نتائج البحث', 'Search results')}
+                  >
+                    {directorySearching ? (
+                      <li className="lcf-tenant-hits__empty muted">
+                        {t('جارٍ البحث…', 'Searching…')}
+                      </li>
+                    ) : null}
+                    {!directorySearching && directoryHits.length === 0 ? (
+                      <li className="lcf-tenant-hits__empty muted">
+                        {t('لا توجد نتائج مطابقة.', 'No matching contacts.')}
+                      </li>
+                    ) : null}
+                    {directoryHits.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className={`lcf-tenant-hit${
+                            item.id === tenant.partyId ? ' lcf-tenant-hit--active' : ''
+                          }`}
+                          onClick={() => void pickTenant(item.id)}
+                        >
+                          <strong>{item.displayName}</strong>
+                          <span>
+                            {[
+                              item.phone,
+                              item.civilId ? `${t('مدني', 'Civil')} ${item.civilId}` : null,
+                              item.crNumber ? `${t('س.ت', 'CR')} ${item.crNumber}` : null,
+                              item.email,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             </Field>
           ) : null}
           {tenantFromDirectory && addingContact ? (

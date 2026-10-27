@@ -1640,6 +1640,11 @@ a.pmh-actionbar__title[aria-current='page'] {
   flex: 1 1 14rem;
   min-width: 0;
 }
+.lcf-tenant-search {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
 .lcf-tenant-selected {
   margin: 0.45rem 0 0;
   font-size: 0.92rem;
