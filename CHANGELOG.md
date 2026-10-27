@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.194 — 2026-10-27
+
+- **قائمة إجراء التأجير تظهر فوق الجدول:** قائمة ⋯ تُعرض عبر بوابة فوق الصفحة حتى لا تُقص داخل صف الجدول.
+
 ## 0.8.134.193 — 2026-10-27
 
 - **فرز أعمدة التأجير:** سهم واحد ↕ بجانب العدسة؛ الضغط يفتح اختيار تصاعدي أو تنازلي.

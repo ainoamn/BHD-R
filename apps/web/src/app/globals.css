@@ -6109,6 +6109,11 @@ body:has(.stays-booking-receipt) #main-content {
   background: #fff;
   box-shadow: 0 10px 28px rgba(18, 32, 26, 0.12);
 }
+.ops-action-menu__panel--portal {
+  position: fixed;
+  inset: auto;
+  z-index: 1200;
+}
 .ops-action-menu__panel .ops-action {
   width: 100%;
   justify-content: flex-start;
