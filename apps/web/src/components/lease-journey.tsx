@@ -3,11 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useState, type ChangeEvent } from 'react';
 import { Link } from '@/i18n/navigation';
+import { FilePreviewDialog, type PreviewFile } from '@/components/file-preview';
 import { EsignSignaturePad } from '@/components/stays/esign/esign-signature-pad';
 import { StayApprovalDesk } from '@/components/stays/stay-approval-desk';
 import { useStayJourney } from '@/components/stays/stay-journey';
 import { StaySendPhone } from '@/components/stays/stay-send-phone';
 import { StayTrip } from '@/components/stays/stay-trip';
+import { UploadPrepareDialog } from '@/components/upload-prepare-dialog';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { compressImageFile } from '@/lib/compress-image';
 import { formatMoney } from '@/lib/format';
@@ -135,6 +137,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
       ) : null}
       {screen.action === 'documents' && !past ? (
         <>
+          <DocumentsNeededNotice {...props} />
           <TenantAttestationGate {...props} />
           <LeaseDocuments {...props} />
           <LeaseCheques {...props} />
@@ -161,6 +164,53 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
         </Link>
       ) : null}
     </section>
+  );
+}
+
+/** Clear call-to-action once the owner approved and documents/cheques are due. */
+function DocumentsNeededNotice({
+  locale,
+  phase,
+  lifecycle,
+}: Pick<LeaseJourneyProps, 'locale' | 'phase' | 'lifecycle'>) {
+  const ar = locale === 'ar';
+  if (
+    phase !== 'awaiting_documents' &&
+    phase !== 'awaiting_documents_review'
+  ) {
+    return null;
+  }
+  const approved = Boolean(lifecycle.approvedAt);
+  const needsAttest =
+    lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
+  return (
+    <div
+      className={`notice ${phase === 'awaiting_documents' ? 'notice--info' : 'notice--success'}`}
+      role="status"
+    >
+      <strong>
+        {approved
+          ? ar
+            ? 'المالك اعتمد حجزك'
+            : 'The owner approved your booking'
+          : ar
+            ? 'مطلوب منك إجراء'
+            : 'Action needed from you'}
+      </strong>
+      <span className="lease-docs-notice__body">
+        {phase === 'awaiting_documents_review'
+          ? ar
+            ? 'وصلت ملفاتك وهي قيد مراجعة المالك أو من يمثله.'
+            : 'Your files arrived and are under review by the owner or their representative.'
+          : needsAttest
+            ? ar
+              ? 'أكّد صحة بياناتك أدناه، ثم ارفع المستندات المطلوبة وأدخل أرقام الشيكات مع صورة كل شيك.'
+              : 'Confirm your details below, then upload the required documents and enter each cheque number with its photo.'
+            : ar
+              ? 'ارفع المستندات المطلوبة، وأدخل رقم كل شيك مع صورة الشيك لإرسالها للمراجعة.'
+              : 'Upload the required documents and enter each cheque number with its photo for review.'}
+      </span>
+    </div>
   );
 }
 
@@ -319,10 +369,12 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ code: string; file: File } | null>(null);
+  const [preview, setPreview] = useState<PreviewFile | null>(null);
   const blocked =
     lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
 
-  async function upload(code: string, event: ChangeEvent<HTMLInputElement>) {
+  function pick(code: string, event: ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
     event.target.value = '';
     if (!picked) return;
@@ -334,13 +386,21 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       );
       return;
     }
+    if (picked.type !== 'application/pdf' && !picked.type.startsWith('image/')) {
+      setError(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
+      return;
+    }
     setError(null);
+    setPending({ code, file: picked });
+  }
+
+  async function send(code: string, prepared: File) {
     setBusy(code);
+    setPending(null);
     try {
-      const file = picked.type.startsWith('image/') ? await compressImageFile(picked) : picked;
-      if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
-        throw new Error(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
-      }
+      const file = prepared.type.startsWith('image/')
+        ? await compressImageFile(prepared)
+        : prepared;
       const dataUrl = await readAsDataUrl(file);
       if (dataUrl.length > REQUIREMENT_FILE_MAX_CHARS) {
         throw new Error(
@@ -353,7 +413,11 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
         `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/documents`,
         {
           method: 'POST',
-          body: JSON.stringify({ code, fileName: picked.name.slice(0, 200), dataUrl }),
+          body: JSON.stringify({
+            code,
+            fileName: prepared.name.slice(0, 200),
+            dataUrl,
+          }),
         },
       );
       router.refresh();
@@ -379,6 +443,9 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       <ul className="lease-docs">
         {lifecycle.requirements.map((item) => {
           const canUpload = item.status !== 'approved';
+          const fileHref = item.fileName
+            ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/doc-${encodeURIComponent(item.code)}`
+            : null;
           return (
             <li key={item.code} className={`lease-docs__item lease-docs__item--${item.status}`}>
               <div className="lease-docs__text">
@@ -394,32 +461,60 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
                   <small dir="auto">{item.fileName}</small>
                 ) : null}
               </div>
-              {canUpload ? (
-                <label className="button button--quiet lease-docs__upload">
-                  {busy === item.code
-                    ? ar
-                      ? 'جارٍ الإرسال…'
-                      : 'Sending…'
-                    : item.status === 'pending'
+              <div className="lease-docs__actions">
+                {fileHref ? (
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() =>
+                      setPreview({
+                        href: fileHref,
+                        label: ar ? item.labelAr : item.labelEn || item.labelAr,
+                      })
+                    }
+                  >
+                    {ar ? 'معاينة' : 'Preview'}
+                  </button>
+                ) : null}
+                {canUpload ? (
+                  <label className="button button--quiet lease-docs__upload">
+                    {busy === item.code
                       ? ar
-                        ? 'رفع المستند'
-                        : 'Upload'
-                      : ar
-                        ? 'استبدال'
-                        : 'Replace'}
-                  <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    hidden
-                    disabled={busy !== null || blocked}
-                    onChange={(event) => void upload(item.code, event)}
-                  />
-                </label>
-              ) : null}
+                        ? 'جارٍ الإرسال…'
+                        : 'Sending…'
+                      : item.status === 'pending'
+                        ? ar
+                          ? 'رفع المستند'
+                          : 'Upload'
+                        : ar
+                          ? 'استبدال'
+                          : 'Replace'}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      hidden
+                      disabled={busy !== null || blocked}
+                      onChange={(event) => pick(item.code, event)}
+                    />
+                  </label>
+                ) : null}
+              </div>
             </li>
           );
         })}
       </ul>
+      {pending ? (
+        <UploadPrepareDialog
+          file={pending.file}
+          ar={ar}
+          title={ar ? 'معاينة المستند قبل الإرسال' : 'Preview document before sending'}
+          onCancel={() => setPending(null)}
+          onConfirm={(file) => void send(pending.code, file)}
+        />
+      ) : null}
+      {preview ? (
+        <FilePreviewDialog file={preview} ar={ar} onClose={() => setPreview(null)} />
+      ) : null}
     </div>
   );
 }
@@ -441,6 +536,8 @@ function LeaseCheques({
   const cheques = lifecycle.cheques ?? [];
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ key: string; file: File } | null>(null);
+  const [preview, setPreview] = useState<PreviewFile | null>(null);
   const blocked =
     !readOnly && lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
   const [drafts, setDrafts] = useState<Record<string, ChequeDraft>>(() => {
@@ -457,7 +554,7 @@ function LeaseCheques({
 
   if (!cheques.length) return null;
 
-  async function submit(key: string, event: ChangeEvent<HTMLInputElement>) {
+  function pick(key: string, event: ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
     event.target.value = '';
     if (!picked) return;
@@ -482,13 +579,22 @@ function LeaseCheques({
       );
       return;
     }
+    if (picked.type !== 'application/pdf' && !picked.type.startsWith('image/')) {
+      setError(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
+      return;
+    }
     setError(null);
+    setPending({ key, file: picked });
+  }
+
+  async function send(key: string, prepared: File) {
+    const draft = drafts[key] ?? { bankName: '', accountHolderName: '', chequeNumber: '' };
     setBusy(key);
+    setPending(null);
     try {
-      const file = picked.type.startsWith('image/') ? await compressImageFile(picked) : picked;
-      if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
-        throw new Error(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
-      }
+      const file = prepared.type.startsWith('image/')
+        ? await compressImageFile(prepared)
+        : prepared;
       const dataUrl = await readAsDataUrl(file);
       if (dataUrl.length > REQUIREMENT_FILE_MAX_CHARS) {
         throw new Error(
@@ -506,7 +612,7 @@ function LeaseCheques({
             bankName: draft.bankName.trim(),
             accountHolderName: draft.accountHolderName.trim(),
             chequeNumber: draft.chequeNumber.trim(),
-            fileName: picked.name.slice(0, 200),
+            fileName: prepared.name.slice(0, 200),
             dataUrl,
           }),
         },
@@ -537,9 +643,16 @@ function LeaseCheques({
       ) : null}
       <p className="muted">
         {ar
-          ? 'لكل قسط إيجار: أدخل بنك الشيك، اسم صاحب الحساب، رقم الشيك، ثم ارفق صورة الشيك.'
-          : 'For each rent installment: enter the bank, account holder, cheque number, then attach a photo of the cheque.'}
+          ? 'لكل شيك: أدخل البنك واسم صاحب الحساب ورقم الشيك، ثم ارفق صورة الشيك (يمكنك قصّها وضبط إضاءتها قبل الإرسال).'
+          : 'For each cheque: enter bank, account holder and number, then attach a photo (crop and brighten before sending).'}
       </p>
+      {blocked ? (
+        <p className="notice notice--info" role="status">
+          {ar
+            ? 'الحقول ظاهرة أدناه — أكّد صحة بياناتك أعلاه أولاً ثم ارفع صور الشيكات.'
+            : 'Fields are shown below — confirm your details above first, then upload cheque photos.'}
+        </p>
+      ) : null}
       {error ? (
         <p className="notice notice--error" role="alert">
           {error}
@@ -552,9 +665,15 @@ function LeaseCheques({
             accountHolderName: '',
             chequeNumber: item.suggestedChequeNumber ?? '',
           };
-          const canEdit = !readOnly && item.status !== 'approved' && !blocked;
+          const canEdit = !readOnly && item.status !== 'approved';
+          const fileHref = item.fileName
+            ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/cheque-${encodeURIComponent(item.key)}`
+            : null;
           return (
-            <li key={item.key} className={`lease-docs__item lease-docs__item--${item.status}`}>
+            <li
+              key={item.key}
+              className={`lease-docs__item lease-docs__item--stack lease-docs__item--${item.status}`}
+            >
               <div className="lease-docs__text">
                 <strong>{ar ? item.labelAr : item.labelEn}</strong>
                 <span>
@@ -578,11 +697,12 @@ function LeaseCheques({
               {canEdit ? (
                 <div className="lease-cheques__fields">
                   <label>
-                    {ar ? 'بنك الشيكات' : 'Cheque bank'}
+                    {ar ? 'بنك الشيك' : 'Cheque bank'}
                     <input
                       className="input"
                       maxLength={160}
                       value={draft.bankName}
+                      disabled={blocked || busy !== null}
                       onChange={(event) =>
                         setDrafts((current) => ({
                           ...current,
@@ -597,6 +717,7 @@ function LeaseCheques({
                       className="input"
                       maxLength={160}
                       value={draft.accountHolderName}
+                      disabled={blocked || busy !== null}
                       onChange={(event) =>
                         setDrafts((current) => ({
                           ...current,
@@ -612,6 +733,7 @@ function LeaseCheques({
                       dir="ltr"
                       maxLength={80}
                       value={draft.chequeNumber}
+                      disabled={blocked || busy !== null}
                       onChange={(event) =>
                         setDrafts((current) => ({
                           ...current,
@@ -620,32 +742,73 @@ function LeaseCheques({
                       }
                     />
                   </label>
-                  <label className="button button--quiet lease-docs__upload">
-                    {busy === item.key
-                      ? ar
-                        ? 'جارٍ الإرسال…'
-                        : 'Sending…'
-                      : item.status === 'pending'
+                  <div className="lease-docs__actions">
+                    {fileHref ? (
+                      <button
+                        type="button"
+                        className="button button--quiet"
+                        onClick={() =>
+                          setPreview({
+                            href: fileHref,
+                            label: ar ? item.labelAr : item.labelEn,
+                          })
+                        }
+                      >
+                        {ar ? 'معاينة' : 'Preview'}
+                      </button>
+                    ) : null}
+                    <label className="button button--quiet lease-docs__upload">
+                      {busy === item.key
                         ? ar
-                          ? 'رفع صورة الشيك'
-                          : 'Upload cheque photo'
-                        : ar
-                          ? 'استبدال الصورة'
-                          : 'Replace photo'}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      hidden
-                      disabled={busy !== null}
-                      onChange={(event) => void submit(item.key, event)}
-                    />
-                  </label>
+                          ? 'جارٍ الإرسال…'
+                          : 'Sending…'
+                        : item.status === 'pending'
+                          ? ar
+                            ? 'رفع صورة الشيك'
+                            : 'Upload cheque photo'
+                          : ar
+                            ? 'استبدال الصورة'
+                            : 'Replace photo'}
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        hidden
+                        disabled={busy !== null || blocked}
+                        onChange={(event) => pick(item.key, event)}
+                      />
+                    </label>
+                  </div>
                 </div>
+              ) : fileHref ? (
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() =>
+                    setPreview({
+                      href: fileHref,
+                      label: ar ? item.labelAr : item.labelEn,
+                    })
+                  }
+                >
+                  {ar ? 'معاينة الملف' : 'Preview file'}
+                </button>
               ) : null}
             </li>
           );
         })}
       </ul>
+      {pending ? (
+        <UploadPrepareDialog
+          file={pending.file}
+          ar={ar}
+          title={ar ? 'معاينة صورة الشيك قبل الإرسال' : 'Preview cheque photo before sending'}
+          onCancel={() => setPending(null)}
+          onConfirm={(file) => void send(pending.key, file)}
+        />
+      ) : null}
+      {preview ? (
+        <FilePreviewDialog file={preview} ar={ar} onClose={() => setPreview(null)} />
+      ) : null}
     </div>
   );
 }

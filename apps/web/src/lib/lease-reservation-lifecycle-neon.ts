@@ -1716,6 +1716,60 @@ export async function readReservationFileForStaff(
   return { mimeType, bytes: Buffer.from(parsed[2]!, 'base64'), name: dataUrl.name };
 }
 
+/** Tenant (booking owner) can re-open documents / cheques they uploaded. */
+export async function readReservationFileForTenant(
+  claims: SessionClaims,
+  referenceCode: string,
+  file: string,
+): Promise<{ mimeType: string; bytes: Buffer; name: string } | null> {
+  if (!/^doc-[a-z0-9_]{2,40}$/i.test(file) && !/^cheque-[a-z0-9_.-]{2,80}$/i.test(file)) {
+    return null;
+  }
+  const { db } = getDatabase();
+  const dataUrl = await db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    const lifecycle = current.lifecycle;
+    let eventId: string | null = null;
+    let name = file;
+    if (file.startsWith('doc-')) {
+      const requirement = (lifecycle.requirements ?? []).find(
+        (item) => item.code === file.slice(4),
+      );
+      eventId = requirement?.file?.eventId ?? null;
+      name = requirement?.file?.name ?? file;
+    } else if (file.startsWith('cheque-')) {
+      const submission = (lifecycle.chequeSubmissions ?? []).find(
+        (item) => item.key === file.slice(7),
+      );
+      eventId = submission?.file?.eventId ?? null;
+      name = submission?.file?.name ?? file;
+    }
+    if (!eventId) return null;
+    const id = eventId;
+    const value = await withElevatedRead(transaction, async () => {
+      const [row] = await transaction
+        .select({ metadata: workflowEvents.metadata })
+        .from(workflowEvents)
+        .where(
+          and(
+            eq(workflowEvents.id, id),
+            eq(workflowEvents.organizationId, current.match.organizationId),
+          ),
+        )
+        .limit(1);
+      const meta = row?.metadata as { dataUrl?: unknown } | null;
+      return typeof meta?.dataUrl === 'string' ? meta.dataUrl : null;
+    });
+    return value ? { value, name } : null;
+  });
+  if (!dataUrl) return null;
+  const parsed = DATA_URL.exec(dataUrl.value);
+  if (!parsed) return null;
+  const mimeType = parsed[1]!;
+  if (!mimeType.startsWith('image/') && mimeType !== 'application/pdf') return null;
+  return { mimeType, bytes: Buffer.from(parsed[2]!, 'base64'), name: dataUrl.name };
+}
+
 // ── Handover by the tenant's pass ───────────────────────────────────────────────────────────
 
 const HANDOVER_IMAGE = /^data:image\/(?:png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;

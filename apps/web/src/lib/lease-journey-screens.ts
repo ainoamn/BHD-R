@@ -143,16 +143,19 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
       documents = {
         headline: rejected
           ? t('مستند يحتاج نسخة أوضح 🔁', 'One document needs a clearer copy 🔁')
-          : t('جهّز مستنداتك… ونحن معك خطوة بخطوة 📎', 'Your documents, step by step 📎'),
+          : t(
+              'المالك اعتمد حجزك — ارفع المستندات والشيكات 📎',
+              'Owner approved — upload documents and cheques 📎',
+            ),
         body: rejected
           ? t(
               'راجع المالك ما أرسلت وطلب بديلاً لمستند — ستجد السبب بجانبه. أعد رفعه وسنُبلغ المالك فوراً.',
               'The owner asked for a replacement — the reason is next to it. Upload again and we tell the owner right away.',
             )
           : t(
-              `ليكتمل ${contractWord}، أكمل المستندات المطلوبة${lifecycle.cheques?.length ? ' وبيانات شيكات الإيجار (بنك، صاحب الحساب، رقم الشيك وصورة لكل قسط)' : ''}. كل ملف يصل للمالك مباشرة.`,
-              `To complete the ${contractWord}, upload the required documents${lifecycle.cheques?.length ? ' and each rent cheque (bank, holder, number and photo)' : ''}. Everything reaches the owner at once.`,
-            ),
+              `المالك اعتمد حجزك. ليكتمل ${contractWord}: أكّد بياناتك، ارفع المستندات المطلوبة${lifecycle.cheques?.length ? '، وأدخل رقم كل شيك مع صورة الشيك' : ''}. يمكنك معاينة الملف وضبط صورة الشيك قبل الإرسال.`,
+              `The owner approved your booking. To complete the ${contractWord}: confirm your details, upload the required documents${lifecycle.cheques?.length ? ', and enter each cheque number with its photo' : ''}. You can preview files and adjust cheque photos before sending.`,
+            )
         action: 'documents',
       };
     } else if (phase === 'awaiting_documents_review') {
