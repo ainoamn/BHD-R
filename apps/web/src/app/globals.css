@@ -11800,6 +11800,16 @@ body:has(.stays-booking-receipt) #main-content {
   align-items: center;
   gap: 0.1rem;
 }
+.ops-th-sort {
+  position: relative;
+  display: inline-block;
+}
+.ops-th-sort > summary {
+  list-style: none;
+}
+.ops-th-sort > summary::-webkit-details-marker {
+  display: none;
+}
 .ops-th-arrow,
 .ops-th-tool {
   display: inline-grid;
@@ -11824,10 +11834,45 @@ body:has(.stays-booking-receipt) #main-content {
   border-color: rgb(8 163 159 / 0.18);
 }
 .ops-th-arrow.is-on,
-.ops-th-tool.is-on {
+.ops-th-tool.is-on,
+.ops-th-sort[open] > .ops-th-arrow {
   color: var(--bhd-teal);
   background: rgb(8 163 159 / 0.12);
   border-color: rgb(8 163 159 / 0.28);
+}
+.ops-th-sort__menu {
+  position: absolute;
+  inset-inline-end: 0;
+  top: calc(100% + 0.2rem);
+  z-index: 45;
+  display: grid;
+  gap: 0.1rem;
+  min-width: 7.5rem;
+  padding: 0.3rem;
+  border: 1px solid rgb(9 45 36 / 0.14);
+  border-radius: 0.55rem;
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(18, 32, 26, 0.1);
+}
+.ops-th-sort__menu button {
+  display: block;
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: #1f2924;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: start;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ops-th-sort__menu button:hover,
+.ops-th-sort__menu button.is-on {
+  background: rgb(8 163 159 / 0.1);
+  color: var(--bhd-teal);
 }
 .ops-th-panel {
   margin-top: 0.4rem;

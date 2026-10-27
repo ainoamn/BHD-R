@@ -47,7 +47,8 @@ export async function POST(request: Request) {
   try {
     claims = await requireLiveSession(request, { requireCsrf: true });
   } catch (error) {
-    return guardErrorResponse(error);
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
   const limited = assertRouteRateLimit({
     key: hashRateKey(['leasing-report-issue', claims.sub, clientIp(request)]),
@@ -93,7 +94,8 @@ export async function GET(request: Request) {
   try {
     await requireLiveSession(request, { requireCsrf: false });
   } catch (error) {
-    return guardErrorResponse(error);
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
   const url = new URL(request.url);
   const token = url.searchParams.get('token') ?? '';

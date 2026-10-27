@@ -4723,36 +4723,78 @@ ${depositHtml}${
                                 <div className="ops-th-bar">
                                   <span className="ops-th-label">{ar ? column.ar : column.en}</span>
                                   <span className="ops-th-tools">
-                                    <button
-                                      type="button"
-                                      className={`ops-th-arrow${sortedHere && leasingFilter.sortDir === 'asc' ? ' is-on' : ''}`}
-                                      aria-label={ar ? 'فرز تصاعدي' : 'Sort ascending'}
-                                      title={ar ? 'فرز تصاعدي' : 'Sort ascending'}
-                                      onClick={() =>
-                                        setLeasingFilter((current) => ({
-                                          ...current,
-                                          sortKey: key,
-                                          sortDir: 'asc',
-                                        }))
-                                      }
+                                    <details
+                                      className="ops-th-sort"
+                                      onClick={(event) => event.stopPropagation()}
                                     >
-                                      ↑
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className={`ops-th-arrow${sortedHere && leasingFilter.sortDir === 'desc' ? ' is-on' : ''}`}
-                                      aria-label={ar ? 'فرز تنازلي' : 'Sort descending'}
-                                      title={ar ? 'فرز تنازلي' : 'Sort descending'}
-                                      onClick={() =>
-                                        setLeasingFilter((current) => ({
-                                          ...current,
-                                          sortKey: key,
-                                          sortDir: 'desc',
-                                        }))
-                                      }
-                                    >
-                                      ↓
-                                    </button>
+                                      <summary
+                                        className={`ops-th-arrow${sortedHere ? ' is-on' : ''}`}
+                                        aria-label={ar ? 'الفرز' : 'Sort'}
+                                        title={ar ? 'الفرز' : 'Sort'}
+                                        onClick={(event) => {
+                                          const current = event.currentTarget.parentElement;
+                                          const scope =
+                                            current?.closest('thead') ?? document;
+                                          scope
+                                            .querySelectorAll('details.ops-th-sort[open]')
+                                            .forEach((el) => {
+                                              if (el !== current) el.removeAttribute('open');
+                                            });
+                                        }}
+                                      >
+                                        <span aria-hidden="true">
+                                          {sortedHere
+                                            ? leasingFilter.sortDir === 'asc'
+                                              ? '↑'
+                                              : '↓'
+                                            : '↕'}
+                                        </span>
+                                      </summary>
+                                      <div className="ops-th-sort__menu" role="menu">
+                                        <button
+                                          type="button"
+                                          role="menuitem"
+                                          className={
+                                            sortedHere && leasingFilter.sortDir === 'asc'
+                                              ? 'is-on'
+                                              : undefined
+                                          }
+                                          onClick={(event) => {
+                                            event.currentTarget
+                                              .closest('details.ops-th-sort')
+                                              ?.removeAttribute('open');
+                                            setLeasingFilter((current) => ({
+                                              ...current,
+                                              sortKey: key,
+                                              sortDir: 'asc',
+                                            }));
+                                          }}
+                                        >
+                                          {ar ? 'تصاعدي ↑' : 'Ascending ↑'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          role="menuitem"
+                                          className={
+                                            sortedHere && leasingFilter.sortDir === 'desc'
+                                              ? 'is-on'
+                                              : undefined
+                                          }
+                                          onClick={(event) => {
+                                            event.currentTarget
+                                              .closest('details.ops-th-sort')
+                                              ?.removeAttribute('open');
+                                            setLeasingFilter((current) => ({
+                                              ...current,
+                                              sortKey: key,
+                                              sortDir: 'desc',
+                                            }));
+                                          }}
+                                        >
+                                          {ar ? 'تنازلي ↓' : 'Descending ↓'}
+                                        </button>
+                                      </div>
+                                    </details>
                                     <button
                                       type="button"
                                       className={`ops-th-tool${filterOpen || hasFilter ? ' is-on' : ''}`}
