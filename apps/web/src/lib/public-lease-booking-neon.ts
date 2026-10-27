@@ -157,6 +157,11 @@ const ERRORS = {
     'أكّد أولاً صحة بياناتك ومستنداتك وتحمّل المسؤولية قبل المتابعة.',
     'First confirm your details and documents are accurate and accept responsibility.',
   ],
+  documents_package_incomplete: [
+    409,
+    'ارفع كل المستندات والشيكات المطلوبة أولاً ثم اضغط تأكيد وإرسال.',
+    'Upload every required document and cheque first, then confirm and send.',
+  ],
   requirement_not_found: [
     404,
     'لم يعد هذا المستند مطلوباً.',
@@ -821,6 +826,7 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
     rentBankAccountId: lifecycle.rentBankAccountId ?? null,
     requireTenantAttestation: Boolean(lifecycle.autoFlow?.requireTenantAttestation),
     tenantAttestedAt: lifecycle.tenantAttestation?.at ?? null,
+    customerDocumentsSentAt: lifecycle.customerDocumentsSentAt ?? null,
     deferUntilHandover: lifecycle.autoFlow?.deferUntilHandover ?? [],
     contractAuto: Boolean(lifecycle.autoFlow?.contractAuto || lifecycle.contract?.automatic),
     cheques: (lifecycle.chequeInstructions ?? []).map((item) => {

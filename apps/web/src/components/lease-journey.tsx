@@ -141,9 +141,9 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
       {screen.action === 'documents' && !past ? (
         <>
           <DocumentsNeededNotice {...props} />
-          <TenantAttestationGate {...props} />
           <LeaseDocuments {...props} />
           <LeaseCheques {...props} />
+          <DocumentsSendPanel {...props} />
         </>
       ) : null}
       {screen.action === 'documents' && past ? (
@@ -205,13 +205,13 @@ function DocumentsNeededNotice({
           ? ar
             ? 'وصلت ملفاتك وهي قيد مراجعة المالك أو من يمثله.'
             : 'Your files arrived and are under review by the owner or their representative.'
-          : needsAttest
+          : needsAttest || !lifecycle.customerDocumentsSentAt
             ? ar
-              ? 'ارفع المستندات والشيكات الآن، وأكّد صحة بياناتك (الإقرار أعلاه) قبل توقيع العقد لاحقاً.'
-              : 'Upload documents and cheques now, and confirm your details (attestation above) before signing the contract later.'
+              ? 'ارفع كل المستندات والشيكات، ثم اضغط «تأكيد والمتابعة وإرسال المستندات» — يُبلَّغ المالك مرة واحدة بعد الإرسال.'
+              : 'Upload every document and cheque, then press “Confirm, continue and send documents” — the owner is notified once after you send.'
             : ar
-              ? 'ارفع المستندات المطلوبة، وأدخل رقم كل شيك مع صورة الشيك لإرسالها للمراجعة.'
-              : 'Upload the required documents and enter each cheque number with its photo for review.'}
+              ? 'وصلت ملفاتك وهي قيد مراجعة المالك أو من يمثله.'
+              : 'Your files arrived and are under review by the owner or their representative.'}
       </span>
     </div>
   );
@@ -300,8 +300,8 @@ function TenantAttestationGate({
       </h3>
       <p className="muted">
         {ar
-          ? 'يمكنك رفع المستندات والشيكات الآن. هذا الإقرار مطلوب قبل توقيع العقد لاحقاً — المستندات تُراجع يدوياً قبل التسليم، وأي اختلاف يمنح المالك حق الإلغاء مع تحمّلك المسؤولية.'
-          : 'You can upload documents and cheques now. This confirmation is required before signing the contract later — documents are reviewed manually before handover, and any mismatch lets the owner cancel with you bearing responsibility.'}
+          ? 'المستندات تُراجع يدوياً قبل التسليم. أي اختلاف أو عدم صحة يمنح المالك حق إلغاء الحجز مع تحمّلك كامل المسؤولية.'
+          : 'Documents are reviewed manually before handover. Any mismatch lets the owner cancel, and you bear full responsibility.'}
       </p>
       <label className="lease-attestation__check">
         <input
@@ -327,6 +327,118 @@ function TenantAttestationGate({
         onClick={() => void confirm()}
       >
         {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'تأكيد والمتابعة' : 'Confirm and continue'}
+      </button>
+    </div>
+  );
+}
+
+/** After every file is uploaded: attest + notify the owner once. */
+function DocumentsSendPanel({ locale, referenceCode, lifecycle }: LeaseJourneyProps) {
+  const ar = locale === 'ar';
+  const router = useRouter();
+  const requirements = lifecycle.requirements ?? [];
+  const cheques = lifecycle.cheques ?? [];
+  const hasPackage = requirements.length > 0 || cheques.length > 0;
+  const packageReady =
+    hasPackage &&
+    !requirements.some((item) => item.status === 'pending' || item.status === 'rejected') &&
+    !cheques.some((item) => item.status === 'pending' || item.status === 'rejected');
+  const sent = Boolean(lifecycle.customerDocumentsSentAt);
+  const attested = Boolean(lifecycle.tenantAttestedAt);
+  const [checked, setChecked] = useState(attested);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!hasPackage) return null;
+
+  async function send() {
+    if (!packageReady) {
+      setError(
+        ar
+          ? 'ارفع كل المستندات والشيكات المطلوبة أولاً.'
+          : 'Upload every required document and cheque first.',
+      );
+      return;
+    }
+    if (!checked && !attested) {
+      setError(
+        ar ? 'يجب التأشير على الإقرار أولاً.' : 'Tick the confirmation box first.',
+      );
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await browserNextMutation(
+        `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/documents/send`,
+        { method: 'POST', body: JSON.stringify({ accepted: true }) },
+      );
+      router.refresh();
+    } catch (caught) {
+      setError(errorText(caught, ar));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (sent && packageReady) {
+    return (
+      <p className="notice notice--success" role="status">
+        {ar
+          ? 'تم إرسال المستندات والشيكات للمراجعة. سيُبلَّغ المالك ويراجعها قريباً.'
+          : 'Documents and cheques were sent for review. The owner has been notified.'}
+      </p>
+    );
+  }
+
+  return (
+    <div className="lease-attestation" role="group" aria-labelledby="lease-docs-send-title">
+      <h3 id="lease-docs-send-title">
+        {ar ? 'تأكيد وإرسال المستندات' : 'Confirm and send documents'}
+      </h3>
+      <p className="muted">
+        {ar
+          ? 'بعد رفع كل الملفات: أكّد صحة بياناتك ثم أرسل الحزمة. يُبلَّغ المالك مرة واحدة عند الضغط على الزر — وليس عند رفع كل ملف على حدة.'
+          : 'After every file is uploaded: confirm your details, then send the package. The owner is emailed once when you press the button — not on each upload.'}
+      </p>
+      {!packageReady ? (
+        <p className="notice notice--info" role="status">
+          {ar
+            ? 'أكمل رفع كل المستندات والشيكات أدناه/أعلاه ليصبح زر الإرسال متاحاً.'
+            : 'Finish uploading every document and cheque so the send button becomes available.'}
+        </p>
+      ) : null}
+      <label className="lease-attestation__check">
+        <input
+          type="checkbox"
+          checked={checked || attested}
+          disabled={attested || busy}
+          onChange={(event) => setChecked(event.target.checked)}
+        />
+        <span>
+          {ar
+            ? 'أقرّ بأن جميع بياناتي ومستنداتي صحيحة وكاملة، وأتحمّل المسؤولية كاملة إن تبيّن خلاف ذلك، وأعلم بحق المالك في إلغاء الحجز قبل التسليم.'
+            : 'I confirm all my details and documents are true and complete, I accept full responsibility if they are not, and I understand the owner may cancel before handover.'}
+        </span>
+      </label>
+      {error ? (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        className="button button--primary"
+        disabled={busy || !packageReady || (!checked && !attested)}
+        onClick={() => void send()}
+      >
+        {busy
+          ? ar
+            ? 'جارٍ الإرسال…'
+            : 'Sending…'
+          : ar
+            ? 'تأكيد والمتابعة وإرسال المستندات'
+            : 'Confirm, continue and send documents'}
       </button>
     </div>
   );

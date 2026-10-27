@@ -146,6 +146,11 @@ export type ReservationLifecycle = {
   };
   /** Tenant confirmed docs accuracy and cancel-if-invalid responsibility. */
   tenantAttestation?: { at: string; accepted: true };
+  /**
+   * When the tenant finished uploading and pressed «send documents» — owner is notified once.
+   * Cleared if the owner rejects a file or asks for extra documents.
+   */
+  customerDocumentsSentAt?: string | null;
 };
 
 /** One cheque the tenant must prepare after the owner saves a cheque-payment contract. */
@@ -439,6 +444,11 @@ export function documentsPhase(lifecycle: ReservationLifecycle): LeaseJourneyPha
     requirements.some((item) => item.status === 'pending' || item.status === 'rejected') ||
     chequeStatuses.some((status) => status === 'pending' || status === 'rejected')
   ) {
+    return 'awaiting_documents';
+  }
+  const hasPackage = requirements.length > 0 || chequeStatuses.length > 0;
+  // Files are stored, but the owner is not notified until the tenant confirms send.
+  if (hasPackage && !lifecycle.customerDocumentsSentAt) {
     return 'awaiting_documents';
   }
   if (

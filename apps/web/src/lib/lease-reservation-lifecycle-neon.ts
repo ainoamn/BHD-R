@@ -28,6 +28,7 @@ import {
   HANDOVER_DEFECTS_HOURS,
   REQUIREMENT_FILE_MAX_CHARS,
   REQUIREMENT_FILE_TYPES,
+  chequeStatusesOf,
   handoverAwaitingTenant,
   handoverDefectsOpen,
   handoverHandlerSelfie,
@@ -923,7 +924,11 @@ async function ownerActionInTx(
               }
             : item,
         );
-        await saveLifecycle(tx, row, { ...row.lifecycle, requirements: next });
+        await saveLifecycle(tx, row, {
+          ...row.lifecycle,
+          requirements: next,
+          ...(input.decision === 'rejected' ? { customerDocumentsSentAt: null } : {}),
+        });
         await event(`reservation.document_${input.decision}`, { code: input.code });
         break;
       }
@@ -968,7 +973,11 @@ async function ownerActionInTx(
             status: 'pending' as const,
           })),
         ];
-        await saveLifecycle(tx, row, { ...row.lifecycle, requirements: next });
+        await saveLifecycle(tx, row, {
+          ...row.lifecycle,
+          requirements: next,
+          customerDocumentsSentAt: null,
+        });
         await event('reservation.requirements_added', {
           codes: additions.map((item) => item.code),
         });
@@ -995,7 +1004,11 @@ async function ownerActionInTx(
               }
             : item,
         );
-        await saveLifecycle(tx, row, { ...row.lifecycle, chequeSubmissions: next });
+        await saveLifecycle(tx, row, {
+          ...row.lifecycle,
+          chequeSubmissions: next,
+          ...(input.decision === 'rejected' ? { customerDocumentsSentAt: null } : {}),
+        });
         await event(`reservation.cheque_${input.decision}`, { key: input.key });
         break;
       }
@@ -1394,6 +1407,84 @@ export async function attestReservationDocuments(
   });
 }
 
+/**
+ * Tenant finished uploading every required document/cheque and confirms send.
+ * Attests (when required) and notifies the owner once — not on each file upload.
+ */
+export async function sendReservationDocumentsPackage(
+  claims: SessionClaims,
+  referenceCode: string,
+  input: { accepted: true },
+) {
+  void input;
+  const { db } = getDatabase();
+  const result = await db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    if (current.phase !== 'awaiting_documents' && current.phase !== 'awaiting_documents_review') {
+      leaseBookingFail('not_ready');
+    }
+    const requirements = current.lifecycle.requirements ?? [];
+    const chequeStatuses = chequeStatusesOf(current.lifecycle);
+    const hasPackage = requirements.length > 0 || chequeStatuses.length > 0;
+    if (!hasPackage) leaseBookingFail('not_ready');
+    if (
+      requirements.some((item) => item.status === 'pending' || item.status === 'rejected') ||
+      chequeStatuses.some((status) => status === 'pending' || status === 'rejected')
+    ) {
+      leaseBookingFail('documents_package_incomplete');
+    }
+    const at = new Date().toISOString();
+    if (current.lifecycle.customerDocumentsSentAt) {
+      return {
+        sent: true as const,
+        at: current.lifecycle.customerDocumentsSentAt,
+        reservationId: current.match.id,
+        alreadySent: true as const,
+      };
+    }
+    const attested =
+      current.lifecycle.tenantAttestation?.accepted === true
+        ? current.lifecycle.tenantAttestation
+        : { at, accepted: true as const };
+    await saveLifecycle(
+      transaction,
+      { id: current.match.id, snapshot: current.snapshot },
+      {
+        ...current.lifecycle,
+        customerDocumentsSentAt: at,
+        tenantAttestation: attested,
+      },
+    );
+    await logEvent(transaction, {
+      orgId: current.match.organizationId,
+      actorUserId: claims.sub,
+      reservationId: current.match.id,
+      eventType: 'reservation.documents_package_sent',
+      status: current.status,
+      metadata: {
+        referenceCode: current.snapshot.referenceCode,
+        documents: requirements.length,
+        cheques: chequeStatuses.length,
+      },
+    });
+    return {
+      sent: true as const,
+      at,
+      reservationId: current.match.id,
+      alreadySent: false as const,
+    };
+  });
+  if (!result.alreadySent) {
+    await notifyOwnersOfCustomerStep(result.reservationId, {
+      subject: '📎 العميل أرسل حزمة المستندات للمراجعة',
+      title: 'مستندات الحجز جاهزة للمراجعة',
+      line: 'أكمل العميل رفع كل المستندات والشيكات المطلوبة وأكّد إرسالها. راجعها واعتمدها ليمضي الحجز إلى العقد.',
+    });
+  }
+  await runReservationAutomation(result.reservationId, claims.sub);
+  return { sent: true as const, at: result.at };
+}
+
 /** Tenant submits one rent/VAT/deposit cheque (number + photo) from the confirmed page. */
 export async function submitReservationCheque(
   claims: SessionClaims,
@@ -1493,11 +1584,6 @@ export async function submitReservationCheque(
     });
     return current.match.id;
   });
-  await notifyOwnersOfCustomerStep(reservationId, {
-    subject: '🧾 رفع العميل بيانات شيك للمراجعة',
-    title: 'شيك جديد ينتظر مراجعتك',
-    line: 'أدخل العميل رقم شيك وصورته على حجزه. راجعه واعتمده ليمضي الحجز إلى العقد.',
-  });
   await runReservationAutomation(reservationId, claims.sub);
   return { submitted: true as const, key: input.key };
 }
@@ -1574,11 +1660,6 @@ export async function submitReservationDocument(
       metadata: { referenceCode: current.snapshot.referenceCode, code: input.code },
     });
     return current.match.id;
-  });
-  await notifyOwnersOfCustomerStep(reservationId, {
-    subject: '📎 رفع العميل مستنداً للمراجعة',
-    title: 'مستند جديد ينتظر مراجعتك',
-    line: 'رفع العميل أحد المستندات المطلوبة على حجزه. راجعه واعتمده ليمضي الحجز إلى العقد.',
   });
   await runReservationAutomation(reservationId, claims.sub);
   return { submitted: true as const, code: input.code };
