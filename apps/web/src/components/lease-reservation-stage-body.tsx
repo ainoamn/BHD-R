@@ -8,14 +8,16 @@ import {
 import { leaseJourneyStageIndex } from '@/lib/lease-reservation-lifecycle';
 
 /**
- * Keeps booking-agreement / party extras on stage 0 (إتمام الحجز) only;
- * owners reopen that stage from the stepper to review them again.
+ * Compact booking strip stays on every stage; full agreement / party extras
+ * stay on stage 0 (إتمام الحجز) — reopen that stage from the stepper to review.
  */
 export function LeaseReservationStageBody({
   workflow,
+  bookingSummary,
   bookingDetails,
 }: {
   workflow: LeaseReservationWorkflowProps;
+  bookingSummary: ReactNode;
   bookingDetails: ReactNode;
 }) {
   const [viewing, setViewing] = useState<number | null>(null);
@@ -24,6 +26,7 @@ export function LeaseReservationStageBody({
 
   return (
     <>
+      {bookingSummary}
       <LeaseReservationWorkflow
         {...workflow}
         viewing={viewing}

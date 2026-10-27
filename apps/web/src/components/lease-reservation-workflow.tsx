@@ -501,6 +501,12 @@ export function LeaseReservationWorkflow(serverProps: Props) {
             <span className="ops-kicker">{t('مسار الحجز', 'Booking journey')}</span>
             <h2>{leasePhaseLabel(phase, ar)}</h2>
           </div>
+          <p className="lrw__head-hint muted">
+            {t(
+              'اضغط مرحلة مكتملة لمراجعتها، أو ابقَ على المرحلة الحالية للمتابعة.',
+              'Open a completed stage to review it, or stay on the current stage to continue.',
+            )}
+          </p>
         </header>
         <ol className="lrw__steps">
           {labels.map((label, index) => {
@@ -665,11 +671,19 @@ export function LeaseReservationWorkflow(serverProps: Props) {
             (phase === 'awaiting_documents' ||
               phase === 'awaiting_documents_review' ||
               phase === 'awaiting_contract_approval') ? (
-              <div className="lrw__card">
-                <div className="lrw__card-head">
-                  <h3>
-                    {sale ? t('عقد البيع', 'Sale contract') : t('عقد الإيجار', 'Lease contract')}
-                  </h3>
+              <div className="lrw__card lrw__desk">
+                <div className="lrw__desk-head">
+                  <div>
+                    <h3>
+                      {sale ? t('عقد البيع', 'Sale contract') : t('عقد الإيجار', 'Lease contract')}
+                    </h3>
+                    <p className="muted">
+                      {t(
+                        'راجع ملخص العقد، ثم تابع مستندات العميل والشيكات حتى يُفتح الاعتماد.',
+                        'Review the contract summary, then track client documents and cheques until approval opens.',
+                      )}
+                    </p>
+                  </div>
                   {canManage ? (
                     <button
                       type="button"
@@ -682,31 +696,33 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                   ) : null}
                 </div>
                 <DraftSummary {...props} />
-                <RequirementsReview
-                  {...props}
-                  busy={busy}
-                  fileHref={fileHref}
-                  onReview={(code, decision, note) =>
-                    decide(
-                      code,
-                      { status: decision, ...(note ? { note } : {}) },
-                      { action: 'review_document', code, decision, ...(note ? { note } : {}) },
-                    )
-                  }
-                />
-                <ChequesReview
-                  {...props}
-                  busy={busy}
-                  fileHref={fileHref}
-                  onReview={(key, decision, note) =>
-                    act({
-                      action: 'review_cheque',
-                      key,
-                      decision,
-                      ...(note ? { note } : {}),
-                    })
-                  }
-                />
+                <div className="lrw__desk-grid">
+                  <RequirementsReview
+                    {...props}
+                    busy={busy}
+                    fileHref={fileHref}
+                    onReview={(code, decision, note) =>
+                      decide(
+                        code,
+                        { status: decision, ...(note ? { note } : {}) },
+                        { action: 'review_document', code, decision, ...(note ? { note } : {}) },
+                      )
+                    }
+                  />
+                  <ChequesReview
+                    {...props}
+                    busy={busy}
+                    fileHref={fileHref}
+                    onReview={(key, decision, note) =>
+                      act({
+                        action: 'review_cheque',
+                        key,
+                        decision,
+                        ...(note ? { note } : {}),
+                      })
+                    }
+                  />
+                </div>
                 <div className="lrw__approve">
                   <p className="muted">
                     {phase === 'awaiting_contract_approval'
@@ -1365,13 +1381,25 @@ function IdentityGallery({ ar, fileHref }: { ar: boolean; fileHref: (file: strin
   );
 }
 
-function DraftSummary({ lifecycle, locale, currency, mode }: Props) {
+function DraftSummary({
+  lifecycle,
+  locale,
+  currency,
+  mode,
+  tenant,
+  depositLabel,
+  depositPaidAt,
+}: Props) {
   const ar = locale === 'ar';
   const draft = lifecycle.contractDraft;
   if (!draft) return null;
   if (mode === 'sale' && draft.sale) {
     return (
-      <dl className="contract-detail__facts">
+      <dl className="lrw__summary">
+        <div>
+          <dt>{ar ? 'المشتري' : 'Buyer'}</dt>
+          <dd>{tenant.displayName}</dd>
+        </div>
         <div>
           <dt>{ar ? 'سعر البيع المتفق عليه' : 'Agreed price'}</dt>
           <dd dir="ltr">
@@ -1387,8 +1415,17 @@ function DraftSummary({ lifecycle, locale, currency, mode }: Props) {
   }
   const terms = (draft.lease as { terms?: LeaseTermsDraft } | undefined)?.terms;
   if (!terms) return null;
+  const savedAt = new Date(draft.savedAt).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
+    timeZone: 'Asia/Muscat',
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
   return (
-    <dl className="contract-detail__facts">
+    <dl className="lrw__summary">
+      <div>
+        <dt>{ar ? 'المستأجر' : 'Tenant'}</dt>
+        <dd>{tenant.displayName}</dd>
+      </div>
       <div>
         <dt>{ar ? 'مدة العقد' : 'Term'}</dt>
         <dd dir="ltr">
@@ -1402,19 +1439,19 @@ function DraftSummary({ lifecycle, locale, currency, mode }: Props) {
         </dd>
       </div>
       <div>
-        <dt>{ar ? 'التأمين' : 'Deposit'}</dt>
+        <dt>{ar ? 'التأمين بالعقد' : 'Contract deposit'}</dt>
         <dd dir="ltr">
           {terms.deposit || '—'} {currency}
         </dd>
       </div>
       <div>
+        <dt>{ar ? 'العربون المدفوع' : 'Arabon paid'}</dt>
+        <dd dir="ltr">{depositPaidAt ? depositLabel : '—'}</dd>
+      </div>
+      <div>
         <dt>{ar ? 'آخر حفظ' : 'Last saved'}</dt>
         <dd>
-          {new Date(draft.savedAt).toLocaleString(ar ? 'ar-OM' : 'en-GB', {
-            timeZone: 'Asia/Muscat',
-            dateStyle: 'medium',
-            timeStyle: 'short',
-          })}
+          {savedAt}
           {draft.byName ? ` · ${draft.byName}` : ''}
         </dd>
       </div>
@@ -1441,10 +1478,16 @@ function ChequesReview({
   if (!instructions.length) return null;
   const byKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
   return (
-    <div className="lrw__docs">
-      <h4>{ar ? 'شيكات الإيجار من العميل' : 'Tenant rent cheques'}</h4>
+    <div className="lrw__docs lrw__docs--panel">
+      <header className="lrw__docs-head">
+        <h4>{ar ? 'الشيكات من العميل' : 'Cheques from the client'}</h4>
+        <span className="lrw__docs-count">
+          {instructions.filter((item) => byKey.get(item.key)?.status === 'approved').length}/
+          {instructions.length}
+        </span>
+      </header>
       {lifecycle.chequePayableTo ? (
-        <p className="muted">
+        <p className="muted lrw__docs-payee">
           {ar ? 'تُكتب باسم: ' : 'Payable to: '}
           <strong>{lifecycle.chequePayableTo}</strong>
           {lifecycle.chequeBankName ? ` · ${lifecycle.chequeBankName}` : ''}
@@ -1563,9 +1606,15 @@ function RequirementsReview({
       </p>
     );
   }
+  const approvedCount = requirements.filter((item) => item.status === 'approved').length;
   return (
-    <div className="lrw__docs">
-      <h4>{ar ? 'المستندات المطلوبة من العميل' : 'Documents requested from the client'}</h4>
+    <div className="lrw__docs lrw__docs--panel">
+      <header className="lrw__docs-head">
+        <h4>{ar ? 'المستندات المطلوبة' : 'Required documents'}</h4>
+        <span className="lrw__docs-count">
+          {approvedCount}/{requirements.length}
+        </span>
+      </header>
       <ul>
         {requirements.map((item) => (
           <li key={item.code} className={`lrw__doc lrw__doc--${item.status}`}>

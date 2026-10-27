@@ -74,68 +74,45 @@ export function LeaseReservationDetail({
   const awaitingApproval = booking.phase === 'awaiting_owner_approval';
   const bookingsHref = `/${locale}/${portal}/properties/${encodeURIComponent(booking.propertyId)}?section=bookings&focus=${encodeURIComponent(booking.reservationId)}`;
 
+  const bookingSummary = (
+    <section className="ops-metrics lrw-page-summary" aria-label={ar ? 'ملخص الحجز' : 'Booking summary'}>
+      <article>
+        <span>{ar ? 'العميل' : 'Client'}</span>
+        <strong className="name-with-mark">
+          {booking.contact.fullName}
+          <BadgeChips badges={badges?.client} locale={locale} />
+        </strong>
+        <small dir="ltr">{booking.contact.phone}</small>
+      </article>
+      <article className="ops-metric--accent">
+        <span>{ar ? 'العربون المدفوع' : 'Deposit paid'}</span>
+        <strong dir="ltr">{booking.depositPaidAt ? deposit : '—'}</strong>
+        <small>{dateTime(booking.depositPaidAt)}</small>
+      </article>
+      <article>
+        <span>{ar ? 'محجوزة حتى' : 'Reserved until'}</span>
+        <strong>{day(booking.reservedUntil)}</strong>
+        <small>
+          {price
+            ? `${sale ? (ar ? 'سعر البيع' : 'Sale price') : ar ? 'الإيجار الشهري' : 'Monthly rent'} ${formatMoney(price, booking.currency, locale)}`
+            : '—'}
+        </small>
+      </article>
+      <article>
+        <span>{ar ? 'حالة المسار' : 'Journey status'}</span>
+        <strong>{leasePhaseLabel(booking.phase, ar)}</strong>
+        <small>{ar ? (sale ? 'حجز شراء' : 'حجز إيجار') : sale ? 'Purchase' : 'Rent'}</small>
+      </article>
+    </section>
+  );
+
   const bookingDetails = (
     <>
-      <section className="ops-metrics" aria-label={ar ? 'ملخص الحجز' : 'Booking summary'}>
-        <article>
-          <span>{ar ? 'حالة الحجز' : 'Booking status'}</span>
-          <strong>{leasePhaseLabel(booking.phase, ar)}</strong>
-          <small>{ar ? (sale ? 'حجز شراء' : 'حجز إيجار') : sale ? 'Purchase' : 'Rent'}</small>
-        </article>
-        <article className="ops-metric--accent">
-          <span>{ar ? 'العربون المدفوع' : 'Deposit paid'}</span>
-          <strong dir="ltr">{booking.depositPaidAt ? deposit : '—'}</strong>
-          <small>{dateTime(booking.depositPaidAt)}</small>
-        </article>
-        <article>
-          <span>{ar ? 'محجوزة حتى' : 'Reserved until'}</span>
-          <strong>{day(booking.reservedUntil)}</strong>
-          <small>
-            {price
-              ? `${sale ? (ar ? 'سعر البيع' : 'Sale price') : ar ? 'الإيجار الشهري' : 'Monthly rent'} ${formatMoney(price, booking.currency, locale)}`
-              : '—'}
-          </small>
-        </article>
-        <article>
-          <span>{ar ? 'التوقيع الإلكتروني' : 'E-signature'}</span>
-          <strong>
-            {signature?.serial ? (
-              <bdi dir="ltr" className="doc-serial">
-                {signature.serial}
-              </bdi>
-            ) : signature ? (
-              ar ? (
-                'موقّع'
-              ) : (
-                'Signed'
-              )
-            ) : ar ? (
-              'لم يوقّع بعد'
-            ) : (
-              'Not signed yet'
-            )}
-          </strong>
-          <small>{signature ? dateTime(signature.signedAt) : '—'}</small>
-        </article>
-      </section>
-
-      <section className="ops-panel">
+      <section className="ops-panel lrw-page-details">
+        <h2 className="lrw-page-details__title">
+          {ar ? 'تفاصيل إتمام الحجز' : 'Booking completion details'}
+        </h2>
         <dl className="contract-detail__facts">
-          <div>
-            <dt>{ar ? 'العميل' : 'Client'}</dt>
-            <dd className="name-with-mark">
-              {booking.contact.fullName}
-              <BadgeChips badges={badges?.client} locale={locale} />
-            </dd>
-          </div>
-          <div>
-            <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
-            <dd>
-              <a href={`tel:${booking.contact.phone}`} dir="ltr">
-                {booking.contact.phone}
-              </a>
-            </dd>
-          </div>
           <div>
             <dt>{ar ? 'البريد' : 'Email'}</dt>
             <dd dir="ltr">{booking.contact.email ?? '—'}</dd>
@@ -176,6 +153,29 @@ export function LeaseReservationDetail({
           <div>
             <dt>{ar ? 'قبول الشروط' : 'Terms accepted'}</dt>
             <dd>{dateTime(booking.termsAcceptedAt)}</dd>
+          </div>
+          <div>
+            <dt>{ar ? 'التوقيع الإلكتروني' : 'E-signature'}</dt>
+            <dd>
+              {signature?.serial ? (
+                <bdi dir="ltr" className="doc-serial">
+                  {signature.serial}
+                </bdi>
+              ) : signature ? (
+                ar ? (
+                  'موقّع'
+                ) : (
+                  'Signed'
+                )
+              ) : ar ? (
+                'لم يوقّع بعد'
+              ) : (
+                'Not signed yet'
+              )}
+              {signature ? (
+                <small className="muted"> · {dateTime(signature.signedAt)}</small>
+              ) : null}
+            </dd>
           </div>
         </dl>
       </section>
@@ -256,6 +256,7 @@ export function LeaseReservationDetail({
           canManage: permissions.canManage,
           canSign: permissions.canSign,
         }}
+        bookingSummary={bookingSummary}
         bookingDetails={bookingDetails}
       />
     </div>
