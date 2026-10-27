@@ -2965,7 +2965,9 @@ export function LeaseContractForm({
                   <th>{t('الإيجار', 'Rent')}</th>
                   {vatWithRent ? <th>{t('الضريبة', 'VAT')}</th> : null}
                   {vatWithRent ? <th>{t('الإجمالي', 'Total')}</th> : null}
-                  {isCheque ? <th>{t('رقم الشيك', 'Cheque no.')}</th> : null}
+                  {isCheque ? (
+                    <th>{t('رقم الشيك (المستأجر)', 'Cheque no. (tenant)')}</th>
+                  ) : null}
                 </tr>
               </thead>
               <tbody>
@@ -3017,17 +3019,20 @@ export function LeaseContractForm({
                       {isCheque ? (
                         <td>
                           <input
-                            className={`input lcf-cell${
-                              !row.chequeNumber?.trim() ? ' lcf-cell--missing' : ' lcf-cell--ok'
-                            }`}
+                            className="input lcf-cell"
                             dir="ltr"
                             maxLength={80}
-                            required
+                            readOnly={municipalAfterHandover}
+                            placeholder={t(
+                              'يعبّئه المستأجر مع المرفق',
+                              'Filled by tenant with upload',
+                            )}
                             aria-label={t('رقم الشيك', 'Cheque no.')}
                             value={row.chequeNumber ?? ''}
-                            onChange={(event) =>
-                              updateScheduleRow(index, { chequeNumber: event.target.value })
-                            }
+                            onChange={(event) => {
+                              if (municipalAfterHandover) return;
+                              updateScheduleRow(index, { chequeNumber: event.target.value });
+                            }}
                           />
                         </td>
                       ) : null}
@@ -3045,7 +3050,15 @@ export function LeaseContractForm({
             )}
           </p>
         )}
-        {isCheque && draft.schedule.length > 1 ? (
+        {isCheque ? (
+          <p className="muted lcf-help">
+            {t(
+              'أرقام شيكات الإيجار يعبّئها المستأجر مع رفع صورة الشيك ضمن المستندات؛ المالك أو من يمثله يراجع صحتها بعد الإرسال.',
+              'Rent cheque numbers are entered by the tenant with the cheque photo among documents; the owner (or their representative) reviews them after submission.',
+            )}
+          </p>
+        ) : null}
+        {isCheque && !municipalAfterHandover && draft.schedule.length > 1 ? (
           <button
             type="button"
             className="button button--quiet psr-action"
@@ -3063,6 +3076,12 @@ export function LeaseContractForm({
           active
           title={t('🧾 شيكات الضريبة المضافة (إضافية)', '🧾 Additional VAT cheques')}
         >
+          <p className="muted lcf-help">
+            {t(
+              'رقم شيك الضريبة يعبّئه المستأجر مع المرفق إن لزم.',
+              'VAT cheque numbers are filled by the tenant with the upload when needed.',
+            )}
+          </p>
           <div className="data-table-wrap">
             <table className="data-table lcf-table">
               <thead>
@@ -3070,7 +3089,7 @@ export function LeaseContractForm({
                   <th>#</th>
                   <th>{t('تاريخ الاستحقاق', 'Due date')}</th>
                   <th>{t('المبلغ', 'Amount')}</th>
-                  <th>{t('رقم الشيك', 'Cheque no.')}</th>
+                  <th>{t('رقم الشيك (المستأجر)', 'Cheque no. (tenant)')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -3084,9 +3103,15 @@ export function LeaseContractForm({
                         className="input lcf-cell"
                         dir="ltr"
                         maxLength={80}
+                        readOnly={municipalAfterHandover}
+                        placeholder={t(
+                          'يعبّئه المستأجر مع المرفق',
+                          'Filled by tenant with upload',
+                        )}
                         aria-label={t('رقم الشيك', 'Cheque no.')}
                         value={draft.vatChequeNumbers[index] ?? ''}
                         onChange={(event) => {
+                          if (municipalAfterHandover) return;
                           const next = [...draft.vatChequeNumbers];
                           next[index] = event.target.value;
                           set('vatChequeNumbers', next);
