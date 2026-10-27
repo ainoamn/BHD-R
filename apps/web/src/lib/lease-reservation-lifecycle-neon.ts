@@ -774,7 +774,7 @@ async function ownerActionInTx(
         const previous = row.lifecycle.cancellation;
         if (row.status !== 'cancelled' || !previous) fail('reservation_not_ready');
         if (row.lifecycle.handover) fail('reservation_not_ready');
-        const note = input.note.trim().slice(0, 500);
+        const note = input.note.trim().slice(0, 1000);
         if (note.length < 2) fail('invalid_body');
         const [conflict] = await tx
           .select({ id: reservations.id })

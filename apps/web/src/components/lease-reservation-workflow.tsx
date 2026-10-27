@@ -19,8 +19,12 @@ import {
   type LeaseContractPayload,
 } from '@/components/lease-contract-form';
 import { LeaseRequirementsPicker } from '@/components/lease-requirements-picker';
+import { NoteTranslateBar, OWNER_NOTE_SERVICE } from '@/components/note-translate';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
+import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
+
+const BOOKING_NOTE_MAX = Math.min(1000, NOTE_TRANSLATE_MAX);
 import type { AccountingSettings } from '@/lib/accounting-integrity';
 import type { ApprovalPolicy } from '@/lib/approval-policy';
 import {
@@ -189,20 +193,20 @@ function cancelReasonText(
 }
 
 function RestoreCancelledBooking({
-  ar,
-  t,
+  locale,
   busy,
   canManage,
   cancellation,
   onRestore,
 }: {
-  ar: boolean;
-  t: (arText: string, enText: string) => string;
+  locale: 'ar' | 'en';
   busy: boolean;
   canManage: boolean;
   cancellation: NonNullable<ReservationLifecycle['cancellation']>;
   onRestore: (note: string) => Promise<void>;
 }) {
+  const ar = locale === 'ar';
+  const t = (arText: string, enText: string) => (ar ? arText : enText);
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState('');
 
@@ -244,7 +248,7 @@ function RestoreCancelledBooking({
               id="restore-booking-note"
               className="textarea"
               rows={3}
-              maxLength={500}
+              maxLength={BOOKING_NOTE_MAX}
               required
               value={note}
               disabled={busy}
@@ -253,6 +257,14 @@ function RestoreCancelledBooking({
                 'مثال: رُفض المستند بالخطأ — يُعاد فتح الحجز لرفع بديل',
                 'e.g. Document was rejected by mistake — reopening so a replacement can be uploaded',
               )}
+            />
+            <NoteTranslateBar
+              value={note}
+              onChange={setNote}
+              locale={locale}
+              max={BOOKING_NOTE_MAX}
+              disabled={busy}
+              service={OWNER_NOTE_SERVICE}
             />
             <p className="notice notice--info">
               {t(
@@ -355,14 +367,23 @@ function PaymentReviewCard({
           <label htmlFor="lrw-payment-note">
             {t('سبب الإلغاء (يظهر للعميل)', 'Reason (shown to the client)')}
           </label>
-          <input
+          <textarea
             id="lrw-payment-note"
-            className="input"
+            className="textarea"
+            rows={2}
             value={note}
             minLength={2}
-            maxLength={500}
+            maxLength={BOOKING_NOTE_MAX}
             required
             onChange={(event) => setNote(event.target.value)}
+          />
+          <NoteTranslateBar
+            value={note}
+            onChange={setNote}
+            locale={locale}
+            max={BOOKING_NOTE_MAX}
+            disabled={busy}
+            service={OWNER_NOTE_SERVICE}
           />
           <button type="submit" className="button button--danger" disabled={busy}>
             {t('إلغاء الحجز', 'Cancel the booking')}
@@ -472,14 +493,23 @@ function VerificationPanel({
                 <label htmlFor={`verify-${item.code}`}>
                   {t('سبب الرفض (يظهر للعميل)', 'Reason (shown to the client)')}
                 </label>
-                <input
+                <textarea
                   id={`verify-${item.code}`}
-                  className="input"
+                  className="textarea"
+                  rows={2}
                   value={note}
-                  maxLength={500}
+                  maxLength={BOOKING_NOTE_MAX}
                   required
                   onChange={(event) => setNote(event.target.value)}
                   placeholder={t('مثال: الصورة غير واضحة — أعد الرفع', 'e.g. Image unclear — please re-upload')}
+                />
+                <NoteTranslateBar
+                  value={note}
+                  onChange={setNote}
+                  locale={locale}
+                  max={BOOKING_NOTE_MAX}
+                  disabled={busy}
+                  service={OWNER_NOTE_SERVICE}
                 />
                 <p className="notice notice--info">
                   {t(
@@ -513,13 +543,22 @@ function VerificationPanel({
                 <label htmlFor={`cancel-${item.code}`}>
                   {t('سبب المخالفة (يظهر للعميل)', 'What is wrong (shown to the client)')}
                 </label>
-                <input
+                <textarea
                   id={`cancel-${item.code}`}
-                  className="input"
+                  className="textarea"
+                  rows={2}
                   value={note}
-                  maxLength={500}
+                  maxLength={BOOKING_NOTE_MAX}
                   required
                   onChange={(event) => setNote(event.target.value)}
+                />
+                <NoteTranslateBar
+                  value={note}
+                  onChange={setNote}
+                  locale={locale}
+                  max={BOOKING_NOTE_MAX}
+                  disabled={busy}
+                  service={OWNER_NOTE_SERVICE}
                 />
                 <p className="notice notice--error">
                   {t(
@@ -758,8 +797,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
 
             {phase === 'closed' && lifecycle.cancellation ? (
               <RestoreCancelledBooking
-                ar={ar}
-                t={t}
+                locale={locale}
                 busy={busy}
                 canManage={canManage}
                 cancellation={lifecycle.cancellation}
@@ -1724,13 +1762,22 @@ function ChequesReview({
                   <label htmlFor={`reject-cheque-${item.key}`}>
                     {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
                   </label>
-                  <input
+                  <textarea
                     id={`reject-cheque-${item.key}`}
-                    className="input"
+                    className="textarea"
+                    rows={2}
                     required
-                    maxLength={500}
+                    maxLength={BOOKING_NOTE_MAX}
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
+                  />
+                  <NoteTranslateBar
+                    value={note}
+                    onChange={setNote}
+                    locale={locale}
+                    max={BOOKING_NOTE_MAX}
+                    disabled={busy}
+                    service={OWNER_NOTE_SERVICE}
                   />
                   <button type="submit" className="button button--primary" disabled={busy}>
                     {ar ? 'تأكيد الرفض' : 'Confirm rejection'}
@@ -1958,7 +2005,7 @@ function RequirementsReview({
                 className="textarea"
                 rows={2}
                 value={note}
-                maxLength={500}
+                maxLength={BOOKING_NOTE_MAX}
                 required
                 onChange={(event) => setNote(event.target.value)}
                 placeholder={
@@ -1966,6 +2013,14 @@ function RequirementsReview({
                     ? 'مثال: الصورة غير واضحة — أعد الرفع بدقة أعلى'
                     : 'e.g. Image is unclear — please re-upload sharper'
                 }
+              />
+              <NoteTranslateBar
+                value={note}
+                onChange={setNote}
+                locale={locale}
+                max={BOOKING_NOTE_MAX}
+                disabled={busy}
+                service={OWNER_NOTE_SERVICE}
               />
               <button type="submit" className="button button--primary" disabled={busy}>
                 {ar ? 'تأكيد الرفض وإظهار الملاحظة للعميل' : 'Confirm reject & show note to client'}
@@ -2062,9 +2117,17 @@ function RequirementsReview({
                     className="textarea"
                     rows={2}
                     value={note}
-                    maxLength={500}
+                    maxLength={BOOKING_NOTE_MAX}
                     required
                     onChange={(event) => setNote(event.target.value)}
+                  />
+                  <NoteTranslateBar
+                    value={note}
+                    onChange={setNote}
+                    locale={locale}
+                    max={BOOKING_NOTE_MAX}
+                    disabled={busy}
+                    service={OWNER_NOTE_SERVICE}
                   />
                   <button type="submit" className="button button--primary" disabled={busy}>
                     {ar ? 'إرسال الرفض' : 'Send rejection'}
