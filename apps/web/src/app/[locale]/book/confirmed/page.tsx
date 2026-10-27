@@ -346,7 +346,11 @@ export default async function LeaseBookingConfirmedPage({
               {paid ? (
                 <Link
                   className="button button--quiet"
-                  href={`/book/sign?ref=${encodeURIComponent(booking.referenceCode)}`}
+                  href={
+                    booking.esignSignedAt
+                      ? `/book/sign?ref=${encodeURIComponent(booking.referenceCode)}&view=1`
+                      : `/book/sign?ref=${encodeURIComponent(booking.referenceCode)}`
+                  }
                 >
                   {booking.esignSignedAt
                     ? ar

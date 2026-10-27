@@ -179,7 +179,7 @@ function buildItems(
             ? 'good'
             : undefined,
       href,
-      cta: href ? (ar ? 'متابعة الحجز' : 'Continue') : null,
+      cta: href ? (ar ? 'فتح مراحل الحجز' : 'Open booking journey') : null,
     };
   });
 

@@ -981,7 +981,9 @@ function bookingPreviewItems(
         },
       ],
       href,
-      ...(href ? { hrefLabel: ar ? 'متابعة الحجز' : 'Continue' } : {}),
+      ...(href
+        ? { hrefLabel: ar ? 'فتح مراحل الحجز' : 'Open booking journey' }
+        : {}),
     } satisfies PreviewItem;
   });
   return [...viewings, ...stays, ...reservations];

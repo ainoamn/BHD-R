@@ -707,7 +707,12 @@ async function notifyReservationStep(reservationId: string, input: ReservationOw
         ...(facts.referenceCode ? [{ label: 'رقم الحجز', value: facts.referenceCode }] : []),
         ...(facts.propertyName ? [{ label: 'العقار', value: facts.propertyName }] : []),
       ],
-      cta: { label: 'متابعة الحجز', url: appLink('/ar/tenant/reservations') },
+      cta: {
+        label: 'متابعة الحجز',
+        url: facts.referenceCode
+          ? appLink(`/ar/book/confirmed?ref=${encodeURIComponent(facts.referenceCode)}`)
+          : appLink('/ar/tenant/reservations'),
+      },
     }),
   });
 }

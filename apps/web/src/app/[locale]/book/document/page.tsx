@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { leaseBookingDocumentPath, leaseSignPath } from '@/lib/lease-booking-paths';
+import { leaseBookingDocumentPath, leaseConfirmedPath } from '@/lib/lease-booking-paths';
 import { readClaims } from '@/lib/portal-ops-data';
 import {
   leaseReservationIdForStaff,
@@ -40,7 +40,7 @@ export default async function LeaseBookingDocumentPage({
   }
 
   const own = await loadLeaseBookingForViewer(viewer.id, ref).catch(() => null);
-  if (own) redirect(leaseSignPath(locale, own.referenceCode));
+  if (own) redirect(leaseConfirmedPath(locale, own.referenceCode));
 
   const claims = await readClaims();
   const reservationId = claims

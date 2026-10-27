@@ -267,9 +267,10 @@ export function stayHref(stay: Pick<TenancyStay, 'id' | 'referenceCode'>): strin
   return `/guest/stays/${encodeURIComponent(stay.id)}?ref=${encodeURIComponent(stay.referenceCode)}`;
 }
 
+/** Open the booking journey directly (confirmed page). Sign/payment are steps inside it. */
 export function reservationHref(reservation: TenancyReservation): string | null {
   return reservation.referenceCode
-    ? `/book/sign?ref=${encodeURIComponent(reservation.referenceCode)}`
+    ? `/book/confirmed?ref=${encodeURIComponent(reservation.referenceCode)}`
     : null;
 }
 

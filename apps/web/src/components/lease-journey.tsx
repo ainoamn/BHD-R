@@ -134,7 +134,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
       {screen.action === 'view_terms' ? (
         <Link
           className="button button--quiet guest-stay-detail__rebook"
-          href={`/book/sign?ref=${encodeURIComponent(plate)}`}
+          href={`/book/sign?ref=${encodeURIComponent(plate)}&view=1`}
         >
           {ar ? 'عرض اتفاقية الحجز الموقّعة' : 'View signed booking agreement'}
         </Link>
