@@ -68,14 +68,16 @@ import {
 } from '@/lib/property-offering-channels';
 import {
   EMPTY_LEASING_FILTER,
+  leasingColumnHasFilter,
   leasingFilterActive,
   leasingRowProperty,
   leasingRowUnit,
+  leasingTextFilterValue,
   matchesLeasingColumnFilter,
   printLeasingReport,
   readLeasingIntroCollapsed,
   sortLeasingRows,
-  toggleLeasingSort,
+  withLeasingTextFilter,
   writeLeasingIntroCollapsed,
   type LeasingColumnKey,
   type LeasingTableFilter,
@@ -2531,6 +2533,7 @@ export function OperationsConsole({
   const contractFilterActive = Object.values(contractFilter).some(Boolean);
   const [leasingFilter, setLeasingFilter] = useState<LeasingTableFilter>(EMPTY_LEASING_FILTER);
   const leasingColumnsActive = leasingFilterActive(leasingFilter);
+  const [leasingOpenFilter, setLeasingOpenFilter] = useState<LeasingColumnKey | null>(null);
   const [leasingIntroCollapsed, setLeasingIntroCollapsed] = useState(false);
   useEffect(() => {
     if (section === 'leasing') setLeasingIntroCollapsed(readLeasingIntroCollapsed());
@@ -2543,6 +2546,7 @@ export function OperationsConsole({
   useEffect(() => {
     if (section !== 'leasing') return;
     setLeasingFilter(EMPTY_LEASING_FILTER);
+    setLeasingOpenFilter(null);
   }, [section]);
   const [archiveMode, setArchiveMode] = useState(false);
   const [archiveRecords, setArchiveRecords] = useState<DataRow[] | null>(null);
@@ -4386,6 +4390,7 @@ ${depositHtml}${
                       className="button button--quiet button--sm"
                       onClick={() => {
                         setLeasingFilter(EMPTY_LEASING_FILTER);
+                        setLeasingOpenFilter(null);
                         setQuery('');
                         setStatusFilter('');
                       }}
@@ -4523,116 +4528,170 @@ ${depositHtml}${
                     <tr>
                       {definition.columns.map((column) =>
                         section === 'leasing' ? (
-                          <th key={column.key} className="ops-th-filter">
-                            <button
-                              type="button"
-                              className="ops-th-sort"
-                              onClick={() =>
-                                setLeasingFilter((current) =>
-                                  toggleLeasingSort(current, column.key as LeasingColumnKey),
-                                )
-                              }
-                            >
-                              <span>{ar ? column.ar : column.en}</span>
-                              {leasingFilter.sortKey === column.key ? (
-                                <span aria-hidden="true">
-                                  {leasingFilter.sortDir === 'asc' ? ' ↑' : ' ↓'}
-                                </span>
-                              ) : null}
-                            </button>
-                            {column.key === 'startsOn' || column.key === 'endsOn' ? (
-                              <div className="ops-th-dates">
-                                <input
-                                  type="date"
-                                  aria-label={ar ? 'من' : 'From'}
-                                  value={
-                                    column.key === 'startsOn'
-                                      ? leasingFilter.startsFrom
-                                      : leasingFilter.endsFrom
-                                  }
-                                  onChange={(event) =>
-                                    setLeasingFilter((current) =>
-                                      column.key === 'startsOn'
-                                        ? { ...current, startsFrom: event.target.value }
-                                        : { ...current, endsFrom: event.target.value },
-                                    )
-                                  }
-                                />
-                                <input
-                                  type="date"
-                                  aria-label={ar ? 'إلى' : 'To'}
-                                  value={
-                                    column.key === 'startsOn'
-                                      ? leasingFilter.startsTo
-                                      : leasingFilter.endsTo
-                                  }
-                                  onChange={(event) =>
-                                    setLeasingFilter((current) =>
-                                      column.key === 'startsOn'
-                                        ? { ...current, startsTo: event.target.value }
-                                        : { ...current, endsTo: event.target.value },
-                                    )
-                                  }
-                                />
-                              </div>
-                            ) : column.key === 'state' ? (
-                              <select
-                                className="ops-th-select"
-                                aria-label={ar ? 'تصفية الحالة' : 'Filter status'}
-                                value={leasingFilter.state}
-                                onChange={(event) => {
-                                  const value = event.target.value;
-                                  setLeasingFilter((current) => ({ ...current, state: value }));
-                                  setStatusFilter(value);
-                                }}
+                          (() => {
+                            const key = column.key as LeasingColumnKey;
+                            const isDate = key === 'startsOn' || key === 'endsOn';
+                            const filterOpen = leasingOpenFilter === key;
+                            const hasFilter = leasingColumnHasFilter(leasingFilter, key);
+                            const sortedHere = leasingFilter.sortKey === key;
+                            return (
+                              <th
+                                key={column.key}
+                                className={`ops-th-filter${hasFilter ? ' ops-th-filter--active' : ''}`}
                               >
-                                <option value="">{ar ? 'الكل' : 'All'}</option>
-                                {definition.flow.map((stage) => (
-                                  <option key={stage.value} value={stage.value}>
-                                    {ar ? stage.ar : stage.en}
-                                  </option>
-                                ))}
-                              </select>
-                            ) : (
-                              <label className="ops-th-search">
-                                <span aria-hidden="true">⌕</span>
-                                <input
-                                  value={
-                                    column.key === 'reference'
-                                      ? leasingFilter.reference
-                                      : column.key === 'property'
-                                        ? leasingFilter.property
-                                        : column.key === 'unit'
-                                          ? leasingFilter.unit
-                                          : column.key === 'owner'
-                                            ? leasingFilter.owner
-                                            : column.key === 'tenant'
-                                              ? leasingFilter.tenant
-                                              : column.key === 'rentMinor'
-                                                ? leasingFilter.rent
-                                                : ''
-                                  }
-                                  onChange={(event) => {
-                                    const value = event.target.value;
-                                    setLeasingFilter((current) => {
-                                      if (column.key === 'reference')
-                                        return { ...current, reference: value };
-                                      if (column.key === 'property')
-                                        return { ...current, property: value };
-                                      if (column.key === 'unit') return { ...current, unit: value };
-                                      if (column.key === 'owner') return { ...current, owner: value };
-                                      if (column.key === 'tenant')
-                                        return { ...current, tenant: value };
-                                      if (column.key === 'rentMinor')
-                                        return { ...current, rent: value };
-                                      return current;
-                                    });
-                                  }}
-                                  placeholder={ar ? 'بحث' : 'Search'}
-                                />
-                              </label>
-                            )}
-                          </th>
+                                <div className="ops-th-bar">
+                                  <span className="ops-th-label">{ar ? column.ar : column.en}</span>
+                                  <span className="ops-th-tools">
+                                    <button
+                                      type="button"
+                                      className={`ops-th-arrow${sortedHere && leasingFilter.sortDir === 'asc' ? ' is-on' : ''}`}
+                                      aria-label={ar ? 'فرز تصاعدي' : 'Sort ascending'}
+                                      title={ar ? 'فرز تصاعدي' : 'Sort ascending'}
+                                      onClick={() =>
+                                        setLeasingFilter((current) => ({
+                                          ...current,
+                                          sortKey: key,
+                                          sortDir: 'asc',
+                                        }))
+                                      }
+                                    >
+                                      ↑
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`ops-th-arrow${sortedHere && leasingFilter.sortDir === 'desc' ? ' is-on' : ''}`}
+                                      aria-label={ar ? 'فرز تنازلي' : 'Sort descending'}
+                                      title={ar ? 'فرز تنازلي' : 'Sort descending'}
+                                      onClick={() =>
+                                        setLeasingFilter((current) => ({
+                                          ...current,
+                                          sortKey: key,
+                                          sortDir: 'desc',
+                                        }))
+                                      }
+                                    >
+                                      ↓
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={`ops-th-tool${filterOpen || hasFilter ? ' is-on' : ''}`}
+                                      aria-expanded={filterOpen}
+                                      aria-label={
+                                        isDate
+                                          ? ar
+                                            ? 'تصفية بالتاريخ'
+                                            : 'Filter by date'
+                                          : ar
+                                            ? 'بحث في العمود'
+                                            : 'Search column'
+                                      }
+                                      title={
+                                        isDate
+                                          ? ar
+                                            ? 'تقويم — من/إلى'
+                                            : 'Calendar — from/to'
+                                          : ar
+                                            ? 'عدسة البحث'
+                                            : 'Search'
+                                      }
+                                      onClick={() =>
+                                        setLeasingOpenFilter((current) =>
+                                          current === key ? null : key,
+                                        )
+                                      }
+                                    >
+                                      {isDate ? '◷' : '⌕'}
+                                    </button>
+                                  </span>
+                                </div>
+                                {filterOpen ? (
+                                  <div className="ops-th-panel">
+                                    {isDate ? (
+                                      <div className="ops-th-dates">
+                                        <label>
+                                          <span>{ar ? 'من' : 'From'}</span>
+                                          <input
+                                            type="date"
+                                            autoFocus
+                                            value={
+                                              key === 'startsOn'
+                                                ? leasingFilter.startsFrom
+                                                : leasingFilter.endsFrom
+                                            }
+                                            onChange={(event) =>
+                                              setLeasingFilter((current) =>
+                                                key === 'startsOn'
+                                                  ? { ...current, startsFrom: event.target.value }
+                                                  : { ...current, endsFrom: event.target.value },
+                                              )
+                                            }
+                                          />
+                                        </label>
+                                        <label>
+                                          <span>{ar ? 'إلى' : 'To'}</span>
+                                          <input
+                                            type="date"
+                                            value={
+                                              key === 'startsOn'
+                                                ? leasingFilter.startsTo
+                                                : leasingFilter.endsTo
+                                            }
+                                            onChange={(event) =>
+                                              setLeasingFilter((current) =>
+                                                key === 'startsOn'
+                                                  ? { ...current, startsTo: event.target.value }
+                                                  : { ...current, endsTo: event.target.value },
+                                              )
+                                            }
+                                          />
+                                        </label>
+                                      </div>
+                                    ) : key === 'state' ? (
+                                      <select
+                                        className="ops-th-select"
+                                        aria-label={ar ? 'تصفية الحالة' : 'Filter status'}
+                                        autoFocus
+                                        value={leasingFilter.state}
+                                        onChange={(event) => {
+                                          const value = event.target.value;
+                                          setLeasingFilter((current) => ({
+                                            ...current,
+                                            state: value,
+                                          }));
+                                          setStatusFilter(value);
+                                        }}
+                                      >
+                                        <option value="">{ar ? 'الكل' : 'All'}</option>
+                                        {definition.flow.map((stage) => (
+                                          <option key={stage.value} value={stage.value}>
+                                            {ar ? stage.ar : stage.en}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <label className="ops-th-search">
+                                        <span aria-hidden="true">⌕</span>
+                                        <input
+                                          autoFocus
+                                          value={leasingTextFilterValue(leasingFilter, key)}
+                                          onChange={(event) =>
+                                            setLeasingFilter((current) =>
+                                              withLeasingTextFilter(
+                                                current,
+                                                key,
+                                                event.target.value,
+                                              ),
+                                            )
+                                          }
+                                          placeholder={ar ? 'بحث…' : 'Search…'}
+                                        />
+                                      </label>
+                                    )}
+                                  </div>
+                                ) : null}
+                              </th>
+                            );
+                          })()
                         ) : (
                           <th key={column.key}>{ar ? column.ar : column.en}</th>
                         ),

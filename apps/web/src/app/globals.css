@@ -11725,25 +11725,60 @@ body:has(.stays-booking-receipt) #main-content {
   justify-content: flex-end;
 }
 .ops-th-filter {
-  min-width: 7.5rem;
+  min-width: 6.5rem;
   vertical-align: top;
 }
-.ops-th-sort {
+.ops-th-filter--active .ops-th-label {
+  color: var(--bhd-teal);
+}
+.ops-th-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.35rem;
+}
+.ops-th-label {
+  font-weight: 900;
+  line-height: 1.2;
+}
+.ops-th-tools {
   display: inline-flex;
   align-items: center;
-  gap: 0.15rem;
-  margin: 0 0 0.35rem;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-weight: 900;
-  cursor: pointer;
-  text-align: inherit;
+  gap: 0.1rem;
 }
-.ops-th-sort:hover {
+.ops-th-arrow,
+.ops-th-tool {
+  display: inline-grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: #6a7771;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+.ops-th-arrow:hover,
+.ops-th-tool:hover {
+  color: var(--oman-deep);
+  background: rgb(8 163 159 / 0.08);
+  border-color: rgb(8 163 159 / 0.18);
+}
+.ops-th-arrow.is-on,
+.ops-th-tool.is-on {
   color: var(--bhd-teal);
+  background: rgb(8 163 159 / 0.12);
+  border-color: rgb(8 163 159 / 0.28);
+}
+.ops-th-panel {
+  margin-top: 0.4rem;
+  min-width: 8.5rem;
 }
 .ops-th-search {
   position: relative;
@@ -11777,7 +11812,14 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .ops-th-dates {
   display: grid;
-  gap: 0.25rem;
+  gap: 0.35rem;
+}
+.ops-th-dates label {
+  display: grid;
+  gap: 0.15rem;
+  color: #5a6a63;
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 .ops-th-select:focus,
 .ops-th-search input:focus,

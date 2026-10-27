@@ -118,6 +118,80 @@ export function leasingFilterActive(filter: LeasingTableFilter): boolean {
   );
 }
 
+/** Whether a specific column currently has an active filter value. */
+export function leasingColumnHasFilter(
+  filter: LeasingTableFilter,
+  key: LeasingColumnKey,
+): boolean {
+  switch (key) {
+    case 'reference':
+      return Boolean(filter.reference);
+    case 'property':
+      return Boolean(filter.property);
+    case 'unit':
+      return Boolean(filter.unit);
+    case 'owner':
+      return Boolean(filter.owner);
+    case 'tenant':
+      return Boolean(filter.tenant);
+    case 'state':
+      return Boolean(filter.state);
+    case 'startsOn':
+      return Boolean(filter.startsFrom || filter.startsTo);
+    case 'endsOn':
+      return Boolean(filter.endsFrom || filter.endsTo);
+    case 'rentMinor':
+      return Boolean(filter.rent);
+    default:
+      return false;
+  }
+}
+
+export function leasingTextFilterValue(
+  filter: LeasingTableFilter,
+  key: LeasingColumnKey,
+): string {
+  switch (key) {
+    case 'reference':
+      return filter.reference;
+    case 'property':
+      return filter.property;
+    case 'unit':
+      return filter.unit;
+    case 'owner':
+      return filter.owner;
+    case 'tenant':
+      return filter.tenant;
+    case 'rentMinor':
+      return filter.rent;
+    default:
+      return '';
+  }
+}
+
+export function withLeasingTextFilter(
+  filter: LeasingTableFilter,
+  key: LeasingColumnKey,
+  value: string,
+): LeasingTableFilter {
+  switch (key) {
+    case 'reference':
+      return { ...filter, reference: value };
+    case 'property':
+      return { ...filter, property: value };
+    case 'unit':
+      return { ...filter, unit: value };
+    case 'owner':
+      return { ...filter, owner: value };
+    case 'tenant':
+      return { ...filter, tenant: value };
+    case 'rentMinor':
+      return { ...filter, rent: value };
+    default:
+      return filter;
+  }
+}
+
 export function matchesLeasingColumnFilter(
   row: Record<string, unknown>,
   filter: LeasingTableFilter,
