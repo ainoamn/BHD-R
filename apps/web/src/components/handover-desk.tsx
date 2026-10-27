@@ -30,9 +30,45 @@ type Preview = {
 
 /** How often the desk checks whether the tenant's selfie has arrived. */
 const SELFIE_POLL_MS = 5000;
+/** Survives a mid-handover page refresh so staff do not need the code again before filing. */
+const DESK_SESSION_KEY = 'bhd-r.handover-desk.key';
 
 type Detector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
 type DetectorConstructor = new (options: { formats: string[] }) => Detector;
+
+function readDeskSession(): Key | null {
+  try {
+    const raw = sessionStorage.getItem(DESK_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Key;
+    if (parsed && typeof parsed === 'object' && 'token' in parsed && typeof parsed.token === 'string') {
+      return { token: parsed.token };
+    }
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'reference' in parsed &&
+      'code' in parsed &&
+      typeof parsed.reference === 'string' &&
+      typeof parsed.code === 'string' &&
+      /^\d{6}$/.test(parsed.code)
+    ) {
+      return { reference: parsed.reference, code: parsed.code };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function writeDeskSession(key: Key | null) {
+  try {
+    if (!key) sessionStorage.removeItem(DESK_SESSION_KEY);
+    else sessionStorage.setItem(DESK_SESSION_KEY, JSON.stringify(key));
+  } catch {
+    /* ignore */
+  }
+}
 
 function errorMessage(error: unknown, ar: boolean): string {
   if (error instanceof ApiError && error.message && error.code !== 'api_error')
@@ -76,18 +112,24 @@ export function HandoverDesk({
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(
-    async (next: Key) => {
+    async (next: Key, options?: { poll?: boolean }) => {
       setLoading(true);
       setError(null);
       try {
         const result = await browserNextMutation<Preview>('/api/handover', {
           method: 'POST',
-          body: JSON.stringify({ action: 'preview', key: next }),
+          body: JSON.stringify({
+            action: 'preview',
+            key: next,
+            ...(options?.poll ? { poll: true } : {}),
+          }),
         });
         setKey(next);
         setPreview(result);
+        writeDeskSession(next);
       } catch (caught) {
         setPreview(null);
+        writeDeskSession(null);
         setError(errorMessage(caught, ar));
       } finally {
         setLoading(false);
@@ -97,7 +139,13 @@ export function HandoverDesk({
   );
 
   useEffect(() => {
-    if (initialToken) void load({ token: initialToken });
+    if (initialToken) {
+      void load({ token: initialToken });
+      return;
+    }
+    const saved = readDeskSession();
+    // Restore mid-handover after refresh without re-firing the tenant selfie request.
+    if (saved) void load(saved, { poll: true });
   }, [initialToken, load]);
 
   const waitingForSelfie = Boolean(
@@ -125,11 +173,11 @@ export function HandoverDesk({
   if (done) {
     return (
       <section className="handover-desk handover-desk--done" role="status">
-        <h2>{ar ? 'تم إرسال محضر التسليم ✅' : 'Handover record sent ✅'}</h2>
+        <h2>{ar ? 'تم تسجيل محضر التسليم ✅' : 'Handover record filed ✅'}</h2>
         <p>
           {ar
-            ? `وصل إشعار للمستأجر في حجز ${done} ليوافق على استلام العقار. بمجرد موافقته يُعدّ العقار مسلَّماً بالطريقة القانونية والنظامية، ويُنبَّه بأن عليه رفع صور للعقار خلال 3 ساعات، وإلا يُعتبر أنه استلمه بدون عيوب وفي حالة جيدة.`
-            : `The tenant of booking ${done} was notified to accept the premises. Once they accept, the handover is legal and formal, and they are told to upload photos of the premises within 3 hours or the premises count as received in good condition without defects.`}
+            ? `أُبلِغ المستأجر في حجز ${done} بأن المحضر نافذ. يطّلع عليه من صفحة حجزه ويحق له الاعتراض مع صور خلال 3 ساعات، وإلا يُعتبر أنه استلمه بدون عيوب وفي حالة جيدة.`
+            : `The tenant of booking ${done} was told the record is in effect. They can view it on their booking page and object with photos within 3 hours, or the premises count as received in good condition without defects.`}
         </p>
         <button
           type="button"
@@ -138,6 +186,7 @@ export function HandoverDesk({
             setDone(null);
             setPreview(null);
             setKey(null);
+            writeDeskSession(null);
           }}
         >
           {ar ? 'تسليم عقار آخر' : 'Hand over another'}
@@ -162,10 +211,14 @@ export function HandoverDesk({
           onHandlerSelfie={(takenAt) =>
             setPreview((current) => (current ? { ...current, handlerSelfieAt: takenAt } : current))
           }
-          onDone={() => setDone(preview.referenceCode)}
+          onDone={() => {
+            writeDeskSession(null);
+            setDone(preview.referenceCode);
+          }}
           onBack={() => {
             setPreview(null);
             setKey(null);
+            writeDeskSession(null);
           }}
         />
       ) : (

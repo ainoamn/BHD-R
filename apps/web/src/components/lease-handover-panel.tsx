@@ -100,85 +100,79 @@ function HandoverPass({
     };
   }, [referenceCode, locale, router]);
 
-  if (selfie === 'requested') {
-    return (
-      <HandoverSelfieCard
-        locale={locale}
-        referenceCode={referenceCode}
-        scannedBy={scannedBy}
-        onSent={() => setSelfie('sent')}
-      />
-    );
-  }
-  if (selfie === 'sent') {
-    return (
+  // Keep the QR/code visible until the handover record is filed — a staff refresh must
+  // not hide the pass after the selfie was taken.
+  return (
+    <>
+      {selfie === 'requested' ? (
+        <HandoverSelfieCard
+          locale={locale}
+          referenceCode={referenceCode}
+          scannedBy={scannedBy}
+          onSent={() => setSelfie('sent')}
+        />
+      ) : null}
       <section
         className="guest-stay-detail__card handover-pass"
         aria-labelledby="handover-pass-title"
       >
-        <h2 id="handover-pass-title">{ar ? 'وصلت صورتك' : 'Your selfie arrived'}</h2>
-        <p className="notice notice--success" role="status">
-          {ar
-            ? `ظهرت صورتك الآن لدى ${scannedBy ?? 'ممثل المالك'}. انتظر قليلاً؛ سيصلك محضر التسليم هنا للاطلاع، ويمكنك الاعتراض خلال المهلة.`
-            : `Your photo is now on ${scannedBy ?? 'the representative'}’s screen. Wait a moment; the handover record will arrive here to view, and you may object within the window.`}
-        </p>
-        <HandoverPhotoDuty ar={ar} />
-      </section>
-    );
-  }
-
-  return (
-    <section
-      className="guest-stay-detail__card handover-pass"
-      aria-labelledby="handover-pass-title"
-    >
-      <h2 id="handover-pass-title">{ar ? 'رمز استلام العقار' : 'Your handover pass'}</h2>
-      <p>
-        {ar
-          ? 'عند وصولك لاستلام المفاتيح اعرض هذا الرمز على المالك أو ممثله أو حارس المبنى ليمسحه. بمجرد مسحه يتعرّف النظام عليك، ويُسجَّل محضر التسليم هنا للاطلاع، ويحق لك الاعتراض خلال المهلة.'
-          : 'When you arrive for the keys, show this code to the owner, their representative or the building guard to scan. The system recognises you, the handover record appears here to view, and you may object within the window.'}
-      </p>
-      <div className="handover-pass__body">
-        {pass ? (
-          <>
-            <span
-              className="handover-pass__qr"
-              role="img"
-              aria-label={ar ? 'رمز التسليم' : 'Handover code'}
-              dangerouslySetInnerHTML={{ __html: pass.qrSvg }}
-            />
-            <div className="handover-pass__facts">
-              <span>{ar ? 'رقم الحجز' : 'Booking'}</span>
-              <strong dir="ltr">{referenceCode}</strong>
-              <span>{ar ? 'الرمز اليدوي' : 'Manual code'}</span>
-              <strong dir="ltr" className="handover-pass__code">
-                {pass.code.slice(0, 3)} {pass.code.slice(3)}
-              </strong>
-              <small className="muted">
-                {ar
-                  ? `يتجدد تلقائياً · صالح حتى ${stamp(pass.expiresAt, ar)}`
-                  : `Renews automatically · valid until ${stamp(pass.expiresAt, ar)}`}
-              </small>
-            </div>
-          </>
+        <h2 id="handover-pass-title">{ar ? 'رمز استلام العقار' : 'Your handover pass'}</h2>
+        {selfie === 'sent' ? (
+          <p className="notice notice--success" role="status">
+            {ar
+              ? `وصلت صورتك إلى ${scannedBy ?? 'ممثل المالك'}. أبقِ الرمز ظاهراً إن احتاج إعادة التحقق؛ المحضر يظهر هنا بعد أن يضغط على زر تسجيل التسليم.`
+              : `Your photo reached ${scannedBy ?? 'the representative'}. Keep this code visible if they need to verify again; the record appears here only after they press file handover.`}
+          </p>
         ) : (
-          <p className="muted" role="status">
-            {failed
-              ? ar
-                ? 'تعذّر تحميل الرمز، نعيد المحاولة…'
-                : 'Could not load the code; retrying…'
-              : ar
-                ? 'جارٍ إنشاء رمزك المشفّر…'
-                : 'Creating your sealed code…'}
+          <p>
+            {ar
+              ? 'عند وصولك لاستلام المفاتيح اعرض هذا الرمز على المالك أو ممثله أو حارس المبنى ليمسحه. بمجرد تسجيل المحضر يظهر هنا للاطلاع، ويحق لك الاعتراض خلال المهلة.'
+              : 'When you arrive for the keys, show this code to the owner, their representative or the building guard to scan. Once they file the record it appears here to view, and you may object within the window.'}
           </p>
         )}
-      </div>
-      <p className="handover-pass__note">
-        {ar
-          ? 'الرمز مشفّر وخاص بك وحدك، ويتغيّر كل خمس دقائق؛ لا ترسله لأحد ولا تعرضه قبل وصولك.'
-          : 'The code is sealed, yours alone and changes every five minutes; do not send it or show it before you arrive.'}
-      </p>
-    </section>
+        <div className="handover-pass__body">
+          {pass ? (
+            <>
+              <span
+                className="handover-pass__qr"
+                role="img"
+                aria-label={ar ? 'رمز التسليم' : 'Handover code'}
+                dangerouslySetInnerHTML={{ __html: pass.qrSvg }}
+              />
+              <div className="handover-pass__facts">
+                <span>{ar ? 'رقم الحجز' : 'Booking'}</span>
+                <strong dir="ltr">{referenceCode}</strong>
+                <span>{ar ? 'الرمز اليدوي' : 'Manual code'}</span>
+                <strong dir="ltr" className="handover-pass__code">
+                  {pass.code.slice(0, 3)} {pass.code.slice(3)}
+                </strong>
+                <small className="muted">
+                  {ar
+                    ? `يتجدد تلقائياً · صالح حتى ${stamp(pass.expiresAt, ar)}`
+                    : `Renews automatically · valid until ${stamp(pass.expiresAt, ar)}`}
+                </small>
+              </div>
+            </>
+          ) : (
+            <p className="muted" role="status">
+              {failed
+                ? ar
+                  ? 'تعذّر تحميل الرمز، نعيد المحاولة…'
+                  : 'Could not load the code; retrying…'
+                : ar
+                  ? 'جارٍ إنشاء رمزك المشفّر…'
+                  : 'Creating your sealed code…'}
+            </p>
+          )}
+        </div>
+        <p className="handover-pass__note">
+          {ar
+            ? 'الرمز يبقى ظاهراً حتى يُسجَّل محضر التسليم؛ مشفّر وخاص بك ويتجدّد كل خمس دقائق.'
+            : 'The code stays visible until the handover record is filed; it is sealed, yours alone and renews every five minutes.'}
+        </p>
+        {selfie === 'sent' ? <HandoverPhotoDuty ar={ar} /> : null}
+      </section>
+    </>
   );
 }
 
