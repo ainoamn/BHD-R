@@ -2560,7 +2560,7 @@ export function PropertySectionRecords({
                                     {canStartHandover ? (
                                       <Link
                                         className="button button--primary"
-                                        href={`/${locale}/handover?ref=${encodeURIComponent(row.reference!)}`}
+                                        href={`/handover?ref=${encodeURIComponent(row.reference!)}`}
                                         prefetch={false}
                                         onClick={() => setDetailRowId(null)}
                                       >
