@@ -16094,16 +16094,37 @@ body:has(.guest-stay-detail) #main-content {
   }
   .guest-stay-detail__steps {
     margin-top: 0.15rem;
-    padding: 0.4rem 0.25rem;
+    padding: 0.45rem 0.3rem 0.55rem;
     border-radius: 0.7rem;
   }
-  .guest-stay-detail__step-label {
-    font-size: 0.68rem;
+  .guest-stay-detail__step {
+    gap: 0.2rem;
+    min-width: 0;
+  }
+  .guest-stay-detail__step:not(:last-child)::after {
+    top: 0.7rem;
+    inset-inline-start: calc(50% + 0.85rem);
+    width: calc(100% - 1.7rem);
   }
   .guest-stay-detail__step-dot {
     width: 1.35rem;
     height: 1.35rem;
     font-size: 0.72rem;
+  }
+  /* Only the current stage keeps its label — avoids overlapping titles on narrow phones. */
+  .guest-stay-detail__step-label,
+  .guest-stay-detail__step-time {
+    display: none;
+  }
+  .guest-stay-detail__step--current .guest-stay-detail__step-label,
+  .guest-stay-detail__step--selected .guest-stay-detail__step-label {
+    display: block;
+    max-width: 6.5rem;
+    font-size: 0.7rem;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 @media (orientation: portrait) and (min-width: 600px) and (max-width: 1199px) {

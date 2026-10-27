@@ -1,18 +1,18 @@
 /**
- * Raster basemap tiles. OpenStreetMap's public tile CDN blocks production apps that
- * do not follow their volunteer-server policy (osm.wiki/Blocked), so we use CARTO's
- * OSM-derived basemaps instead.
+ * Raster basemap tiles. OSM.org and CARTO public CDNs block or require keys for
+ * production sites, so we use Esri's publicly available World Street Map XYZ layer
+ * (z/y/x). Attribution must remain visible.
  */
 export const MAP_TILE_URL =
-  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
 
+/** Leaflet still accepts this; Esri URLs have no subdomain rotation. */
 export const MAP_TILE_SUBDOMAINS = 'abcd';
 
 export const MAP_TILE_ATTRIBUTION =
-  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+  'Tiles &copy; Esri &mdash; Source: Esri, OpenStreetMap';
 
-/** Static PNG URL for a single tile (no Leaflet). */
+/** Static image URL for a single tile (no Leaflet). Esri order is z/y/x. */
 export function mapTileSrc(z: number, x: number, y: number): string {
-  const host = MAP_TILE_SUBDOMAINS[(x + y) % MAP_TILE_SUBDOMAINS.length] ?? 'a';
-  return `https://${host}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}.png`;
+  return `https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/${z}/${y}/${x}`;
 }

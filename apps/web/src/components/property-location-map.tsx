@@ -104,7 +104,7 @@ export function PropertyLocationMap({
             <i>R</i>
           </span>
           <span className="loc-map__attrib" dir="ltr">
-            © OpenStreetMap · © CARTO
+            © Esri · © OpenStreetMap
           </span>
         </a>
       ) : null}

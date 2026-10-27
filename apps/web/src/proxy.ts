@@ -71,8 +71,11 @@ function csp(nonce: string): string {
     ...mediaImgOrigins(),
     'https://*.tile.openstreetmap.org',
     'https://tile.openstreetmap.org',
+    'https://*.tile.openstreetmap.fr',
     'https://*.basemaps.cartocdn.com',
     'https://basemaps.cartocdn.com',
+    'https://server.arcgisonline.com',
+    'https://*.arcgisonline.com',
   ].join(' ');
   return [
     "default-src 'self'",
