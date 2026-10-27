@@ -2246,8 +2246,8 @@ export function LeaseContractForm({
                 : t('فترة السماح *', 'Grace period *')
             }
             hint={t(
-              'تُحسب تلقائياً من تاريخ الاستلام إلى تاريخ البداية. مبلغ السماح = (الإيجار ÷ 30) × الأيام.',
-              'Auto from handover to start. Grace amount = (rent ÷ 30) × days.',
+              'أيام مجانية بين استلام المفاتيح وبداية الإيجار. المبلغ = (الإيجار الشهري ÷ 30) × عدد الأيام.',
+              'Free days between key handover and rent start. Amount = (monthly rent ÷ 30) × days.',
             )}
           >
             <output id="lcf-grace" className="input lcf-output" aria-live="polite">
@@ -2271,7 +2271,21 @@ export function LeaseContractForm({
               onChange={(event) => set('graceAsDiscount', event.target.checked)}
             />
             <span>
-              {t('خصم مبلغ السماح من إجمالي العقد', 'Deduct the grace amount from the total')}
+              {t(
+                'اعتبر أيام السماح خصماً من إجمالي ما يدفعه المستأجر',
+                'Treat grace days as a discount on what the tenant pays',
+              )}
+              <small className="field__hint" style={{ display: 'block', marginTop: '0.25rem' }}>
+                {draft.graceAsDiscount
+                  ? t(
+                      'مفعّل: يُطرح مبلغ السماح من إجمالي العقد في الملخص المالي (أيام مجانية).',
+                      'On: grace amount is subtracted from the contract total in the financial summary (free days).',
+                    )
+                  : t(
+                      'غير مفعّل: تُعرض فترة السماح للمعلومة فقط دون خصم من الإجمالي.',
+                      'Off: grace period is shown for information only and is not deducted from the total.',
+                    )}
+              </small>
             </span>
           </label>
           <Field
