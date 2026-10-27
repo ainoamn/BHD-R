@@ -912,7 +912,11 @@ function leaseBookingView(match: LeaseReservationMatch) {
     unitNameEn: match.unitNameEn,
     propertyNameAr: match.propertyNameAr,
     propertyNameEn: match.propertyNameEn,
-    depositMinor: snapshot.depositMinor,
+    // Prefer the captured payment amount so the paid figure never drifts if unit deposit changes later.
+    depositMinor:
+      snapshot.payment?.amountMinor && /^[1-9]\d*$/.test(snapshot.payment.amountMinor)
+        ? snapshot.payment.amountMinor
+        : snapshot.depositMinor,
     currency: snapshot.currency,
     rentMinor: snapshot.rentMinor,
     salePriceMinor: snapshot.salePriceMinor,

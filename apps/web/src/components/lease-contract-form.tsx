@@ -416,6 +416,7 @@ export function LeaseContractForm({
   municipalAfterHandover = false,
   lockTenantName = false,
   tenantFromDirectory = false,
+  paidDepositMinor = null,
   arabonReceiptHref = null,
   arabonReceiptLabel = null,
   requirements,
@@ -459,6 +460,11 @@ export function LeaseContractForm({
    * (or add a new contact), not by typing fields.
    */
   tenantFromDirectory?: boolean | undefined;
+  /**
+   * Website booking: paid arabon in minor units. Locks «مبلغ التأمين» to that figure so it
+   * cannot drift when the unit deposit/rent later changes.
+   */
+  paidDepositMinor?: string | null | undefined;
   /** Official arabon receipt URL (opens in a new window / popup). */
   arabonReceiptHref?: string | null | undefined;
   arabonReceiptLabel?: string | null | undefined;
@@ -501,11 +507,21 @@ export function LeaseContractForm({
     civilId: '',
     commercialRegistration: '',
   });
+  const paidDepositMajor = paidDepositMinor
+    ? decimal(paidDepositMinor, digits)
+    : '';
+  const depositLocked = Boolean(paidDepositMajor);
   const [draft, setDraft] = useState<LeaseTermsDraft>(() => {
-    if (initialTerms) return initialTerms;
+    const paid = paidDepositMinor
+      ? decimal(paidDepositMinor, minorDigitsFor(units[0]?.currency ?? 'OMR'))
+      : '';
+    if (initialTerms) {
+      return paid ? { ...initialTerms, deposit: paid } : initialTerms;
+    }
     const base = initialDraft(units[0]);
     return {
       ...base,
+      ...(paid ? { deposit: paid } : {}),
       ...(termsSeed?.months ? { endsOn: endDateForMonths(base.startsOn, termsSeed.months) } : {}),
     };
   });
@@ -879,6 +895,13 @@ export function LeaseContractForm({
   }, [wizardSteps, wizardStep]);
 
   useEffect(() => {
+    if (!depositLocked || !paidDepositMajor) return;
+    setDraft((current) =>
+      current.deposit === paidDepositMajor ? current : { ...current, deposit: paidDepositMajor },
+    );
+  }, [depositLocked, paidDepositMajor]);
+
+  useEffect(() => {
     if (!municipalAfterHandover) return;
     setDraft((current) => {
       if (current.depositItems.length) return current;
@@ -990,7 +1013,9 @@ export function LeaseContractForm({
     setDraft((current) => ({
       ...current,
       monthlyRent: decimal(next.rentMinor, nextDigits),
-      deposit: decimal(next.depositMinor ?? next.rentMinor, nextDigits),
+      deposit: depositLocked
+        ? current.deposit
+        : decimal(next.depositMinor ?? next.rentMinor, nextDigits),
       rentAreaSqm: next.areaSquareMeters ?? current.rentAreaSqm,
     }));
   }
@@ -2640,8 +2665,22 @@ export function LeaseContractForm({
               inputMode="decimal"
               pattern={MONEY_PATTERN}
               value={draft.deposit}
-              onChange={(event) => set('deposit', event.target.value)}
+              readOnly={depositLocked}
+              aria-readonly={depositLocked || undefined}
+              onChange={(event) => {
+                if (depositLocked) return;
+                set('deposit', event.target.value);
+              }}
             />
+            {depositLocked ? (
+              <span className="field__hint">
+                {t(
+                  'مبلغ العربون المدفوع — ثابت ولا يُعدَّل بعد الدفع.',
+                  'Paid arabon amount — fixed after payment and cannot be edited.',
+                )}
+                {arabonReceiptLabel ? ` · ${arabonReceiptLabel}` : ''}
+              </span>
+            ) : null}
           </Field>
           {arabonReceiptHref ? (
             <div className="field">

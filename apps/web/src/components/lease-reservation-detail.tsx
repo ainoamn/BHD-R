@@ -249,6 +249,7 @@ export function LeaseReservationDetail({
           salePriceMinor: booking.salePriceMinor,
           currency: booking.currency,
           depositLabel: deposit,
+          depositMinor: booking.depositMinor,
           depositPaidAt: booking.depositPaidAt,
           termsAcceptedAt: booking.termsAcceptedAt,
           hasEsign: Boolean(signature),

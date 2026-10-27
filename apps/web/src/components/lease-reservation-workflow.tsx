@@ -96,6 +96,8 @@ export type LeaseReservationWorkflowProps = {
   salePriceMinor: string | null;
   currency: string;
   depositLabel: string;
+  /** Paid arabon amount in minor units — frozen after payment. */
+  depositMinor: string;
   depositPaidAt: string | null;
   termsAcceptedAt: string | null;
   hasEsign: boolean;
@@ -1739,6 +1741,8 @@ function ContractDraftEditor({
   salePriceMinor,
   currency,
   depositLabel,
+  depositMinor,
+  depositPaidAt,
   canSign,
   busy,
   onSave,
@@ -1996,6 +2000,7 @@ function ContractDraftEditor({
         municipalAfterHandover
         lockTenantName={Boolean(party)}
         tenantFromDirectory
+        paidDepositMinor={depositPaidAt ? depositMinor : null}
         arabonReceiptHref={`/${locale}/book/receipt?ref=${encodeURIComponent(referenceCode)}`}
         arabonReceiptLabel={depositLabel}
         requirements={requirements}
