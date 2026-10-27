@@ -16133,9 +16133,24 @@ body:has(.guest-stay-detail) #main-content {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     grid-template-rows: minmax(0, 1fr);
   }
-  /* Lease booking journey: narrower image rail, wider forms/data. */
+  /* Lease booking journey: slim image rail, wide forms/data. */
   .guest-stay-detail.lease-journey {
-    grid-template-columns: minmax(14rem, 0.34fr) minmax(0, 1.66fr);
+    grid-template-columns: minmax(11rem, 0.22fr) minmax(0, 1.78fr);
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__panel-body > * {
+    max-width: min(78rem, 100%);
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__panel-body {
+    padding-inline: clamp(1rem, 2.8vw, 2.25rem);
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__footer {
+    padding-inline: clamp(1rem, 2.8vw, 2.25rem);
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__hero {
+    padding-inline: clamp(0.75rem, 1.5vw, 1.25rem);
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__title {
+    font-size: clamp(1.15rem, 1.8vw, 1.55rem);
   }
   .guest-stay-detail__hero {
     padding: max(1.25rem, env(safe-area-inset-top)) clamp(1.25rem, 3vw, 2.5rem)
@@ -22806,7 +22821,7 @@ button.lrw__step-body:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 .lease-cheques__number {
-  width: 7.5rem;
+  width: 8.5rem;
   max-width: 100%;
   min-width: 5.5rem;
 }
@@ -22828,6 +22843,62 @@ button.lrw__step-body:focus-visible {
 @media (max-width: 720px) {
   .lease-cheques__shared {
     grid-template-columns: 1fr;
+  }
+  .lease-cheques__table {
+    min-width: 0;
+    font-size: 0.86rem;
+  }
+  .lease-cheques__table thead {
+    display: none;
+  }
+  .lease-cheques__table tbody,
+  .lease-cheques__table tr,
+  .lease-cheques__table td {
+    display: block;
+    width: 100%;
+  }
+  .lease-cheques__table tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.4rem 0.75rem;
+    padding: 0.75rem 0.8rem;
+    border-bottom: 1px solid #e5eee9;
+  }
+  .lease-cheques__table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .lease-cheques__table td {
+    padding: 0;
+    border-bottom: 0;
+  }
+  .lease-cheques__table td:nth-child(1),
+  .lease-cheques__table td:nth-child(4),
+  .lease-cheques__table td:nth-child(5) {
+    grid-column: 1 / -1;
+  }
+  .lease-cheques__number {
+    width: 100%;
+    min-width: 0;
+  }
+  .lease-cheques__file .lease-docs__actions {
+    flex-wrap: wrap;
+  }
+  .lease-cheques__file .button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+@media (max-width: 479px) {
+  .guest-stay-detail.lease-journey .guest-stay-detail__panel-body {
+    padding-inline: max(0.7rem, env(safe-area-inset-right))
+      max(0.7rem, env(safe-area-inset-left));
+  }
+  .lease-cheques__shared,
+  .lease-cheques__table-wrap {
+    margin-inline: 0;
+  }
+  .lease-docs__item {
+    padding: 0.65rem 0.7rem;
   }
 }
 .lease-docs__item--stack {
