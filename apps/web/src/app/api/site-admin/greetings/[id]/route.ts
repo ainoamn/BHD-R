@@ -27,10 +27,19 @@ const patchSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    meaning: z.string().min(1).max(800).optional(),
+    meaning: z.string().max(800).optional(),
     audience: audienceSchema.optional(),
     status: z.enum(['draft', 'scheduled', 'cancelled']).optional(),
     scheduledAt: z.string().datetime().nullable().optional(),
+    design: z
+      .object({
+        headlineAr: z.string().min(1).max(160).optional(),
+        headlineEn: z.string().max(160).optional(),
+        bodyAr: z.string().min(1).max(800).optional(),
+        bodyEn: z.string().max(800).optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 

@@ -87,8 +87,8 @@ const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintE
     href: '/admin/greetings',
     ar: 'التهاني المجدولة',
     en: 'Scheduled greetings',
-    hintAr: 'بطاقات ذكاء اصطناعي وجمهور وجدولة',
-    hintEn: 'AI cards, audience and schedule',
+    hintAr: 'رفع صورة ونص، معاينة بريد/واتساب، إرسال وجدولة',
+    hintEn: 'Upload image & copy, email/WhatsApp preview, send or schedule',
   },
   {
     href: '/admin/badges',

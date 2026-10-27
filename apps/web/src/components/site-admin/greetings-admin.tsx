@@ -19,14 +19,13 @@ function currentDesign(campaign: GreetingCampaign): GreetingDesignVersion | null
 }
 
 function designPreviewSrc(campaignId: string, design: GreetingDesignVersion): string {
-  return `/api/public/greeting-card/${campaignId}/${design.id}`;
+  return `/api/public/greeting-card/${campaignId}/${design.id}?v=${encodeURIComponent(design.createdAt)}`;
 }
 
 function togglePreset(audience: GreetingAudience, presetId: string): GreetingAudience {
   if (presetId === 'all') return emptyGreetingAudience();
   const preset = GREETING_AUDIENCE_PRESETS.find((p) => p.id === presetId);
   if (!preset) return audience;
-  // Re-click removes that facet when already present.
   if (presetId === 'ar' && audience.locales.includes('ar')) {
     return { ...audience, locales: audience.locales.filter((l) => l !== 'ar') };
   }
@@ -108,7 +107,24 @@ function statusLabel(status: GreetingCampaign['status'], ar: boolean): string {
   return ar ? map[status][0] : map[status][1];
 }
 
-/** Root-only desk: AI greeting cards, audience filters, preview, schedule / send. */
+function readFileAsBase64(file: File): Promise<{ base64: string; mime: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read_failed'));
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      const match = result.match(/^data:([^;]+);base64,(.+)$/);
+      if (!match?.[1] || !match[2]) {
+        reject(new Error('invalid_image'));
+        return;
+      }
+      resolve({ mime: match[1], base64: match[2] });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+/** Root-only desk: manual greeting cards, audience, email/WhatsApp preview, schedule / send. */
 export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const [campaigns, setCampaigns] = useState<GreetingCampaign[] | null>(null);
@@ -117,14 +133,25 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
   const [busy, setBusy] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<GreetingAudienceEstimate | null>(null);
-  const [changeRequest, setChangeRequest] = useState('');
+  const [previewChannel, setPreviewChannel] = useState<'email' | 'whatsapp'>('email');
+  const [previewLocale, setPreviewLocale] = useState<'ar' | 'en'>('ar');
   const [nationalityCode, setNationalityCode] = useState('');
+  const [pendingImage, setPendingImage] = useState<{
+    base64: string;
+    mime: string;
+    name: string;
+    previewUrl: string;
+  } | null>(null);
   const [form, setForm] = useState({
     occasion: '',
     occasionDate: '',
     meaning: '',
     audience: emptyGreetingAudience(),
     scheduledAtLocal: '',
+    headlineAr: '',
+    headlineEn: '',
+    bodyAr: '',
+    bodyEn: '',
   });
 
   const selected = useMemo(
@@ -132,6 +159,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
     [campaigns, selectedId],
   );
   const design = selected ? currentDesign(selected) : null;
+  const locked = selected?.status === 'sending' || selected?.status === 'sent';
 
   const reload = useCallback(async () => {
     const data = await adminGet<{ campaigns: GreetingCampaign[] }>('/api/site-admin/greetings');
@@ -157,6 +185,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
       setEstimate(null);
       return;
     }
+    const d = currentDesign(selected);
     setForm({
       occasion: selected.occasion,
       occasionDate: selected.occasionDate,
@@ -165,8 +194,12 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
       scheduledAtLocal: selected.scheduledAt
         ? toLocalInput(selected.scheduledAt)
         : `${selected.occasionDate}T09:00`,
+      headlineAr: d?.headlineAr ?? '',
+      headlineEn: d?.headlineEn ?? '',
+      bodyAr: d?.bodyAr ?? '',
+      bodyEn: d?.bodyEn ?? '',
     });
-    setChangeRequest('');
+    setPendingImage(null);
     let live = true;
     adminGet<{ campaign: GreetingCampaign; estimate: GreetingAudienceEstimate }>(
       `/api/site-admin/greetings/${selected.id}`,
@@ -184,7 +217,63 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
     return () => {
       live = false;
     };
-  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reload fields when selection changes
+  }, [selected?.id]); // eslint-disable-line react-hooks/exhaustive-deps -- reload when selection changes
+
+  useEffect(() => {
+    return () => {
+      if (pendingImage?.previewUrl) URL.revokeObjectURL(pendingImage.previewUrl);
+    };
+  }, [pendingImage?.previewUrl]);
+
+  function resetNewForm() {
+    setSelectedId(null);
+    setEstimate(null);
+    setPendingImage(null);
+    setForm({
+      occasion: '',
+      occasionDate: '',
+      meaning: '',
+      audience: emptyGreetingAudience(),
+      scheduledAtLocal: '',
+      headlineAr: '',
+      headlineEn: '',
+      bodyAr: '',
+      bodyEn: '',
+    });
+  }
+
+  async function onPickImage(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setNotice({
+        tone: 'error',
+        text: ar ? 'اختر صورة JPEG أو PNG أو WebP.' : 'Choose a JPEG, PNG or WebP image.',
+      });
+      return;
+    }
+    if (file.size > 2_500_000) {
+      setNotice({
+        tone: 'error',
+        text: ar ? 'الصورة أكبر من 2.5 ميغابايت.' : 'Image larger than 2.5 MB.',
+      });
+      return;
+    }
+    try {
+      const { base64, mime } = await readFileAsBase64(file);
+      if (pendingImage?.previewUrl) URL.revokeObjectURL(pendingImage.previewUrl);
+      setPendingImage({
+        base64,
+        mime,
+        name: file.name,
+        previewUrl: URL.createObjectURL(file),
+      });
+    } catch {
+      setNotice({
+        tone: 'error',
+        text: ar ? 'تعذّر قراءة الصورة.' : 'Could not read the image.',
+      });
+    }
+  }
 
   async function createCampaign() {
     if (!form.occasion.trim() || !form.occasionDate) {
@@ -194,10 +283,19 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
       });
       return;
     }
+    if (!form.headlineAr.trim() || !form.bodyAr.trim() || !pendingImage) {
+      setNotice({
+        tone: 'error',
+        text: ar
+          ? 'أدخل العنوان والنص بالعربية وارفع صورة البطاقة.'
+          : 'Enter Arabic headline & body and upload a card image.',
+      });
+      return;
+    }
     setBusy(true);
     setNotice(null);
     try {
-      const data = await browserNextMutation<{
+      const created = await browserNextMutation<{
         campaign: GreetingCampaign;
         estimate: GreetingAudienceEstimate;
       }>('/api/site-admin/greetings', {
@@ -207,16 +305,33 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
           occasionDate: form.occasionDate,
           meaning: form.meaning.trim(),
           audience: form.audience,
-          generateDesign: true,
+          generateDesign: false,
         }),
-        signal: AbortSignal.timeout(90_000),
       });
-      setCampaigns((current) => [data.campaign, ...(current ?? [])]);
-      setSelectedId(data.campaign.id);
-      setEstimate(data.estimate);
+      const uploaded = await browserNextMutation<{ campaign: GreetingCampaign }>(
+        `/api/site-admin/greetings/${created.campaign.id}/design`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            upload: {
+              headlineAr: form.headlineAr.trim(),
+              headlineEn: form.headlineEn.trim() || form.headlineAr.trim(),
+              bodyAr: form.bodyAr.trim(),
+              bodyEn: form.bodyEn.trim() || form.bodyAr.trim(),
+              imageBase64: pendingImage.base64,
+              imageMime: pendingImage.mime,
+            },
+          }),
+          signal: AbortSignal.timeout(60_000),
+        },
+      );
+      setCampaigns((current) => [uploaded.campaign, ...(current ?? [])]);
+      setSelectedId(uploaded.campaign.id);
+      setEstimate(created.estimate);
+      setPendingImage(null);
       setNotice({
         tone: 'success',
-        text: ar ? 'أُنشئت الحملة وصُمّمت البطاقة.' : 'Campaign created and card designed.',
+        text: ar ? 'أُنشئت الحملة وحُفظت الصورة.' : 'Campaign created with your image.',
       });
     } catch (error) {
       setNotice({
@@ -229,7 +344,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
   }
 
   async function saveMeta() {
-    if (!selected) return;
+    if (!selected || locked) return;
     setBusy(true);
     setNotice(null);
     try {
@@ -243,10 +358,41 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
           occasionDate: form.occasionDate,
           meaning: form.meaning.trim(),
           audience: form.audience,
+          design: design
+            ? {
+                headlineAr: form.headlineAr.trim(),
+                headlineEn: form.headlineEn.trim() || form.headlineAr.trim(),
+                bodyAr: form.bodyAr.trim(),
+                bodyEn: form.bodyEn.trim() || form.bodyAr.trim(),
+              }
+            : undefined,
         }),
       });
+      let campaign = data.campaign;
+      if (pendingImage) {
+        const uploaded = await browserNextMutation<{ campaign: GreetingCampaign }>(
+          `/api/site-admin/greetings/${selected.id}/design`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              upload: {
+                headlineAr: form.headlineAr.trim(),
+                headlineEn: form.headlineEn.trim() || form.headlineAr.trim(),
+                bodyAr: form.bodyAr.trim(),
+                bodyEn: form.bodyEn.trim() || form.bodyAr.trim(),
+                imageBase64: pendingImage.base64,
+                imageMime: pendingImage.mime,
+                replaceCurrent: Boolean(design),
+              },
+            }),
+            signal: AbortSignal.timeout(60_000),
+          },
+        );
+        campaign = uploaded.campaign;
+        setPendingImage(null);
+      }
       setCampaigns((current) =>
-        (current ?? []).map((c) => (c.id === data.campaign.id ? data.campaign : c)),
+        (current ?? []).map((c) => (c.id === campaign.id ? campaign : c)),
       );
       setEstimate(data.estimate);
       setNotice({ tone: 'success', text: ar ? 'حُفظت التعديلات.' : 'Saved.' });
@@ -261,7 +407,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
   }
 
   async function schedule() {
-    if (!selected) return;
+    if (!selected || !design) return;
     setBusy(true);
     setNotice(null);
     try {
@@ -276,10 +422,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
       setCampaigns((current) =>
         (current ?? []).map((c) => (c.id === data.campaign.id ? data.campaign : c)),
       );
-      setNotice({
-        tone: 'success',
-        text: ar ? 'جُدول الإرسال.' : 'Send scheduled.',
-      });
+      setNotice({ tone: 'success', text: ar ? 'جُدول الإرسال.' : 'Send scheduled.' });
     } catch (error) {
       setNotice({
         tone: 'error',
@@ -291,7 +434,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
   }
 
   async function sendNow() {
-    if (!selected) return;
+    if (!selected || !design) return;
     if (
       !window.confirm(
         ar
@@ -325,41 +468,8 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
     }
   }
 
-  async function redesign() {
-    if (!selected) return;
-    setBusy(true);
-    setNotice(null);
-    try {
-      const data = await browserNextMutation<{ campaign: GreetingCampaign }>(
-        `/api/site-admin/greetings/${selected.id}/design`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            changeRequest: changeRequest.trim() || null,
-          }),
-          signal: AbortSignal.timeout(90_000),
-        },
-      );
-      setCampaigns((current) =>
-        (current ?? []).map((c) => (c.id === data.campaign.id ? data.campaign : c)),
-      );
-      setChangeRequest('');
-      setNotice({
-        tone: 'success',
-        text: ar ? 'صُمّمت بطاقة جديدة (الصور السابقة محفوظة).' : 'New card designed (history kept).',
-      });
-    } catch (error) {
-      setNotice({
-        tone: 'error',
-        text: adminErrorText(error, ar, 'تعذّر إعادة التصميم.', 'Could not redesign.'),
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function restoreDesign(designId: string) {
-    if (!selected) return;
+    if (!selected || locked) return;
     setBusy(true);
     try {
       const data = await browserNextMutation<{ campaign: GreetingCampaign }>(
@@ -392,6 +502,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
       });
       setCampaigns((current) => (current ?? []).filter((c) => c.id !== id));
       setSelectedId((current) => (current === id ? null : current));
+      setNotice({ tone: 'success', text: ar ? 'حُذفت الحملة.' : 'Campaign deleted.' });
     } catch (error) {
       setNotice({
         tone: 'error',
@@ -401,6 +512,27 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
       setBusy(false);
     }
   }
+
+  const previewHeadline =
+    previewLocale === 'ar'
+      ? form.headlineAr || design?.headlineAr || ''
+      : form.headlineEn || design?.headlineEn || form.headlineAr || '';
+  const previewBody =
+    previewLocale === 'ar'
+      ? form.bodyAr || design?.bodyAr || ''
+      : form.bodyEn || design?.bodyEn || form.bodyAr || '';
+  const previewImage =
+    pendingImage?.previewUrl ||
+    (selected && design ? designPreviewSrc(selected.id, design) : null);
+  const whatsappCaption = [
+    previewHeadline ? `*${previewHeadline}*` : '',
+    previewBody,
+    form.occasion
+      ? `${form.occasion}${form.occasionDate ? ` · ${form.occasionDate}` : ''}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 
   if (failed) {
     return (
@@ -415,30 +547,14 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
     <div className="sa-greetings">
       <header className="sa-section-head">
         <div>
-          <h1>{ar ? 'التهاني والإشعارات المجدولة' : 'Scheduled greetings'}</h1>
+          <h1>{ar ? 'التهاني والإشعارات' : 'Greetings & notices'}</h1>
           <p className="muted">
             {ar
-              ? 'صف المناسبة والتاريخ والمعنى — يصمّم النظام بطاقة بالذكاء الاصطناعي مع شعار المنصة، ويعاينه ويرسله للفئة المستهدفة في الموعد.'
-              : 'Describe the occasion, date and meaning — AI designs a branded card, you preview and iterate, then schedule or send to the audience.'}
+              ? 'ارفع صورة البطاقة واكتب النص بنفسك، عاين كيف يظهر في البريد وواتساب، ثم أرسل أو جدول للفئة المستهدفة.'
+              : 'Upload the card image and write the copy yourself, preview email and WhatsApp, then send or schedule to the audience.'}
           </p>
         </div>
-        <button
-          type="button"
-          className="button"
-          disabled={busy}
-          onClick={() => {
-            setSelectedId(null);
-            setEstimate(null);
-            setChangeRequest('');
-            setForm({
-              occasion: '',
-              occasionDate: '',
-              meaning: '',
-              audience: emptyGreetingAudience(),
-              scheduledAtLocal: '',
-            });
-          }}
-        >
+        <button type="button" className="button" disabled={busy} onClick={resetNewForm}>
           {ar ? 'حملة جديدة' : 'New campaign'}
         </button>
       </header>
@@ -453,7 +569,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
         <aside className="sa-greetings__list">
           <h2>{ar ? 'الحملات' : 'Campaigns'}</h2>
           {campaigns.length === 0 ? (
-            <p className="muted">{ar ? 'لا حملات بعد — أنشئ الأولى من النموذج.' : 'No campaigns yet.'}</p>
+            <p className="muted">{ar ? 'لا حملات بعد.' : 'No campaigns yet.'}</p>
           ) : (
             <ul>
               {campaigns.map((c) => (
@@ -483,6 +599,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 onChange={(e) => setForm({ ...form, occasion: e.target.value })}
                 placeholder={ar ? 'مثال: العيد الوطني' : 'e.g. National Day'}
                 maxLength={120}
+                disabled={locked}
               />
             </label>
             <label>
@@ -491,21 +608,72 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 type="date"
                 value={form.occasionDate}
                 onChange={(e) => setForm({ ...form, occasionDate: e.target.value })}
+                disabled={locked}
               />
             </label>
             <label className="sa-greetings__full">
-              {ar ? 'ملاحظات للمناسبة (اختياري)' : 'Occasion notes (optional)'}
+              {ar ? 'ملاحظة قصيرة تحت البطاقة (اختياري)' : 'Short note under the card (optional)'}
               <textarea
                 value={form.meaning}
                 onChange={(e) => setForm({ ...form, meaning: e.target.value })}
+                rows={2}
+                maxLength={800}
+                disabled={locked}
+              />
+            </label>
+            <label>
+              {ar ? 'العنوان (عربي)' : 'Headline (Arabic)'}
+              <input
+                value={form.headlineAr}
+                onChange={(e) => setForm({ ...form, headlineAr: e.target.value })}
+                maxLength={160}
+                disabled={locked}
+              />
+            </label>
+            <label>
+              {ar ? 'العنوان (إنجليزي)' : 'Headline (English)'}
+              <input
+                value={form.headlineEn}
+                onChange={(e) => setForm({ ...form, headlineEn: e.target.value })}
+                maxLength={160}
+                disabled={locked}
+                dir="ltr"
+              />
+            </label>
+            <label className="sa-greetings__full">
+              {ar ? 'نص الرسالة (عربي)' : 'Message body (Arabic)'}
+              <textarea
+                value={form.bodyAr}
+                onChange={(e) => setForm({ ...form, bodyAr: e.target.value })}
                 rows={3}
                 maxLength={800}
-                placeholder={
-                  ar
-                    ? 'اتركه فارغاً ليصوغ الذكاء الاصطناعي نص التهنئة، أو اكتب توجيهات قصيرة…'
-                    : 'Leave blank for AI ceremonial copy, or add short guidance…'
-                }
+                disabled={locked}
               />
+            </label>
+            <label className="sa-greetings__full">
+              {ar ? 'نص الرسالة (إنجليزي)' : 'Message body (English)'}
+              <textarea
+                value={form.bodyEn}
+                onChange={(e) => setForm({ ...form, bodyEn: e.target.value })}
+                rows={3}
+                maxLength={800}
+                disabled={locked}
+                dir="ltr"
+              />
+            </label>
+            <label className="sa-greetings__full">
+              {ar ? 'صورة البطاقة / التنبيه' : 'Card / notice image'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                disabled={locked || busy}
+                onChange={(e) => void onPickImage(e.target.files?.[0] ?? null)}
+              />
+              <span className="muted">
+                {ar
+                  ? 'JPEG / PNG / WebP · حتى نحو 2.5 ميغابايت — تُضغط تلقائياً عند الحفظ.'
+                  : 'JPEG / PNG / WebP · up to ~2.5 MB — compressed on save.'}
+              </span>
             </label>
           </div>
 
@@ -516,6 +684,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 <button
                   key={preset.id}
                   type="button"
+                  disabled={locked}
                   className={presetActive(form.audience, preset.id) ? 'is-active' : undefined}
                   onClick={() =>
                     setForm((current) => ({
@@ -536,10 +705,11 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                   onChange={(e) => setNationalityCode(e.target.value.toUpperCase().slice(0, 2))}
                   placeholder="IN"
                   maxLength={2}
+                  disabled={locked}
                 />
                 <button
                   type="button"
-                  disabled={nationalityCode.length !== 2}
+                  disabled={locked || nationalityCode.length !== 2}
                   onClick={() => {
                     const code = nationalityCode.toUpperCase();
                     setForm((current) => ({
@@ -566,11 +736,6 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 </>
               ) : null}
             </p>
-            <p className="muted sa-greetings__hint">
-              {ar
-                ? 'الجنس والعمر والجنسية تُطبَّق عند توفرها في ملف الطرف المرتبط بالحساب؛ وإلا يُستبعد المستلم من هذا الفلتر.'
-                : 'Gender, age and nationality apply when present on the linked party profile; otherwise that recipient is excluded from those filters.'}
-            </p>
           </fieldset>
 
           <div className="sa-greetings__actions">
@@ -583,18 +748,18 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
               >
                 {busy
                   ? ar
-                    ? 'جارٍ رسم الصورة…'
-                    : 'Rendering image…'
+                    ? 'جارٍ الحفظ…'
+                    : 'Saving…'
                   : ar
-                    ? 'إنشاء ورسم صورة التهنئة'
-                    : 'Create & render AI image'}
+                    ? 'إنشاء الحملة وحفظ الصورة'
+                    : 'Create campaign & save image'}
               </button>
             ) : (
               <>
                 <button
                   type="button"
                   className="button"
-                  disabled={busy || selected.status === 'sending'}
+                  disabled={busy || locked}
                   onClick={() => void saveMeta()}
                 >
                   {ar ? 'حفظ التعديلات' : 'Save changes'}
@@ -602,7 +767,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 <button
                   type="button"
                   className="button button--primary"
-                  disabled={busy || !design || selected.status === 'sending'}
+                  disabled={busy || !design || locked}
                   onClick={() => void sendNow()}
                 >
                   {ar ? 'إرسال الآن' : 'Send now'}
@@ -610,7 +775,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 <button
                   type="button"
                   className="button"
-                  disabled={busy || !design || selected.status === 'sending'}
+                  disabled={busy || !design || locked}
                   onClick={() => void schedule()}
                 >
                   {ar ? 'جدولة الإرسال' : 'Schedule send'}
@@ -627,7 +792,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
             )}
           </div>
 
-          {selected && selected.status !== 'sent' ? (
+          {selected && !locked ? (
             <label>
               {ar ? 'وقت الإرسال المجدول' : 'Scheduled send time'}
               <input
@@ -638,95 +803,123 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
             </label>
           ) : null}
 
-          {selected && design ? (
-            <div className="sa-greetings__preview">
-              <h2>{ar ? 'معاينة الصورة الرقمية' : 'Digital image preview'}</h2>
-              {!design.imageBase64 ? (
-                <p className="notice notice--error" role="alert">
-                  {ar
-                    ? 'هذا التصميم قديم (نص فقط). اضغط «إعادة رسم الصورة» لتوليد صورة بالذكاء الاصطناعي.'
-                    : 'This is a legacy text-only design. Click “AI re-render image” for a photorealistic card.'}
-                </p>
-              ) : null}
-              <div className="sa-greetings__frame">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  key={design.id}
-                  src={designPreviewSrc(selected.id, design)}
-                  alt={design.headlineAr}
-                />
+          <div className="sa-greetings__preview">
+            <div className="sa-greetings__preview-tabs">
+              <h2>{ar ? 'معاينة الظهور' : 'Appearance preview'}</h2>
+              <div className="sa-greetings__chips" role="tablist">
+                <button
+                  type="button"
+                  className={previewChannel === 'email' ? 'is-active' : undefined}
+                  onClick={() => setPreviewChannel('email')}
+                >
+                  {ar ? 'البريد' : 'Email'}
+                </button>
+                <button
+                  type="button"
+                  className={previewChannel === 'whatsapp' ? 'is-active' : undefined}
+                  onClick={() => setPreviewChannel('whatsapp')}
+                >
+                  {ar ? 'واتساب' : 'WhatsApp'}
+                </button>
+                <button
+                  type="button"
+                  className={previewLocale === 'ar' ? 'is-active' : undefined}
+                  onClick={() => setPreviewLocale('ar')}
+                >
+                  العربية
+                </button>
+                <button
+                  type="button"
+                  className={previewLocale === 'en' ? 'is-active' : undefined}
+                  onClick={() => setPreviewLocale('en')}
+                >
+                  English
+                </button>
               </div>
-              <div className="sa-greetings__copy">
-                <h3>{ar ? 'النص الذي صاغه الذكاء الاصطناعي' : 'AI ceremonial copy'}</h3>
-                <p>
-                  <strong>{design.headlineAr}</strong>
-                </p>
-                <p>{design.bodyAr}</p>
-                <p className="muted" dir="ltr">
-                  {design.headlineEn} — {design.bodyEn}
-                </p>
-              </div>
-              <p className="muted">
-                {design.motif}
-                {selected.scheduledAt
-                  ? ` · ${ar ? 'مجدول' : 'scheduled'} ${adminDate(selected.scheduledAt, ar)}`
-                  : null}
-                {selected.sentAt
-                  ? ` · ${ar ? 'أُرسل' : 'sent'} ${adminDate(selected.sentAt, ar)} (${selected.sentCount})`
-                  : null}
-              </p>
-              <label className="sa-greetings__full">
-                {ar ? 'طلب تغيير على التصميم' : 'Change request for redesign'}
-                <textarea
-                  value={changeRequest}
-                  onChange={(e) => setChangeRequest(e.target.value)}
-                  rows={2}
-                  maxLength={500}
-                  placeholder={
-                    ar
-                      ? 'مثال: مزيد من الشباب، قلعة نزوى أوضح، إضاءة صباحية… (النص والعلم يُركَّبان تلقائياً)'
-                      : 'e.g. more youth, clearer Nizwa fort, morning light… (Arabic text & Oman flag are composited)'
-                  }
-                />
-              </label>
-              <button
-                type="button"
-                className="button button--primary"
-                disabled={busy || selected.status === 'sending'}
-                onClick={() => void redesign()}
-              >
-                {busy
-                  ? ar
-                    ? 'جارٍ رسم صورة جديدة…'
-                    : 'Rendering new image…'
-                  : ar
-                    ? 'إعادة رسم الصورة بالذكاء الاصطناعي'
-                    : 'AI re-render image'}
-              </button>
-
-              {selected.designs.length > 1 ? (
-                <div className="sa-greetings__history">
-                  <h3>{ar ? 'سجل التصاميم السابقة' : 'Previous designs'}</h3>
-                  <ul>
-                    {selected.designs.map((d) => (
-                      <li key={d.id}>
-                        <button
-                          type="button"
-                          className={d.id === design.id ? 'is-active' : undefined}
-                          disabled={busy}
-                          onClick={() => void restoreDesign(d.id)}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={designPreviewSrc(selected.id, d)} alt="" />
-                          <span>{adminDate(d.createdAt, ar)}</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
             </div>
-          ) : null}
+
+            {previewChannel === 'email' ? (
+              <article
+                className="sa-greetings__email"
+                dir={previewLocale === 'ar' ? 'rtl' : 'ltr'}
+                lang={previewLocale}
+              >
+                <header>
+                  <span className="sa-greetings__email-from">BHD R</span>
+                  <strong>
+                    {previewHeadline
+                      ? `${previewHeadline} · ${form.occasion || '…'}`
+                      : form.occasion || (ar ? 'موضوع الرسالة' : 'Subject')}
+                  </strong>
+                </header>
+                <p className="sa-greetings__email-hello">
+                  {previewLocale === 'ar' ? 'مرحباً بك،' : 'Hello,'}
+                </p>
+                {previewImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={previewImage} alt="" className="sa-greetings__email-hero" />
+                ) : (
+                  <div className="sa-greetings__email-hero sa-greetings__email-hero--empty">
+                    {ar ? 'ارفع صورة لترى المعاينة' : 'Upload an image to preview'}
+                  </div>
+                )}
+                <h3>{previewHeadline || '—'}</h3>
+                <p>{previewBody || '—'}</p>
+                {form.meaning ? <p className="muted">{form.meaning}</p> : null}
+                <p className="sa-greetings__email-meta">
+                  {(form.occasion || '—') +
+                    (form.occasionDate ? ` · ${form.occasionDate}` : '')}
+                </p>
+              </article>
+            ) : (
+              <div className="sa-greetings__wa" dir={previewLocale === 'ar' ? 'rtl' : 'ltr'}>
+                <div className="sa-greetings__wa-bubble">
+                  {previewImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={previewImage} alt="" />
+                  ) : (
+                    <div className="sa-greetings__wa-empty">
+                      {ar ? 'لا صورة بعد' : 'No image yet'}
+                    </div>
+                  )}
+                  <pre>{whatsappCaption || (ar ? 'نص الرسالة…' : 'Message…')}</pre>
+                </div>
+                <p className="muted">
+                  {ar
+                    ? 'معاينة شكل رسالة واتساب (صورة + نص). الإرسال الحالي عبر البريد الإلكتروني للطابور.'
+                    : 'WhatsApp-style preview (image + caption). Current dispatch queues email.'}
+                </p>
+              </div>
+            )}
+
+            {selected && design && selected.designs.length > 1 ? (
+              <div className="sa-greetings__history">
+                <h3>{ar ? 'إصدارات الصورة' : 'Image versions'}</h3>
+                <ul>
+                  {selected.designs.map((d) => (
+                    <li key={d.id}>
+                      <button
+                        type="button"
+                        className={d.id === design.id ? 'is-active' : undefined}
+                        disabled={busy || locked}
+                        onClick={() => void restoreDesign(d.id)}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={designPreviewSrc(selected.id, d)} alt="" />
+                        <span>{adminDate(d.createdAt, ar)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {selected?.sentAt ? (
+              <p className="muted">
+                {ar ? 'أُرسل' : 'Sent'} {adminDate(selected.sentAt, ar)} ({selected.sentCount})
+              </p>
+            ) : null}
+          </div>
         </section>
       </div>
     </div>
@@ -737,13 +930,11 @@ function toLocalInput(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return '';
   const pad = (n: number) => String(n).padStart(2, '0');
-  // Display in Muscat (UTC+4) for the admin.
   const muscat = new Date(date.getTime() + 4 * 3600_000);
   return `${muscat.getUTCFullYear()}-${pad(muscat.getUTCMonth() + 1)}-${pad(muscat.getUTCDate())}T${pad(muscat.getUTCHours())}:${pad(muscat.getUTCMinutes())}`;
 }
 
 function fromLocalInput(value: string): string {
-  // Treat datetime-local as Muscat wall time.
   const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
   if (!m) return new Date(value).toISOString();
   const [, y, mo, d, h, mi] = m;

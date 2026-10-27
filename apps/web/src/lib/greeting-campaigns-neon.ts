@@ -1,6 +1,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, eq, isNull, sql } from 'drizzle-orm';
+import sharp from 'sharp';
 import type { SessionClaims } from '@bhd-r/authz';
 import { auditLogs, memberships, parties, platformSettings, users } from '@bhd-r/db';
 import { elevatedTx, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
@@ -292,14 +293,74 @@ async function estimateAudience(
 export type CreateGreetingInput = {
   occasion: string;
   occasionDate: string;
-  /** Optional notes; AI rewrites ceremonial copy into the design + stored meaning. */
+  /** Short note shown under the card in email. */
   meaning: string;
   audience?: GreetingAudience | undefined;
-  /** Generate the first AI design immediately. */
+  /** Legacy AI path — off by default; prefer manual upload. */
   generateDesign?: boolean | undefined;
   changeRequest?: string | null | undefined;
   oidcToken?: string | null | undefined;
 };
+
+export type ManualGreetingDesignInput = {
+  headlineAr: string;
+  headlineEn: string;
+  bodyAr: string;
+  bodyEn: string;
+  /** Raw base64 (no data: prefix). */
+  imageBase64: string;
+  imageMime: string;
+  /** Replace the current design in place instead of appending a version. */
+  replaceCurrent?: boolean | undefined;
+};
+
+async function normalizeManualImage(
+  imageBase64: string,
+  imageMime: string,
+): Promise<{ base64: string; mime: string }> {
+  const mime = imageMime.trim().toLowerCase();
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(mime)) fail('invalid_image');
+  let buf: Buffer;
+  try {
+    buf = Buffer.from(imageBase64.replace(/\s/g, ''), 'base64');
+  } catch {
+    fail('invalid_image');
+  }
+  if (!buf.length || buf.length > 2_800_000) fail('image_too_large');
+  const out = await sharp(buf)
+    .rotate()
+    .resize({ width: 1200, height: 1600, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 82, mozjpeg: true })
+    .toBuffer();
+  if (out.length > 900_000) fail('image_too_large');
+  return { base64: out.toString('base64'), mime: 'image/jpeg' };
+}
+
+function manualDesignFromInput(
+  input: ManualGreetingDesignInput,
+  image: { base64: string; mime: string },
+): GreetingDesignVersion {
+  const headlineAr = input.headlineAr.trim().slice(0, 160) || 'تهنئة';
+  const headlineEn = input.headlineEn.trim().slice(0, 160) || headlineAr;
+  const bodyAr = input.bodyAr.trim().slice(0, 800) || headlineAr;
+  const bodyEn = input.bodyEn.trim().slice(0, 800) || bodyAr;
+  return {
+    id: randomUUID(),
+    createdAt: new Date().toISOString(),
+    promptNote: 'manual_upload',
+    headlineAr,
+    headlineEn,
+    bodyAr,
+    bodyEn,
+    accent: '#0B5E4A',
+    accentSoft: '#E8F3EE',
+    motif: 'manual',
+    imagePrompt: 'manual_upload',
+    svg: '',
+    imageMime: image.mime,
+    imageBase64: image.base64,
+  };
+}
 
 export async function createGreetingCampaign(
   claims: SessionClaims,
@@ -315,7 +376,7 @@ export async function createGreetingCampaign(
   if (!occasion || !/^\d{4}-\d{2}-\d{2}$/.test(occasionDate)) fail('invalid_body');
 
   let designs: GreetingDesignVersion[] = [];
-  if (input.generateDesign !== false) {
+  if (input.generateDesign === true) {
     designs = [
       await generateGreetingDesign(
         {
@@ -329,7 +390,7 @@ export async function createGreetingCampaign(
     ];
   }
 
-  const meaning = designs[0]?.bodyAr?.trim() || notes || occasion;
+  const meaning = notes || designs[0]?.bodyAr?.trim() || occasion;
 
   return elevatedTx(async (tx) => {
     await requireRoot(claims);
@@ -374,6 +435,15 @@ export type UpdateGreetingInput = {
   audience?: GreetingAudience | undefined;
   status?: Extract<GreetingCampaignStatus, 'draft' | 'scheduled' | 'cancelled'> | undefined;
   scheduledAt?: string | null | undefined;
+  /** Edit copy on the current design (manual campaigns). */
+  design?:
+    | {
+        headlineAr?: string | undefined;
+        headlineEn?: string | undefined;
+        bodyAr?: string | undefined;
+        bodyEn?: string | undefined;
+      }
+    | undefined;
 };
 
 export async function updateGreetingCampaign(
@@ -389,6 +459,21 @@ export async function updateGreetingCampaign(
     const previous = store.campaigns[index]!;
     if (previous.status === 'sent' || previous.status === 'sending') fail('greeting_locked');
 
+    let designs = previous.designs;
+    let currentDesignId = previous.currentDesignId;
+    if (input.design && previous.currentDesignId) {
+      designs = previous.designs.map((row) => {
+        if (row.id !== previous.currentDesignId) return row;
+        return {
+          ...row,
+          headlineAr: input.design?.headlineAr?.trim().slice(0, 160) || row.headlineAr,
+          headlineEn: input.design?.headlineEn?.trim().slice(0, 160) || row.headlineEn,
+          bodyAr: input.design?.bodyAr?.trim().slice(0, 800) || row.bodyAr,
+          bodyEn: input.design?.bodyEn?.trim().slice(0, 800) || row.bodyEn,
+        };
+      });
+    }
+
     const next: GreetingCampaign = {
       ...previous,
       occasion: input.occasion?.trim().slice(0, 120) || previous.occasion,
@@ -396,8 +481,11 @@ export async function updateGreetingCampaign(
         input.occasionDate && /^\d{4}-\d{2}-\d{2}$/.test(input.occasionDate)
           ? input.occasionDate
           : previous.occasionDate,
-      meaning: input.meaning?.trim().slice(0, 800) || previous.meaning,
+      meaning:
+        input.meaning !== undefined ? input.meaning.trim().slice(0, 800) : previous.meaning,
       audience: input.audience ? normalizeAudience(input.audience) : previous.audience,
+      designs,
+      currentDesignId,
       updatedAt: new Date().toISOString(),
     };
 
@@ -434,6 +522,58 @@ export async function deleteGreetingCampaign(claims: SessionClaims, id: string):
     if (store.campaigns.length === before) fail('greeting_not_found');
     await writeStore(tx, store, claims.sub);
     return { ok: true as const };
+  });
+}
+
+/** Manual card: admin uploads image + writes bilingual copy. */
+export async function uploadGreetingDesign(
+  claims: SessionClaims,
+  id: string,
+  input: ManualGreetingDesignInput,
+): Promise<{ campaign: GreetingCampaign }> {
+  const headlineAr = input.headlineAr.trim();
+  const bodyAr = input.bodyAr.trim();
+  if (!headlineAr || !bodyAr || !input.imageBase64?.trim()) fail('invalid_body');
+  const image = await normalizeManualImage(input.imageBase64, input.imageMime || 'image/jpeg');
+  const design = manualDesignFromInput(input, image);
+
+  return elevatedTx(async (tx) => {
+    await requireRoot(claims);
+    const store = await readStore(tx);
+    const index = store.campaigns.findIndex((c) => c.id === id);
+    if (index < 0) fail('greeting_not_found');
+    const campaign = store.campaigns[index]!;
+    if (campaign.status === 'sending' || campaign.status === 'sent') fail('greeting_locked');
+
+    let designs: GreetingDesignVersion[];
+    if (input.replaceCurrent && campaign.currentDesignId) {
+      designs = campaign.designs.map((row) =>
+        row.id === campaign.currentDesignId ? { ...design, id: row.id, createdAt: row.createdAt } : row,
+      );
+    } else {
+      designs = [design, ...campaign.designs].slice(0, MAX_DESIGNS);
+    }
+    const next: GreetingCampaign = {
+      ...campaign,
+      meaning: campaign.meaning || bodyAr,
+      designs,
+      currentDesignId: input.replaceCurrent && campaign.currentDesignId
+        ? campaign.currentDesignId
+        : design.id,
+      updatedAt: new Date().toISOString(),
+    };
+    store.campaigns[index] = next;
+    await writeStore(tx, store, claims.sub);
+    await tx.insert(auditLogs).values({
+      organizationId: null,
+      actorUserId: claims.sub,
+      action: 'site.greeting.upload',
+      resourceType: 'greeting_campaign',
+      resourceId: id,
+      requestId: randomUUID(),
+      metadata: { designId: next.currentDesignId },
+    });
+    return { campaign: next };
   });
 }
 

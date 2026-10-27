@@ -35104,3 +35104,99 @@ button.handover-shots__item {
   margin: 0.25rem 0;
   line-height: 1.65;
 }
+.sa-greetings__preview-tabs {
+  display: grid;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+.sa-greetings__preview-tabs h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.sa-greetings__email {
+  border: 1px solid #cfe5e3;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  display: grid;
+  gap: 0.55rem;
+}
+.sa-greetings__email header {
+  display: grid;
+  gap: 0.2rem;
+  padding-bottom: 0.55rem;
+  border-bottom: 1px solid #e2eeec;
+}
+.sa-greetings__email-from {
+  font-size: 0.8rem;
+  color: #5a7a76;
+}
+.sa-greetings__email-hello {
+  margin: 0;
+  font-weight: 700;
+}
+.sa-greetings__email-hero {
+  width: 100%;
+  max-height: 22rem;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f3f6f5;
+}
+.sa-greetings__email-hero--empty {
+  display: grid;
+  place-items: center;
+  min-height: 8rem;
+  color: #6a8581;
+  font-size: 0.9rem;
+}
+.sa-greetings__email h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #174b70;
+}
+.sa-greetings__email-meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #5a7a76;
+}
+.sa-greetings__wa {
+  display: grid;
+  gap: 0.55rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: #0b141a;
+}
+.sa-greetings__wa-bubble {
+  max-width: 22rem;
+  margin-inline-start: auto;
+  background: #005c4b;
+  color: #e9ffef;
+  border-radius: 0.85rem 0.85rem 0.2rem;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+.sa-greetings__wa-bubble img {
+  display: block;
+  width: 100%;
+  max-height: 16rem;
+  object-fit: cover;
+  background: #063c32;
+}
+.sa-greetings__wa-empty {
+  display: grid;
+  place-items: center;
+  min-height: 7rem;
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+.sa-greetings__wa-bubble pre {
+  margin: 0;
+  padding: 0.7rem 0.85rem 0.85rem;
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+.sa-greetings__wa > .muted {
+  color: rgba(255, 255, 255, 0.65);
+}

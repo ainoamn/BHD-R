@@ -26,10 +26,11 @@ const createSchema = z
   .object({
     occasion: z.string().min(1).max(120),
     occasionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    /** Optional notes — AI writes the ceremonial greeting. */
+    /** Optional note under the card. */
     meaning: z.string().max(800).optional().default(''),
     audience: audienceSchema.optional(),
-    generateDesign: z.boolean().optional(),
+    /** Legacy AI — default off; upload an image after create. */
+    generateDesign: z.boolean().optional().default(false),
     changeRequest: z.string().max(500).nullable().optional(),
   })
   .strict();
