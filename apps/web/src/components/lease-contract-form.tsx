@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   LeaseTotalsSummary,
   DEPOSIT_METHOD_LABELS,
@@ -14,8 +14,9 @@ import {
 import { LeaseRequirementsPicker } from '@/components/lease-requirements-picker';
 import { MissingFieldsBanner } from '@/components/missing-fields-banner';
 import { NoteTranslateBar } from '@/components/note-translate';
-import { browserNextMutation } from '@/lib/api';
+import { browserMutation, browserNextMutation } from '@/lib/api';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
+import type { ContactSummary } from '@/lib/contacts-shared';
 import { formatMoney } from '@/lib/format';
 import {
   DEFAULT_LEASE_DOCUMENT_RULES,
@@ -91,6 +92,23 @@ const EMPTY_TENANT: LeaseTenantDraft = {
   email: '',
 };
 
+function contactAsTenant(row: {
+  id: string;
+  displayName: string;
+  type: 'person' | 'company';
+  email: string | null;
+  phone: string | null;
+}): LeaseTenantDraft {
+  return {
+    ...EMPTY_TENANT,
+    partyId: row.id,
+    entityType: row.type,
+    nameAr: row.displayName,
+    email: row.email ?? '',
+    phone: row.phone ?? '',
+  };
+}
+
 const EXTRA_SUGGESTIONS: Array<[string, string]> = [
   ['إنترنت', 'Internet'],
   ['مواقف سيارات', 'Parking'],
@@ -147,8 +165,8 @@ function initialDraft(unit: PropertyRecordUnit | undefined): LeaseTermsDraft {
   const digits = minorDigitsFor(unit?.currency ?? 'OMR');
   const startsOn = todayIso();
   return {
-    contractType: 'residential',
-    usageType: 'residential',
+    contractType: '',
+    usageType: '',
     municipalFormNo: '',
     municipalContractNo: '',
     rentCalcMode: 'full',
@@ -213,7 +231,7 @@ type WizardStepId =
   | 'review';
 
 const STEP_GAP_CODES: Record<WizardStepId, readonly string[]> = {
-  main: ['unit'],
+  main: ['unit', 'contract_type', 'usage_type'],
   tenant: ['tenant_name', 'civil_id', 'phone', 'cr_number', 'cr_expiry', 'signatory'],
   docs: [],
   unit: ['electricity', 'water', 'electricity_photo', 'water_photo'],
@@ -345,6 +363,7 @@ export function LeaseContractForm({
   deferUntilHandover = [],
   municipalAfterHandover = false,
   lockTenantName = false,
+  tenantFromDirectory = false,
   arabonReceiptHref = null,
   arabonReceiptLabel = null,
   requirements,
@@ -364,8 +383,8 @@ export function LeaseContractForm({
   initialTenant?: Partial<LeaseTenantDraft> | undefined;
   /** Terms saved earlier, to edit instead of starting over. */
   initialTerms?: LeaseTermsDraft | undefined;
-  /** Contract type and term the customer asked for, used when there is no saved draft yet. */
-  termsSeed?: { contractType?: ContractUse; months?: number } | undefined;
+  /** Contract term the customer asked for, used when there is no saved draft yet. */
+  termsSeed?: { months?: number } | undefined;
   heading?: string | undefined;
   submitLabel?: string | undefined;
   /** Replaces the note on who approves the contract. */
@@ -383,7 +402,12 @@ export function LeaseContractForm({
   municipalAfterHandover?: boolean | undefined;
   /** Booking flow: Arabic tenant name is read-only from the client profile. */
   lockTenantName?: boolean | undefined;
-  /** Link to the booking arabon receipt in accounting / records. */
+  /**
+   * Booking flow: tenant is loaded from the reservation; change only via address book
+   * (or add a new contact), not by typing fields.
+   */
+  tenantFromDirectory?: boolean | undefined;
+  /** Official arabon receipt URL (opens in a new window / popup). */
   arabonReceiptHref?: string | null | undefined;
   arabonReceiptLabel?: string | null | undefined;
   /** When set with onRequirementsChange, shows the smart documents picker. */
@@ -403,18 +427,30 @@ export function LeaseContractForm({
   const unit = units.find((item) => item.id === unitId);
   const currency = unit?.currency ?? 'OMR';
   const digits = minorDigitsFor(currency);
+  const bookingTenantSnapshot = useRef<LeaseTenantDraft>({
+    ...EMPTY_TENANT,
+    ...initialTenant,
+  });
   const [tenant, setTenant] = useState<LeaseTenantDraft>(() => ({
     ...EMPTY_TENANT,
     ...initialTenant,
   }));
+  const [directory, setDirectory] = useState<PropertyRecordTenant[]>(tenants);
+  const [addingContact, setAddingContact] = useState(false);
+  const [savingContact, setSavingContact] = useState(false);
+  const [newContact, setNewContact] = useState({
+    type: 'person' as 'person' | 'company',
+    displayName: '',
+    phone: '',
+    email: '',
+    civilId: '',
+    commercialRegistration: '',
+  });
   const [draft, setDraft] = useState<LeaseTermsDraft>(() => {
     if (initialTerms) return initialTerms;
     const base = initialDraft(units[0]);
     return {
       ...base,
-      ...(termsSeed?.contractType
-        ? { contractType: termsSeed.contractType, usageType: termsSeed.contractType }
-        : {}),
       ...(termsSeed?.months ? { endsOn: endDateForMonths(base.startsOn, termsSeed.months) } : {}),
     };
   });
@@ -443,6 +479,60 @@ export function LeaseContractForm({
   useEffect(() => {
     setLocalBanks(bankAccounts);
   }, [bankAccounts]);
+
+  useEffect(() => {
+    setDirectory((current) => {
+      const map = new Map(current.map((row) => [row.id, row]));
+      for (const row of tenants) map.set(row.id, row);
+      return [...map.values()];
+    });
+  }, [tenants]);
+
+  useEffect(() => {
+    if (!tenantFromDirectory) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch('/api/portal/contacts', {
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' },
+          cache: 'no-store',
+        });
+        if (!response.ok || cancelled) return;
+        const body = (await response.json()) as { contacts?: ContactSummary[] };
+        const rows = (body.contacts ?? [])
+          .filter(
+            (row) =>
+              row.status === 'active' &&
+              (row.roles.includes('tenant') ||
+                row.roles.includes('prospect') ||
+                row.id === bookingTenantSnapshot.current.partyId),
+          )
+          .map(
+            (row): PropertyRecordTenant => ({
+              id: row.id,
+              displayName: row.displayName,
+              type: row.type,
+              email: row.email,
+              phone: row.phone,
+            }),
+          );
+        if (cancelled || !rows.length) return;
+        setDirectory((current) => {
+          const map = new Map(current.map((row) => [row.id, row]));
+          for (const row of rows) map.set(row.id, row);
+          return [...map.values()].sort((a, b) =>
+            a.displayName.localeCompare(b.displayName, 'ar'),
+          );
+        });
+      } catch {
+        /* keep the booking tenant only */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [tenantFromDirectory]);
 
   const activeBankAccounts = useMemo(
     () => localBanks.filter((row) => row.active !== false),
@@ -802,19 +892,111 @@ export function LeaseContractForm({
   }
 
   function pickTenant(partyId: string) {
-    const party = tenants.find((item) => item.id === partyId);
+    if (!partyId) {
+      if (tenantFromDirectory) {
+        setTenant(bookingTenantSnapshot.current);
+        return;
+      }
+      setTenantField('partyId', '');
+      return;
+    }
+    if (
+      tenantFromDirectory &&
+      partyId === bookingTenantSnapshot.current.partyId &&
+      bookingTenantSnapshot.current.nameAr
+    ) {
+      setTenant(bookingTenantSnapshot.current);
+      return;
+    }
+    const party = directory.find((item) => item.id === partyId);
     if (!party) {
       setTenantField('partyId', '');
       return;
     }
-    setTenant((current) => ({
-      ...current,
-      partyId: party.id,
-      entityType: party.type,
-      nameAr: party.displayName,
-      email: party.email ?? '',
-      phone: party.phone ?? '',
-    }));
+    setTenant(contactAsTenant(party));
+  }
+
+  async function createContact() {
+    const name = newContact.displayName.trim();
+    if (name.length < 2) {
+      setLocalError(t('أدخل اسم جهة الاتصال.', 'Enter the contact name.'));
+      return;
+    }
+    setSavingContact(true);
+    setLocalError(null);
+    try {
+      const result = await browserMutation<{ id?: string; party?: { id?: string } }>('/v1/parties', {
+        method: 'POST',
+        body: JSON.stringify({
+          type: newContact.type,
+          displayName: name,
+          email: newContact.email.trim() || undefined,
+          phone: newContact.phone.trim() || undefined,
+          roles: ['tenant'],
+          address: {
+            countryCode: 'OM',
+            governorate: 'مسقط',
+            wilayat: 'مسقط',
+            city: 'مسقط',
+            primary: true,
+          },
+          identityDocuments: [
+            ...(newContact.type === 'person' && newContact.civilId.trim()
+              ? [
+                  {
+                    documentType: 'civil_id' as const,
+                    number: newContact.civilId.trim(),
+                    issuingCountryCode: 'OM',
+                  },
+                ]
+              : []),
+            ...(newContact.type === 'company' && newContact.commercialRegistration.trim()
+              ? [
+                  {
+                    documentType: 'commercial_registration' as const,
+                    number: newContact.commercialRegistration.trim(),
+                    issuingCountryCode: 'OM',
+                  },
+                ]
+              : []),
+          ],
+        }),
+      });
+      const id = result.id ?? result.party?.id;
+      if (!id) throw new Error('missing_id');
+      const created: PropertyRecordTenant = {
+        id,
+        displayName: name,
+        type: newContact.type,
+        email: newContact.email.trim() || null,
+        phone: newContact.phone.trim() || null,
+      };
+      setDirectory((current) =>
+        [...current.filter((row) => row.id !== id), created].sort((a, b) =>
+          a.displayName.localeCompare(b.displayName, 'ar'),
+        ),
+      );
+      setTenant({
+        ...contactAsTenant(created),
+        civilId: newContact.type === 'person' ? newContact.civilId.trim() : '',
+        crNumber: newContact.type === 'company' ? newContact.commercialRegistration.trim() : '',
+      });
+      setAddingContact(false);
+      setNewContact({
+        type: 'person',
+        displayName: '',
+        phone: '',
+        email: '',
+        civilId: '',
+        commercialRegistration: '',
+      });
+    } catch {
+      setLocalError(
+        t('تعذّر إضافة جهة الاتصال. تحقّق من الصلاحيات وأعد المحاولة.', 'Could not add the contact.'),
+      );
+    } finally {
+      setSavingContact(false);
+    }
   }
 
   function updateScheduleRow(index: number, patch: Partial<LeaseTermsDraft['schedule'][number]>) {
@@ -988,29 +1170,47 @@ export function LeaseContractForm({
               ))}
             </select>
           </Field>
-          <Field id="lcf-type" label={t('نوع العقد', 'Contract type')}>
+          <Field
+            id="lcf-type"
+            label={t('نوع العقد', 'Contract type')}
+            required
+            missing={gap('contract_type')}
+          >
             <select
               id="lcf-type"
               className="select"
+              required
               value={draft.contractType}
               onChange={(event) => {
                 const value = event.target.value as LeaseTermsDraft['contractType'];
-                setDraft((current) => ({ ...current, contractType: value, usageType: value }));
+                setDraft((current) => ({
+                  ...current,
+                  contractType: value,
+                  usageType: current.usageType || value,
+                }));
               }}
             >
+              <option value="">{t('— اختر —', '— Choose —')}</option>
               <option value="residential">{t('سكني', 'Residential')}</option>
               <option value="commercial">{t('تجاري', 'Commercial')}</option>
             </select>
           </Field>
-          <Field id="lcf-usage" label={t('نوع الاستعمال', 'Usage type')}>
+          <Field
+            id="lcf-usage"
+            label={t('نوع الاستعمال', 'Usage type')}
+            required
+            missing={gap('usage_type')}
+          >
             <select
               id="lcf-usage"
               className="select"
+              required
               value={draft.usageType}
               onChange={(event) =>
                 set('usageType', event.target.value as LeaseTermsDraft['usageType'])
               }
             >
+              <option value="">{t('— اختر —', '— Choose —')}</option>
               <option value="residential">{t('سكني', 'Residential')}</option>
               <option value="commercial">{t('تجاري', 'Commercial')}</option>
             </select>
@@ -1054,51 +1254,201 @@ export function LeaseContractForm({
 
       <Section tone="tenant" active={stepActive('tenant')} title={t('👤 المستأجر', '👤 Tenant')}>
         <div className="form-grid">
-          {tenants.length ? (
+          {tenantFromDirectory || directory.length ? (
             <Field
               id="lcf-book"
-              label={t('استيراد المستأجر من دفتر العناوين', 'Import tenant from address book')}
+              label={
+                tenantFromDirectory
+                  ? t('المستأجر (من دفتر العناوين)', 'Tenant (from address book)')
+                  : t('استيراد المستأجر من دفتر العناوين', 'Import tenant from address book')
+              }
               wide
+              required={tenantFromDirectory}
+              missing={tenantFromDirectory && !tenant.partyId && !tenant.nameAr}
               hint={
-                tenant.partyId
+                tenantFromDirectory
                   ? t(
-                      'سيُربط العقد بهذا المستأجر الموجود في دفتر العناوين.',
-                      'The contract will use this existing address-book party.',
+                      'البيانات تُجلب من حجز العميل أو جهة اتصال مختارة. لتغيير المستأجر اختر من دفتر العناوين — دون تعبئة يدوية.',
+                      'Details come from the booking or a chosen contact. To change the tenant, pick from the address book — no manual typing.',
                     )
-                  : t(
-                      'أو أدخل بيانات مستأجر جديد ليُضاف إلى دفتر العناوين.',
-                      'Or enter a new tenant; it is added to the address book.',
-                    )
+                  : tenant.partyId
+                    ? t(
+                        'سيُربط العقد بهذا المستأجر الموجود في دفتر العناوين.',
+                        'The contract will use this existing address-book party.',
+                      )
+                    : t(
+                        'أو أدخل بيانات مستأجر جديد ليُضاف إلى دفتر العناوين.',
+                        'Or enter a new tenant; it is added to the address book.',
+                      )
               }
             >
-              <select
-                id="lcf-book"
-                className="select"
-                value={tenant.partyId}
-                onChange={(event) => pickTenant(event.target.value)}
-              >
-                <option value="">{t('— مستأجر جديد —', '— New tenant —')}</option>
-                {tenants.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.displayName}
-                    {item.phone ? ` · ${item.phone}` : item.email ? ` · ${item.email}` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="lcf-tenant-pick">
+                <select
+                  id="lcf-book"
+                  className="select"
+                  value={tenant.partyId}
+                  onChange={(event) => pickTenant(event.target.value)}
+                >
+                  {tenantFromDirectory ? (
+                    <option value={bookingTenantSnapshot.current.partyId || ''}>
+                      {bookingTenantSnapshot.current.nameAr
+                        ? t('مستأجر الحجز', 'Booking tenant')
+                        : t('— اختر جهة اتصال —', '— Choose a contact —')}
+                      {bookingTenantSnapshot.current.nameAr
+                        ? ` · ${bookingTenantSnapshot.current.nameAr}`
+                        : ''}
+                    </option>
+                  ) : (
+                    <option value="">{t('— مستأجر جديد —', '— New tenant —')}</option>
+                  )}
+                  {directory
+                    .filter((item) => item.id !== bookingTenantSnapshot.current.partyId)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.displayName}
+                        {item.phone ? ` · ${item.phone}` : item.email ? ` · ${item.email}` : ''}
+                      </option>
+                    ))}
+                </select>
+                {tenantFromDirectory ? (
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setAddingContact((open) => !open)}
+                  >
+                    {addingContact
+                      ? t('إلغاء', 'Cancel')
+                      : t('＋ إضافة جهة اتصال', '＋ Add contact')}
+                  </button>
+                ) : null}
+              </div>
             </Field>
           ) : null}
+          {tenantFromDirectory && addingContact ? (
+            <div className="lcf-add-contact span-2">
+              <p className="muted">
+                {t(
+                  'أضف جهة اتصال جديدة إلى دفتر العناوين ثم تُختار تلقائياً لهذا العقد.',
+                  'Add a contact to the address book; it is selected for this contract.',
+                )}
+              </p>
+              <div className="form-grid">
+                <Field id="lcf-new-type" label={t('النوع', 'Type')}>
+                  <select
+                    id="lcf-new-type"
+                    className="select"
+                    value={newContact.type}
+                    onChange={(event) =>
+                      setNewContact((current) => ({
+                        ...current,
+                        type: event.target.value as 'person' | 'company',
+                      }))
+                    }
+                  >
+                    <option value="person">{t('شخص', 'Person')}</option>
+                    <option value="company">{t('شركة', 'Company')}</option>
+                  </select>
+                </Field>
+                <Field id="lcf-new-name" label={t('الاسم', 'Name')} required missing={!newContact.displayName.trim()}>
+                  <input
+                    id="lcf-new-name"
+                    className="input"
+                    maxLength={200}
+                    value={newContact.displayName}
+                    onChange={(event) =>
+                      setNewContact((current) => ({
+                        ...current,
+                        displayName: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field id="lcf-new-phone" label={t('الهاتف', 'Phone')}>
+                  <input
+                    id="lcf-new-phone"
+                    className="input"
+                    dir="ltr"
+                    maxLength={40}
+                    value={newContact.phone}
+                    onChange={(event) =>
+                      setNewContact((current) => ({ ...current, phone: event.target.value }))
+                    }
+                  />
+                </Field>
+                <Field id="lcf-new-email" label={t('البريد', 'Email')}>
+                  <input
+                    id="lcf-new-email"
+                    className="input"
+                    dir="ltr"
+                    type="email"
+                    maxLength={200}
+                    value={newContact.email}
+                    onChange={(event) =>
+                      setNewContact((current) => ({ ...current, email: event.target.value }))
+                    }
+                  />
+                </Field>
+                {newContact.type === 'person' ? (
+                  <Field id="lcf-new-civil" label={t('الرقم المدني', 'Civil ID')}>
+                    <input
+                      id="lcf-new-civil"
+                      className="input"
+                      dir="ltr"
+                      maxLength={40}
+                      value={newContact.civilId}
+                      onChange={(event) =>
+                        setNewContact((current) => ({ ...current, civilId: event.target.value }))
+                      }
+                    />
+                  </Field>
+                ) : (
+                  <Field id="lcf-new-cr" label={t('السجل التجاري', 'CR number')}>
+                    <input
+                      id="lcf-new-cr"
+                      className="input"
+                      dir="ltr"
+                      maxLength={40}
+                      value={newContact.commercialRegistration}
+                      onChange={(event) =>
+                        setNewContact((current) => ({
+                          ...current,
+                          commercialRegistration: event.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                )}
+              </div>
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={savingContact}
+                onClick={() => void createContact()}
+              >
+                {savingContact
+                  ? t('جارٍ الإضافة…', 'Adding…')
+                  : t('حفظ جهة الاتصال واختيارها', 'Save & select contact')}
+              </button>
+            </div>
+          ) : null}
           <Field id="lcf-entity" label={t('نوع الجهة المستأجرة', 'Lessee type')}>
-            <select
-              id="lcf-entity"
-              className="select"
-              value={tenant.entityType}
-              onChange={(event) =>
-                setTenantField('entityType', event.target.value as LeaseTenantDraft['entityType'])
-              }
-            >
-              <option value="person">{t('شخص', 'Person')}</option>
-              <option value="company">{t('شركة', 'Company')}</option>
-            </select>
+            {tenantFromDirectory ? (
+              <output id="lcf-entity" className="input lcf-output">
+                {tenant.entityType === 'company' ? t('شركة', 'Company') : t('شخص', 'Person')}
+              </output>
+            ) : (
+              <select
+                id="lcf-entity"
+                className="select"
+                value={tenant.entityType}
+                onChange={(event) =>
+                  setTenantField('entityType', event.target.value as LeaseTenantDraft['entityType'])
+                }
+              >
+                <option value="person">{t('شخص', 'Person')}</option>
+                <option value="company">{t('شركة', 'Company')}</option>
+              </select>
+            )}
           </Field>
           <Field
             id="lcf-name-ar"
@@ -1106,16 +1456,16 @@ export function LeaseContractForm({
             required
             missing={gap('tenant_name')}
             hint={
-              lockTenantName
+              tenantFromDirectory || lockTenantName
                 ? t(
-                    'يُجلب من ملف العميل ولا يُعدَّل هنا. على العميل تعبئة الاسم بالعربي والإنجليزي في صفحته الشخصية (مع الترجمة الفورية).',
-                    'Taken from the client profile and locked here. The client must enter Arabic and English names on their personal page (with instant translate).',
+                    'يُجلب من بيانات الحجز أو جهة الاتصال المختارة. للتغيير اختر من دفتر العناوين أو أضف جهة جديدة.',
+                    'Taken from the booking or the chosen contact. To change, pick from the address book or add a contact.',
                   )
                 : undefined
             }
           >
             <div className="lcf-name-with-nationality">
-              {lockTenantName ? (
+              {tenantFromDirectory || lockTenantName ? (
                 <output id="lcf-name-ar" className="input lcf-output" aria-live="polite">
                   {tenant.nameAr || '—'}
                 </output>
@@ -1143,7 +1493,7 @@ export function LeaseContractForm({
               ) : null}
             </div>
           </Field>
-          {showExtra || !lockTenantName ? (
+          {showExtra || !(lockTenantName || tenantFromDirectory) ? (
             <Field id="lcf-name-en" label={t('اسم المستأجر بالإنجليزية', 'Tenant name (English)')}>
               <input
                 id="lcf-name-en"
@@ -1151,7 +1501,7 @@ export function LeaseContractForm({
                 dir="ltr"
                 maxLength={200}
                 value={tenant.nameEn}
-                readOnly={lockTenantName}
+                readOnly={lockTenantName || tenantFromDirectory}
                 onChange={(event) => setTenantField('nameEn', event.target.value)}
               />
             </Field>
@@ -1170,6 +1520,7 @@ export function LeaseContractForm({
                   dir="ltr"
                   maxLength={40}
                   value={tenant.civilId}
+                  readOnly={tenantFromDirectory}
                   onChange={(event) => setTenantField('civilId', event.target.value)}
                 />
               </Field>
@@ -1180,33 +1531,41 @@ export function LeaseContractForm({
                   dir="ltr"
                   maxLength={40}
                   value={tenant.passport}
+                  readOnly={tenantFromDirectory}
                   onChange={(event) => setTenantField('passport', event.target.value)}
                 />
               </Field>
               <Field
                 id="lcf-nationality"
                 label={t('الجنسية', 'Nationality')}
-                hint={t(
-                  'مواطن: البطاقة الشخصية. وافد: البطاقة والجواز.',
-                  'Citizen: civil ID. Resident: ID and passport.',
-                )}
+                hint={
+                  tenantFromDirectory
+                    ? undefined
+                    : t(
+                        'مواطن: البطاقة الشخصية. وافد: البطاقة والجواز.',
+                        'Citizen: civil ID. Resident: ID and passport.',
+                      )
+                }
               >
                 <input
                   id="lcf-nationality"
                   className="input"
                   maxLength={80}
-                  list="lcf-nationalities"
+                  list={tenantFromDirectory ? undefined : 'lcf-nationalities'}
                   value={tenant.nationality}
+                  readOnly={tenantFromDirectory}
                   onChange={(event) => setTenantField('nationality', event.target.value)}
                 />
-                <datalist id="lcf-nationalities">
-                  <option value={t('عماني', 'Omani')} />
-                  <option value={t('هندي', 'Indian')} />
-                  <option value={t('باكستاني', 'Pakistani')} />
-                  <option value={t('بنغلاديشي', 'Bangladeshi')} />
-                  <option value={t('مصري', 'Egyptian')} />
-                  <option value={t('فلبيني', 'Filipino')} />
-                </datalist>
+                {tenantFromDirectory ? null : (
+                  <datalist id="lcf-nationalities">
+                    <option value={t('عماني', 'Omani')} />
+                    <option value={t('هندي', 'Indian')} />
+                    <option value={t('باكستاني', 'Pakistani')} />
+                    <option value={t('بنغلاديشي', 'Bangladeshi')} />
+                    <option value={t('مصري', 'Egyptian')} />
+                    <option value={t('فلبيني', 'Filipino')} />
+                  </datalist>
+                )}
               </Field>
             </>
           ) : (
@@ -1223,6 +1582,7 @@ export function LeaseContractForm({
                   dir="ltr"
                   maxLength={40}
                   value={tenant.crNumber}
+                  readOnly={tenantFromDirectory}
                   onChange={(event) => setTenantField('crNumber', event.target.value)}
                 />
               </Field>
@@ -1237,6 +1597,7 @@ export function LeaseContractForm({
                   className="input"
                   type="date"
                   value={tenant.crExpiry}
+                  readOnly={tenantFromDirectory}
                   onChange={(event) => setTenantField('crExpiry', event.target.value)}
                 />
               </Field>
@@ -1251,6 +1612,7 @@ export function LeaseContractForm({
                   className="input"
                   maxLength={200}
                   value={tenant.signatoryName}
+                  readOnly={tenantFromDirectory}
                   onChange={(event) => setTenantField('signatoryName', event.target.value)}
                 />
               </Field>
@@ -1261,35 +1623,43 @@ export function LeaseContractForm({
                   dir="ltr"
                   maxLength={40}
                   value={tenant.signatoryCivilId}
+                  readOnly={tenantFromDirectory}
                   onChange={(event) => setTenantField('signatoryCivilId', event.target.value)}
                 />
               </Field>
               <Field
                 id="lcf-sign-nationality"
                 label={t('جنسية المفوض', 'Signatory nationality')}
-                hint={t(
-                  'تحدد مستندات المفوض: عماني (بطاقة) أو وافد (جواز وإقامة).',
-                  'Drives signatory docs: Omani (civil ID) or expatriate (passport & residence).',
-                )}
+                hint={
+                  tenantFromDirectory
+                    ? undefined
+                    : t(
+                        'تحدد مستندات المفوض: عماني (بطاقة) أو وافد (جواز وإقامة).',
+                        'Drives signatory docs: Omani (civil ID) or expatriate (passport & residence).',
+                      )
+                }
               >
                 <input
                   id="lcf-sign-nationality"
                   className="input"
                   maxLength={80}
-                  list="lcf-sign-nationalities"
+                  list={tenantFromDirectory ? undefined : 'lcf-sign-nationalities'}
                   value={tenant.signatoryNationality}
+                  readOnly={tenantFromDirectory}
                   onChange={(event) =>
                     setTenantField('signatoryNationality', event.target.value)
                   }
                 />
-                <datalist id="lcf-sign-nationalities">
-                  <option value={t('عماني', 'Omani')} />
-                  <option value={t('هندي', 'Indian')} />
-                  <option value={t('باكستاني', 'Pakistani')} />
-                  <option value={t('بنغلاديشي', 'Bangladeshi')} />
-                  <option value={t('مصري', 'Egyptian')} />
-                  <option value={t('فلبيني', 'Filipino')} />
-                </datalist>
+                {tenantFromDirectory ? null : (
+                  <datalist id="lcf-sign-nationalities">
+                    <option value={t('عماني', 'Omani')} />
+                    <option value={t('هندي', 'Indian')} />
+                    <option value={t('باكستاني', 'Pakistani')} />
+                    <option value={t('بنغلاديشي', 'Bangladeshi')} />
+                    <option value={t('مصري', 'Egyptian')} />
+                    <option value={t('فلبيني', 'Filipino')} />
+                  </datalist>
+                )}
               </Field>
             </>
           )}
@@ -1306,6 +1676,7 @@ export function LeaseContractForm({
               dir="ltr"
               maxLength={40}
               value={tenant.phone}
+              readOnly={tenantFromDirectory}
               onChange={(event) => setTenantField('phone', event.target.value)}
             />
           </Field>
@@ -1317,6 +1688,7 @@ export function LeaseContractForm({
               dir="ltr"
               maxLength={320}
               value={tenant.email}
+              readOnly={tenantFromDirectory}
               onChange={(event) => setTenantField('email', event.target.value)}
             />
           </Field>
@@ -2073,12 +2445,22 @@ export function LeaseContractForm({
           {arabonReceiptHref ? (
             <div className="field">
               <span className="field__hint">
-                {t('إيصال العربون من الحسابات', 'Booking deposit receipt from accounting')}
+                {t('إيصال العربون المعتمد (نفس مستند العميل)', 'Official arabon receipt (same as client)')}
                 {arabonReceiptLabel ? ` · ${arabonReceiptLabel}` : ''}
               </span>
-              <a className="button button--quiet" href={arabonReceiptHref}>
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => {
+                  window.open(
+                    arabonReceiptHref,
+                    'bhd-arabon-receipt',
+                    'noopener,noreferrer,width=920,height=960',
+                  );
+                }}
+              >
                 {t('فتح إيصال العربون', 'Open arabon receipt')}
-              </a>
+              </button>
             </div>
           ) : null}
         </div>

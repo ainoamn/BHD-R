@@ -40,6 +40,12 @@ export function missingLeaseContractFields(input: {
   const isCheque = draft.paymentMethod === 'cheque';
 
   if (blank(unitId)) out.push(gap('unit', 'الوحدة', 'Unit'));
+  if (blank(draft.contractType)) {
+    out.push(gap('contract_type', 'نوع العقد', 'Contract type'));
+  }
+  if (blank(draft.usageType)) {
+    out.push(gap('usage_type', 'نوع الاستعمال', 'Usage type'));
+  }
   if (blank(tenant.nameAr) || tenant.nameAr.trim().length < 2) {
     out.push(gap('tenant_name', 'اسم المستأجر (عربي)', 'Tenant name (Arabic)'));
   }

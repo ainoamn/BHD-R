@@ -1727,6 +1727,7 @@ function ClientRequest({
 
 function ContractDraftEditor({
   reservationId,
+  referenceCode,
   locale,
   portal,
   mode,
@@ -1994,7 +1995,8 @@ function ContractDraftEditor({
         deferUntilHandover={deferUntilHandover}
         municipalAfterHandover
         lockTenantName={Boolean(party)}
-        arabonReceiptHref={`/${locale}/${portal === 'developer' ? 'developer' : 'owner'}/properties/${encodeURIComponent(propertyId)}?section=bookings&focus=${encodeURIComponent(reservationId)}`}
+        tenantFromDirectory
+        arabonReceiptHref={`/${locale}/book/receipt?ref=${encodeURIComponent(referenceCode)}`}
         arabonReceiptLabel={depositLabel}
         requirements={requirements}
         onRequirementsChange={setRequirements}
@@ -2017,14 +2019,7 @@ function ContractDraftEditor({
           partyId: tenant.id,
         }}
         initialTerms={savedLease?.terms}
-        termsSeed={
-          party?.contractType || party?.termMonths
-            ? {
-                ...(party.contractType ? { contractType: party.contractType } : {}),
-                ...(party.termMonths ? { months: party.termMonths } : {}),
-              }
-            : undefined
-        }
+        termsSeed={party?.termMonths ? { months: party.termMonths } : undefined}
         onSubmit={(payload) =>
           void onSave({ action: 'save_contract', lease: payload, requirements })
         }

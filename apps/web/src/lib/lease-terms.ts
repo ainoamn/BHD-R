@@ -205,8 +205,10 @@ export type LeaseDepositItemDraft = {
 
 /** Form state as sent by the client: amounts are decimal strings in the unit currency. */
 export type LeaseTermsDraft = {
-  contractType: ContractUse;
-  usageType: ContractUse;
+  /** Empty until the owner picks residential / commercial. */
+  contractType: ContractUse | '';
+  /** Empty until the owner picks residential / commercial. */
+  usageType: ContractUse | '';
   municipalFormNo?: string | undefined;
   municipalContractNo?: string | undefined;
   rentCalcMode: 'full' | 'per_meter';
@@ -712,8 +714,8 @@ export function computeLeaseTerms(
       version: LEASE_TERMS_VERSION,
       currency,
       digits,
-      contractType: draft.contractType,
-      usageType: draft.usageType,
+      contractType: draft.contractType as ContractUse,
+      usageType: draft.usageType as ContractUse,
       municipalFormNo: text(draft.municipalFormNo, 80),
       municipalContractNo: text(draft.municipalContractNo, 80),
       rentCalcMode: draft.rentCalcMode === 'per_meter' ? 'per_meter' : 'full',

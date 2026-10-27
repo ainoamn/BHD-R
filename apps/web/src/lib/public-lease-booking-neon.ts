@@ -901,6 +901,8 @@ function leaseBookingView(match: LeaseReservationMatch) {
       lifecycle,
     }),
     lifecycle: visibleLifecycle(lifecycle),
+    organizationId: match.organizationId,
+    reservationId: match.id,
     referenceCode: snapshot.referenceCode,
     status: match.status,
     mode: snapshot.mode,
@@ -1122,7 +1124,6 @@ async function leaseBookingAgreementData(transaction: Tx, match: LeaseReservatio
     const png = signaturePng && SIGNATURE_IMAGE.test(signaturePng) ? signaturePng : null;
     return {
       ...leaseBookingView(match),
-      reservationId: match.id,
       capturedAt: match.snapshot.capturedAt,
       owner,
       premises,
