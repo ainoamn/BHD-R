@@ -1975,11 +1975,9 @@ function ContractDraftEditor({
             <button type="submit" className="button button--primary" disabled={busy}>
               {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ العقد والمستندات' : 'Save'}
             </button>
-            {lifecycle.contractDraft ? (
-              <button type="button" className="button button--quiet" onClick={onCancel}>
-                {ar ? 'إلغاء' : 'Cancel'}
-              </button>
-            ) : null}
+            <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
+              {ar ? 'إلغاء' : 'Cancel'}
+            </button>
           </div>
         </form>
       </>
@@ -2028,7 +2026,7 @@ function ContractDraftEditor({
         onSubmit={(payload) =>
           void onSave({ action: 'save_contract', lease: payload, requirements })
         }
-        onCancel={() => (lifecycle.contractDraft ? onCancel() : undefined)}
+        onCancel={onCancel}
       />
     </div>
   );

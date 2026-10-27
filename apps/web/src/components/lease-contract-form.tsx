@@ -1222,6 +1222,7 @@ export function LeaseContractForm({
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    event.stopPropagation();
     if (missingFields.length) {
       setLocalError(
         t(
@@ -1229,10 +1230,22 @@ export function LeaseContractForm({
           `Complete ${missingFields.length} required field${missingFields.length === 1 ? '' : 's'} before saving.`,
         ),
       );
+      requestAnimationFrame(() => {
+        document.getElementById('lcf-form-errors')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      });
       return;
     }
     if (!result.ok) {
       setLocalError(pick(ERROR_TEXT[result.error], ar));
+      requestAnimationFrame(() => {
+        document.getElementById('lcf-form-errors')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      });
       return;
     }
     setLocalError(null);
@@ -1245,7 +1258,7 @@ export function LeaseContractForm({
   }
 
   return (
-    <form className="psr-form lcf lcf--wizard lcf--focus" onSubmit={submit}>
+    <form className="psr-form lcf lcf--wizard lcf--focus" onSubmit={submit} noValidate>
       {heading ? <h3 className="lcf__heading">{heading}</h3> : null}
 
       <nav className="lcf-wizard-progress" aria-label={t('أقسام العقد', 'Contract sections')}>
@@ -2904,7 +2917,6 @@ export function LeaseContractForm({
                 <select
                   id="lcf-new-bank"
                   className="select"
-                  required
                   value={newBank.bankName}
                   onChange={(event) =>
                     setNewBank((current) => ({ ...current, bankName: event.target.value }))
@@ -2924,7 +2936,6 @@ export function LeaseContractForm({
                 <input
                   id="lcf-new-holder-ar"
                   className="input"
-                  required
                   maxLength={160}
                   value={newBank.accountHolderName}
                   onChange={(event) =>
@@ -3189,11 +3200,23 @@ export function LeaseContractForm({
         </p>
       ) : null}
 
-      {localError ? (
-        <div className="notice notice--error" role="alert">
-          {localError}
-        </div>
-      ) : null}
+      <div id="lcf-form-errors">
+        {localError ? (
+          <div className="notice notice--error" role="alert">
+            {localError}
+          </div>
+        ) : null}
+        {isLastStep && missingFields.length > 0 ? (
+          <MissingFieldsBanner
+            locale={locale}
+            fields={missingFields}
+            title={t(
+              `${missingFields.length} حقل إلزامي ناقص — أكملها ثم احفظ`,
+              `${missingFields.length} required field(s) missing — complete them, then save`,
+            )}
+          />
+        ) : null}
+      </div>
 
       <div className="form-actions lcf-wizard-actions">
         <button
@@ -3215,7 +3238,12 @@ export function LeaseContractForm({
               : (submitLabel ?? t('إنشاء عقد الإيجار', 'Create lease contract'))}
           </button>
         )}
-        <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
+        <button
+          type="button"
+          className="button button--quiet"
+          onClick={() => onCancel()}
+          disabled={busy}
+        >
           {t('إلغاء', 'Cancel')}
         </button>
       </div>
