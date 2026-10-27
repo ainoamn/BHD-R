@@ -1635,9 +1635,54 @@ a.pmh-actionbar__title[aria-current='page'] {
   gap: 0.5rem;
   align-items: stretch;
 }
+.lcf-tenant-pick .input,
 .lcf-tenant-pick .select {
   flex: 1 1 14rem;
   min-width: 0;
+}
+.lcf-tenant-selected {
+  margin: 0.45rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+.lcf-tenant-hits {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.3rem;
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--ink-900, #14201c) 12%, transparent);
+  border-radius: 0.55rem;
+  background: #fff;
+}
+.lcf-tenant-hits__empty {
+  padding: 0.65rem 0.75rem;
+}
+.lcf-tenant-hit {
+  width: 100%;
+  display: grid;
+  gap: 0.15rem;
+  text-align: inherit;
+  padding: 0.55rem 0.75rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: inherit;
+}
+.lcf-tenant-hit:hover,
+.lcf-tenant-hit--active {
+  background: color-mix(in srgb, var(--brand-700, #0f5c4c) 10%, transparent);
+}
+.lcf-tenant-hit strong {
+  font-size: 0.95rem;
+}
+.lcf-tenant-hit span {
+  font-size: 0.82rem;
+  color: color-mix(in srgb, var(--ink-900, #14201c) 62%, transparent);
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 .lcf-add-contact {
   display: grid;

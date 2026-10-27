@@ -115,16 +115,30 @@ export class PartiesService {
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
       const query = input.query?.trim();
-      const conditions = [eq(parties.organizationId, claims.organizationId!)];
+      const organizationId = claims.organizationId!;
+      const conditions = [eq(parties.organizationId, organizationId)];
       if (!input.includeArchived) conditions.push(eq(parties.status, 'active'));
       if (query) {
-        conditions.push(
-          or(
-            ilike(parties.displayName, `%${query}%`),
-            ilike(parties.email, `%${query}%`),
-            ilike(parties.phone, `%${query}%`),
-          )!,
-        );
+        const digits = query.replace(/\D/g, '');
+        const civilHash = lookupHash(organizationId, 'civil_id', query);
+        const crHash = lookupHash(organizationId, 'commercial_registration', query);
+        const matchers = [
+          ilike(parties.displayName, `%${query}%`),
+          ilike(parties.email, `%${query}%`),
+          ilike(parties.phone, `%${query}%`),
+          eq(parties.nationalIdLookupHash, civilHash),
+          eq(parties.registrationNumberLookupHash, crHash),
+          sql`exists (
+            select 1 from party_identity_documents d
+            where d.organization_id = ${organizationId}
+              and d.party_id = ${parties.id}
+              and d.number_lookup_hash in (${civilHash}, ${crHash})
+          )`,
+        ];
+        if (digits.length >= 4 && digits !== query) {
+          matchers.push(ilike(parties.phone, `%${digits}%`));
+        }
+        conditions.push(or(...matchers)!);
       }
       const rows = input.role
         ? await transaction
@@ -134,18 +148,20 @@ export class PartiesService {
               partyRoles,
               and(
                 eq(partyRoles.partyId, parties.id),
-                eq(partyRoles.organizationId, claims.organizationId!),
+                eq(partyRoles.organizationId, organizationId),
                 eq(partyRoles.roleKey, input.role),
                 eq(partyRoles.status, 'active'),
               ),
             )
             .where(and(...conditions))
             .orderBy(asc(parties.displayName))
+            .limit(80)
         : await transaction
             .select({ party: parties })
             .from(parties)
             .where(and(...conditions))
-            .orderBy(asc(parties.displayName));
+            .orderBy(asc(parties.displayName))
+            .limit(80);
       return this.hydrate(
         transaction,
         rows.map((row) => row.party),

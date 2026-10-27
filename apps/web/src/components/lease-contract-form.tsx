@@ -14,7 +14,7 @@ import {
 import { LeaseRequirementsPicker } from '@/components/lease-requirements-picker';
 import { MissingFieldsBanner } from '@/components/missing-fields-banner';
 import { NoteTranslateBar } from '@/components/note-translate';
-import { browserMutation, browserNextMutation } from '@/lib/api';
+import { browserGet, browserMutation, browserNextMutation } from '@/lib/api';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
 import type { ContactSummary } from '@/lib/contacts-shared';
 import { formatMoney } from '@/lib/format';
@@ -92,12 +92,30 @@ const EMPTY_TENANT: LeaseTenantDraft = {
   email: '',
 };
 
+type DirectoryHit = PropertyRecordTenant & {
+  civilId?: string | null;
+  crNumber?: string | null;
+  roles?: string[] | undefined;
+};
+
+type PartyApiRow = {
+  id: string;
+  type: 'person' | 'company';
+  displayName: string;
+  email: string | null;
+  phone: string | null;
+  roles?: string[];
+  identityDocuments?: Array<{ documentType: string; number: string }>;
+};
+
 function contactAsTenant(row: {
   id: string;
   displayName: string;
   type: 'person' | 'company';
   email: string | null;
   phone: string | null;
+  civilId?: string | null | undefined;
+  crNumber?: string | null | undefined;
 }): LeaseTenantDraft {
   return {
     ...EMPTY_TENANT,
@@ -106,7 +124,41 @@ function contactAsTenant(row: {
     nameAr: row.displayName,
     email: row.email ?? '',
     phone: row.phone ?? '',
+    civilId: row.civilId?.trim() || '',
+    crNumber: row.crNumber?.trim() || '',
   };
+}
+
+function partyDocsOf(row: PartyApiRow): { civilId: string; crNumber: string } {
+  const docs = row.identityDocuments ?? [];
+  const civil = docs.find((doc) => doc.documentType === 'civil_id')?.number ?? '';
+  const cr =
+    docs.find((doc) => doc.documentType === 'commercial_registration')?.number ?? '';
+  return {
+    civilId: civil.startsWith('••••') ? '' : civil,
+    crNumber: cr.startsWith('••••') ? '' : cr,
+  };
+}
+
+function matchesDirectoryQuery(row: DirectoryHit, needle: string): boolean {
+  const q = needle.trim().toLowerCase();
+  if (!q) return true;
+  const digits = q.replace(/\D/g, '');
+  const hay = [
+    row.displayName,
+    row.email,
+    row.phone,
+    row.civilId,
+    row.crNumber,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  if (hay.includes(q)) return true;
+  if (digits.length >= 4 && (row.phone ?? '').replace(/\D/g, '').includes(digits)) return true;
+  if (digits.length >= 4 && (row.civilId ?? '').replace(/\D/g, '').includes(digits)) return true;
+  if (digits.length >= 3 && (row.crNumber ?? '').replace(/\D/g, '').includes(digits)) return true;
+  return false;
 }
 
 const EXTRA_SUGGESTIONS: Array<[string, string]> = [
@@ -435,7 +487,10 @@ export function LeaseContractForm({
     ...EMPTY_TENANT,
     ...initialTenant,
   }));
-  const [directory, setDirectory] = useState<PropertyRecordTenant[]>(tenants);
+  const [directory, setDirectory] = useState<DirectoryHit[]>(tenants);
+  const [directoryQuery, setDirectoryQuery] = useState('');
+  const [directoryHits, setDirectoryHits] = useState<DirectoryHit[]>([]);
+  const [directorySearching, setDirectorySearching] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
   const [savingContact, setSavingContact] = useState(false);
   const [newContact, setNewContact] = useState({
@@ -509,12 +564,13 @@ export function LeaseContractForm({
                 row.id === bookingTenantSnapshot.current.partyId),
           )
           .map(
-            (row): PropertyRecordTenant => ({
+            (row): DirectoryHit => ({
               id: row.id,
               displayName: row.displayName,
               type: row.type,
               email: row.email,
               phone: row.phone,
+              roles: row.roles,
             }),
           );
         if (cancelled || !rows.length) return;
@@ -533,6 +589,81 @@ export function LeaseContractForm({
       cancelled = true;
     };
   }, [tenantFromDirectory]);
+
+  const directoryRef = useRef(directory);
+  directoryRef.current = directory;
+  const selectedPartyIdRef = useRef(tenant.partyId);
+  selectedPartyIdRef.current = tenant.partyId;
+
+  useEffect(() => {
+    const needle = directoryQuery.trim();
+    if (!needle) {
+      setDirectoryHits([]);
+      setDirectorySearching(false);
+      return;
+    }
+    const local = directoryRef.current
+      .filter((row) => matchesDirectoryQuery(row, needle))
+      .slice(0, 40);
+    setDirectoryHits(local);
+    if (needle.length < 2) return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setDirectorySearching(true);
+      void (async () => {
+        try {
+          const rows = await browserGet<PartyApiRow[]>(
+            `/v1/parties?query=${encodeURIComponent(needle)}`,
+          );
+          if (cancelled) return;
+          const mapped: DirectoryHit[] = rows
+            .filter(
+              (row) =>
+                !row.roles?.length ||
+                row.roles.includes('tenant') ||
+                row.roles.includes('prospect') ||
+                row.id === bookingTenantSnapshot.current.partyId ||
+                row.id === selectedPartyIdRef.current,
+            )
+            .map((row) => {
+              const docs = partyDocsOf(row);
+              return {
+                id: row.id,
+                displayName: row.displayName,
+                type: row.type,
+                email: row.email,
+                phone: row.phone,
+                roles: row.roles,
+                civilId: docs.civilId || null,
+                crNumber: docs.crNumber || null,
+              };
+            });
+          setDirectoryHits((current) => {
+            const map = new Map<string, DirectoryHit>();
+            for (const row of [...mapped, ...current]) {
+              map.set(row.id, { ...map.get(row.id), ...row });
+            }
+            return [...map.values()].sort((a, b) =>
+              a.displayName.localeCompare(b.displayName, 'ar'),
+            );
+          });
+          setDirectory((current) => {
+            const map = new Map(current.map((row) => [row.id, row]));
+            for (const row of mapped) map.set(row.id, { ...map.get(row.id), ...row });
+            return [...map.values()];
+          });
+        } catch {
+          /* local hits already shown */
+        } finally {
+          if (!cancelled) setDirectorySearching(false);
+        }
+      })();
+    }, 280);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [directoryQuery]);
 
   const activeBankAccounts = useMemo(
     () => localBanks.filter((row) => row.active !== false),
@@ -891,13 +1022,15 @@ export function LeaseContractForm({
     }
   }
 
-  function pickTenant(partyId: string) {
+  async function pickTenant(partyId: string) {
     if (!partyId) {
       if (tenantFromDirectory) {
         setTenant(bookingTenantSnapshot.current);
+        setDirectoryQuery('');
         return;
       }
       setTenantField('partyId', '');
+      setDirectoryQuery('');
       return;
     }
     if (
@@ -906,14 +1039,38 @@ export function LeaseContractForm({
       bookingTenantSnapshot.current.nameAr
     ) {
       setTenant(bookingTenantSnapshot.current);
+      setDirectoryQuery('');
+      setDirectoryHits([]);
       return;
     }
-    const party = directory.find((item) => item.id === partyId);
+    const party =
+      directoryHits.find((item) => item.id === partyId) ??
+      directory.find((item) => item.id === partyId);
     if (!party) {
       setTenantField('partyId', '');
       return;
     }
-    setTenant(contactAsTenant(party));
+    let next = contactAsTenant(party);
+    try {
+      const detailed = await browserGet<PartyApiRow>(
+        `/v1/parties/${encodeURIComponent(partyId)}?includeSensitive=true`,
+      );
+      const docs = partyDocsOf(detailed);
+      next = contactAsTenant({
+        id: detailed.id,
+        displayName: detailed.displayName,
+        type: detailed.type,
+        email: detailed.email,
+        phone: detailed.phone,
+        civilId: docs.civilId || party.civilId,
+        crNumber: docs.crNumber || party.crNumber,
+      });
+    } catch {
+      /* keep summary fields from the hit */
+    }
+    setTenant(next);
+    setDirectoryQuery('');
+    setDirectoryHits([]);
   }
 
   async function createContact() {
@@ -971,16 +1128,19 @@ export function LeaseContractForm({
         email: newContact.email.trim() || null,
         phone: newContact.phone.trim() || null,
       };
+      const hit: DirectoryHit = {
+        ...created,
+        civilId: newContact.type === 'person' ? newContact.civilId.trim() : null,
+        crNumber: newContact.type === 'company' ? newContact.commercialRegistration.trim() : null,
+      };
       setDirectory((current) =>
-        [...current.filter((row) => row.id !== id), created].sort((a, b) =>
+        [...current.filter((row) => row.id !== id), hit].sort((a, b) =>
           a.displayName.localeCompare(b.displayName, 'ar'),
         ),
       );
-      setTenant({
-        ...contactAsTenant(created),
-        civilId: newContact.type === 'person' ? newContact.civilId.trim() : '',
-        crNumber: newContact.type === 'company' ? newContact.commercialRegistration.trim() : '',
-      });
+      setTenant(contactAsTenant(hit));
+      setDirectoryQuery('');
+      setDirectoryHits([]);
       setAddingContact(false);
       setNewContact({
         type: 'person',
@@ -1265,51 +1425,24 @@ export function LeaseContractForm({
               wide
               required={tenantFromDirectory}
               missing={tenantFromDirectory && !tenant.partyId && !tenant.nameAr}
-              hint={
-                tenantFromDirectory
-                  ? t(
-                      'البيانات تُجلب من حجز العميل أو جهة اتصال مختارة. لتغيير المستأجر اختر من دفتر العناوين — دون تعبئة يدوية.',
-                      'Details come from the booking or a chosen contact. To change the tenant, pick from the address book — no manual typing.',
-                    )
-                  : tenant.partyId
-                    ? t(
-                        'سيُربط العقد بهذا المستأجر الموجود في دفتر العناوين.',
-                        'The contract will use this existing address-book party.',
-                      )
-                    : t(
-                        'أو أدخل بيانات مستأجر جديد ليُضاف إلى دفتر العناوين.',
-                        'Or enter a new tenant; it is added to the address book.',
-                      )
-              }
+              hint={t(
+                'ابحث بالاسم أو الهاتف أو الرقم المدني أو رقم السجل التجاري، ثم اختر النتيجة.',
+                'Search by name, phone, civil ID or commercial registration, then pick a result.',
+              )}
             >
               <div className="lcf-tenant-pick">
-                <select
+                <input
                   id="lcf-book"
-                  className="select"
-                  value={tenant.partyId}
-                  onChange={(event) => pickTenant(event.target.value)}
-                >
-                  {tenantFromDirectory ? (
-                    <option value={bookingTenantSnapshot.current.partyId || ''}>
-                      {bookingTenantSnapshot.current.nameAr
-                        ? t('مستأجر الحجز', 'Booking tenant')
-                        : t('— اختر جهة اتصال —', '— Choose a contact —')}
-                      {bookingTenantSnapshot.current.nameAr
-                        ? ` · ${bookingTenantSnapshot.current.nameAr}`
-                        : ''}
-                    </option>
-                  ) : (
-                    <option value="">{t('— مستأجر جديد —', '— New tenant —')}</option>
+                  className="input"
+                  type="search"
+                  autoComplete="off"
+                  placeholder={t(
+                    'اسم · هاتف · رقم مدني · سجل تجاري',
+                    'Name · phone · civil ID · CR no.',
                   )}
-                  {directory
-                    .filter((item) => item.id !== bookingTenantSnapshot.current.partyId)
-                    .map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.displayName}
-                        {item.phone ? ` · ${item.phone}` : item.email ? ` · ${item.email}` : ''}
-                      </option>
-                    ))}
-                </select>
+                  value={directoryQuery}
+                  onChange={(event) => setDirectoryQuery(event.target.value)}
+                />
                 {tenantFromDirectory ? (
                   <button
                     type="button"
@@ -1322,6 +1455,68 @@ export function LeaseContractForm({
                   </button>
                 ) : null}
               </div>
+              {tenant.nameAr ? (
+                <p className="lcf-tenant-selected muted">
+                  {t('المختار:', 'Selected:')}{' '}
+                  <strong>{tenant.nameAr}</strong>
+                  {tenant.phone ? (
+                    <>
+                      {' · '}
+                      <bdi dir="ltr">{tenant.phone}</bdi>
+                    </>
+                  ) : null}
+                  {tenantFromDirectory &&
+                  tenant.partyId !== bookingTenantSnapshot.current.partyId ? (
+                    <>
+                      {' · '}
+                      <button
+                        type="button"
+                        className="button button--quiet"
+                        onClick={() => void pickTenant(bookingTenantSnapshot.current.partyId || '')}
+                      >
+                        {t('العودة لمستأجر الحجز', 'Back to booking tenant')}
+                      </button>
+                    </>
+                  ) : null}
+                </p>
+              ) : null}
+              {directoryQuery.trim() ? (
+                <ul className="lcf-tenant-hits" role="listbox" aria-label={t('نتائج البحث', 'Search results')}>
+                  {directorySearching ? (
+                    <li className="lcf-tenant-hits__empty muted">
+                      {t('جارٍ البحث…', 'Searching…')}
+                    </li>
+                  ) : null}
+                  {!directorySearching && directoryHits.length === 0 ? (
+                    <li className="lcf-tenant-hits__empty muted">
+                      {t('لا توجد نتائج مطابقة.', 'No matching contacts.')}
+                    </li>
+                  ) : null}
+                  {directoryHits.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        className={`lcf-tenant-hit${
+                          item.id === tenant.partyId ? ' lcf-tenant-hit--active' : ''
+                        }`}
+                        onClick={() => void pickTenant(item.id)}
+                      >
+                        <strong>{item.displayName}</strong>
+                        <span>
+                          {[
+                            item.phone,
+                            item.civilId ? `${t('مدني', 'Civil')} ${item.civilId}` : null,
+                            item.crNumber ? `${t('س.ت', 'CR')} ${item.crNumber}` : null,
+                            item.email,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </Field>
           ) : null}
           {tenantFromDirectory && addingContact ? (
