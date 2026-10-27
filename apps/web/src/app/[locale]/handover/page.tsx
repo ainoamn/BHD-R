@@ -34,10 +34,21 @@ export default async function HandoverDeskPage({
   const tokenRaw = query.t;
   const token =
     typeof tokenRaw === 'string' && /^[A-Za-z0-9_-]{40,120}$/.test(tokenRaw) ? tokenRaw : null;
+  const refRaw = query.ref;
+  const initialReference =
+    typeof refRaw === 'string' && /^[A-Za-z0-9-]{6,40}$/.test(refRaw.trim())
+      ? refRaw.trim().toUpperCase()
+      : Array.isArray(refRaw) && typeof refRaw[0] === 'string' && /^[A-Za-z0-9-]{6,40}$/.test(refRaw[0].trim())
+        ? refRaw[0].trim().toUpperCase()
+        : null;
 
   const viewer = await getViewer();
   if (!viewer) {
-    const self = `/${locale}/handover${token ? `?t=${encodeURIComponent(token)}` : ''}`;
+    const params = new URLSearchParams();
+    if (token) params.set('t', token);
+    if (initialReference) params.set('ref', initialReference);
+    const q = params.toString();
+    const self = `/${locale}/handover${q ? `?${q}` : ''}`;
     redirect(`/${locale}/login?next=${encodeURIComponent(self)}`);
   }
   const claims = await readClaims();
@@ -55,7 +66,11 @@ export default async function HandoverDeskPage({
         </p>
       </header>
       {allowed ? (
-        <HandoverDesk locale={locale} initialToken={token} />
+        <HandoverDesk
+          locale={locale}
+          initialToken={token}
+          initialReference={initialReference}
+        />
       ) : (
         <p className="notice notice--error" role="alert">
           {ar

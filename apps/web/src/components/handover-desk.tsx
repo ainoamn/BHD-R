@@ -61,9 +61,12 @@ function selfieHref(key: Key): string {
 export function HandoverDesk({
   locale,
   initialToken,
+  initialReference = null,
 }: {
   locale: 'ar' | 'en';
   initialToken: string | null;
+  /** Prefill the booking reference when opened from the bookings list. */
+  initialReference?: string | null;
 }) {
   const ar = locale === 'ar';
   const [key, setKey] = useState<Key | null>(initialToken ? { token: initialToken } : null);
@@ -166,7 +169,12 @@ export function HandoverDesk({
           }}
         />
       ) : (
-        <PassEntry ar={ar} loading={loading} onKey={(next) => void load(next)} />
+        <PassEntry
+          ar={ar}
+          loading={loading}
+          initialReference={initialReference}
+          onKey={(next) => void load(next)}
+        />
       )}
     </div>
   );
@@ -175,13 +183,15 @@ export function HandoverDesk({
 function PassEntry({
   ar,
   loading,
+  initialReference,
   onKey,
 }: {
   ar: boolean;
   loading: boolean;
+  initialReference?: string | null;
   onKey: (key: Key) => void;
 }) {
-  const [reference, setReference] = useState('');
+  const [reference, setReference] = useState(initialReference?.trim() ?? '');
   const [code, setCode] = useState('');
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);

@@ -99,6 +99,8 @@ type Viewer = {
   canManageViewings?: boolean;
   /** Guard / viewing contact who scans visit passes. */
   canCheckInViewings?: boolean;
+  /** Can open the lease handover desk (scan tenant pass). */
+  canHandover?: boolean;
 };
 
 type StampKind = 'check_in' | 'check_out';
@@ -114,6 +116,7 @@ const NO_VIEWER: Viewer = {
   canReviewGuests: false,
   canManageViewings: false,
   canCheckInViewings: false,
+  canHandover: false,
 };
 
 type ContractOutcome = {
@@ -2545,18 +2548,38 @@ export function PropertySectionRecords({
                                   }
                                 />
                               </section>
-                              {href ? (
-                                <div className="psr-booking-detail-modal__footer">
-                                  <Link
-                                    className="button button--quiet"
-                                    href={href}
-                                    prefetch={false}
-                                    onClick={() => setDetailRowId(null)}
-                                  >
-                                    {ar ? 'فتح صفحة الحجز' : 'Open booking page'}
-                                  </Link>
-                                </div>
-                              ) : null}
+                              {(() => {
+                                const canStartHandover =
+                                  row.kind === 'reservation' &&
+                                  row.stage === 'awaiting_handover' &&
+                                  Boolean(viewer.canHandover) &&
+                                  Boolean(row.reference);
+                                if (!href && !canStartHandover) return null;
+                                return (
+                                  <div className="psr-booking-detail-modal__footer">
+                                    {canStartHandover ? (
+                                      <Link
+                                        className="button button--primary"
+                                        href={`/${locale}/handover?ref=${encodeURIComponent(row.reference!)}`}
+                                        prefetch={false}
+                                        onClick={() => setDetailRowId(null)}
+                                      >
+                                        {ar ? 'تسليم العقار' : 'Hand over'}
+                                      </Link>
+                                    ) : null}
+                                    {href ? (
+                                      <Link
+                                        className="button button--quiet"
+                                        href={href}
+                                        prefetch={false}
+                                        onClick={() => setDetailRowId(null)}
+                                      >
+                                        {ar ? 'فتح صفحة الحجز' : 'Open booking page'}
+                                      </Link>
+                                    ) : null}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </section>
                         </div>

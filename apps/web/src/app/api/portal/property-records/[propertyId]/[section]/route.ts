@@ -77,6 +77,7 @@ export async function GET(
           canReviewGuests: canReviewGuests(claims),
           canManageViewings: can('viewing.manage'),
           canCheckInViewings: can('viewing.checkin') || can('viewing.manage'),
+          canHandover: can('reservation.handover'),
         },
       },
       { headers: { 'Cache-Control': 'private, no-store' } },
