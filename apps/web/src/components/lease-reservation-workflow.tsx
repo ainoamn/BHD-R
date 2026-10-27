@@ -1598,7 +1598,7 @@ function RequirementsReview({
   busy: boolean;
   fileHref: (file: string) => string;
   onReview: (code: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
-  onAddRequirements: (
+  onAddRequirements?: (
     requirements: Array<{ code: string; labelAr: string; labelEn: string }>,
   ) => void;
 }) {
@@ -1672,7 +1672,7 @@ function RequirementsReview({
           })()
         : [];
     const next = [...fromCatalogue, ...custom];
-    if (!next.length) return;
+    if (!next.length || !onAddRequirements) return;
     onAddRequirements(next);
     setPickedExtras([]);
     setCustomLabel('');
@@ -1929,7 +1929,7 @@ function RequirementsReview({
         </p>
       )}
 
-      {canManage ? (
+      {canManage && onAddRequirements ? (
         <form className="lrw__extra-docs" onSubmit={submitExtras}>
           <h5>{ar ? 'طلب مستند إضافي من العميل' : 'Request an extra document from the client'}</h5>
           <p className="muted">

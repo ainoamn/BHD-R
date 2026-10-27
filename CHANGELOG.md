@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.170 — 2026-10-27
+
+- **إصلاح نشر Vercel:** فاصلة ناقصة في نص شاشة المستندات كانت توقف بناء `bhd-r-api` منذ تحديث صفحة تأكيد الحجز.
+
 ## 0.8.134.169 — 2026-10-27
 
 - **خريطة موقع العقار:** استبدال بلاطات OpenStreetMap العامة (محظورة على المواقع الإنتاجية) ببلاطات CARTO حتى تظهر الخريطة بشكل طبيعي في صفحة تأكيد الحجز وخرائط التصفح.

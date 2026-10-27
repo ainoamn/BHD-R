@@ -155,7 +155,7 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
           : t(
               `المالك اعتمد حجزك. ليكتمل ${contractWord}: أكّد بياناتك، ارفع المستندات المطلوبة${lifecycle.cheques?.length ? '، وأدخل رقم كل شيك مع صورة الشيك' : ''}. يمكنك معاينة الملف وضبط صورة الشيك قبل الإرسال.`,
               `The owner approved your booking. To complete the ${contractWord}: confirm your details, upload the required documents${lifecycle.cheques?.length ? ', and enter each cheque number with its photo' : ''}. You can preview files and adjust cheque photos before sending.`,
-            )
+            ),
         action: 'documents',
       };
     } else if (phase === 'awaiting_documents_review') {
