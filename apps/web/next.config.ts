@@ -37,6 +37,11 @@ const config: NextConfig = {
   // fails on Next 16.3+. Keep standalone for Docker/self-host only.
   ...(process.env.VERCEL ? {} : { output: 'standalone' as const }),
   outputFileTracingRoot: monorepoRoot,
+  // Keep Arabic greeting fonts + resvg native bits in serverless traces.
+  outputFileTracingIncludes: {
+    '/api/site-admin/greetings/**/*': ['./assets/fonts/**/*', './public/fonts/**/*'],
+    '/api/public/greeting-card/**/*': ['./assets/fonts/**/*', './public/fonts/**/*'],
+  },
   poweredByHeader: false,
   reactStrictMode: true,
   // Home/catalogue can wait on Neon during build; default 60s caused Vercel ERROR on 0.4.73.
@@ -51,6 +56,7 @@ const config: NextConfig = {
     '@bhd-r/db',
     '@bhd-r/security',
   ],
+  serverExternalPackages: ['@resvg/resvg-js'],
   experimental: {
     optimizePackageImports: ['@bhd-r/ui'],
     // Soft nav feels SPA-like: keep recently visited portal segments warm on the client.

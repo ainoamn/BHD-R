@@ -1,7 +1,8 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 import sharp from 'sharp';
 import { aiChatJson, resolveAiEndpoint, type AiEndpoint } from '@/lib/ai-chat';
@@ -32,31 +33,28 @@ type AiDesignSpec = {
   imagePrompt: string;
 };
 
-/** Official BHD mark paths (viewBox 548×171). */
 const MARK_PATHS = `
   <path fill="#08a39f" d="M0 0h100c31 0 48 17 48 43 0 18-9 31-25 39 20 6 31 22 31 42 0 28-21 47-53 47H30v-28h70c16 0 26-8 26-20 0-13-11-22-29-22H0V74h97c15 0 24-8 24-21 0-15-10-25-25-25H28L0 0Z"/>
   <path fill="#08a39f" d="M385 0h74c52 0 89 35 89 85 0 51-37 86-89 86h-74l28-28h46c36 0 61-23 61-58 0-34-25-57-61-57h-46L385 0Z"/>
   <path fill="#174b70" d="M190 109l30-27h90V0h30v171h-30v-62h-90v62h-30v-62Z"/>`;
 
-/**
- * Simplified Oman national flag (hoist red + white/red/green + white khanjar cue).
- * Colours match the real flag; emblem is a clear simplified khanjar/swords mark.
- */
+const MODULE_DIR = path.dirname(fileURLToPath(import.meta.url));
+
 function omanFlagSvg(x: number, y: number, w: number, h: number): string {
   const hoist = w * 0.28;
-  const stripe = (h / 3);
+  const stripe = h / 3;
   return `<g transform="translate(${x} ${y})">
-    <rect width="${w}" height="${h}" rx="3" fill="#C8102E"/>
+    <rect width="${w}" height="${h}" rx="4" fill="#C8102E"/>
     <rect x="${hoist}" y="0" width="${w - hoist}" height="${stripe}" fill="#FFFFFF"/>
     <rect x="${hoist}" y="${stripe}" width="${w - hoist}" height="${stripe}" fill="#C8102E"/>
     <rect x="${hoist}" y="${stripe * 2}" width="${w - hoist}" height="${stripe}" fill="#00843D"/>
-    <g fill="#FFFFFF" transform="translate(${hoist * 0.18} ${h * 0.22}) scale(${(hoist * 0.012).toFixed(3)})">
+    <g fill="#FFFFFF" transform="translate(${hoist * 0.2} ${h * 0.24}) scale(${(hoist * 0.011).toFixed(3)})">
       <path d="M40 8c6 18 8 36 8 54 0 14-2 26-6 36l12 4c5-12 8-28 8-40 0-20-3-40-10-58L40 8z"/>
       <path d="M28 90h36l-6 14H34z"/>
       <path d="M10 70c18-8 36-10 54-6l2 12c-16-3-32-2-48 6z"/>
       <path d="M10 86c18 8 36 10 54 6l2-12c-16 3-32 2-48-6z"/>
     </g>
-    <rect width="${w}" height="${h}" rx="3" fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.5"/>
+    <rect width="${w}" height="${h}" rx="4" fill="none" stroke="#0b3d2e" stroke-width="2"/>
   </g>`;
 }
 
@@ -74,22 +72,22 @@ function asHex(value: unknown, fallback: string): string {
 
 function parseSpec(raw: Record<string, unknown>, brief: GreetingCardBrief): AiDesignSpec {
   return {
-    headlineAr: asString(raw.headlineAr, `تهنئة بمناسبة ${brief.occasion}`, 80),
-    headlineEn: asString(raw.headlineEn, `Happy ${brief.occasion}`, 80),
+    headlineAr: asString(raw.headlineAr, `تهنئة بمناسبة ${brief.occasion}`, 72),
+    headlineEn: asString(raw.headlineEn, `Happy ${brief.occasion}`, 72),
     bodyAr: asString(
       raw.bodyAr,
-      'بأسمى آيات التهاني والتبريكات، تتقدم شركة بن حمود للتطوير بأطيب الأمنيات في هذه المناسبة العزيزة.',
-      280,
+      'بأسمى آيات التهاني والتبريكات، تتقدم شركة بن حمود للتطوير بأطيب الأمنيات لجميع أبناء عُمان في هذه المناسبة العزيزة.',
+      220,
     ),
     bodyEn: asString(
       raw.bodyEn,
-      'Bin Hamood Development extends its warmest congratulations on this cherished occasion.',
-      280,
+      'Bin Hamood Development extends its warmest congratulations to the people of Oman on this cherished occasion.',
+      220,
     ),
     accent: asHex(raw.accent, '#0b8f8a'),
     accentSoft: asHex(raw.accentSoft, '#e6f6f5'),
-    motif: asString(raw.motif, 'omani daylight celebration', 60),
-    imagePrompt: asString(raw.imagePrompt, '', 700),
+    motif: asString(raw.motif, 'omani youth portrait', 60),
+    imagePrompt: asString(raw.imagePrompt, '', 500),
   };
 }
 
@@ -98,23 +96,22 @@ async function designSpec(endpoint: AiEndpoint, brief: GreetingCardBrief): Promi
   const raw = await aiChatJson(
     endpoint,
     [
-      'You are a senior bilingual ceremonial copywriter for Bin Hamood Development (BHD) in the Sultanate of Oman.',
-      'Return JSON only. Rewrite admin notes into polished Modern Standard Arabic greeting copy — never paste notes verbatim.',
-      'headlineAr: elegant Arabic title (≤12 words). bodyAr: 1–2 dignified Arabic sentences for a corporate national card.',
-      'headlineEn/bodyEn: formal English mirrors. motif: short English visual theme DIFFERENT from avoidMotifs.',
-      'imagePrompt: ENGLISH scene brief ONLY for a background photograph (people + Oman landscape).',
-      'Must specify authentic Omani dress: men in white dishdasha with embroidered Omani kumma cap (NOT Saudi shemagh);',
-      'women in black abaya with subtle gold embroidery. Landmarks: Nizwa/Mutrah fort, Sultan Qaboos Grand Mosque dome, Gulf of Oman.',
-      'imagePrompt must say: no text, no letters, no calligraphy, no flags, no logos, no watermarks.',
+      'Senior ceremonial copywriter for Bin Hamood Development in Oman. JSON only.',
+      'Rewrite notes into polished Modern Standard Arabic — never paste verbatim.',
+      'headlineAr ≤10 words. bodyAr: ONE short dignified Arabic sentence (max 35 words).',
+      'headlineEn/bodyEn formal English mirrors. motif: short English tag ≠ avoidMotifs.',
+      'imagePrompt: ENGLISH only, a simple outdoor GROUP PORTRAIT in Oman.',
+      'Men: white dishdasha + embroidered Omani kumma round cap (NOT Saudi shemagh, NOT turban wraps).',
+      'Women: black abaya + hijab. Soft daylight, blurred fort/mosque far behind faces.',
+      'imagePrompt MUST include: no text, no letters, no calligraphy, no flags, no poles, no logos, no banners.',
     ].join(' '),
-    'Write ceremonial copy and a text-free Oman scene prompt.',
+    'Write copy and a clean portrait scene prompt.',
     {
       occasion: brief.occasion,
       occasionDate: brief.occasionDate,
       adminNotes: brief.meaning,
       changeRequest: brief.changeRequest ?? null,
       avoidMotifs: avoid,
-      brandAr: COMPANY_NAME_AR,
     },
     'greeting-card-design',
     60_000,
@@ -160,23 +157,18 @@ export function resolveAiImageEndpoint(oidcToken: string | null = null): ImageEn
   return null;
 }
 
-/** Background-only prompt — never asks the model to paint Arabic or flags. */
 function buildScenePrompt(spec: AiDesignSpec, brief: GreetingCardBrief): string {
-  const angle =
-    ['low-angle heroic', 'side three-quarter', 'wide environmental portrait', 'soft morning light'][
-      Math.abs([...spec.motif].reduce((n, c) => n + c.charCodeAt(0), 0)) % 4
-    ];
   return [
     spec.imagePrompt ||
-      `Photorealistic vertical photograph of young Omani adults celebrating ${brief.occasion} outdoors in Oman`,
-    `Camera: ${angle}. Vertical 3:4 composition, cinematic, natural daylight.`,
-    `AUTHENTIC OMANI PEOPLE ONLY: men wear white dishdasha with tassel and embroidered Omani kumma (round cap) — never Saudi red/white shemagh, never Emirati kandolian style.`,
-    `Women wear black abaya and hijab with fine gold Omani embroidery.`,
-    `BACKGROUND OMAN ONLY: stone fort on rocky hills (Nizwa or Mutrah), distant Sultan Qaboos Grand Mosque golden dome, turquoise sea, Hajar mountains, clear sky.`,
-    `Leave soft empty sky in the top ~18% and darker open ground/space in the bottom ~28% for later text overlays.`,
-    `STRICTLY FORBIDDEN in the image: any flag of any country, any text, letters, numbers, Arabic script, English words, calligraphy, logos, watermarks, posters, banners, UI chrome, fake emblems.`,
-    `Theme mood: ${spec.motif}.`,
-    brief.changeRequest ? `Art direction note (visual only, still no text/flags): ${brief.changeRequest}` : '',
+      `Outdoor group portrait of smiling Omani youth for ${brief.occasion}, soft daylight`,
+    `Photorealistic vertical portrait photo, faces in the center third, shallow depth of field.`,
+    `AUTHENTIC OMAN: men in white dishdasha with embroidered Omani kumma (round cap) only — never Saudi red/white shemagh, never black-and-white keffiyeh, never loose turban.`,
+    `Women in black abaya and hijab with subtle gold trim.`,
+    `Background softly blurred Oman landscape (stone fort or mosque dome out of focus) — NO flagpoles, NO flags of any country.`,
+    `Empty clean sky above heads. No posters, no banners.`,
+    `ABSOLUTELY NO text, letters, numbers, Arabic script, English words, calligraphy, logos, watermarks, UI, fake emblems.`,
+    `Mood: ${spec.motif}.`,
+    brief.changeRequest ? `Visual note only: ${brief.changeRequest}` : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -187,7 +179,7 @@ async function generateRaster(imageEndpoint: ImageEndpoint, prompt: string): Pro
   const isDale = /dall-e/i.test(imageEndpoint.model);
   const body: Record<string, unknown> = {
     model: imageEndpoint.model,
-    prompt: prompt.slice(0, 3000),
+    prompt: prompt.slice(0, 2800),
     n: 1,
     size: isGptImage ? '1024x1536' : '1024x1024',
   };
@@ -250,7 +242,7 @@ async function generateRasterViaChat(chat: AiEndpoint, prompt: string): Promise<
           messages: [
             {
               role: 'user',
-              content: `Generate one photorealistic background photograph only. No text. No flags. No logos.\n\n${prompt.slice(0, 2800)}`,
+              content: `Generate one photorealistic portrait photograph only. No text. No flags. No logos.\n\n${prompt.slice(0, 2600)}`,
             },
           ],
           modalities: ['text', 'image'],
@@ -353,20 +345,41 @@ function wrapLines(text: string, maxChars: number, maxLines: number): string[] {
   return lines.length ? lines : [text.slice(0, maxChars)];
 }
 
-function resolveFontFiles(): string[] {
+function fontCandidates(): string[] {
+  const names = ['NotoNaskhArabic-Bold.ttf', 'NotoNaskhArabic-Regular.ttf'];
   const dirs = [
+    path.join(MODULE_DIR, '../../assets/fonts'),
+    path.join(MODULE_DIR, '../../../assets/fonts'),
     path.join(process.cwd(), 'assets/fonts'),
     path.join(process.cwd(), 'apps/web/assets/fonts'),
     path.join(process.cwd(), 'public/fonts'),
   ];
-  const files: string[] = [];
+  const found: string[] = [];
   for (const dir of dirs) {
-    for (const name of ['NotoNaskhArabic-Bold.ttf', 'NotoNaskhArabic-Regular.ttf']) {
+    for (const name of names) {
       const full = path.join(dir, name);
-      if (existsSync(full)) files.push(full);
+      if (existsSync(full)) found.push(full);
     }
   }
-  return [...new Set(files)];
+  return [...new Set(found)];
+}
+
+/** Load TTF once and embed as CSS @font-face so Vercel does not depend on system fonts. */
+function loadEmbeddedFonts(): { css: string; files: string[] } {
+  const files = fontCandidates();
+  if (!files.length) {
+    console.error('greeting fonts missing from bundle', {
+      cwd: process.cwd(),
+      moduleDir: MODULE_DIR,
+    });
+    return { css: '', files: [] };
+  }
+  const faces = files.map((file) => {
+    const bold = /Bold/i.test(path.basename(file));
+    const b64 = readFileSync(file).toString('base64');
+    return `@font-face{font-family:'NotoNaskhCard';font-weight:${bold ? 700 : 400};font-style:normal;src:url('data:font/ttf;base64,${b64}') format('truetype');}`;
+  });
+  return { css: faces.join(''), files };
 }
 
 function dateLabelAr(occasionDate: string): string {
@@ -379,100 +392,111 @@ function dateLabelAr(occasionDate: string): string {
 }
 
 /**
- * Bake real Arabic typography + Oman flag + BHD mark onto a text-free AI scene.
+ * Build a BHD-owned card: opaque chrome + Oman flag + real Arabic.
+ * AI photo is cropped to the middle band and placed in a window only —
+ * so model-drawn flags / gibberish / fake logos never appear.
  */
 async function composeGreetingCard(
   scene: Buffer,
   spec: AiDesignSpec,
   brief: GreetingCardBrief,
 ): Promise<{ mime: string; base64: string }> {
-  const resized = await sharp(scene, { failOn: 'none', limitInputPixels: 40_000_000 })
+  const meta = await sharp(scene, { failOn: 'none', limitInputPixels: 40_000_000 })
     .rotate()
-    .resize({ width: 1024, height: 1536, fit: 'cover' })
-    .jpeg({ quality: 88, mozjpeg: true })
+    .metadata();
+  const srcW = meta.width ?? 1024;
+  const srcH = meta.height ?? 1536;
+  // Drop top/bottom where models paint flags, fake logos and gibberish.
+  const cropTop = Math.round(srcH * 0.22);
+  const cropH = Math.round(srcH * 0.52);
+  const photoBuf = await sharp(scene, { failOn: 'none', limitInputPixels: 40_000_000 })
+    .rotate()
+    .extract({
+      left: 0,
+      top: cropTop,
+      width: srcW,
+      height: Math.min(cropH, srcH - cropTop),
+    })
+    .resize({ width: 920, height: 620, fit: 'cover' })
+    .jpeg({ quality: 86, mozjpeg: true })
     .toBuffer();
+  const photo = `data:image/jpeg;base64,${photoBuf.toString('base64')}`;
 
   const width = 1024;
   const height = 1536;
-  const photo = `data:image/jpeg;base64,${resized.toString('base64')}`;
   const date = dateLabelAr(brief.occasionDate);
-  const headLines = wrapLines(spec.headlineAr, 22, 2);
-  const bodyLines = wrapLines(spec.bodyAr, 34, 4);
-  const headFs = 44;
-  const bodyFs = 26;
-  const headStart = 430;
-  const bodyStart = 1180;
+  const headLines = wrapLines(spec.headlineAr, 20, 2);
+  const bodyLines = wrapLines(spec.bodyAr, 32, 3);
+  const { css: fontCss, files: fontFiles } = loadEmbeddedFonts();
+  if (!fontFiles.length) throw new Error('ai_image_failed');
 
+  const titleBlockH = 130 + (headLines.length - 1) * 44;
   const headSvg = headLines
     .map(
       (line, i) =>
-        `<text x="512" y="${headStart + i * 56}" text-anchor="middle" direction="rtl" font-family="Noto Naskh Arabic, NotoNaskhArabic, Tahoma, Arial" font-size="${headFs}" font-weight="700" fill="#10243a">${escapeXml(line)}</text>`,
+        `<text x="512" y="${920 + i * 52}" text-anchor="middle" direction="rtl" font-family="NotoNaskhCard" font-size="40" font-weight="700" fill="#10243a">${escapeXml(line)}</text>`,
     )
     .join('');
   const bodySvg = bodyLines
     .map(
       (line, i) =>
-        `<text x="512" y="${bodyStart + i * 36}" text-anchor="middle" direction="rtl" font-family="Noto Naskh Arabic, NotoNaskhArabic, Tahoma, Arial" font-size="${bodyFs}" font-weight="500" fill="#ffffff">${escapeXml(line)}</text>`,
+        `<text x="512" y="${1280 + i * 34}" text-anchor="middle" direction="rtl" font-family="NotoNaskhCard" font-size="24" font-weight="400" fill="#ffffff">${escapeXml(line)}</text>`,
     )
     .join('');
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+  const cardSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <defs>
-    <linearGradient id="topFade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.92"/>
-      <stop offset="55%" stop-color="#ffffff" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
-    <linearGradient id="bottomFade" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#06261f" stop-opacity="0"/>
-      <stop offset="35%" stop-color="#06261f" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="#041812" stop-opacity="0.92"/>
+    <style type="text/css"><![CDATA[${fontCss}]]></style>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${spec.accentSoft}"/>
+      <stop offset="45%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e8f4f2"/>
     </linearGradient>
     <linearGradient id="band" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" stop-color="${spec.accent}"/>
       <stop offset="100%" stop-color="#174b70"/>
     </linearGradient>
+    <linearGradient id="footer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b6f6a"/>
+      <stop offset="100%" stop-color="#174b70"/>
+    </linearGradient>
+    <clipPath id="photoClip"><rect x="52" y="210" width="920" height="620" rx="22"/></clipPath>
   </defs>
-  <image href="${photo}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="xMidYMid slice"/>
-  <rect width="${width}" height="320" fill="url(#topFade)"/>
-  <rect y="980" width="${width}" height="556" fill="url(#bottomFade)"/>
-  <rect x="0" y="0" width="${width}" height="10" fill="url(#band)"/>
-  <rect x="0" y="${height - 10}" width="${width}" height="10" fill="url(#band)"/>
-
-  <!-- Brand chip -->
-  <rect x="292" y="36" width="440" height="118" rx="18" fill="#ffffff" fill-opacity="0.94" stroke="${spec.accent}" stroke-opacity="0.35" stroke-width="2"/>
-  <svg x="388" y="48" width="248" height="77" viewBox="0 0 548 171">${MARK_PATHS}</svg>
-  <text x="512" y="140" text-anchor="middle" direction="rtl" font-family="Noto Naskh Arabic, NotoNaskhArabic, Tahoma, Arial" font-size="15" font-weight="700" fill="#174b70">${escapeXml(COMPANY_NAME_AR)}</text>
-
-  ${omanFlagSvg(48, 48, 96, 58)}
-  ${omanFlagSvg(880, 48, 96, 58)}
-
-  <!-- Title panel -->
-  <rect x="72" y="360" width="880" height="${120 + (headLines.length - 1) * 50}" rx="20" fill="#ffffff" fill-opacity="0.9"/>
+  <rect width="${width}" height="${height}" fill="url(#page)"/>
+  <rect x="0" y="0" width="${width}" height="18" fill="url(#band)"/>
+  <rect x="0" y="${height - 18}" width="${width}" height="18" fill="url(#band)"/>
+  <path d="M40 40h90v18H58v72H40V40z" fill="${spec.accent}" opacity="0.35"/>
+  <path d="M894 40h90v90h-18V58h-72V40z" fill="${spec.accent}" opacity="0.35"/>
+  <path d="M40 1406h18v72h72v18H40v-90z" fill="${spec.accent}" opacity="0.35"/>
+  <path d="M894 1496h90v-90h-18v72h-72v18z" fill="${spec.accent}" opacity="0.35"/>
+  ${omanFlagSvg(56, 48, 110, 66)}
+  ${omanFlagSvg(858, 48, 110, 66)}
+  <rect x="300" y="40" width="424" height="120" rx="18" fill="#ffffff" stroke="${spec.accent}" stroke-width="2"/>
+  <svg x="388" y="52" width="248" height="77" viewBox="0 0 548 171">${MARK_PATHS}</svg>
+  <text x="512" y="144" text-anchor="middle" direction="rtl" font-family="NotoNaskhCard" font-size="16" font-weight="700" fill="#174b70">${escapeXml(COMPANY_NAME_AR)}</text>
+  <rect x="48" y="206" width="928" height="628" rx="24" fill="#d7e8e5"/>
+  <image href="${photo}" x="52" y="210" width="920" height="620" clip-path="url(#photoClip)" preserveAspectRatio="xMidYMid slice"/>
+  <rect x="48" y="206" width="928" height="628" rx="24" fill="none" stroke="${spec.accent}" stroke-width="3"/>
+  <rect x="64" y="860" width="896" height="${titleBlockH}" rx="20" fill="#ffffff" stroke="#d5e4e1" stroke-width="2"/>
   ${headSvg}
-
   ${
     date
-      ? `<rect x="340" y="${headStart + headLines.length * 56 + 16}" width="344" height="44" rx="22" fill="#c49a3c"/>
-  <text x="512" y="${headStart + headLines.length * 56 + 46}" text-anchor="middle" direction="rtl" font-family="Noto Naskh Arabic, NotoNaskhArabic, Tahoma, Arial" font-size="22" font-weight="700" fill="#ffffff">${escapeXml(date)}</text>`
+      ? `<rect x="352" y="${860 + titleBlockH - 58}" width="320" height="46" rx="23" fill="#c49a3c"/>
+  <text x="512" y="${860 + titleBlockH - 26}" text-anchor="middle" direction="rtl" font-family="NotoNaskhCard" font-size="22" font-weight="700" fill="#ffffff">${escapeXml(date)}</text>`
       : ''
   }
-
+  <rect x="0" y="1180" width="${width}" height="356" fill="url(#footer)"/>
   ${bodySvg}
-  <text x="512" y="1480" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#d7eee9">${escapeXml(PRODUCT_NAME)} · ${escapeXml(COMPANY_NAME_EN)}</text>
+  <text x="512" y="1450" text-anchor="middle" font-family="Georgia, serif" font-size="15" fill="#d7eee9">${escapeXml(PRODUCT_NAME)} · ${escapeXml(COMPANY_NAME_EN)}</text>
 </svg>`;
 
-  const fonts = resolveFontFiles();
-  if (!fonts.length) {
-    console.error('greeting fonts missing — Arabic overlay may fail');
-  }
-  const resvg = new Resvg(svg, {
+  const resvg = new Resvg(cardSvg, {
     fitTo: { mode: 'width', value: width },
     font: {
-      fontFiles: fonts,
-      loadSystemFonts: true,
-      defaultFontFamily: 'Noto Naskh Arabic',
+      fontFiles,
+      loadSystemFonts: false,
+      defaultFontFamily: 'NotoNaskhCard',
     },
   });
   const png = resvg.render().asPng();
@@ -483,9 +507,6 @@ async function composeGreetingCard(
   return { mime: 'image/jpeg', base64: jpeg.toString('base64') };
 }
 
-/**
- * Generate AI ceremonial copy + photorealistic Oman scene, then bake real Arabic + Oman flag + BHD logo.
- */
 export async function generateGreetingDesign(
   brief: GreetingCardBrief,
   oidcToken: string | null = null,
@@ -566,5 +587,3 @@ export function greetingCardPublicPath(campaignId: string, designId: string): st
 export function greetingCardPublicUrl(campaignId: string, designId: string): string {
   return `${publicWebOrigin()}${greetingCardPublicPath(campaignId, designId)}`;
 }
-
-/** Kept for diagnostics / offline smoke tests. */
