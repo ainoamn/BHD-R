@@ -1,8 +1,8 @@
 /** Default contract wording; the binding details live in the contract payload snapshot. */
 export const DEFAULT_CONTRACT_TEMPLATES = {
   lease_default: {
-    ar: '<h1>عقد إيجار</h1><p>يُبرم هذا العقد بين المؤجر والمستأجر المذكورين في بيانات العقد لتأجير الوحدة المحددة فيه، للمدة وبالقيمة المبينتين، ويخضع للشروط والأحكام المعتمدة للعقار التي وافق عليها المستأجر.</p>',
-    en: '<h1>Lease Agreement</h1><p>This agreement is made between the landlord and the tenant named in the contract details for the lease of the unit specified therein, for the term and at the rent stated, and is subject to the approved terms and conditions of the property accepted by the tenant.</p>',
+    ar: '<h1>عقد إيجار</h1><p>يُبرم هذا العقد بين المؤجر والمستأجر المذكورين في بيانات العقد لتأجير الوحدة المحددة فيه، للمدة وبالقيمة المبينتين. وتُعدّ شروط التأجير الواردة في مستند حجز الوحدة متمّمةً ومكمّلةً لهذا العقد وجزءاً لا يتجزأ منه، وقد أقرّ المستأجر بالاطّلاع عليها والالتزام بها عند توقيع مستند الحجز وهذا العقد.</p>',
+    en: '<h1>Lease Agreement</h1><p>This agreement is made between the landlord and the tenant named in the contract details for the lease of the unit specified therein, for the term and at the rent stated. The rental terms in the unit booking document form an integral, complementary part of this agreement; the tenant acknowledged and agreed to be bound by them upon signing the booking document and this agreement.</p>',
   },
   sale_default: {
     ar: '<h1>عقد بيع</h1><p>يُبرم هذا العقد بين البائع والمشتري المذكورين في بيانات العقد لبيع الوحدة المحددة فيه بالثمن المتفق عليه، وتنتقل الملكية وفق الإجراءات النظامية المعمول بها.</p>',

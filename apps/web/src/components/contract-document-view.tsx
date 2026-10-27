@@ -1106,18 +1106,21 @@ export function ContractArticle({
               ) : null}
 
               <section className="contract-doc__section">
-                {heading(['الشروط والأحكام', 'Terms & Conditions'])}
+                {heading([
+                  'إقرار بالشروط المتمّمة والمكمّلة',
+                  'Acknowledgement of complementary terms',
+                ])}
                 {doc.booking ? (
                   <div className="contract-doc__booking-basis">
                     <div>
                       {para(
-                        `تُعدّ الشروط والأحكام التي وافق عليها الطرف الثاني${doc.booking.termsAcceptedAt ? ` بتاريخ ${dateTime(doc.booking.termsAcceptedAt)?.[0] ?? ''}` : ''} عند الحجز بموجب مستند الحجز رقم ${doc.booking.referenceCode} جزءاً لا يتجزأ من هذا العقد ومتمّمةً له، وتُقرأ معه وتُفسَّر معه، وهي أساس هذا العقد. وتُرفق بهذا العقد نسخة من مستند الحجز الموقّع لتكون مكمّلةً له.`,
-                        `The terms and conditions the second party accepted${doc.booking.termsAcceptedAt ? ` on ${dateTime(doc.booking.termsAcceptedAt)?.[1] ?? ''}` : ''} when booking, under booking document No. ${doc.booking.referenceCode}, form an integral part of this agreement and complete it; they are read and construed together with it and are its basis. A copy of the signed booking document is attached to complete it.`,
+                        `حيث إن مستند حجز الوحدة رقم ${doc.booking.referenceCode} يُعدّ متمّماً ومكمّلاً لهذا العقد وجزءاً لا يتجزأ منه، وحيث إن شروط التأجير والأحكام الواردة فيه هي ذاتها التي تحكم العلاقة التعاقدية ولا حاجة إلى إعادة إيرادها في متن هذا العقد؛ فإن الطرف الثاني (المستأجر) يقرّ ويعترف ويتعهّد بأنه قد اطّلع وقرأ بعناية تامة الشروط والأحكام المتمّمة والمكمّلة لهذا العقد والواردة في مستند حجز الوحدة المشار إليه (شروط التأجير)${doc.booking.termsAcceptedAt ? `، والتي وافق عليها بتاريخ ${dateTime(doc.booking.termsAcceptedAt)?.[0] ?? ''}` : ''}، وأنه فهم مضمونها وأقرّ بها والتزم بأحكامها، وأنه وقّع هذا العقد وهو بكامل أهليته وإرادته الحرِّة ودرايته، دون إكراه أو غلط أو تدليس.`,
+                        `Whereas the unit booking document No. ${doc.booking.referenceCode} forms an integral, complementary and completing part of this agreement, and whereas the rental terms and conditions set out therein govern the contractual relationship and need not be restated in the body of this agreement; the second party (the Tenant) hereby acknowledges, admits and undertakes that they have carefully read and reviewed the complementary and completing terms and conditions of this agreement as set out in the said unit booking document (the Rental Terms)${doc.booking.termsAcceptedAt ? `, which they accepted on ${dateTime(doc.booking.termsAcceptedAt)?.[1] ?? ''}` : ''}, that they understand and accept them and are bound by them, and that they have signed this agreement of their own free will, with full legal capacity and awareness, without duress, mistake or fraud.`,
                         'contract-doc__lead',
                       )}
                       <dl className="contract-doc__table">
                         {row(
-                          ['رقم مستند الحجز', 'Booking document No.'],
+                          ['رقم مستند الحجز المتمّم', 'Complementary booking document No.'],
                           <Link href={bookingDocumentHref(doc.booking)}>
                             {ltr(doc.booking.referenceCode)}
                           </Link>,
@@ -1126,6 +1129,12 @@ export function ContractArticle({
                           ? row(
                               ['تاريخ توقيع مستند الحجز', 'Booking document signed'],
                               bi(dateTime(doc.booking.signedAt)),
+                            )
+                          : null}
+                        {doc.booking.termsAcceptedAt
+                          ? row(
+                              ['تاريخ الإقرار بشروط التأجير', 'Rental terms acknowledged'],
+                              bi(dateTime(doc.booking.termsAcceptedAt)),
                             )
                           : null}
                       </dl>
@@ -1146,8 +1155,7 @@ export function ContractArticle({
                       </a>
                     ) : null}
                   </div>
-                ) : null}
-                {doc.terms.length ? (
+                ) : doc.terms.length ? (
                   <>
                     {doc.termsAcceptedAt
                       ? para(
@@ -1243,8 +1251,8 @@ export function ContractArticle({
                 {heading(['المرفقات والوثائق', 'Annexes & Documents'])}
                 {doc.booking
                   ? para(
-                      `يُرفق بهذا العقد ويُعدّ مكمّلاً له: نسخة من مستند الحجز رقم ${doc.booking.referenceCode} الموقّع إلكترونياً، بما فيه الشروط والأحكام التي وافق عليها الطرف الثاني.`,
-                      `Attached to and completing this agreement: a copy of the e-signed booking document No. ${doc.booking.referenceCode}, including the terms the second party accepted.`,
+                      `يُرفق بهذا العقد ويُعدّ متمّماً ومكمّلاً له وجزءاً لا يتجزأ منه: نسخة من مستند حجز الوحدة رقم ${doc.booking.referenceCode} الموقّع إلكترونياً، بما فيه شروط التأجير والأحكام التي أقرّ بها الطرف الثاني وتعهّد بالالتزام بها؛ وتُفسَّر أحكام هذا العقد ومستند الحجز معاً دون حاجة إلى إعادة إيراد تلك الشروط في متن العقد.`,
+                      `Attached hereto, and forming an integral, complementary and completing part of this agreement: a copy of the e-signed unit booking document No. ${doc.booking.referenceCode}, including the rental terms and conditions acknowledged by the second party; this agreement and the booking document shall be construed together, without restating those terms in the body of this agreement.`,
                       'contract-doc__lead',
                     )
                   : null}
