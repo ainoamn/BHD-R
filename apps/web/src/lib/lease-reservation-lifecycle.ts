@@ -205,8 +205,15 @@ export type HandoverPhotoMeta = {
   source: 'camera' | 'device';
 };
 
-/** Hours after accepting the keys in which the tenant may report defects with photos. */
+/** Hours after the handover record is filed in which the tenant may report defects with photos. */
 export const HANDOVER_DEFECTS_HOURS = 3;
+
+/** End of the defects window from a handover timestamp (ISO). */
+export function handoverDefectsUntilFrom(at: string, now: Date = new Date()): string {
+  const start = Date.parse(at);
+  const from = Number.isFinite(start) ? start : now.getTime();
+  return new Date(from + HANDOVER_DEFECTS_HOURS * 60 * 60 * 1000).toISOString();
+}
 
 /** How long after a scan the tenant's page keeps asking for the selfie. */
 export const HANDOVER_SELFIE_REQUEST_MINUTES = 30;
@@ -243,7 +250,7 @@ export function handoverHandlerSelfie(
 
 /**
  * Where the selfie stands for the tenant's page: asked for after a recent scan, already sent,
- * or still owed on a record awaiting acceptance; null when nothing is asked.
+ * or still owed while a scan is open; null once the handover record is filed.
  */
 export function handoverSelfieState(
   lifecycle: ReservationLifecycle | null | undefined,
@@ -251,6 +258,8 @@ export function handoverSelfieState(
 ): 'requested' | 'sent' | null {
   const handover = lifecycle?.handover;
   if (handover && handover.status !== 'awaiting_tenant') return null;
+  // Legacy records waiting on an accept step: do not keep blocking on selfie.
+  if (handover?.status === 'awaiting_tenant') return null;
   if (handover?.recipientPhoto || handoverLiveSelfie(lifecycle, now)) return 'sent';
   if (handover) return 'requested';
   const scan = lifecycle?.handoverScan;
@@ -260,14 +269,19 @@ export function handoverSelfieState(
     : null;
 }
 
-/** The tenant may still attach defect photos: accepted, inside the window, none sent yet. */
+/** The tenant may still attach defect photos: record filed, inside the window, none sent yet. */
 export function handoverDefectsOpen(
   lifecycle: ReservationLifecycle | null | undefined,
   now: Date = new Date(),
 ): boolean {
   const handover = lifecycle?.handover;
-  if (!handover || handover.status !== 'accepted' || handover.defects) return false;
-  return Boolean(handover.defectsUntil && new Date(handover.defectsUntil) > now);
+  if (!handover || handover.defects) return false;
+  // Effective on staff send; legacy `awaiting_tenant` counts the same (no approval step).
+  if (handover.status && handover.status !== 'accepted' && handover.status !== 'awaiting_tenant') {
+    return false;
+  }
+  const until = handover.defectsUntil ?? handoverDefectsUntilFrom(handover.at, now);
+  return new Date(until) > now;
 }
 
 export const REQUIREMENT_CATALOGUE: ReadonlyArray<{
@@ -436,7 +450,8 @@ export function lifecycleOf(snapshot: unknown): ReservationLifecycle {
 /** Where the booking stands and whose move it is. */
 export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   const life = input.lifecycle ?? {};
-  if (life.handover && life.handover.status !== 'awaiting_tenant') return 'handed_over';
+  // Staff filing the record completes handover — tenant may view and object, not approve.
+  if (life.handover) return 'handed_over';
   if (life.cancellation) return 'closed';
   if (life.tenantSignature) return 'awaiting_handover';
   if (input.status === 'cancelled' || input.status === 'expired') return 'closed';

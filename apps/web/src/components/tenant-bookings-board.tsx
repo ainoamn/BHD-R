@@ -165,12 +165,12 @@ function buildItems(
           : 'Deposit payment due'
         : reservation.handover === 'awaiting_acceptance'
           ? ar
-            ? 'أكّد الاستلام'
-            : 'Confirm handover'
+            ? 'محضر التسليم'
+            : 'Handover record'
           : reservation.handover === 'defects_open'
             ? ar
-              ? 'رفع ملاحظات'
-              : 'Report defects'
+              ? 'اعتراض على المحضر'
+              : 'Object to handover'
             : domainStatusLabel(reservation.status, ar),
       statusTone:
         awaitingPay || reservation.handover

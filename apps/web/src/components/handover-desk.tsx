@@ -660,8 +660,8 @@ function HandoverForm({
         <p className="notice notice--error">
           {preview.phase === 'handed_over'
             ? ar
-              ? 'سُلّم هذا العقار من قبل واستلمه المستأجر.'
-              : 'These premises were already handed over and accepted.'
+              ? 'سُلّم هذا العقار من قبل وسُجّل محضره.'
+              : 'These premises were already handed over and the record was filed.'
             : ar
               ? 'لا يمكن التسليم الآن: لم يوقّع المستأجر العقد بعد أو الحجز غير نافذ.'
               : 'Handover is not open: the contract is not signed yet or the booking is not active.'}
@@ -671,8 +671,8 @@ function HandoverForm({
           {preview.awaitingTenant ? (
             <p className="notice notice--info">
               {ar
-                ? 'سُجّل تسليم سابق وينتظر موافقة المستأجر؛ إرسال هذا المحضر يستبدله.'
-                : 'A handover is already awaiting the tenant; sending this record replaces it.'}
+                ? 'يوجد محضر سابق لم يُغلق بعد؛ إرسال هذا المحضر يستبدله ويصبح نافذاً فوراً.'
+                : 'A prior record is still open; sending this one replaces it and takes effect immediately.'}
             </p>
           ) : null}
           <div className="handover-desk__fields">
@@ -746,8 +746,8 @@ function HandoverForm({
                   ? 'جارٍ الإرسال…'
                   : 'Sending…'
                 : ar
-                  ? 'إرسال المحضر لموافقة المستأجر'
-                  : 'Send for the tenant’s acceptance'}
+                  ? 'تسجيل المحضر وإتمام التسليم'
+                  : 'File the record and complete handover'}
             </button>
             {!preview.handlerSelfieAt ? (
               <small className="muted">
@@ -755,13 +755,13 @@ function HandoverForm({
                   ? 'التقط صورتك السيلفي أعلاه أولاً؛ لا يُرسل المحضر بدون وجه المسلِّم.'
                   : 'Take your selfie above first; the record is not sent without the handler’s face.'}
               </small>
-            ) : !preview.liveSelfieAt ? (
+            ) : (
               <small className="muted">
                 {ar
-                  ? 'يمكنك الإرسال الآن؛ لن يستطيع المستأجر الموافقة على الاستلام قبل أن يلتقط صورته.'
-                  : 'You can send now; the tenant cannot accept before taking their selfie.'}
+                  ? 'بمجرد التسجيل يصبح المحضر نافذاً؛ يطّلع عليه المستأجر ويحق له الاعتراض خلال 3 ساعات.'
+                  : 'Once filed the record is in effect; the tenant can view it and object within 3 hours.'}
               </small>
-            ) : null}
+            )}
           </div>
         </>
       )}

@@ -31,6 +31,7 @@ import {
   chequeStatusesOf,
   handoverAwaitingTenant,
   handoverDefectsOpen,
+  handoverDefectsUntilFrom,
   handoverHandlerSelfie,
   handoverLiveSelfie,
   handoverSelfieState,
@@ -1186,7 +1187,9 @@ async function ownerActionInTx(
       case 'save_municipal_registration': {
         if (row.snapshot.mode === 'sale') fail('reservation_not_ready');
         const handover = row.lifecycle.handover;
-        if (!handover || (handover.status && handover.status !== 'accepted')) {
+        // Effective once filed by staff (including legacy awaiting_tenant records).
+        if (!handover) fail('reservation_not_ready');
+        if (handover.status && handover.status !== 'accepted' && handover.status !== 'awaiting_tenant') {
           fail('reservation_not_ready');
         }
         const formNo = input.formNo.trim().slice(0, 80);
@@ -2152,7 +2155,21 @@ export async function tenantHandoverPass(claims: SessionClaims, referenceCode: s
     const phase = phaseOf(match.status, match.snapshot, lifecycle);
     if (phase === 'handed_over') return { state: 'handed_over' as const };
     if (phase !== 'awaiting_handover') return { state: 'not_ready' as const };
-    if (handoverAwaitingTenant(lifecycle)) return { state: 'awaiting_acceptance' as const };
+    // Legacy awaiting-accept records: promote so the tenant sees the record + objection window.
+    if (handoverAwaitingTenant(lifecycle)) {
+      const handover = lifecycle.handover!;
+      const acceptedAt = handover.at;
+      const defectsUntil = handover.defectsUntil ?? handoverDefectsUntilFrom(handover.at);
+      await saveLifecycle(
+        transaction,
+        { id: match.id, snapshot: match.snapshot },
+        {
+          ...lifecycle,
+          handover: { ...handover, status: 'accepted', acceptedAt, defectsUntil },
+        },
+      );
+      return { state: 'handed_over' as const };
+    }
     return {
       state: 'pass' as const,
       ...issueHandoverPass(match.id),
@@ -2447,9 +2464,9 @@ export async function readHandoverSelfie(
 
 /**
  * The staff member records the handover after scanning the tenant's pass: keys, notes
- * and photos of the premises. Meter readings and municipal contract numbers are completed
- * later by the owner/admin on the booking page. The tenant's own selfie from the door
- * becomes the key-receipt photo; without one, the tenant takes it before accepting.
+ * and photos of the premises. The record is effective immediately; the tenant can view it
+ * and file an objection within the defects window. Meter readings and municipal contract
+ * numbers are completed later by the owner/admin on the booking page.
  */
 export async function offerHandover(
   claims: SessionClaims,
@@ -2499,6 +2516,7 @@ export async function offerHandover(
       })
       .returning({ id: workflowEvents.id });
     const selfie = handoverLiveSelfie(row.lifecycle, now);
+    const defectsUntil = handoverDefectsUntilFrom(at, now);
     const lifecycle: ReservationLifecycle = {
       ...row.lifecycle,
       handover: {
@@ -2512,15 +2530,16 @@ export async function offerHandover(
         waterReading: text(input.waterReading, 40),
         notes: text(input.notes, 1000),
         method: 'scan',
-        status: 'awaiting_tenant',
+        // Effective immediately — tenant views the record and may object within the window.
+        status: 'accepted',
         evidenceEventId: evidence!.id,
         recipientPhoto: selfie?.photo ?? null,
         recipientPhotoEventId: selfie?.evidenceEventId ?? null,
         handlerPhoto: handlerSelfie.photo,
         handlerPhotoEventId: handlerSelfie.evidenceEventId,
         photos: photos.map((photo) => photo.meta),
-        acceptedAt: null,
-        defectsUntil: null,
+        acceptedAt: at,
+        defectsUntil,
         defects: null,
       },
     };
@@ -2529,7 +2548,7 @@ export async function offerHandover(
       orgId: row.orgId,
       actorUserId: claims.sub,
       reservationId: row.id,
-      eventType: 'reservation.handover_offered',
+      eventType: 'reservation.handed_over',
       status: row.status,
       metadata: {
         referenceCode: row.snapshot.referenceCode,
@@ -2537,14 +2556,21 @@ export async function offerHandover(
         recipientName,
         photos: photos.length,
         evidenceEventId: evidence!.id,
+        method: 'scan',
+        acceptedAt: at,
+        defectsUntil,
       },
     });
     await tx.insert(outboxEvents).values({
       organizationId: row.orgId,
-      topic: 'reservation.handover_offered',
+      topic: 'reservation.handed_over',
       aggregateType: 'reservation',
       aggregateId: row.id,
-      payload: { referenceCode: row.snapshot.referenceCode, offeredAt: at },
+      payload: {
+        referenceCode: row.snapshot.referenceCode,
+        acceptedAt: at,
+        defectsUntil,
+      },
     });
     const tenant = await findLeaseReservation(tx, 'id', row.id);
     await queueTenantHandoverEmail(tx, {
@@ -2552,20 +2578,27 @@ export async function offerHandover(
       reservationId: row.id,
       recipient: tenant?.partyEmail ?? null,
       referenceCode: row.snapshot.referenceCode,
-      subject: `محضر تسليم العقار بانتظار موافقتك — ${row.snapshot.referenceCode}`,
+      subject: `محضر تسليم العقار — اطّلع واعترض إن لزم خلال ${HANDOVER_DEFECTS_HOURS} ساعات — ${row.snapshot.referenceCode}`,
       lines: [
-        `سجّل ${byName ?? 'ممثل المالك'} محضر تسليم العقار إليك.`,
-        selfie
-          ? 'راجع المحضر والصور في صفحة حجزك ثم أكّد الاستلام.'
-          : 'افتح صفحة حجزك، والتقط صورة سيلفي لنفسك، ثم راجع المحضر وأكّد الاستلام.',
-        `بعد موافقتك عليك رفع صور للعقار خلال ${HANDOVER_DEFECTS_HOURS} ساعات، وإلا يُعتبر أنك استلمته بدون عيوب وفي حالة جيدة.`,
+        `سجّل ${byName ?? 'ممثل المالك'} محضر تسليم العقار إليك، وأصبح التسليم نافذاً.`,
+        'راجع المحضر والصور في صفحة حجزك؛ لا تحتاج إلى موافقة منفصلة.',
+        `يحق لك رفع اعتراض مع صور خلال ${HANDOVER_DEFECTS_HOURS} ساعات، وإلا يُعتبر أنك استلمته بدون عيوب وفي حالة جيدة.`,
       ],
     });
-    return { referenceCode: row.snapshot.referenceCode, offeredAt: at, hasSelfie: Boolean(selfie) };
+    return {
+      referenceCode: row.snapshot.referenceCode,
+      offeredAt: at,
+      acceptedAt: at,
+      defectsUntil,
+      hasSelfie: Boolean(selfie),
+    };
   });
 }
 
-/** The tenant accepts the premises: the handover is complete and the defects window opens. */
+/**
+ * Legacy: older records waited for an explicit tenant accept. New handovers are already
+ * accepted on staff send; this promotes any leftover awaiting record and opens defects.
+ */
 export async function acceptHandover(claims: SessionClaims, referenceCode: string) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
@@ -2574,16 +2607,13 @@ export async function acceptHandover(claims: SessionClaims, referenceCode: strin
     if (handover?.status === 'accepted') {
       return {
         acceptedAt: handover.acceptedAt ?? handover.at,
-        defectsUntil: handover.defectsUntil,
+        defectsUntil: handover.defectsUntil ?? handoverDefectsUntilFrom(handover.at),
       };
     }
     if (!handover || handover.status !== 'awaiting_tenant') leaseBookingFail('not_ready');
-    if (!handover.recipientPhoto) leaseBookingFail('handover_selfie_required');
-    const now = new Date();
-    const acceptedAt = now.toISOString();
-    const defectsUntil = new Date(
-      now.getTime() + HANDOVER_DEFECTS_HOURS * 60 * 60 * 1000,
-    ).toISOString();
+    const acceptedAt = handover.at;
+    const defectsUntil =
+      handover.defectsUntil ?? handoverDefectsUntilFrom(handover.at);
     const orgId = current.match.organizationId;
     await saveLifecycle(
       transaction,
@@ -2604,6 +2634,7 @@ export async function acceptHandover(claims: SessionClaims, referenceCode: strin
         method: 'scan',
         acceptedAt,
         recipientName: handover.recipientName,
+        promotedFromAwaiting: true,
       },
     });
     await transaction.insert(outboxEvents).values({
@@ -2612,18 +2643,6 @@ export async function acceptHandover(claims: SessionClaims, referenceCode: strin
       aggregateType: 'reservation',
       aggregateId: current.match.id,
       payload: { referenceCode: current.snapshot.referenceCode, acceptedAt, defectsUntil },
-    });
-    await queueTenantHandoverEmail(transaction, {
-      orgId,
-      reservationId: current.match.id,
-      recipient: current.match.partyEmail,
-      referenceCode: current.snapshot.referenceCode,
-      subject: `تنبيه: ارفع صور العقار خلال ${HANDOVER_DEFECTS_HOURS} ساعات — ${current.snapshot.referenceCode}`,
-      lines: [
-        'أكّدت استلام العقار، وأصبح التسليم رسمياً.',
-        `عليك رفع صور للعقار فوراً خلال ${HANDOVER_DEFECTS_HOURS} ساعات من صفحة حجزك، مع وصف أي عيوب أو أشياء تحتاج إلى إصلاح.`,
-        'إن لم ترفع صوراً خلال هذه المهلة يُعتبر أنك استلمت العقار بدون عيوب وأنه في حالة جيدة.',
-      ],
     });
     return { acceptedAt, defectsUntil };
   });

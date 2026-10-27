@@ -463,12 +463,12 @@ const ALERT_LABEL: Record<TenancyAlertKind, { ar: string; en: string }> = {
     en: 'Task: deposit not received — follow up from your stay page',
   },
   handover_accept: {
-    ar: 'أكّد استلامك للعقار',
-    en: 'Confirm you received the premises',
+    ar: 'اطّلع على محضر التسليم',
+    en: 'Review the handover record',
   },
   handover_defects: {
-    ar: 'ارفع صور العقار خلال 3 ساعات',
-    en: 'Report defects within 3 hours',
+    ar: 'اعتراض على محضر التسليم خلال 3 ساعات',
+    en: 'Object to the handover within 3 hours',
   },
   viewing_scheduled: {
     ar: 'موعد معاينة مؤكّد — افتح بطاقة الزيارة',

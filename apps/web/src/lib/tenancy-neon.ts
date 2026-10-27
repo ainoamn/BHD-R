@@ -820,9 +820,9 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
         referenceCode: str(terms.referenceCode),
         mode,
         status: row.status,
-        handover: handoverAwaitingTenant(lifecycle)
-          ? 'awaiting_acceptance'
-          : handoverDefectsOpen(lifecycle)
+        // No separate accept step — alert only while the objection window is open (incl. legacy).
+        handover:
+          handoverDefectsOpen(lifecycle) || handoverAwaitingTenant(lifecycle)
             ? 'defects_open'
             : null,
         expiresAt: iso(row.expiresAt),

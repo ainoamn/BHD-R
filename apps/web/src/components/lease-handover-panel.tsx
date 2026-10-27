@@ -29,7 +29,7 @@ function errorMessage(error: unknown, ar: boolean): string {
 
 /**
  * The tenant's side of the handover on their booking page: the sealed pass to show at the door,
- * then the record the staff member made to accept, then three hours to report defects.
+ * then the staff record to view (no approval step) and three hours to file an objection.
  */
 export function LeaseHandoverPanel({
   locale,
@@ -42,18 +42,11 @@ export function LeaseHandoverPanel({
 }) {
   const ar = locale === 'ar';
   if (!handover) return <HandoverPass ar={ar} locale={locale} referenceCode={referenceCode} />;
-  if (handover.status === 'awaiting_tenant') {
-    return (
-      <HandoverAcceptance
-        ar={ar}
-        locale={locale}
-        referenceCode={referenceCode}
-        handover={handover}
-      />
-    );
+  // Effective on staff send — including legacy records that once waited for accept.
+  if (handover.status === 'awaiting_tenant' || handover.scanned || handover.status === 'accepted') {
+    return <HandoverAfter ar={ar} referenceCode={referenceCode} handover={handover} />;
   }
-  if (!handover.scanned) return null;
-  return <HandoverAfter ar={ar} referenceCode={referenceCode} handover={handover} />;
+  return null;
 }
 
 function HandoverPass({
@@ -126,8 +119,8 @@ function HandoverPass({
         <h2 id="handover-pass-title">{ar ? 'وصلت صورتك' : 'Your selfie arrived'}</h2>
         <p className="notice notice--success" role="status">
           {ar
-            ? `ظهرت صورتك الآن لدى ${scannedBy ?? 'ممثل المالك'}. انتظر قليلاً؛ سيصلك محضر التسليم هنا لتراجعه وتوافق عليه.`
-            : `Your photo is now on ${scannedBy ?? 'the representative'}’s screen. Wait a moment; the handover record will arrive here for you to review and accept.`}
+            ? `ظهرت صورتك الآن لدى ${scannedBy ?? 'ممثل المالك'}. انتظر قليلاً؛ سيصلك محضر التسليم هنا للاطلاع، ويمكنك الاعتراض خلال المهلة.`
+            : `Your photo is now on ${scannedBy ?? 'the representative'}’s screen. Wait a moment; the handover record will arrive here to view, and you may object within the window.`}
         </p>
         <HandoverPhotoDuty ar={ar} />
       </section>
@@ -142,8 +135,8 @@ function HandoverPass({
       <h2 id="handover-pass-title">{ar ? 'رمز استلام العقار' : 'Your handover pass'}</h2>
       <p>
         {ar
-          ? 'عند وصولك لاستلام المفاتيح اعرض هذا الرمز على المالك أو ممثله أو حارس المبنى ليمسحه. بمجرد مسحه يتعرّف النظام عليك، ويصلك هنا محضر التسليم لتوافق عليه.'
-          : 'When you arrive for the keys, show this code to the owner, their representative or the building guard to scan. The system recognises you and the handover record arrives here for you to accept.'}
+          ? 'عند وصولك لاستلام المفاتيح اعرض هذا الرمز على المالك أو ممثله أو حارس المبنى ليمسحه. بمجرد مسحه يتعرّف النظام عليك، ويُسجَّل محضر التسليم هنا للاطلاع، ويحق لك الاعتراض خلال المهلة.'
+          : 'When you arrive for the keys, show this code to the owner, their representative or the building guard to scan. The system recognises you, the handover record appears here to view, and you may object within the window.'}
       </p>
       <div className="handover-pass__body">
         {pass ? (
@@ -189,14 +182,14 @@ function HandoverPass({
   );
 }
 
-/** The duty that follows the keys: photos of the premises within three hours, or no defects. */
+/** The right to object after the record is filed: photos within three hours, or no defects. */
 function HandoverPhotoDuty({ ar }: { ar: boolean }) {
   return (
     <p className="notice handover-duty" role="note">
       <strong>{ar ? 'تنبيه مهم: ' : 'Important: '}</strong>
       {ar
-        ? 'بعد استلام العقار عليك رفع صور للعقار فوراً خلال 3 ساعات، وإلا يُعتبر أنك استلمت العقار بدون عيوب وأنه في وضع جيد.'
-        : 'After receiving the premises you must upload photos of them within 3 hours; otherwise you are taken to have received them free of defects and in good condition.'}
+        ? 'بعد تسجيل محضر التسليم يحق لك رفع اعتراض مع صور خلال 3 ساعات، وإلا يُعتبر أنك استلمت العقار بدون عيوب وأنه في وضع جيد.'
+        : 'After the handover record is filed you may object with photos within 3 hours; otherwise you are taken to have received the premises free of defects and in good condition.'}
     </p>
   );
 }
@@ -297,99 +290,6 @@ function HandoverRecord({
   );
 }
 
-function HandoverAcceptance({
-  ar,
-  locale,
-  referenceCode,
-  handover,
-}: {
-  ar: boolean;
-  locale: 'ar' | 'en';
-  referenceCode: string;
-  handover: HandoverView;
-}) {
-  const router = useRouter();
-  const [, startRefresh] = useTransition();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<PreviewFile | null>(null);
-
-  if (!handover.hasRecipientPhoto) {
-    return (
-      <HandoverSelfieCard
-        locale={locale}
-        referenceCode={referenceCode}
-        scannedBy={handover.byName}
-        owed
-        onSent={() => startRefresh(() => router.refresh())}
-      />
-    );
-  }
-
-  async function accept() {
-    setBusy(true);
-    setError(null);
-    try {
-      await browserNextMutation(
-        `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/handover`,
-        { method: 'POST', body: JSON.stringify({ action: 'accept' }) },
-      );
-      startRefresh(() => router.refresh());
-    } catch (caught) {
-      setError(errorMessage(caught, ar));
-      setBusy(false);
-    }
-  }
-
-  return (
-    <section
-      className="guest-stay-detail__card handover-accept"
-      aria-labelledby="handover-accept-title"
-    >
-      <h2 id="handover-accept-title">{ar ? 'محضر تسليم العقار' : 'Handover record'}</h2>
-      <p>
-        {ar
-          ? 'تعرّف النظام عليك بمسح رمزك، وسجّل ممثل المالك تسليم العقار إليك كما يلي. راجع المحضر والصور ثم أكّد الاستلام.'
-          : 'The system recognised you from your code, and the owner’s representative recorded the handover below. Review it and the photos, then confirm.'}
-      </p>
-      <HandoverRecord
-        ar={ar}
-        referenceCode={referenceCode}
-        handover={handover}
-        onPreview={setPreview}
-      />
-      <p className="notice notice--info">
-        {ar
-          ? 'بموافقتك يُعدّ العقار مسلَّماً إليك بالطريقة القانونية والنظامية.'
-          : 'By confirming, the premises are legally and formally handed over to you.'}
-      </p>
-      <HandoverPhotoDuty ar={ar} />
-      {error ? (
-        <p className="notice notice--error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <button
-        type="button"
-        className="button button--primary"
-        disabled={busy}
-        onClick={() => void accept()}
-      >
-        {busy
-          ? ar
-            ? 'جارٍ التأكيد…'
-            : 'Confirming…'
-          : ar
-            ? 'أوافق على استلام العقار'
-            : 'I accept the premises'}
-      </button>
-      {preview ? (
-        <FilePreviewDialog file={preview} ar={ar} onClose={() => setPreview(null)} />
-      ) : null}
-    </section>
-  );
-}
-
 function useNow(intervalMs: number): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -419,7 +319,9 @@ function HandoverAfter({
   const [error, setError] = useState<string | null>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
   const deviceRef = useRef<HTMLInputElement>(null);
-  const until = handover.defectsUntil ? new Date(handover.defectsUntil).getTime() : 0;
+  const until = handover.defectsUntil
+    ? new Date(handover.defectsUntil).getTime()
+    : new Date(handover.at).getTime() + 3 * 60 * 60 * 1000;
   const open = !handover.defects && until > now;
   const minutesLeft = Math.max(0, Math.ceil((until - now) / 60_000));
   const photoHref = (file: string) =>
@@ -473,11 +375,11 @@ function HandoverAfter({
       className="guest-stay-detail__card handover-after"
       aria-labelledby="handover-after-title"
     >
-      <h2 id="handover-after-title">{ar ? 'استلام العقار' : 'Premises received'}</h2>
+      <h2 id="handover-after-title">{ar ? 'محضر تسليم العقار' : 'Handover record'}</h2>
       <p>
         {ar
-          ? `أكّدت استلام العقار${handover.acceptedAt ? ` في ${stamp(handover.acceptedAt, ar)}` : ''}، وأصبح التسليم رسمياً ومكمّلاً للعقد.`
-          : `You accepted the premises${handover.acceptedAt ? ` on ${stamp(handover.acceptedAt, ar)}` : ''}; the handover is official and completes the contract.`}
+          ? `سُجّل محضر التسليم${handover.acceptedAt || handover.at ? ` في ${stamp(handover.acceptedAt ?? handover.at, ar)}` : ''} وأصبح نافذاً. اطّلع عليه أدناه؛ يحق لك رفع اعتراض خلال المهلة.`
+          : `The handover record was filed${handover.acceptedAt || handover.at ? ` on ${stamp(handover.acceptedAt ?? handover.at, ar)}` : ''} and is in effect. Review it below; you may object within the window.`}
       </p>
       <HandoverRecord
         ar={ar}
@@ -513,13 +415,13 @@ function HandoverAfter({
           <HandoverPhotoDuty ar={ar} />
           <h3>
             {ar
-              ? `ارفع صور العقار الآن · متبقٍ ${minutesLeft} دقيقة`
-              : `Upload photos of the premises now · ${minutesLeft} minutes left`}
+              ? `اعتراض على المحضر · متبقٍ ${minutesLeft} دقيقة`
+              : `Object to the record · ${minutesLeft} minutes left`}
           </h3>
           <p className="muted">
             {ar
-              ? 'صوّر العقار وأي عيوب أو مشاكل أو أشياء تحتاج إلى إصلاح، مع وصف مختصر. تُرفق بمحضر التسليم ويُعتد بها. إن لم ترفع صوراً قبل انتهاء المهلة يُعتبر أنك استلمت العقار بدون عيوب وفي وضع جيد.'
-              : 'Photograph the premises and any defects or repairs needed, with a short note. They join the handover record. If none are sent before the window ends, you are taken to have received the premises free of defects and in good condition.'}
+              ? 'صوّر أي عيوب أو مشاكل أو أشياء تحتاج إلى إصلاح، مع وصف مختصر. تُرفق بالمحضر ويُعتد بها. إن لم ترفع اعتراضاً قبل انتهاء المهلة يُعتبر أنك استلمت العقار بدون عيوب وفي وضع جيد.'
+              : 'Photograph any defects or repairs needed, with a short note. They join the record. If you do not object before the window ends, you are taken to have received the premises free of defects and in good condition.'}
           </p>
           <div className="handover-after__pick">
             <button
@@ -598,7 +500,13 @@ function HandoverAfter({
             disabled={busy || reading || !photos.length}
             onClick={() => void submit()}
           >
-            {busy ? (ar ? 'جارٍ الإرسال…' : 'Sending…') : ar ? 'إرسال صور العقار' : 'Send photos'}
+            {busy
+              ? ar
+                ? 'جارٍ الإرسال…'
+                : 'Sending…'
+              : ar
+                ? 'إرسال الاعتراض'
+                : 'Submit objection'}
           </button>
         </div>
       ) : (

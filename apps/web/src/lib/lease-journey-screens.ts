@@ -235,57 +235,42 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
 
   let handover: LeaseJourneyScreen | null = null;
   if (current >= 4) {
-    handover =
-      lifecycle.handover && lifecycle.handover.status !== 'awaiting_tenant'
-        ? {
-            headline: sale
-              ? t('مبروك تملّك عقارك الجديد 🏡', 'Congratulations on your new property 🏡')
-              : t('أهلاً بك في بيتك الجديد 🏡', 'Welcome to your new home 🏡'),
-            body: t(
-              `تم تسليم العقار في ${journeyStamp(lifecycle.handover.on, ar)} واستلمه ${lifecycle.handover.recipientName}${lifecycle.handover.keys ? ` (${lifecycle.handover.keys})` : ''}. نتمنى لك فيه أياماً سعيدة ومباركة.`,
-              `Handed over on ${journeyStamp(lifecycle.handover.on, ar)} to ${lifecycle.handover.recipientName}. Wishing you happy days there.`,
+    handover = lifecycle.handover
+      ? {
+          headline: sale
+            ? t('مبروك تملّك عقارك الجديد 🏡', 'Congratulations on your new property 🏡')
+            : t('أهلاً بك في بيتك الجديد 🏡', 'Welcome to your new home 🏡'),
+          body: t(
+            `تم تسليم العقار في ${journeyStamp(lifecycle.handover.on, ar)} واستلمه ${lifecycle.handover.recipientName}${lifecycle.handover.keys ? ` (${lifecycle.handover.keys})` : ''}. اطّلع على المحضر أدناه؛ يحق لك الاعتراض خلال المهلة.`,
+            `Handed over on ${journeyStamp(lifecycle.handover.on, ar)} to ${lifecycle.handover.recipientName}. Review the record below; you may object within the window.`,
+          ),
+          guide: lifecycle.handover.notes ? [lifecycle.handover.notes] : undefined,
+          scene: 'keys',
+          sceneDone: true,
+          sceneStatus: t('تم التسليم', 'Handed over'),
+          action: 'view_contract',
+        }
+      : {
+          headline: t('اقتربت لحظة استلام المفاتيح 🔑', 'Almost time for the keys 🔑'),
+          body: t(
+            'العقد موقّع من الطرفين. عند الاستلام اعرض رمز التسليم الظاهر في هذه الصفحة على المالك أو ممثله أو حارس المبنى ليمسحه؛ يُسجَّل المحضر ويصبح نافذاً دون حاجة لموافقتك، ويحق لك الاعتراض لاحقاً.',
+            'The contract is signed by both parties. At handover, show the code on this page to be scanned; the record is filed and takes effect without a separate approval, and you may object afterwards.',
+          ),
+          guide: [
+            t(
+              'رمز التسليم خاص بك ويتجدد تلقائياً كل خمس دقائق؛ لا تشاركه قبل وصولك.',
+              'Your handover code is personal and renews every five minutes; do not share it before you arrive.',
             ),
-            guide: lifecycle.handover.notes ? [lifecycle.handover.notes] : undefined,
-            scene: 'keys',
-            sceneDone: true,
-            sceneStatus: t('تم التسليم', 'Handed over'),
-            action: 'view_contract',
-          }
-        : lifecycle.handover
-          ? {
-              headline: t(
-                'المفاتيح بين يديك — أكّد الاستلام ✅',
-                'The keys are yours — confirm ✅',
-              ),
-              body: t(
-                `سجّل ${lifecycle.handover.byName ?? 'ممثل المالك'} تسليم العقار إليك. راجع محضر التسليم أدناه ثم أكّد استلامك ليُعدّ العقار مسلَّماً إليك رسمياً.`,
-                `${lifecycle.handover.byName ?? 'The owner’s representative'} recorded the handover to you. Review the record below, then confirm to complete the handover officially.`,
-              ),
-              scene: 'keys',
-              sceneStatus: t('بانتظار تأكيدك', 'Awaiting your confirmation'),
-              action: 'view_contract',
-            }
-          : {
-              headline: t('اقتربت لحظة استلام المفاتيح 🔑', 'Almost time for the keys 🔑'),
-              body: t(
-                'العقد موقّع من الطرفين. عند الاستلام اعرض رمز التسليم الظاهر في هذه الصفحة على المالك أو ممثله أو حارس المبنى ليمسحه.',
-                'The contract is signed by both parties. At the handover, show the handover code on this page to the owner, their representative or the building guard to scan.',
-              ),
-              guide: [
-                t(
-                  'رمز التسليم خاص بك ويتجدد تلقائياً كل خمس دقائق؛ لا تشاركه قبل وصولك.',
-                  'Your handover code is personal and renews every five minutes; do not share it before you arrive.',
-                ),
-                t('راجع حالة العقار ودوّن أي ملاحظة.', 'Check the premises and note anything.'),
-                t(
-                  'تأكد من تسجيل قراءات الكهرباء والماء.',
-                  'Make sure meter readings are recorded.',
-                ),
-              ],
-              scene: 'handover',
-              sceneStatus: t('بانتظار التسليم', 'Awaiting handover'),
-              action: 'view_contract',
-            };
+            t('راجع حالة العقار ودوّن أي ملاحظة.', 'Check the premises and note anything.'),
+            t(
+              'قراءات العدادات يُكملها المالك/الإدارة بعد التسليم.',
+              'Meter readings are completed by the owner/admin after handover.',
+            ),
+          ],
+          scene: 'handover',
+          sceneStatus: t('بانتظار التسليم', 'Awaiting handover'),
+          action: 'view_contract',
+        };
   }
 
   return [booking, approval, documents, contract, handover];
@@ -302,9 +287,7 @@ export function leaseJourneySteps(
     props.lifecycle.approvedAt ? journeyStamp(props.lifecycle.approvedAt, ar) : null,
     null,
     props.lifecycle.tenantSignedAt ? journeyStamp(props.lifecycle.tenantSignedAt, ar) : null,
-    props.lifecycle.handover && props.lifecycle.handover.status !== 'awaiting_tenant'
-      ? journeyStamp(props.lifecycle.handover.on, ar)
-      : null,
+    props.lifecycle.handover ? journeyStamp(props.lifecycle.handover.on, ar) : null,
   ];
   return labels.map((label, index) => ({
     label,

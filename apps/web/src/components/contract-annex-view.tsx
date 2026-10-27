@@ -359,10 +359,10 @@ export function ContractAnnexArticle({
                           lease.waterReading ? ltr(lease.waterReading) : null,
                         )}
                         {row(
-                          ['موافقة المستأجر', 'Tenant acceptance'],
+                          ['نفاذ المحضر', 'Record effective'],
                           lease.acceptedAt
                             ? bi(dateTime(lease.acceptedAt))
-                            : bi(['بانتظار موافقة المستأجر', 'Awaiting the tenant’s acceptance']),
+                            : bi(['سُجّل المحضر', 'Record filed']),
                         )}
                       </>
                     ) : null}

@@ -77,8 +77,8 @@ export async function GET(request: Request, context: { params: Promise<{ referen
 }
 
 /**
- * POST — the tenant sends their selfie at the door, accepts the premises, or reports defects
- * with photos within three hours.
+ * POST — the tenant sends their selfie at the door, or files an objection (defects) with
+ * photos within three hours. `accept` remains for promoting legacy awaiting records only.
  */
 export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!hasDatabaseUrl()) {

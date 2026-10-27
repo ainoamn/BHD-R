@@ -1001,8 +1001,8 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 </h3>
                 <p>
                   {t(
-                    'العقد موقّع من الطرفين. عند حضور المستأجر لاستلام المفاتيح يعرض رمز التسليم المشفّر من حسابه، فيمسحه المالك أو ممثله أو حارس المبنى، فيلتقط كل من المستلم والمسلِّم صورة سيلفي في اللحظة نفسها، ثم يوثّق المسلِّم حالة العقار. يصل للمستأجر إشعار ليوافق، وبموافقته يُعدّ العقار مسلَّماً بالطريقة القانونية والنظامية.',
-                    'The contract is signed by both parties. When the tenant comes for the keys they show the sealed handover code from their account; the owner, a representative or the building guard scans it, the tenant and the person handing over each take a selfie at the same moment, and the premises are recorded. The tenant is notified to accept, which completes the handover legally.',
+                    'العقد موقّع من الطرفين. عند حضور المستأجر لاستلام المفاتيح يعرض رمز التسليم المشفّر من حسابه، فيمسحه المالك أو ممثله أو حارس المبنى، فيلتقط كل من المستلم والمسلِّم صورة سيلفي في اللحظة نفسها، ثم يوثّق المسلِّم حالة العقار. بمجرد تسجيل المحضر يصبح التسليم نافذاً؛ يطّلع عليه المستأجر ويحق له الاعتراض خلال 3 ساعات.',
+                    'The contract is signed by both parties. When the tenant comes for the keys they show the sealed handover code from their account; the owner, a representative or the building guard scans it, both take a selfie, and the premises are recorded. Filing the record completes the handover; the tenant can view it and object within 3 hours.',
                   )}
                 </p>
                 <ol className="lrw__handover-steps">
@@ -1041,30 +1041,6 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               </div>
             ) : null}
 
-            {phase === 'awaiting_handover' && lifecycle.handover ? (
-              <div className="lrw__card">
-                <h3>
-                  {t(
-                    'سُجّل التسليم — بانتظار موافقة المستأجر',
-                    'Handover recorded — awaiting the tenant',
-                  )}
-                </h3>
-                <p className="muted">
-                  {t(
-                    `سجّله ${lifecycle.handover.byName ?? '—'} بمسح رمز المستأجر. وصل للمستأجر إشعار ليوافق على استلام العقار.`,
-                    `Recorded by ${lifecycle.handover.byName ?? '—'} by scanning the tenant’s code. The tenant was notified to accept.`,
-                  )}
-                </p>
-                <HandoverFacts handover={lifecycle.handover} ar={ar} />
-                <HandoverPhotos
-                  handover={lifecycle.handover}
-                  ar={ar}
-                  fileHref={fileHref}
-                  showRecipient={canManage}
-                />
-              </div>
-            ) : null}
-
             {phase === 'handed_over' && lifecycle.handover ? (
               <div className="lrw__card">
                 <h3>{t('تم تسليم العقار', 'Premises handed over')}</h3>
@@ -1086,7 +1062,9 @@ export function LeaseReservationWorkflow(serverProps: Props) {
             {!sale &&
             phase === 'handed_over' &&
             lifecycle.handover &&
-            (!lifecycle.handover.status || lifecycle.handover.status === 'accepted') ? (
+            (!lifecycle.handover.status ||
+              lifecycle.handover.status === 'accepted' ||
+              lifecycle.handover.status === 'awaiting_tenant') ? (
               <MunicipalRegistrationCard
                 ar={ar}
                 t={t}
