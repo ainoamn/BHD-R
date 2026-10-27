@@ -21,10 +21,12 @@ import {
 import { LeaseRequirementsPicker } from '@/components/lease-requirements-picker';
 import { DocStatusMark, docStatusLabel } from '@/components/doc-status-mark';
 import { NoteTranslateBar, OWNER_NOTE_SERVICE } from '@/components/note-translate';
+import { compressPhoto } from '@/components/stays/stay-handover-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
 import { formatMoney } from '@/lib/format';
 import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
+import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 
 const BOOKING_NOTE_MAX = Math.min(1000, NOTE_TRANSLATE_MAX);
 import type { ApprovalPolicy } from '@/lib/approval-policy';
@@ -1091,15 +1093,15 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 busy={busy}
                 canManage={canManage}
                 registration={lifecycle.municipalRegistration}
+                handover={lifecycle.handover}
                 draftTerms={
                   (lifecycle.contractDraft?.lease as { terms?: LeaseTermsDraft } | undefined)
                     ?.terms
                 }
-                onSave={(formNo, contractNo) =>
+                onSave={(payload) =>
                   void act({
                     action: 'save_municipal_registration',
-                    formNo,
-                    contractNo,
+                    ...payload,
                   })
                 }
               />
@@ -1124,6 +1126,7 @@ function MunicipalRegistrationCard({
   busy,
   canManage,
   registration,
+  handover,
   draftTerms,
   onSave,
 }: {
@@ -1132,8 +1135,16 @@ function MunicipalRegistrationCard({
   busy: boolean;
   canManage: boolean;
   registration: ReservationLifecycle['municipalRegistration'];
+  handover: ReservationLifecycle['handover'];
   draftTerms?: LeaseTermsDraft | undefined;
-  onSave: (formNo: string, contractNo: string) => void;
+  onSave: (payload: {
+    formNo: string;
+    contractNo: string;
+    electricityReading: string;
+    waterReading: string;
+    electricityReadingPhoto: string;
+    waterReadingPhoto: string;
+  }) => void;
 }) {
   const [formNo, setFormNo] = useState(
     registration?.formNo ?? draftTerms?.municipalFormNo ?? '',
@@ -1141,24 +1152,99 @@ function MunicipalRegistrationCard({
   const [contractNo, setContractNo] = useState(
     registration?.contractNo ?? draftTerms?.municipalContractNo ?? '',
   );
-  const [editing, setEditing] = useState(!registration);
+  const [electricity, setElectricity] = useState(
+    handover?.electricityReading ?? draftTerms?.electricityReading ?? '',
+  );
+  const [water, setWater] = useState(handover?.waterReading ?? draftTerms?.waterReading ?? '');
+  const [elecPhoto, setElecPhoto] = useState(draftTerms?.electricityReadingPhoto ?? '');
+  const [waterPhoto, setWaterPhoto] = useState(draftTerms?.waterReadingPhoto ?? '');
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const metersComplete = Boolean(
+    handover?.electricityReading?.trim() &&
+      handover?.waterReading?.trim() &&
+      draftTerms?.electricityReadingPhoto?.trim() &&
+      draftTerms?.waterReadingPhoto?.trim(),
+  );
+  const [editing, setEditing] = useState(!registration || !metersComplete);
 
   useEffect(() => {
     if (registration) {
       setFormNo(registration.formNo);
       setContractNo(registration.contractNo);
-      setEditing(false);
     }
-  }, [registration]);
+    if (handover?.electricityReading) setElectricity(handover.electricityReading);
+    if (handover?.waterReading) setWater(handover.waterReading);
+    if (draftTerms?.electricityReadingPhoto) setElecPhoto(draftTerms.electricityReadingPhoto);
+    if (draftTerms?.waterReadingPhoto) setWaterPhoto(draftTerms.waterReadingPhoto);
+    if (registration && metersComplete) setEditing(false);
+  }, [registration, handover, draftTerms, metersComplete]);
+
+  async function readPhoto(
+    file: File | null,
+    setter: (value: string) => void,
+  ) {
+    if (!file) {
+      setter('');
+      return;
+    }
+    if (!file.type.startsWith('image/')) return;
+    setPhotoBusy(true);
+    try {
+      setter(await compressPhoto(file, HANDOVER_PHOTO_MAX));
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
 
   const formMissing = !formNo.trim();
   const contractMissing = !contractNo.trim();
+  const electricityMissing = !electricity.trim();
+  const waterMissing = !water.trim();
+  const elecPhotoMissing = !elecPhoto.trim();
+  const waterPhotoMissing = !waterPhoto.trim();
+  const incomplete =
+    formMissing ||
+    contractMissing ||
+    electricityMissing ||
+    waterMissing ||
+    elecPhotoMissing ||
+    waterPhotoMissing;
 
-  if (registration && !editing) {
+  if (registration && metersComplete && !editing) {
     return (
       <div className="lrw__card">
-        <h3>{t('تسجيل العقد البلدي', 'Municipal contract registration')}</h3>
+        <h3>{t('بيانات ما بعد التسليم', 'Post-handover details')}</h3>
         <dl className="contract-detail__facts">
+          <div>
+            <dt>{t('قراءة عداد الكهرباء', 'Electricity reading')}</dt>
+            <dd dir="ltr">{handover?.electricityReading}</dd>
+          </div>
+          <div>
+            <dt>{t('قراءة عداد الماء', 'Water reading')}</dt>
+            <dd dir="ltr">{handover?.waterReading}</dd>
+          </div>
+          {draftTerms?.electricityReadingPhoto ? (
+            <div>
+              <dt>{t('صورة عداد الكهرباء', 'Electricity meter photo')}</dt>
+              <dd>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={draftTerms.electricityReadingPhoto}
+                  alt=""
+                  className="lcf-meter-thumb"
+                />
+              </dd>
+            </div>
+          ) : null}
+          {draftTerms?.waterReadingPhoto ? (
+            <div>
+              <dt>{t('صورة عداد الماء', 'Water meter photo')}</dt>
+              <dd>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={draftTerms.waterReadingPhoto} alt="" className="lcf-meter-thumb" />
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt>{t('رقم استمارة العقد البلدي', 'Municipal form no.')}</dt>
             <dd dir="ltr">{registration.formNo}</dd>
@@ -1182,7 +1268,7 @@ function MunicipalRegistrationCard({
             disabled={busy}
             onClick={() => setEditing(true)}
           >
-            {t('تعديل الأرقام', 'Edit numbers')}
+            {t('تعديل البيانات', 'Edit details')}
           </button>
         ) : null}
       </div>
@@ -1191,21 +1277,118 @@ function MunicipalRegistrationCard({
 
   return (
     <div className="lrw__card lrw__card--action">
-      <h3>{t('تسجيل العقد البلدي', 'Municipal contract registration')}</h3>
+      <h3>{t('بيانات ما بعد التسليم', 'Post-handover details')}</h3>
       <p>
         {t(
-          'بعد تسليم العقار أدخل رقم استمارة العقد البلدي ورقم العقد البلدي — الحقلان إلزاميان.',
-          'After handover, enter the municipal form number and municipal contract number — both are required.',
+          'بعد التسليم يُكمل المالك/الإدارة قراءات وصوَر العدادات وبيانات العقد البلدي — كلها إلزامية.',
+          'After handover the owner/admin completes meter readings, meter photos, and municipal contract details — all required.',
         )}
       </p>
       <form
         className="form-grid"
         onSubmit={(event: FormEvent) => {
           event.preventDefault();
-          if (formMissing || contractMissing) return;
-          onSave(formNo.trim(), contractNo.trim());
+          if (incomplete) return;
+          onSave({
+            formNo: formNo.trim(),
+            contractNo: contractNo.trim(),
+            electricityReading: electricity.trim(),
+            waterReading: water.trim(),
+            electricityReadingPhoto: elecPhoto,
+            waterReadingPhoto: waterPhoto,
+          });
         }}
       >
+        <div
+          className={`field field--required-mark${electricityMissing ? ' field--missing' : ' field--ok'}`}
+        >
+          <label htmlFor="lrw-elec">
+            {t('قراءة عداد الكهرباء', 'Electricity reading')}
+            <span className="field__req" aria-hidden="true">
+              *
+            </span>
+          </label>
+          <input
+            id="lrw-elec"
+            className="input"
+            dir="ltr"
+            required
+            maxLength={40}
+            disabled={busy || !canManage}
+            value={electricity}
+            onChange={(event) => setElectricity(event.target.value)}
+          />
+        </div>
+        <div
+          className={`field field--required-mark${elecPhotoMissing ? ' field--missing' : ' field--ok'}`}
+        >
+          <label htmlFor="lrw-elec-photo">
+            {t('صورة عداد الكهرباء', 'Electricity meter photo')}
+            <span className="field__req" aria-hidden="true">
+              *
+            </span>
+          </label>
+          <input
+            id="lrw-elec-photo"
+            className="input"
+            type="file"
+            accept="image/*"
+            disabled={busy || photoBusy || !canManage}
+            required={elecPhotoMissing}
+            onChange={(event) =>
+              void readPhoto(event.target.files?.[0] ?? null, setElecPhoto)
+            }
+          />
+          {elecPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={elecPhoto} alt="" className="lcf-meter-thumb" />
+          ) : null}
+        </div>
+        <div
+          className={`field field--required-mark${waterMissing ? ' field--missing' : ' field--ok'}`}
+        >
+          <label htmlFor="lrw-water">
+            {t('قراءة عداد الماء', 'Water reading')}
+            <span className="field__req" aria-hidden="true">
+              *
+            </span>
+          </label>
+          <input
+            id="lrw-water"
+            className="input"
+            dir="ltr"
+            required
+            maxLength={40}
+            disabled={busy || !canManage}
+            value={water}
+            onChange={(event) => setWater(event.target.value)}
+          />
+        </div>
+        <div
+          className={`field field--required-mark${waterPhotoMissing ? ' field--missing' : ' field--ok'}`}
+        >
+          <label htmlFor="lrw-water-photo">
+            {t('صورة عداد الماء', 'Water meter photo')}
+            <span className="field__req" aria-hidden="true">
+              *
+            </span>
+          </label>
+          <input
+            id="lrw-water-photo"
+            className="input"
+            type="file"
+            accept="image/*"
+            disabled={busy || photoBusy || !canManage}
+            required={waterPhotoMissing}
+            onChange={(event) =>
+              void readPhoto(event.target.files?.[0] ?? null, setWaterPhoto)
+            }
+          />
+          {waterPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={waterPhoto} alt="" className="lcf-meter-thumb" />
+          ) : null}
+        </div>
         <div className={`field field--required-mark${formMissing ? ' field--missing' : ' field--ok'}`}>
           <label htmlFor="lrw-mform">
             {t('رقم استمارة العقد البلدي', 'Municipal form no.')}
@@ -1249,13 +1432,13 @@ function MunicipalRegistrationCard({
             <button
               type="submit"
               className="button button--primary"
-              disabled={busy || formMissing || contractMissing}
+              disabled={busy || photoBusy || incomplete}
             >
               {busy
                 ? t('جارٍ الحفظ…', 'Saving…')
-                : t('حفظ أرقام البلدية', 'Save municipal numbers')}
+                : t('حفظ بيانات ما بعد التسليم', 'Save post-handover details')}
             </button>
-            {registration ? (
+            {registration && metersComplete ? (
               <button
                 type="button"
                 className="button button--quiet"
@@ -1263,6 +1446,10 @@ function MunicipalRegistrationCard({
                 onClick={() => {
                   setFormNo(registration.formNo);
                   setContractNo(registration.contractNo);
+                  setElectricity(handover?.electricityReading ?? '');
+                  setWater(handover?.waterReading ?? '');
+                  setElecPhoto(draftTerms?.electricityReadingPhoto ?? '');
+                  setWaterPhoto(draftTerms?.waterReadingPhoto ?? '');
                   setEditing(false);
                 }}
               >
@@ -1272,7 +1459,7 @@ function MunicipalRegistrationCard({
           </div>
         ) : (
           <p className="muted span-2">
-            {t('يلزم صلاحية إدارة الحجوزات لإدخال الأرقام.', 'Booking manage permission is required.')}
+            {t('يلزم صلاحية إدارة الحجوزات لإدخال البيانات.', 'Booking manage permission is required.')}
           </p>
         )}
       </form>

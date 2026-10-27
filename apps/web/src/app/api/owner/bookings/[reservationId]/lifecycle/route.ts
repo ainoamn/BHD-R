@@ -7,6 +7,7 @@ import { isoDateSchema, leaseTenantSchema, leaseTermsSchema } from '@/lib/lease-
 import { reservationOwnerAction } from '@/lib/lease-reservation-lifecycle-neon';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -110,6 +111,10 @@ const bodySchema = z.discriminatedUnion('action', [
       action: z.literal('save_municipal_registration'),
       formNo: z.string().trim().min(1).max(80),
       contractNo: z.string().trim().min(1).max(80),
+      electricityReading: z.string().trim().min(1).max(40),
+      waterReading: z.string().trim().min(1).max(40),
+      electricityReadingPhoto: z.string().startsWith('data:image/').max(HANDOVER_PHOTO_MAX),
+      waterReadingPhoto: z.string().startsWith('data:image/').max(HANDOVER_PHOTO_MAX),
     })
     .strict(),
   z

@@ -1984,7 +1984,10 @@ export function LeaseContractForm({
             id="lcf-elec"
             label={
               deferMeters
-                ? t('قراءة عداد الكهرباء (مؤجّل للتسليم)', 'Electricity reading (deferred to handover)')
+                ? t(
+                    'قراءة عداد الكهرباء (بعد التسليم — الإدارة)',
+                    'Electricity reading (admin after handover)',
+                  )
                 : t('قراءة عداد الكهرباء', 'Electricity meter reading')
             }
             required={!deferMeters}
@@ -2006,7 +2009,10 @@ export function LeaseContractForm({
             id="lcf-elec-photo"
             label={
               deferMeters
-                ? t('صورة عداد الكهرباء (إلزامية عند التسليم)', 'Electricity meter photo (required at handover)')
+                ? t(
+                    'صورة عداد الكهرباء (بعد التسليم — الإدارة)',
+                    'Electricity meter photo (admin after handover)',
+                  )
                 : t('صورة عداد الكهرباء', 'Electricity meter photo')
             }
             required={!deferMeters}
@@ -2032,7 +2038,7 @@ export function LeaseContractForm({
             id="lcf-water"
             label={
               deferMeters
-                ? t('قراءة عداد الماء (مؤجّل للتسليم)', 'Water reading (deferred to handover)')
+                ? t('قراءة عداد الماء (بعد التسليم — الإدارة)', 'Water reading (admin after handover)')
                 : t('قراءة عداد الماء', 'Water meter reading')
             }
             required={!deferMeters}
@@ -2054,7 +2060,10 @@ export function LeaseContractForm({
             id="lcf-water-photo"
             label={
               deferMeters
-                ? t('صورة عداد الماء (إلزامية عند التسليم)', 'Water meter photo (required at handover)')
+                ? t(
+                    'صورة عداد الماء (بعد التسليم — الإدارة)',
+                    'Water meter photo (admin after handover)',
+                  )
                 : t('صورة عداد الماء', 'Water meter photo')
             }
             required={!deferMeters}
@@ -2080,8 +2089,8 @@ export function LeaseContractForm({
         {deferMeters ? (
           <p className="muted lcf-help">
             {t(
-              'القراءة وصورة كل عداد تُسجَّلان إلزامياً عند تسليم العقار من شاشة التسليم.',
-              'Reading and a photo for each meter are required at handover on the handover screen.',
+              'قراءات وصوَر العدادات وبيانات العقد البلدي يُكملها المالك/الإدارة إلزامياً من صفحة الحجز بعد التسليم — ليست من شاشة التسليم.',
+              'Meter readings/photos and municipal contract details are required from the owner/admin on the booking page after handover — not on the handover desk.',
             )}
           </p>
         ) : null}

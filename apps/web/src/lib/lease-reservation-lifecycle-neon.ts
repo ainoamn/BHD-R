@@ -240,6 +240,10 @@ export type ReservationOwnerAction =
       action: 'save_municipal_registration';
       formNo: string;
       contractNo: string;
+      electricityReading: string;
+      waterReading: string;
+      electricityReadingPhoto: string;
+      waterReadingPhoto: string;
     }
   | { action: 'restore_reservation'; note: string };
 
@@ -1160,10 +1164,7 @@ async function ownerActionInTx(
         }
         const text = (value: string | undefined, max: number) =>
           value?.trim().slice(0, max) || null;
-        const elec = text(input.electricityReading, 40);
-        const water = text(input.waterReading, 40);
-        const deferred = new Set(row.lifecycle.autoFlow?.deferUntilHandover ?? []);
-        if (deferred.has('meters') && (!elec || !water)) fail('handover_invalid');
+        // Meter readings are completed by admin after handover — not required at the door.
         const lifecycle: ReservationLifecycle = {
           ...row.lifecycle,
           handover: {
@@ -1172,8 +1173,8 @@ async function ownerActionInTx(
             byName,
             recipientName,
             keys: text(input.keys, 200),
-            electricityReading: elec,
-            waterReading: water,
+            electricityReading: text(input.electricityReading, 40),
+            waterReading: text(input.waterReading, 40),
             notes: text(input.notes, 1000),
           },
         };
@@ -1190,7 +1191,19 @@ async function ownerActionInTx(
         }
         const formNo = input.formNo.trim().slice(0, 80);
         const contractNo = input.contractNo.trim().slice(0, 80);
+        const electricityReading = input.electricityReading.trim().slice(0, 40);
+        const waterReading = input.waterReading.trim().slice(0, 40);
+        const electricityReadingPhoto = input.electricityReadingPhoto.trim();
+        const waterReadingPhoto = input.waterReadingPhoto.trim();
         if (!formNo || !contractNo) fail('municipal_registration_invalid');
+        if (
+          !electricityReading ||
+          !waterReading ||
+          !electricityReadingPhoto.startsWith('data:image/') ||
+          !waterReadingPhoto.startsWith('data:image/')
+        ) {
+          fail('meters_required');
+        }
         const registration = {
           formNo,
           contractNo,
@@ -1205,17 +1218,41 @@ async function ownerActionInTx(
             lease.terms && typeof lease.terms === 'object' ? { ...lease.terms } : {};
           terms.municipalFormNo = formNo;
           terms.municipalContractNo = contractNo;
+          terms.electricityReading = electricityReading;
+          terms.waterReading = waterReading;
+          terms.electricityReadingPhoto = electricityReadingPhoto;
+          terms.waterReadingPhoto = waterReadingPhoto;
           nextDraft = {
             ...draft,
             savedAt: at,
             byName,
             lease: { ...lease, terms },
           };
+        } else {
+          nextDraft = {
+            savedAt: at,
+            byName,
+            lease: {
+              terms: {
+                municipalFormNo: formNo,
+                municipalContractNo: contractNo,
+                electricityReading,
+                waterReading,
+                electricityReadingPhoto,
+                waterReadingPhoto,
+              },
+            },
+          };
         }
         const lifecycle: ReservationLifecycle = {
           ...row.lifecycle,
           ...(nextDraft ? { contractDraft: nextDraft } : {}),
           municipalRegistration: registration,
+          handover: {
+            ...handover,
+            electricityReading,
+            waterReading,
+          },
         };
         await saveLifecycle(tx, row, lifecycle);
         const contractId = row.lifecycle.contract?.id;
@@ -1233,6 +1270,10 @@ async function ownerActionInTx(
                 : {};
             leaseTerms.municipalFormNo = formNo;
             leaseTerms.municipalContractNo = contractNo;
+            leaseTerms.electricityReading = electricityReading;
+            leaseTerms.waterReading = waterReading;
+            leaseTerms.electricityReadingPhoto = electricityReadingPhoto;
+            leaseTerms.waterReadingPhoto = waterReadingPhoto;
             payload.leaseTerms = leaseTerms;
             await tx
               .update(contracts)
@@ -1240,7 +1281,12 @@ async function ownerActionInTx(
               .where(and(eq(contracts.id, contractId), eq(contracts.organizationId, row.orgId)));
           }
         }
-        await event('reservation.municipal_registration_saved', { formNo, contractNo });
+        await event('reservation.municipal_registration_saved', {
+          formNo,
+          contractNo,
+          electricityReading,
+          waterReading,
+        });
         break;
       }
     }
@@ -2400,9 +2446,10 @@ export async function readHandoverSelfie(
 }
 
 /**
- * The staff member records the handover after scanning the tenant's pass: keys, meters, notes
- * and photos of the premises. The tenant's own selfie from the door becomes the key-receipt
- * photo; without one, the tenant takes it before accepting.
+ * The staff member records the handover after scanning the tenant's pass: keys, notes
+ * and photos of the premises. Meter readings and municipal contract numbers are completed
+ * later by the owner/admin on the booking page. The tenant's own selfie from the door
+ * becomes the key-receipt photo; without one, the tenant takes it before accepting.
  */
 export async function offerHandover(
   claims: SessionClaims,

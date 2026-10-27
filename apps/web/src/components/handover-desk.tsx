@@ -57,7 +57,7 @@ function selfieHref(key: Key): string {
   return `/api/handover/selfie?${query.toString()}`;
 }
 
-/** Scan or type the tenant's pass, check the face, then record keys, meters and photos. */
+/** Scan or type the tenant's pass, check the face, then record keys and premises photos. */
 export function HandoverDesk({
   locale,
   initialToken,
@@ -549,19 +549,10 @@ function HandoverForm({
 }) {
   const [recipientName, setRecipientName] = useState(preview.tenantName);
   const [keys, setKeys] = useState('');
-  const [electricity, setElectricity] = useState('');
-  const [water, setWater] = useState('');
-  const [elecPhoto, setElecPhoto] = useState<Photo[]>([]);
-  const [waterPhoto, setWaterPhoto] = useState<Photo[]>([]);
   const [notes, setNotes] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const metersReady =
-    electricity.trim().length > 0 &&
-    water.trim().length > 0 &&
-    elecPhoto.length > 0 &&
-    waterPhoto.length > 0;
   const unitName =
     locale === 'ar' ? preview.unit.nameAr : preview.unit.nameEn || preview.unit.nameAr;
   const propertyName =
@@ -569,14 +560,6 @@ function HandoverForm({
 
   async function submit() {
     if (recipientName.trim().length < 2) return;
-    if (!metersReady) {
-      setError(
-        ar
-          ? 'أدخل قراءة الكهرباء والماء وأرفق صورة لكل عداد.'
-          : 'Enter electricity and water readings and attach a photo of each meter.',
-      );
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
@@ -587,10 +570,8 @@ function HandoverForm({
           key: handoverKey,
           recipientName: recipientName.trim(),
           keys: keys.trim() || undefined,
-          electricityReading: electricity.trim() || undefined,
-          waterReading: water.trim() || undefined,
           notes: notes.trim() || undefined,
-          photos: [...elecPhoto, ...waterPhoto, ...photos],
+          photos,
         }),
       });
       onDone();
@@ -714,52 +695,11 @@ function HandoverForm({
                 onChange={(event) => setKeys(event.target.value)}
               />
             </label>
-            <label>
-              <span>
-                {ar ? 'قراءة عداد الكهرباء' : 'Electricity reading'}
-                <span aria-hidden="true"> *</span>
-              </span>
-              <input
-                className="input"
-                dir="ltr"
-                required
-                value={electricity}
-                maxLength={40}
-                onChange={(event) => setElectricity(event.target.value)}
-              />
-            </label>
-            <div className="handover-desk__wide">
-              <PhotoPicker
-                ar={ar}
-                label={ar ? 'صورة عداد الكهرباء *' : 'Electricity meter photo *'}
-                max={1}
-                photos={elecPhoto}
-                onChange={setElecPhoto}
-              />
-            </div>
-            <label>
-              <span>
-                {ar ? 'قراءة عداد الماء' : 'Water reading'}
-                <span aria-hidden="true"> *</span>
-              </span>
-              <input
-                className="input"
-                dir="ltr"
-                required
-                value={water}
-                maxLength={40}
-                onChange={(event) => setWater(event.target.value)}
-              />
-            </label>
-            <div className="handover-desk__wide">
-              <PhotoPicker
-                ar={ar}
-                label={ar ? 'صورة عداد الماء *' : 'Water meter photo *'}
-                max={1}
-                photos={waterPhoto}
-                onChange={setWaterPhoto}
-              />
-            </div>
+            <p className="muted handover-desk__wide" role="note">
+              {ar
+                ? 'قراءات وصوَر عدّادات الكهرباء والماء وبيانات العقد البلدي يُكمّلها المالك/الإدارة لاحقاً من صفحة الحجز بعد التسليم — ليست مطلوبة منك هنا.'
+                : 'Electricity/water meter readings and photos, and municipal contract details, are completed later by the owner/admin on the booking page — not required here.'}
+            </p>
             <label className="handover-desk__wide">
               <span>
                 {ar
@@ -798,12 +738,7 @@ function HandoverForm({
             <button
               type="button"
               className="button button--primary"
-              disabled={
-                busy ||
-                recipientName.trim().length < 2 ||
-                !preview.handlerSelfieAt ||
-                !metersReady
-              }
+              disabled={busy || recipientName.trim().length < 2 || !preview.handlerSelfieAt}
               onClick={() => void submit()}
             >
               {busy
