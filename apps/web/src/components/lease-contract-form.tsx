@@ -887,11 +887,8 @@ export function LeaseContractForm({
 
   const deferMeters = deferUntilHandover.includes('meters');
   const deferHandover = deferUntilHandover.includes('handoverOn') || renewalMode;
-  const hasPreviousMeters = Boolean(
-    previousMeters?.electricityReading?.trim() && previousMeters?.waterReading?.trim(),
-  );
-  /** Renewal: new meter entry is optional when the previous contract already has readings. */
-  const metersOptional = renewalMode && hasPreviousMeters;
+  /** Renewal addendum: new meter readings/photos are always optional (previous kept if any). */
+  const metersOptional = renewalMode;
   const draftForCompute = useMemo((): LeaseTermsDraft => {
     if (!renewalMode || !previousMeters) return draft;
     return {
@@ -910,16 +907,22 @@ export function LeaseContractForm({
   const result = useMemo(
     () =>
       computeLeaseTerms(draftForCompute, currency, digits, {
-        deferUntilHandover: [
-          ...deferUntilHandover,
-          ...(metersOptional &&
+        deferUntilHandover:
+          metersOptional &&
           !draft.electricityReading?.trim() &&
           !draft.waterReading?.trim()
-            ? (['meters'] as const)
-            : []),
-        ],
+            ? [...deferUntilHandover, 'meters' as const]
+            : deferUntilHandover,
       }),
-    [draftForCompute, currency, digits, deferUntilHandover, metersOptional, draft.electricityReading, draft.waterReading],
+    [
+      draftForCompute,
+      currency,
+      digits,
+      deferUntilHandover,
+      metersOptional,
+      draft.electricityReading,
+      draft.waterReading,
+    ],
   );
   const terms = result.ok ? result.terms : null;
   const missingFields = useMemo(
