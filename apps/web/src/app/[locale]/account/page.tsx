@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { AccountCenter } from '@/components/account/account-center';
+import { MfaSettings } from '@/components/account/mfa-settings';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { readClaims } from '@/lib/portal-ops-data';
 
@@ -30,6 +31,7 @@ export default async function AccountPage({ params }: { params: Promise<{ locale
         </Link>
       </nav>
       <AccountCenter locale={locale} />
+      <MfaSettings locale={locale} />
     </main>
   );
 }

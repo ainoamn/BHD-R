@@ -52,10 +52,60 @@ import {
   type AccountCodeMap,
 } from '@/lib/accounting-posting';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
+import {
+  buildFieldKeyring,
+  decryptField,
+  encryptField,
+  looksLikeEncryptedField,
+} from '@bhd-r/security';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const PERIOD_RESOURCE = 'fiscal_period';
 const SETTINGS_RESOURCE = 'accounting_settings';
+
+function bankIbanKeyring() {
+  return buildFieldKeyring('bank-iban');
+}
+
+function encryptBankIbans(
+  orgId: string,
+  settings: AccountingSettings,
+): AccountingSettings {
+  const keyring = bankIbanKeyring();
+  return {
+    ...settings,
+    bankAccounts: settings.bankAccounts.map((row) => {
+      const iban = row.iban?.trim() ?? '';
+      if (!iban || looksLikeEncryptedField(iban)) return row;
+      return {
+        ...row,
+        iban: encryptField(iban, keyring, `org:${orgId}:bank:${row.id}:iban`),
+      };
+    }),
+  };
+}
+
+function decryptBankIbans(
+  orgId: string,
+  settings: AccountingSettings,
+): AccountingSettings {
+  const keyring = bankIbanKeyring();
+  return {
+    ...settings,
+    bankAccounts: settings.bankAccounts.map((row) => {
+      const iban = row.iban?.trim() ?? '';
+      if (!iban || !looksLikeEncryptedField(iban)) return row;
+      try {
+        return {
+          ...row,
+          iban: decryptField(iban, keyring, `org:${orgId}:bank:${row.id}:iban`),
+        };
+      } catch {
+        return { ...row, iban: '' };
+      }
+    }),
+  };
+}
 
 export type GlTx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
@@ -1694,7 +1744,7 @@ async function readAccountingSettingsInTx(tx: GlTx, orgId: string): Promise<Acco
     .orderBy(desc(workflowEvents.occurredAt))
     .limit(1);
   if (!row[0]) return { ...DEFAULT_ACCOUNTING_SETTINGS };
-  return normalizeAccountingSettings(row[0].metadata);
+  return decryptBankIbans(orgId, normalizeAccountingSettings(row[0].metadata));
 }
 
 export async function getAccountingSettings(claims: SessionClaims): Promise<AccountingSettings> {
@@ -1710,6 +1760,7 @@ export async function setAccountingSettings(
   if (!canManageAccounting(claims)) fail('forbidden');
   const orgId = claims.organizationId!;
   const settings = normalizeAccountingSettings(input);
+  const stored = encryptBankIbans(orgId, settings);
   return withinViewerTenant(claims, async (tx) => {
     await tx.insert(workflowEvents).values({
       organizationId: orgId,
@@ -1719,7 +1770,7 @@ export async function setAccountingSettings(
       eventType: 'settings.updated',
       toStatus: 'active',
       note: `VAT ${settings.vatEnabled ? settings.vatRatePercent : 0}% · ${settings.baseCurrency}`,
-      metadata: settings,
+      metadata: stored,
     });
     return settings;
   });

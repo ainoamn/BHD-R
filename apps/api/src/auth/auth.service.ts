@@ -30,6 +30,7 @@ import {
   type SessionClaims,
 } from '@bhd-r/authz';
 import {
+  buildFieldKeyring,
   createCsrfToken,
   decryptField,
   encryptField,
@@ -47,23 +48,97 @@ import {
   type Keyring,
 } from '@bhd-r/security';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { Redis } from 'ioredis';
 import { decodeJwt } from 'jose';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
 import { ensureDefaultContractTemplate } from '../common/default-contract-template.js';
+import {
+  requireCsrfSecret,
+  requireSessionSecretBytes,
+  requireSessionSecretString,
+} from '../common/runtime-secrets.js';
 
-const sessionSecret = () =>
-  new TextEncoder().encode(
-    process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters',
-  );
+const sessionSecret = () => requireSessionSecretBytes();
 const apiPepper = () =>
   createHash('sha256')
-    .update(`${process.env.BHD_R_SESSION_SECRET ?? 'development'}\0api-keys`)
+    .update(`${requireSessionSecretString()}\0api-keys`)
     .digest('base64url');
 const totpRecoveryPepper = () =>
   createHash('sha256')
-    .update(`${process.env.BHD_R_SESSION_SECRET ?? 'development'}\0totp-recovery`)
+    .update(`${requireSessionSecretString()}\0totp-recovery`)
     .digest('base64url');
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
+const LOGIN_LOCK_LIMIT = 8;
+const LOGIN_LOCK_WINDOW_SEC = 15 * 60;
+
+let loginLockRedis: Redis | null | undefined;
+
+function loginLockClient(): Redis | null {
+  if (loginLockRedis !== undefined) return loginLockRedis;
+  const url = process.env.REDIS_URL?.trim();
+  if (!url) {
+    loginLockRedis = null;
+    return null;
+  }
+  try {
+    loginLockRedis = new Redis(url, {
+      maxRetriesPerRequest: 1,
+      enableOfflineQueue: false,
+      lazyConnect: true,
+    });
+    loginLockRedis.on('error', () => undefined);
+    return loginLockRedis;
+  } catch {
+    loginLockRedis = null;
+    return null;
+  }
+}
+
+function loginLockKey(username: string): string {
+  return `bhd-r:login-lock:${createHash('sha256').update(username).digest('hex').slice(0, 32)}`;
+}
+
+async function assertLoginNotLocked(username: string): Promise<void> {
+  const redis = loginLockClient();
+  if (!redis) return;
+  try {
+    if (redis.status !== 'ready') await redis.connect().catch(() => undefined);
+    const count = Number((await redis.get(loginLockKey(username))) ?? '0');
+    if (count >= LOGIN_LOCK_LIMIT) {
+      throw new UnauthorizedException({
+        code: 'ACCOUNT_LOCKED',
+        message: 'Too many failed sign-in attempts. Try again in 15 minutes.',
+        messageAr: 'محاولات دخول فاشلة كثيرة — أعد المحاولة بعد 15 دقيقة.',
+      });
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedException) throw error;
+  }
+}
+
+async function recordFailedLogin(username: string): Promise<void> {
+  const redis = loginLockClient();
+  if (!redis) return;
+  try {
+    if (redis.status !== 'ready') await redis.connect().catch(() => undefined);
+    const key = loginLockKey(username);
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, LOGIN_LOCK_WINDOW_SEC);
+  } catch {
+    /* best-effort */
+  }
+}
+
+async function clearFailedLogin(username: string): Promise<void> {
+  const redis = loginLockClient();
+  if (!redis) return;
+  try {
+    if (redis.status !== 'ready') await redis.connect().catch(() => undefined);
+    await redis.del(loginLockKey(username));
+  } catch {
+    /* best-effort */
+  }
+}
 
 /** Current permissions of the organization's saved roles a member holds. */
 async function savedRolePermissions(
@@ -87,18 +162,7 @@ async function savedRolePermissions(
 }
 
 function encryptionKeyring(purpose: string): Keyring {
-  const entries = Object.entries(process.env).filter(
-    ([key, value]) => /^FIELD_ENCRYPTION_KEY_V\d+$/.test(key) && value,
-  );
-  if (entries.length === 0)
-    entries.push(['FIELD_ENCRYPTION_KEY_V1', 'development-field-key-change-in-production']);
-  const keys = Object.fromEntries(
-    entries.map(([name, value]) => {
-      const version = name.replace('FIELD_ENCRYPTION_KEY_', '').toLowerCase();
-      return [version, createHash('sha256').update(`${value!}\0${purpose}`).digest()];
-    }),
-  );
-  return { activeVersion: process.env.FIELD_ENCRYPTION_ACTIVE_VERSION ?? 'v1', keys };
+  return buildFieldKeyring(purpose);
 }
 
 export interface IssuedSession {
@@ -228,58 +292,104 @@ export class AuthService {
   }): Promise<IssuedSession> {
     this.assertLocalAuthEnabled();
     const normalized = input.username.trim().toLowerCase();
-    return this.database.asSystem(async (transaction) => {
-      const user = await transaction.query.users.findFirst({
-        where: eq(users.username, normalized),
-      });
-      if (
-        !user?.credentialHash ||
-        user.disabledAt ||
-        !(await verifyPassword(input.password, user.credentialHash))
-      )
-        throw new UnauthorizedException('Invalid credentials');
-      if (user.totpConfirmedAt) {
-        if (!input.totpCode) throw new UnauthorizedException('TOTP code is required');
-        const usedRecovery = await this.consumeRecoveryCode(
-          transaction,
-          user.id,
-          user.totpRecoveryDigests ?? [],
-          input.totpCode,
-        );
-        if (!usedRecovery) {
-          if (!user.totpSecretEncrypted) throw new UnauthorizedException('TOTP code is required');
-          const keyring = encryptionKeyring('totp');
-          const encrypted = rotateEncryptedField(
-            user.totpSecretEncrypted,
-            keyring,
-            `totp:${user.id}`,
-          );
-          const secret = decryptField(encrypted, keyring, `totp:${user.id}`);
-          const verification = verifyTotp({
-            code: input.totpCode,
-            secret,
-            lastAcceptedCounter: user.totpLastAcceptedCounter,
-          });
-          if (!verification.valid || verification.counter === null)
-            throw new UnauthorizedException('Invalid or replayed TOTP code');
-          const accepted = await transaction
-            .update(users)
-            .set({ totpLastAcceptedCounter: verification.counter, totpSecretEncrypted: encrypted })
-            .where(
-              and(
-                eq(users.id, user.id),
-                or(
-                  isNull(users.totpLastAcceptedCounter),
-                  lt(users.totpLastAcceptedCounter, verification.counter),
-                ),
-              ),
-            )
-            .returning({ id: users.id });
-          if (accepted.length === 0) throw new UnauthorizedException('TOTP code was already used');
+    await assertLoginNotLocked(normalized);
+    try {
+      const issued = await this.database.asSystem(async (transaction) => {
+        const user = await transaction.query.users.findFirst({
+          where: eq(users.username, normalized),
+        });
+        if (
+          !user?.credentialHash ||
+          user.disabledAt ||
+          !(await verifyPassword(input.password, user.credentialHash))
+        ) {
+          throw new UnauthorizedException('Invalid credentials');
         }
+        if (user.totpConfirmedAt) {
+          if (!input.totpCode) {
+            throw new UnauthorizedException({
+              code: 'TOTP_REQUIRED',
+              message: 'Enter the 6-digit code from Google Authenticator (or a recovery code).',
+              messageAr: 'أدخل الرمز المكوّن من 6 أرقام من Google Authenticator (أو رمز الاسترداد).',
+            });
+          }
+          const usedRecovery = await this.consumeRecoveryCode(
+            transaction,
+            user.id,
+            user.totpRecoveryDigests ?? [],
+            input.totpCode,
+          );
+          if (!usedRecovery) {
+            if (!user.totpSecretEncrypted) {
+              throw new UnauthorizedException({
+                code: 'TOTP_REQUIRED',
+                message: 'TOTP code is required',
+                messageAr: 'رمز التحقق مطلوب',
+              });
+            }
+            const keyring = encryptionKeyring('totp');
+            const encrypted = rotateEncryptedField(
+              user.totpSecretEncrypted,
+              keyring,
+              `totp:${user.id}`,
+            );
+            const secret = decryptField(encrypted, keyring, `totp:${user.id}`);
+            const verification = verifyTotp({
+              code: input.totpCode,
+              secret,
+              lastAcceptedCounter: user.totpLastAcceptedCounter,
+            });
+            if (!verification.valid || verification.counter === null) {
+              throw new UnauthorizedException({
+                code: 'TOTP_INVALID',
+                message: 'Invalid or replayed authenticator code',
+                messageAr: 'رمز المصادقة غير صالح أو مُعاد استخدامه',
+              });
+            }
+            const accepted = await transaction
+              .update(users)
+              .set({
+                totpLastAcceptedCounter: verification.counter,
+                totpSecretEncrypted: encrypted,
+              })
+              .where(
+                and(
+                  eq(users.id, user.id),
+                  or(
+                    isNull(users.totpLastAcceptedCounter),
+                    lt(users.totpLastAcceptedCounter, verification.counter),
+                  ),
+                ),
+              )
+              .returning({ id: users.id });
+            if (accepted.length === 0) {
+              throw new UnauthorizedException({
+                code: 'TOTP_INVALID',
+                message: 'TOTP code was already used',
+                messageAr: 'تم استخدام رمز المصادقة مسبقاً',
+              });
+            }
+          }
+        }
+        return this.issueForUser(transaction, user.id, input.organizationId);
+      });
+      await clearFailedLogin(normalized);
+      return issued;
+    } catch (error) {
+      if (
+        error instanceof UnauthorizedException &&
+        !/TOTP_REQUIRED|ACCOUNT_LOCKED/i.test(
+          typeof error.getResponse() === 'object' &&
+            error.getResponse() &&
+            'code' in (error.getResponse() as object)
+            ? String((error.getResponse() as { code?: string }).code)
+            : '',
+        )
+      ) {
+        await recordFailedLogin(normalized);
       }
-      return this.issueForUser(transaction, user.id, input.organizationId);
-    });
+      throw error;
+    }
   }
 
   async loginWithIdentity(
@@ -1054,10 +1164,7 @@ export class AuthService {
     });
     return {
       token,
-      csrf: createCsrfToken(
-        sid,
-        process.env.CSRF_SECRET ?? 'development-csrf-secret-must-be-at-least-32-chars',
-      ),
+      csrf: createCsrfToken(sid, requireCsrfSecret()),
       claims,
     };
   }

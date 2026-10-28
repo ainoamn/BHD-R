@@ -29,7 +29,13 @@ import {
   stayBookings,
   units,
 } from '@bhd-r/db';
-import { assertSafeOutboundUrl, decryptField, encryptField, type Keyring } from '@bhd-r/security';
+import {
+  assertSafeOutboundUrl,
+  buildFieldKeyring,
+  decryptField,
+  encryptField,
+  type Keyring,
+} from '@bhd-r/security';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
 
 async function assertHisabyEventsUrl(eventsUrl: string): Promise<void> {
@@ -42,22 +48,7 @@ async function assertHisabyEventsUrl(eventsUrl: string): Promise<void> {
 }
 
 function secretKeyring(purpose: string): Keyring {
-  const entries = Object.entries(process.env).filter(
-    ([key, value]) => /^FIELD_ENCRYPTION_KEY_V\d+$/.test(key) && value,
-  );
-  if (entries.length === 0)
-    entries.push(['FIELD_ENCRYPTION_KEY_V1', 'development-field-key-change-in-production']);
-  return {
-    activeVersion: process.env.FIELD_ENCRYPTION_ACTIVE_VERSION ?? 'v1',
-    keys: Object.fromEntries(
-      entries.map(([name, value]) => [
-        name.replace('FIELD_ENCRYPTION_KEY_', '').toLowerCase(),
-        createHash('sha256')
-          .update(`${value ?? ''}\0${purpose}`)
-          .digest(),
-      ]),
-    ),
-  };
+  return buildFieldKeyring(purpose);
 }
 
 function hasPermission(claims: SessionClaims, permission: Permission): boolean {

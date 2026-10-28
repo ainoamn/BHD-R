@@ -13,7 +13,7 @@ function store(): Map<string, Bucket> {
 }
 
 /** Best-effort in-memory sliding window (per isolate on serverless). */
-export function assertRouteRateLimit(input: {
+function assertMemoryRateLimit(input: {
   key: string;
   limit: number;
   windowMs: number;
@@ -31,6 +31,68 @@ export function assertRouteRateLimit(input: {
   bucket.timestamps.push(now);
   buckets.set(input.key, bucket);
   return { ok: true };
+}
+
+/**
+ * Shared Upstash Redis REST counter when configured (cross-instance).
+ * Falls back to in-memory when UPSTASH_* env is absent.
+ */
+async function assertUpstashRateLimit(input: {
+  key: string;
+  limit: number;
+  windowMs: number;
+}): Promise<{ ok: true } | { ok: false; retryAfterSec: number } | null> {
+  const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  if (!url || !token) return null;
+  const redisKey = `bhd-r:rl:${input.key}`;
+  const windowSec = Math.max(1, Math.ceil(input.windowMs / 1000));
+  try {
+    const incr = await fetch(`${url}/pipeline`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify([
+        ['INCR', redisKey],
+        ['EXPIRE', redisKey, String(windowSec), 'NX'],
+        ['TTL', redisKey],
+      ]),
+      signal: AbortSignal.timeout(2_500),
+      cache: 'no-store',
+    });
+    if (!incr.ok) return null;
+    const rows = (await incr.json()) as Array<{ result?: unknown }>;
+    const count = Number(rows[0]?.result ?? 0);
+    const ttl = Number(rows[2]?.result ?? windowSec);
+    if (count > input.limit) {
+      return { ok: false, retryAfterSec: Math.max(1, ttl > 0 ? ttl : windowSec) };
+    }
+    return { ok: true };
+  } catch {
+    return null;
+  }
+}
+
+/** Prefer Upstash when configured; otherwise in-memory (per isolate). */
+export async function assertRouteRateLimitAsync(input: {
+  key: string;
+  limit: number;
+  windowMs: number;
+}): Promise<{ ok: true } | { ok: false; retryAfterSec: number }> {
+  const shared = await assertUpstashRateLimit(input);
+  if (shared) return shared;
+  return assertMemoryRateLimit(input);
+}
+
+/** Sync helper for callers that cannot await — memory only. Prefer async when possible. */
+export function assertRouteRateLimit(input: {
+  key: string;
+  limit: number;
+  windowMs: number;
+}): { ok: true } | { ok: false; retryAfterSec: number } {
+  return assertMemoryRateLimit(input);
 }
 
 export function clientIp(request: Request): string {

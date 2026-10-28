@@ -4,7 +4,12 @@ import { sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
 import { auditLogs, platformSettings } from '@bhd-r/db';
-import { encryptField, decryptField, type Keyring } from '@bhd-r/security';
+import {
+  buildFieldKeyring,
+  encryptField,
+  decryptField,
+  type Keyring,
+} from '@bhd-r/security';
 import { elevatedTx, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
 import {
   PAYMENT_METHOD_IDS,
@@ -74,23 +79,7 @@ async function writeSetting(
 }
 
 function paymentKeyring(): Keyring {
-  const entries = Object.entries(process.env).filter(
-    ([key, value]) => /^FIELD_ENCRYPTION_KEY_V\d+$/.test(key) && value,
-  );
-  if (entries.length === 0) {
-    entries.push(['FIELD_ENCRYPTION_KEY_V1', 'development-field-key-change-in-production']);
-  }
-  return {
-    activeVersion: process.env.FIELD_ENCRYPTION_ACTIVE_VERSION ?? 'v1',
-    keys: Object.fromEntries(
-      entries.map(([name, value]) => [
-        name.replace('FIELD_ENCRYPTION_KEY_', '').toLowerCase(),
-        createHash('sha256')
-          .update(`${value ?? ''}\0payment-gateway`)
-          .digest(),
-      ]),
-    ),
-  };
+  return buildFieldKeyring('payment-gateway');
 }
 
 function encryptCredentials(providerId: string, credentials: Record<string, string>): string {

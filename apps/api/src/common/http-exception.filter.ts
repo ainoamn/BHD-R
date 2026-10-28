@@ -31,10 +31,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
           : status === 500
             ? 'An unexpected error occurred'
             : 'Request failed';
+    const messageAr =
+      typeof response === 'object' &&
+      response &&
+      'messageAr' in response &&
+      typeof (response as { messageAr?: unknown }).messageAr === 'string'
+        ? (response as { messageAr: string }).messageAr
+        : undefined;
     reply.status(status).json({
       error: {
         code,
         message,
+        ...(messageAr ? { messageAr } : {}),
         requestId: requestIdOf(request),
         ...(status < 500 && typeof response === 'object' ? { details: response } : {}),
       },

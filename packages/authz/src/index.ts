@@ -800,9 +800,10 @@ export function can(
 
 /**
  * BHD-SESSION-POLICY: product session lives until explicit logout.
- * 400 days is the Chromium cookie ceiling, not an idle timeout.
+ * Absolute cookie/JWT ceiling (not an idle timeout). Hardened to 30 days for
+ * cybersecurity; user stays signed in until explicit logout or this expiry.
  */
-export const PRODUCT_SESSION_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
+export const PRODUCT_SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 export async function issueSessionToken(
   claims: SessionClaims,

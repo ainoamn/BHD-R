@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { ApiRequest } from './api-http.js';
 import { verifyCsrfToken } from '@bhd-r/security';
+import { requireCsrfSecret } from './runtime-secrets.js';
 import { isAllowedWebOrigin } from './web-origins.js';
 
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -41,11 +42,7 @@ export class CsrfGuard implements CanActivate {
       typeof header !== 'string' ||
       header !== cookie ||
       !request.auth ||
-      !verifyCsrfToken(
-        header,
-        request.auth.sid,
-        process.env.CSRF_SECRET ?? 'development-csrf-secret-must-be-at-least-32-chars',
-      )
+      !verifyCsrfToken(header, request.auth.sid, requireCsrfSecret())
     ) {
       throw new ForbiddenException('CSRF validation failed');
     }

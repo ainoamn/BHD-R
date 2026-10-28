@@ -12,8 +12,9 @@ import {
   properties,
   representationAuthorities,
 } from '@bhd-r/db';
-import { decryptField, encryptField, type Keyring } from '@bhd-r/security';
+import { buildFieldKeyring, decryptField, encryptField, type Keyring } from '@bhd-r/security';
 import { assertOrganizationEntitlement } from '../common/entitlements.js';
+import { requirePiiLookupPepper } from '../common/runtime-secrets.js';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
 
 export type PartyRoleKey =
@@ -60,23 +61,7 @@ export interface CreatePartyInput {
 }
 
 function fieldKeyring(purpose: string): Keyring {
-  const entries = Object.entries(process.env).filter(
-    ([key, value]) => /^FIELD_ENCRYPTION_KEY_V\d+$/.test(key) && value,
-  );
-  if (entries.length === 0) {
-    entries.push(['FIELD_ENCRYPTION_KEY_V1', 'development-field-key-change-in-production']);
-  }
-  return {
-    activeVersion: process.env.FIELD_ENCRYPTION_ACTIVE_VERSION ?? 'v1',
-    keys: Object.fromEntries(
-      entries.map(([name, value]) => [
-        name.replace('FIELD_ENCRYPTION_KEY_', '').toLowerCase(),
-        createHash('sha256')
-          .update(`${value ?? ''}\0${purpose}`)
-          .digest(),
-      ]),
-    ),
-  };
+  return buildFieldKeyring(purpose);
 }
 
 function normalizeIdentity(value: string): string {
@@ -87,12 +72,7 @@ function normalizeIdentity(value: string): string {
 }
 
 function lookupHash(organizationId: string, kind: string, value: string): string {
-  return createHmac(
-    'sha256',
-    process.env.PII_LOOKUP_PEPPER ??
-      process.env.BHD_R_SESSION_SECRET ??
-      'development-pii-lookup-pepper',
-  )
+  return createHmac('sha256', requirePiiLookupPepper())
     .update(`${organizationId}\0${kind}\0${normalizeIdentity(value)}`)
     .digest('hex');
 }

@@ -19,6 +19,10 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService, type IssuedSession } from './auth.service.js';
 import { Authenticated, Public, RequirePermissions } from '../common/decorators.js';
 import { requestIdOf } from '../common/http-request.js';
+import {
+  requireCsrfSecret,
+  requireSessionSecretString,
+} from '../common/runtime-secrets.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 
 const loginSchema = z.object({
@@ -27,6 +31,7 @@ const loginSchema = z.object({
   organizationId: z.uuid().optional(),
   totpCode: z
     .string()
+    .trim()
     .regex(/^(\d{6}|[A-Za-z0-9]{4}-[A-Za-z0-9]{4})$/)
     .optional(),
 });
@@ -89,7 +94,7 @@ function secureCookies(): boolean {
 }
 
 function oidcCookieSecret(): string {
-  return process.env.BHD_R_SESSION_SECRET ?? 'development-session-secret-at-least-32-characters';
+  return requireSessionSecretString();
 }
 
 function sealOidcState(value: object): string {
@@ -114,7 +119,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
-  @Throttle({ default: { limit: 8, ttl: 60_000 } })
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Post('password/login')
   async login(
     @Body(new ZodPipe(loginSchema)) body: z.infer<typeof loginSchema>,
@@ -205,10 +210,7 @@ export class AuthController {
   @Authenticated()
   @Get('csrf')
   csrf(@Req() request: ApiRequest, @Res({ passthrough: true }) reply: ApiResponse) {
-    const token = createCsrfToken(
-      request.auth!.sid,
-      process.env.CSRF_SECRET ?? 'development-csrf-secret-must-be-at-least-32-chars',
-    );
+    const token = createCsrfToken(request.auth!.sid, requireCsrfSecret());
     reply.cookie('bhd_r_csrf', token, {
       httpOnly: false,
       secure: secureCookies(),

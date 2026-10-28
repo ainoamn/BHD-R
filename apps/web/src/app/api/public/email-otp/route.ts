@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { sendEmailOtp, verifyEmailOtp } from '@/lib/email-otp-neon';
-import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { assertRouteRateLimitAsync, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       ? String((body as { action?: unknown }).action)
       : '';
 
-  const limited = assertRouteRateLimit({
+  const limited = await assertRouteRateLimitAsync({
     key: hashRateKey(['email-otp', action, clientIp(request)]),
     limit: action === 'send' ? 5 : 12,
     windowMs: 60_000,
