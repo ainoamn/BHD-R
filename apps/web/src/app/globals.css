@@ -24046,6 +24046,18 @@ button.lrw__step-body:focus-visible {
 .booking-docs-return__item--fix {
   border-inline-start: 4px solid #c98a12;
   background: #fffaf0;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+}
+.booking-docs-return__item--fix .booking-docs-return__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.booking-docs-return__item--done {
+  border-inline-start-color: #1f6b45;
+  background: #f3faf6;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
 }
 .booking-docs-return__item--lock {
   border-inline-start: 4px solid #1f6b45;
@@ -24059,10 +24071,27 @@ button.lrw__step-body:focus-visible {
   border-radius: 0.35rem;
   background: #eef2f0;
 }
+.booking-docs-return__mark {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.4rem;
+  background: #f3e0b8;
+  color: #7a5a20;
+  font-weight: 700;
+}
+.booking-docs-return__text {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
 .booking-docs-return__item small {
-  grid-column: 1 / -1;
   color: #7a5a20;
   font-size: 0.78rem;
+}
+.booking-docs-return__upload {
+  cursor: pointer;
 }
 .booking-docs-return__locked {
   display: grid;

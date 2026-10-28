@@ -873,7 +873,11 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
             note: lifecycle.bookingDocsReturn.note,
             byName: lifecycle.bookingDocsReturn.byName,
             rejected: lifecycle.bookingDocsReturn.rejected ?? [],
+            replaced: lifecycle.bookingDocsReturn.replaced ?? [],
             locked: lifecycle.bookingDocsReturn.locked ?? [],
+            stagedEsign: (
+              ['id-front', 'id-back', 'selfie'] as const
+            ).filter((code) => Boolean(lifecycle.bookingDocsReturn?.fixFiles?.[code])),
           }
         : null,
     tenantSignedAt: lifecycle.tenantSignature?.signedAt ?? null,
@@ -1210,6 +1214,15 @@ export async function completeLeaseEsign(
       lifecycle.bookingDocsReturn && !lifecycle.bookingDocsReturn.resolvedAt
         ? lifecycle.bookingDocsReturn
         : null;
+    if (docsReturn) {
+      const replaced = new Set(docsReturn.replaced ?? []);
+      const partyStillOpen = (docsReturn.rejected ?? []).filter(
+        (code) =>
+          (code === 'civil_id_copy' || code === 'passport_copy' || code === 'cr_copy') &&
+          !replaced.has(code),
+      );
+      if (partyStillOpen.length) fail('not_ready');
+    }
     const lockedEsign = new Set<BookingEsignDocCode>(
       (docsReturn?.locked ?? []).filter((code): code is BookingEsignDocCode =>
         (BOOKING_ESIGN_DOC_CODES as readonly string[]).includes(code),
@@ -1243,21 +1256,52 @@ export async function completeLeaseEsign(
       }
     }
 
-    const pick = (code: BookingEsignDocCode, fromInput: string | undefined): string => {
+    const stagedFix = async (
+      code: 'id-front' | 'id-back' | 'selfie',
+    ): Promise<string | undefined> => {
+      const staged = docsReturn?.fixFiles?.[code];
+      if (!staged?.eventId) return undefined;
+      const [row] = await withElevatedRead(transaction, async () =>
+        transaction
+          .select({ metadata: workflowEvents.metadata })
+          .from(workflowEvents)
+          .where(
+            and(
+              eq(workflowEvents.id, staged.eventId),
+              eq(workflowEvents.organizationId, match.organizationId),
+            ),
+          )
+          .limit(1),
+      );
+      const value =
+        row?.metadata && typeof row.metadata === 'object'
+          ? (row.metadata as { dataUrl?: unknown }).dataUrl
+          : null;
+      return typeof value === 'string' && SIGNATURE_IMAGE.test(value) ? value : undefined;
+    };
+
+    const pick = async (
+      code: BookingEsignDocCode,
+      fromInput: string | undefined,
+    ): Promise<string> => {
       const field = ESIGN_PNG_FIELD[code];
       if (lockedEsign.has(code)) {
         const kept = prior[field];
         if (!kept) fail('not_ready');
         return kept;
       }
-      if (!fromInput || !SIGNATURE_IMAGE.test(fromInput)) fail('not_ready');
-      return fromInput;
+      if (fromInput && SIGNATURE_IMAGE.test(fromInput)) return fromInput;
+      if (code === 'id-front' || code === 'id-back' || code === 'selfie') {
+        const staged = await stagedFix(code);
+        if (staged) return staged;
+      }
+      fail('not_ready');
     };
 
-    const signaturePng = pick('signature', input.signaturePng);
-    const idFrontPng = pick('id-front', input.idFrontPng);
-    const idBackPng = pick('id-back', input.idBackPng);
-    const selfiePng = pick('selfie', input.selfiePng);
+    const signaturePng = await pick('signature', input.signaturePng);
+    const idFrontPng = await pick('id-front', input.idFrontPng);
+    const idBackPng = await pick('id-back', input.idBackPng);
+    const selfiePng = await pick('selfie', input.selfiePng);
 
     const signedAt = new Date().toISOString();
     // Evidence images live on their own resource type so reservation timelines stay light.

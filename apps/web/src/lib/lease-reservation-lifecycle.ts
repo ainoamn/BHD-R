@@ -175,9 +175,18 @@ export type ReservationLifecycle = {
     note: string;
     resolvedAt?: string | null;
     rejected?: BookingIdentityDocCode[];
+    /** Party / capture codes the tenant already re-uploaded while the return is open. */
+    replaced?: BookingIdentityDocCode[];
     locked?: BookingIdentityDocCode[];
     /** Prior e-sign evidence kept so locked captures remain readable and reusable. */
     evidenceEventId?: string | null;
+    /**
+     * Staged e-sign re-uploads (id-front / id-back / selfie) as workflow event ids,
+     * so the tenant can replace from the confirmed page before re-signing.
+     */
+    fixFiles?: Partial<
+      Record<'id-front' | 'id-back' | 'selfie', { eventId: string; name: string; mime: string }>
+    >;
   };
 };
 

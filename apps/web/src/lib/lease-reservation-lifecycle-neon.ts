@@ -1997,6 +1997,129 @@ export async function submitReservationDocument(
   return { submitted: true as const, code: input.code };
 }
 
+const PARTY_RETURN_CODES = new Set<BookingIdentityDocCode>([
+  'civil_id_copy',
+  'passport_copy',
+  'cr_copy',
+]);
+const STAGED_ESIGN_CODES = new Set<'id-front' | 'id-back' | 'selfie'>([
+  'id-front',
+  'id-back',
+  'selfie',
+]);
+
+/**
+ * Tenant replaces one booking-identity document the owner returned for a fix
+ * (party copy or id/selfie capture) before re-signing.
+ */
+export async function replaceReturnedBookingIdentityDoc(
+  claims: SessionClaims,
+  referenceCode: string,
+  input: { code: string; fileName: string; dataUrl: string },
+) {
+  if (!isBookingIdentityDocCode(input.code)) leaseBookingFail('not_ready');
+  const code = input.code;
+  if (code === 'signature') leaseBookingFail('not_ready');
+  const parsed = DATA_URL.exec(input.dataUrl);
+  if (
+    !parsed ||
+    !REQUIREMENT_FILE_TYPES.includes(parsed[1]!) ||
+    input.dataUrl.length > REQUIREMENT_FILE_MAX_CHARS
+  ) {
+    leaseBookingFail('invalid_file');
+  }
+  if ((STAGED_ESIGN_CODES as Set<string>).has(code) && !parsed[1]!.startsWith('image/')) {
+    leaseBookingFail('invalid_file');
+  }
+  const mime = parsed[1]!;
+  const size = Math.floor((parsed[2]!.length * 3) / 4);
+  const name = input.fileName.trim().slice(0, 120) || code;
+  const { db } = getDatabase();
+  await db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    const docsReturn = current.lifecycle.bookingDocsReturn;
+    if (!docsReturn || docsReturn.resolvedAt) leaseBookingFail('not_ready');
+    const rejected = new Set(docsReturn.rejected ?? []);
+    if (!rejected.has(code)) leaseBookingFail('not_ready');
+    if ((docsReturn.locked ?? []).includes(code)) leaseBookingFail('not_ready');
+
+    if (PARTY_RETURN_CODES.has(code)) {
+      const party = current.snapshot.party;
+      if (!party) leaseBookingFail('not_ready');
+      const attach = { name, mime, size, dataUrl: input.dataUrl };
+      let nextParty = party;
+      if (code === 'civil_id_copy' || code === 'passport_copy') {
+        if (party.entityType !== 'person' || !party.person) leaseBookingFail('not_ready');
+        nextParty = {
+          ...party,
+          person: {
+            ...party.person,
+            ...(code === 'civil_id_copy' ? { civilIdCopy: attach } : { passportCopy: attach }),
+          },
+        };
+      } else {
+        if (party.entityType !== 'company' || !party.company) leaseBookingFail('not_ready');
+        nextParty = {
+          ...party,
+          company: { ...party.company, crCopy: attach },
+        };
+      }
+      const replaced = [
+        ...new Set([...(docsReturn.replaced ?? []).filter((item) => item !== code), code]),
+      ];
+      await saveLifecycle(
+        transaction,
+        { id: current.match.id, snapshot: current.snapshot },
+        { ...current.lifecycle, bookingDocsReturn: { ...docsReturn, replaced } },
+        { snapshot: { party: nextParty } },
+      );
+    } else if ((STAGED_ESIGN_CODES as Set<string>).has(code)) {
+      const [stored] = await transaction
+        .insert(workflowEvents)
+        .values({
+          organizationId: current.match.organizationId,
+          actorUserId: claims.sub,
+          resourceType: 'reservation_esign_fix',
+          resourceId: current.match.id,
+          eventType: 'reservation.esign_fix_file',
+          metadata: {
+            referenceCode: current.snapshot.referenceCode,
+            code,
+            name,
+            mime,
+            size,
+            dataUrl: input.dataUrl,
+          },
+        })
+        .returning({ id: workflowEvents.id });
+      const fixFiles = {
+        ...(docsReturn.fixFiles ?? {}),
+        [code]: { eventId: stored!.id, name, mime },
+      };
+      const replaced = [
+        ...new Set([...(docsReturn.replaced ?? []).filter((item) => item !== code), code]),
+      ];
+      await saveLifecycle(
+        transaction,
+        { id: current.match.id, snapshot: current.snapshot },
+        { ...current.lifecycle, bookingDocsReturn: { ...docsReturn, fixFiles, replaced } },
+      );
+    } else {
+      leaseBookingFail('not_ready');
+    }
+
+    await logEvent(transaction, {
+      orgId: current.match.organizationId,
+      actorUserId: claims.sub,
+      reservationId: current.match.id,
+      eventType: 'reservation.booking_doc_replaced',
+      status: current.status,
+      metadata: { referenceCode: current.snapshot.referenceCode, code },
+    });
+  });
+  return { replaced: true as const, code };
+}
+
 /**
  * The tenant (or buyer) signs the contract the owner approved. The contract becomes signed by
  * both parties, its lease starts, and the booking is converted.
@@ -2165,6 +2288,31 @@ export async function readReservationFileForStaff(
     let path: string[] = [];
     let name = file;
     if (file in ESIGN_FIELDS) {
+      const staged =
+        file === 'id-front' || file === 'id-back' || file === 'selfie'
+          ? lifecycle.bookingDocsReturn?.fixFiles?.[file]
+          : undefined;
+      if (staged?.eventId) {
+        const value = await withElevatedRead(transaction, async () => {
+          const [row] = await transaction
+            .select({ metadata: workflowEvents.metadata })
+            .from(workflowEvents)
+            .where(
+              and(
+                eq(workflowEvents.id, staged.eventId),
+                eq(workflowEvents.organizationId, match.organizationId),
+              ),
+            )
+            .limit(1);
+          const meta = row?.metadata;
+          return meta &&
+            typeof meta === 'object' &&
+            typeof (meta as { dataUrl?: unknown }).dataUrl === 'string'
+            ? (meta as { dataUrl: string }).dataUrl
+            : null;
+        });
+        return value ? { value, name: staged.name || file } : null;
+      }
       eventId =
         match.snapshot.esign?.evidenceEventId ??
         lifecycle.bookingDocsReturn?.evidenceEventId ??
@@ -2236,16 +2384,7 @@ export async function readReservationFileForTenant(
         : null;
 
     if (isParty) {
-      // Only locked party copies stay visible while a docs-return is open.
-      const code =
-        file === 'party-civil-id'
-          ? 'civil_id_copy'
-          : file === 'party-passport'
-            ? 'passport_copy'
-            : 'cr_copy';
-      if (docsReturn && !(docsReturn.locked ?? []).includes(code as BookingIdentityDocCode)) {
-        return null;
-      }
+      // Show the current party copy when present (locked original or tenant re-upload).
       let cursor: unknown = current.snapshot.party;
       for (const key of PARTY_FILE_PATH[file]!) {
         cursor =
@@ -2261,7 +2400,31 @@ export async function readReservationFileForTenant(
     }
 
     if (isEsign) {
-      if (!docsReturn || !(docsReturn.locked ?? []).includes(file as BookingIdentityDocCode)) {
+      if (!docsReturn) return null;
+      const staged =
+        file === 'id-front' || file === 'id-back' || file === 'selfie'
+          ? docsReturn.fixFiles?.[file]
+          : undefined;
+      if (staged?.eventId) {
+        const value = await withElevatedRead(transaction, async () => {
+          const [row] = await transaction
+            .select({ metadata: workflowEvents.metadata })
+            .from(workflowEvents)
+            .where(
+              and(
+                eq(workflowEvents.id, staged.eventId),
+                eq(workflowEvents.organizationId, current.match.organizationId),
+              ),
+            )
+            .limit(1);
+          const meta = row?.metadata;
+          return meta && typeof meta === 'object' && typeof (meta as { dataUrl?: unknown }).dataUrl === 'string'
+            ? ((meta as { dataUrl: string }).dataUrl)
+            : null;
+        });
+        return value ? { value, name: staged.name || file } : null;
+      }
+      if (!(docsReturn.locked ?? []).includes(file as BookingIdentityDocCode)) {
         return null;
       }
       const eventId = docsReturn.evidenceEventId ?? null;

@@ -137,7 +137,13 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
           className="button button--primary guest-stay-detail__rebook"
           href={`/book/sign?ref=${encodeURIComponent(plate)}`}
         >
-          {ar ? 'توقيع اتفاقية الحجز' : 'Sign the booking agreement'}
+          {props.lifecycle.bookingDocsReturn
+            ? ar
+              ? 'أعد الالتقاط والتوقيع'
+              : 'Re-capture & sign'
+            : ar
+              ? 'توقيع اتفاقية الحجز'
+              : 'Sign the booking agreement'}
         </Link>
       ) : null}
       {screen.action === 'view_terms' ? (
@@ -180,7 +186,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
   );
 }
 
-/** Owner returned specific booking identity docs — list what must be fixed. */
+/** Owner returned specific booking identity docs — upload / re-capture each rejected one. */
 function BookingDocsReturnNotice({
   ar,
   referenceCode,
@@ -190,8 +196,16 @@ function BookingDocsReturnNotice({
   referenceCode: string;
   docsReturn: NonNullable<LeaseJourneyProps['lifecycle']['bookingDocsReturn']>;
 }) {
+  const router = useRouter();
   const rejected = (docsReturn.rejected ?? []).filter(isBookingIdentityDocCode);
+  const replaced = new Set(
+    (docsReturn.replaced ?? []).filter(isBookingIdentityDocCode),
+  );
+  const stagedEsign = new Set(docsReturn.stagedEsign ?? []);
   const locked = (docsReturn.locked ?? []).filter(isBookingIdentityDocCode);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ code: string; file: File } | null>(null);
   const filesBase = `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files`;
   const fileOf = (code: string) => {
     if (code === 'civil_id_copy') return `${filesBase}/party-civil-id`;
@@ -199,27 +213,149 @@ function BookingDocsReturnNotice({
     if (code === 'cr_copy') return `${filesBase}/party-cr`;
     return `${filesBase}/${code}`;
   };
+  const canFileReplace = (code: string) =>
+    code === 'id-front' ||
+    code === 'id-back' ||
+    code === 'selfie' ||
+    code === 'civil_id_copy' ||
+    code === 'passport_copy' ||
+    code === 'cr_copy';
+  const isDone = (code: string) =>
+    replaced.has(code as (typeof rejected)[number]) || stagedEsign.has(code as 'id-front');
+
+  function pick(code: string, event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setError(null);
+    setPending({ code, file });
+  }
+
+  async function send(code: string, prepared: File) {
+    setPending(null);
+    setBusy(code);
+    setError(null);
+    try {
+      const file = prepared.type.startsWith('image/')
+        ? await compressImageFile(prepared)
+        : prepared;
+      const dataUrl = await readAsDataUrl(file);
+      if (dataUrl.length > REQUIREMENT_FILE_MAX_CHARS) {
+        throw new Error(
+          ar
+            ? 'الملف كبير جداً (الحد نحو 1 ميغابايت). صوّره بدقة أقل أو قسّم ملف PDF.'
+            : 'The file is too large (about 1 MB max).',
+        );
+      }
+      await browserNextMutation(
+        `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/identity-docs`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            code,
+            fileName: prepared.name.slice(0, 200),
+            dataUrl,
+          }),
+        },
+      );
+      router.refresh();
+    } catch (caught) {
+      setError(caught instanceof ApiError ? errorText(caught, ar) : (caught as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div className="notice notice--warning booking-docs-return" role="status">
       <strong>
-        {ar
-          ? 'المستندات المطلوب تعديلها'
-          : 'Documents that must be fixed'}
+        {ar ? 'المستندات المطلوب تعديلها' : 'Documents that must be fixed'}
       </strong>
       {docsReturn.note ? (
         <p className="booking-docs-return__note">
           {ar ? 'ملاحظة المالك: ' : 'Owner note: '}«{docsReturn.note}»
         </p>
       ) : null}
+      {error ? (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      ) : null}
       {rejected.length ? (
         <ul className="booking-docs-return__list">
           {rejected.map((code) => {
             const labels = BOOKING_IDENTITY_DOC_LABELS[code];
+            const done = isDone(code);
+            const accept =
+              code === 'id-front' || code === 'id-back' || code === 'selfie'
+                ? 'image/*'
+                : 'image/*,application/pdf';
             return (
-              <li key={code} className="booking-docs-return__item booking-docs-return__item--fix">
-                <span>{ar ? labels.ar : labels.en}</span>
-                <small>{ar ? 'أعد الالتقاط / الرفع' : 'Re-capture / re-upload'}</small>
+              <li
+                key={code}
+                className={`booking-docs-return__item booking-docs-return__item--fix${
+                  done ? ' booking-docs-return__item--done' : ''
+                }`}
+              >
+                {done ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={fileOf(code)} alt="" loading="lazy" />
+                ) : (
+                  <span className="booking-docs-return__mark" aria-hidden>
+                    !
+                  </span>
+                )}
+                <div className="booking-docs-return__text">
+                  <span>{ar ? labels.ar : labels.en}</span>
+                  <small>
+                    {done
+                      ? ar
+                        ? 'تم الرفع — يمكنك الاستبدال قبل التوقيع'
+                        : 'Uploaded — you can replace before signing'
+                      : code === 'signature'
+                        ? ar
+                          ? 'أعد التوقيع من شاشة الاتفاقية'
+                          : 'Re-sign from the agreement screen'
+                        : ar
+                          ? 'ارفع ملفاً جديداً مكان السابق'
+                          : 'Upload a new file to replace the previous one'}
+                  </small>
+                </div>
+                <div className="booking-docs-return__actions">
+                  {canFileReplace(code) ? (
+                    <label className="button button--quiet booking-docs-return__upload">
+                      {busy === code
+                        ? ar
+                          ? 'جارٍ الرفع…'
+                          : 'Uploading…'
+                        : done
+                          ? ar
+                            ? 'استبدال'
+                            : 'Replace'
+                          : ar
+                            ? 'رفع مستند جديد'
+                            : 'Upload new file'}
+                      <input
+                        type="file"
+                        accept={accept}
+                        hidden
+                        disabled={busy !== null}
+                        onChange={(event) => pick(code, event)}
+                      />
+                    </label>
+                  ) : null}
+                  {code === 'signature' ||
+                  code === 'id-front' ||
+                  code === 'id-back' ||
+                  code === 'selfie' ? (
+                    <Link
+                      className="button button--quiet"
+                      href={`/book/sign?ref=${encodeURIComponent(referenceCode)}`}
+                    >
+                      {ar ? 'التقاط من الكاميرا' : 'Capture with camera'}
+                    </Link>
+                  ) : null}
+                </div>
               </li>
             );
           })}
@@ -237,26 +373,25 @@ function BookingDocsReturnNotice({
           <ul className="booking-docs-return__list">
             {locked.map((code) => {
               const labels = BOOKING_IDENTITY_DOC_LABELS[code];
-              const isImage =
-                code === 'id-front' ||
-                code === 'id-back' ||
-                code === 'selfie' ||
-                code === 'signature' ||
-                code === 'civil_id_copy' ||
-                code === 'passport_copy' ||
-                code === 'cr_copy';
               return (
                 <li key={code} className="booking-docs-return__item booking-docs-return__item--lock">
-                  {isImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={fileOf(code)} alt="" loading="lazy" />
-                  ) : null}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={fileOf(code)} alt="" loading="lazy" />
                   <span>{ar ? labels.ar : labels.en}</span>
                 </li>
               );
             })}
           </ul>
         </div>
+      ) : null}
+      {pending ? (
+        <UploadPrepareDialog
+          file={pending.file}
+          ar={ar}
+          title={ar ? 'معاينة المستند قبل الإرسال' : 'Preview document before sending'}
+          onCancel={() => setPending(null)}
+          onConfirm={(file) => void send(pending.code, file)}
+        />
       ) : null}
     </div>
   );

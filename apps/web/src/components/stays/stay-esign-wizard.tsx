@@ -24,8 +24,11 @@ export type StayEsignDocsReturn = {
   note: string;
   rejected: string[];
   locked: string[];
+  replaced?: string[];
+  /** E-sign captures already re-uploaded from the confirmed page. */
+  stagedEsign?: string[];
   /**
-   * Base path for locked file previews, e.g.
+   * Base path for locked / staged file previews, e.g.
    * `/api/public/bookings/deposits/RSV-…/files` (no trailing slash).
    * Must be a plain string — functions cannot cross the RSC→client boundary.
    */
@@ -80,9 +83,19 @@ export function StayEsignWizard({
     () => new Set((docsReturn?.locked ?? []).map((code) => code.trim())),
     [docsReturn],
   );
+  const staged = useMemo(
+    () => new Set((docsReturn?.stagedEsign ?? []).map((code) => code.trim())),
+    [docsReturn],
+  );
   const captureOpen = useCallback(
-    (step: CaptureStep) => !locked.has(STEP_CODE[step]),
-    [locked],
+    (step: CaptureStep) => {
+      const code = STEP_CODE[step];
+      if (locked.has(code)) return false;
+      // Already replaced from the confirmed page — keep for review, skip re-capture.
+      if (staged.has(code)) return false;
+      return true;
+    },
+    [locked, staged],
   );
   const [step, setStep] = useState<Step>(initiallyComplete ? 'done' : 'contract');
   const [busy, setBusy] = useState(false);
@@ -95,20 +108,20 @@ export function StayEsignWizard({
 
   useEffect(() => {
     if (!docsReturn?.filesBase) return;
-    // Locked previews use file URLs; open captures start empty.
+    // Locked / staged previews use file URLs; open captures start empty.
     if (locked.has('signature')) {
       setSignatureDataUrl(lockedPreviewHref(docsReturn.filesBase, 'signature'));
     }
-    if (locked.has('id-front')) {
+    if (locked.has('id-front') || staged.has('id-front')) {
       setIdFront(lockedPreviewHref(docsReturn.filesBase, 'id-front'));
     }
-    if (locked.has('id-back')) {
+    if (locked.has('id-back') || staged.has('id-back')) {
       setIdBack(lockedPreviewHref(docsReturn.filesBase, 'id-back'));
     }
-    if (locked.has('selfie')) {
+    if (locked.has('selfie') || staged.has('selfie')) {
       setSelfie(lockedPreviewHref(docsReturn.filesBase, 'selfie'));
     }
-  }, [docsReturn, locked]);
+  }, [docsReturn, locked, staged]);
 
   const goToConfirmed = useCallback(() => {
     router.push(continuePath ?? stayConfirmedReturnPath(locale, referenceCode));
@@ -247,12 +260,19 @@ export function StayEsignWizard({
     editStep: CaptureStep,
   ) {
     if (!src) return null;
+    const code = STEP_CODE[editStep];
+    const ownerLocked = locked.has(code);
+    const fromConfirmed = staged.has(code);
     return (
       <figure className={`esign-review-card${editStep === 'selfie' ? ' esign-review-card--portrait' : ''}`}>
         <figcaption>
           {label}
-          {!open ? (
+          {ownerLocked ? (
             <span className="esign-review-locked">{ar ? 'معتمد — مقفل' : 'Approved — locked'}</span>
+          ) : fromConfirmed ? (
+            <span className="esign-review-locked">
+              {ar ? 'رُفع من صفحة التأكيد' : 'Uploaded from confirmation'}
+            </span>
           ) : null}
         </figcaption>
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -261,11 +281,17 @@ export function StayEsignWizard({
           <button type="button" className="button button--quiet" onClick={() => setStep(editStep)}>
             {ar ? 'تعديل' : 'Edit'}
           </button>
-        ) : (
+        ) : ownerLocked ? (
           <p className="muted esign-review-locked-note">
             {ar ? 'اعتمده المالك ولا يمكن تغييره' : 'Approved by the owner — cannot be changed'}
           </p>
-        )}
+        ) : fromConfirmed ? (
+          <p className="muted esign-review-locked-note">
+            {ar
+              ? 'للتعديل ارجع لصفحة التأكيد وارفع ملفاً جديداً'
+              : 'To change it, go back to confirmation and upload again'}
+          </p>
+        ) : null}
       </figure>
     );
   }
@@ -325,6 +351,24 @@ export function StayEsignWizard({
                     {ar ? ' — المعتمدة مقفلة.' : ' — approved ones stay locked.'}
                   </p>
                 ) : null}
+                {(() => {
+                  const replaced = new Set(docsReturn.replaced ?? []);
+                  const partyOpen = docsReturn.rejected.filter(
+                    (code) =>
+                      (code === 'civil_id_copy' ||
+                        code === 'passport_copy' ||
+                        code === 'cr_copy') &&
+                      !replaced.has(code),
+                  );
+                  if (!partyOpen.length) return null;
+                  return (
+                    <p className="notice notice--warning" role="status">
+                      {ar
+                        ? 'ارفع نسخة البطاقة / الجواز / السجل من صفحة التأكيد أولاً (زر «رفع مستند جديد»)، ثم عد هنا للتوقيع.'
+                        : 'Upload the civil ID / passport / CR copy from the confirmation page first (Upload new file), then return here to sign.'}
+                    </p>
+                  );
+                })()}
               </div>
             ) : null}
             <p className="muted stay-esign__lede">
