@@ -133,10 +133,11 @@ export function PortalMainSlot({
         <div
           key={path}
           className="portal-persisted-page"
-          // Keep-alive for inactive detail routes only — active path uses live children.
-          hidden={softPane || !showPersistedPage || path === pathname}
-          inert={softPane || !showPersistedPage || path === pathname}
-          aria-hidden={softPane || !showPersistedPage || path === pathname || undefined}
+          // Keep-alive mounts only — never paint. Live `children` owns the viewport.
+          // (Previously inactive pages like the dashboard stayed visible under detail routes.)
+          hidden
+          inert
+          aria-hidden
         >
           {content}
         </div>
