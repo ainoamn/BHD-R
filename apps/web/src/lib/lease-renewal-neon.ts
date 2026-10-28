@@ -1,7 +1,21 @@
 import 'server-only';
-import { and, desc, eq } from 'drizzle-orm';
-import type { SessionClaims } from '@bhd-r/authz';
-import { contractTemplates, contracts, leases, parties, properties, units } from '@bhd-r/db';
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
+import { hasPermission, type SessionClaims } from '@bhd-r/authz';
+import {
+  approvalRequests,
+  contractTemplates,
+  contracts,
+  leases,
+  parties,
+  properties,
+  units,
+  workflowEvents,
+} from '@bhd-r/db';
+import {
+  formatChildContractReference,
+  nextChildContractSequence,
+} from '@bhd-r/domain';
+import { sanitizeRichText } from '@bhd-r/security';
 import {
   buildRenewalTermsDraft,
   type RenewalPreviousMeters,
@@ -9,6 +23,44 @@ import {
 import type { LeaseTermsDraft, PaymentFrequency, PaymentMethod } from '@/lib/lease-terms';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
+
+function fail(code: string): never {
+  throw new Error(code);
+}
+
+export type CreateLeaseRenewalInput = {
+  templateVersionId: string;
+  endsOn: string;
+  rent?: { amountMinor: string; currency: string } | undefined;
+  additionalTerms?: string | undefined;
+  graceDays?: number | undefined;
+  graceAsDiscount?: boolean | undefined;
+  graceAmount?: { amountMinor: string; currency: string } | undefined;
+  adjustments?: ReadonlyArray<{
+    kind: 'add' | 'discount';
+    title: string;
+    amount: { amountMinor: string; currency: string };
+  }>;
+  paymentMethod?: 'cheque' | 'cash' | 'bank_transfer' | undefined;
+  paymentFrequency?:
+    | 'monthly'
+    | 'bimonthly'
+    | 'quarterly'
+    | 'semiannual'
+    | 'annual'
+    | undefined;
+  months?: number | undefined;
+  cheques?: ReadonlyArray<{
+    bankName: string;
+    chequeNumber: string;
+    amount: { amountMinor: string; currency: string };
+    dueOn: string;
+  }>;
+  leaseTerms?: Record<string, unknown> | null | undefined;
+  chequeAccountName?: string | null | undefined;
+  chequeBankName?: string | null | undefined;
+  rentBankAccountId?: string | null | undefined;
+};
 
 export type LeaseRenewalTenantSeed = {
   partyId: string;
@@ -323,5 +375,209 @@ export async function loadLeaseRenewalContext(
         language: row.language,
       })),
     };
+  });
+}
+
+/**
+ * Create a renewal addendum on Neon (Vercel) — bypasses Nest so owner save
+ * does not depend on Render cold starts.
+ */
+export async function createLeaseRenewalOnNeon(
+  claims: SessionClaims,
+  leaseId: string,
+  input: CreateLeaseRenewalInput,
+): Promise<{
+  contractId: string;
+  reference: string | null;
+  leaseId: string;
+  proposedStartsOn: string;
+  chequeCount: number;
+}> {
+  if (!hasPermission(claims, 'lease.update') || !hasPermission(claims, 'contract.create')) {
+    fail('forbidden');
+  }
+  const orgId = claims.organizationId ?? fail('organization_required');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.endsOn)) fail('renewal_date_invalid');
+
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${leaseId}, 19))`);
+    const lease = await tx.query.leases.findFirst({
+      where: and(eq(leases.id, leaseId), eq(leases.organizationId, orgId)),
+    });
+    if (!lease || lease.status !== 'active' || !lease.contractId) fail('lease_not_renewable');
+    if (input.endsOn <= lease.endsOn) fail('renewal_date_invalid');
+    if (input.rent?.currency && input.rent.currency !== lease.currency) {
+      fail('renewal_currency_mismatch');
+    }
+
+    const [signedParent, template, owner, tenant, unit] = await Promise.all([
+      tx.query.contracts.findFirst({
+        where: and(
+          eq(contracts.id, lease.contractId),
+          eq(contracts.organizationId, orgId),
+          eq(contracts.status, 'signed'),
+        ),
+      }),
+      tx.query.contractTemplates.findFirst({
+        where: and(
+          eq(contractTemplates.id, input.templateVersionId),
+          eq(contractTemplates.organizationId, orgId),
+        ),
+      }),
+      tx.query.parties.findFirst({ where: eq(parties.id, lease.ownerPartyId) }),
+      tx.query.parties.findFirst({ where: eq(parties.id, lease.tenantPartyId) }),
+      tx.query.units.findFirst({ where: eq(units.id, lease.unitId) }),
+    ]);
+
+    const parentContract =
+      signedParent ??
+      (await tx.query.contracts.findFirst({
+        where: and(
+          eq(contracts.id, lease.contractId),
+          eq(contracts.organizationId, orgId),
+          ne(contracts.status, 'void'),
+        ),
+      }));
+    if (!parentContract) fail('contract_not_found');
+    if (!template) fail('renewal_template_missing');
+    if (!owner || !tenant || !unit) fail('party_not_found');
+
+    const pendingRenewal = await tx.query.contracts.findFirst({
+      where: and(
+        eq(contracts.organizationId, orgId),
+        eq(contracts.parentContractId, parentContract.id),
+        eq(contracts.kind, 'renewal'),
+        inArray(contracts.status, ['draft', 'sent', 'partially_signed']),
+      ),
+    });
+    if (pendingRenewal) fail('renewal_pending');
+
+    const property = await tx.query.properties.findFirst({
+      where: and(eq(properties.id, unit.propertyId), eq(properties.organizationId, orgId)),
+    });
+    if (!property) fail('property_not_found');
+
+    const effectiveDate = new Date(`${lease.endsOn}T00:00:00.000Z`);
+    effectiveDate.setUTCDate(effectiveDate.getUTCDate() + 1);
+    const startsOn = effectiveDate.toISOString().slice(0, 10);
+    const parentReference =
+      parentContract.reference?.trim() ||
+      `CTR-${parentContract.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${parentContract.id}, 41))`);
+    const siblings = await tx
+      .select({ reference: contracts.reference })
+      .from(contracts)
+      .where(
+        and(eq(contracts.organizationId, orgId), eq(contracts.parentContractId, parentContract.id)),
+      );
+    const contractReference = formatChildContractReference(
+      parentReference,
+      nextChildContractSequence(
+        parentReference,
+        siblings.map((row) => row.reference).filter((value): value is string => Boolean(value)),
+      ),
+    );
+
+    const rentMinor = input.rent?.amountMinor ?? lease.rentMinor.toString();
+    const graceDays = input.graceDays ?? 0;
+    const graceAsDiscount = input.graceAsDiscount ?? true;
+    const graceAmountMinor =
+      input.graceAmount?.amountMinor ??
+      (graceDays > 0 ? String(Math.round((Number(rentMinor) / 30) * graceDays)) : '0');
+    const adjustments = (input.adjustments ?? []).map((row) => ({
+      kind: row.kind,
+      title: row.title,
+      amount: row.amount,
+    }));
+    const chequeInputs = input.cheques ?? [];
+
+    const payload = {
+      contract: {
+        reference: contractReference,
+        kind: 'renewal' as const,
+        parentReference,
+      },
+      owner: { id: owner.id, displayName: owner.displayName },
+      tenant: { id: tenant.id, displayName: tenant.displayName },
+      property: { id: property.id, nameAr: property.nameAr, nameEn: property.nameEn },
+      unit: { id: unit.id, code: unit.code, nameAr: unit.nameAr, nameEn: unit.nameEn },
+      startsOn,
+      endsOn: input.endsOn,
+      billingDay: lease.billingDay,
+      rent: { amountMinor: rentMinor, currency: lease.currency },
+      previous: { endsOn: lease.endsOn, rentMinor: lease.rentMinor.toString() },
+      graceDays,
+      graceAsDiscount,
+      graceAmount: { amountMinor: graceAmountMinor, currency: lease.currency },
+      adjustments,
+      paymentMethod: input.paymentMethod ?? null,
+      paymentFrequency: input.paymentFrequency ?? null,
+      months: input.months ?? null,
+      additionalTerms: input.additionalTerms ? sanitizeRichText(input.additionalTerms) : null,
+      chequeAccountName: input.chequeAccountName ?? null,
+      chequeBankName: input.chequeBankName ?? null,
+      rentBankAccountId: input.rentBankAccountId ?? null,
+      cheques: chequeInputs,
+      ...(input.leaseTerms && typeof input.leaseTerms === 'object'
+        ? { leaseTerms: input.leaseTerms }
+        : {}),
+    };
+
+    try {
+      const contractRows = await tx
+        .insert(contracts)
+        .values({
+          organizationId: orgId,
+          reference: contractReference,
+          kind: 'renewal',
+          parentContractId: parentContract.id,
+          templateVersionId: input.templateVersionId,
+          unitId: lease.unitId,
+          ownerPartyId: lease.ownerPartyId,
+          tenantPartyId: lease.tenantPartyId,
+          payloadSnapshot: payload,
+        })
+        .returning({ id: contracts.id, reference: contracts.reference });
+      const contract = contractRows[0]!;
+      await tx.insert(approvalRequests).values({
+        organizationId: orgId,
+        reference: `APR-${contractReference}`,
+        type: 'contract_approval',
+        subject: `Renewal ${contractReference}`,
+        resourceType: 'contract',
+        resourceId: contract.id,
+        requestedByUserId: claims.sub,
+      });
+      await tx.insert(workflowEvents).values({
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        resourceType: 'lease',
+        resourceId: lease.id,
+        eventType: 'lease.renewal_requested',
+        fromStatus: lease.status,
+        toStatus: lease.status,
+        metadata: {
+          contractId: contract.id,
+          previousEndsOn: lease.endsOn,
+          proposedEndsOn: input.endsOn,
+          previousRentMinor: lease.rentMinor.toString(),
+          proposedRentMinor: rentMinor,
+          currency: lease.currency,
+          chequeCount: chequeInputs.length,
+        },
+      });
+      return {
+        contractId: contract.id,
+        reference: contract.reference,
+        leaseId: lease.id,
+        proposedStartsOn: startsOn,
+        chequeCount: chequeInputs.length,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/unique|duplicate/i.test(message)) fail('renewal_duplicate');
+      throw error;
+    }
   });
 }

@@ -7,12 +7,7 @@ import {
   type LeaseBankAccountOption,
   type LeaseContractPayload,
 } from '@/components/lease-contract-form';
-import {
-  ApiError,
-  browserMutation,
-  clearBrowserCsrfCache,
-  humanizeBrowserError,
-} from '@/lib/api';
+import { ApiError, browserNextMutation, humanizeBrowserError } from '@/lib/api';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
 import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { formatMoney, toMinorUnits } from '@/lib/format';
@@ -109,15 +104,6 @@ export function LeaseRenewalForm({
     // Drop legacy v1 drafts so we do not mix shapes.
     clearRenewalDraft(context.lease.id);
   }, [context.lease.id]);
-
-  // Wake Nest early — cold Render instances otherwise time out the save mutation.
-  useEffect(() => {
-    void fetch('/api/backend/v1/auth/csrf', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      signal: AbortSignal.timeout(45_000),
-    }).catch(() => undefined);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -276,36 +262,14 @@ export function LeaseRenewalForm({
         body.additionalTerms = payload.terms.notes.trim();
       }
 
-      const path = `/v1/leasing/leases/${encodeURIComponent(context.lease.id)}/renewals`;
-      const postBody = JSON.stringify(body);
-      const saveOnce = () =>
-        browserMutation(path, {
+      // Save on Vercel → Neon (no Nest/Render). Same-origin Next CSRF.
+      await browserNextMutation(
+        `/api/owner/leasing/${encodeURIComponent(context.lease.id)}/renewals`,
+        {
           method: 'POST',
-          body: postBody,
-          signal: AbortSignal.timeout(55_000),
-        });
-
-      try {
-        await saveOnce();
-      } catch (first) {
-        const retryable =
-          first instanceof ApiError &&
-          (first.code === 'network_error' ||
-            first.code === 'api_unreachable' ||
-            first.code === 'csrf_unavailable' ||
-            first.status === 502 ||
-            first.status === 503);
-        if (!retryable) throw first;
-        // Nest may still be waking — brief pause then one retry with fresh CSRF.
-        await new Promise((resolve) => setTimeout(resolve, 2_500));
-        clearBrowserCsrfCache();
-        await fetch('/api/backend/v1/auth/csrf', {
-          credentials: 'same-origin',
-          cache: 'no-store',
-          signal: AbortSignal.timeout(40_000),
-        }).catch(() => undefined);
-        await saveOnce();
-      }
+          body: JSON.stringify(body),
+        },
+      );
       clearV2(context.lease.id);
       clearRenewalDraft(context.lease.id);
       router.push(`/${portal}/leasing`);
@@ -313,40 +277,37 @@ export function LeaseRenewalForm({
     } catch (caught) {
       let mapped: string;
       if (caught instanceof ApiError) {
+        const code = caught.code;
         mapped =
-          /unfinished renewal|already exists/i.test(caught.message)
+          code === 'renewal_pending' || /unfinished renewal|already exists/i.test(caught.message)
             ? ar
               ? 'يوجد ملحق تجديد غير مكتمل لهذا العقد — أكمله أو ألغِه أولاً.'
               : 'An unfinished renewal already exists for this lease — finish or void it first.'
-            : /signed contract|original signed/i.test(caught.message)
+            : code === 'lease_not_renewable' || /Only an active lease/i.test(caught.message)
               ? ar
-                ? 'يلزم وجود عقد أصلي موقّع قبل إنشاء ملحق التجديد.'
-                : 'A signed original contract is required before creating a renewal.'
-              : /Only an active lease/i.test(caught.message)
+                ? 'يمكن تجديد العقود النشطة فقط.'
+                : 'Only an active lease can be renewed.'
+              : code === 'renewal_date_invalid'
                 ? ar
-                  ? 'يمكن تجديد العقود النشطة فقط.'
-                  : 'Only an active lease can be renewed.'
-                : /unique|duplicate|cheque/i.test(`${caught.code} ${caught.message}`)
+                  ? 'تاريخ النهاية الجديد يجب أن يكون بعد نهاية العقد الحالي.'
+                  : 'New end date must follow the current term.'
+                : code === 'forbidden'
                   ? ar
-                    ? 'تعذّر الحفظ بسبب تكرار رقم شيك — غيّر أرقام الشيكات في الجدول ثم أعد المحاولة.'
-                    : 'Save failed because a cheque number is already used — change the numbers and retry.'
-                  : caught.code === 'api_unreachable' ||
-                      caught.code === 'network_error' ||
-                      caught.status === 502 ||
-                      caught.status === 503 ||
-                      /failed to fetch/i.test(caught.message)
+                    ? 'ليست لديك صلاحية إنشاء ملحق التجديد.'
+                    : 'You do not have permission to create a renewal.'
+                  : code === 'renewal_duplicate' || /unique|duplicate/i.test(`${code} ${caught.message}`)
                     ? ar
-                      ? 'تعذّر الاتصال بالخادم — انتظر 20 ثانية ثم اضغط «إنشاء ملحق التجديد» مجدداً.'
-                      : 'Could not reach the server — wait 20 seconds and tap Create renewal again.'
-                    : caught.message === 'Request failed' || caught.code === 'api_error'
+                      ? 'تعذّر الحفظ بسبب تكرار — حدّث الصفحة وأعد المحاولة.'
+                      : 'Save failed due to a duplicate — refresh and retry.'
+                    : code === 'csrf_rejected'
                       ? ar
-                        ? 'تعذّر حفظ الملحق — تحقق من الحقول وأعد المحاولة.'
-                        : 'Could not save the addendum — check the fields and try again.'
-                      : caught.message;
-      } else if (caught instanceof Error && /failed to fetch/i.test(caught.message)) {
-        mapped = ar
-          ? 'تعذّر الاتصال بالخادم — انتظر 20 ثانية ثم أعد المحاولة.'
-          : 'Could not reach the server — wait 20 seconds and retry.';
+                        ? 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة.'
+                        : 'Security token rejected — refresh and retry.'
+                      : caught.message && caught.message !== 'Request failed'
+                        ? caught.message
+                        : ar
+                          ? 'تعذّر حفظ الملحق — تحقق من الحقول وأعد المحاولة.'
+                          : 'Could not save the addendum — check the fields and try again.';
       } else {
         mapped = humanizeBrowserError(caught, ar);
       }
