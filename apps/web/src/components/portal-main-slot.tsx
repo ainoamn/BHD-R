@@ -118,7 +118,6 @@ export function PortalMainSlot({
   }, [tenantSoft]);
 
   const panels = section && !visited.includes(section) ? [...visited, section] : visited;
-  const showPersistedPage = !section && !tenantSoft;
   return (
     <PortalPageContext.Provider value={register}>
       {/* Live RSC for the active route; hide only while soft panes own the main area. */}
