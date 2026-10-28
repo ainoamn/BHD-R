@@ -36116,6 +36116,18 @@ button.handover-shots__item {
 
 /* Lease renewal full page */
 .lease-renewal__summary { margin-bottom: 1.25rem; }
+.lease-renewal__consent {
+  margin-block: 1rem 0;
+  font-weight: 600;
+  line-height: 1.55;
+  cursor: pointer;
+  border: 1.5px solid #c0392b;
+  box-shadow: inset 0 0 0 1px rgb(192 57 43 / 0.12);
+}
+.lease-renewal__consent input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
 .lease-renewal__facts {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));

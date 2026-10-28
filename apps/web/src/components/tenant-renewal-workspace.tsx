@@ -279,13 +279,18 @@ export function TenantRenewalWorkspace({
             </strong>
             <p>{ar ? ELECTRONIC_RENEWAL_NOTICE.bodyAr : ELECTRONIC_RENEWAL_NOTICE.bodyEn}</p>
           </div>
-          <label className="checkbox-row" style={{ marginTop: '1rem' }}>
+          <label
+            className="checkbox-row notice notice--error lease-renewal__consent"
+            style={{ marginTop: '1rem', display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}
+          >
             <input
               type="checkbox"
               checked={consent}
               onChange={(event) => setConsent(event.target.checked)}
             />
-            {ar ? ELECTRONIC_RENEWAL_NOTICE.consentAr : ELECTRONIC_RENEWAL_NOTICE.consentEn}
+            <span>
+              {ar ? ELECTRONIC_RENEWAL_NOTICE.consentAr : ELECTRONIC_RENEWAL_NOTICE.consentEn}
+            </span>
           </label>
           {pendingReview ? (
             <p className="muted" style={{ marginTop: '0.75rem' }}>
