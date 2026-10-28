@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.134.218 — 2026-10-28
+
+- **إصلاح نشر Vercel:** تصحيح نوع `renewalRequirements` في تفاصيل العقد حتى يمرّ البناء مع `exactOptionalPropertyTypes`.
+
 ## 0.8.134.217 — 2026-10-28
 
 - **ملحق التجديد يصل للمستأجر فوراً:** عند إنشاء الملحق (بصلاحية التوقيع) يُرسل للمستأجر للتوقيع الإلكتروني ورفع المستندات المطلوبة، مع تنبيه في حساب المستأجر؛ وإصلاح الملحق الحالي CTR-2026-000002-02 ليظهر هناك، وزر «إرسال للمستأجر» للمسودات القديمة.

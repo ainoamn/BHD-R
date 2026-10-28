@@ -100,14 +100,16 @@ export interface ContractDetail {
     signedAt: string;
   }>;
   /** Documents the tenant must attach on a renewal addendum. */
-  renewalRequirements?: Array<{
-    code: string;
-    labelAr: string;
-    labelEn: string;
-    uploaded: boolean;
-    fileName: string | null;
-    uploadedAt: string | null;
-  }>;
+  renewalRequirements?:
+    | Array<{
+        code: string;
+        labelAr: string;
+        labelEn: string;
+        uploaded: boolean;
+        fileName: string | null;
+        uploadedAt: string | null;
+      }>
+    | undefined;
   /** Full document view; only the Neon reader fills it. */
   document?: ContractDocument;
   /** Copy of the signed booking agreement a website rent or purchase contract completes. */
@@ -643,7 +645,10 @@ export async function loadContractDetailFromNeon(
       signatureHash: signature.signatureHash,
       signedAt: signature.signedAt.toISOString(),
     })),
-    renewalRequirements: renewalRequirementsFromSnapshot(snapshot),
+    ...((): Pick<ContractDetail, 'renewalRequirements'> => {
+      const renewalRequirements = renewalRequirementsFromSnapshot(snapshot);
+      return renewalRequirements?.length ? { renewalRequirements } : {};
+    })(),
   };
 }
 
