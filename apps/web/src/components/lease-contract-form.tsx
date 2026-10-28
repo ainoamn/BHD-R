@@ -435,6 +435,7 @@ export function LeaseContractForm({
   documentRules = DEFAULT_LEASE_DOCUMENT_RULES,
   requirementsLocked = false,
   lead = null,
+  formError = null,
 }: {
   units: PropertyRecordUnit[];
   tenants: PropertyRecordTenant[];
@@ -443,6 +444,8 @@ export function LeaseContractForm({
   busy: boolean;
   onSubmit: (payload: LeaseContractPayload) => void;
   onCancel: () => void;
+  /** Server / parent error shown next to the save button (e.g. renewal API failure). */
+  formError?: string | null | undefined;
   /** Prefilled tenant, e.g. the customer of a website booking. */
   initialTenant?: Partial<LeaseTenantDraft> | undefined;
   /** Terms saved earlier, to edit instead of starting over. */
@@ -3521,9 +3524,9 @@ export function LeaseContractForm({
       ) : null}
 
       <div id="lcf-form-errors">
-        {localError ? (
+        {localError || formError ? (
           <div className="notice notice--error" role="alert">
-            {localError}
+            {localError || formError}
           </div>
         ) : null}
         {isLastStep && missingFields.length > 0 ? (

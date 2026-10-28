@@ -87,7 +87,7 @@ const renewalSchema = z
     paymentFrequency: z
       .enum(['monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual'])
       .optional(),
-    months: z.number().int().min(1).max(120).optional(),
+    months: z.number().int().min(0).max(120).optional(),
     /** Cycle v1.1 R3: optional cheque schedule for the renewed period */
     cheques: z
       .array(
@@ -110,7 +110,7 @@ const renewalSchema = z
     chequeBankName: z.string().trim().max(160).nullish(),
     rentBankAccountId: z.string().trim().max(64).nullish(),
   })
-  .strict();
+  .strip();
 const challengeSchema = z.discriminatedUnion('authenticationMethod', [
   z.object({ authenticationMethod: z.literal('recent_sign_in') }),
   z.object({ authenticationMethod: z.literal('oidc_reauthentication') }),

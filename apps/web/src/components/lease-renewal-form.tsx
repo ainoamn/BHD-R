@@ -105,6 +105,15 @@ export function LeaseRenewalForm({
     clearRenewalDraft(context.lease.id);
   }, [context.lease.id]);
 
+  // Wake Nest early — cold Render instances otherwise time out the save mutation.
+  useEffect(() => {
+    void fetch('/api/backend/v1/auth/csrf', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      signal: AbortSignal.timeout(45_000),
+    }).catch(() => undefined);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void fetch('/api/owner/accounting/settings', { credentials: 'same-origin' })
@@ -193,13 +202,19 @@ export function LeaseRenewalForm({
       const defaultBank =
         (computed.terms.chequeBankName || payload.terms.chequeBankName || '').trim() ||
         'Bank';
+      const leaseShort = context.lease.id.replace(/-/g, '').slice(0, 8).toUpperCase();
       const cheques =
         computed.terms.paymentMethod === 'cheque'
           ? computed.terms.schedule.map((row, index) => {
               const bank = (row.bankName || defaultBank).trim();
+              const rawNumber = (row.chequeNumber || '').trim();
+              // Prefer tenant-entered numbers; otherwise a lease-scoped provisional id
+              // that will not collide with existing org cheque numbers (e.g. 2001).
+              const chequeNumber =
+                rawNumber || `RNW-${leaseShort}-${String(index + 1).padStart(2, '0')}`;
               return {
                 bankName: bank.length >= 2 ? bank : defaultBank.length >= 2 ? defaultBank : 'Bank',
-                chequeNumber: (row.chequeNumber || String(index + 1)).trim() || String(index + 1),
+                chequeNumber,
                 amount: {
                   amountMinor: String(row.totalMinor),
                   currency,
@@ -223,9 +238,11 @@ export function LeaseRenewalForm({
         cheques,
         paymentMethod: computed.terms.paymentMethod,
         paymentFrequency: computed.terms.paymentFrequency,
-        months: period.months,
         leaseTerms: computed.terms,
       };
+      if (period.months >= 1) {
+        body.months = period.months;
+      }
       if (computed.terms.chequeAccountName) {
         body.chequeAccountName = computed.terms.chequeAccountName;
       }
@@ -251,8 +268,9 @@ export function LeaseRenewalForm({
       router.push(`/${portal}/leasing`);
       router.refresh();
     } catch (caught) {
+      let mapped: string;
       if (caught instanceof ApiError) {
-        const mapped =
+        mapped =
           /unfinished renewal|already exists/i.test(caught.message)
             ? ar
               ? 'يوجد ملحق تجديد غير مكتمل لهذا العقد — أكمله أو ألغِه أولاً.'
@@ -265,15 +283,29 @@ export function LeaseRenewalForm({
                 ? ar
                   ? 'يمكن تجديد العقود النشطة فقط.'
                   : 'Only an active lease can be renewed.'
-                : caught.message === 'Request failed' || caught.code === 'api_error'
+                : /unique|duplicate|cheque/i.test(`${caught.code} ${caught.message}`)
                   ? ar
-                    ? 'تعذّر حفظ الملحق — تحقق من الحقول وأعد المحاولة.'
-                    : 'Could not save the addendum — check the fields and try again.'
-                  : caught.message;
-        setError(mapped);
+                    ? 'تعذّر الحفظ بسبب تكرار رقم شيك — غيّر أرقام الشيكات في الجدول ثم أعد المحاولة.'
+                    : 'Save failed because a cheque number is already used — change the numbers and retry.'
+                  : caught.code === 'api_unreachable' || caught.status === 502 || caught.status === 503
+                    ? ar
+                      ? 'الخادم يستيقظ أو غير متاح — انتظر 20 ثانية ثم أعد المحاولة.'
+                      : 'Server is waking up or unavailable — wait 20 seconds and retry.'
+                    : caught.message === 'Request failed' || caught.code === 'api_error'
+                      ? ar
+                        ? 'تعذّر حفظ الملحق — تحقق من الحقول وأعد المحاولة.'
+                        : 'Could not save the addendum — check the fields and try again.'
+                      : caught.message;
       } else {
-        setError(caught instanceof Error ? caught.message : 'request_failed');
+        mapped = caught instanceof Error ? caught.message : 'request_failed';
       }
+      setError(mapped);
+      requestAnimationFrame(() => {
+        document.getElementById('lcf-form-errors')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      });
     } finally {
       setBusy(false);
     }
@@ -389,12 +421,6 @@ export function LeaseRenewalForm({
         </dl>
       </section>
 
-      {error ? (
-        <div className="notice notice--error" role="alert">
-          {error}
-        </div>
-      ) : null}
-
       <LeaseContractForm
         key={`${context.lease.id}:${restoredDraft ? 'restored' : 'seed'}`}
         units={[context.unit]}
@@ -402,6 +428,7 @@ export function LeaseRenewalForm({
         canSign
         locale={locale}
         busy={busy}
+        formError={error}
         bankAccounts={bankAccounts}
         propertyId={context.property.id}
         lockTenantName

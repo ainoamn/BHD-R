@@ -683,6 +683,7 @@ export class LeasingService {
       await transaction.execute(
         sql`select pg_advisory_xact_lock(hashtextextended(${parentContract.id}, 41))`,
       );
+      // Include voided siblings so a reused sequence cannot collide on org+reference unique.
       const siblings = await transaction
         .select({ reference: contracts.reference })
         .from(contracts)
@@ -690,7 +691,6 @@ export class LeasingService {
           and(
             eq(contracts.organizationId, claims.organizationId!),
             eq(contracts.parentContractId, parentContract.id),
-            ne(contracts.status, 'void'),
           ),
         );
       const contractReference = formatChildContractReference(
@@ -741,66 +741,67 @@ export class LeasingService {
         chequeAccountName: input.chequeAccountName ?? null,
         chequeBankName: input.chequeBankName ?? null,
         rentBankAccountId: input.rentBankAccountId ?? null,
+        // Keep schedule on the addendum only — do not insert into `cheques` here.
+        // Inserting onto the active lease collides with org-unique cheque numbers
+        // (e.g. reusing 2001) and rolls back the whole renewal create.
+        cheques: input.cheques ?? [],
         ...(input.leaseTerms && typeof input.leaseTerms === 'object'
           ? { leaseTerms: input.leaseTerms }
           : {}),
       };
-      const contractRows = await transaction
-        .insert(contracts)
-        .values({
-          organizationId: claims.organizationId!,
-          reference: contractReference,
-          kind: 'renewal',
-          parentContractId: parentContract.id,
-          templateVersionId: input.templateVersionId,
-          unitId: lease.unitId,
-          ownerPartyId: lease.ownerPartyId,
-          tenantPartyId: lease.tenantPartyId,
-          payloadSnapshot: payload,
-        })
-        .returning();
-      const contract = contractRows[0]!;
-      await transaction.insert(approvalRequests).values({
-        organizationId: claims.organizationId!,
-        reference: `APR-${contractReference}`,
-        type: 'contract_approval',
-        subject: `Renewal ${contractReference}`,
-        resourceType: 'contract',
-        resourceId: contract.id,
-        requestedByUserId: claims.sub,
-      });
-      await transaction.insert(workflowEvents).values({
-        organizationId: claims.organizationId!,
-        actorUserId: claims.sub,
-        resourceType: 'lease',
-        resourceId: lease.id,
-        eventType: 'lease.renewal_requested',
-        fromStatus: lease.status,
-        toStatus: lease.status,
-        metadata: {
-          contractId: contract.id,
-          previousEndsOn: lease.endsOn,
-          proposedEndsOn: input.endsOn,
-          previousRentMinor: lease.rentMinor.toString(),
-          proposedRentMinor: rentMinor,
-          currency: lease.currency,
-          chequeCount: input.cheques?.length ?? 0,
-        },
-      });
       const chequeInputs = input.cheques ?? [];
-      if (chequeInputs.length) {
-        await transaction.insert(cheques).values(
-          chequeInputs.map((cheque) => ({
+      let contract;
+      try {
+        const contractRows = await transaction
+          .insert(contracts)
+          .values({
             organizationId: claims.organizationId!,
-            leaseId: lease.id,
-            ownerPartyId: lease.tenantPartyId,
-            bankName: cheque.bankName,
-            chequeNumber: cheque.chequeNumber,
-            amountMinor: BigInt(cheque.amount.amountMinor),
-            currency: cheque.amount.currency,
-            dueOn: cheque.dueOn,
-          })),
-        );
+            reference: contractReference,
+            kind: 'renewal',
+            parentContractId: parentContract.id,
+            templateVersionId: input.templateVersionId,
+            unitId: lease.unitId,
+            ownerPartyId: lease.ownerPartyId,
+            tenantPartyId: lease.tenantPartyId,
+            payloadSnapshot: payload,
+          })
+          .returning();
+        contract = contractRows[0]!;
+        await transaction.insert(approvalRequests).values({
+          organizationId: claims.organizationId!,
+          reference: `APR-${contractReference}`,
+          type: 'contract_approval',
+          subject: `Renewal ${contractReference}`,
+          resourceType: 'contract',
+          resourceId: contract.id,
+          requestedByUserId: claims.sub,
+        });
+        await transaction.insert(workflowEvents).values({
+          organizationId: claims.organizationId!,
+          actorUserId: claims.sub,
+          resourceType: 'lease',
+          resourceId: lease.id,
+          eventType: 'lease.renewal_requested',
+          fromStatus: lease.status,
+          toStatus: lease.status,
+          metadata: {
+            contractId: contract.id,
+            previousEndsOn: lease.endsOn,
+            proposedEndsOn: input.endsOn,
+            previousRentMinor: lease.rentMinor.toString(),
+            proposedRentMinor: rentMinor,
+            currency: lease.currency,
+            chequeCount: chequeInputs.length,
+          },
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (/unique|duplicate/i.test(message)) {
+          throw new ConflictException(
+            'A renewal with this reference already exists — refresh and try again',
+          );
+        }
+        throw error;
       }
       return {
         contract,
