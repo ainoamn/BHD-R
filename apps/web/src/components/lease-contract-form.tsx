@@ -530,7 +530,8 @@ export function LeaseContractForm({
   const paidDepositMajor = paidDepositMinor
     ? decimal(paidDepositMinor, digits)
     : '';
-  const depositLocked = Boolean(paidDepositMajor);
+  /** Booking arabon lock, or renewal: deposit was paid once and is returned at end of tenancy. */
+  const depositLocked = Boolean(paidDepositMajor) || renewalMode;
   const [draft, setDraft] = useState<LeaseTermsDraft>(() => {
     const paid = paidDepositMinor
       ? decimal(paidDepositMinor, minorDigitsFor(units[0]?.currency ?? 'OMR'))
@@ -964,7 +965,7 @@ export function LeaseContractForm({
   }, [depositLocked, paidDepositMajor]);
 
   useEffect(() => {
-    if (!municipalAfterHandover) return;
+    if (!municipalAfterHandover || renewalMode) return;
     setDraft((current) => {
       if (current.depositItems.length) return current;
       return {
@@ -980,7 +981,7 @@ export function LeaseContractForm({
         ],
       };
     });
-  }, [municipalAfterHandover]);
+  }, [municipalAfterHandover, renewalMode]);
 
   const stepIndex = Math.max(0, wizardSteps.indexOf(wizardStep));
   const isFirstStep = stepIndex <= 0;
@@ -2546,6 +2547,10 @@ export function LeaseContractForm({
             label={t('يوم دفع الإيجار المتفق عليه (1–31)', 'Agreed rent payment day (1–31)')}
             required
             missing={gap('payment_day')}
+            hint={t(
+              'يظهر هذا اليوم كتاريخ استحقاق في جدول الدفع (مثال: 5 → كل قسط يوم 5).',
+              'This day appears as the due date in the payment schedule (e.g. 5 → each instalment on the 5th).',
+            )}
           >
             <input
               id="lcf-day"
@@ -2937,8 +2942,8 @@ export function LeaseContractForm({
         {renewalMode ? (
           <p className="muted lcf-help">
             {t(
-              'مبلغ التأمين من العقد السابق — يمكن تعديله أو تحديث طريقة الدفع لبنود التأمين.',
-              'Deposit amount from the previous contract — editable, including deposit payment lines.',
+              'التأمين وشيك الضمان دُفعا مرة واحدة عند بداية التعاقد ويُستردّان بعد انتهائه — لا يُطلبان مجدداً في التجديد. تُعرض البيانات السابقة للقراءة فقط.',
+              'Deposit and guarantee cheque were paid once at the start of the tenancy and are returned when it ends — not requested again on renewal. Previous details are shown read-only.',
             )}
           </p>
         ) : null}
@@ -2949,21 +2954,29 @@ export function LeaseContractForm({
             required
             missing={gap('deposit')}
           >
-            <input
-              id="lcf-deposit"
-              className="input"
-              dir="ltr"
-              inputMode="decimal"
-              pattern={MONEY_PATTERN}
-              value={draft.deposit}
-              readOnly={depositLocked}
-              aria-readonly={depositLocked || undefined}
-              onChange={(event) => {
-                if (depositLocked) return;
-                set('deposit', event.target.value);
-              }}
-            />
-            {depositLocked ? (
+            {renewalMode || depositLocked ? (
+              <output id="lcf-deposit" className="input lcf-output" dir="ltr">
+                {draft.deposit || '—'}
+              </output>
+            ) : (
+              <input
+                id="lcf-deposit"
+                className="input"
+                dir="ltr"
+                inputMode="decimal"
+                pattern={MONEY_PATTERN}
+                value={draft.deposit}
+                onChange={(event) => set('deposit', event.target.value)}
+              />
+            )}
+            {renewalMode ? (
+              <span className="field__hint">
+                {t(
+                  'مدفوع سابقاً — يُسترد بعد انتهاء التعاقد، ولا يُغيَّر في ملحق التجديد.',
+                  'Already paid — returned after the tenancy ends; not changed on the renewal addendum.',
+                )}
+              </span>
+            ) : depositLocked ? (
               <span className="field__hint">
                 {t(
                   'مبلغ العربون المدفوع — ثابت ولا يُعدَّل بعد الدفع.',
@@ -2995,96 +3008,139 @@ export function LeaseContractForm({
             </div>
           ) : null}
         </div>
-        <p className="muted lcf-help">
-          {t(
-            'تفاصيل دفع التأمين: شيك أو نقداً أو تحويل. رقم شيك التأمين يعبّئه المستأجر ويرفق نسخته ضمن المستندات المطلوبة.',
-            'Deposit lines: cheque, cash or transfer. The tenant enters the deposit cheque number and uploads a copy among required documents.',
-          )}
-        </p>
-        {draft.depositItems.map((item, index) => (
-          <div key={index} className="lcf-line">
-            <select
-              className="select"
-              aria-label={t('طريقة دفع التأمين', 'Deposit method')}
-              value={item.method}
-              onChange={(event) =>
-                updateDepositItem(index, {
-                  method: event.target.value as LeaseDepositItemDraft['method'],
-                })
-              }
-            >
-              {DEPOSIT_METHODS.map((method) => (
-                <option key={method} value={method}>
-                  {pick(DEPOSIT_METHOD_LABELS[method], ar)}
-                </option>
-              ))}
-            </select>
-            <input
-              className="input"
-              dir="ltr"
-              inputMode="decimal"
-              pattern={MONEY_PATTERN}
-              required
-              aria-label={t('المبلغ', 'Amount')}
-              placeholder={t('المبلغ', 'Amount')}
-              value={item.amount}
-              onChange={(event) => updateDepositItem(index, { amount: event.target.value })}
-            />
-            <input
-              className="input"
-              dir="ltr"
-              maxLength={80}
-              aria-label={t('رقم الشيك / الإيصال', 'Cheque / receipt no.')}
-              placeholder={
-                item.method === 'cheque'
-                  ? t('يعبّئه المستأجر مع المرفق', 'Filled by tenant with upload')
-                  : t('رقم الشيك / الإيصال', 'Cheque / receipt no.')
-              }
-              value={item.reference ?? ''}
-              readOnly={municipalAfterHandover && item.method === 'cheque'}
-              onChange={(event) => updateDepositItem(index, { reference: event.target.value })}
-            />
-            <input
-              className="input"
-              maxLength={160}
-              aria-label={t('البنك', 'Bank')}
-              placeholder={t('البنك', 'Bank')}
-              value={item.bankName ?? ''}
-              onChange={(event) => updateDepositItem(index, { bankName: event.target.value })}
-            />
-            <input
-              className="input"
-              type="date"
-              aria-label={t('التاريخ', 'Date')}
-              value={item.dueOn ?? ''}
-              onChange={(event) => updateDepositItem(index, { dueOn: event.target.value })}
-            />
+        {renewalMode ? (
+          <>
+            {draft.depositItems.length ? (
+              <div className="lcf-previous-deposit">
+                <p className="muted">
+                  {t(
+                    'شيك / سند الضمان السابق (للقراءة فقط — لا يُطلب شيك جديد عند التجديد):',
+                    'Previous guarantee cheque / receipt (read-only — no new cheque on renewal):',
+                  )}
+                </p>
+                {draft.depositItems.map((item, index) => (
+                  <div key={index} className="lcf-line lcf-line--readonly">
+                    <output className="input lcf-output">
+                      {pick(DEPOSIT_METHOD_LABELS[item.method], ar)}
+                    </output>
+                    <output className="input lcf-output" dir="ltr">
+                      {item.amount || '—'}
+                    </output>
+                    <output className="input lcf-output" dir="ltr">
+                      {item.reference?.trim()
+                        ? item.reference
+                        : t('بدون رقم مسجّل', 'No number on file')}
+                    </output>
+                    <output className="input lcf-output">{item.bankName || '—'}</output>
+                    <output className="input lcf-output" dir="ltr">
+                      {item.dueOn || '—'}
+                    </output>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">
+                {t(
+                  'لا يوجد شيك ضمان مسجّل في العقد السابق — لا يُطلب شيك جديد للتجديد.',
+                  'No guarantee cheque was recorded on the previous contract — none is requested for renewal.',
+                )}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="muted lcf-help">
+              {t(
+                'تفاصيل دفع التأمين: شيك أو نقداً أو تحويل. رقم شيك التأمين يعبّئه المستأجر ويرفق نسخته ضمن المستندات المطلوبة.',
+                'Deposit lines: cheque, cash or transfer. The tenant enters the deposit cheque number and uploads a copy among required documents.',
+              )}
+            </p>
+            {draft.depositItems.map((item, index) => (
+              <div key={index} className="lcf-line">
+                <select
+                  className="select"
+                  aria-label={t('طريقة دفع التأمين', 'Deposit method')}
+                  value={item.method}
+                  onChange={(event) =>
+                    updateDepositItem(index, {
+                      method: event.target.value as LeaseDepositItemDraft['method'],
+                    })
+                  }
+                >
+                  {DEPOSIT_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {pick(DEPOSIT_METHOD_LABELS[method], ar)}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="input"
+                  dir="ltr"
+                  inputMode="decimal"
+                  pattern={MONEY_PATTERN}
+                  required
+                  aria-label={t('المبلغ', 'Amount')}
+                  placeholder={t('المبلغ', 'Amount')}
+                  value={item.amount}
+                  onChange={(event) => updateDepositItem(index, { amount: event.target.value })}
+                />
+                <input
+                  className="input"
+                  dir="ltr"
+                  maxLength={80}
+                  aria-label={t('رقم الشيك / الإيصال', 'Cheque / receipt no.')}
+                  placeholder={
+                    item.method === 'cheque'
+                      ? t('يعبّئه المستأجر مع المرفق', 'Filled by tenant with upload')
+                      : t('رقم الشيك / الإيصال', 'Cheque / receipt no.')
+                  }
+                  value={item.reference ?? ''}
+                  readOnly={municipalAfterHandover && item.method === 'cheque'}
+                  onChange={(event) => updateDepositItem(index, { reference: event.target.value })}
+                />
+                <input
+                  className="input"
+                  maxLength={160}
+                  aria-label={t('البنك', 'Bank')}
+                  placeholder={t('البنك', 'Bank')}
+                  value={item.bankName ?? ''}
+                  onChange={(event) => updateDepositItem(index, { bankName: event.target.value })}
+                />
+                <input
+                  className="input"
+                  type="date"
+                  aria-label={t('التاريخ', 'Date')}
+                  value={item.dueOn ?? ''}
+                  onChange={(event) => updateDepositItem(index, { dueOn: event.target.value })}
+                />
+                <button
+                  type="button"
+                  className="button button--quiet psr-action"
+                  onClick={() =>
+                    set(
+                      'depositItems',
+                      draft.depositItems.filter((_, i) => i !== index),
+                    )
+                  }
+                >
+                  {t('حذف', 'Remove')}
+                </button>
+              </div>
+            ))}
             <button
               type="button"
               className="button button--quiet psr-action"
               onClick={() =>
-                set(
-                  'depositItems',
-                  draft.depositItems.filter((_, i) => i !== index),
-                )
+                set('depositItems', [
+                  ...draft.depositItems,
+                  { method: 'cheque', amount: draft.deposit, reference: '', bankName: '', dueOn: '' },
+                ])
               }
             >
-              {t('حذف', 'Remove')}
+              {t('＋ إضافة بند', '＋ Add line')}
             </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          className="button button--quiet psr-action"
-          onClick={() =>
-            set('depositItems', [
-              ...draft.depositItems,
-              { method: 'cheque', amount: draft.deposit, reference: '', bankName: '', dueOn: '' },
-            ])
-          }
-        >
-          {t('＋ إضافة بند', '＋ Add line')}
-        </button>
+          </>
+        )}
       </Section>
 
       <Section

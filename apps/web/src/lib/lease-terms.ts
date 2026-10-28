@@ -132,6 +132,14 @@ export function dueDateInMonth(iso: string, day: number): string {
   return toIso(year, month0, Math.min(Math.max(1, day), daysInMonth(year, month0)));
 }
 
+/** Next occurrence of the agreed payment day on or after `from` (inclusive). */
+export function dueOnOrAfter(from: string, paymentDay: number): string {
+  const dueThisMonth = dueDateInMonth(from, paymentDay);
+  if (dueThisMonth >= from) return dueThisMonth;
+  const [year, month0] = parts(from);
+  return dueDateInMonth(toIso(year, month0 + 1, 1), paymentDay);
+}
+
 /** Rent-free days between unit handover and contract start. */
 export function graceDaysBetween(handoverOn: string | null, startsOn: string): number {
   if (!handoverOn || handoverOn >= startsOn) return 0;
@@ -392,22 +400,25 @@ export function buildRentSchedule(basis: ScheduleBasis): Array<{
   for (let offset = 0; offset < months && rows.length < MAX_SCHEDULE_ROWS; offset += step) {
     const span = Math.min(step, months - offset);
     const periodFrom = addMonths(basis.startsOn, offset);
-    const due = dueDateInMonth(periodFrom, basis.paymentDay);
+    /** First due: next agreed day on/after start (never clamp to start day). Later rows: day in that period's month. */
+    const due =
+      offset === 0
+        ? dueOnOrAfter(basis.startsOn, basis.paymentDay)
+        : dueDateInMonth(periodFrom, basis.paymentDay);
     rows.push({
       periodFrom,
       periodTo: endDateForMonths(basis.startsOn, offset + span),
-      dueOn: offset === 0 && due < basis.startsOn ? basis.startsOn : due,
+      dueOn: due,
       rentMinor: basis.monthlyRentMinor * span,
       extraDays: false,
     });
   }
   if (extraDays > 0) {
     const periodFrom = addMonths(basis.startsOn, months);
-    const due = dueDateInMonth(periodFrom, basis.paymentDay);
     rows.push({
       periodFrom,
       periodTo: basis.endsOn,
-      dueOn: due < periodFrom ? periodFrom : due,
+      dueOn: dueOnOrAfter(periodFrom, basis.paymentDay),
       rentMinor: Math.round((basis.monthlyRentMinor / 30) * extraDays),
       extraDays: true,
     });
