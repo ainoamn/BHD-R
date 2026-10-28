@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
+import { ContractKindChip, contractKindTone } from '@/components/contract-kind-chip';
 import {
   PENDING_APPROVALS_CHANGED_EVENT,
   pendingApprovalAmount,
@@ -81,34 +82,56 @@ export function PortalPendingApprovalsPanel({
         <p className="dash-section-hint">{hint}</p>
       </div>
       <ul className="dash-approvals__list">
-        {data.items.slice(0, 6).map((item) => (
-          <li key={`${item.kind}:${item.id}`}>
-            <Link href={pendingApprovalHref(portal, item)} prefetch>
-              <span className="dash-approvals__title">
-                {pendingApprovalTitle(item, ar)}
-              </span>
-              <span className="dash-approvals__ref" dir="ltr">
-                {item.reference}
-              </span>
-              <span className="dash-approvals__meta">
-                {[
-                  ar ? item.propertyNameAr : item.propertyNameEn || item.propertyNameAr,
-                  item.unitCode,
-                  item.party,
-                  item.fromOn,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
-              {pendingApprovalAmount(item, ar ? 'ar' : 'en') ? (
-                <strong className="dash-approvals__meta">
-                  {pendingApprovalAmount(item, ar ? 'ar' : 'en')}
-                </strong>
-              ) : null}
-              <em className="dash-approvals__open">{openLabel}</em>
-            </Link>
-          </li>
-        ))}
+        {data.items.slice(0, 6).map((item) => {
+          const kindTone =
+            item.kind === 'contract' || item.kind === 'renewal_term'
+              ? contractKindTone(item.contractKind ?? (item.kind === 'renewal_term' ? 'renewal' : 'initial'))
+              : null;
+          const linkTone =
+            kindTone === 'renewal'
+              ? 'dash-approvals__link--contract-renewal'
+              : kindTone === 'new'
+                ? 'dash-approvals__link--contract-new'
+                : '';
+          return (
+            <li key={`${item.kind}:${item.id}`}>
+              <Link
+                href={pendingApprovalHref(portal, item)}
+                prefetch
+                className={linkTone || undefined}
+              >
+                <span className="dash-approvals__title">
+                  {kindTone === 'new' || kindTone === 'renewal' ? (
+                    <ContractKindChip
+                      kind={item.contractKind ?? (kindTone === 'renewal' ? 'renewal' : 'initial')}
+                      ar={ar}
+                    />
+                  ) : null}{' '}
+                  {pendingApprovalTitle(item, ar)}
+                </span>
+                <span className="dash-approvals__ref" dir="ltr">
+                  {item.reference}
+                </span>
+                <span className="dash-approvals__meta">
+                  {[
+                    ar ? item.propertyNameAr : item.propertyNameEn || item.propertyNameAr,
+                    item.unitCode,
+                    item.party,
+                    item.fromOn,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+                {pendingApprovalAmount(item, ar ? 'ar' : 'en') ? (
+                  <strong className="dash-approvals__meta">
+                    {pendingApprovalAmount(item, ar ? 'ar' : 'en')}
+                  </strong>
+                ) : null}
+                <em className="dash-approvals__open">{openLabel}</em>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
       {moreText ? <p className="dash-section-hint">{moreText}</p> : null}
     </section>

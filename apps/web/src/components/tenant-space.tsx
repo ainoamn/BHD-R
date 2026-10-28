@@ -9,6 +9,11 @@ import {
   type TenantTableRow,
 } from '@/components/filterable-tenant-table';
 import { ModalPortal } from '@/components/modal-portal';
+import {
+  ContractKindChip,
+  contractKindChipLabel,
+  contractKindTone,
+} from '@/components/contract-kind-chip';
 import { SoftPortalLink as Link } from '@/components/soft-portal-link';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
 import { TenantRequestsList } from '@/components/tenant-requests-list';
@@ -518,10 +523,18 @@ function ContractsTable({ ar, locale, data }: Ctx) {
       },
       cells: [
         <span key="ref" className="tenant-table__ref">
-          <bdi>{contract.reference}</bdi>
+          <span className="tenant-table__ref-head">
+            <ContractKindChip kind={contract.kind} ar={ar} />
+            <bdi>{contract.reference}</bdi>
+          </span>
           {attachments.length ? (
             <small className="tenant-table__sub">
               {ar ? `${attachments.length} مرفق` : `${attachments.length} attached`}
+              {' · '}
+              {attachments
+                .map((item) => contractKindChipLabel(item.kind, ar))
+                .filter((label, index, all) => all.indexOf(label) === index)
+                .join(' · ')}
             </small>
           ) : null}
         </span>,
@@ -893,15 +906,34 @@ function AlertsList({ ar, locale, data }: Ctx) {
         ? formatMoney(alert.amountMinor, alert.currency, locale)
         : '',
     ].filter(Boolean);
+    const relatedContract =
+      alert.kind === 'contract_sign'
+        ? data.contracts.find((contract) => contract.id === alert.id)
+        : null;
+    const kindTone = relatedContract ? contractKindTone(relatedContract.kind) : null;
     return {
       id: `alert:${alert.kind}:${alert.id}`,
       title: tenancyAlertLabel(alert.kind, ar),
-      eyebrow: ar ? 'تنبيه' : 'Alert',
+      eyebrow: relatedContract
+        ? contractKindChipLabel(relatedContract.kind, ar)
+        : ar
+          ? 'تنبيه'
+          : 'Alert',
       summary: [alert.reference, ...meta].filter(Boolean).join(' · '),
-      tone: alertTone(alert.kind, alert.action),
-      status: alert.action ? (
-        <Status label={ar ? 'يتطلب إجراءً' : 'Action needed'} tone="action" />
-      ) : undefined,
+      tone:
+        kindTone === 'renewal'
+          ? 'contract-renewal'
+          : kindTone === 'new'
+            ? 'contract-new'
+            : alertTone(alert.kind, alert.action),
+      status: (
+        <span className="tenant-preview-row__status-stack">
+          {relatedContract ? <ContractKindChip kind={relatedContract.kind} ar={ar} /> : null}
+          {alert.action ? (
+            <Status label={ar ? 'يتطلب إجراءً' : 'Action needed'} tone="action" />
+          ) : null}
+        </span>
+      ),
       facts: [
         { label: ar ? 'المرجع' : 'Reference', value: <bdi>{alert.reference}</bdi> },
         ...(alert.date
@@ -1050,54 +1082,59 @@ function contractPreviewItems(
   locale: string,
   limit?: number,
 ): PreviewItem[] {
-  return takeRows(tenancyContractGroups(data.contracts), limit).map(
-    ({ root: contract, attachments }) => {
-      const endsOn = contractDisplayEndsOn(contract);
-      const daily = Boolean(contract.stayReference || contract.stayType);
-      const lifecycle = contractLifecycleLabel(contract, ar);
-      return {
-        id: `contract:${contract.id}`,
-        title: contract.reference,
-        eyebrow: contract.stayReference
-          ? ar
-            ? 'عقد إقامة يومية'
-            : 'Daily stay contract'
-          : ar
-            ? 'عقد إيجار'
-            : 'Lease contract',
-        summary: `${tenancyUnitLabel(contract, ar)} · ${period(contract.startsOn, endsOn, ar, contract.stayType)}`,
-        amount: money(contract.amountMinor, contract.currency, locale),
-        status: contractStatusCell(contract, ar),
-        facts: [
-          { label: ar ? 'الوحدة' : 'Unit', value: tenancyUnitLabel(contract, ar) },
-          { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(contract.landlord, ar) },
-          {
-            label: ar ? 'تاريخ البدء' : 'Starts',
-            value: dayWithTime(contract.startsOn, daily ? contract.checkInTime : null, ar),
-          },
-          {
-            label: ar ? 'تاريخ الانتهاء' : 'Ends',
-            value: dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar),
-          },
-          { label: ar ? 'الحالة' : 'Status', value: lifecycle.label },
-          {
-            label: ar ? 'القيمة' : 'Value',
-            value: money(contract.amountMinor, contract.currency, locale),
-          },
-          ...(attachments.length
-            ? [
-                {
-                  label: ar ? 'المرفقات' : 'Attachments',
-                  value: String(attachments.length),
-                },
-              ]
-            : []),
-        ],
-        href: `/tenant/contracts/${contract.id}`,
-        hrefLabel: ar ? 'عرض العقد' : 'View contract',
-      };
-    },
-  );
+  // Flat list so renewals show as their own cards (not buried under the parent).
+  const sorted = data.contracts
+    .slice()
+    .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+  return takeRows(sorted, limit).map((contract) => {
+    const endsOn = contractDisplayEndsOn(contract);
+    const daily = Boolean(contract.stayReference || contract.stayType);
+    const lifecycle = contractLifecycleLabel(contract, ar);
+    const tone = contractKindTone(contract.kind);
+    const rowTone =
+      tone === 'renewal' ? 'contract-renewal' : tone === 'new' ? 'contract-new' : null;
+    return {
+      id: `contract:${contract.id}`,
+      title: contract.reference,
+      eyebrow: contract.stayReference
+        ? ar
+          ? 'عقد إقامة يومية'
+          : 'Daily stay contract'
+        : contractKindChipLabel(contract.kind, ar),
+      summary: `${tenancyUnitLabel(contract, ar)} · ${period(contract.startsOn, endsOn, ar, contract.stayType)}`,
+      amount: money(contract.amountMinor, contract.currency, locale),
+      status: (
+        <span className="tenant-preview-row__status-stack">
+          <ContractKindChip kind={contract.kind} ar={ar} />
+          {contractStatusCell(contract, ar)}
+        </span>
+      ),
+      ...(rowTone ? { tone: rowTone } : {}),
+      facts: [
+        {
+          label: ar ? 'نوع العقد' : 'Contract type',
+          value: contractKindChipLabel(contract.kind, ar),
+        },
+        { label: ar ? 'الوحدة' : 'Unit', value: tenancyUnitLabel(contract, ar) },
+        { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(contract.landlord, ar) },
+        {
+          label: ar ? 'تاريخ البدء' : 'Starts',
+          value: dayWithTime(contract.startsOn, daily ? contract.checkInTime : null, ar),
+        },
+        {
+          label: ar ? 'تاريخ الانتهاء' : 'Ends',
+          value: dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar),
+        },
+        { label: ar ? 'الحالة' : 'Status', value: lifecycle.label },
+        {
+          label: ar ? 'القيمة' : 'Value',
+          value: money(contract.amountMinor, contract.currency, locale),
+        },
+      ],
+      href: `/tenant/contracts/${contract.id}`,
+      hrefLabel: ar ? 'عرض العقد' : 'View contract',
+    };
+  });
 }
 
 function invoicePreviewItems(

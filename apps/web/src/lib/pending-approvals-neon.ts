@@ -170,6 +170,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
             unitCode: units.code,
             party: parties.displayName,
             contractType: sql<string | null>`${contracts.payloadSnapshot}->'contract'->>'type'`,
+            contractKind: contracts.kind,
             fromOn: sql<string | null>`${contracts.payloadSnapshot}->>'startsOn'`,
             requestedAt: approvalRequests.createdAt,
           })
@@ -412,6 +413,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
         unitCode: row.unitCode,
         party: row.party,
         contractType: row.contractType === 'sale' ? ('sale' as const) : ('lease' as const),
+        contractKind: row.contractKind ?? 'initial',
         fromOn: row.fromOn ? row.fromOn.slice(0, 10) : null,
         requestedAt: iso(row.requestedAt) ?? '',
       })),
@@ -425,6 +427,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
         unitCode: row.unitCode,
         party: row.party,
         contractType: 'lease' as const,
+        contractKind: 'renewal' as const,
         fromOn: row.proposedEndsOn,
         requestedAt: row.proposedAt ?? '',
       })),

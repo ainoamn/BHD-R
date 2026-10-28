@@ -26,10 +26,10 @@ export function groupContractRowsByParent<
 }
 
 export function contractKindLabel(kind: string, ar: boolean): string {
-  if (kind === 'renewal') return ar ? 'تجديد' : 'Renewal';
-  if (kind === 'amendment') return ar ? 'تعديل تواريخ' : 'Date change';
-  if (kind === 'termination') return ar ? 'ملحق إلغاء' : 'Cancellation';
-  return ar ? 'عقد أساسي' : 'Initial';
+  if (kind === 'renewal') return ar ? 'عقد تجديد' : 'Renewal contract';
+  if (kind === 'amendment') return ar ? 'ملحق تعديل تواريخ' : 'Date-change addendum';
+  if (kind === 'termination') return ar ? 'ملحق إلغاء' : 'Cancellation addendum';
+  return ar ? 'عقد جديد' : 'New contract';
 }
 
 export const CONTRACT_TERMS = ['daily', 'monthly', 'yearly', 'sale'] as const;

@@ -18,6 +18,7 @@ import { Link } from '@/i18n/navigation';
 import { browserMutation, browserNextMutation, browserApiPath } from '@/lib/api';
 import type { BadgeChip } from '@/lib/badges-shared';
 import { BadgeChips } from './badges/badge-chips';
+import { ContractKindChip, contractKindTone } from './contract-kind-chip';
 import {
   bookingNeedsApproval,
   bookingStatusTone,
@@ -4990,9 +4991,12 @@ ${depositHtml}${
                                 )
                               ) : section === 'contracts' && column.key === 'reference' ? (
                                 <div className="tenant-contract-ref">
-                                  <bdi>
-                                    {displayCell(row, column, locale, context, definition.flow)}
-                                  </bdi>
+                                  <span className="tenant-table__ref-head">
+                                    <ContractKindChip kind={safeString(row.kind) || 'initial'} ar={ar} />
+                                    <bdi>
+                                      {displayCell(row, column, locale, context, definition.flow)}
+                                    </bdi>
+                                  </span>
                                   {(() => {
                                     const attachments =
                                       contractAttachmentsById.get(safeString(row.id)) ?? [];
@@ -5014,13 +5018,16 @@ ${depositHtml}${
                                                 href={`/${portal}/contracts/${encodeURIComponent(safeString(item.id))}`}
                                                 prefetch
                                               >
+                                                <ContractKindChip
+                                                  kind={safeString(item.kind) || 'initial'}
+                                                  ar={ar}
+                                                />{' '}
                                                 <bdi>
                                                   {safeString(item.reference) ||
                                                     safeString(item.id).slice(0, 8)}
                                                 </bdi>
                                               </Link>
                                               <span>
-                                                {contractKindLabel(safeString(item.kind), ar)} ·{' '}
                                                 {domainStatusLabel(
                                                   safeString(item.state) || safeString(item.status),
                                                   ar,
@@ -5368,13 +5375,21 @@ ${depositHtml}${
                       : statusLabeled.en
                     : statusRaw;
                   const cover = typeof row.coverImageUrl === 'string' ? row.coverImageUrl : null;
+                  const contractTone =
+                    section === 'contracts'
+                      ? contractKindTone(safeString(row.kind) || 'initial')
+                      : null;
                   return (
                     <article
                       className={
                         section === 'bookings' &&
                         bookingNeedsApproval(safeString(row.status), safeString(row.recordKind))
                           ? 'ops-mobile-card ops-mobile-card--approval'
-                          : 'ops-mobile-card'
+                          : contractTone === 'renewal'
+                            ? 'ops-mobile-card ops-mobile-card--contract-renewal'
+                            : contractTone === 'new'
+                              ? 'ops-mobile-card ops-mobile-card--contract-new'
+                              : 'ops-mobile-card'
                       }
                       key={safeString(row.id ?? row.reference) || `m-${index}`}
                     >
@@ -5389,6 +5404,9 @@ ${depositHtml}${
                         ) : null}
                         <div className="ops-mobile-card__head-copy">
                           <h3 className="ops-mobile-card__title">
+                            {section === 'contracts' ? (
+                              <ContractKindChip kind={safeString(row.kind) || 'initial'} ar={ar} />
+                            ) : null}{' '}
                             {name}
                             <BadgeChips badges={badgesOf(row.badges)} locale={locale} size={18} />
                           </h3>
@@ -5409,13 +5427,16 @@ ${depositHtml}${
                                       href={`/${portal}/contracts/${encodeURIComponent(safeString(item.id))}`}
                                       prefetch
                                     >
+                                      <ContractKindChip
+                                        kind={safeString(item.kind) || 'initial'}
+                                        ar={ar}
+                                      />{' '}
                                       <bdi>
                                         {safeString(item.reference) ||
                                           safeString(item.id).slice(0, 8)}
                                       </bdi>
                                     </Link>
                                     <span>
-                                      {contractKindLabel(safeString(item.kind), ar)} ·{' '}
                                       {domainStatusLabel(
                                         safeString(item.state) || safeString(item.status),
                                         ar,

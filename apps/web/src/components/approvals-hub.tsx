@@ -13,6 +13,7 @@ import {
   type ApprovalsHub as HubData,
   type SignatureRegisterEntry,
 } from '@/lib/approvals-hub-shared';
+import { ContractKindChip, contractKindTone } from '@/components/contract-kind-chip';
 import { formatMoney } from '@/lib/format';
 import {
   PENDING_APPROVALS_CHANGED_EVENT,
@@ -276,10 +277,39 @@ export function ApprovalsHub({
                   {items.map((item) => {
                     const amount = pendingApprovalAmount(item, locale);
                     const place = placeName(item, ar);
+                    const kindTone =
+                      item.kind === 'contract' || item.kind === 'renewal_term'
+                        ? contractKindTone(
+                            item.contractKind ??
+                              (item.kind === 'renewal_term' ? 'renewal' : 'initial'),
+                          )
+                        : null;
                     return (
-                      <li key={`${item.kind}:${item.id}`} className="approvals-hub__item">
+                      <li
+                        key={`${item.kind}:${item.id}`}
+                        className={`approvals-hub__item${
+                          kindTone === 'renewal'
+                            ? ' approvals-hub__item--contract-renewal'
+                            : kindTone === 'new'
+                              ? ' approvals-hub__item--contract-new'
+                              : ''
+                        }`}
+                      >
                         <div className="approvals-hub__main">
-                          <strong>{pendingApprovalTitle(item, ar)}</strong>
+                          <strong>
+                            {kindTone === 'new' || kindTone === 'renewal' ? (
+                              <>
+                                <ContractKindChip
+                                  kind={
+                                    item.contractKind ??
+                                    (kindTone === 'renewal' ? 'renewal' : 'initial')
+                                  }
+                                  ar={ar}
+                                />{' '}
+                              </>
+                            ) : null}
+                            {pendingApprovalTitle(item, ar)}
+                          </strong>
                           <span className="approvals-hub__meta">
                             {[item.reference, place, item.party].filter(Boolean).join(' · ')}
                           </span>

@@ -31,6 +31,8 @@ export type PendingApprovalItem = {
   unitCode: string | null;
   party: string | null;
   contractType: 'lease' | 'sale' | null;
+  /** `initial` / `renewal` / … when `kind` is `contract`. */
+  contractKind?: string | null;
   fromOn: string | null;
   requestedAt: string;
   /** Deposit still to transfer for `refund_transfer`; deposit paid for `lease_reservation`. */
@@ -247,6 +249,12 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
   }
   if (item.contractType === 'sale') {
     return ar ? 'عقد بيع بانتظار اعتمادك' : 'Sale contract awaiting your approval';
+  }
+  if (item.kind === 'contract' && item.contractKind === 'renewal') {
+    return ar ? 'عقد تجديد بانتظار اعتمادك' : 'Renewal contract awaiting your approval';
+  }
+  if (item.kind === 'contract') {
+    return ar ? 'عقد جديد بانتظار اعتمادك' : 'New contract awaiting your approval';
   }
   return ar ? 'عقد إيجار بانتظار اعتمادك' : 'Lease contract awaiting your approval';
 }
