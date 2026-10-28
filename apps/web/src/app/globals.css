@@ -4485,6 +4485,20 @@ body:has(.stays-booking-receipt) #main-content {
   background: #c2410c;
   border-color: #9a3412;
 }
+.dash-alert--contract-new a {
+  color: #0f3d66;
+  background: linear-gradient(180deg, #d9ecff, #f5faff 70%);
+  border: 2px solid #c8102e;
+  box-shadow: 0 0 0 2px rgb(26 90 138 / 0.14);
+  font-weight: 800;
+}
+.dash-alert--contract-renewal a {
+  color: #7a3b00;
+  background: linear-gradient(180deg, #ffd7a8, #fff6eb 70%);
+  border: 2px solid #c8102e;
+  box-shadow: 0 0 0 2px rgb(200 120 20 / 0.18);
+  font-weight: 800;
+}
 .dash-alerts__empty {
   margin: 0;
   color: var(--muted);
@@ -9135,15 +9149,32 @@ body:has(.stays-booking-receipt) #main-content {
   border: 2px solid #c8102e;
   border-inline-start-width: 2px;
   border-inline-start-color: #c8102e;
-  background: linear-gradient(180deg, #eef7ff, #fff 58%);
-  box-shadow: 0 0 0 2px rgb(26 90 138 / 0.12);
+  background: linear-gradient(180deg, #d9ecff, #fff 55%);
+  box-shadow: 0 0 0 3px rgb(26 90 138 / 0.16);
 }
 .tenant-preview-row--contract-renewal {
   border: 2px solid #c8102e;
   border-inline-start-width: 2px;
   border-inline-start-color: #c8102e;
-  background: linear-gradient(180deg, #fff4e8, #fff 58%);
-  box-shadow: 0 0 0 2px rgb(200 120 20 / 0.16);
+  background: linear-gradient(180deg, #ffd7a8, #fff 55%);
+  box-shadow: 0 0 0 3px rgb(200 120 20 / 0.2);
+}
+.tenant-preview-row--contract-new .tenant-preview-row__eyebrow,
+.tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.4rem;
+  border: 2px solid #c8102e;
+  font-weight: 900;
+}
+.tenant-preview-row--contract-new .tenant-preview-row__eyebrow {
+  background: #b9dcff;
+  color: #0f3d66;
+}
+.tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
+  background: #ffc078;
+  color: #7a3b00;
 }
 .contract-kind-chip {
   display: inline-flex;
@@ -9179,17 +9210,35 @@ body:has(.stays-booking-receipt) #main-content {
   border: 2px solid #c8102e;
   background: linear-gradient(180deg, #fff4e8, #fff 60%);
 }
-.dash-approvals__list a.dash-approvals__link--contract-new {
-  border: 2px solid #c8102e;
+.dash-approvals__list a.dash-approvals__link--contract-new,
+.portal-layout .dash-approvals__list a.dash-approvals__link--contract-new {
+  border: 2px solid #c8102e !important;
   border-radius: 0.7rem;
-  background: linear-gradient(180deg, #eef7ff, #fff 70%);
+  background: linear-gradient(180deg, #d9ecff, #fff 70%) !important;
   padding: 0.65rem 0.75rem;
+  box-shadow: 0 0 0 2px rgb(26 90 138 / 0.14);
+  color: #0f3d66;
 }
-.dash-approvals__list a.dash-approvals__link--contract-renewal {
-  border: 2px solid #c8102e;
+.dash-approvals__list a.dash-approvals__link--contract-renewal,
+.portal-layout .dash-approvals__list a.dash-approvals__link--contract-renewal {
+  border: 2px solid #c8102e !important;
   border-radius: 0.7rem;
-  background: linear-gradient(180deg, #fff4e8, #fff 70%);
+  background: linear-gradient(180deg, #ffd7a8, #fff6eb 70%) !important;
   padding: 0.65rem 0.75rem;
+  box-shadow: 0 0 0 2px rgb(200 120 20 / 0.18);
+  color: #7a3b00;
+}
+.portal-layout .dash-alert--contract-new a {
+  color: #0f3d66;
+  background: linear-gradient(180deg, #d9ecff, #f5faff 70%);
+  border: 2px solid #c8102e;
+  box-shadow: 0 0 0 2px rgb(26 90 138 / 0.14);
+}
+.portal-layout .dash-alert--contract-renewal a {
+  color: #7a3b00;
+  background: linear-gradient(180deg, #ffd7a8, #fff6eb 70%);
+  border: 2px solid #c8102e;
+  box-shadow: 0 0 0 2px rgb(200 120 20 / 0.18);
 }
 .tenant-preview-row__main,
 .tenant-preview-row__copy {
@@ -33438,14 +33487,14 @@ button.handover-shots__item {
 .approvals-hub__item--contract-new {
   border: 2px solid #c8102e;
   border-inline-start-width: 2px;
-  background: linear-gradient(180deg, #eef7ff, #fff 60%);
-  box-shadow: 0 0 0 2px rgb(26 90 138 / 0.1);
+  background: linear-gradient(180deg, #d9ecff, #fff 55%);
+  box-shadow: 0 0 0 3px rgb(26 90 138 / 0.16);
 }
 .approvals-hub__item--contract-renewal {
   border: 2px solid #c8102e;
   border-inline-start-width: 2px;
-  background: linear-gradient(180deg, #fff4e8, #fff 60%);
-  box-shadow: 0 0 0 2px rgb(200 120 20 / 0.14);
+  background: linear-gradient(180deg, #ffd7a8, #fff 55%);
+  box-shadow: 0 0 0 3px rgb(200 120 20 / 0.2);
 }
 .approvals-hub__main {
   display: grid;

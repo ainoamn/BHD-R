@@ -41,6 +41,10 @@ function alertCopy(
       return t('Portal.alertStayBookings', { count });
     case 'contracts_approval':
       return t('Portal.alertContractsApproval', { count });
+    case 'contracts_approval_new':
+      return t('Portal.alertNewContractsApproval', { count });
+    case 'contracts_approval_renewal':
+      return t('Portal.alertRenewalContractsApproval', { count });
     case 'booking_requests':
       return t('Portal.alertBookingRequests', { count });
     case 'viewing_requests':
@@ -115,7 +119,15 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
   const opens = (href: string) =>
     !href.startsWith(`/${portal}`) ||
     canOpenPortalPath(viewer, portal, href.slice(portal.length + 1));
-  const firstContract = approvals.items.find((item) => item.kind === 'contract');
+  const contractItems = approvals.items.filter((item) => item.kind === 'contract');
+  const renewalTermItems = approvals.items.filter((item) => item.kind === 'renewal_term');
+  const newContractItems = contractItems.filter((item) => item.contractKind !== 'renewal');
+  const renewalContractItems = [
+    ...contractItems.filter((item) => item.contractKind === 'renewal'),
+    ...renewalTermItems,
+  ];
+  const firstNewContract = newContractItems[0] ?? null;
+  const firstRenewalContract = renewalContractItems[0] ?? null;
   const firstReservation = approvals.items.find((item) => item.kind === 'lease_reservation');
   const firstRefund = approvals.items.find(
     (item) =>
@@ -126,14 +138,26 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
   );
   const firstGuestReview = approvals.items.find((item) => item.kind === 'guest_review');
   const approvalAlerts: Array<{ code: string; count: number; href: string }> = [
-    ...(approvals.contracts && firstContract
+    ...(newContractItems.length && firstNewContract
       ? [
           {
-            code: 'contracts_approval',
-            count: approvals.contracts,
+            code: 'contracts_approval_new',
+            count: newContractItems.length,
             href:
-              approvals.contracts === 1
-                ? pendingApprovalHref(portal, firstContract)
+              newContractItems.length === 1
+                ? pendingApprovalHref(portal, firstNewContract)
+                : `/${portal}#pending-approvals`,
+          },
+        ]
+      : []),
+    ...(renewalContractItems.length && firstRenewalContract
+      ? [
+          {
+            code: 'contracts_approval_renewal',
+            count: renewalContractItems.length,
+            href:
+              renewalContractItems.length === 1
+                ? pendingApprovalHref(portal, firstRenewalContract)
                 : `/${portal}#pending-approvals`,
           },
         ]
@@ -428,7 +452,16 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         {alerts.length || approvalAlerts.length ? (
           <ul className="dash-alerts__list">
             {approvalAlerts.map((alert) => (
-              <li key={alert.code} className="dash-alert dash-alert--approval">
+              <li
+                key={alert.code}
+                className={`dash-alert${
+                  alert.code === 'contracts_approval_new'
+                    ? ' dash-alert--contract-new'
+                    : alert.code === 'contracts_approval_renewal'
+                      ? ' dash-alert--contract-renewal'
+                      : ' dash-alert--approval'
+                }`}
+              >
                 <Link href={alert.href} prefetch>
                   <strong>{alert.count}</strong>
                   <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
