@@ -58,6 +58,7 @@ import { publicWebOrigin } from '@/lib/seo';
 import { loadLeaseBookingAgreementInTx } from '@/lib/public-lease-booking-neon';
 import { readStayTypeFromSnapshot } from '@/lib/stay-booking-dates';
 import type { ContractArticleHead } from '@/components/contract-document-view';
+import { contractDigitalSeal } from '@/lib/document-authenticity';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
@@ -79,6 +80,8 @@ export interface ContractDetail {
   endsOn: string;
   documentUrl: string | null;
   documentHash: string | null;
+  /** HMAC digital seal over documentHash (server-issued, tamper-evident). */
+  digitalSeal: string | null;
   canSign: boolean;
   approval: {
     id: string;
@@ -643,6 +646,7 @@ export async function loadContractDetailFromNeon(
       ? await signedDocumentUrl(contract.renderedPdfObjectKey, reference)
       : null,
     documentHash: contract.renderedPdfHash,
+    digitalSeal: contractDigitalSeal(contract.renderedPdfHash),
     canSign:
       !access.crossOrganization &&
       Boolean(signerPartyId) &&

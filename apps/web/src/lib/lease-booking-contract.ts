@@ -52,6 +52,7 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
     endsOn: '',
     documentUrl: null,
     documentHash: null,
+    digitalSeal: null,
     parties: {
       owner: { id: '', displayName: ownerName },
       tenant: { id: '', displayName: tenantName },

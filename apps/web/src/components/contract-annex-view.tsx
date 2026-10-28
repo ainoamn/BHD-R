@@ -11,6 +11,7 @@ import { formatMoney } from '@/lib/format';
 import { HANDOVER_DOCUMENT_KINDS, handoverNote } from '@/lib/stay-handover';
 import type { PortalRole } from '@/lib/types';
 import { requirePortal } from '@/lib/viewer';
+import { DOCUMENT_ANTI_FORGERY } from '@/lib/document-authenticity';
 import {
   BRAND_LOGO,
   DocLetterhead,
@@ -668,6 +669,7 @@ export function ContractAnnexArticle({
                     `Issued electronically via BHD R as an integral part of agreement ${annex.contract.reference}. The fingerprint below changes if any of its data or photos change.`,
                   )}
                   <code dir="ltr">SHA-256 {annex.fingerprint}</code>
+                  {para(DOCUMENT_ANTI_FORGERY.bodyAr, DOCUMENT_ANTI_FORGERY.bodyEn)}
                 </div>
               </div>
             </td>

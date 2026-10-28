@@ -35,6 +35,11 @@ import {
 import { VoidRenewalDocsButton } from './void-renewal-docs-button';
 import { ELECTRONIC_RENEWAL_NOTICE } from '@/lib/electronic-renewal-notice';
 import {
+  DOCUMENT_ANTI_FORGERY,
+  shortSeal,
+} from '@/lib/document-authenticity';
+import { DocumentAuthenticityStrip } from './document-authenticity-strip';
+import {
   BRAND_LOGO,
   DocLetterhead,
   contractKit,
@@ -195,6 +200,7 @@ export type ContractArticleHead = Pick<
   | 'endsOn'
   | 'documentUrl'
   | 'documentHash'
+  | 'digitalSeal'
   | 'parties'
   | 'property'
   | 'unit'
@@ -386,6 +392,16 @@ export function ContractDocumentView({
             <VoidRenewalDocsButton contractId={contract.id} locale={locale} />
           ) : null}
         </div>
+      ) : null}
+
+      {contract.documentHash || doc.verification ? (
+        <DocumentAuthenticityStrip
+          locale={locale}
+          verifyUrl={doc.verification?.url ?? null}
+          documentHash={contract.documentHash}
+          digitalSeal={contract.digitalSeal}
+          reference={contract.reference}
+        />
       ) : null}
 
       <ContractDocumentToolbar
@@ -1498,14 +1514,18 @@ export function ContractArticle({
                   ) : null}
                   {doc.verification
                     ? para(
-                        'للتحقق من صحة العقد واعتماده امسح الرمز أو افتح الرابط:',
-                        'To verify this contract, scan the code or open:',
+                        'للتحقق من صحة العقد واعتماده امسح الرمز أو افتح الرابط الرسمي فقط:',
+                        'To verify this contract, scan the code or open the official link only:',
                       )
                     : null}
                   {doc.verification ? <code dir="ltr">{doc.verification.url}</code> : null}
                   {contract.documentHash ? (
                     <code dir="ltr">SHA-256 {contract.documentHash}</code>
                   ) : null}
+                  {shortSeal(contract.digitalSeal) ? (
+                    <code dir="ltr">BHD-R-SEAL {shortSeal(contract.digitalSeal)}</code>
+                  ) : null}
+                  {para(DOCUMENT_ANTI_FORGERY.bodyAr, DOCUMENT_ANTI_FORGERY.bodyEn)}
                 </div>
               </div>
             </td>

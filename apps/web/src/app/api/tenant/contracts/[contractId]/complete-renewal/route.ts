@@ -63,7 +63,9 @@ export async function POST(request: Request, context: RouteContext) {
               ? 'ارفع كل المستندات المطلوبة قبل الإرسال.'
               : code === 'renewal_consent_required'
                 ? 'يجب الموافقة على إقرار التوثيق الإلكتروني.'
-                : 'تعذّر إكمال حزمة التجديد.',
+                : code === 'renewal_term_pending'
+                  ? 'طلب تعديل المدة قيد مراجعة المؤجر — انتظر القرار قبل التوثيق.'
+                  : 'تعذّر إكمال حزمة التجديد.',
         },
       },
       { status: statusForSafeCode(code) },

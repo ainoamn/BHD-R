@@ -1114,19 +1114,15 @@ export async function completeTenantRenewalPackageOnNeon(
     const missing = requirements.filter((row) => !uploadedCodes.has(row.code));
     if (missing.length) fail('renewal_documents_incomplete');
 
-    if (input.endsOn) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(input.endsOn)) fail('renewal_date_invalid');
-      const startsOn =
-        typeof snapshot.startsOn === 'string' ? snapshot.startsOn : input.endsOn;
-      if (input.endsOn <= startsOn) fail('renewal_date_invalid');
-      snapshot.endsOn = input.endsOn;
-      if (snapshot.leaseTerms && typeof snapshot.leaseTerms === 'object') {
-        snapshot.leaseTerms = {
-          ...(snapshot.leaseTerms as Record<string, unknown>),
-          endsOn: input.endsOn,
-        };
-      }
+    const termProposal = snapshot.tenantTermProposal;
+    if (
+      termProposal &&
+      typeof termProposal === 'object' &&
+      (termProposal as { status?: string }).status === 'pending'
+    ) {
+      fail('renewal_term_pending');
     }
+    // End date is system-owned; changes go only through renewal-term (object / auto-approve).
 
     const now = new Date();
     const nowIso = now.toISOString();

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { DOCUMENT_ANTI_FORGERY } from '@/lib/document-authenticity';
 import type { ContractVerification, VerifiedParty } from '@/lib/contract-verify-neon';
 
 const BRAND_LOGO = '/brand/bhd-official-symbol.svg';
@@ -307,6 +308,21 @@ export function ContractVerifyView({
           </section>
         ) : null}
 
+        <aside className="verify-card__note" role="note">
+          <strong>
+            <Bi
+              value={[DOCUMENT_ANTI_FORGERY.titleAr, DOCUMENT_ANTI_FORGERY.titleEn]}
+              ar={ar}
+            />
+          </strong>
+          <p>
+            <Bi
+              value={[DOCUMENT_ANTI_FORGERY.bodyAr, DOCUMENT_ANTI_FORGERY.bodyEn]}
+              ar={ar}
+            />
+          </p>
+        </aside>
+
         <p className="verify-card__privacy">
           <span aria-hidden="true">🔒</span>
           <Bi
@@ -320,8 +336,8 @@ export function ContractVerifyView({
         <footer className="verify-card__foot">
           <Bi
             value={[
-              `تم التحقق في ${formatDateTime(new Date().toISOString(), 'ar')} · منصة BHD R`,
-              `Checked on ${formatDateTime(new Date().toISOString(), 'en')} · BHD R platform`,
+              `تم التحقق في ${formatDateTime(new Date().toISOString(), 'ar')} · منصة BHD R · r.bhd-om.com`,
+              `Checked on ${formatDateTime(new Date().toISOString(), 'en')} · BHD R platform · r.bhd-om.com`,
             ]}
             ar={ar}
           />

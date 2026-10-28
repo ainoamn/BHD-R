@@ -517,8 +517,8 @@ export type TenantTermProposal = {
 };
 
 /**
- * Tenant proposes a different renewal end date. Auto-approves shorter terms when
- * policy allows and the term is still ≥ minTermMonths; otherwise waits for owner.
+ * Tenant objects to the system renewal end date. Auto-approves when the proposed
+ * term length is within [minTermMonths, offeredMonths]; otherwise waits for owner.
  */
 export async function proposeRenewalTermOnNeon(
   claims: SessionClaims,
@@ -583,18 +583,24 @@ export async function proposeRenewalTermOnNeon(
       sanitizeLeaseRenewalOverride(parentSnap.renewalAutomation),
     );
 
-    const proposedMonths = contractPeriod(startsOn, proposedEndsOn).months;
-    if (proposedMonths < policy.minTermMonths) fail('renewal_term_too_short');
-
+    const proposedMonths = Math.max(1, contractPeriod(startsOn, proposedEndsOn).months);
     const currentEndsOn =
       typeof snapshot.endsOn === 'string' ? snapshot.endsOn : proposedEndsOn;
+    const offeredMonths = Math.max(
+      1,
+      typeof snapshot.months === 'number'
+        ? snapshot.months
+        : contractPeriod(startsOn, currentEndsOn).months,
+    );
     const shorter = proposedEndsOn < currentEndsOn;
     const longer = proposedEndsOn > currentEndsOn;
     const nowIso = new Date().toISOString();
 
-    let status: TenantTermProposal['status'] = 'pending';
-    if (shorter && policy.autoApproveShorterTerm) status = 'auto_approved';
-    else if (!shorter && !longer) status = 'auto_approved';
+    // In range = between landlord min months and the system-offered term (not longer).
+    // Within range → auto electronic approval; outside → landlord manual review.
+    const inOwnerRange =
+      proposedMonths >= policy.minTermMonths && proposedMonths <= offeredMonths && !longer;
+    const status: TenantTermProposal['status'] = inOwnerRange ? 'auto_approved' : 'pending';
 
     const proposal: TenantTermProposal = {
       endsOn: proposedEndsOn,
@@ -604,9 +610,13 @@ export async function proposeRenewalTermOnNeon(
       decisionNote:
         status === 'auto_approved'
           ? shorter
-            ? 'auto_approved_shorter'
-            : 'unchanged'
-          : null,
+            ? 'auto_approved_in_range'
+            : 'unchanged_or_same_term'
+          : proposedMonths < policy.minTermMonths
+            ? 'below_min_term_awaiting_owner'
+            : longer
+              ? 'longer_term_awaiting_owner'
+              : 'awaiting_owner',
     };
 
     const nextPayload: Record<string, unknown> = {

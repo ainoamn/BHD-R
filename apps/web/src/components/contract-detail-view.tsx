@@ -245,6 +245,15 @@ function SimpleContractView({
             {contract.documentHash ? (
               <p className="muted">
                 SHA-256: <code>{contract.documentHash}</code>
+                {contract.digitalSeal ? (
+                  <>
+                    <br />
+                    {ar ? 'الختم الرقمي: ' : 'Digital seal: '}
+                    <code dir="ltr">
+                      {contract.digitalSeal.slice(0, 8)}…{contract.digitalSeal.slice(-8)}
+                    </code>
+                  </>
+                ) : null}
               </p>
             ) : (
               <p className="muted">

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button, Card, CardContent, Field } from '@bhd-r/ui';
 import { browserNextMutation, humanizeBrowserError } from '@/lib/api';
+import { ModalPortal } from '@/components/modal-portal';
 
 type Proposal = {
   endsOn: string;
@@ -26,18 +27,34 @@ export function TenantRenewalTermPanel({
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
-  const [endsOn, setEndsOn] = useState(currentEndsOn);
+  const [systemEndsOn, setSystemEndsOn] = useState(currentEndsOn);
+  const [localProposal, setLocalProposal] = useState(proposal);
+  const [objectOpen, setObjectOpen] = useState(false);
+  const [proposedEndsOn, setProposedEndsOn] = useState(currentEndsOn);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [congratsOpen, setCongratsOpen] = useState(false);
+  const pendingReview = localProposal?.status === 'pending';
 
-  async function submit() {
+  async function submitObjection() {
     setBusy(true);
     setError(null);
     try {
-      await browserNextMutation(
+      const result = await browserNextMutation<{ status: Proposal['status']; endsOn: string }>(
         `/api/tenant/contracts/${encodeURIComponent(contractId)}/renewal-term`,
-        { method: 'POST', body: JSON.stringify({ endsOn }) },
+        { method: 'POST', body: JSON.stringify({ endsOn: proposedEndsOn }) },
       );
+      setLocalProposal({
+        endsOn: result.endsOn,
+        proposedAt: new Date().toISOString(),
+        status: result.status,
+        decidedAt: result.status === 'auto_approved' ? new Date().toISOString() : null,
+      });
+      setObjectOpen(false);
+      if (result.status === 'auto_approved') {
+        setSystemEndsOn(result.endsOn);
+        setCongratsOpen(true);
+      }
       router.refresh();
     } catch (caught) {
       setError(humanizeBrowserError(caught, ar));
@@ -49,52 +66,104 @@ export function TenantRenewalTermPanel({
   return (
     <Card>
       <CardContent>
-        <h2>{ar ? 'مدة التجديد' : 'Renewal term'}</h2>
+        <h2>{ar ? 'تاريخ نهاية التجديد' : 'Renewal end date'}</h2>
         <p className="muted">
           {ar
-            ? 'إن لم تناسبك المدة المقترحة، اختر تاريخ نهاية آخر. إن قصّرت المدة قد تُعتمد تلقائياً حسب ضبط المالك، وإلا تنتظر اعتماده ثم تُعاد إليك للمستندات والتوقيع.'
-            : 'If the offered term does not suit you, pick another end date. Shortening may auto-approve per the owner’s settings; otherwise the owner decides, then you finish documents and e-sign.'}
+            ? 'التاريخ أدناه هو ما حدده النظام. للاعتراض اقترح تاريخاً آخر.'
+            : 'The date below is set by the system. Object if you need a different date.'}
         </p>
-        {proposal ? (
-          <p className="notice notice--info" role="status">
-            {ar ? 'اقتراحك: ' : 'Your proposal: '}
-            <strong dir="ltr">{proposal.endsOn}</strong>
-            {' — '}
-            {proposal.status === 'pending'
-              ? ar
-                ? 'بانتظار المالك'
-                : 'Awaiting owner'
-              : proposal.status === 'rejected'
-                ? ar
-                  ? 'مرفوض'
-                  : 'Rejected'
-                : ar
-                  ? 'معتمد'
-                  : 'Approved'}
+        <p>
+          {ar ? 'تاريخ نهاية التجديد: ' : 'Renewal end date: '}
+          <strong dir="ltr">{systemEndsOn}</strong>
+        </p>
+        {pendingReview ? (
+          <p className="notice notice--warning" role="status">
+            {ar
+              ? `طلبك لتغيير النهاية إلى ${localProposal.endsOn} قيد المراجعة من قبل المؤجر.`
+              : `Your request to change the end date to ${localProposal.endsOn} is pending landlord review.`}
           </p>
         ) : null}
-        <div className="form-grid">
-          <Field
-            id="renewal-ends-on"
-            label={ar ? 'تاريخ نهاية التجديد' : 'Renewal end date'}
-            type="date"
-            value={endsOn}
-            onChange={(event) => setEndsOn(event.target.value)}
-          />
-          <Button type="button" disabled={busy || !endsOn} onClick={() => void submit()}>
-            {busy
-              ? ar
-                ? 'جاري الإرسال…'
-                : 'Sending…'
-              : ar
-                ? 'إرسال المدة للمالك'
-                : 'Send term to owner'}
+        {!pendingReview ? (
+          <Button
+            type="button"
+            className="button--secondary"
+            onClick={() => {
+              setProposedEndsOn(systemEndsOn);
+              setError(null);
+              setObjectOpen(true);
+            }}
+          >
+            {ar ? 'اعتراض على التاريخ' : 'Object to this date'}
           </Button>
-        </div>
-        {error ? (
-          <div className="notice notice--danger" role="alert">
-            {error}
-          </div>
+        ) : null}
+
+        {objectOpen ? (
+          <ModalPortal>
+            <div className="ops-modal" onClick={() => !busy && setObjectOpen(false)}>
+              <div
+                className="ops-modal__card"
+                role="dialog"
+                aria-modal="true"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <header className="ops-modal__head">
+                  <h2>{ar ? 'اعتراض على تاريخ النهاية' : 'Object to end date'}</h2>
+                </header>
+                <Field
+                  id="renewal-object-ends"
+                  label={ar ? 'التاريخ المقترح' : 'Proposed end date'}
+                  type="date"
+                  value={proposedEndsOn}
+                  onChange={(event) => setProposedEndsOn(event.target.value)}
+                />
+                {error ? (
+                  <div className="notice notice--danger" role="alert">
+                    {error}
+                  </div>
+                ) : null}
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
+                  <Button
+                    type="button"
+                    disabled={busy || !proposedEndsOn}
+                    onClick={() => void submitObjection()}
+                  >
+                    {busy ? (ar ? 'جاري الإرسال…' : 'Sending…') : ar ? 'إرسال' : 'Send'}
+                  </Button>
+                  <Button
+                    type="button"
+                    className="button--secondary"
+                    disabled={busy}
+                    onClick={() => setObjectOpen(false)}
+                  >
+                    {ar ? 'إلغاء' : 'Cancel'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </ModalPortal>
+        ) : null}
+
+        {congratsOpen ? (
+          <ModalPortal>
+            <div className="ops-modal" onClick={() => setCongratsOpen(false)}>
+              <div
+                className="ops-modal__card"
+                role="dialog"
+                aria-modal="true"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <h2>{ar ? 'مبروك' : 'Congratulations'}</h2>
+                <p>
+                  {ar
+                    ? `وافق المالك إلكترونياً / تلقائياً على المدة المقترحة. تاريخ النهاية: ${systemEndsOn}.`
+                    : `Landlord approved electronically / automatically. End date: ${systemEndsOn}.`}
+                </p>
+                <Button type="button" onClick={() => setCongratsOpen(false)}>
+                  {ar ? 'متابعة' : 'Continue'}
+                </Button>
+              </div>
+            </div>
+          </ModalPortal>
         ) : null}
       </CardContent>
     </Card>
