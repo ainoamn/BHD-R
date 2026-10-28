@@ -44,23 +44,28 @@ function publicApiErrorMessage(payload: PublicApiErrorPayload | null, fallback: 
 /** Map browser/API errors to user-facing copy (never raw «Failed to fetch»). */
 export function humanizeBrowserError(error: unknown, ar: boolean): string {
   if (error instanceof ApiError) {
-    if (error.code === 'api_unreachable' || error.status === 502 || error.status === 503) {
+    if (
+      error.code === 'api_unreachable' ||
+      error.code === 'network_error' ||
+      error.status === 502 ||
+      error.status === 503
+    ) {
       return ar
-        ? 'خادم الحجز غير متاح حالياً. انتظر 10–20 ثانية ثم حدّث الصفحة وأعد المحاولة.'
-        : 'Booking server is unavailable. Wait 10–20 seconds, refresh, and retry.';
+        ? 'الخادم غير متاح أو يستيقظ. انتظر 20 ثانية ثم أعد المحاولة.'
+        : 'Server unavailable or waking up. Wait 20 seconds and retry.';
     }
     if (/failed to fetch|network_error|api_unreachable|timed? ?out|aborted/i.test(error.message)) {
       return ar
-        ? 'تعذر الاتصال بخادم الحجز. تحقق من الشبكة ثم أعد المحاولة.'
-        : 'Could not reach the booking server. Check your connection and retry.';
+        ? 'تعذر الاتصال بالخادم. تحقق من الشبكة ثم أعد المحاولة.'
+        : 'Could not reach the server. Check your connection and retry.';
     }
     return error.message;
   }
   if (error instanceof Error) {
-    if (/failed to fetch|network_error|load failed|aborted/i.test(error.message)) {
+    if (/failed to fetch|network_error|load failed|aborted|timeout/i.test(error.message)) {
       return ar
-        ? 'تعذر الاتصال بخادم الحجز. تحقق من الشبكة ثم أعد المحاولة.'
-        : 'Could not reach the booking server. Check your connection and retry.';
+        ? 'تعذر الاتصال بالخادم. انتظر قليلاً ثم أعد المحاولة.'
+        : 'Could not reach the server. Wait a moment and retry.';
     }
     return error.message;
   }
@@ -142,14 +147,19 @@ async function getNestCsrfToken(force = false): Promise<string> {
       csrfResponse = await fetch(browserApiPath('/v1/auth/csrf'), {
         credentials: 'same-origin',
         headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(22_000),
+        signal: AbortSignal.timeout(40_000),
         cache: 'no-store',
       });
-    } catch {
+    } catch (error) {
+      const aborted =
+        (error instanceof DOMException && error.name === 'TimeoutError') ||
+        (error instanceof Error && /abort|timeout|failed to fetch/i.test(error.message));
       throw new ApiError(
         0,
-        'network_error',
-        'تعذر إنشاء رمز الحماية. حدّث الصفحة أو سجّل الدخول مجدداً.',
+        aborted ? 'api_unreachable' : 'network_error',
+        aborted
+          ? 'الخادم يستيقظ أو بطيء — انتظر 20 ثانية ثم أعد المحاولة.'
+          : 'تعذر إنشاء رمز الحماية. حدّث الصفحة أو سجّل الدخول مجدداً.',
       );
     }
     if (!csrfResponse.ok) {
@@ -200,10 +210,15 @@ async function browserMutationOnce<T>(
       signal: init.signal ?? AbortSignal.timeout(45_000),
     });
   } catch (error) {
+    const aborted =
+      (error instanceof DOMException && error.name === 'TimeoutError') ||
+      (error instanceof Error && /abort|timeout|failed to fetch/i.test(error.message));
     throw new ApiError(
       0,
-      'network_error',
-      'تعذر إكمال الطلب — Nest لا يستجيب. تحقق من Render ثم أعد المحاولة.',
+      aborted ? 'api_unreachable' : 'network_error',
+      aborted
+        ? 'انتهت مهلة الاتصال بالخادم — انتظر قليلاً ثم أعد حفظ الملحق.'
+        : 'تعذر إكمال الطلب — تحقق من الشبكة ثم أعد المحاولة.',
     );
   }
   if (!response.ok) {

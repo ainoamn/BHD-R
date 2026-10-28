@@ -7,7 +7,12 @@ import {
   type LeaseBankAccountOption,
   type LeaseContractPayload,
 } from '@/components/lease-contract-form';
-import { ApiError, browserMutation } from '@/lib/api';
+import {
+  ApiError,
+  browserMutation,
+  clearBrowserCsrfCache,
+  humanizeBrowserError,
+} from '@/lib/api';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
 import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { formatMoney, toMinorUnits } from '@/lib/format';
@@ -224,6 +229,21 @@ export function LeaseRenewalForm({
             })
           : [];
 
+      // Compact terms only — avoid huge payloads (photos / noise) that break the BFF.
+      const { meters, schedule, vatCheques, adjustments: termAdjustments, totals, ...termRest } =
+        computed.terms;
+      const leanLeaseTerms = {
+        ...termRest,
+        meters: {
+          electricityReading: meters.electricityReading,
+          waterReading: meters.waterReading,
+        },
+        schedule,
+        vatCheques,
+        adjustments: termAdjustments,
+        totals,
+      };
+
       const body: Record<string, unknown> = {
         templateVersionId,
         endsOn: payload.terms.endsOn,
@@ -238,7 +258,7 @@ export function LeaseRenewalForm({
         cheques,
         paymentMethod: computed.terms.paymentMethod,
         paymentFrequency: computed.terms.paymentFrequency,
-        leaseTerms: computed.terms,
+        leaseTerms: leanLeaseTerms,
       };
       if (period.months >= 1) {
         body.months = period.months;
@@ -256,13 +276,36 @@ export function LeaseRenewalForm({
         body.additionalTerms = payload.terms.notes.trim();
       }
 
-      await browserMutation(
-        `/v1/leasing/leases/${encodeURIComponent(context.lease.id)}/renewals`,
-        {
+      const path = `/v1/leasing/leases/${encodeURIComponent(context.lease.id)}/renewals`;
+      const postBody = JSON.stringify(body);
+      const saveOnce = () =>
+        browserMutation(path, {
           method: 'POST',
-          body: JSON.stringify(body),
-        },
-      );
+          body: postBody,
+          signal: AbortSignal.timeout(55_000),
+        });
+
+      try {
+        await saveOnce();
+      } catch (first) {
+        const retryable =
+          first instanceof ApiError &&
+          (first.code === 'network_error' ||
+            first.code === 'api_unreachable' ||
+            first.code === 'csrf_unavailable' ||
+            first.status === 502 ||
+            first.status === 503);
+        if (!retryable) throw first;
+        // Nest may still be waking — brief pause then one retry with fresh CSRF.
+        await new Promise((resolve) => setTimeout(resolve, 2_500));
+        clearBrowserCsrfCache();
+        await fetch('/api/backend/v1/auth/csrf', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          signal: AbortSignal.timeout(40_000),
+        }).catch(() => undefined);
+        await saveOnce();
+      }
       clearV2(context.lease.id);
       clearRenewalDraft(context.lease.id);
       router.push(`/${portal}/leasing`);
@@ -287,17 +330,25 @@ export function LeaseRenewalForm({
                   ? ar
                     ? 'تعذّر الحفظ بسبب تكرار رقم شيك — غيّر أرقام الشيكات في الجدول ثم أعد المحاولة.'
                     : 'Save failed because a cheque number is already used — change the numbers and retry.'
-                  : caught.code === 'api_unreachable' || caught.status === 502 || caught.status === 503
+                  : caught.code === 'api_unreachable' ||
+                      caught.code === 'network_error' ||
+                      caught.status === 502 ||
+                      caught.status === 503 ||
+                      /failed to fetch/i.test(caught.message)
                     ? ar
-                      ? 'الخادم يستيقظ أو غير متاح — انتظر 20 ثانية ثم أعد المحاولة.'
-                      : 'Server is waking up or unavailable — wait 20 seconds and retry.'
+                      ? 'تعذّر الاتصال بالخادم — انتظر 20 ثانية ثم اضغط «إنشاء ملحق التجديد» مجدداً.'
+                      : 'Could not reach the server — wait 20 seconds and tap Create renewal again.'
                     : caught.message === 'Request failed' || caught.code === 'api_error'
                       ? ar
                         ? 'تعذّر حفظ الملحق — تحقق من الحقول وأعد المحاولة.'
                         : 'Could not save the addendum — check the fields and try again.'
                       : caught.message;
+      } else if (caught instanceof Error && /failed to fetch/i.test(caught.message)) {
+        mapped = ar
+          ? 'تعذّر الاتصال بالخادم — انتظر 20 ثانية ثم أعد المحاولة.'
+          : 'Could not reach the server — wait 20 seconds and retry.';
       } else {
-        mapped = caught instanceof Error ? caught.message : 'request_failed';
+        mapped = humanizeBrowserError(caught, ar);
       }
       setError(mapped);
       requestAnimationFrame(() => {
