@@ -65,9 +65,7 @@ export async function sendEmailOtp(input: {
       orgId: input.organizationId ?? null,
       recipient: email,
       subject:
-        input.locale === 'ar'
-          ? 'رمز التحقق لبريدك الإلكتروني'
-          : 'Your email verification code',
+        input.locale === 'ar' ? 'رمز التحقق لبريدك الإلكتروني' : 'Your email verification code',
       aggregateType: PURPOSE,
       aggregateId,
       dedupeKey: `email-otp-send:${aggregateId}:${expiresAt.toISOString()}`,

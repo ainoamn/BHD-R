@@ -138,8 +138,10 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_SON,
       titleAr: 'مرحبًا بك في الفريق',
       titleEn: 'Welcome to the team',
-      introAr: 'دعاك عبد الحميد الرواحي للانضمام إلى فريق مبنى النور على منصة BHD R. راجع تفاصيل الدعوة والصلاحيات المحددة، ثم اختر قبول الدعوة أو رفضها.',
-      introEn: 'Abdul Hamid Al Rawahi has invited you to join Mabani Al Noor on BHD R. Review the invitation and assigned permissions, then choose whether to accept or decline.',
+      introAr:
+        'دعاك عبد الحميد الرواحي للانضمام إلى فريق مبنى النور على منصة BHD R. راجع تفاصيل الدعوة والصلاحيات المحددة، ثم اختر قبول الدعوة أو رفضها.',
+      introEn:
+        'Abdul Hamid Al Rawahi has invited you to join Mabani Al Noor on BHD R. Review the invitation and assigned permissions, then choose whether to accept or decline.',
       linesAr: ['إن لم يكن لديك حساب بعد، اضغط الزر أدناه وسجّل أو فعّل حسابك بنفس هذا البريد.'],
       linesEn: [
         'If you do not have an account yet, tap the button below and sign in or activate with this same email.',
@@ -226,7 +228,8 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_SON,
       titleAr: 'موعد معاينة قادم',
       titleEn: 'Upcoming property viewing',
-      introAr: 'جرى تحديد موعد معاينة للعقار مبنى النور يوم 22 أكتوبر 2026 الساعة 5:00 م. عند وصول الزائر، تحقّق من بطاقة الزيارة وامسح رمزها عبر الإجراء المعتمد.',
+      introAr:
+        'جرى تحديد موعد معاينة للعقار مبنى النور يوم 22 أكتوبر 2026 الساعة 5:00 م. عند وصول الزائر، تحقّق من بطاقة الزيارة وامسح رمزها عبر الإجراء المعتمد.',
       introEn:
         'A viewing for Mabani Al Noor is scheduled for 22 October 2026 at 5:00 PM. When the guest arrives, verify the visit pass and scan its code using the approved process.',
       details: [
@@ -259,8 +262,10 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_OWNER,
       titleAr: 'طلب معاينة بانتظار مراجعتك',
       titleEn: 'A viewing request awaits your review',
-      introAr: 'أبدى مدرك الرواحي اهتمامه بمعاينة العقار مبنى النور، والوقت المفضّل هو مساء الأربعاء. راجع الطلب لتأكيد الموعد أو اقتراح وقت بديل.',
-      introEn: 'Mudrik Al Rawahi has requested to view Mabani Al Noor, preferably at Wednesday evening. Review the request to confirm the time or suggest an alternative.',
+      introAr:
+        'أبدى مدرك الرواحي اهتمامه بمعاينة العقار مبنى النور، والوقت المفضّل هو مساء الأربعاء. راجع الطلب لتأكيد الموعد أو اقتراح وقت بديل.',
+      introEn:
+        'Mudrik Al Rawahi has requested to view Mabani Al Noor, preferably at Wednesday evening. Review the request to confirm the time or suggest an alternative.',
       details: [
         { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
         { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
@@ -290,8 +295,10 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_SON,
       titleAr: 'حجزك مؤكد',
       titleEn: 'Your booking is confirmed',
-      introAr: 'تم تأكيد حجزك للعقار مبنى النور. تاريخ الوصول: 1 نوفمبر 2026، وتاريخ المغادرة: 5 نوفمبر 2026. راجع تعليمات الوصول وشروط الحجز قبل موعد الإقامة.',
-      introEn: 'Your booking at Mabani Al Noor is confirmed. Check-in: 1 November 2026. Check-out: 5 November 2026. Please review the arrival instructions and booking terms before your stay.',
+      introAr:
+        'تم تأكيد حجزك للعقار مبنى النور. تاريخ الوصول: 1 نوفمبر 2026، وتاريخ المغادرة: 5 نوفمبر 2026. راجع تعليمات الوصول وشروط الحجز قبل موعد الإقامة.',
+      introEn:
+        'Your booking at Mabani Al Noor is confirmed. Check-in: 1 November 2026. Check-out: 5 November 2026. Please review the arrival instructions and booking terms before your stay.',
       details: [
         { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
         { labelAr: 'الوصول', labelEn: 'Check-in', value: '2026-11-01' },
@@ -321,8 +328,10 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_SON,
       titleAr: 'العقد جاهز لخطوتك التالية',
       titleEn: 'Your contract is ready for the next step',
-      introAr: 'أصبحت نسخة العقد LC-2201 متاحة للمراجعة. اقرأ البنود والتواريخ والأطراف بعناية، ثم أتمّ التوقيع إذا كانت التفاصيل صحيحة.',
-      introEn: 'Contract LC-2201 is available for review. Please check the terms, dates and parties carefully, then sign if the details are correct.',
+      introAr:
+        'أصبحت نسخة العقد LC-2201 متاحة للمراجعة. اقرأ البنود والتواريخ والأطراف بعناية، ثم أتمّ التوقيع إذا كانت التفاصيل صحيحة.',
+      introEn:
+        'Contract LC-2201 is available for review. Please check the terms, dates and parties carefully, then sign if the details are correct.',
       details: [
         { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور · A-12' },
         { labelAr: 'المرجع', labelEn: 'Reference', value: 'LC-2201' },
@@ -351,8 +360,10 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_SON,
       titleAr: 'صدرت فاتورة جديدة',
       titleEn: 'A new invoice is available',
-      introAr: 'صدرت الفاتورة رقم INV-8841 بمبلغ 150.000 ر.ع، وتاريخ استحقاقها 5 أكتوبر 2026. يرجى مراجعة تفاصيل البنود ووسائل السداد المتاحة من صفحة الفاتورة.',
-      introEn: 'Invoice INV-8841 has been issued for 150.000 OMR, due on 5 October 2026. Please review the line items and available payment methods on the invoice page.',
+      introAr:
+        'صدرت الفاتورة رقم INV-8841 بمبلغ 150.000 ر.ع، وتاريخ استحقاقها 5 أكتوبر 2026. يرجى مراجعة تفاصيل البنود ووسائل السداد المتاحة من صفحة الفاتورة.',
+      introEn:
+        'Invoice INV-8841 has been issued for 150.000 OMR, due on 5 October 2026. Please review the line items and available payment methods on the invoice page.',
       details: [
         { labelAr: 'المبلغ', labelEn: 'Amount', value: '150.000 ر.ع / OMR' },
         { labelAr: 'الاستحقاق', labelEn: 'Due', value: '2026-10-05' },
@@ -382,7 +393,8 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_SON,
       titleAr: 'يرجى مراجعة رصيد الإيجار',
       titleEn: 'Please review your rent balance',
-      introAr: 'تُظهر سجلاتنا رصيدًا مستحقًا قدره 150.000 ر.ع مرتبطًا بالفترة أكتوبر 2026، وتاريخ استحقاقه 5 أكتوبر 2026. إذا كنت قد سددت المبلغ بالفعل، فيرجى تحديثنا أو مراجعة سجل الدفعات حتى نتحقق من القيد.',
+      introAr:
+        'تُظهر سجلاتنا رصيدًا مستحقًا قدره 150.000 ر.ع مرتبطًا بالفترة أكتوبر 2026، وتاريخ استحقاقه 5 أكتوبر 2026. إذا كنت قد سددت المبلغ بالفعل، فيرجى تحديثنا أو مراجعة سجل الدفعات حتى نتحقق من القيد.',
       introEn:
         'Our records show an outstanding balance of 150.000 OMR for October 2026, due on 5 October 2026. If you have already paid, please update us or review the payment record so the entry can be checked.',
       details: [
@@ -413,7 +425,8 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_SON,
       titleAr: 'تم تحديث حالة طلب الصيانة',
       titleEn: 'Your maintenance request has been updated',
-      introAr: 'تم تحديث حالة طلب الصيانة MR-441 الخاص بالعقار مبنى النور إلى: قيد التنفيذ. يمكنك الاطلاع على تفاصيل التحديث وأي موعد أو إجراء مطلوب من صفحة الطلب.',
+      introAr:
+        'تم تحديث حالة طلب الصيانة MR-441 الخاص بالعقار مبنى النور إلى: قيد التنفيذ. يمكنك الاطلاع على تفاصيل التحديث وأي موعد أو إجراء مطلوب من صفحة الطلب.',
       introEn:
         'Maintenance request MR-441 for Mabani Al Noor has been updated to: In progress. Visit the request page for the latest details and any required appointment or action.',
       details: [
@@ -444,8 +457,10 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_OWNER,
       titleAr: 'اكتمل توثيق حسابك',
       titleEn: 'Your account is verified',
-      introAr: 'تمت مراجعة طلب التوثيق واعتماده. يمكنك مراجعة حالة حسابك والصلاحيات المتاحة من إعدادات الحساب.',
-      introEn: 'Your verification request has been reviewed and approved. You can check your account status and available features in your account settings.',
+      introAr:
+        'تمت مراجعة طلب التوثيق واعتماده. يمكنك مراجعة حالة حسابك والصلاحيات المتاحة من إعدادات الحساب.',
+      introEn:
+        'Your verification request has been reviewed and approved. You can check your account status and available features in your account settings.',
       details: [{ labelAr: 'الحالة', labelEn: 'Status', value: 'موثّق / Verified' }],
       ctaAr: 'عرض حالة الحساب',
       ctaEn: 'View account status',
@@ -471,8 +486,10 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       recipientName: SAMPLE_OWNER,
       titleAr: 'تقديرًا لالتزامك، أُضيفت شارة جديدة',
       titleEn: 'A new badge recognises your contribution',
-      introAr: 'أُضيفت شارة «مضيف موثوق» إلى ملفك تقديرًا لـالالتزام بمعايير الضيافة. شكرًا لمساهمتك في رفع مستوى الجودة والموثوقية على المنصة.',
-      introEn: 'The “Trusted host” badge has been added to your profile in recognition of consistent hospitality standards. Thank you for helping strengthen quality and trust across the platform.',
+      introAr:
+        'أُضيفت شارة «مضيف موثوق» إلى ملفك تقديرًا لـالالتزام بمعايير الضيافة. شكرًا لمساهمتك في رفع مستوى الجودة والموثوقية على المنصة.',
+      introEn:
+        'The “Trusted host” badge has been added to your profile in recognition of consistent hospitality standards. Thank you for helping strengthen quality and trust across the platform.',
       details: [{ labelAr: 'الشارة', labelEn: 'Badge', value: 'مضيف موثوق / Trusted host' }],
       ctaAr: 'عرض الشارة',
       ctaEn: 'View badge',

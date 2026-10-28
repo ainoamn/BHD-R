@@ -140,9 +140,7 @@ const EN = {
 };
 
 function fill(text, map) {
-  return text
-    .replace(/\{\{([a-z_]+)\}\}/gi, (_, key) => map[key] ?? '…')
-    .trim();
+  return text.replace(/\{\{([a-z_]+)\}\}/gi, (_, key) => map[key] ?? '…').trim();
 }
 
 for (const match of blocks) {

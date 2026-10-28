@@ -51,14 +51,14 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 
 Generate each value independently (≥32 random bytes). Never commit real values. Production must refuse to boot if any required secret is missing or too short.
 
-| Secret | Where | Purpose |
-| ------ | ----- | ------- |
-| `BHD_R_SESSION_SECRET` | Render + Vercel | Product session JWT |
-| `BHD_R_OIDC_STATE_SECRET` | Vercel (web OIDC start/callback) | Login `state`/`nonce` HMAC |
-| `CSRF_SECRET` | Render + Vercel | CSRF double-submit |
-| `PII_LOOKUP_PEPPER` | Render (API) | PII lookup fingerprints |
-| `FIELD_ENCRYPTION_KEY_V1` | Render (+ Vercel if web decrypts) | AES-256-GCM field key |
-| `FIELD_ENCRYPTION_ACTIVE_VERSION` | same | Active key version (`v1`) |
+| Secret                            | Where                             | Purpose                    |
+| --------------------------------- | --------------------------------- | -------------------------- |
+| `BHD_R_SESSION_SECRET`            | Render + Vercel                   | Product session JWT        |
+| `BHD_R_OIDC_STATE_SECRET`         | Vercel (web OIDC start/callback)  | Login `state`/`nonce` HMAC |
+| `CSRF_SECRET`                     | Render + Vercel                   | CSRF double-submit         |
+| `PII_LOOKUP_PEPPER`               | Render (API)                      | PII lookup fingerprints    |
+| `FIELD_ENCRYPTION_KEY_V1`         | Render (+ Vercel if web decrypts) | AES-256-GCM field key      |
+| `FIELD_ENCRYPTION_ACTIVE_VERSION` | same                              | Active key version (`v1`)  |
 
 Key rotation: keep prior `FIELD_ENCRYPTION_KEY_V*` until every ciphertext is re-encrypted and verified; restore from encrypted backups before deleting old keys.
 

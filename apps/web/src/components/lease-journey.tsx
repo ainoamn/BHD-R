@@ -802,11 +802,8 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   if (!lifecycle.requirements.length) return null;
 
   const cheques = lifecycle.cheques ?? [];
-  const needsTeamVerify = (item: {
-    status: string;
-    autoApproved?: boolean;
-    verified?: boolean;
-  }) => item.autoApproved && item.status === 'approved' && !item.verified;
+  const needsTeamVerify = (item: { status: string; autoApproved?: boolean; verified?: boolean }) =>
+    item.autoApproved && item.status === 'approved' && !item.verified;
   const remainingDocs = lifecycle.requirements.filter(
     (item) => item.status !== 'approved' || needsTeamVerify(item),
   );

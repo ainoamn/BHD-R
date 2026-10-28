@@ -852,8 +852,7 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
         fileName: submitted?.file?.name ?? null,
         submittedAt: submitted?.file?.submittedAt ?? null,
         autoApproved: Boolean(submitted?.autoApproved),
-        verified:
-          Boolean(submitted?.verifiedAt) && submitted?.status === 'approved',
+        verified: Boolean(submitted?.verifiedAt) && submitted?.status === 'approved',
       };
     }),
     contract: lifecycle.contract

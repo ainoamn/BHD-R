@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.7 — 2026-10-28
+
+- **إصلاح بوابات CI بعد فحوص الجودة والأداء:** تنسيق Prettier للملفات المخالفة؛ استبعاد `tests/` من typecheck الخاص بـ Next حتى لا تكسر اختبارات الوحدة البناء/Lighthouse؛ بناء حزم `@bhd-r/api...` قبل اختبار Express؛ وتشغيل اختبار قفل المخزون عبر اتصال المُرحِّل لأن `is_platform_admin()` يتطلب عضوية `bhd_r_system` وليس علم الجلسة وحده.
+
 ## 0.8.135.6 — 2026-10-28
 
 - **استقرار نشر Render API:** تقييد إعادة نشر `bhd-r-api` بمسارات API/الحزم فقط حتى لا تفشل عمليات نشر وهمية عند كل تغيير واجهة على Vercel؛ إضافة `PII_LOOKUP_PEPPER` إلى مخطط `render.yaml`؛ توضيح لوحات المنصة في README ومواءمة وثيقة الجلسات مع سقف 30 يوماً مع الإبطال عبر `session_version`.

@@ -310,9 +310,7 @@ function KindEditor({
           </fieldset>
 
           <fieldset className="approval-policy__step">
-            <legend>
-              {t('التسليم ومراجعة المستندات', 'Handover and document review')}
-            </legend>
+            <legend>{t('التسليم ومراجعة المستندات', 'Handover and document review')}</legend>
             <label
               className={`approval-policy__option${
                 draft.allowHandoverBeforeDocVerify ? ' approval-policy__option--on' : ''

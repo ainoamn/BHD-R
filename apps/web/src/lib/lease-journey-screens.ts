@@ -185,7 +185,9 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         action: 'documents',
       };
     } else if (
-      requirements.some((item) => item.autoApproved && item.status === 'approved' && !item.verified) ||
+      requirements.some(
+        (item) => item.autoApproved && item.status === 'approved' && !item.verified,
+      ) ||
       (lifecycle.cheques ?? []).some(
         (item) => item.autoApproved && item.status === 'approved' && !item.verified,
       )

@@ -12,10 +12,15 @@ import {
 } from '../src/index.js';
 
 /**
- * Concurrent GiST exclusion against real Postgres.
- * Enable with TEST_DATABASE_URL or STAYS_LOCK_DATABASE_URL.
+ * Concurrent GiST exclusion against real Postgres (constraint test, not RLS).
+ * Prefer a migrator/system URL: `is_platform_admin()` also requires membership in
+ * `bhd_r_system`, so the non-superuser API login cannot seed orgs via that flag alone.
+ * Enable with TEST_MIGRATION_DATABASE_URL, STAYS_LOCK_DATABASE_URL, or TEST_DATABASE_URL.
  */
-const runtimeDatabaseUrl = process.env.TEST_DATABASE_URL ?? process.env.STAYS_LOCK_DATABASE_URL;
+const runtimeDatabaseUrl =
+  process.env.STAYS_LOCK_DATABASE_URL ??
+  process.env.TEST_MIGRATION_DATABASE_URL ??
+  process.env.TEST_DATABASE_URL;
 const integration = runtimeDatabaseUrl ? describe : describe.skip;
 
 function isExclusionViolation(error: unknown): boolean {

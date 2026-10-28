@@ -881,7 +881,10 @@ function VerificationPanel({
             <div className="lrw__doc-main">
               <strong>{chequeLabel(item)}</strong>
               <span className="lrw__doc-status">
-                {t('قُبل إلكترونياً — بانتظار اعتمادك', 'Accepted electronically — needs your verify')}
+                {t(
+                  'قُبل إلكترونياً — بانتظار اعتمادك',
+                  'Accepted electronically — needs your verify',
+                )}
               </span>
               <span className="muted" dir="ltr">
                 #{item.chequeNumber}
@@ -1262,9 +1265,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               onCancel={(note) => act({ action: 'cancel_reservation', note })}
             />
 
-            {canManage &&
-            phase !== 'closed' &&
-            packageNeedsManualVerification(lifecycle) ? (
+            {canManage && phase !== 'closed' && packageNeedsManualVerification(lifecycle) ? (
               <VerificationPanel
                 {...props}
                 busy={busy}

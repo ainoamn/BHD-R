@@ -117,8 +117,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'We’ve received your verification request',
     titleAr: 'طلب التوثيق قيد المراجعة',
     titleEn: 'Your verification is under review',
-    introAr: 'استلمنا طلب التوثيق رقم MR-441 بنجاح. سيراجع الفريق المعلومات والمستندات المقدمة، وستظهر أي ملاحظات أو نتيجة في حسابك. لا يلزم اتخاذ إجراء إضافي ما لم تصلك مطالبة بذلك.',
-    introEn: 'Verification request MR-441 has been received. Our team will review the information and documents provided. Any follow-up request or decision will appear in your account. No further action is needed unless we contact you.',
+    introAr:
+      'استلمنا طلب التوثيق رقم MR-441 بنجاح. سيراجع الفريق المعلومات والمستندات المقدمة، وستظهر أي ملاحظات أو نتيجة في حسابك. لا يلزم اتخاذ إجراء إضافي ما لم تصلك مطالبة بذلك.',
+    introEn:
+      'Verification request MR-441 has been received. Our team will review the information and documents provided. Any follow-up request or decision will appear in your account. No further action is needed unless we contact you.',
     ctaPath: '/ar/account',
   }),
   entry({
@@ -133,8 +135,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Further information is needed for account verification',
     titleAr: 'يرجى مراجعة ملاحظات التوثيق',
     titleEn: 'Please review the verification notes',
-    introAr: 'تعذّر اعتماد طلب التوثيق في وضعه الحالي للسبب التالي: صورة المستند غير واضحة. راجع الملاحظة، وحدّث المستندات المطلوبة، ثم أعد الإرسال إذا كان ذلك متاحًا. لا يعني هذا القرار رفض استخدام جميع خدمات المنصة.',
-    introEn: 'We’re unable to approve the verification request in its current form for the following reason: the document image is unclear. Review the note, update the requested documents and resubmit if the option is available. This does not necessarily prevent access to all platform services.',
+    introAr:
+      'تعذّر اعتماد طلب التوثيق في وضعه الحالي للسبب التالي: صورة المستند غير واضحة. راجع الملاحظة، وحدّث المستندات المطلوبة، ثم أعد الإرسال إذا كان ذلك متاحًا. لا يعني هذا القرار رفض استخدام جميع خدمات المنصة.',
+    introEn:
+      'We’re unable to approve the verification request in its current form for the following reason: the document image is unclear. Review the note, update the requested documents and resubmit if the option is available. This does not necessarily prevent access to all platform services.',
     ctaPath: '/ar/account',
   }),
   entry({
@@ -149,8 +153,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Your property viewing request has been received',
     titleAr: 'وصل طلب المعاينة',
     titleEn: 'Your viewing request is in',
-    introAr: 'شكرًا لاهتمامك بالعقار مبنى النور. استلمنا طلب المعاينة المقترح ليوم 22 أكتوبر 2026، وسيتم تحديثك عند رد المالك أو تحديد الموعد.',
-    introEn: 'Thank you for your interest in Mabani Al Noor. We’ve received your viewing request for 22 October 2026 and will update you when the owner responds or a time is confirmed.',
+    introAr:
+      'شكرًا لاهتمامك بالعقار مبنى النور. استلمنا طلب المعاينة المقترح ليوم 22 أكتوبر 2026، وسيتم تحديثك عند رد المالك أو تحديد الموعد.',
+    introEn:
+      'Thank you for your interest in Mabani Al Noor. We’ve received your viewing request for 22 October 2026 and will update you when the owner responds or a time is confirmed.',
     details: [
       { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور' },
       { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
@@ -168,8 +174,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Update to your viewing appointment',
     titleAr: 'تم إلغاء موعد المعاينة',
     titleEn: 'Your viewing has been cancelled',
-    introAr: 'تم إلغاء موعد معاينة مبنى النور المحدد في 22 أكتوبر 2026 الساعة 5:00 م. نعتذر عن أي إزعاج. يمكنك طلب موعد بديل من صفحة العقار إذا رغبت في المتابعة.',
-    introEn: 'The viewing for Mabani Al Noor scheduled for 22 October 2026 at 5:00 PM has been cancelled. We apologise for any inconvenience. You can request another time from the property page if you’d still like to proceed.',
+    introAr:
+      'تم إلغاء موعد معاينة مبنى النور المحدد في 22 أكتوبر 2026 الساعة 5:00 م. نعتذر عن أي إزعاج. يمكنك طلب موعد بديل من صفحة العقار إذا رغبت في المتابعة.',
+    introEn:
+      'The viewing for Mabani Al Noor scheduled for 22 October 2026 at 5:00 PM has been cancelled. We apologise for any inconvenience. You can request another time from the property page if you’d still like to proceed.',
   }),
   entry({
     id: 'viewing-no-show',
@@ -183,8 +191,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Follow-up on your viewing at Mabani Al Noor',
     titleAr: 'لم يُسجّل حضورك للموعد',
     titleEn: 'Your attendance wasn’t recorded',
-    introAr: 'لم يُسجّل حضور للمعاينة المحددة في 22 أكتوبر 2026 الساعة 5:00 م. إذا حضرت ولم يتم تسجيل وصولك، يرجى التواصل معنا لتصحيح السجل. وإن تعذّر عليك الحضور، يمكنك طلب موعد بديل.',
-    introEn: 'Attendance was not recorded for the viewing scheduled on 22 October 2026 at 5:00 PM. If you attended but your arrival was not recorded, please contact us so we can correct the record. If you could not attend, you may request another time.',
+    introAr:
+      'لم يُسجّل حضور للمعاينة المحددة في 22 أكتوبر 2026 الساعة 5:00 م. إذا حضرت ولم يتم تسجيل وصولك، يرجى التواصل معنا لتصحيح السجل. وإن تعذّر عليك الحضور، يمكنك طلب موعد بديل.',
+    introEn:
+      'Attendance was not recorded for the viewing scheduled on 22 October 2026 at 5:00 PM. If you attended but your arrival was not recorded, please contact us so we can correct the record. If you could not attend, you may request another time.',
   }),
   entry({
     id: 'reservation-payment-confirmed',
@@ -198,8 +208,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Booking deposit recorded',
     titleAr: 'تم اعتماد إثبات العربون',
     titleEn: 'Your deposit evidence has been accepted',
-    introAr: 'تمت مراجعة إثبات العربون المرتبط بالحجز RSV-MGUUXR6F واعتماده. راجع ملخص الحجز والخطوات التالية في حسابك. هذا الإشعار يؤكد اعتماد الإثبات، ولا يحل محل إيصال رسمي إن كان مطلوبًا.',
-    introEn: 'The deposit evidence for reservation RSV-MGUUXR6F has been reviewed and accepted. Review your booking summary and next steps in your account. This notice confirms acceptance of the evidence and does not replace an official receipt where one is required.',
+    introAr:
+      'تمت مراجعة إثبات العربون المرتبط بالحجز RSV-MGUUXR6F واعتماده. راجع ملخص الحجز والخطوات التالية في حسابك. هذا الإشعار يؤكد اعتماد الإثبات، ولا يحل محل إيصال رسمي إن كان مطلوبًا.',
+    introEn:
+      'The deposit evidence for reservation RSV-MGUUXR6F has been reviewed and accepted. Review your booking summary and next steps in your account. This notice confirms acceptance of the evidence and does not replace an official receipt where one is required.',
     ctaPath: '/ar/tenant',
   }),
   entry({
@@ -214,8 +226,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'An update is needed to your deposit evidence',
     titleAr: 'يرجى مراجعة ملاحظة العربون',
     titleEn: 'Please review the deposit note',
-    introAr: 'لم نتمكن من اعتماد إثبات العربون للحجز RSV-MGUUXR6F بسبب: صورة المستند غير واضحة. يرجى مراجعة الملاحظة وإرفاق إثبات واضح ومطابق للبيانات، إذا كان خيار إعادة الإرسال متاحًا.',
-    introEn: 'We couldn’t accept the deposit evidence for reservation RSV-MGUUXR6F because: the document image is unclear. Please review the note and upload clear evidence that matches the payment details, if resubmission is available.',
+    introAr:
+      'لم نتمكن من اعتماد إثبات العربون للحجز RSV-MGUUXR6F بسبب: صورة المستند غير واضحة. يرجى مراجعة الملاحظة وإرفاق إثبات واضح ومطابق للبيانات، إذا كان خيار إعادة الإرسال متاحًا.',
+    introEn:
+      'We couldn’t accept the deposit evidence for reservation RSV-MGUUXR6F because: the document image is unclear. Please review the note and upload clear evidence that matches the payment details, if resubmission is available.',
     ctaPath: '/ar/tenant',
   }),
   entry({
@@ -230,8 +244,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Reservation request RSV-MGUUXR6F approved',
     titleAr: 'تمت الموافقة على الحجز',
     titleEn: 'Your reservation has been approved',
-    introAr: 'تمت الموافقة على طلب الحجز RSV-MGUUXR6F للعقار مبنى النور. انتقل إلى حسابك لمراجعة المستندات المطلوبة والخطوات التالية لإكمال الإجراءات.',
-    introEn: 'Reservation RSV-MGUUXR6F for Mabani Al Noor has been approved. Sign in to review the required documents and the next steps to complete the process.',
+    introAr:
+      'تمت الموافقة على طلب الحجز RSV-MGUUXR6F للعقار مبنى النور. انتقل إلى حسابك لمراجعة المستندات المطلوبة والخطوات التالية لإكمال الإجراءات.',
+    introEn:
+      'Reservation RSV-MGUUXR6F for Mabani Al Noor has been approved. Sign in to review the required documents and the next steps to complete the process.',
     ctaPath: '/ar/tenant',
   }),
   entry({
@@ -246,8 +262,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Update on reservation RSV-MGUUXR6F',
     titleAr: 'تم إلغاء الحجز',
     titleEn: 'The reservation has been cancelled',
-    introAr: 'تم إلغاء الحجز RSV-MGUUXR6F الخاص بالعقار مبنى النور. إذا كان للحجز مبلغ مدفوع، فسيُحدّد التعامل معه وفق شروط الحجز وسياسة الإلغاء المعتمدة. راجع تفاصيل الحالة من حسابك.',
-    introEn: 'Reservation RSV-MGUUXR6F for Mabani Al Noor has been cancelled. If a payment was made, it will be handled according to the booking terms and applicable cancellation policy. Review the status in your account.',
+    introAr:
+      'تم إلغاء الحجز RSV-MGUUXR6F الخاص بالعقار مبنى النور. إذا كان للحجز مبلغ مدفوع، فسيُحدّد التعامل معه وفق شروط الحجز وسياسة الإلغاء المعتمدة. راجع تفاصيل الحالة من حسابك.',
+    introEn:
+      'Reservation RSV-MGUUXR6F for Mabani Al Noor has been cancelled. If a payment was made, it will be handled according to the booking terms and applicable cancellation policy. Review the status in your account.',
   }),
   entry({
     id: 'reservation-handed-over',
@@ -261,8 +279,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Handover recorded for Mabani Al Noor',
     titleAr: 'تم تسجيل محضر التسليم',
     titleEn: 'The handover record is available',
-    introAr: 'تم تسجيل تسليم الوحدة مبنى النور بتاريخ 28 أكتوبر 2026. يرجى الاحتفاظ بمحضر التسليم ومراجعة أي ملاحظات أو صور مرفقة، والإبلاغ عن أي اختلاف ضمن المهلة المعتمدة.',
-    introEn: 'Handover of Mabani Al Noor was recorded on 28 October 2026. Please keep the handover report, review any notes or attached photos, and report discrepancies within the applicable period.',
+    introAr:
+      'تم تسجيل تسليم الوحدة مبنى النور بتاريخ 28 أكتوبر 2026. يرجى الاحتفاظ بمحضر التسليم ومراجعة أي ملاحظات أو صور مرفقة، والإبلاغ عن أي اختلاف ضمن المهلة المعتمدة.',
+    introEn:
+      'Handover of Mabani Al Noor was recorded on 28 October 2026. Please keep the handover report, review any notes or attached photos, and report discrepancies within the applicable period.',
     ctaPath: '/ar/tenant/contracts',
   }),
   entry({
@@ -277,8 +297,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Signature update for contract LC-2201',
     titleAr: 'تم تسجيل التوقيع',
     titleEn: 'The signature has been recorded',
-    introAr: 'تم تسجيل توقيع مدرك الرواحي على العقد LC-2201. حالة العقد الحالية: بانتظار الطرف الثاني. افتح صفحة العقد للتحقق من حالة جميع التوقيعات وتنزيل النسخة المتاحة.',
-    introEn: 'Mudrik Al Rawahi’s signature has been recorded for contract LC-2201. Current contract status: Awaiting second party. Open the contract page to verify all signatures and download the available copy.',
+    introAr:
+      'تم تسجيل توقيع مدرك الرواحي على العقد LC-2201. حالة العقد الحالية: بانتظار الطرف الثاني. افتح صفحة العقد للتحقق من حالة جميع التوقيعات وتنزيل النسخة المتاحة.',
+    introEn:
+      'Mudrik Al Rawahi’s signature has been recorded for contract LC-2201. Current contract status: Awaiting second party. Open the contract page to verify all signatures and download the available copy.',
     ctaPath: '/ar/owner/contracts',
     details: [{ labelAr: 'المرجع', labelEn: 'Reference', value: 'CTR-1042' }],
   }),
@@ -294,8 +316,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Contract LC-2201 requires your review',
     titleAr: 'يوجد عقد بانتظار إجراء منك',
     titleEn: 'A contract is awaiting your action',
-    introAr: 'أُحيل العقد LC-2201 الخاص بـمبنى النور إلى حسابك للمراجعة. يرجى فحص البيانات والبنود، ثم اعتماد العقد أو إعادته بالملاحظات وفق الصلاحيات المتاحة.',
-    introEn: 'Contract LC-2201 for Mabani Al Noor has been assigned to you for review. Check the details and terms, then approve it or return it with comments according to your permissions.',
+    introAr:
+      'أُحيل العقد LC-2201 الخاص بـمبنى النور إلى حسابك للمراجعة. يرجى فحص البيانات والبنود، ثم اعتماد العقد أو إعادته بالملاحظات وفق الصلاحيات المتاحة.',
+    introEn:
+      'Contract LC-2201 for Mabani Al Noor has been assigned to you for review. Check the details and terms, then approve it or return it with comments according to your permissions.',
     ctaPath: '/ar/owner/contracts',
   }),
   entry({
@@ -310,8 +334,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'A new stay request needs your decision',
     titleAr: 'لديك طلب إقامة بانتظار الرد',
     titleEn: 'A stay request is awaiting your response',
-    introAr: 'تلقّيت طلب إقامة للعقار مبنى النور من 1 نوفمبر 2026 إلى 5 نوفمبر 2026 لعدد 2 ضيوف. راجع التواريخ والتفاصيل والشروط، ثم أكّد الطلب أو ارفضه من لوحة الحجوزات.',
-    introEn: 'You’ve received a stay request for Mabani Al Noor from 1 November 2026 to 5 November 2026 for 2 guest(s). Review the dates, details and terms, then accept or decline it in the bookings panel.',
+    introAr:
+      'تلقّيت طلب إقامة للعقار مبنى النور من 1 نوفمبر 2026 إلى 5 نوفمبر 2026 لعدد 2 ضيوف. راجع التواريخ والتفاصيل والشروط، ثم أكّد الطلب أو ارفضه من لوحة الحجوزات.',
+    introEn:
+      'You’ve received a stay request for Mabani Al Noor from 1 November 2026 to 5 November 2026 for 2 guest(s). Review the dates, details and terms, then accept or decline it in the bookings panel.',
     ctaPath: '/ar/owner/bookings?tab=daily',
     details: [
       { labelAr: 'الضيف', labelEn: 'Guest', value: `${GUEST} / ${GUEST_EN}` },
@@ -330,8 +356,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Your stay at Mabani Al Noor is confirmed',
     titleAr: 'تفاصيل إقامتك مؤكدة',
     titleEn: 'Your stay details are confirmed',
-    introAr: 'تم تأكيد الإقامة في مبنى النور من 1 نوفمبر 2026 إلى 5 نوفمبر 2026. راجع تعليمات الوصول والمغادرة، وبيانات التواصل، وشروط التأمين إن وُجد.',
-    introEn: 'Your stay at Mabani Al Noor is confirmed from 1 November 2026 to 5 November 2026. Please review the check-in and check-out instructions, contact details and deposit terms, if applicable.',
+    introAr:
+      'تم تأكيد الإقامة في مبنى النور من 1 نوفمبر 2026 إلى 5 نوفمبر 2026. راجع تعليمات الوصول والمغادرة، وبيانات التواصل، وشروط التأمين إن وُجد.',
+    introEn:
+      'Your stay at Mabani Al Noor is confirmed from 1 November 2026 to 5 November 2026. Please review the check-in and check-out instructions, contact details and deposit terms, if applicable.',
     ctaPath: '/ar/stays',
   }),
   entry({
@@ -346,8 +374,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Update to your stay at Mabani Al Noor',
     titleAr: 'تم إلغاء الإقامة',
     titleEn: 'The stay has been cancelled',
-    introAr: 'أُلغيت الإقامة في مبنى النور التي تبدأ في 1 نوفمبر 2026. تُراجع أي مبالغ مدفوعة وفق سياسة الإلغاء وشروط الحجز المعتمدة. يمكنك فتح تفاصيل الحجز لمعرفة الحالة الحالية.',
-    introEn: 'The stay at Mabani Al Noor, due to begin on 1 November 2026, has been cancelled. Any payments are handled in line with the applicable cancellation policy and booking terms. Open the reservation for the current status.',
+    introAr:
+      'أُلغيت الإقامة في مبنى النور التي تبدأ في 1 نوفمبر 2026. تُراجع أي مبالغ مدفوعة وفق سياسة الإلغاء وشروط الحجز المعتمدة. يمكنك فتح تفاصيل الحجز لمعرفة الحالة الحالية.',
+    introEn:
+      'The stay at Mabani Al Noor, due to begin on 1 November 2026, has been cancelled. Any payments are handled in line with the applicable cancellation policy and booking terms. Open the reservation for the current status.',
   }),
   entry({
     id: 'stay-deposit-refund',
@@ -361,8 +391,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Update on stay deposit RSV-MGUUXR6F',
     titleAr: 'حالة تأمين الإقامة',
     titleEn: 'Stay deposit status',
-    introAr: 'يوجد تحديث بشأن تأمين الإقامة المرتبط بالحجز RSV-MGUUXR6F. الحالة الحالية: قيد المراجعة، والمبلغ المسجل: 150.000 ر.ع. يرجى مراجعة تفاصيل القرار أو التحويل في صفحة الحجز؛ ولا تُعد هذه الرسالة تأكيدًا للتحويل إلا إذا كانت الحالة تشير إلى اكتماله.',
-    introEn: 'There is an update on the deposit for reservation RSV-MGUUXR6F. Current status: Under review; recorded amount: 150.000 OMR. Review the decision or transfer details on the booking page. This message confirms a transfer only if the status explicitly shows it as completed.',
+    introAr:
+      'يوجد تحديث بشأن تأمين الإقامة المرتبط بالحجز RSV-MGUUXR6F. الحالة الحالية: قيد المراجعة، والمبلغ المسجل: 150.000 ر.ع. يرجى مراجعة تفاصيل القرار أو التحويل في صفحة الحجز؛ ولا تُعد هذه الرسالة تأكيدًا للتحويل إلا إذا كانت الحالة تشير إلى اكتماله.',
+    introEn:
+      'There is an update on the deposit for reservation RSV-MGUUXR6F. Current status: Under review; recorded amount: 150.000 OMR. Review the decision or transfer details on the booking page. This message confirms a transfer only if the status explicitly shows it as completed.',
     ctaPath: '/ar/guest',
   }),
   entry({
@@ -377,8 +409,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Charge notice INV-8841',
     titleAr: 'تفاصيل مبلغ مستحق',
     titleEn: 'Details of an amount due',
-    introAr: 'سُجّل استحقاق رقم INV-8841 بمبلغ 150.000 ر.ع وتاريخ استحقاق 5 أكتوبر 2026. يرجى مراجعة وصف الرسم والبنود والمستندات المرتبطة قبل السداد. إذا كانت لديك ملاحظة، فاستخدم قناة التواصل الموضحة في الحساب.',
-    introEn: 'Charge notice INV-8841 has been recorded for 150.000 OMR, due on 5 October 2026. Review the charge description, line items and supporting documents before payment. If you have a question, use the contact option in your account.',
+    introAr:
+      'سُجّل استحقاق رقم INV-8841 بمبلغ 150.000 ر.ع وتاريخ استحقاق 5 أكتوبر 2026. يرجى مراجعة وصف الرسم والبنود والمستندات المرتبطة قبل السداد. إذا كانت لديك ملاحظة، فاستخدم قناة التواصل الموضحة في الحساب.',
+    introEn:
+      'Charge notice INV-8841 has been recorded for 150.000 OMR, due on 5 October 2026. Review the charge description, line items and supporting documents before payment. If you have a question, use the contact option in your account.',
     ctaPath: '/ar/tenant/invoices',
   }),
   entry({
@@ -393,8 +427,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Payment PAY-2201 recorded',
     titleAr: 'تم تسجيل الدفعة',
     titleEn: 'Your payment has been recorded',
-    introAr: 'تم تسجيل دفعتك بمبلغ 150.000 ر.ع بتاريخ 28 أكتوبر 2026، والمرجع PAY-2201. احتفظ بهذا الإشعار وراجع كشف الحساب للتأكد من انعكاس الدفعة على الرصيد.',
-    introEn: 'Your payment of 150.000 OMR was recorded on 28 October 2026 under reference PAY-2201. Keep this notice and check your statement to confirm the balance has been updated.',
+    introAr:
+      'تم تسجيل دفعتك بمبلغ 150.000 ر.ع بتاريخ 28 أكتوبر 2026، والمرجع PAY-2201. احتفظ بهذا الإشعار وراجع كشف الحساب للتأكد من انعكاس الدفعة على الرصيد.',
+    introEn:
+      'Your payment of 150.000 OMR was recorded on 28 October 2026 under reference PAY-2201. Keep this notice and check your statement to confirm the balance has been updated.',
     ctaPath: '/ar/tenant/payments',
   }),
   entry({
@@ -409,8 +445,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Reminder: payment due on 5 October 2026',
     titleAr: 'موعد الاستحقاق يقترب',
     titleEn: 'Your due date is approaching',
-    introAr: 'للتذكير، يستحق مبلغ 150.000 ر.ع بتاريخ 5 أكتوبر 2026 عن إيجار أكتوبر. يمكنك مراجعة التفاصيل وخيارات السداد من حسابك. إذا تمت التسوية بالفعل، فلا يلزم إجراء إضافي بعد تحديث السجل.',
-    introEn: 'This is a reminder that 150.000 OMR for October rent is due on 5 October 2026. Review the details and payment options in your account. If the payment has already been settled, no further action is needed once the record is updated.',
+    introAr:
+      'للتذكير، يستحق مبلغ 150.000 ر.ع بتاريخ 5 أكتوبر 2026 عن إيجار أكتوبر. يمكنك مراجعة التفاصيل وخيارات السداد من حسابك. إذا تمت التسوية بالفعل، فلا يلزم إجراء إضافي بعد تحديث السجل.',
+    introEn:
+      'This is a reminder that 150.000 OMR for October rent is due on 5 October 2026. Review the details and payment options in your account. If the payment has already been settled, no further action is needed once the record is updated.',
     ctaPath: '/ar/tenant/invoices',
   }),
   entry({
@@ -425,8 +463,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Lease LC-2201 is nearing its end date',
     titleAr: 'يرجى مراجعة موعد انتهاء العقد',
     titleEn: 'Please review your lease end date',
-    introAr: 'ينتهي عقد الإيجار LC-2201 بتاريخ 31 ديسمبر 2026. إذا رغبت في التجديد أو مناقشة خيارات أخرى، يرجى التواصل مع الطرف المعني قبل الموعد بوقت مناسب. لا يعني هذا التذكير تجديد العقد تلقائيًا.',
-    introEn: 'Lease LC-2201 ends on 31 December 2026. If you wish to renew or discuss other options, please contact the relevant party in good time. This reminder does not renew the lease automatically.',
+    introAr:
+      'ينتهي عقد الإيجار LC-2201 بتاريخ 31 ديسمبر 2026. إذا رغبت في التجديد أو مناقشة خيارات أخرى، يرجى التواصل مع الطرف المعني قبل الموعد بوقت مناسب. لا يعني هذا التذكير تجديد العقد تلقائيًا.',
+    introEn:
+      'Lease LC-2201 ends on 31 December 2026. If you wish to renew or discuss other options, please contact the relevant party in good time. This reminder does not renew the lease automatically.',
     ctaPath: '/ar/owner/leasing',
   }),
   entry({
@@ -441,8 +481,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Weekly vacancy summary — 26–28 October',
     titleAr: 'ملخص الشواغر لهذا الأسبوع',
     titleEn: 'Your vacancy summary for the week',
-    introAr: 'يتضمن هذا الملخص 3 وحدة شاغرة ضمن محفظتك خلال 26–28 أكتوبر. راجع حالة كل وحدة، وحدّث بيانات الإعلان أو توافر الوحدة عند الحاجة.',
-    introEn: 'This summary covers 3 vacant unit(s) in your portfolio for 26–28 October. Review each unit’s status and update the listing or availability details where needed.',
+    introAr:
+      'يتضمن هذا الملخص 3 وحدة شاغرة ضمن محفظتك خلال 26–28 أكتوبر. راجع حالة كل وحدة، وحدّث بيانات الإعلان أو توافر الوحدة عند الحاجة.',
+    introEn:
+      'This summary covers 3 vacant unit(s) in your portfolio for 26–28 October. Review each unit’s status and update the listing or availability details where needed.',
     ctaPath: '/ar/owner',
   }),
   entry({
@@ -457,8 +499,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'New tenant request — MR-441',
     titleAr: 'طلب جديد بانتظار التوجيه',
     titleEn: 'A new request needs assignment',
-    introAr: 'استُلم طلب رقم MR-441 من مستأجر الوحدة مبنى النور. النوع: صيانة، والأولوية المسجلة: عادية. راجع التفاصيل وحدد المسؤول أو حدّث الحالة حسب الإجراء المعتمد.',
-    introEn: 'Request MR-441 has been received from the tenant of Mabani Al Noor. Type: Maintenance. Recorded priority: Normal. Review the details, assign an owner or update the status as appropriate.',
+    introAr:
+      'استُلم طلب رقم MR-441 من مستأجر الوحدة مبنى النور. النوع: صيانة، والأولوية المسجلة: عادية. راجع التفاصيل وحدد المسؤول أو حدّث الحالة حسب الإجراء المعتمد.',
+    introEn:
+      'Request MR-441 has been received from the tenant of Mabani Al Noor. Type: Maintenance. Recorded priority: Normal. Review the details, assign an owner or update the status as appropriate.',
     ctaPath: '/ar/owner/tenant-requests',
   }),
   entry({
@@ -473,8 +517,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'We’ve received your request MR-441',
     titleAr: 'تم استلام طلبك وهو قيد المتابعة',
     titleEn: 'Your request has been received',
-    introAr: 'استلمنا طلبك رقم MR-441 بشأن صيانة للعقار مبنى النور. يمكنك متابعة الحالة من حسابك. سنرسل تحديثًا عند تغيير الحالة أو عند الحاجة إلى معلومات إضافية.',
-    introEn: 'We’ve received request MR-441 regarding Maintenance at Mabani Al Noor. You can track its status in your account. We’ll notify you if the status changes or further information is needed.',
+    introAr:
+      'استلمنا طلبك رقم MR-441 بشأن صيانة للعقار مبنى النور. يمكنك متابعة الحالة من حسابك. سنرسل تحديثًا عند تغيير الحالة أو عند الحاجة إلى معلومات إضافية.',
+    introEn:
+      'We’ve received request MR-441 regarding Maintenance at Mabani Al Noor. You can track its status in your account. We’ll notify you if the status changes or further information is needed.',
     ctaPath: '/ar/tenant/requests',
   }),
   entry({
@@ -489,8 +535,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Task TSK-18 has been assigned to you',
     titleAr: 'مهمة جديدة ضمن قائمة عملك',
     titleEn: 'A new task is on your list',
-    introAr: 'أُسندت إليك المهمة «فحص الوحدة A-12» بواسطة عبد الحميد الرواحي. تاريخ الاستحقاق: 5 أكتوبر 2026، والأولوية: عادية. افتح المهمة لقراءة التعليمات وتحديث التقدم عند البدء أو الإنجاز.',
-    introEn: 'Abdul Hamid Al Rawahi assigned you the task “Inspect unit A-12”. Due date: 5 October 2026. Priority: Normal. Open the task for instructions and update its progress when you start or complete it.',
+    introAr:
+      'أُسندت إليك المهمة «فحص الوحدة A-12» بواسطة عبد الحميد الرواحي. تاريخ الاستحقاق: 5 أكتوبر 2026، والأولوية: عادية. افتح المهمة لقراءة التعليمات وتحديث التقدم عند البدء أو الإنجاز.',
+    introEn:
+      'Abdul Hamid Al Rawahi assigned you the task “Inspect unit A-12”. Due date: 5 October 2026. Priority: Normal. Open the task for instructions and update its progress when you start or complete it.',
     ctaPath: '/ar/owner/tasks',
   }),
   entry({
@@ -505,8 +553,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Your listing for Mabani Al Noor is live',
     titleAr: 'أصبح إعلانك متاحًا على المنصة',
     titleEn: 'Your listing is now live',
-    introAr: 'تم نشر إعلان مبنى النور وأصبح متاحًا للعرض وفق إعدادات النشر الحالية. راجع صفحة الإعلان للتأكد من دقة الوصف والسعر والصور وبيانات التواصل قبل مشاركته.',
-    introEn: 'Your listing for Mabani Al Noor is now published and visible according to its current publication settings. Review the description, price, photos and contact details before sharing it.',
+    introAr:
+      'تم نشر إعلان مبنى النور وأصبح متاحًا للعرض وفق إعدادات النشر الحالية. راجع صفحة الإعلان للتأكد من دقة الوصف والسعر والصور وبيانات التواصل قبل مشاركته.',
+    introEn:
+      'Your listing for Mabani Al Noor is now published and visible according to its current publication settings. Review the description, price, photos and contact details before sharing it.',
     ctaPath: '/ar/owner/properties',
   }),
   entry({
@@ -521,8 +571,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Mabani Al Noor’s subscription plan has been updated',
     titleAr: 'أصبحت باقتك الجديدة فعّالة',
     titleEn: 'Your new plan is active',
-    introAr: 'تم تحديث اشتراك مبنى النور إلى باقة النمو اعتبارًا من 1 نوفمبر 2026. راجع مزايا الباقة والحدود والفوترة من صفحة الاشتراك.',
-    introEn: 'Mabani Al Noor’s subscription has been updated to the Growth plan, effective 1 November 2026. Review the plan features, usage limits and billing details on the subscription page.',
+    introAr:
+      'تم تحديث اشتراك مبنى النور إلى باقة النمو اعتبارًا من 1 نوفمبر 2026. راجع مزايا الباقة والحدود والفوترة من صفحة الاشتراك.',
+    introEn:
+      'Mabani Al Noor’s subscription has been updated to the Growth plan, effective 1 November 2026. Review the plan features, usage limits and billing details on the subscription page.',
     ctaPath: '/ar/admin/plans',
   }),
   entry({
@@ -537,8 +589,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'An update is available on your case file',
     titleAr: 'يوجد تحديث يستلزم المراجعة',
     titleEn: 'A case-file update is available',
-    introAr: 'أُضيف تحديث إلى الملف رقم LEG-104. حفاظًا على الخصوصية، تُعرض تفاصيل القضية والمرفقات والإجراء المطلوب بعد تسجيل الدخول إلى المنصة. يرجى مراجعتها ضمن أي مهلة مذكورة في الملف.',
-    introEn: 'An update has been added to file LEG-104. To protect your privacy, case details, attachments and any required action are available after you sign in. Please review them within any deadline stated in the file.',
+    introAr:
+      'أُضيف تحديث إلى الملف رقم LEG-104. حفاظًا على الخصوصية، تُعرض تفاصيل القضية والمرفقات والإجراء المطلوب بعد تسجيل الدخول إلى المنصة. يرجى مراجعتها ضمن أي مهلة مذكورة في الملف.',
+    introEn:
+      'An update has been added to file LEG-104. To protect your privacy, case details, attachments and any required action are available after you sign in. Please review them within any deadline stated in the file.',
     ctaPath: '/ar/owner/legal',
   }),
   entry({
@@ -553,8 +607,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Warm wishes from the BHD R team',
     titleAr: 'أطيب التمنيات لكم',
     titleEn: 'Sending you our best wishes',
-    introAr: 'يرسل إليكم فريق بن حمود للتطوير أطيب التهاني بمناسبة العيد الوطني. نتمنى لكم مناسبة سعيدة وأيامًا عامرة بالخير والنجاح.',
-    introEn: 'The Bin Hamood Development team sends you warm wishes for National Day. We hope the occasion brings you happiness, well-being and continued success.',
+    introAr:
+      'يرسل إليكم فريق بن حمود للتطوير أطيب التهاني بمناسبة العيد الوطني. نتمنى لكم مناسبة سعيدة وأيامًا عامرة بالخير والنجاح.',
+    introEn:
+      'The Bin Hamood Development team sends you warm wishes for National Day. We hope the occasion brings you happiness, well-being and continued success.',
     ctaPath: '/ar',
   }),
   entry({
@@ -569,8 +625,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Accounting document Receivables statement is ready for review',
     titleAr: 'المستند المطلوب متاح',
     titleEn: 'Your document is available',
-    introAr: 'أصبح المستند كشف المستحقات للفترة أكتوبر 2026 متاحًا للمراجعة. يرجى التحقق من البيانات والفترة والجهة المعنية، ثم تنزيل النسخة من الرابط الآمن. إذا لاحظت اختلافًا، فاستخدم قناة الدعم المعتمدة.',
-    introEn: 'Document Receivables statement for October 2026 is available for review. Please check the figures, reporting period and relevant entity, then download it through the secure link. If you notice a discrepancy, contact support through the approved channel.',
+    introAr:
+      'أصبح المستند كشف المستحقات للفترة أكتوبر 2026 متاحًا للمراجعة. يرجى التحقق من البيانات والفترة والجهة المعنية، ثم تنزيل النسخة من الرابط الآمن. إذا لاحظت اختلافًا، فاستخدم قناة الدعم المعتمدة.',
+    introEn:
+      'Document Receivables statement for October 2026 is available for review. Please check the figures, reporting period and relevant entity, then download it through the secure link. If you notice a discrepancy, contact support through the approved channel.',
     ctaPath: '/ar/owner/accounting',
   }),
   entry({
@@ -585,8 +643,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Documents needed to complete reservation RSV-MGUUXR6F',
     titleAr: 'نحتاج إلى المستندات التالية',
     titleEn: 'The following documents are needed',
-    introAr: 'لاستكمال الحجز RSV-MGUUXR6F، يرجى رفع المستندات التالية: بطاقة شخصية، إثبات دخل. الموعد المطلوب إن وُجد: 5 نوفمبر 2026. استخدم صفحة الحجز الآمنة، ولا ترسل المستندات الحساسة عبر محادثة غير معتمدة.',
-    introEn: 'To complete reservation RSV-MGUUXR6F, please upload the following documents: ID card, proof of income. Requested deadline, if applicable: 5 November 2026. Use the secure reservation page and avoid sending sensitive documents through unapproved chat channels.',
+    introAr:
+      'لاستكمال الحجز RSV-MGUUXR6F، يرجى رفع المستندات التالية: بطاقة شخصية، إثبات دخل. الموعد المطلوب إن وُجد: 5 نوفمبر 2026. استخدم صفحة الحجز الآمنة، ولا ترسل المستندات الحساسة عبر محادثة غير معتمدة.',
+    introEn:
+      'To complete reservation RSV-MGUUXR6F, please upload the following documents: ID card, proof of income. Requested deadline, if applicable: 5 November 2026. Use the secure reservation page and avoid sending sensitive documents through unapproved chat channels.',
     ctaPath: '/ar/portal',
   }),
   entry({
@@ -601,8 +661,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Update on documents for reservation RSV-MGUUXR6F',
     titleAr: 'اكتملت مراجعة المستند',
     titleEn: 'Document review completed',
-    introAr: 'تمت مراجعة المستند «كشف المستحقات» ضمن الحجز RSV-MGUUXR6F. النتيجة: مقبول. إذا كان مطلوبًا تعديل، فستجد الملاحظة والخطوة التالية في صفحة الحجز.',
-    introEn: 'Document “Receivables statement” for reservation RSV-MGUUXR6F has been reviewed. Result: Approved. If a correction is needed, the note and next step are available on the reservation page.',
+    introAr:
+      'تمت مراجعة المستند «كشف المستحقات» ضمن الحجز RSV-MGUUXR6F. النتيجة: مقبول. إذا كان مطلوبًا تعديل، فستجد الملاحظة والخطوة التالية في صفحة الحجز.',
+    introEn:
+      'Document “Receivables statement” for reservation RSV-MGUUXR6F has been reviewed. Result: Approved. If a correction is needed, the note and next step are available on the reservation page.',
     ctaPath: '/ar/portal',
   }),
   entry({
@@ -617,8 +679,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Complete property handover verification',
     titleAr: 'أكمل خطوة التحقق من التسليم',
     titleEn: 'Complete the handover verification step',
-    introAr: 'لإكمال إجراء تسليم العقار مبنى النور، يرجى فتح الرابط الآمن واتباع تعليمات التحقق المطلوبة. استخدم الرابط بنفسك، وتأكد من أن الطلب مرتبط بحجزك قبل مشاركة أي صورة.',
-    introEn: 'To complete the handover process for Mabani Al Noor, open the secure link and follow the verification instructions. Use the link yourself and confirm it relates to your reservation before submitting any image.',
+    introAr:
+      'لإكمال إجراء تسليم العقار مبنى النور، يرجى فتح الرابط الآمن واتباع تعليمات التحقق المطلوبة. استخدم الرابط بنفسك، وتأكد من أن الطلب مرتبط بحجزك قبل مشاركة أي صورة.',
+    introEn:
+      'To complete the handover process for Mabani Al Noor, open the secure link and follow the verification instructions. Use the link yourself and confirm it relates to your reservation before submitting any image.',
     ctaPath: '/ar/portal',
   }),
   entry({
@@ -633,8 +697,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Handover report for Mabani Al Noor is ready',
     titleAr: 'يرجى مراجعة محضر التسليم',
     titleEn: 'Please review the handover report',
-    introAr: 'أصبح محضر تسليم مبنى النور بتاريخ 28 أكتوبر 2026 متاحًا. راجع حالة الوحدة والملاحظات والصور، وقدّم أي ملاحظة ضمن المهلة المحددة في المحضر إن وُجدت.',
-    introEn: 'The handover report for Mabani Al Noor, dated 28 October 2026, is available. Review the unit condition, notes and photos, and submit any comments within the period stated in the report, if applicable.',
+    introAr:
+      'أصبح محضر تسليم مبنى النور بتاريخ 28 أكتوبر 2026 متاحًا. راجع حالة الوحدة والملاحظات والصور، وقدّم أي ملاحظة ضمن المهلة المحددة في المحضر إن وُجدت.',
+    introEn:
+      'The handover report for Mabani Al Noor, dated 28 October 2026, is available. Review the unit condition, notes and photos, and submit any comments within the period stated in the report, if applicable.',
     ctaPath: '/ar/portal',
   }),
   entry({
@@ -649,8 +715,10 @@ export const EXTRA_NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[]
     subjectEn: 'Rent receipt RCPT-901',
     titleAr: 'إيصال القبض متاح',
     titleEn: 'Your rent receipt is available',
-    introAr: 'تم تسجيل قبض مبلغ 150.000 ر.ع عن أكتوبر 2026 بموجب الإيصال رقم RCPT-901 بتاريخ 28 أكتوبر 2026. يرجى مراجعة بيانات الإيصال والاحتفاظ بنسخة لسجلاتك.',
-    introEn: 'A payment of 150.000 OMR for October 2026 was recorded under receipt RCPT-901 on 28 October 2026. Please verify the receipt details and keep a copy for your records.',
+    introAr:
+      'تم تسجيل قبض مبلغ 150.000 ر.ع عن أكتوبر 2026 بموجب الإيصال رقم RCPT-901 بتاريخ 28 أكتوبر 2026. يرجى مراجعة بيانات الإيصال والاحتفاظ بنسخة لسجلاتك.',
+    introEn:
+      'A payment of 150.000 OMR for October 2026 was recorded under receipt RCPT-901 on 28 October 2026. Please verify the receipt details and keep a copy for your records.',
     details: [
       { labelAr: 'الشهر', labelEn: 'Month', value: '2026-10' },
       { labelAr: 'المبلغ', labelEn: 'Amount', value: '350 OMR' },

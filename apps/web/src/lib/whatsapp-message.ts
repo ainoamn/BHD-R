@@ -115,9 +115,7 @@ function buildSide(draft: WhatsAppDraft, lang: 'ar' | 'en', options: { seed: str
     lang === 'ar'
       ? `مع أطيب التحيات — فريق ${PRODUCT_NAME}`
       : `Kind regards — the ${PRODUCT_NAME} team`,
-    lang === 'ar'
-      ? 'رسالة آلية من منصة BHD R.'
-      : 'Automated message from the BHD R platform.',
+    lang === 'ar' ? 'رسالة آلية من منصة BHD R.' : 'Automated message from the BHD R platform.',
   );
 
   return body

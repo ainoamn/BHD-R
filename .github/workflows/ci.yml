@@ -155,6 +155,9 @@ jobs:
           psql "$MIGRATION_DATABASE_URL" --set=api_password=ci-only-api-password
           --set=system_password=ci-only-system-password --set=worker_password=ci-only-worker-password
           --file=.github/scripts/create-ci-logins.sql
+      - name: Build API workspace packages
+        # `@bhd-r/db` exports dist only; filter scripts bypass turbo ^build.
+        run: pnpm --filter @bhd-r/api... build
       - name: API Express boundary e2e
         run: pnpm --filter @bhd-r/api test:e2e
       - name: Browser smoke (mock API · chromium only)

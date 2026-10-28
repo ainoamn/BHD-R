@@ -748,15 +748,16 @@ export function leasePhaseLabel(
       ? 'بانتظار إعادة رفع المستندات وتوقيع العميل'
       : 'Awaiting client document re-upload & signature';
   }
-  if (options?.docsNeedVerify && (phase === 'awaiting_handover' || phase === 'awaiting_tenant_signature')) {
+  if (
+    options?.docsNeedVerify &&
+    (phase === 'awaiting_handover' || phase === 'awaiting_tenant_signature')
+  ) {
     if (options.viewer === 'tenant') {
       return ar
         ? 'عقد موقّع — بانتظار اعتماد المستندات'
         : 'Signed — awaiting document verification';
     }
-    return ar
-      ? 'عقد موقّع — مستندات بانتظار اعتمادك'
-      : 'Signed — documents need your verification';
+    return ar ? 'عقد موقّع — مستندات بانتظار اعتمادك' : 'Signed — documents need your verification';
   }
   if (options?.docsReturned && phase === 'awaiting_documents') {
     return options.viewer === 'tenant'
