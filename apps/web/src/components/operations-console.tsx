@@ -36,12 +36,14 @@ import {
   groupContractRowsByParent,
   isContractCategory,
   muscatToday,
+  opsHubPathForContractCategory,
   rowContractCategory,
   type ContractCategory,
 } from '@/lib/contract-list-facets';
 import { leaseOwnerLifecycleState } from '@/lib/owner-lifecycle-status';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
+import { replaceSoftPortalUrl } from '@/lib/soft-portal-nav';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
@@ -355,12 +357,12 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     ],
   },
   leasing: {
-    titleAr: 'إدارة التأجير',
-    titleEn: 'Leasing management',
+    titleAr: 'التأجير والعقود',
+    titleEn: 'Leasing & contracts',
     introAr:
-      'عقود الإيجار السارية والمعلّقة والمنتهية: صفِّ حسب المبنى أو الوحدة أو المالك أو المستأجر، وافرِز من عناوين الأعمدة، واطبع تقرير القائمة المعروضة.',
+      'إدارة الإيجار اليومي وطويل الأجل من مكان واحد: عرض العقد، التجديد، الإنهاء للمحاسب، وطلب الإلغاء — مع التصفية والفرز وتقرير القائمة.',
     introEn:
-      'In-force, pending and ended leases: filter by building, unit, owner or tenant, sort from column headers, and print a report of the visible list.',
+      'Manage daily and long-term leases in one place: open the contract, renew, end for clearance, or request cancel — with filters, sorting, and a printable list.',
     createAr: 'تحويل لعقد إيجار',
     createEn: 'Convert to lease',
     columns: [
@@ -383,10 +385,12 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     moneyKey: 'rentMinor',
   },
   sales: {
-    titleAr: 'مبيعات العقارات',
-    titleEn: 'Property sales',
-    introAr: 'مسار البيع من العميل المحتمل والمعاينة والعرض والتفاوض حتى الإغلاق والعمولة.',
-    introEn: 'A sales pipeline from lead and viewing through offer, closing and commission.',
+    titleAr: 'البيع وعقود البيع',
+    titleEn: 'Sales & sale contracts',
+    introAr:
+      'مسار البيع من العميل المحتمل حتى الإغلاق والعمولة، مع عقود البيع المرتبطة — دون قائمة عقود منفصلة.',
+    introEn:
+      'Sales pipeline from lead through closing and commission, including linked sale contracts — no separate contracts list.',
     createAr: 'صفقة بيع جديدة',
     createEn: 'New sales deal',
     columns: [
@@ -410,10 +414,12 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
     moneyKey: 'askingPriceMinor',
   },
   contracts: {
-    titleAr: 'العقود والتوقيع الإلكتروني',
-    titleEn: 'Contracts & e-signatures',
-    introAr: 'إعداد العقود وإرسالها ومتابعة توقيع أطرافها وحفظ دليل التوقيع والنسخة النهائية.',
-    introEn: 'Prepare, send and track multi-party signatures and final evidence.',
+    titleAr: 'عقود الشراء',
+    titleEn: 'Purchase contracts',
+    introAr:
+      'عقود شراء العقارات من البائعين مع التوقيع الإلكتروني. الإيجار يُدار من التأجير، والبيع من المبيعات.',
+    introEn:
+      'Purchase contracts from sellers with e-signatures. Rentals are under Leasing; sales under Sales.',
     columns: [
       { key: 'reference', fallbackKeys: ['id'], ar: 'العقد', en: 'Contract' },
       { key: 'tenantName', ar: 'المستأجر / المشتري', en: 'Tenant / buyer' },
@@ -2750,8 +2756,15 @@ export function OperationsConsole({
     const kind = new URLSearchParams(search).get('kind');
     return isContractCategory(kind) ? kind : null;
   }, [search, section]);
+  // Merged nav: rental/sale contract lists redirect to leasing/sales; only purchase stays here.
+  useEffect(() => {
+    if (section !== 'contracts') return;
+    if (contractKind === 'purchase') return;
+    const hub = opsHubPathForContractCategory(contractKind);
+    replaceSoftPortalUrl(`/${portal}${hub}`);
+  }, [section, contractKind, portal]);
   const definition = useMemo(
-    () => contractsDefinition(definitions[section], contractKind),
+    () => contractsDefinition(definitions[section], contractKind === 'purchase' ? 'purchase' : null),
     [section, contractKind],
   );
   // Contracts / leasing: same four owner-facing states (ساري / منتهي / ملغي / معلق).

@@ -1,6 +1,6 @@
 /**
  * One owner-facing lifecycle for stay bookings, daily contracts, and stay-linked leases:
- * ساري / منتهي / ملغي / معلق — so /owner/bookings, /leasing, and /contracts?kind=daily agree.
+ * ساري / منتهي / ملغي / معلق — so /owner/bookings and /leasing agree.
  */
 
 import {

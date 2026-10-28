@@ -284,7 +284,12 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       href: portal === 'tenant' ? `/${portal}/leases` : `/${portal}/leasing`,
       label: t('Common.leasing'),
     },
-    { href: `/${portal}/contracts`, label: t('Common.contracts') },
+    ...(portal === 'tenant'
+      ? [{ href: `/${portal}/contracts`, label: t('Common.contracts') }]
+      : [
+          { href: `/${portal}/sales`, label: t('Common.sales') },
+          { href: `/${portal}/contracts?kind=purchase`, label: t('Portal.contractsPurchase') },
+        ]),
     { href: `/${portal}/invoices`, label: t('Common.invoices') },
     {
       href: portal === 'tenant' ? `/${portal}/reservations` : `/${portal}/bookings`,

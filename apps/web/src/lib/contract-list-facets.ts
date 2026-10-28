@@ -61,9 +61,21 @@ export const CONTRACT_VALIDITY_LABELS: Record<ContractValidity, { ar: string; en
   ended: { ar: 'منتهٍ', en: 'Ended' },
 };
 
-/** Sidebar pages under «العقود»: one list per kind of contract. */
+/**
+ * Contract kinds still used for filtering / redirects.
+ * Nav merge: daily + long_term → /leasing, sale → /sales, purchase stays under /contracts.
+ */
 export const CONTRACT_CATEGORIES = ['sale', 'purchase', 'daily', 'long_term'] as const;
 export type ContractCategory = (typeof CONTRACT_CATEGORIES)[number];
+
+/** Owner/developer ops hub after the leasing/sales/contracts nav merge. */
+export function opsHubPathForContractCategory(
+  category: ContractCategory | null | undefined,
+): string {
+  if (category === 'sale') return '/sales';
+  if (category === 'daily' || category === 'long_term') return '/leasing';
+  return '/contracts?kind=purchase';
+}
 
 export const CONTRACT_CATEGORY_LABELS: Record<
   ContractCategory,

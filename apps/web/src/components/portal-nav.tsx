@@ -34,16 +34,11 @@ const propertiesNavItem: NavItem = {
   ],
 };
 
-const contractsNavItem: NavItem = {
-  path: '/contracts',
-  label: 'Common.contracts',
-  mark: '✎',
-  children: [
-    { path: '/contracts?kind=sale', label: 'Portal.contractsSale', mark: '◆' },
-    { path: '/contracts?kind=purchase', label: 'Portal.contractsPurchase', mark: '◇' },
-    { path: '/contracts?kind=daily', label: 'Portal.contractsDaily', mark: '☾' },
-    { path: '/contracts?kind=long_term', label: 'Portal.contractsLongTerm', mark: '▣' },
-  ],
+/** Purchase contracts only — daily/long-term live under leasing, sale under sales. */
+const purchaseContractsNavItem: NavItem = {
+  path: '/contracts?kind=purchase',
+  label: 'Portal.contractsPurchase',
+  mark: '◇',
 };
 
 const staysNavGroup: NavGroup = {
@@ -96,7 +91,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/bookings', label: 'Common.bookings', mark: '⌁' },
         { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
         { path: '/sales', label: 'Common.sales', mark: '◆' },
-        contractsNavItem,
+        purchaseContractsNavItem,
         { path: '/terms', label: 'Common.contractTerms', mark: '¶' },
       ],
     },
@@ -149,7 +144,7 @@ const navGroups: Record<PortalRole, NavGroup[]> = {
         { path: '/bookings', label: 'Common.bookings', mark: '⌁' },
         { path: '/leasing', label: 'Common.leasing', mark: '⌂' },
         { path: '/sales', label: 'Common.sales', mark: '◆' },
-        contractsNavItem,
+        purchaseContractsNavItem,
         { path: '/terms', label: 'Common.contractTerms', mark: '¶' },
       ],
     },
@@ -369,11 +364,6 @@ export function PortalNav({
 
   const isActive = (item: NavItem): boolean => {
     if (item.children) {
-      // Contract pages (and ?kind-less lists) keep the contracts menu open.
-      if (item.path === '/contracts') {
-        const href = `${root}/contracts`;
-        return pathname === href || pathname.startsWith(`${href}/`);
-      }
       return item.children.some(isActive);
     }
     const [basePath = '', query] = item.path.split('?');

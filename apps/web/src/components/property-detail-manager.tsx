@@ -1255,14 +1255,17 @@ export function PropertyDetailManager({
                     {ar ? 'تعديل العقار' : 'Edit property'}
                   </Link>
                 ) : null}
-                <Link className="button button--quiet" href={`/${locale}/${portal}/contracts`}>
-                  {ar ? 'العقود' : 'Contracts'}
-                </Link>
                 <Link className="button button--quiet" href={`/${locale}/${portal}/leasing`}>
                   {ar ? 'التأجير' : 'Leasing'}
                 </Link>
                 <Link className="button button--quiet" href={`/${locale}/${portal}/sales`}>
                   {ar ? 'البيع' : 'Sales'}
+                </Link>
+                <Link
+                  className="button button--quiet"
+                  href={`/${locale}/${portal}/contracts?kind=purchase`}
+                >
+                  {ar ? 'عقود الشراء' : 'Purchase contracts'}
                 </Link>
                 <Link className="button button--quiet" href={`/${locale}/${portal}/bookings`}>
                   {ar ? 'الحجوزات' : 'Bookings'}

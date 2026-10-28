@@ -18,6 +18,7 @@ import {
   type ContractAnnexDocument,
   type ContractAnnexKind,
 } from '@/lib/contract-annex';
+import { opsHubPathForContractCategory } from '@/lib/contract-list-facets';
 import { leaseContractTitle } from '@/lib/lease-booking-contract';
 import type { PortalRole } from '@/lib/types';
 import { displayStayCheckoutOn } from '@/lib/stay-period-times';
@@ -334,8 +335,27 @@ export function ContractDocumentView({
             </ul>
           ) : null}
         </div>
-        <Link className="button button--quiet" href={`/${locale}/${portal}/contracts`}>
-          {ar ? 'كل العقود' : 'All contracts'}
+        <Link
+          className="button button--quiet"
+          href={
+            portal === 'tenant'
+              ? `/${locale}/tenant/contracts`
+              : `/${locale}/${portal}${opsHubPathForContractCategory(
+                  doc.type === 'sale' ? 'sale' : doc.type === 'stay' ? 'daily' : 'long_term',
+                )}`
+          }
+        >
+          {portal === 'tenant'
+            ? ar
+              ? 'كل العقود'
+              : 'All contracts'
+            : doc.type === 'sale'
+              ? ar
+                ? 'المبيعات'
+                : 'Sales'
+              : ar
+                ? 'التأجير'
+                : 'Leasing'}
         </Link>
       </header>
 

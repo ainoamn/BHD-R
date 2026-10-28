@@ -26,6 +26,17 @@ export function pushSoftPortalUrl(href: string): void {
   window.dispatchEvent(new Event(SOFT_PORTAL_NAV_EVENT));
 }
 
+/** Soft redirect that replaces the current history entry (no back-button loop). */
+export function replaceSoftPortalUrl(href: string): void {
+  const url = new URL(href, window.location.origin);
+  const next = url.pathname + url.search + url.hash;
+  const current = window.location.pathname + window.location.search + window.location.hash;
+  if (next !== current) {
+    window.history.replaceState(null, '', next);
+  }
+  window.dispatchEvent(new Event(SOFT_PORTAL_NAV_EVENT));
+}
+
 /**
  * Pathname for soft portal panes. Next's `usePathname` can lag behind `pushState`;
  * this re-reads `window.location` on soft-nav and back/forward.
