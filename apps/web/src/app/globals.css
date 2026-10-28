@@ -29781,6 +29781,75 @@ a.contract-annex-bar__item:focus-visible {
 .contract-detail__manage {
   margin-top: 1rem;
 }
+.renewal-term-alert {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0 0 1.1rem;
+  padding: 1rem 1.1rem;
+  border: 2px solid #c8102e;
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, #fff5f6, #fff 55%);
+  box-shadow: 0 0 0 3px rgb(200 16 46 / 0.12);
+}
+.renewal-term-alert__banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.renewal-term-alert__mark {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: #c8102e;
+  color: #fff;
+  font-weight: 900;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.renewal-term-alert__banner h2 {
+  margin: 0 0 0.25rem;
+  color: #8f0b20;
+  font-size: 1.05rem;
+}
+.renewal-term-alert__banner p {
+  margin: 0;
+  color: #5c2430;
+  font-size: 0.92rem;
+}
+.renewal-term-alert__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 0.65rem;
+  margin: 0;
+}
+.renewal-term-alert__facts > div {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid #f0c4cb;
+  background: #fff;
+}
+.renewal-term-alert__facts dt {
+  margin: 0 0 0.2rem;
+  font-size: 0.75rem;
+  color: #7a3a46;
+}
+.renewal-term-alert__facts dd {
+  margin: 0;
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+.renewal-term-alert__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.renewal-term-alert__form {
+  display: grid;
+  gap: 0.65rem;
+}
 .contract-print {
   display: none;
 }

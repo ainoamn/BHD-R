@@ -173,19 +173,31 @@ export function TenantRenewalTermPanel({
 export function OwnerRenewalTermDecisionPanel({
   contractId,
   proposal,
+  currentEndsOn,
   locale,
 }: {
   contractId: string;
   proposal: Proposal;
+  /** System / current renewal end date before this decision. */
+  currentEndsOn: string;
   locale: string;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'idle' | 'modify' | 'reject'>('idle');
   const [note, setNote] = useState('');
+  const [ownerEndsOn, setOwnerEndsOn] = useState(proposal.endsOn);
   const [error, setError] = useState<string | null>(null);
 
-  async function decide(decision: 'approved' | 'rejected') {
+  async function decide(
+    decision: 'approved' | 'rejected',
+    options?: { endsOn?: string; requireNote?: boolean },
+  ) {
+    if (options?.requireNote && note.trim().length < 2) {
+      setError(ar ? 'اكتب ملاحظة للمستأجر.' : 'Add a note for the tenant.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -193,7 +205,13 @@ export function OwnerRenewalTermDecisionPanel({
         `/api/owner/contracts/${encodeURIComponent(contractId)}/renewal-term-decision`,
         {
           method: 'POST',
-          body: JSON.stringify({ decision, note: note.trim() || undefined }),
+          body: JSON.stringify({
+            decision,
+            note: note.trim() || undefined,
+            ...(decision === 'approved' && options?.endsOn
+              ? { endsOn: options.endsOn }
+              : {}),
+          }),
         },
       );
       router.refresh();
@@ -206,40 +224,191 @@ export function OwnerRenewalTermDecisionPanel({
 
   if (proposal.status !== 'pending') return null;
 
+  const proposedAtLabel = new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Asia/Muscat',
+  }).format(new Date(proposal.proposedAt));
+
   return (
-    <Card>
-      <CardContent>
-        <h2>{ar ? 'طلب تعديل مدة التجديد' : 'Renewal term change request'}</h2>
-        <p>
-          {ar ? 'المستأجر يقترح النهاية: ' : 'Tenant proposes end date: '}
-          <strong dir="ltr">{proposal.endsOn}</strong>
-        </p>
-        <Field
-          id="renewal-decision-note"
-          label={ar ? 'ملاحظة (اختياري)' : 'Note (optional)'}
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-        />
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+    <aside className="renewal-term-alert" role="region" aria-labelledby="renewal-term-alert-title">
+      <div className="renewal-term-alert__banner">
+        <span className="renewal-term-alert__mark" aria-hidden>
+          !
+        </span>
+        <div>
+          <h2 id="renewal-term-alert-title">
+            {ar ? 'طلب المستأجر: تعديل تاريخ نهاية التجديد' : 'Tenant request: change renewal end date'}
+          </h2>
+          <p>
+            {ar
+              ? `أرسل في ${proposedAtLabel}. التاريخ الحالي ${currentEndsOn} — المقترح ${proposal.endsOn}.`
+              : `Sent ${proposedAtLabel}. Current end ${currentEndsOn} — proposed ${proposal.endsOn}.`}
+          </p>
+        </div>
+      </div>
+
+      <dl className="renewal-term-alert__facts">
+        <div>
+          <dt>{ar ? 'التاريخ الحالي (النظام)' : 'Current (system) date'}</dt>
+          <dd dir="ltr">{currentEndsOn}</dd>
+        </div>
+        <div>
+          <dt>{ar ? 'تاريخ المستأجر المقترح' : 'Tenant proposed date'}</dt>
+          <dd dir="ltr">{proposal.endsOn}</dd>
+        </div>
+      </dl>
+
+      {mode === 'idle' ? (
+        <div className="renewal-term-alert__actions">
           <Button type="button" disabled={busy} onClick={() => void decide('approved')}>
-            {ar ? 'اعتماد المدة' : 'Approve term'}
+            {busy
+              ? ar
+                ? 'جارٍ…'
+                : 'Working…'
+              : ar
+                ? 'موافقة على التاريخ المقترح'
+                : 'Approve proposed date'}
           </Button>
           <Button
             type="button"
             className="button--secondary"
             disabled={busy}
-            onClick={() => void decide('rejected')}
+            onClick={() => {
+              setMode('modify');
+              setOwnerEndsOn(proposal.endsOn);
+              setNote('');
+              setError(null);
+            }}
           >
-            {ar ? 'رفض' : 'Reject'}
+            {ar ? 'تعديل التاريخ مع ملاحظة' : 'Change date with a note'}
+          </Button>
+          <Button
+            type="button"
+            className="button--quiet"
+            disabled={busy}
+            onClick={() => {
+              setMode('reject');
+              setNote('');
+              setError(null);
+            }}
+          >
+            {ar ? 'رفض والاستمرار على نفس التاريخ' : 'Reject — keep current date'}
           </Button>
         </div>
-        {error ? (
-          <div className="notice notice--danger" role="alert">
-            {error}
+      ) : null}
+
+      {mode === 'modify' ? (
+        <div className="renewal-term-alert__form">
+          <Field
+            id="renewal-owner-ends"
+            label={ar ? 'تاريخ النهاية الذي تعتمده' : 'End date you approve'}
+            type="date"
+            value={ownerEndsOn}
+            onChange={(event) => setOwnerEndsOn(event.target.value)}
+          />
+          <label className="field" htmlFor="renewal-modify-note">
+            <span className="field__label">{ar ? 'ملاحظة للمستأجر' : 'Note for the tenant'}</span>
+            <textarea
+              id="renewal-modify-note"
+              className="textarea"
+              rows={3}
+              maxLength={500}
+              value={note}
+              disabled={busy}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder={
+                ar
+                  ? 'مثال: نوافق على تاريخ أقرب ضمن سياسة العقار'
+                  : 'e.g. We approve an earlier date within the property policy'
+              }
+            />
+          </label>
+          <div className="renewal-term-alert__actions">
+            <Button
+              type="button"
+              disabled={busy || !ownerEndsOn}
+              onClick={() =>
+                void decide('approved', { endsOn: ownerEndsOn, requireNote: true })
+              }
+            >
+              {busy
+                ? ar
+                  ? 'جارٍ الاعتماد…'
+                  : 'Saving…'
+                : ar
+                  ? 'اعتماد التاريخ المعدّل'
+                  : 'Approve modified date'}
+            </Button>
+            <Button
+              type="button"
+              className="button--quiet"
+              disabled={busy}
+              onClick={() => setMode('idle')}
+            >
+              {ar ? 'تراجع' : 'Back'}
+            </Button>
           </div>
-        ) : null}
-      </CardContent>
-    </Card>
+        </div>
+      ) : null}
+
+      {mode === 'reject' ? (
+        <div className="renewal-term-alert__form">
+          <p className="muted">
+            {ar
+              ? `سيُرفض طلب المستأجر ويبقى تاريخ النهاية ${currentEndsOn}.`
+              : `The tenant request is declined and the end date stays ${currentEndsOn}.`}
+          </p>
+          <label className="field" htmlFor="renewal-reject-note">
+            <span className="field__label">{ar ? 'سبب الرفض (يظهر للمستأجر)' : 'Rejection reason (shown to tenant)'}</span>
+            <textarea
+              id="renewal-reject-note"
+              className="textarea"
+              rows={3}
+              maxLength={500}
+              value={note}
+              disabled={busy}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder={
+                ar
+                  ? 'مثال: المدة المقترحة أقصر من الحد الأدنى للعقار'
+                  : 'e.g. The proposed term is shorter than the property minimum'
+              }
+            />
+          </label>
+          <div className="renewal-term-alert__actions">
+            <Button
+              type="button"
+              className="button--danger"
+              disabled={busy}
+              onClick={() => void decide('rejected', { requireNote: true })}
+            >
+              {busy
+                ? ar
+                  ? 'جارٍ الرفض…'
+                  : 'Rejecting…'
+                : ar
+                  ? 'تأكيد الرفض والإبقاء على التاريخ'
+                  : 'Confirm reject — keep current date'}
+            </Button>
+            <Button
+              type="button"
+              className="button--quiet"
+              disabled={busy}
+              onClick={() => setMode('idle')}
+            >
+              {ar ? 'تراجع' : 'Back'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="notice notice--danger" role="alert">
+          {error}
+        </div>
+      ) : null}
+    </aside>
   );
 }
 

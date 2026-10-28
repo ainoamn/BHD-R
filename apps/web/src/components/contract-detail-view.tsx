@@ -181,6 +181,17 @@ function SimpleContractView({
         />
       </header>
 
+      {portal !== 'tenant' &&
+      contract.kind === 'renewal' &&
+      contract.tenantTermProposal?.status === 'pending' ? (
+        <OwnerRenewalTermDecisionPanel
+          contractId={contract.id}
+          proposal={contract.tenantTermProposal}
+          currentEndsOn={contract.endsOn}
+          locale={locale}
+        />
+      ) : null}
+
       <section className="contract-detail__grid">
         <Card>
           <CardContent>
@@ -315,16 +326,6 @@ function SimpleContractView({
           contractId={contract.id}
           currentEndsOn={contract.endsOn}
           proposal={contract.tenantTermProposal ?? null}
-          locale={locale}
-        />
-      ) : null}
-
-      {portal !== 'tenant' &&
-      contract.kind === 'renewal' &&
-      contract.tenantTermProposal?.status === 'pending' ? (
-        <OwnerRenewalTermDecisionPanel
-          contractId={contract.id}
-          proposal={contract.tenantTermProposal}
           locale={locale}
         />
       ) : null}

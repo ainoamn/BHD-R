@@ -710,7 +710,9 @@ export async function decideRenewalTermProposalOnNeon(
   contractId: string,
   decision: 'approved' | 'rejected',
   note?: string | null,
-): Promise<{ status: TenantTermProposal['status'] }> {
+  /** When approving, owner may set a different end date than the tenant proposed. */
+  endsOnOverride?: string | null,
+): Promise<{ status: TenantTermProposal['status']; endsOn: string }> {
   const orgId = claims.organizationId ?? fail('organization_required');
   if (!hasPermission(claims, 'lease.update') && !hasPermission(claims, 'contract.sign')) {
     fail('forbidden');
@@ -730,27 +732,53 @@ export async function decideRenewalTermProposalOnNeon(
     const raw = snapshot.tenantTermProposal as TenantTermProposal | undefined;
     if (!raw || raw.status !== 'pending') fail('renewal_not_deliverable');
 
+    const currentEndsOn =
+      typeof snapshot.endsOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(snapshot.endsOn)
+        ? snapshot.endsOn
+        : raw.endsOn;
+    const startsOn =
+      typeof snapshot.startsOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(snapshot.startsOn)
+        ? snapshot.startsOn
+        : null;
+
+    let appliedEndsOn = currentEndsOn;
+    if (decision === 'approved') {
+      const chosen =
+        endsOnOverride && /^\d{4}-\d{2}-\d{2}$/.test(endsOnOverride)
+          ? endsOnOverride
+          : raw.endsOn;
+      if (!startsOn || chosen <= startsOn) fail('renewal_date_invalid');
+      appliedEndsOn = chosen;
+    }
+
     const nowIso = new Date().toISOString();
+    const trimmedNote = note?.trim().slice(0, 500) || null;
     const proposal: TenantTermProposal = {
       ...raw,
+      // Persist the end date the owner actually accepted when they modified the request.
+      endsOn: decision === 'approved' ? appliedEndsOn : raw.endsOn,
       status: decision,
       decidedAt: nowIso,
-      decisionNote: note?.trim().slice(0, 500) || decision,
+      decisionNote:
+        trimmedNote ||
+        (decision === 'approved'
+          ? appliedEndsOn === raw.endsOn
+            ? 'approved'
+            : 'approved_with_owner_date'
+          : 'rejected_keep_current'),
     };
     const nextPayload: Record<string, unknown> = {
       ...snapshot,
       tenantTermProposal: proposal,
     };
-    if (decision === 'approved') {
-      const startsOn =
-        typeof snapshot.startsOn === 'string' ? snapshot.startsOn : raw.endsOn;
-      const months = contractPeriod(startsOn, raw.endsOn).months;
-      nextPayload.endsOn = raw.endsOn;
+    if (decision === 'approved' && startsOn) {
+      const months = Math.max(1, contractPeriod(startsOn, appliedEndsOn).months);
+      nextPayload.endsOn = appliedEndsOn;
       nextPayload.months = months;
       if (nextPayload.leaseTerms && typeof nextPayload.leaseTerms === 'object') {
         nextPayload.leaseTerms = {
           ...(nextPayload.leaseTerms as Record<string, unknown>),
-          endsOn: raw.endsOn,
+          endsOn: appliedEndsOn,
           months,
         };
       }
@@ -762,6 +790,7 @@ export async function decideRenewalTermProposalOnNeon(
       .where(eq(contracts.id, contract.id));
 
     const reference = contract.reference ?? contract.id.slice(0, 8).toUpperCase();
+    const modified = decision === 'approved' && appliedEndsOn !== raw.endsOn;
     await notifyByEmail({
       orgId,
       aggregateType: 'contract',
@@ -771,9 +800,15 @@ export async function decideRenewalTermProposalOnNeon(
         decision === 'approved'
           ? {
               tone: 'contract',
-              subject: `✅ اعتُمدت مدة التجديد — ${reference}`,
-              title: 'المالك اعتمد مدة التجديد',
-              intro: `نهاية الملحق أصبحت ${raw.endsOn}. أكمل المستندات والتوقيع.`,
+              subject: modified
+                ? `✅ اعتمد المالك تاريخ تجديد معدّل — ${reference}`
+                : `✅ اعتُمدت مدة التجديد — ${reference}`,
+              title: modified
+                ? 'المالك اعتمد تاريخ نهاية معدّل'
+                : 'المالك اعتمد مدة التجديد',
+              intro: modified
+                ? `اقترحتَ ${raw.endsOn} واعتمد المالك ${appliedEndsOn}${trimmedNote ? ` — ملاحظة: ${trimmedNote}` : ''}. أكمل المستندات والتوقيع.`
+                : `نهاية الملحق أصبحت ${appliedEndsOn}. أكمل المستندات والتوقيع.`,
               cta: {
                 label: 'فتح الملحق',
                 url: appLink(`/ar/tenant/contracts/${contract.id}`),
@@ -783,9 +818,9 @@ export async function decideRenewalTermProposalOnNeon(
               tone: 'contract',
               subject: `⛔ رُفض تعديل مدة التجديد — ${reference}`,
               title: 'المالك رفض المدة المقترحة',
-              intro: note?.trim()
-                ? `السبب: ${note.trim()}. المدة الأصلية ما زالت سارية للمتابعة.`
-                : 'المدة الأصلية ما زالت سارية — يمكنك التوقيع عليها أو اقتراح مدة أخرى ضمن الحد الأدنى.',
+              intro: trimmedNote
+                ? `السبب: ${trimmedNote}. التاريخ الأصلي ${currentEndsOn} ما زال سارياً للمتابعة.`
+                : `التاريخ الأصلي ${currentEndsOn} ما زال سارياً — يمكنك التوقيع عليه أو اقتراح مدة أخرى.`,
               cta: {
                 label: 'فتح الملحق',
                 url: appLink(`/ar/tenant/contracts/${contract.id}`),
@@ -793,6 +828,6 @@ export async function decideRenewalTermProposalOnNeon(
             },
     });
 
-    return { status: proposal.status };
+    return { status: proposal.status, endsOn: appliedEndsOn };
   }, 20_000);
 }

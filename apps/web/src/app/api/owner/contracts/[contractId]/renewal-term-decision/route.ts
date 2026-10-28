@@ -13,9 +13,14 @@ type RouteContext = { params: Promise<{ contractId: string }> };
 const bodySchema = z.object({
   decision: z.enum(['approved', 'rejected']),
   note: z.string().trim().max(500).optional(),
+  /** Owner-chosen end date when approving with a modification. */
+  endsOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
 });
 
-/** POST — owner approves or rejects a tenant renewal-term proposal. */
+/** POST — owner approves, modifies, or rejects a tenant renewal-term proposal. */
 export async function POST(request: Request, context: RouteContext) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -44,6 +49,7 @@ export async function POST(request: Request, context: RouteContext) {
       contractId,
       parsed.data.decision,
       parsed.data.note,
+      parsed.data.endsOn,
     );
     return NextResponse.json(result);
   } catch (error) {

@@ -374,6 +374,17 @@ export function ContractDocumentView({
         </Link>
       </header>
 
+      {portal !== 'tenant' &&
+      contract.kind === 'renewal' &&
+      contract.tenantTermProposal?.status === 'pending' ? (
+        <OwnerRenewalTermDecisionPanel
+          contractId={contract.id}
+          proposal={contract.tenantTermProposal}
+          currentEndsOn={contract.endsOn}
+          locale={locale}
+        />
+      ) : null}
+
       {contract.kind === 'renewal' ? (
         <div className="notice notice--info" role="note">
           <strong>
@@ -586,16 +597,6 @@ export function ContractDocumentView({
           contractId={contract.id}
           currentEndsOn={contract.endsOn}
           proposal={contract.tenantTermProposal ?? null}
-          locale={locale}
-        />
-      ) : null}
-
-      {portal !== 'tenant' &&
-      contract.kind === 'renewal' &&
-      contract.tenantTermProposal?.status === 'pending' ? (
-        <OwnerRenewalTermDecisionPanel
-          contractId={contract.id}
-          proposal={contract.tenantTermProposal}
           locale={locale}
         />
       ) : null}
