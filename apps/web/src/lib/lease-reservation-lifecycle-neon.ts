@@ -35,8 +35,11 @@ import {
   handoverHandlerSelfie,
   handoverLiveSelfie,
   handoverSelfieState,
+  isBookingIdentityDocCode,
   leaseJourneyPhase,
+  listBookingIdentityDocs,
   lifecycleOf,
+  type BookingIdentityDocCode,
   type HandoverPhotoMeta,
   type LeaseJourneyPhase,
   type ReservationCancelReason,
@@ -72,21 +75,29 @@ import {
 } from '@/lib/public-lease-booking-neon';
 import type { ReservationParty } from '@/lib/reservation-party';
 
-/** Drop attached ID / CR copies so the client must re-upload them with the re-sign. */
-function stripPartyDocumentCopies(party: ReservationParty | undefined): ReservationParty | undefined {
+/** Drop only the party copies the owner rejected so locked ones stay on the booking. */
+function stripRejectedPartyDocumentCopies(
+  party: ReservationParty | undefined,
+  rejected: ReadonlySet<string>,
+): ReservationParty | undefined {
   if (!party) return undefined;
   if (party.entityType === 'person' && party.person) {
-    const { civilIdCopy: _c, passportCopy: _p, ...person } = party.person;
+    const person = { ...party.person };
+    if (rejected.has('civil_id_copy')) delete person.civilIdCopy;
+    if (rejected.has('passport_copy')) delete person.passportCopy;
     return { ...party, person, company: null };
   }
   if (party.entityType === 'company' && party.company) {
-    const { crCopy: _cr, ...companyRest } = party.company;
+    const company = { ...party.company };
+    if (rejected.has('cr_copy')) delete company.crCopy;
     return {
       ...party,
       person: null,
       company: {
-        ...companyRest,
-        signatories: companyRest.signatories.map((row) => {
+        ...company,
+        signatories: company.signatories.map((row) => {
+          // Signatory copies are not selectable yet — keep them when CR is locked, strip with CR.
+          if (!rejected.has('cr_copy')) return row;
           const { civilIdCopy: _sc, passportCopy: _sp, ...rest } = row;
           return rest;
         }),
@@ -293,7 +304,7 @@ export type ReservationOwnerAction =
       waterReadingPhoto: string;
     }
   | { action: 'restore_reservation'; note: string }
-  | { action: 'return_booking_docs'; note: string }
+  | { action: 'return_booking_docs'; note: string; rejected: string[] }
   | { action: 'cancel_reservation'; note: string };
 
 function cleanRequirements(
@@ -1014,9 +1025,41 @@ async function ownerActionInTx(
         }
         const note = input.note.trim().slice(0, 500);
         if (note.length < 2) fail('invalid_body');
-        const strippedParty = stripPartyDocumentCopies(row.snapshot.party);
+        const available = listBookingIdentityDocs({
+          hasEsign: Boolean(row.snapshot.esign?.completed),
+          party: row.snapshot.party ?? null,
+        });
+        if (!available.length) fail('invalid_body');
+        const availableSet = new Set(available);
+        const rejected = [
+          ...new Set(
+            (input.rejected ?? [])
+              .map((code) => code.trim())
+              .filter(isBookingIdentityDocCode)
+              .filter((code) => availableSet.has(code)),
+          ),
+        ] as BookingIdentityDocCode[];
+        if (!rejected.length) fail('invalid_body');
+        const rejectedSet = new Set<string>(rejected);
+        const locked = available.filter((code) => !rejectedSet.has(code));
+        const partyDocRejected =
+          rejectedSet.has('civil_id_copy') ||
+          rejectedSet.has('passport_copy') ||
+          rejectedSet.has('cr_copy');
+        const strippedParty = partyDocRejected
+          ? stripRejectedPartyDocumentCopies(row.snapshot.party, rejectedSet)
+          : undefined;
+        const evidenceEventId = row.snapshot.esign?.evidenceEventId ?? null;
         const nextLifecycle: ReservationLifecycle = {
-          bookingDocsReturn: { at, byName, note, resolvedAt: null },
+          bookingDocsReturn: {
+            at,
+            byName,
+            note,
+            resolvedAt: null,
+            rejected,
+            locked,
+            evidenceEventId,
+          },
           ...(row.lifecycle.paymentReview ? { paymentReview: row.lifecycle.paymentReview } : {}),
           ...(row.lifecycle.restoration ? { restoration: row.lifecycle.restoration } : {}),
         };
@@ -1025,7 +1068,7 @@ async function ownerActionInTx(
           clearEsign: true,
           ...(strippedParty ? { snapshot: { party: strippedParty } } : {}),
         });
-        await event('reservation.booking_docs_returned', { note });
+        await event('reservation.booking_docs_returned', { note, rejected, locked });
         break;
       }
 
@@ -2057,6 +2100,9 @@ export type ReservationFileKind =
   | 'id-back'
   | 'selfie'
   | 'contract-signature'
+  | 'party-civil-id'
+  | 'party-passport'
+  | 'party-cr'
   | `doc-${string}`
   | `cheque-${string}`;
 
@@ -2065,6 +2111,12 @@ const ESIGN_FIELDS: Record<string, string> = {
   'id-front': 'idFrontPng',
   'id-back': 'idBackPng',
   selfie: 'selfiePng',
+};
+
+const PARTY_FILE_PATH: Record<string, string[]> = {
+  'party-civil-id': ['person', 'civilIdCopy'],
+  'party-passport': ['person', 'passportCopy'],
+  'party-cr': ['company', 'crCopy'],
 };
 
 /**
@@ -2095,11 +2147,28 @@ export async function readReservationFileForStaff(
       const value = await handoverPhotoDataUrl(transaction, match.organizationId, lifecycle, file);
       return value ? { value, name: `${match.snapshot.referenceCode}-${file}` } : null;
     }
+    if (file in PARTY_FILE_PATH) {
+      let cursor: unknown = match.snapshot.party;
+      for (const key of PARTY_FILE_PATH[file]!) {
+        cursor =
+          cursor && typeof cursor === 'object' ? (cursor as Record<string, unknown>)[key] : null;
+      }
+      const attach =
+        cursor && typeof cursor === 'object'
+          ? (cursor as { dataUrl?: unknown; name?: unknown })
+          : null;
+      const value = typeof attach?.dataUrl === 'string' ? attach.dataUrl : null;
+      const name = typeof attach?.name === 'string' ? attach.name : file;
+      return value ? { value, name } : null;
+    }
     let eventId: string | null = null;
     let path: string[] = [];
     let name = file;
     if (file in ESIGN_FIELDS) {
-      eventId = match.snapshot.esign?.evidenceEventId ?? null;
+      eventId =
+        match.snapshot.esign?.evidenceEventId ??
+        lifecycle.bookingDocsReturn?.evidenceEventId ??
+        null;
       path = ['esign', ESIGN_FIELDS[file]!];
     } else if (file === 'contract-signature') {
       eventId = lifecycle.tenantSignature?.evidenceEventId ?? null;
@@ -2152,13 +2221,73 @@ export async function readReservationFileForTenant(
   referenceCode: string,
   file: string,
 ): Promise<{ mimeType: string; bytes: Buffer; name: string } | null> {
-  if (!/^doc-[a-z0-9_]{2,40}$/i.test(file) && !/^cheque-[a-z0-9_.-]{2,80}$/i.test(file)) {
-    return null;
-  }
+  const isDoc = /^doc-[a-z0-9_]{2,40}$/i.test(file);
+  const isCheque = /^cheque-[a-z0-9_.-]{2,80}$/i.test(file);
+  const isEsign = file in ESIGN_FIELDS;
+  const isParty = file in PARTY_FILE_PATH;
+  if (!isDoc && !isCheque && !isEsign && !isParty) return null;
   const { db } = getDatabase();
   const dataUrl = await db.transaction(async (transaction) => {
     const current = await customerReservation(transaction, claims.sub, referenceCode);
     const lifecycle = current.lifecycle;
+    const docsReturn =
+      lifecycle.bookingDocsReturn && !lifecycle.bookingDocsReturn.resolvedAt
+        ? lifecycle.bookingDocsReturn
+        : null;
+
+    if (isParty) {
+      // Only locked party copies stay visible while a docs-return is open.
+      const code =
+        file === 'party-civil-id'
+          ? 'civil_id_copy'
+          : file === 'party-passport'
+            ? 'passport_copy'
+            : 'cr_copy';
+      if (docsReturn && !(docsReturn.locked ?? []).includes(code as BookingIdentityDocCode)) {
+        return null;
+      }
+      let cursor: unknown = current.snapshot.party;
+      for (const key of PARTY_FILE_PATH[file]!) {
+        cursor =
+          cursor && typeof cursor === 'object' ? (cursor as Record<string, unknown>)[key] : null;
+      }
+      const attach =
+        cursor && typeof cursor === 'object'
+          ? (cursor as { dataUrl?: unknown; name?: unknown })
+          : null;
+      const value = typeof attach?.dataUrl === 'string' ? attach.dataUrl : null;
+      const name = typeof attach?.name === 'string' ? attach.name : file;
+      return value ? { value, name } : null;
+    }
+
+    if (isEsign) {
+      if (!docsReturn || !(docsReturn.locked ?? []).includes(file as BookingIdentityDocCode)) {
+        return null;
+      }
+      const eventId = docsReturn.evidenceEventId ?? null;
+      if (!eventId) return null;
+      const path = ['esign', ESIGN_FIELDS[file]!];
+      const value = await withElevatedRead(transaction, async () => {
+        const [row] = await transaction
+          .select({ metadata: workflowEvents.metadata })
+          .from(workflowEvents)
+          .where(
+            and(
+              eq(workflowEvents.id, eventId),
+              eq(workflowEvents.organizationId, current.match.organizationId),
+            ),
+          )
+          .limit(1);
+        let cursor: unknown = row?.metadata;
+        for (const key of path) {
+          cursor =
+            cursor && typeof cursor === 'object' ? (cursor as Record<string, unknown>)[key] : null;
+        }
+        return typeof cursor === 'string' ? cursor : null;
+      });
+      return value ? { value, name: file } : null;
+    }
+
     let eventId: string | null = null;
     let name = file;
     if (file.startsWith('doc-')) {

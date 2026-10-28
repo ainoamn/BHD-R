@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchBrowserCsrfToken } from '@/lib/api';
 import { stayConfirmedReturnPath } from '@/lib/stay-esign-flags';
@@ -9,8 +9,24 @@ import { EsignSignaturePad } from '@/components/stays/esign/esign-signature-pad'
 import { OmaniIdFrame, SelfiePortraitFrame } from '@/components/stays/esign/omani-id-frame';
 
 type Step = 'contract' | 'sign' | 'id_front' | 'id_back' | 'selfie' | 'review' | 'done';
+type CaptureStep = 'sign' | 'id_front' | 'id_back' | 'selfie';
 
-const STEP_ORDER: Step[] = ['contract', 'sign', 'id_front', 'id_back', 'selfie', 'review', 'done'];
+const CAPTURE_STEPS: CaptureStep[] = ['sign', 'id_front', 'id_back', 'selfie'];
+
+const STEP_CODE: Record<CaptureStep, 'signature' | 'id-front' | 'id-back' | 'selfie'> = {
+  sign: 'signature',
+  id_front: 'id-front',
+  id_back: 'id-back',
+  selfie: 'selfie',
+};
+
+export type StayEsignDocsReturn = {
+  note: string;
+  rejected: string[];
+  locked: string[];
+  /** Absolute or relative URL to a locked capture the tenant can view but not replace. */
+  lockedFileUrl: (code: 'signature' | 'id-front' | 'id-back' | 'selfie') => string;
+};
 
 export function StayEsignWizard({
   locale,
@@ -23,6 +39,7 @@ export function StayEsignWizard({
   continuePath,
   contractTitle,
   requireCsrf = false,
+  docsReturn = null,
 }: {
   locale: string;
   referenceCode: string;
@@ -38,9 +55,19 @@ export function StayEsignWizard({
   contractTitle?: { ar: string; en: string };
   /** Signed-in flows (long-term bookings) post with the session CSRF token. */
   requireCsrf?: boolean;
+  /** Owner asked for selective document fixes; locked captures stay read-only. */
+  docsReturn?: StayEsignDocsReturn | null;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
+  const locked = useMemo(
+    () => new Set((docsReturn?.locked ?? []).map((code) => code.trim())),
+    [docsReturn],
+  );
+  const captureOpen = useCallback(
+    (step: CaptureStep) => !locked.has(STEP_CODE[step]),
+    [locked],
+  );
   const [step, setStep] = useState<Step>(initiallyComplete ? 'done' : 'contract');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,16 +77,61 @@ export function StayEsignWizard({
   const [selfie, setSelfie] = useState<string | null>(null);
   const [signedAtLabel, setSignedAtLabel] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!docsReturn) return;
+    // Locked previews use file URLs; open captures start empty.
+    if (locked.has('signature')) setSignatureDataUrl(docsReturn.lockedFileUrl('signature'));
+    if (locked.has('id-front')) setIdFront(docsReturn.lockedFileUrl('id-front'));
+    if (locked.has('id-back')) setIdBack(docsReturn.lockedFileUrl('id-back'));
+    if (locked.has('selfie')) setSelfie(docsReturn.lockedFileUrl('selfie'));
+  }, [docsReturn, locked]);
+
   const goToConfirmed = useCallback(() => {
     router.push(continuePath ?? stayConfirmedReturnPath(locale, referenceCode));
   }, [continuePath, locale, referenceCode, router]);
 
-  const progressIndex = useMemo(() => {
-    const idx = STEP_ORDER.indexOf(step);
-    return idx < 0 ? 0 : Math.min(idx, STEP_ORDER.length - 2);
-  }, [step]);
+  const nextAfter = useCallback(
+    (from: CaptureStep | 'contract'): Step => {
+      const start = from === 'contract' ? -1 : CAPTURE_STEPS.indexOf(from);
+      for (let i = start + 1; i < CAPTURE_STEPS.length; i += 1) {
+        const candidate = CAPTURE_STEPS[i]!;
+        if (captureOpen(candidate)) return candidate;
+      }
+      return 'review';
+    },
+    [captureOpen],
+  );
 
-  const progressTotal = STEP_ORDER.length - 1; // exclude done from "active" bar scale
+  const prevBefore = useCallback(
+    (from: CaptureStep | 'review'): Step => {
+      if (from === 'review') {
+        for (let i = CAPTURE_STEPS.length - 1; i >= 0; i -= 1) {
+          const candidate = CAPTURE_STEPS[i]!;
+          if (captureOpen(candidate)) return candidate;
+        }
+        return 'contract';
+      }
+      const start = CAPTURE_STEPS.indexOf(from);
+      for (let i = start - 1; i >= 0; i -= 1) {
+        const candidate = CAPTURE_STEPS[i]!;
+        if (captureOpen(candidate)) return candidate;
+      }
+      return 'contract';
+    },
+    [captureOpen],
+  );
+
+  const activeCaptureOrder = useMemo(
+    () => CAPTURE_STEPS.filter((item) => captureOpen(item)),
+    [captureOpen],
+  );
+  const progressIndex = useMemo(() => {
+    if (step === 'contract') return 0;
+    if (step === 'review' || step === 'done') return activeCaptureOrder.length + 1;
+    const idx = activeCaptureOrder.indexOf(step as CaptureStep);
+    return idx < 0 ? 1 : idx + 1;
+  }, [activeCaptureOrder, step]);
+  const progressTotal = Math.max(2, activeCaptureOrder.length + 2);
   const progressPct = Math.round(((progressIndex + 1) / progressTotal) * 100);
 
   const stepTitle = useMemo(() => {
@@ -85,8 +157,17 @@ export function StayEsignWizard({
   }, [ar, contractTitle, step]);
 
   async function submitEsign() {
-    if (!signatureDataUrl || !idFront || !idBack || !selfie) {
-      setError(ar ? 'أكمل التوقيع وصور الهوية والسيلفي' : 'Complete signature and all photos');
+    const needSignature = captureOpen('sign');
+    const needFront = captureOpen('id_front');
+    const needBack = captureOpen('id_back');
+    const needSelfie = captureOpen('selfie');
+    if (
+      (needSignature && !signatureDataUrl?.startsWith('data:image/')) ||
+      (needFront && !idFront?.startsWith('data:image/')) ||
+      (needBack && !idBack?.startsWith('data:image/')) ||
+      (needSelfie && !selfie?.startsWith('data:image/'))
+    ) {
+      setError(ar ? 'أكمل التوقيع وصور الهوية المطلوبة' : 'Complete the required signature and photos');
       return;
     }
     setBusy(true);
@@ -104,10 +185,10 @@ export function StayEsignWizard({
             ...(requireCsrf ? { 'x-csrf-token': await fetchBrowserCsrfToken() } : {}),
           },
           body: JSON.stringify({
-            signaturePng: signatureDataUrl,
-            idFrontPng: idFront,
-            idBackPng: idBack,
-            selfiePng: selfie,
+            ...(needSignature ? { signaturePng: signatureDataUrl } : {}),
+            ...(needFront ? { idFrontPng: idFront } : {}),
+            ...(needBack ? { idBackPng: idBack } : {}),
+            ...(needSelfie ? { selfiePng: selfie } : {}),
           }),
         },
       );
@@ -133,6 +214,36 @@ export function StayEsignWizard({
     } finally {
       setBusy(false);
     }
+  }
+
+  function reviewCard(
+    label: string,
+    src: string | null,
+    open: boolean,
+    editStep: CaptureStep,
+  ) {
+    if (!src) return null;
+    return (
+      <figure className={`esign-review-card${editStep === 'selfie' ? ' esign-review-card--portrait' : ''}`}>
+        <figcaption>
+          {label}
+          {!open ? (
+            <span className="esign-review-locked">{ar ? 'معتمد — مقفل' : 'Approved — locked'}</span>
+          ) : null}
+        </figcaption>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" />
+        {open ? (
+          <button type="button" className="button button--quiet" onClick={() => setStep(editStep)}>
+            {ar ? 'تعديل' : 'Edit'}
+          </button>
+        ) : (
+          <p className="muted esign-review-locked-note">
+            {ar ? 'اعتمده المالك ولا يمكن تغييره' : 'Approved by the owner — cannot be changed'}
+          </p>
+        )}
+      </figure>
+    );
   }
 
   return (
@@ -161,6 +272,17 @@ export function StayEsignWizard({
       <div className="stay-esign__body">
         {step === 'contract' ? (
           <section className="stay-esign__panel stay-esign__panel--scroll">
+            {docsReturn?.note ? (
+              <p className="notice notice--info stay-esign__return-note" role="status">
+                {ar ? 'ملاحظة المالك: ' : 'Owner note: '}
+                «{docsReturn.note}»
+                {docsReturn.rejected.length
+                  ? ar
+                    ? ' — أعد التقاط المستندات المطلوبة فقط؛ المعتمدة مقفلة.'
+                    : ' — Re-capture only the requested documents; approved ones stay locked.'
+                  : null}
+              </p>
+            ) : null}
             <p className="muted stay-esign__lede">
               {contractTitle
                 ? ar
@@ -174,7 +296,7 @@ export function StayEsignWizard({
               <button
                 type="button"
                 className="button button--primary"
-                onClick={() => setStep('sign')}
+                onClick={() => setStep(nextAfter('contract'))}
               >
                 {ar ? 'الموافقة والمتابعة للتوقيع' : 'Agree & continue to sign'}
               </button>
@@ -190,21 +312,22 @@ export function StayEsignWizard({
           </section>
         ) : null}
 
-        {step === 'sign' ? (
+        {step === 'sign' && captureOpen('sign') ? (
           <section className="stay-esign__panel">
             <EsignSignaturePad
               locale={locale}
-              onBack={() => setStep('contract')}
+              onBack={() => setStep(prevBefore('sign'))}
               onAccept={(dataUrl) => {
                 setSignatureDataUrl(dataUrl);
                 setError(null);
-                setStep('id_front');
+                setStep(nextAfter('sign'));
               }}
             />
           </section>
         ) : null}
 
-        {step === 'id_front' || step === 'id_back' ? (
+        {(step === 'id_front' || step === 'id_back') &&
+        captureOpen(step === 'id_front' ? 'id_front' : 'id_back') ? (
           <section className="stay-esign__panel stay-esign__panel--capture">
             <p className="stay-esign__guide">
               {step === 'id_front'
@@ -236,10 +359,10 @@ export function StayEsignWizard({
                   setError(null);
                   if (step === 'id_front') {
                     setIdFront(dataUrl);
-                    setStep('id_back');
+                    setStep(nextAfter('id_front'));
                   } else {
                     setIdBack(dataUrl);
-                    setStep('selfie');
+                    setStep(nextAfter('id_back'));
                   }
                 }}
               />
@@ -248,7 +371,7 @@ export function StayEsignWizard({
               <button
                 type="button"
                 className="button button--quiet"
-                onClick={() => setStep(step === 'id_front' ? 'sign' : 'id_front')}
+                onClick={() => setStep(prevBefore(step === 'id_front' ? 'id_front' : 'id_back'))}
               >
                 {ar ? 'رجوع' : 'Back'}
               </button>
@@ -256,7 +379,7 @@ export function StayEsignWizard({
           </section>
         ) : null}
 
-        {step === 'selfie' ? (
+        {step === 'selfie' && captureOpen('selfie') ? (
           <section className="stay-esign__panel stay-esign__panel--capture">
             <p className="stay-esign__guide">
               {ar
@@ -278,7 +401,7 @@ export function StayEsignWizard({
                 onCaptured={(dataUrl) => {
                   setError(null);
                   setSelfie(dataUrl);
-                  setStep('review');
+                  setStep(nextAfter('selfie'));
                 }}
               />
             </div>
@@ -286,7 +409,7 @@ export function StayEsignWizard({
               <button
                 type="button"
                 className="button button--quiet"
-                onClick={() => setStep('id_back')}
+                onClick={() => setStep(prevBefore('selfie'))}
               >
                 {ar ? 'رجوع' : 'Back'}
               </button>
@@ -302,62 +425,10 @@ export function StayEsignWizard({
                 : 'Review attachments before completing e-sign.'}
             </p>
             <div className="esign-review-grid">
-              {signatureDataUrl ? (
-                <figure className="esign-review-card">
-                  <figcaption>{ar ? 'التوقيع' : 'Signature'}</figcaption>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={signatureDataUrl} alt="" />
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    onClick={() => setStep('sign')}
-                  >
-                    {ar ? 'تعديل' : 'Edit'}
-                  </button>
-                </figure>
-              ) : null}
-              {idFront ? (
-                <figure className="esign-review-card">
-                  <figcaption>{ar ? 'البطاقة — أمام' : 'ID — front'}</figcaption>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={idFront} alt="" />
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    onClick={() => setStep('id_front')}
-                  >
-                    {ar ? 'تعديل' : 'Edit'}
-                  </button>
-                </figure>
-              ) : null}
-              {idBack ? (
-                <figure className="esign-review-card">
-                  <figcaption>{ar ? 'البطاقة — خلف' : 'ID — back'}</figcaption>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={idBack} alt="" />
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    onClick={() => setStep('id_back')}
-                  >
-                    {ar ? 'تعديل' : 'Edit'}
-                  </button>
-                </figure>
-              ) : null}
-              {selfie ? (
-                <figure className="esign-review-card esign-review-card--portrait">
-                  <figcaption>{ar ? 'الصورة الشخصية' : 'Portrait'}</figcaption>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={selfie} alt="" />
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    onClick={() => setStep('selfie')}
-                  >
-                    {ar ? 'تعديل' : 'Edit'}
-                  </button>
-                </figure>
-              ) : null}
+              {reviewCard(ar ? 'التوقيع' : 'Signature', signatureDataUrl, captureOpen('sign'), 'sign')}
+              {reviewCard(ar ? 'البطاقة — أمام' : 'ID — front', idFront, captureOpen('id_front'), 'id_front')}
+              {reviewCard(ar ? 'البطاقة — خلف' : 'ID — back', idBack, captureOpen('id_back'), 'id_back')}
+              {reviewCard(ar ? 'الصورة الشخصية' : 'Portrait', selfie, captureOpen('selfie'), 'selfie')}
             </div>
           </section>
         ) : null}
@@ -409,7 +480,7 @@ export function StayEsignWizard({
 
       {step === 'review' ? (
         <footer className="stay-esign__dock">
-          <button type="button" className="button button--quiet" onClick={() => setStep('selfie')}>
+          <button type="button" className="button button--quiet" onClick={() => setStep(prevBefore('review'))}>
             {ar ? 'رجوع' : 'Back'}
           </button>
           <button

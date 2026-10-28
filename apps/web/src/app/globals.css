@@ -23097,6 +23097,71 @@ button.lrw__step-body:focus-visible {
   border-radius: 0.5rem;
   background: #eef2f0;
 }
+.lrw__return-docs {
+  display: grid;
+  gap: 0.65rem;
+  flex-basis: 100%;
+  width: 100%;
+}
+.lrw__return-docs-lead {
+  margin: 0;
+  font-size: 0.92rem;
+}
+.lrw__return-docs-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lrw__return-doc {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid #d7e1db;
+  border-inline-start: 4px solid #1f6b45;
+  border-radius: 0.7rem;
+  background: #fafcfa;
+}
+.lrw__return-doc--fix {
+  border-inline-start-color: #c98a12;
+  background: #fffaf0;
+}
+.lrw__return-doc-thumb {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 0.45rem;
+  overflow: hidden;
+}
+.lrw__return-doc-thumb img {
+  display: block;
+  width: 4.5rem;
+  height: 3.4rem;
+  object-fit: cover;
+  background: #eef2f0;
+}
+.lrw__return-doc-main {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+.lrw__return-doc-main strong {
+  font-size: 0.92rem;
+}
+.lrw__return-doc-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
 @media (max-width: 720px) {
   .lrw {
     gap: 0.6rem;
@@ -23805,6 +23870,24 @@ button.lrw__step-body:focus-visible {
 }
 .esign-review-card--portrait img {
   aspect-ratio: 3 / 4;
+}
+.esign-review-locked {
+  display: inline-block;
+  margin-inline-start: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: rgb(31 107 69 / 0.35);
+  color: #d7f0e3;
+  vertical-align: middle;
+}
+.esign-review-locked-note {
+  margin: 0;
+  font-size: 0.75rem;
+}
+.stay-esign__return-note {
+  margin: 0 0 0.75rem;
 }
 @media (max-width: 420px) {
   .esign-review-grid {

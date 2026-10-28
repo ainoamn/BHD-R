@@ -34,8 +34,10 @@ import { reservationSignatureSerial } from '@/lib/contract-verify';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 import {
   approvedElectronically,
+  BOOKING_ESIGN_DOC_CODES,
   leaseJourneyPhase,
   lifecycleOf,
+  type BookingEsignDocCode,
   type ReservationLifecycle,
 } from '@/lib/lease-reservation-lifecycle';
 import { effectiveMinLeaseMonths } from '@/lib/lease-min-term-neon';
@@ -870,6 +872,8 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
             at: lifecycle.bookingDocsReturn.at,
             note: lifecycle.bookingDocsReturn.note,
             byName: lifecycle.bookingDocsReturn.byName,
+            rejected: lifecycle.bookingDocsReturn.rejected ?? [],
+            locked: lifecycle.bookingDocsReturn.locked ?? [],
           }
         : null,
     tenantSignedAt: lifecycle.tenantSignature?.signedAt ?? null,
@@ -1152,10 +1156,25 @@ async function leaseBookingAgreementData(transaction: Tx, match: LeaseReservatio
   });
 }
 
+const ESIGN_PNG_FIELD: Record<
+  BookingEsignDocCode,
+  'signaturePng' | 'idFrontPng' | 'idBackPng' | 'selfiePng'
+> = {
+  signature: 'signaturePng',
+  'id-front': 'idFrontPng',
+  'id-back': 'idBackPng',
+  selfie: 'selfiePng',
+};
+
 export async function completeLeaseEsign(
   claims: SessionClaims,
   referenceCode: string,
-  input: { signaturePng: string; idFrontPng: string; idBackPng: string; selfiePng: string },
+  input: {
+    signaturePng?: string | undefined;
+    idFrontPng?: string | undefined;
+    idBackPng?: string | undefined;
+    selfiePng?: string | undefined;
+  },
 ) {
   const normalized = normalizeLeaseReference(referenceCode);
   if (!normalized) fail('not_found');
@@ -1186,6 +1205,60 @@ export async function completeLeaseEsign(
     }
     if (fresh.status !== 'confirmed' && fresh.status !== 'converted') fail('booking_expired');
 
+    const lifecycle = lifecycleOf(snapshot);
+    const docsReturn =
+      lifecycle.bookingDocsReturn && !lifecycle.bookingDocsReturn.resolvedAt
+        ? lifecycle.bookingDocsReturn
+        : null;
+    const lockedEsign = new Set<BookingEsignDocCode>(
+      (docsReturn?.locked ?? []).filter((code): code is BookingEsignDocCode =>
+        (BOOKING_ESIGN_DOC_CODES as readonly string[]).includes(code),
+      ),
+    );
+    const priorEvidenceId = docsReturn?.evidenceEventId ?? null;
+    let prior: Partial<Record<'signaturePng' | 'idFrontPng' | 'idBackPng' | 'selfiePng', string>> =
+      {};
+    if (lockedEsign.size && priorEvidenceId) {
+      const [row] = await withElevatedRead(transaction, async () =>
+        transaction
+          .select({ metadata: workflowEvents.metadata })
+          .from(workflowEvents)
+          .where(
+            and(
+              eq(workflowEvents.id, priorEvidenceId),
+              eq(workflowEvents.organizationId, match.organizationId),
+            ),
+          )
+          .limit(1),
+      );
+      const esignMeta =
+        row?.metadata && typeof row.metadata === 'object'
+          ? (row.metadata as { esign?: Record<string, unknown> }).esign
+          : null;
+      if (esignMeta) {
+        for (const field of ['signaturePng', 'idFrontPng', 'idBackPng', 'selfiePng'] as const) {
+          const value = esignMeta[field];
+          if (typeof value === 'string' && SIGNATURE_IMAGE.test(value)) prior[field] = value;
+        }
+      }
+    }
+
+    const pick = (code: BookingEsignDocCode, fromInput: string | undefined): string => {
+      const field = ESIGN_PNG_FIELD[code];
+      if (lockedEsign.has(code)) {
+        const kept = prior[field];
+        if (!kept) fail('not_ready');
+        return kept;
+      }
+      if (!fromInput || !SIGNATURE_IMAGE.test(fromInput)) fail('not_ready');
+      return fromInput;
+    };
+
+    const signaturePng = pick('signature', input.signaturePng);
+    const idFrontPng = pick('id-front', input.idFrontPng);
+    const idBackPng = pick('id-back', input.idBackPng);
+    const selfiePng = pick('selfie', input.selfiePng);
+
     const signedAt = new Date().toISOString();
     // Evidence images live on their own resource type so reservation timelines stay light.
     const evidence = await transaction
@@ -1200,10 +1273,11 @@ export async function completeLeaseEsign(
           referenceCode: normalized,
           esign: {
             signedAt,
-            signaturePng: input.signaturePng,
-            idFrontPng: input.idFrontPng,
-            idBackPng: input.idBackPng,
-            selfiePng: input.selfiePng,
+            signaturePng,
+            idFrontPng,
+            idBackPng,
+            selfiePng,
+            reusedLocked: [...lockedEsign],
           },
         },
       })
@@ -1226,6 +1300,7 @@ export async function completeLeaseEsign(
         hasIdFront: true,
         hasIdBack: true,
         hasSelfie: true,
+        reusedLocked: [...lockedEsign],
       },
     });
 

@@ -136,6 +136,17 @@ export default async function LeaseBookingSignPage({
         continuePath={leaseConfirmedPath(locale, booking.referenceCode)}
         contractTitle={title}
         requireCsrf
+        docsReturn={
+          booking.lifecycle.bookingDocsReturn
+            ? {
+                note: booking.lifecycle.bookingDocsReturn.note,
+                rejected: booking.lifecycle.bookingDocsReturn.rejected ?? [],
+                locked: booking.lifecycle.bookingDocsReturn.locked ?? [],
+                lockedFileUrl: (code) =>
+                  `/api/public/bookings/deposits/${encodeURIComponent(booking.referenceCode)}/files/${code}`,
+              }
+            : null
+        }
       />
     </main>
   );

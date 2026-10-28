@@ -59,8 +59,8 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
             : t('خطوة صغيرة تفصلك عن حجزك 🖊️', 'One small step to secure it 🖊️'),
           body: docsReturnOpen
             ? t(
-                `العربون ${deposit} محفوظ. ملاحظة المالك: «${docsReturn?.note ?? ''}». ارفع المستندات الصحيحة ووقّع اتفاقية الحجز من جديد.`,
-                `Your ${deposit} deposit is kept. Owner note: “${docsReturn?.note ?? ''}”. Re-upload the correct documents and e-sign the booking agreement again.`,
+                `العربون ${deposit} محفوظ. ملاحظة المالك: «${docsReturn?.note ?? ''}». عدّل المستندات المطلوبة فقط — المعتمدة مقفلة — ثم وقّع اتفاقية الحجز من جديد.`,
+                `Your ${deposit} deposit is kept. Owner note: “${docsReturn?.note ?? ''}”. Fix only the requested documents — approved ones stay locked — then e-sign the booking agreement again.`,
               )
             : t(
                 `استلمنا العربون ${deposit} بأمان. بقي أن توقّع اتفاقية الحجز إلكترونياً مع صورة هويتك — دقيقتان لا أكثر، ثم نرسل حجزك للمالك.`,

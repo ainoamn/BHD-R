@@ -9,12 +9,13 @@ import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-li
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+const optionalCapture = z.string().startsWith('data:image/').max(900_000).optional();
 const bodySchema = z
   .object({
-    signaturePng: z.string().startsWith('data:image/').max(900_000),
-    idFrontPng: z.string().startsWith('data:image/').max(900_000),
-    idBackPng: z.string().startsWith('data:image/').max(900_000),
-    selfiePng: z.string().startsWith('data:image/').max(900_000),
+    signaturePng: optionalCapture,
+    idFrontPng: optionalCapture,
+    idBackPng: optionalCapture,
+    selfiePng: optionalCapture,
   })
   .strict();
 

@@ -127,6 +127,20 @@ const bodySchema = z.discriminatedUnion('action', [
     .object({
       action: z.literal('return_booking_docs'),
       note: z.string().trim().min(2).max(500),
+      rejected: z
+        .array(
+          z.enum([
+            'id-front',
+            'id-back',
+            'selfie',
+            'signature',
+            'civil_id_copy',
+            'passport_copy',
+            'cr_copy',
+          ]),
+        )
+        .min(1)
+        .max(12),
     })
     .strict(),
   z

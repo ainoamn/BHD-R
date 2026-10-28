@@ -167,14 +167,94 @@ export type ReservationLifecycle = {
   /**
    * Owner returned the booking so the client re-uploads booking / identity documents
    * and re-signs the booking agreement. While `resolvedAt` is null, auto-approval is skipped.
+   * `rejected` must be re-captured; `locked` stay as-is and the tenant cannot replace them.
    */
   bookingDocsReturn?: {
     at: string;
     byName: string | null;
     note: string;
     resolvedAt?: string | null;
+    rejected?: BookingIdentityDocCode[];
+    locked?: BookingIdentityDocCode[];
+    /** Prior e-sign evidence kept so locked captures remain readable and reusable. */
+    evidenceEventId?: string | null;
   };
 };
+
+/** Identity / booking captures the owner can selectively return for a fix. */
+export const BOOKING_IDENTITY_DOC_CODES = [
+  'id-front',
+  'id-back',
+  'selfie',
+  'signature',
+  'civil_id_copy',
+  'passport_copy',
+  'cr_copy',
+] as const;
+
+export type BookingIdentityDocCode = (typeof BOOKING_IDENTITY_DOC_CODES)[number];
+
+export const BOOKING_IDENTITY_DOC_LABELS: Record<
+  BookingIdentityDocCode,
+  { ar: string; en: string }
+> = {
+  'id-front': { ar: 'الهوية — الوجه الأمامي', en: 'ID — front' },
+  'id-back': { ar: 'الهوية — الوجه الخلفي', en: 'ID — back' },
+  selfie: { ar: 'صورة السيلفي', en: 'Selfie' },
+  signature: { ar: 'التوقيع', en: 'Signature' },
+  civil_id_copy: { ar: 'نسخة البطاقة الشخصية', en: 'Civil ID copy' },
+  passport_copy: { ar: 'نسخة جواز السفر', en: 'Passport copy' },
+  cr_copy: { ar: 'نسخة السجل التجاري', en: 'CR copy' },
+};
+
+export const BOOKING_ESIGN_DOC_CODES = [
+  'id-front',
+  'id-back',
+  'selfie',
+  'signature',
+] as const satisfies readonly BookingIdentityDocCode[];
+
+export type BookingEsignDocCode = (typeof BOOKING_ESIGN_DOC_CODES)[number];
+
+/** File path segment under `/api/owner/bookings/:id/files/:file` for a booking identity doc. */
+export function bookingIdentityFileKind(code: BookingIdentityDocCode): string {
+  switch (code) {
+    case 'civil_id_copy':
+      return 'party-civil-id';
+    case 'passport_copy':
+      return 'party-passport';
+    case 'cr_copy':
+      return 'party-cr';
+    default:
+      return code;
+  }
+}
+
+export function isBookingIdentityDocCode(value: string): value is BookingIdentityDocCode {
+  return (BOOKING_IDENTITY_DOC_CODES as readonly string[]).includes(value);
+}
+
+/** Which identity captures exist on a booking and can be returned selectively. */
+export function listBookingIdentityDocs(input: {
+  hasEsign: boolean;
+  party?: {
+    entityType?: string | null;
+    person?: { civilIdCopy?: unknown; passportCopy?: unknown } | null;
+    company?: { crCopy?: unknown } | null;
+  } | null;
+}): BookingIdentityDocCode[] {
+  const codes: BookingIdentityDocCode[] = [];
+  if (input.hasEsign) codes.push(...(BOOKING_ESIGN_DOC_CODES as readonly BookingIdentityDocCode[]));
+  const party = input.party;
+  if (party?.entityType === 'person' && party.person) {
+    if (party.person.civilIdCopy) codes.push('civil_id_copy');
+    if (party.person.passportCopy) codes.push('passport_copy');
+  }
+  if (party?.entityType === 'company' && party.company?.crCopy) {
+    codes.push('cr_copy');
+  }
+  return codes;
+}
 
 /** One cheque the tenant must prepare after the owner saves a cheque-payment contract. */
 export type ReservationChequeInstruction = {

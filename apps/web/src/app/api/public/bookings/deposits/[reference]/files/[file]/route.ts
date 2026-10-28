@@ -7,7 +7,8 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 20;
 
-const FILE = /^(?:doc-[a-z0-9_]{2,40}|cheque-[a-z0-9_.-]{2,80})$/i;
+const FILE =
+  /^(?:signature|id-front|id-back|selfie|party-civil-id|party-passport|party-cr|doc-[a-z0-9_]{2,40}|cheque-[a-z0-9_.-]{2,80})$/i;
 
 /**
  * GET /api/public/bookings/deposits/:reference/files/:file

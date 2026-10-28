@@ -35,12 +35,16 @@ import {
   type LeaseDocumentRules,
 } from '@/lib/lease-document-rules';
 import {
+  BOOKING_IDENTITY_DOC_LABELS,
+  bookingIdentityFileKind,
   documentsPhase,
   documentsToVerify,
   leaseJourneyStageIndex,
   leaseJourneyStageLabels,
   leasePhaseLabel,
+  listBookingIdentityDocs,
   REQUIREMENT_CATALOGUE,
+  type BookingIdentityDocCode,
   type LeaseJourneyPhase,
   type ReservationLifecycle,
   type ReservationRequirement,
@@ -333,6 +337,9 @@ function OwnerBookingActionsCard({
   canManage,
   busy,
   hasIssuedContract,
+  hasEsign,
+  party,
+  fileHref,
   onReturnDocs,
   onCancel,
 }: {
@@ -341,24 +348,44 @@ function OwnerBookingActionsCard({
   canManage: boolean;
   busy: boolean;
   hasIssuedContract: boolean;
-  onReturnDocs: (note: string) => Promise<void>;
+  hasEsign: boolean;
+  party: ReservationParty | null;
+  fileHref: (file: string) => string;
+  onReturnDocs: (note: string, rejected: BookingIdentityDocCode[]) => Promise<void>;
   onCancel: (note: string) => Promise<void>;
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
+  const preview = useContext(PreviewContext);
   const [mode, setMode] = useState<'return' | 'cancel' | null>(null);
   const [note, setNote] = useState('');
+  const [rejected, setRejected] = useState<Set<BookingIdentityDocCode>>(() => new Set());
+  const identityDocs = useMemo(
+    () => listBookingIdentityDocs({ hasEsign, party }),
+    [hasEsign, party],
+  );
 
   if (!canManage || !OWNER_BOOKING_ACTION_PHASES.has(phase)) return null;
-  const canReturn = !hasIssuedContract && phase !== 'awaiting_tenant_signature';
+  const canReturn =
+    !hasIssuedContract && phase !== 'awaiting_tenant_signature' && identityDocs.length > 0;
+  const returnReady = note.trim().length >= 2 && rejected.size > 0;
+
+  function toggleRejected(code: BookingIdentityDocCode) {
+    setRejected((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
+  }
 
   return (
     <div className="lrw__card lrw__card--action">
       <h3>{t('إجراء على الحجز', 'Booking action')}</h3>
       <p className="muted">
         {t(
-          'إن كانت مستندات الحجز أو الهوية غير مطابقة للاشتراطات، أرجع الطلب للعميل ليعدّلها، أو ألغِ الحجز عند المخالفة الجسيمة.',
-          'If booking or identity documents break the rules, return the request so the client can fix them, or cancel the booking for a serious violation.',
+          'إن كانت مستندات الحجز أو الهوية غير مطابقة للاشتراطات، اختر المستندات المطلوب تعديلها وأرجعها للعميل، أو ألغِ الحجز عند المخالفة الجسيمة.',
+          'If booking or identity documents break the rules, select the ones that need fixing and return them, or cancel the booking for a serious violation.',
         )}
       </p>
       <div className="form-actions" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -370,6 +397,7 @@ function OwnerBookingActionsCard({
             onClick={() => {
               setMode(mode === 'return' ? null : 'return');
               setNote('');
+              setRejected(new Set());
             }}
           >
             {t('طلب تعديل مستندات الحجز', 'Request booking document fixes')}
@@ -382,6 +410,7 @@ function OwnerBookingActionsCard({
           onClick={() => {
             setMode(mode === 'cancel' ? null : 'cancel');
             setNote('');
+            setRejected(new Set());
           }}
         >
           {t('إلغاء الحجز', 'Cancel booking')}
@@ -394,15 +423,78 @@ function OwnerBookingActionsCard({
             event.preventDefault();
             if (note.trim().length < 2) return;
             const text = note.trim();
-            void (mode === 'return' ? onReturnDocs(text) : onCancel(text)).then(() => {
+            if (mode === 'return') {
+              if (!rejected.size) return;
+              void onReturnDocs(text, [...rejected]).then(() => {
+                setMode(null);
+                setNote('');
+                setRejected(new Set());
+              });
+              return;
+            }
+            void onCancel(text).then(() => {
               setMode(null);
               setNote('');
+              setRejected(new Set());
             });
           }}
         >
+          {mode === 'return' ? (
+            <div className="lrw__return-docs">
+              <p className="lrw__return-docs-lead">
+                {t(
+                  'اختر المستندات المطلوب تعديلها. الباقي يُعتمد ويُقفل فلا يستطيع العميل تغييره.',
+                  'Select the documents that must be fixed. The rest stay approved and locked so the client cannot change them.',
+                )}
+              </p>
+              <ul className="lrw__return-docs-list">
+                {identityDocs.map((code) => {
+                  const labels = BOOKING_IDENTITY_DOC_LABELS[code];
+                  const label = ar ? labels.ar : labels.en;
+                  const selected = rejected.has(code);
+                  const href = fileHref(bookingIdentityFileKind(code));
+                  return (
+                    <li
+                      key={code}
+                      className={`lrw__return-doc${selected ? ' lrw__return-doc--fix' : ' lrw__return-doc--lock'}`}
+                    >
+                      <button
+                        type="button"
+                        className="lrw__return-doc-thumb"
+                        onClick={() => preview({ href, label })}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={href} alt={label} loading="lazy" />
+                      </button>
+                      <div className="lrw__return-doc-main">
+                        <strong>{label}</strong>
+                        <span className="muted">
+                          {selected
+                            ? t('يُعاد للعميل للتعديل', 'Returned for the client to fix')
+                            : t('معتمد — يُقفل عند العميل', 'Approved — locked for the client')}
+                        </span>
+                      </div>
+                      <label className="lrw__return-doc-toggle">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          disabled={busy}
+                          onChange={() => toggleRejected(code)}
+                        />
+                        <span>{t('يحتاج تعديلاً', 'Needs a fix')}</span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
           <label htmlFor="owner-booking-action-note">
             {mode === 'return'
-              ? t('ما المطلوب تعديله؟ (يظهر للعميل)', 'What must be fixed? (shown to the client)')
+              ? t(
+                  'ملاحظة التعديل للمستندات المختارة (تظهر للعميل)',
+                  'Fix note for the selected documents (shown to the client)',
+                )
               : t('سبب الإلغاء (يظهر للعميل)', 'Cancellation reason (shown to the client)')}
           </label>
           <textarea
@@ -417,8 +509,8 @@ function OwnerBookingActionsCard({
             placeholder={
               mode === 'return'
                 ? t(
-                    'مثال: صورة الهوية غير واضحة / السجل التجاري لا يطابق الاسم',
-                    'e.g. ID photo is unclear / CR does not match the name',
+                    'مثال: صورة الهوية الأمامية غير واضحة',
+                    'e.g. The front ID photo is unclear',
                   )
                 : t(
                     'مثال: المستندات مخالفة للاشتراطات ولا يمكن قبول الحجز',
@@ -437,8 +529,8 @@ function OwnerBookingActionsCard({
           {mode === 'return' ? (
             <p className="notice notice--info">
               {t(
-                'يُعاد فتح التوقيع ورفع مستندات الحجز للعميل (العربون يبقى محفوظاً). لن يُعتمد الحجز تلقائياً بعد التعديل حتى تراجعه أنت.',
-                'The client must re-upload booking documents and re-sign (deposit is kept). Auto-approval stays off until you review and approve.',
+                'المستندات المختارة تُعاد للعميل مع ملاحظةك؛ المعتمدة تُقفل. العربون يبقى محفوظاً ولن يُعتمد الحجز تلقائياً حتى تراجعه أنت.',
+                'Selected documents go back with your note; approved ones stay locked. The deposit is kept and auto-approval stays off until you review.',
               )}
             </p>
           ) : (
@@ -453,7 +545,7 @@ function OwnerBookingActionsCard({
             <button
               type="submit"
               className={mode === 'cancel' ? 'button button--danger' : 'button button--primary'}
-              disabled={busy || note.trim().length < 2}
+              disabled={busy || (mode === 'return' ? !returnReady : note.trim().length < 2)}
             >
               {busy
                 ? t('جارٍ التنفيذ…', 'Working…')
@@ -468,6 +560,7 @@ function OwnerBookingActionsCard({
               onClick={() => {
                 setMode(null);
                 setNote('');
+                setRejected(new Set());
               }}
             >
               {t('إلغاء', 'Cancel')}
@@ -988,7 +1081,12 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               canManage={canManage}
               busy={busy}
               hasIssuedContract={Boolean(lifecycle.contract)}
-              onReturnDocs={(note) => act({ action: 'return_booking_docs', note })}
+              hasEsign={props.hasEsign}
+              party={props.party}
+              fileHref={fileHref}
+              onReturnDocs={(note, rejected) =>
+                act({ action: 'return_booking_docs', note, rejected })
+              }
               onCancel={(note) => act({ action: 'cancel_reservation', note })}
             />
 
