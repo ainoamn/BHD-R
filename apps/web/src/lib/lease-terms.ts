@@ -441,9 +441,11 @@ export function buildVatCheques(input: {
   return Array.from({ length: count }, (_, index) => {
     const monthOffset = Math.floor((index * span) / count);
     const anchor = addMonths(input.startsOn, monthOffset);
-    const due = dueDateInMonth(anchor, input.paymentDay);
     return {
-      dueOn: index === 0 && due < input.startsOn ? input.startsOn : due,
+      dueOn:
+        index === 0
+          ? dueOnOrAfter(input.startsOn, input.paymentDay)
+          : dueDateInMonth(anchor, input.paymentDay),
       amountMinor: index === count - 1 ? input.totalVatMinor - each * (count - 1) : each,
     };
   });
