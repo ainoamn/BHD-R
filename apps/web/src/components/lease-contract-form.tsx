@@ -415,6 +415,7 @@ export function LeaseContractForm({
   deferUntilHandover = [],
   municipalAfterHandover = false,
   lockTenantName = false,
+  lockStartsOn = false,
   tenantFromDirectory = false,
   paidDepositMinor = null,
   arabonReceiptHref = null,
@@ -455,6 +456,8 @@ export function LeaseContractForm({
   municipalAfterHandover?: boolean | undefined;
   /** Booking flow: Arabic tenant name is read-only from the client profile. */
   lockTenantName?: boolean | undefined;
+  /** Renewal: start date is fixed to the day after the previous contract ends. */
+  lockStartsOn?: boolean | undefined;
   /**
    * Booking flow: tenant is loaded from the reservation; change only via address book
    * (or add a new contact), not by typing fields.
@@ -525,9 +528,18 @@ export function LeaseContractForm({
       ...(termsSeed?.months ? { endsOn: endDateForMonths(base.startsOn, termsSeed.months) } : {}),
     };
   });
-  const [months, setMonths] = useState(() =>
-    !initialTerms && termsSeed?.months ? String(termsSeed.months) : '12',
-  );
+  const [months, setMonths] = useState(() => {
+    if (
+      initialTerms &&
+      isIsoDate(initialTerms.startsOn) &&
+      isIsoDate(initialTerms.endsOn) &&
+      initialTerms.endsOn > initialTerms.startsOn
+    ) {
+      return String(Math.max(1, contractPeriod(initialTerms.startsOn, initialTerms.endsOn).months));
+    }
+    if (termsSeed?.months) return String(termsSeed.months);
+    return '12';
+  });
   const [localError, setLocalError] = useState<string | null>(null);
   const [localBanks, setLocalBanks] = useState(bankAccounts);
   const [editingBankLink, setEditingBankLink] = useState(false);
@@ -2230,15 +2242,29 @@ export function LeaseContractForm({
             label={t('تاريخ البداية', 'Start date')}
             required
             missing={gap('starts')}
+            hint={
+              lockStartsOn
+                ? t(
+                    'ثابت: اليوم التالي لنهاية العقد السابق.',
+                    'Fixed: the day after the previous contract ends.',
+                  )
+                : undefined
+            }
           >
-            <input
-              id="lcf-start"
-              className="input"
-              type="date"
-              required
-              value={draft.startsOn}
-              onChange={(event) => changeStart(event.target.value)}
-            />
+            {lockStartsOn ? (
+              <output id="lcf-start" className="input lcf-output" dir="ltr">
+                {draft.startsOn}
+              </output>
+            ) : (
+              <input
+                id="lcf-start"
+                className="input"
+                type="date"
+                required
+                value={draft.startsOn}
+                onChange={(event) => changeStart(event.target.value)}
+              />
+            )}
           </Field>
           <Field
             id="lcf-end"

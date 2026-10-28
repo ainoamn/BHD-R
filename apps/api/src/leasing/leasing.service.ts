@@ -609,6 +609,10 @@ export class LeasingService {
         amount: { amountMinor: string; currency: string };
         dueOn: string;
       }>;
+      leaseTerms?: Record<string, unknown> | undefined;
+      chequeAccountName?: string | undefined;
+      chequeBankName?: string | undefined;
+      rentBankAccountId?: string | undefined;
     },
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
@@ -724,6 +728,10 @@ export class LeasingService {
         paymentFrequency: input.paymentFrequency ?? null,
         months: input.months ?? null,
         additionalTerms: input.additionalTerms ? sanitizeRichText(input.additionalTerms) : null,
+        chequeAccountName: input.chequeAccountName ?? null,
+        chequeBankName: input.chequeBankName ?? null,
+        rentBankAccountId: input.rentBankAccountId ?? null,
+        ...(input.leaseTerms ? { leaseTerms: input.leaseTerms } : {}),
       };
       const contractRows = await transaction
         .insert(contracts)

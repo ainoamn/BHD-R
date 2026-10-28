@@ -41,6 +41,7 @@ export type LeaseRenewalDraft = {
 };
 
 const PREFIX = 'bhd-r.lease-renewal-draft.';
+const PREFIX_V2 = 'bhd-r.lease-renewal-draft.v2.';
 
 export function renewalDraftKey(leaseId: string): string {
   return `${PREFIX}${leaseId}`;
@@ -75,11 +76,18 @@ export function clearRenewalDraft(leaseId: string): void {
   if (typeof window === 'undefined') return;
   try {
     window.localStorage.removeItem(renewalDraftKey(leaseId));
+    window.localStorage.removeItem(`${PREFIX_V2}${leaseId}`);
   } catch {
     /* ignore */
   }
 }
 
 export function hasRenewalDraft(leaseId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (window.localStorage.getItem(`${PREFIX_V2}${leaseId}`)) return true;
+  } catch {
+    /* ignore */
+  }
   return Boolean(readRenewalDraft(leaseId));
 }

@@ -104,6 +104,11 @@ const renewalSchema = z
       .max(48)
       .optional()
       .default([]),
+    /** Full computed lease terms (VAT, extras, deposit, payee) for the renewed period. */
+    leaseTerms: z.record(z.string(), z.unknown()).optional(),
+    chequeAccountName: z.string().trim().max(160).optional(),
+    chequeBankName: z.string().trim().max(160).optional(),
+    rentBankAccountId: z.string().trim().max(64).optional(),
   })
   .strict();
 const challengeSchema = z.discriminatedUnion('authenticationMethod', [
