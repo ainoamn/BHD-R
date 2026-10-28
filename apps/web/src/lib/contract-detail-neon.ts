@@ -110,6 +110,18 @@ export interface ContractDetail {
         uploadedAt: string | null;
       }>
     | undefined;
+  /** Tenant-proposed end date on a renewal addendum. */
+  tenantTermProposal?:
+    | {
+        endsOn: string;
+        proposedAt: string;
+        status: 'pending' | 'approved' | 'rejected' | 'auto_approved';
+        decidedAt?: string | null;
+        decisionNote?: string | null;
+      }
+    | undefined;
+  /** Per-contract override flag for automatic renewal (signed parent only). */
+  renewalAutomationEnabled?: boolean | null | undefined;
   /** Full document view; only the Neon reader fills it. */
   document?: ContractDocument;
   /** Copy of the signed booking agreement a website rent or purchase contract completes. */
@@ -645,9 +657,36 @@ export async function loadContractDetailFromNeon(
       signatureHash: signature.signatureHash,
       signedAt: signature.signedAt.toISOString(),
     })),
-    ...((): Pick<ContractDetail, 'renewalRequirements'> => {
+    ...((): Pick<
+      ContractDetail,
+      'renewalRequirements' | 'tenantTermProposal' | 'renewalAutomationEnabled'
+    > => {
       const renewalRequirements = renewalRequirementsFromSnapshot(snapshot);
-      return renewalRequirements?.length ? { renewalRequirements } : {};
+      const proposal = snapshot.tenantTermProposal;
+      const automation = snapshot.renewalAutomation;
+      const out: Pick<
+        ContractDetail,
+        'renewalRequirements' | 'tenantTermProposal' | 'renewalAutomationEnabled'
+      > = {};
+      if (renewalRequirements?.length) out.renewalRequirements = renewalRequirements;
+      if (proposal && typeof proposal === 'object') {
+        const row = proposal as Record<string, unknown>;
+        if (typeof row.endsOn === 'string' && typeof row.status === 'string') {
+          out.tenantTermProposal = {
+            endsOn: row.endsOn,
+            proposedAt: typeof row.proposedAt === 'string' ? row.proposedAt : '',
+            status: row.status as NonNullable<ContractDetail['tenantTermProposal']>['status'],
+            decidedAt: typeof row.decidedAt === 'string' ? row.decidedAt : null,
+            decisionNote: typeof row.decisionNote === 'string' ? row.decisionNote : null,
+          };
+        }
+      }
+      if (automation && typeof automation === 'object') {
+        const enabled = (automation as { enabled?: unknown }).enabled;
+        if (typeof enabled === 'boolean') out.renewalAutomationEnabled = enabled;
+        else if (enabled === null) out.renewalAutomationEnabled = null;
+      }
+      return out;
     })(),
   };
 }

@@ -28,6 +28,11 @@ import { ContractAnnexArticle } from './contract-annex-view';
 import { DeliverRenewalButton } from './deliver-renewal-button';
 import { RenewalDocumentsPanel } from './renewal-documents-panel';
 import {
+  OwnerContractRenewalAutomationPanel,
+  OwnerRenewalTermDecisionPanel,
+  TenantRenewalTermPanel,
+} from './renewal-term-panels';
+import {
   BRAND_LOGO,
   DocLetterhead,
   contractKit,
@@ -536,6 +541,33 @@ export function ContractDocumentView({
             ) : null}
           </CardContent>
         </Card>
+      ) : null}
+
+      {portal === 'tenant' && contract.kind === 'renewal' ? (
+        <TenantRenewalTermPanel
+          contractId={contract.id}
+          currentEndsOn={contract.endsOn}
+          proposal={contract.tenantTermProposal ?? null}
+          locale={locale}
+        />
+      ) : null}
+
+      {portal !== 'tenant' &&
+      contract.kind === 'renewal' &&
+      contract.tenantTermProposal?.status === 'pending' ? (
+        <OwnerRenewalTermDecisionPanel
+          contractId={contract.id}
+          proposal={contract.tenantTermProposal}
+          locale={locale}
+        />
+      ) : null}
+
+      {portal !== 'tenant' && contract.kind === 'initial' && contract.status === 'signed' ? (
+        <OwnerContractRenewalAutomationPanel
+          contractId={contract.id}
+          locale={locale}
+          initialEnabled={contract.renewalAutomationEnabled ?? null}
+        />
       ) : null}
 
       {portal === 'tenant' && contract.renewalRequirements?.length ? (

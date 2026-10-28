@@ -3,6 +3,7 @@ import { EmptyState } from '@bhd-r/ui';
 import { ApprovalPolicyBuildingsPanel } from '@/components/approval-policy-buildings-panel';
 import { ApprovalPolicyCard } from '@/components/approval-policy-card';
 import { LeaseDocumentRulesCard } from '@/components/lease-document-rules-card';
+import { LeaseRenewalAutomationCard } from '@/components/lease-renewal-automation-card';
 import { StayReschedulePolicyBoard } from '@/components/stay-reschedule-policy-board';
 import { Link } from '@/i18n/navigation';
 import {
@@ -11,6 +12,7 @@ import {
 } from '@/lib/approval-policy-neon';
 import { DEFAULT_LEASE_DOCUMENT_RULES } from '@/lib/lease-document-rules';
 import { loadOwnerLeaseDocumentRules } from '@/lib/lease-document-rules-neon';
+import { loadOwnerLeaseRenewalAutomation } from '@/lib/lease-renewal-automation-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import type { PropertyStaySettingsUnit } from '@/lib/property-stay-settings';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
@@ -42,16 +44,18 @@ export async function PortalSettingsDesk({
     roles: viewer.roles,
   };
   const claims = await readSessionClaimsFromCookies();
-  const [approval, documentRules, stayUnits, approvalBuildings] = await Promise.all([
-    loadOwnerApprovalPolicyBundle(scope, null).catch(() => null),
-    loadOwnerLeaseDocumentRules(scope, null).catch(() => null),
-    claims?.organizationId && isStaysPlatformEnabled()
-      ? loadPropertyStaySettingsOnNeon(claims, null).catch(
-          (): PropertyStaySettingsUnit[] => [],
-        )
-      : Promise.resolve([] as PropertyStaySettingsUnit[]),
-    loadApprovalPolicyBuildingIndex(scope).catch(() => []),
-  ]);
+  const [approval, documentRules, renewalAutomation, stayUnits, approvalBuildings] =
+    await Promise.all([
+      loadOwnerApprovalPolicyBundle(scope, null).catch(() => null),
+      loadOwnerLeaseDocumentRules(scope, null).catch(() => null),
+      loadOwnerLeaseRenewalAutomation(scope).catch(() => null),
+      claims?.organizationId && isStaysPlatformEnabled()
+        ? loadPropertyStaySettingsOnNeon(claims, null).catch(
+            (): PropertyStaySettingsUnit[] => [],
+          )
+        : Promise.resolve([] as PropertyStaySettingsUnit[]),
+      loadApprovalPolicyBuildingIndex(scope).catch(() => []),
+    ]);
 
   const links = [
     {
@@ -99,8 +103,8 @@ export async function PortalSettingsDesk({
         <h1>{ar ? 'الضبط' : 'Control'}</h1>
         <p>
           {ar
-            ? 'إعدادات عامة لكل المباني، ثم تخصيص مبنى بعينه (حجز تلقائي / عقد يدوي / معاينة مؤتمتة)، ومستندات المستأجر وصلاحيات الفريق.'
-            : 'General settings for all buildings, then per-building overrides (auto booking / manual contract / auto viewing), tenant documents, and team permissions.'}
+            ? 'إعدادات عامة لكل المباني، تجديد العقود الإلكتروني، تخصيص مبنى بعينه (حجز تلقائي / عقد يدوي / معاينة مؤتمتة)، ومستندات المستأجر وصلاحيات الفريق.'
+            : 'General settings for all buildings, electronic lease renewals, per-building overrides (auto booking / manual contract / auto viewing), tenant documents, and team permissions.'}
         </p>
       </header>
 
@@ -146,6 +150,22 @@ export async function PortalSettingsDesk({
             {ar
               ? 'تعذّر تحميل قواعد المستندات — حدّث الصفحة.'
               : 'Could not load document rules — refresh the page.'}
+          </p>
+        </section>
+      )}
+
+      {renewalAutomation ? (
+        <LeaseRenewalAutomationCard
+          locale={locale}
+          initialPolicy={renewalAutomation.policy}
+        />
+      ) : (
+        <section className="portal-settings__card">
+          <h2>{ar ? 'تجديد العقود تلقائياً' : 'Automatic lease renewals'}</h2>
+          <p className="notice notice--error" role="alert">
+            {ar
+              ? 'تعذّر تحميل إعدادات التجديد — حدّث الصفحة.'
+              : 'Could not load renewal settings — refresh the page.'}
           </p>
         </section>
       )}
