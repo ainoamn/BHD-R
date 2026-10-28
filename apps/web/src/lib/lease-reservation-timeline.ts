@@ -41,6 +41,7 @@ const DONE = new Set([
   'reservation.document_approved',
   'reservation.document_verified',
   'reservation.cheque_approved',
+  'reservation.cheque_verified',
   'reservation.contract_issued',
   'reservation.converted',
   'reservation.handed_over',

@@ -1632,11 +1632,13 @@ export async function runReservationAutomation(
 
       const ready =
         phase() === 'awaiting_documents_review' || phase() === 'awaiting_contract_approval';
-      if (policy.contract === 'auto' && ready && lifecycle.contractDraft && !lifecycle.contract) {
-        if (!signer) {
-          await event('reservation.auto_contract_skipped', { reason: 'delegate_unavailable' });
-          return phase();
-        }
+      // Accept replacements after a post-sign reject even when the contract already exists
+      // (they re-enter the manual verify queue). First-time issue still needs contract=auto.
+      const shouldAutoAcceptPackage =
+        ready &&
+        Boolean(lifecycle.contractDraft) &&
+        (Boolean(lifecycle.contract) || policy.contract === 'auto');
+      if (shouldAutoAcceptPackage) {
         const submitted = (lifecycle.requirements ?? []).filter(
           (item) => item.status === 'submitted',
         );
@@ -1679,40 +1681,46 @@ export async function runReservationAutomation(
             cheques: submittedCheques.map((item) => item.key),
           });
         }
-        try {
-          const issued = await tx.transaction((savepoint) =>
-            issueReservationContract(savepoint, signer, row, lifecycle, {
-              byName: SYSTEM_APPROVER_AR,
-              automatic: true,
-            }),
-          );
-          lifecycle = issued.lifecycle;
-          await event('reservation.contract_issued', {
-            contractId: issued.outcome.contractId,
-            contractReference: issued.outcome.contractReference,
-            signedForOwnerBy: delegate?.name ?? null,
-          });
-        } catch (error) {
-          // Keep docs/cheques as submitted so the owner still sees Accept/Reject.
-          if (autoApprovedCodes.size || autoApprovedChequeKeys.size) {
-            lifecycle = {
-              ...lifecycle,
-              requirements: (lifecycle.requirements ?? []).map((item) => {
-                if (!autoApprovedCodes.has(item.code) || !item.autoApproved) return item;
-                const { autoApproved: _a, reviewedAt: _r, reviewedByName: _n, ...rest } = item;
-                return { ...rest, status: 'submitted' as const, note: null };
-              }),
-              chequeSubmissions: (lifecycle.chequeSubmissions ?? []).map((item) => {
-                if (!autoApprovedChequeKeys.has(item.key) || !item.autoApproved) return item;
-                const { autoApproved: _a, reviewedAt: _r, reviewedByName: _n, ...rest } = item;
-                return { ...rest, status: 'submitted' as const, note: null };
-              }),
-            };
-            await saveLifecycle(tx, row, lifecycle);
+        if (policy.contract === 'auto' && !lifecycle.contract) {
+          if (!signer) {
+            await event('reservation.auto_contract_skipped', { reason: 'delegate_unavailable' });
+            return phase();
           }
-          await event('reservation.auto_contract_skipped', {
-            reason: clientSafeErrorCode(error, 'issue_failed'),
-          });
+          try {
+            const issued = await tx.transaction((savepoint) =>
+              issueReservationContract(savepoint, signer, row, lifecycle, {
+                byName: SYSTEM_APPROVER_AR,
+                automatic: true,
+              }),
+            );
+            lifecycle = issued.lifecycle;
+            await event('reservation.contract_issued', {
+              contractId: issued.outcome.contractId,
+              contractReference: issued.outcome.contractReference,
+              signedForOwnerBy: delegate?.name ?? null,
+            });
+          } catch (error) {
+            // Keep docs/cheques as submitted so the owner still sees Accept/Reject.
+            if (autoApprovedCodes.size || autoApprovedChequeKeys.size) {
+              lifecycle = {
+                ...lifecycle,
+                requirements: (lifecycle.requirements ?? []).map((item) => {
+                  if (!autoApprovedCodes.has(item.code) || !item.autoApproved) return item;
+                  const { autoApproved: _a, reviewedAt: _r, reviewedByName: _n, ...rest } = item;
+                  return { ...rest, status: 'submitted' as const, note: null };
+                }),
+                chequeSubmissions: (lifecycle.chequeSubmissions ?? []).map((item) => {
+                  if (!autoApprovedChequeKeys.has(item.key) || !item.autoApproved) return item;
+                  const { autoApproved: _a, reviewedAt: _r, reviewedByName: _n, ...rest } = item;
+                  return { ...rest, status: 'submitted' as const, note: null };
+                }),
+              };
+              await saveLifecycle(tx, row, lifecycle);
+            }
+            await event('reservation.auto_contract_skipped', {
+              reason: clientSafeErrorCode(error, 'issue_failed'),
+            });
+          }
         }
       }
       return phase();

@@ -17,7 +17,11 @@ import {
   leaseJourneySteps,
   type LeaseJourneyProps,
 } from '@/lib/lease-journey-screens';
-import { leasePhaseLabel, phaseWaitsOn } from '@/lib/lease-reservation-lifecycle';
+import {
+  leasePhaseLabel,
+  packageHasRejected,
+  phaseWaitsOn,
+} from '@/lib/lease-reservation-lifecycle';
 import { loadLeaseBookingForViewer, leasePaymentPath } from '@/lib/public-lease-booking-neon';
 import { partyDisplayName } from '@/lib/reservation-party';
 import { getViewer } from '@/lib/viewer';
@@ -132,7 +136,7 @@ export default async function LeaseBookingConfirmedPage({
                 className={`guest-stay-detail__status guest-stay-detail__status--${
                   closed
                     ? 'negative'
-                    : waitsOn === 'customer'
+                    : packageHasRejected(booking.lifecycle) || waitsOn === 'customer'
                       ? 'warning'
                       : waitsOn === 'owner'
                         ? 'approval'
@@ -148,6 +152,7 @@ export default async function LeaseBookingConfirmedPage({
                       ? 'انتهت المهلة'
                       : 'Expired'
                   : leasePhaseLabel(booking.phase, ar, {
+                      docsReturned: packageHasRejected(booking.lifecycle),
                       docsNeedVerify:
                         booking.lifecycle.requirements.some(
                           (item) =>

@@ -283,6 +283,10 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
     ar: 'اعتماد شيك الحجز',
     en: 'Reservation cheque approved',
   },
+  'reservation.cheque_verified': {
+    ar: 'التحقق من شيك الحجز',
+    en: 'Reservation cheque verified',
+  },
   'reservation.auto_contract_skipped': {
     ar: 'تخطي إنشاء العقد التلقائي',
     en: 'Auto contract creation skipped',

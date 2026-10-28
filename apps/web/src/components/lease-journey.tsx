@@ -52,13 +52,16 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
   const past = selected !== initial;
   const sale = props.mode === 'sale';
   const plate = props.referenceCode;
+  const needsReplace =
+    props.lifecycle.requirements.some((item) => item.status === 'rejected') ||
+    props.lifecycle.cheques.some((item) => item.status === 'rejected');
 
   return (
     <section
       key={selected}
       className={`guest-stay-detail__greeting guest-stay-detail__greeting--confirmed${
         past ? ' guest-stay-detail__greeting--past' : ''
-      }`}
+      }${needsReplace && !past ? ' guest-stay-detail__greeting--docs-returned' : ''}`}
       aria-live="polite"
     >
       {past ? (
@@ -73,6 +76,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
           </button>
         </div>
       ) : null}
+      {needsReplace && !past ? <PackageReturnedNotice {...props} /> : null}
       {screen.scene === 'send' ? (
         <StaySendPhone
           moment={{ mode: 'instant', status: screen.sceneStatus ?? '' }}
@@ -155,7 +159,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
           {ar ? 'عرض اتفاقية الحجز الموقّعة' : 'View signed booking agreement'}
         </Link>
       ) : null}
-      {screen.action === 'documents' && !past ? (
+      {screen.action === 'documents' && (!past || needsReplace) ? (
         <>
           <DocumentsNeededNotice {...props} />
           <LeaseDocuments {...props} />
@@ -163,7 +167,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
           <DocumentsSendPanel {...props} />
         </>
       ) : null}
-      {screen.action === 'documents' && past ? (
+      {screen.action === 'documents' && past && !needsReplace ? (
         <>
           <LeaseDocuments {...props} />
           <LeaseCheques {...props} readOnly />
@@ -409,33 +413,81 @@ function DocumentsNeededNotice({
   }
   const approved = Boolean(lifecycle.approvedAt);
   const needsAttest = lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
+  const rejected =
+    lifecycle.requirements.some((item) => item.status === 'rejected') ||
+    lifecycle.cheques.some((item) => item.status === 'rejected');
   return (
     <div
-      className={`notice ${phase === 'awaiting_documents' ? 'notice--info' : 'notice--success'}`}
-      role="status"
+      className={`notice ${
+        rejected
+          ? 'notice--error'
+          : phase === 'awaiting_documents'
+            ? 'notice--info'
+            : 'notice--success'
+      }`}
+      role={rejected ? 'alert' : 'status'}
     >
       <strong>
-        {approved
+        {rejected
           ? ar
-            ? 'المالك اعتمد حجزك'
-            : 'The owner approved your booking'
-          : ar
-            ? 'مطلوب منك إجراء'
-            : 'Action needed from you'}
+            ? 'أرجع المالك مستنداً أو شيكاً'
+            : 'The owner returned a document or cheque'
+          : approved
+            ? ar
+              ? 'المالك اعتمد حجزك'
+              : 'The owner approved your booking'
+            : ar
+              ? 'مطلوب منك إجراء'
+              : 'Action needed from you'}
       </strong>
       <span className="lease-docs-notice__body">
-        {phase === 'awaiting_documents_review'
+        {rejected
           ? ar
-            ? 'وصلت ملفاتك وهي قيد مراجعة المالك أو من يمثله.'
-            : 'Your files arrived and are under review by the owner or their representative.'
-          : needsAttest || !lifecycle.customerDocumentsSentAt
+            ? 'ستجد السبب بجانب كل بند مرفوض. استبدل الملف ثم اضغط «تأكيد والمتابعة وإرسال المستندات».'
+            : 'The reason is next to each rejected item. Replace the file, then press “Confirm, continue and send documents”.'
+          : phase === 'awaiting_documents_review'
             ? ar
-              ? 'ارفع كل المستندات والشيكات، ثم اضغط «تأكيد والمتابعة وإرسال المستندات» — يُبلَّغ المالك مرة واحدة بعد الإرسال.'
-              : 'Upload every document and cheque, then press “Confirm, continue and send documents” — the owner is notified once after you send.'
-            : ar
               ? 'وصلت ملفاتك وهي قيد مراجعة المالك أو من يمثله.'
-              : 'Your files arrived and are under review by the owner or their representative.'}
+              : 'Your files arrived and are under review by the owner or their representative.'
+            : needsAttest || !lifecycle.customerDocumentsSentAt
+              ? ar
+                ? 'ارفع كل المستندات والشيكات، ثم اضغط «تأكيد والمتابعة وإرسال المستندات» — يُبلَّغ المالك مرة واحدة بعد الإرسال.'
+                : 'Upload every document and cheque, then press “Confirm, continue and send documents” — the owner is notified once after you send.'
+              : ar
+                ? 'وصلت ملفاتك وهي قيد مراجعة المالك أو من يمثله.'
+                : 'Your files arrived and are under review by the owner or their representative.'}
       </span>
+    </div>
+  );
+}
+
+/** Prominent alert when the owner rejected one or more package items after review. */
+function PackageReturnedNotice({
+  locale,
+  lifecycle,
+}: Pick<LeaseJourneyProps, 'locale' | 'lifecycle'>) {
+  const ar = locale === 'ar';
+  const rejectedDocs = lifecycle.requirements.filter((item) => item.status === 'rejected');
+  const rejectedCheques = lifecycle.cheques.filter((item) => item.status === 'rejected');
+  const names = [
+    ...rejectedDocs.map((item) => (ar ? item.labelAr : item.labelEn || item.labelAr)),
+    ...rejectedCheques.map((item) => (ar ? item.labelAr : item.labelEn)),
+  ];
+  return (
+    <div className="lease-package-returned" role="alert">
+      <strong>{ar ? 'تنبيه: أُرجعت ملفات للمراجعة' : 'Alert: files returned for revision'}</strong>
+      <p>
+        {ar
+          ? 'طلب المالك بديلاً أوضح. عدّل البنود أدناه ثم أعد إرسال الحزمة.'
+          : 'The owner asked for a clearer replacement. Fix the items below, then send the package again.'}
+      </p>
+      {names.length ? (
+        <ul>
+          {names.map((name) => (
+            <li key={name}>{name}</li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

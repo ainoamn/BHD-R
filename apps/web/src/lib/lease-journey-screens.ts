@@ -154,18 +154,20 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         sceneStatus: t('قيد الإعداد', 'Being prepared'),
       };
     } else if (phase === 'awaiting_documents') {
-      const rejected = requirements.some((item) => item.status === 'rejected');
+      const rejected =
+        requirements.some((item) => item.status === 'rejected') ||
+        (lifecycle.cheques ?? []).some((item) => item.status === 'rejected');
       documents = {
         headline: rejected
-          ? t('مستند يحتاج نسخة أوضح 🔁', 'One document needs a clearer copy 🔁')
+          ? t('ملف يحتاج نسخة أوضح 🔁', 'A file needs a clearer copy 🔁')
           : t(
               'المالك اعتمد حجزك — ارفع المستندات والشيكات 📎',
               'Owner approved — upload documents and cheques 📎',
             ),
         body: rejected
           ? t(
-              'راجع المالك ما أرسلت وطلب بديلاً لمستند — ستجد السبب بجانبه. أعد رفعه وسنُبلغ المالك فوراً.',
-              'The owner asked for a replacement — the reason is next to it. Upload again and we tell the owner right away.',
+              'راجع المالك ما أرسلت وطلب بديلاً لمستند أو شيك — ستجد السبب بجانبه. استبدله ثم أكّد الإرسال ليُبلَّغ المالك.',
+              'The owner asked for a replacement document or cheque — the reason is next to it. Replace it, then confirm send so the owner is notified.',
             )
           : t(
               `المالك اعتمد حجزك. ليكتمل ${contractWord}: أكّد بياناتك، ارفع المستندات المطلوبة${lifecycle.cheques?.length ? '، وأدخل رقم كل شيك مع صورة الشيك' : ''}. يمكنك معاينة الملف وضبط صورة الشيك قبل الإرسال.`,

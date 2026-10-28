@@ -589,21 +589,51 @@ export function lifecycleOf(snapshot: unknown): ReservationLifecycle {
   return value && typeof value === 'object' ? value : {};
 }
 
+/** True when the owner rejected a document or cheque and the client must replace it. */
+export function packageHasRejected(
+  lifecycle:
+    | ReservationLifecycle
+    | {
+        requirements?: Array<{ status: string }>;
+        /** Tenant-facing view flattens instructions + submissions into `cheques`. */
+        cheques?: Array<{ status: string }>;
+        chequeInstructions?: ReservationChequeInstruction[];
+        chequeSubmissions?: ReservationChequeSubmission[];
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!lifecycle) return false;
+  if ((lifecycle.requirements ?? []).some((item) => item.status === 'rejected')) return true;
+  if ('cheques' in lifecycle && Array.isArray(lifecycle.cheques)) {
+    return lifecycle.cheques.some((item) => item.status === 'rejected');
+  }
+  return chequeStatusesOf(lifecycle as ReservationLifecycle).some(
+    (status) => status === 'rejected',
+  );
+}
+
 /** Where the booking stands and whose move it is. */
 export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   const life = input.lifecycle ?? {};
   // Staff filing the record completes handover — tenant may view and object, not approve.
   if (life.handover) return 'handed_over';
   if (life.cancellation) return 'closed';
-  if (life.tenantSignature) return 'awaiting_handover';
   if (input.status === 'cancelled' || input.status === 'expired') return 'closed';
   if (!input.depositPaidAt) return input.status === 'pending' ? 'awaiting_payment' : 'closed';
   if (!input.esignSignedAt) return 'awaiting_terms_signature';
   if (life.paymentReview?.status === 'pending') return 'awaiting_payment_review';
   if (!life.approval) return 'awaiting_owner_approval';
-  if (life.contract) return 'awaiting_tenant_signature';
   if (!life.contractDraft) return 'awaiting_contract_draft';
-  return documentsPhase(life);
+  // Documents stay in control even after the contract is issued or signed, so an owner
+  // reject can reopen upload / send instead of leaving the client stuck on handover.
+  const docs = documentsPhase(life);
+  if (docs === 'awaiting_documents' || docs === 'awaiting_documents_review') {
+    return docs;
+  }
+  if (life.tenantSignature) return 'awaiting_handover';
+  if (life.contract) return 'awaiting_tenant_signature';
+  return 'awaiting_contract_approval';
 }
 
 /** Once the draft is ready: waiting on the client's documents, on their review, or on approval. */
@@ -708,6 +738,7 @@ export function leasePhaseLabel(
   ar: boolean,
   options?: {
     docsReturnOpen?: boolean;
+    docsReturned?: boolean;
     docsNeedVerify?: boolean;
     viewer?: 'owner' | 'tenant';
   },
@@ -726,6 +757,15 @@ export function leasePhaseLabel(
     return ar
       ? 'عقد موقّع — مستندات بانتظار اعتمادك'
       : 'Signed — documents need your verification';
+  }
+  if (options?.docsReturned && phase === 'awaiting_documents') {
+    return options.viewer === 'tenant'
+      ? ar
+        ? 'أُرجع مستند — أعد الرفع والإرسال'
+        : 'Document returned — re-upload and send'
+      : ar
+        ? 'بانتظار بديل المستند المرفوض'
+        : 'Awaiting replacement for a rejected file';
   }
   const labels: Record<LeaseJourneyPhase, [string, string]> = {
     awaiting_payment: ['بانتظار دفع العربون', 'Awaiting deposit'],

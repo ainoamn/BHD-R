@@ -19,10 +19,8 @@ describe('approval policy', () => {
   it('defaults contract and payment to auto; invalid steps fall back to defaults', () => {
     expect(sanitizeApprovalPolicy(null)).toEqual(DEFAULT_APPROVAL_POLICY);
     expect(sanitizeApprovalPolicy({ booking: 'auto', contract: 'bogus' })).toEqual({
+      ...DEFAULT_APPROVAL_POLICY,
       booking: 'auto',
-      contract: 'auto',
-      payment: 'auto',
-      reschedule: 'auto',
     });
   });
 });
@@ -81,6 +79,58 @@ describe('lease journey with electronic approvals', () => {
     };
     expect(leaseJourneyPhase({ ...paid, status: 'cancelled', lifecycle })).toBe('closed');
     expect(documentsToVerify(lifecycle)).toEqual([]);
+  });
+
+  it('reopens documents when a cheque is rejected after the tenant signed', () => {
+    const lifecycle: ReservationLifecycle = {
+      approval: { at: paid.esignSignedAt, byUserId: null, byName: 'Owner', automatic: true },
+      contractDraft: {
+        at: paid.esignSignedAt,
+        byUserId: null,
+        byName: 'Owner',
+      },
+      contract: {
+        id: 'c1',
+        reference: 'L-1',
+        issuedAt: paid.esignSignedAt,
+        byName: 'Owner',
+        automatic: true,
+      },
+      tenantSignature: { signedAt: paid.esignSignedAt, evidenceEventId: 'e' },
+      chequeInstructions: [
+        {
+          key: 'ch1',
+          kind: 'rent',
+          labelAr: 'شيك 1',
+          labelEn: 'Cheque 1',
+          amountMinor: 100000,
+          currency: 'OMR',
+          dueOn: '2026-11-01',
+        },
+      ],
+      chequeSubmissions: [
+        {
+          key: 'ch1',
+          bankName: 'Bank',
+          accountHolderName: 'A',
+          accountNumber: '1234',
+          chequeNumber: '1',
+          file: {
+            eventId: 'f',
+            name: 'ch.jpg',
+            mime: 'image/jpeg',
+            size: 10,
+            submittedAt: paid.esignSignedAt,
+          },
+          status: 'rejected',
+          note: 'غير واضح',
+          autoApproved: false,
+        },
+      ],
+      customerDocumentsSentAt: null,
+    };
+    expect(leaseJourneyPhase({ ...paid, lifecycle })).toBe('awaiting_documents');
+    expect(phaseWaitsOn('awaiting_documents')).toBe('customer');
   });
 
   it('titles the bell item for payment checks and document verification', () => {
