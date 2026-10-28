@@ -110,6 +110,28 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Ensure the base currency exists before creating verification plans.
+-- Migrate runs without seed, so OMR must be present for the FK below.
+INSERT INTO currencies (
+  code,
+  name_ar,
+  name_en,
+  symbol_ar,
+  symbol_en,
+  minor_unit,
+  active
+)
+VALUES (
+  'OMR',
+  'الريال العماني',
+  'Omani Rial',
+  'ر.ع.',
+  'OMR',
+  3,
+  true
+)
+ON CONFLICT (code) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS verification_plans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   created_at timestamptz NOT NULL DEFAULT now(),

@@ -104,12 +104,25 @@ export function holdsSectionPermission(access: PortalAccess, section: Operations
   return SECTION_PERMISSIONS[section].some((permission) => access.permissions.includes(permission));
 }
 
+/** Sections a tenant may open; must hold the matching SECTION_PERMISSIONS entry. */
+const TENANT_ALLOWED_SECTIONS: ReadonlySet<OperationsSection> = new Set([
+  'bookings',
+  'contracts',
+  'leasing',
+  'invoices',
+  'payments',
+  'maintenance',
+  'requests',
+]);
+
 export function canOpenSection(
   access: PortalAccess,
   portal: PortalRole,
   section: OperationsSection,
 ): boolean {
-  if (portal === 'tenant') return true;
+  if (portal === 'tenant') {
+    return TENANT_ALLOWED_SECTIONS.has(section) && holdsSectionPermission(access, section);
+  }
   if (!holdsSectionPermission(access, section)) return false;
   if (lawyerParty(access)) return section === 'legal';
   return !scopedOwnerParty(access) || SCOPED_OWNER_SECTIONS.has(section);
@@ -164,7 +177,9 @@ export function canOpenPortalPath(access: PortalAccess, portal: PortalRole, path
     return canOpenSection(access, portal, section);
   }
   const needed = PAGE_PERMISSIONS[basePath];
-  if (!needed || portal === 'tenant') return true;
+  // Tenant never inherits owner-only page permissions.
+  if (portal === 'tenant') return !needed;
+  if (!needed) return true;
   if (scopedOwnerParty(access)) return false;
   if (
     isFieldOpsOnly(access) &&

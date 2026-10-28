@@ -35,7 +35,7 @@
 - Monorepo: pnpm 10 + Turborepo.
 - Node.js 24 أو أحدث وفق `engines`.
 - `apps/web`: Next.js 16.3 + React 19.2 + TypeScript 5.9 + Tailwind 4 + `next-intl`.
-- `apps/api`: NestJS 11 + Fastify 5، API versioned تحت `/v1`.
+- `apps/api`: NestJS 11 + Express (`@nestjs/platform-express`)، API versioned تحت `/v1`.
 - `apps/worker`: BullMQ + Redis للمهام الخلفية.
 - PostgreSQL + PostGIS + Drizzle، وRLS كدفاع ثانٍ.
 - S3-compatible private object storage؛ النسخ العامة المائية فقط قابلة للـCDN.

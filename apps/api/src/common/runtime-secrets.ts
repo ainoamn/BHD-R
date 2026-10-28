@@ -41,11 +41,11 @@ export function requireCsrfSecret(): string {
 }
 
 export function requirePiiLookupPepper(): string {
-  const value =
-    cleanSecret(process.env.PII_LOOKUP_PEPPER) || cleanSecret(process.env.BHD_R_SESSION_SECRET);
-  if (value.length >= 16) return value;
+  const value = cleanSecret(process.env.PII_LOOKUP_PEPPER);
+  if (value.length >= 32) return value;
   if (isProductionRuntime()) {
     throw new Error('PII_LOOKUP_PEPPER_required');
   }
-  return 'development-pii-lookup-pepper';
+  // Dev only — never reuse BHD_R_SESSION_SECRET for PII lookup fingerprints.
+  return 'development-pii-lookup-pepper-at-least-32-chars';
 }

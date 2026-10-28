@@ -9,7 +9,6 @@ module.exports = {
       ],
       numberOfRuns: 2,
       settings: {
-        preset: 'mobile',
         budgets: require('./lighthouse-budget.json'),
         onlyCategories: ['performance', 'accessibility', 'best-practices', 'seo'],
       },

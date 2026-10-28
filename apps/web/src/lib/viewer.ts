@@ -1,7 +1,8 @@
+import { createHash } from 'node:crypto';
 import { cache } from 'react';
 import { cookies } from 'next/headers';
-import { and, eq } from 'drizzle-orm';
-import { createDatabase, memberships, users, type Database } from '@bhd-r/db';
+import { and, eq, isNull } from 'drizzle-orm';
+import { createDatabase, memberships, sessions, users, type Database } from '@bhd-r/db';
 import { verifySessionToken } from '@bhd-r/authz';
 import type { PortalRole, Viewer } from './types';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
@@ -14,6 +15,10 @@ const globalForDb = globalThis as unknown as { __bhdRWebDb?: DbHandle };
 
 function sessionSecret(): Uint8Array {
   return requireSessionSecret();
+}
+
+function tokenHash(token: string): string {
+  return createHash('sha256').update(token).digest('hex');
 }
 
 function portalsForRoles(roles: readonly string[]): PortalRole[] {
@@ -31,6 +36,10 @@ function getSharedDatabase(): DbHandle {
   return globalForDb.__bhdRWebDb;
 }
 
+/**
+ * Full DB-backed viewer: JWT + user.sessionVersion + non-revoked sessions row.
+ * Same live-session rules as requireLiveSession() in next-route-guard.
+ */
 async function getViewerFromDatabase(): Promise<Viewer | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get('bhd_r_session')?.value;
@@ -51,6 +60,17 @@ async function getViewerFromDatabase(): Promise<Viewer | null> {
       },
     });
     if (!user || user.disabledAt || user.sessionVersion !== claims.sessionVersion) return null;
+
+    const session = await db.query.sessions.findFirst({
+      where: and(
+        eq(sessions.id, claims.sid),
+        eq(sessions.userId, claims.sub),
+        isNull(sessions.revokedAt),
+      ),
+      columns: { id: true, tokenIdHash: true, expiresAt: true },
+    });
+    if (!session || session.expiresAt.getTime() <= Date.now()) return null;
+    if (session.tokenIdHash !== tokenHash(token)) return null;
 
     // Prefer live membership.partyId — JWT may still be null after SSO repair.
     let partyId = claims.partyId;
@@ -83,21 +103,14 @@ async function getViewerFromDatabase(): Promise<Viewer | null> {
   }
 }
 
-/** One viewer resolution per RSC request (layout + page share the result). */
+/**
+ * Authoritative viewer for data and portal-path access.
+ * Never falls back to a JWT-only stub when the database is configured —
+ * a revoked or expired session must fail closed.
+ */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
   if (hasDatabaseUrl()) {
-    try {
-      const raced = await Promise.race([
-        getViewerFromDatabase().then((viewer) => ({ done: true as const, viewer })),
-        new Promise<{ done: false }>((resolve) =>
-          setTimeout(() => resolve({ done: false }), 1_800),
-        ),
-      ]);
-      if (raced.done) return raced.viewer;
-    } catch {
-      /* fall through to shell JWT stub */
-    }
-    return getShellViewer();
+    return getViewerFromDatabase();
   }
 
   const { ApiError, apiFetch } = await import('./server-api');
@@ -111,8 +124,8 @@ export const getViewer = cache(async (): Promise<Viewer | null> => {
 });
 
 /**
- * Fast chrome auth for portal layouts: verify JWT locally and only wait briefly for DB.
- * Avoids full-page flicker when Nest/Neon is cold — shell stays mounted while the page loads.
+ * Fast chrome auth for portal layouts only: verify JWT locally and wait briefly for DB.
+ * Must NOT be used to authorize data reads or protected path access.
  */
 export const getShellViewer = cache(async (): Promise<Viewer | null> => {
   const cookieStore = await cookies();
@@ -148,7 +161,7 @@ export const getShellViewer = cache(async (): Promise<Viewer | null> => {
     ]);
     if (raced.done) return raced.viewer;
   } catch {
-    /* fall through to JWT stub */
+    /* fall through to JWT stub for chrome only */
   }
   return stub;
 });
@@ -175,9 +188,8 @@ export async function requirePortal(locale: string, portal: PortalRole): Promise
 
 /** Pages outside the ops sections follow the same rules as their sidebar entry. */
 export async function requirePortalPath(portal: PortalRole, path: string): Promise<void> {
-  // Prefer the full viewer: the shell JWT stub can race cold Neon and omit permissions,
-  // which previously 404'd valid sessions on deep links like viewing desks.
-  const viewer = (await getViewer()) ?? (await getShellViewer());
+  // Live DB session only — never authorize via getShellViewer JWT stub.
+  const viewer = await getViewer();
   if (!viewer || !canOpenPortalPath(viewer, portal, path)) {
     const { notFound } = await import('next/navigation');
     notFound();

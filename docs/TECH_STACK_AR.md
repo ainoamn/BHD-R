@@ -15,7 +15,7 @@
 | البعد | BHD-R (الحالي) | bhd-om (السابق) |
 |------|----------------|-----------------|
 | الشكل | Monorepo + Modular Monolith | تطبيق Next واحد غالباً |
-| API | NestJS + Fastify منفصل | مسارات API داخل Next |
+| API | NestJS + Express منفصل | مسارات API داخل Next |
 | البيانات | وحدات/عقارات جداول منفصلة + RLS | وحدات متعددة كمصفوفات JSON داخل العقار + overrides |
 | الخلفية | Worker + BullMQ + Outbox | مهام محدودة داخل نفس التطبيق |
 | الحزم | packages مشتركة (contracts, authz, db…) | منطق موزّع داخل `lib/` و`components/` |
@@ -31,7 +31,7 @@
 ```text
 المتصفح  →  Next.js Web (Vercel)
                 ↓  API_INTERNAL_ORIGIN
-           NestJS/Fastify API (Render / حاوية)
+           NestJS/Express API (Render / حاوية)
                 ↓
      PostgreSQL(+PostGIS) · Redis · S3 · Identity
                 ↓  outbox
@@ -49,7 +49,7 @@
 | تطبيق | التقنية | الدور | نشر مقترح |
 |-------|---------|------|-----------|
 | `apps/web` | **Next.js 16** · **React 19** · **next-intl** · Tailwind 4 | موقع عام + بوابات (منصة/مالك/مطور/مستأجر) | **Vercel** |
-| `apps/api` | **NestJS 11** · **Fastify 5** · Zod · Drizzle | مصدر الحقيقة: صلاحيات، معاملات، `/v1/*` | **Render** Docker / VM |
+| `apps/api` | **NestJS 11** · **Express** · Zod · Drizzle | مصدر الحقيقة: صلاحيات، معاملات، `/v1/*` | **Render** Docker / VM |
 | `apps/worker` | Node · **BullMQ** · Sharp · Playwright · Nodemailer | مهام خلفية: وسائط، PDF، إشعارات، outbox | حاوية منفصلة |
 
 ---
@@ -168,7 +168,7 @@
 ```text
 BHD-R/
   apps/web      → Next.js
-  apps/api      → NestJS/Fastify
+  apps/api      → NestJS/Express
   apps/worker   → BullMQ jobs
   packages/*    → db, contracts, authz, ui, i18n, …
   docs/         → معمارية، أمن، نشر، عمليات
