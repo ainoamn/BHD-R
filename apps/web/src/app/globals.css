@@ -9145,22 +9145,24 @@ body:has(.stays-booking-receipt) #main-content {
 .tenant-preview-row--quiet {
   border-inline-start-color: var(--tenant-quiet);
 }
-.tenant-preview-row--contract-new {
-  border: 2px solid #c8102e;
-  border-inline-start-width: 2px;
-  border-inline-start-color: #c8102e;
-  background: linear-gradient(180deg, #d9ecff, #fff 55%);
+.tenant-preview-row--contract-new,
+.tenant-home__panel--alerts .tenant-preview-row--contract-new {
+  border: 2px solid #c8102e !important;
+  border-inline-start: 2px solid #c8102e !important;
+  background: linear-gradient(180deg, #d9ecff 0%, #eef7ff 40%, #fff 70%) !important;
   box-shadow: 0 0 0 3px rgb(26 90 138 / 0.16);
 }
-.tenant-preview-row--contract-renewal {
-  border: 2px solid #c8102e;
-  border-inline-start-width: 2px;
-  border-inline-start-color: #c8102e;
-  background: linear-gradient(180deg, #ffd7a8, #fff 55%);
+.tenant-preview-row--contract-renewal,
+.tenant-home__panel--alerts .tenant-preview-row--contract-renewal {
+  border: 2px solid #c8102e !important;
+  border-inline-start: 2px solid #c8102e !important;
+  background: linear-gradient(180deg, #ffd7a8 0%, #fff4e8 40%, #fff 70%) !important;
   box-shadow: 0 0 0 3px rgb(200 120 20 / 0.2);
 }
 .tenant-preview-row--contract-new .tenant-preview-row__eyebrow,
-.tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
+.tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow,
+.tenant-home__panel--alerts .tenant-preview-row--contract-new .tenant-preview-row__eyebrow,
+.tenant-home__panel--alerts .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
   display: inline-flex;
   align-items: center;
   padding: 0.15rem 0.5rem;
@@ -9168,11 +9170,13 @@ body:has(.stays-booking-receipt) #main-content {
   border: 2px solid #c8102e;
   font-weight: 900;
 }
-.tenant-preview-row--contract-new .tenant-preview-row__eyebrow {
+.tenant-preview-row--contract-new .tenant-preview-row__eyebrow,
+.tenant-home__panel--alerts .tenant-preview-row--contract-new .tenant-preview-row__eyebrow {
   background: #b9dcff;
   color: #0f3d66;
 }
-.tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
+.tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow,
+.tenant-home__panel--alerts .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
   background: #ffc078;
   color: #7a3b00;
 }
@@ -9228,17 +9232,21 @@ body:has(.stays-booking-receipt) #main-content {
   box-shadow: 0 0 0 2px rgb(200 120 20 / 0.18);
   color: #7a3b00;
 }
-.portal-layout .dash-alert--contract-new a {
-  color: #0f3d66;
-  background: linear-gradient(180deg, #d9ecff, #f5faff 70%);
-  border: 2px solid #c8102e;
+.portal-layout .dash-alert--contract-new a,
+.dash-alerts .dash-alert--contract-new a {
+  color: #0f3d66 !important;
+  background: linear-gradient(180deg, #d9ecff, #f5faff 70%) !important;
+  border: 2px solid #c8102e !important;
   box-shadow: 0 0 0 2px rgb(26 90 138 / 0.14);
+  font-weight: 800;
 }
-.portal-layout .dash-alert--contract-renewal a {
-  color: #7a3b00;
-  background: linear-gradient(180deg, #ffd7a8, #fff6eb 70%);
-  border: 2px solid #c8102e;
+.portal-layout .dash-alert--contract-renewal a,
+.dash-alerts .dash-alert--contract-renewal a {
+  color: #7a3b00 !important;
+  background: linear-gradient(180deg, #ffd7a8, #fff6eb 70%) !important;
+  border: 2px solid #c8102e !important;
   box-shadow: 0 0 0 2px rgb(200 120 20 / 0.18);
+  font-weight: 800;
 }
 .tenant-preview-row__main,
 .tenant-preview-row__copy {

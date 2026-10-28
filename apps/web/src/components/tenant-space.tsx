@@ -898,6 +898,29 @@ function BookingsTable({ ar, locale, data }: Ctx) {
   );
 }
 
+/** New vs renewal framing for attention cells (same look as عقودي chips). */
+function alertContractFrame(
+  alert: MyTenancy['alerts'][number],
+  data: MyTenancy,
+): { tone: 'contract-new' | 'contract-renewal'; kind: string | null } | null {
+  if (alert.kind === 'contract_sign') {
+    const related = data.contracts.find((contract) => contract.id === alert.id);
+    const kind = related?.kind ?? 'initial';
+    return {
+      tone: contractKindTone(kind) === 'renewal' ? 'contract-renewal' : 'contract-new',
+      kind,
+    };
+  }
+  // Ending lease → renewal path (orange). New booking awaiting contract → new path (blue).
+  if (alert.kind === 'lease_expiring') {
+    return { tone: 'contract-renewal', kind: 'renewal' };
+  }
+  if (alert.kind === 'reservation_review' || alert.kind === 'reservation_payment') {
+    return { tone: 'contract-new', kind: 'initial' };
+  }
+  return null;
+}
+
 function AlertsList({ ar, locale, data }: Ctx) {
   const items: PreviewItem[] = data.alerts.map((alert) => {
     const meta = [
@@ -906,29 +929,21 @@ function AlertsList({ ar, locale, data }: Ctx) {
         ? formatMoney(alert.amountMinor, alert.currency, locale)
         : '',
     ].filter(Boolean);
-    const relatedContract =
-      alert.kind === 'contract_sign'
-        ? data.contracts.find((contract) => contract.id === alert.id)
-        : null;
-    const kindTone = relatedContract ? contractKindTone(relatedContract.kind) : null;
+    const frame = alertContractFrame(alert, data);
+    const eyebrow = frame
+      ? contractKindChipLabel(frame.kind, ar)
+      : ar
+        ? 'تنبيه'
+        : 'Alert';
     return {
       id: `alert:${alert.kind}:${alert.id}`,
       title: tenancyAlertLabel(alert.kind, ar),
-      eyebrow: relatedContract
-        ? contractKindChipLabel(relatedContract.kind, ar)
-        : ar
-          ? 'تنبيه'
-          : 'Alert',
+      eyebrow,
       summary: [alert.reference, ...meta].filter(Boolean).join(' · '),
-      tone:
-        kindTone === 'renewal'
-          ? 'contract-renewal'
-          : kindTone === 'new'
-            ? 'contract-new'
-            : alertTone(alert.kind, alert.action),
+      tone: frame?.tone ?? alertTone(alert.kind, alert.action),
       status: (
         <span className="tenant-preview-row__status-stack">
-          {relatedContract ? <ContractKindChip kind={relatedContract.kind} ar={ar} /> : null}
+          {frame ? <ContractKindChip kind={frame.kind} ar={ar} /> : null}
           {alert.action ? (
             <Status label={ar ? 'يتطلب إجراءً' : 'Action needed'} tone="action" />
           ) : null}
