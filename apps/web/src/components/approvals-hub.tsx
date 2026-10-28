@@ -38,7 +38,7 @@ const GROUPS: { key: string; ar: string; en: string; kinds: PendingApprovalItem[
     key: 'contracts',
     ar: 'العقود والوحدات',
     en: 'Contracts and units',
-    kinds: ['contract', 'sale_decision'],
+    kinds: ['contract', 'renewal_term', 'sale_decision'],
   },
   {
     key: 'money',

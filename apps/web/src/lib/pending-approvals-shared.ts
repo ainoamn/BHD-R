@@ -11,6 +11,7 @@ import { isTenantRequestType, tenantRequestTypeLabel } from '@/lib/tenant-reques
 export type PendingApprovalItem = {
   kind:
     | 'contract'
+    | 'renewal_term'
     | 'stay_booking'
     | 'lease_reservation'
     | 'deposit_refund'
@@ -89,6 +90,9 @@ export function pendingApprovalHref(portal: string, item: PendingApprovalItem): 
     return `/${portal}/bookings/viewings/${encodeURIComponent(item.id)}`;
   }
   const base = `/${portal}/properties/${encodeURIComponent(item.propertyId)}`;
+  if (item.kind === 'renewal_term') {
+    return `/owner/contracts/${encodeURIComponent(item.id)}`;
+  }
   if (item.kind === 'contract') {
     return `${base}?section=contracts&focus=${encodeURIComponent(item.id)}`;
   }
@@ -235,6 +239,11 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
     return ar
       ? 'تم تأجير الوحدة — هل ما زلت تريد بيعها؟'
       : 'Unit leased — do you still want to sell it?';
+  }
+  if (item.kind === 'renewal_term') {
+    return ar
+      ? 'طلب تعديل مدة التجديد بانتظار قرارك'
+      : 'Renewal term change awaiting your decision';
   }
   if (item.contractType === 'sale') {
     return ar ? 'عقد بيع بانتظار اعتمادك' : 'Sale contract awaiting your approval';

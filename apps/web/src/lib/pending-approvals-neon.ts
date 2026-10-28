@@ -124,6 +124,8 @@ export async function loadPendingApprovals(claims: SessionClaims): Promise<Pendi
 async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApprovals> {
   const orgId = claims.organizationId;
   const canSign = hasPermission(claims, 'contract.sign');
+  const canDecideRenewalTerms =
+    canSign || hasPermission(claims, 'lease.update') || hasPermission(claims, 'contract.create');
   const canManageBookings =
     hasPermission(claims, 'stay.booking.manage') && hasPermission(claims, 'contract.create');
   const canManageReservations = hasPermission(claims, 'reservation.manage');
@@ -137,6 +139,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
   if (
     !orgId ||
     (!canSign &&
+      !canDecideRenewalTerms &&
       !canManageBookings &&
       !canManageReservations &&
       !canDecideRefunds &&
@@ -337,8 +340,43 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
           .orderBy(asc(stayBookings.checkOutOn))
           .limit(ITEM_LIMIT)
       : Promise.resolve([]);
+    const renewalTermQuery = canDecideRenewalTerms
+      ? tx
+          .select({
+            id: contracts.id,
+            reference: contracts.reference,
+            propertyId: properties.id,
+            propertyNameAr: properties.nameAr,
+            propertyNameEn: properties.nameEn,
+            unitCode: units.code,
+            party: parties.displayName,
+            proposedAt: sql<string | null>`${contracts.payloadSnapshot}->'tenantTermProposal'->>'proposedAt'`,
+            proposedEndsOn: sql<string | null>`${contracts.payloadSnapshot}->'tenantTermProposal'->>'endsOn'`,
+          })
+          .from(contracts)
+          .innerJoin(units, eq(units.id, contracts.unitId))
+          .innerJoin(properties, eq(properties.id, units.propertyId))
+          .leftJoin(parties, eq(parties.id, contracts.tenantPartyId))
+          .where(
+            and(
+              eq(contracts.organizationId, orgId),
+              eq(contracts.kind, 'renewal'),
+              inArray(contracts.status, ['sent', 'partially_signed']),
+              sql`${contracts.payloadSnapshot}->'tenantTermProposal'->>'status' = 'pending'`,
+              ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+            ),
+          )
+          .orderBy(
+            asc(
+              sql`coalesce((${contracts.payloadSnapshot}->'tenantTermProposal'->>'proposedAt')::timestamptz, ${contracts.updatedAt})`,
+            ),
+          )
+          .limit(ITEM_LIMIT)
+      : Promise.resolve([]);
+
     const [
       contractRows,
+      renewalTermRows,
       bookingRows,
       reservationRows,
       refundRows,
@@ -347,6 +385,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
       reviewRows,
     ] = await Promise.all([
       contractQuery,
+      renewalTermQuery,
       bookingQuery,
       reservationQuery,
       refundQuery,
@@ -375,6 +414,19 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
         contractType: row.contractType === 'sale' ? ('sale' as const) : ('lease' as const),
         fromOn: row.fromOn ? row.fromOn.slice(0, 10) : null,
         requestedAt: iso(row.requestedAt) ?? '',
+      })),
+      ...renewalTermRows.map((row) => ({
+        kind: 'renewal_term' as const,
+        id: row.id,
+        reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
+        propertyId: row.propertyId,
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
+        unitCode: row.unitCode,
+        party: row.party,
+        contractType: 'lease' as const,
+        fromOn: row.proposedEndsOn,
+        requestedAt: row.proposedAt ?? '',
       })),
       ...bookingRows.map((row) => ({
         kind: 'stay_booking' as const,
@@ -481,7 +533,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
 
     return {
       items,
-      contracts: contractRows.length,
+      contracts: contractRows.length + renewalTermRows.length,
       bookings: bookingRows.length,
       viewings: 0,
       reservations: items.filter((item) => item.kind === 'lease_reservation').length,

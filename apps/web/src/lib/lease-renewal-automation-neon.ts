@@ -6,7 +6,7 @@ import {
   permissionsForRoles,
   type SessionClaims,
 } from '@bhd-r/authz';
-import { contracts, leases, stayPolicies } from '@bhd-r/db';
+import { contracts, leases, stayPolicies, units } from '@bhd-r/db';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import {
@@ -529,7 +529,7 @@ export async function proposeRenewalTermOnNeon(
   const orgId = claims.organizationId ?? fail('organization_required');
   const partyId = claims.partyId ?? fail('forbidden');
 
-  return elevatedTx(async (tx) => {
+  const saved = await elevatedTx(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${contractId}, 53))`);
     const contract = await tx.query.contracts.findFirst({
       where: and(
@@ -557,6 +557,11 @@ export async function proposeRenewalTermOnNeon(
       ),
     });
     if (!lease) fail('lease_not_renewable');
+
+    const unit = await tx.query.units.findFirst({
+      where: eq(units.id, contract.unitId),
+      columns: { propertyId: true },
+    });
 
     const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
     const startsOn =
@@ -641,45 +646,62 @@ export async function proposeRenewalTermOnNeon(
       .set({ payloadSnapshot: nextPayload, updatedAt: new Date() })
       .where(eq(contracts.id, contract.id));
 
-    const reference = contract.reference ?? contract.id.slice(0, 8).toUpperCase();
-    if (status === 'pending') {
-      await notifyByEmail({
-        orgId,
-        aggregateType: 'contract',
-        aggregateId: contract.id,
-        audience: { parties: [contract.ownerPartyId] },
-        content: () => ({
-          tone: 'contract',
-          subject: `⏳ طلب تعديل مدة التجديد — ${reference}`,
-          title: 'المستأجر يطلب مدة تجديد مختلفة',
-          intro: `اقترح المستأجر نهاية جديدة للتجديد: ${proposedEndsOn}. راجع الطلب واعتمد أو ارفض.`,
-          cta: {
-            label: 'فتح الملحق',
-            url: appLink(`/ar/owner/contracts/${contract.id}`),
-          },
-        }),
-      });
-    } else {
-      await notifyByEmail({
-        orgId,
-        aggregateType: 'contract',
-        aggregateId: contract.id,
-        audience: { parties: [contract.tenantPartyId, contract.ownerPartyId] },
-        content: () => ({
-          tone: 'contract',
-          subject: `✅ اعتُمدت مدة التجديد — ${reference}`,
-          title: 'مدة التجديد محدّثة',
-          intro: `نهاية الملحق أصبحت ${proposedEndsOn}. أكمل التوقيع والمستندات من حسابك.`,
-          cta: {
-            label: 'فتح الملحق',
-            url: appLink(`/ar/tenant/contracts/${contract.id}`),
-          },
-        }),
-      });
-    }
-
-    return { status, endsOn: proposedEndsOn };
+    return {
+      status,
+      endsOn: proposedEndsOn,
+      reference: contract.reference ?? contract.id.slice(0, 8).toUpperCase(),
+      ownerPartyId: contract.ownerPartyId,
+      tenantPartyId: contract.tenantPartyId,
+      propertyId: unit?.propertyId ?? null,
+    };
   }, 20_000);
+
+  // Notify after commit so in-app approvals + email are not rolled back with the write.
+  if (saved.status === 'pending') {
+    await notifyByEmail({
+      orgId,
+      aggregateType: 'contract',
+      aggregateId: contractId,
+      dedupeKey: `renewal-term-pending:${contractId}:${saved.endsOn}:${saved.status}`,
+      audience: {
+        parties: [saved.ownerPartyId],
+        managersOf: { orgId, propertyId: saved.propertyId },
+      },
+      content: () => ({
+        tone: 'contract',
+        subject: `⏳ طلب تعديل مدة التجديد — ${saved.reference}`,
+        title: 'المستأجر يطلب مدة تجديد مختلفة',
+        intro: `اقترح المستأجر نهاية جديدة للتجديد: ${saved.endsOn}. يظهر الطلب في الاعتمادات المعلقة — راجع الملحق واعتمد أو ارفض.`,
+        cta: {
+          label: 'فتح الملحق',
+          url: appLink(`/ar/owner/contracts/${contractId}`),
+        },
+      }),
+    });
+  } else {
+    await notifyByEmail({
+      orgId,
+      aggregateType: 'contract',
+      aggregateId: contractId,
+      dedupeKey: `renewal-term-auto:${contractId}:${saved.endsOn}`,
+      audience: {
+        parties: [saved.tenantPartyId, saved.ownerPartyId],
+        managersOf: { orgId, propertyId: saved.propertyId },
+      },
+      content: () => ({
+        tone: 'contract',
+        subject: `✅ اعتُمدت مدة التجديد — ${saved.reference}`,
+        title: 'مدة التجديد محدّثة',
+        intro: `نهاية الملحق أصبحت ${saved.endsOn}. أكمل التوقيع والمستندات من حسابك.`,
+        cta: {
+          label: 'فتح الملحق',
+          url: appLink(`/ar/tenant/contracts/${contractId}`),
+        },
+      }),
+    });
+  }
+
+  return { status: saved.status, endsOn: saved.endsOn };
 }
 
 /** Owner approves or rejects a pending tenant term proposal. */
