@@ -143,8 +143,8 @@ export function EmailWishesAdmin({ locale }: { locale: 'ar' | 'en' }) {
           <h1>{ar ? 'العبارات التحفيزية في الإيميل' : 'Email motivational phrases'}</h1>
           <p className="muted">
             {ar
-              ? 'الشريط اللطيف أسفل محتوى الرسالة (مثل «المفتاح جاهز والقهوة العمانية…») والتحية في المقدمة. سطر واحد لكل عبارة، عربي · إنجليزي.'
-              : 'The soft banner under the email body (e.g. “Key ready; Omani coffee…”) and the opening greeting. One bilingual line per phrase (AR · EN).'}
+              ? 'الشريط أسفل محتوى الرسالة والتحية في المقدمة. سطر واحد لكل عبارة: أيقونة + عربي · أيقونة + إنجليزي. إن ظهرت عبارات قديمة اضغط «إعادة الافتراضي».'
+              : 'The soft banner under the email body and the opening greeting. One line each: icon + AR · icon + EN. If old lines still show, press “Reset to defaults”.'}
           </p>
         </div>
       </header>

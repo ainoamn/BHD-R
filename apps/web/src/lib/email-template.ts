@@ -4,6 +4,13 @@
  * tables and inline styles so it renders the same in Gmail, Outlook and phone mail apps.
  */
 
+import {
+  DEFAULT_EMAIL_GREETINGS_ANON,
+  DEFAULT_EMAIL_GREETINGS_NAMED,
+  DEFAULT_EMAIL_SPARKS,
+  DEFAULT_EMAIL_WISHES,
+} from '@/lib/email-wish-defaults';
+
 export const COMPANY_NAME_AR = 'شركة بن حمود للتطوير';
 export const COMPANY_NAME_EN = 'Bin Hamood Development';
 export const PRODUCT_NAME = 'BHD R';
@@ -44,7 +51,7 @@ export type BrandedEmailInput = {
   heroImageUrl?: string | undefined;
 };
 
-type ToneStyle = { icon: string; accent: string; soft: string; badge: string; wishes: string[] };
+type ToneStyle = { icon: string; accent: string; soft: string; badge: string };
 
 export function toneVisual(tone: EmailTone): {
   icon: string;
@@ -57,8 +64,8 @@ export function toneVisual(tone: EmailTone): {
 }
 
 /**
- * Tone-matched cheerful lines (Arabic · English). Picked per message from the seed so retries
- * stay stable, while different notifications keep rotating through the pool.
+ * Tone chrome for branded emails. Wish lines live in `email-wish-defaults`
+ * (Arabic · English with icons) so the admin page and mail share one library.
  */
 const TONES: Record<EmailTone, ToneStyle> = {
   maintenance: {
@@ -66,288 +73,98 @@ const TONES: Record<EmailTone, ToneStyle> = {
     accent: '#0b8f8a',
     soft: '#e6f6f5',
     badge: 'الصيانة · Maintenance',
-    wishes: [
-      'نتمنى أن يعود كل شيء يعمل كالساعة… بل أدقّ قليلاً 🕰️ · May everything run smoother than a Swiss watch.',
-      'صنبور اليوم، راحة الغد — ونحن أسرع من التسريب 💨 · Today’s fix, tomorrow’s quiet home.',
-      'بيت هادئ لا يسمع فيه إلا صوت القهوة ☕ · A calm home deserves a calm coffee.',
-      'فنيّونا بالعُدّة، ونحن بالأماني 🧰💚 · Tools in hand, good wishes in the other.',
-      'عطل صغير لن يسرق يومك — وعدنا 💪 · A small glitch won’t steal your day.',
-      'بعد الإصلاح: ابتسامة أوسع من الممر 😊 · After the fix: a hallway-wide smile.',
-      'الصيانة فنّ… والهدوء هو اللوحة 🎨 · Maintenance is craft; calm is the artwork.',
-      'ارجع لحياتك؛ نحن نتكفّل بالباقي 🛠️ · Back to your day — we’ve got the rest.',
-    ],
   },
   contract: {
     icon: '📜',
     accent: '#174b70',
     soft: '#e9f0f7',
     badge: 'العقود · Contracts',
-    wishes: [
-      'عقد موفق وبداية تستحق كعكة صغيرة 🎂 · A solid contract deserves a small celebration.',
-      'أوضح من صباح مسقط في يناير ☀️ · Clearer than a crisp Muscat morning.',
-      'توقيع واحد… وراحة بال طويلة ✍️🌿 · One signature, long peace of mind.',
-      'الورقة جاهزة؛ والخطوة الجريئة لك 🚀 · The paper is ready — the bold step is yours.',
-      'اتفاق عادل يفتح أبواباً أجمل 🚪✨ · A fair deal opens brighter doors.',
-      'بالتوفيق في فصل جديد من قصتك 📖 · Good luck with this new chapter.',
-      'الوضوح اليوم يوفر الجدال غداً 💡 · Clarity today saves debates tomorrow.',
-      'مرحى للثقة المتبادلة — أجمل بند في أي عقد 🤝 · Here’s to mutual trust — the best clause.',
-    ],
   },
   invoice: {
     icon: '🧾',
     accent: '#174b70',
     soft: '#eef3f9',
     badge: 'الفواتير · Invoices',
-    wishes: [
-      'فواتير خفيفة كنسمة صلالة 🍃 · May your invoices stay as light as a Salalah breeze.',
-      'الأرقام مرتبة، والبركة أرتب 🤲 · Numbers tidy; blessings tidier.',
-      'سداد ميسّر ومحفظة مبتسمة 😄💳 · Easy settling, smiling wallet.',
-      'كل ريال في مكانه… وكل همّ بعيداً 📊 · Every rial in place; every worry out of place.',
-      'شفافية الحساب راحة للخاطر 💎 · Clear accounts, clearer minds.',
-      'دفعة اليوم = راحة الأسبوع ☕ · Pay today, rest easier this week.',
-      'نرتّب الأرقام؛ فترتّب أنت يومك 🗓️ · We sort the figures so you can sort your day.',
-      'بارك الله في رزقك… وحساباتك أيضاً 🌟 · Blessings on your income — and your ledger.',
-    ],
   },
   arrears: {
     icon: '⏰',
     accent: '#c2410c',
     soft: '#fff3eb',
     badge: 'تذكير ودّي · Gentle reminder',
-    wishes: [
-      'تذكير لطيف ودعاء بأن يتيسر الأمر 🌤️ · A soft nudge and a wish that things ease up.',
-      'لا عتب… فقط قهوة افتراضية وتذكير صغير ☕🙂 · No blame — just virtual coffee and a note.',
-      'رزق واسع يجعل هذه الرسائل نادرة 🌧️ · Wide provision that makes these notes rare.',
-      'نذكّرك بلطف لأننا نريدك مرتاحاً 💛 · We remind gently because we want you at ease.',
-      'خطوة صغيرة اليوم تُنهي الهمّ كله 🚶 · One small step today clears the whole worry.',
-      'أنت أهم من الرقم… والرقم له حل 🤝 · You’re bigger than the number — and numbers have solutions.',
-      'نثق أن الأمر سيتيسر قريباً إن شاء الله 🤲 · Trusting it will ease soon, God willing.',
-      'رسالة ودّية لا أكثر… ويوم ألطف بإذن الله 🌸 · Just a kind message — and a kinder day ahead.',
-    ],
   },
   reminder: {
     icon: '🔔',
     accent: '#0b8f8a',
     soft: '#e6f6f5',
     badge: 'تنبيه · Reminder',
-    wishes: [
-      'تذكير صغير اليوم يوفّر صداعاً كبيراً غداً 💡 · A small reminder today saves a big headache tomorrow.',
-      'نتذكر عنك؛ فاستمتع بما يسعدك 🌸 · We remember for you — enjoy what lifts you.',
-      'منظّم ومطمئن… والتقويم في صفّك 📅 · Stay organized; the calendar is on your side.',
-      'موعد محفوظ = يوم أخف 🎈 · A saved date is a lighter day.',
-      'أنت مشغول بالأجمل؛ نحن نحرس التفاصيل 👀 · You chase the bright stuff; we guard the details.',
-      'دقّة لطيفة… بلا ضغط زائد ⏱️ · Gentle precision, zero extra stress.',
-      'التذكير خدمة، لا إزعاج — وعدنا 🙂 · Reminding is a service, not a nuisance.',
-      'خطوة الآن… وطمأنينة لاحقاً 💚 · Act now; breathe easier later.',
-    ],
   },
   reward: {
     icon: '🏆',
     accent: '#b45309',
     soft: '#fff7e6',
     badge: 'المكافآت · Rewards',
-    wishes: [
-      'ألف مبروك! استحققتها بجدارة 👏🎉 · Huge congratulations — you earned this.',
-      'ارفع رأسك قليلاً… الإنجاز يليق بك 😎 · Chin up — this win suits you.',
-      'الشارة تلمع، والتزامك ألمع ✨ · The badge shines; your consistency shines brighter.',
-      'هذا ليس حظاً… هذا عمل 💼🌟 · Not luck — that’s work paying off.',
-      'احتفل قليلاً؛ فأنت تستحق 🥳 · Celebrate a little — you deserve it.',
-      'كل نجمة تُضاف لأنك ثبّت المعيار عالياً ⭐ · Every star lands because you set the bar high.',
-      'نجاح اليوم وقود غدٍ أجمل 🚀 · Today’s win fuels a brighter tomorrow.',
-      'نحن فخورون… وأنت أولى بالفخر 🧡 · We’re proud — and you should be prouder.',
-    ],
   },
   upgrade: {
     icon: '🚀',
     accent: '#7c3aed',
     soft: '#f3edff',
     badge: 'الترقيات · Upgrades',
-    wishes: [
-      'اربط الحزام… مستواك الجديد انطلق 🚀 · Buckle up — your new level just launched.',
-      'أدوات أكثر ووقت أطول للشاي 🍵 · More tools, more time for tea.',
-      'أرقام تجعل الجداول تبتسم 📈 · Numbers that make spreadsheets smile.',
-      'ترقية = ثقة أكبر في خطوتك التالية 💪 · An upgrade is confidence for the next move.',
-      'السقف ارتفع… والرؤية أوضح 🔭 · The ceiling rose; the view got clearer.',
-      'مرحى للنمو الهادئ والذكي 🌱 · Here’s to quiet, smart growth.',
-      'باقة أوسع لأحلام أوسع ✨ · A wider plan for wider dreams.',
-      'أنت تستحق أدوات تليق بطموحك 🛠️ · You deserve tools that match your ambition.',
-    ],
   },
   booking: {
     icon: '🗝️',
     accent: '#0b8f8a',
     soft: '#e6f6f5',
     badge: 'الحجوزات · Bookings',
-    wishes: [
-      'إقامة أجمل من صور الإعلان 📸🌴 · A stay prettier than the listing photos.',
-      'المفتاح جاهز والقهوة العمانية أجهز ☕🗝️ · Key ready; Omani coffee readier.',
-      'حجز موفق وذكريات تستحق الحكاية 🌙 · A good booking and stories worth telling.',
-      'مرحباً بك… البيت يبتسم لوصولك 🏠😊 · Welcome — the place smiles at your arrival.',
-      'راحة البال هي أفضل وسائل الراحة 🛋️ · Peace of mind is the best amenity.',
-      'نتمنى لك ليالي هادئة وأياماً خفيفة 🌠 · Quiet nights and easy days ahead.',
-      'استمتع؛ والتفاصيل علينا 🧭 · Enjoy — details are on us.',
-      'رحلة قصيرة أو إقامة طويلة… بالتوفيق دائماً 🧳 · Short trip or long stay — always good luck.',
-    ],
   },
   listing: {
     icon: '🏡',
     accent: '#0b8f8a',
     soft: '#e6f6f5',
     badge: 'الإعلانات · Listings',
-    wishes: [
-      'طلبات كالحلوى في العيد 🍬 · May enquiries pour in like Eid sweets.',
-      'إعلانك في الواجهة… والعالم يراك 🌍✨ · Your listing is front and center.',
-      'مستأجر رائع في الطريق إن شاء الله 🚪💚 · A great tenant is on the way, God willing.',
-      'عقارك يستحق من يقدّره كما تفعل أنت 💎 · Your property deserves someone who values it.',
-      'الظهور الجيد بداية الحجز الجيد 📣 · Good visibility starts good bookings.',
-      'ابتسم… صورتك الأولى تعمل الآن 📷 · Smile — your first photo is already working.',
-      'سوق نشيط وقلب مرتاح 💚 · A lively market and a calm heart.',
-      'كل مشاهدة خطوة أقرب للمستأجر المناسب 👣 · Every view is a step toward the right tenant.',
-    ],
   },
   vacancy: {
     icon: '🏢',
     accent: '#174b70',
     soft: '#e9f0f7',
     badge: 'الشواغر · Vacancies',
-    wishes: [
-      'شاغرة اليوم… ومأهولة غداً بإذن الله 🌱 · Vacant today, filled tomorrow God willing.',
-      'الفراغ فرصة بثوب الانتظار 😉 · Empty space is opportunity in waiting clothes.',
-      'ليكن الشاغر أقصر من استراحة القهوة ☕ · May the vacancy be shorter than a coffee break.',
-      'الوحدة تنتظر شخصاً يستحقها 🔑 · The unit is waiting for someone who deserves it.',
-      'كل يوم شواغر هو يوم اقتراب 🌅 · Every vacant day is a day closer to filled.',
-      'نحن نجهّز المسرح؛ والضيف قادم 🎭 · We’re setting the stage; the guest is coming.',
-      'لا قلق… الحركة تعود دائماً 🔄 · No worry — momentum always returns.',
-      'صبر جميل… ونتيجة أجمل قريباً 🌷 · Beautiful patience; a finer result soon.',
-    ],
   },
   request: {
     icon: '📨',
     accent: '#0b8f8a',
     soft: '#e6f6f5',
     badge: 'الطلبات · Requests',
-    wishes: [
-      'وصلنا طلبك… بجدية وابتسامة 🙂 · We got your request — serious and smiling.',
-      'معاملة كبار الشخصيات لكل طلب 🎩 · VIP care for every request.',
-      'يوماً أسهل من تعبئة النماذج 📝 · A day easier than filling forms.',
-      'صوتك مسموع… ونعمل عليه الآن 👂 · Your voice is heard; we’re on it.',
-      'طلب واضح = حل أوضح 🔍 · A clear ask makes a clearer fix.',
-      'شكراً لثقتك؛ سنردّها عملاً 💚 · Thanks for the trust — we’ll repay it in action.',
-      'لا تقلق من المتابعة؛ نحن هنا 🛎️ · Don’t worry about follow-up — we’re here.',
-      'كل رسالة تقرّبنا من حل يريحك ✉️ · Every message brings a calmer solution closer.',
-    ],
   },
   alert: {
     icon: '📣',
     accent: '#be123c',
     soft: '#fff0f3',
     badge: 'تنبيه مهم · Important',
-    wishes: [
-      'خبر مهم… ونحن معك خطوة بخطوة 🤝 · Important news — and we’re with you step by step.',
-      'تنبيه سريع ودعاء بيوم هادئ 🌤️ · A quick alert and a wish for a calm day.',
-      'لا داعي للقلق؛ التفاصيل بين يديك 🧭 · No need to fret — the details are in your hands.',
-      'وضوح الآن يمنع الارتباك لاحقاً 💡 · Clarity now prevents confusion later.',
-      'خذ نفساً… ثم أكمل بثقة 🌬️ · Take a breath, then continue with confidence.',
-      'نحن هنا إن احتجت أي مساعدة 🛟 · We’re here if you need any help.',
-      'المعلومة وصلت؛ والحل أقرب مما تظن 🔧 · The update landed; the fix is nearer than you think.',
-      'Steady steps beat rushed worries 🧘 · خطوات ثابتة تهزم القلق المتسرّع.',
-    ],
   },
   team: {
     icon: '🤝',
     accent: '#174b70',
     soft: '#e9f0f7',
     badge: 'الفريق · Team',
-    wishes: [
-      'أهلاً بالفريق! قهوة قبل أول مهمة ☕ · Welcome aboard — coffee before task one.',
-      'ابتسامة وصلاحيات مرتبة بانتظارك 🤝 · A smile and tidy permissions await you.',
-      'إنجازات أكثر… واجتماعات أقل إن أمكن 😄 · More wins, fewer meetings if possible.',
-      'أنت جزء من شيء يبني الثقة يومياً 🏗️ · You’re part of something that builds trust daily.',
-      'بداية موفقة كشروق مسقط ☀️ · A strong start like a Muscat sunrise.',
-      'فريقك يسعد بانضمامك — حقاً 🧡 · Your crew is genuinely glad you’re here.',
-      'كل صلاحية أداة… وكل يوم فرصة 🛠️ · Every permission is a tool; every day a chance.',
-      'معاً نجعل العقار مكاناً أسهل للجميع 🏠 · Together we make property life easier for all.',
-    ],
   },
   legal: {
     icon: '⚖️',
     accent: '#174b70',
     soft: '#e9f0f7',
     badge: 'الشؤون القانونية · Legal',
-    wishes: [
-      'نهاية بالحسنى ووئام دائم 🕊️ · A fair ending and lasting peace.',
-      'أوراق مرتبة وحق واضح وأمل كبير ⚖️ · Tidied papers, clear rights, big hope.',
-      'العدل يريح القلوب قبل المحاكم 💛 · Justice eases hearts before it fills courts.',
-      'خطوة قانونية واثقة = غدٍ أهدأ 📋 · A confident legal step means a calmer tomorrow.',
-      'نرجو حلاً يحفظ الكرامة للجميع 🤝 · Wishing a solution that keeps dignity for all.',
-      'الوضوح أقوى دفاع 🛡️ · Clarity is the strongest defence.',
-      'بالتوفيق… والحق أقرب مما يبدو ✨ · Good luck — fairness is closer than it looks.',
-      'Steady files, steady nerves 📁 · ملفات ثابتة وأعصاب أهدأ.',
-    ],
   },
   deposit: {
     icon: '💰',
     accent: '#0b8f8a',
     soft: '#e6f6f5',
     badge: 'التأمين · Deposit',
-    wishes: [
-      'مالك في أمان… ويعود مع ابتسامة 😊 · Your funds are safe — and may return with a smile.',
-      'حسابات صافية وقلوب أصفى 💙 · Clear accounts, clearer hearts.',
-      'الشفافية تبني الثقة أسرع من أي وعد 🔍 · Transparency builds trust faster than promises.',
-      'كل ريال موثّق = راحة بال أكبر 📒 · Every tracked rial is extra peace of mind.',
-      'نحرص على حقك كما نحرص على النظام ⚖️ · We guard your right as carefully as the process.',
-      'قريباً تُغلق الحلقة بسلام إن شاء الله 🔄 · Soon the loop closes peacefully, God willing.',
-      'الأمان المالي جزء من الضيافة 🏨 · Financial safety is part of hospitality.',
-      'اطمئن… التفاصيل تحت السيطرة 🛟 · Rest easy — the details are under control.',
-    ],
   },
   general: {
     icon: '✨',
     accent: '#0b8f8a',
     soft: '#e6f6f5',
     badge: 'إشعار · Notice',
-    wishes: [
-      'يوماً جميلاً كشروق جبال الحجر 🌄 · A day as bright as a Hajar sunrise.',
-      'دمت بخير… واشرب ماءً؛ مسقط حارة 💧 · Stay well — and drink water; Muscat is warm.',
-      'رسالة صغيرة وأماني كبيرة بيوم رائع 🌟 · A small note with big wishes for a great day.',
-      'ابتسم… فالخير أقرب مما تظن 😊 · Smile — goodness is nearer than you think.',
-      'خطوة لطيفة اليوم تصنع فرقاً غداً 🌱 · A kind step today shapes a better tomorrow.',
-      'نحن سعداء بخدمتك دائماً 🫶 · Always happy to serve you.',
-      'طاقة إيجابية في طريقك الآن ✨ · Positive energy headed your way.',
-      'Keep going — you’re doing better than you feel 💪 · واصل… أنت أفضل مما تشعر.',
-    ],
   },
 };
-
-/** Short bilingual boosters mixed into every email for continuous variety. */
-const SPARKS = [
-  'استمر؛ أنت على الطريق الصحيح 💪 · Keep going — you’re on the right path.',
-  'يومك يستحق أن يكون ألطف مما تتوقع 🌈 · Your day deserves to be kinder than expected.',
-  'ثقة صغيرة تصنع فرقاً كبيراً ✨ · A little confidence makes a big difference.',
-  'نحن معك… حتى في التفاصيل الصغيرة 🤝 · We’re with you — even in the tiny details.',
-  'ابتسامة الآن = يوم أخف لاحقاً 😄 · A smile now means a lighter day later.',
-  'كل إشعار فرصة لتنظيم جميل 🗂️ · Every notice is a chance for tidy progress.',
-  'خذ لحظة فخر بما أنجزته اليوم 🏅 · Take a moment of pride in today’s progress.',
-  'الهدوء قوة… والوضوح راحة 🧘 · Calm is strength; clarity is comfort.',
-  'خطوة واحدة كافية للبداية 👣 · One step is enough to begin.',
-  'أنت أهم من أي رقم أو موعد 💛 · You’re bigger than any figure or deadline.',
-  'بالتوفيق دائماً من فريق BHD R 🌴 · Always wishing you well from BHD R.',
-  'Nice work being here — seriously 🙌 · وجودك هنا بحد ذاته إنجاز لطيف.',
-];
-
-const GREETINGS_NAMED = [
-  (name: string) => `أهلاً ${name} 👋 · Hello ${name}`,
-  (name: string) => `مرحباً ${name} 🌟 · Welcome ${name}`,
-  (name: string) => `يا هلا ${name} 😊 · Hi ${name}`,
-  (name: string) => `سرّنا تواصلك ${name} 🤝 · Glad to reach you, ${name}`,
-];
-
-const GREETINGS_ANON = [
-  'أهلاً بك 👋 · Hello there',
-  'مرحباً بك 🌟 · Welcome',
-  'يا هلا وسهلاً 😊 · Hi and welcome',
-  'سعداء بتواصلك 🤝 · Glad to be in touch',
-];
 
 const DETAIL_ICONS: Array<[RegExp, string]> = [
   [/مبلغ|قيمة|تكلفة|المتأخر|الإجمالي|السعر|القسط/, '💵'],
@@ -409,39 +226,39 @@ export function getEmailWishPoolOverride(): EmailWishPoolOverride | null {
 }
 
 export function defaultWishLines(tone: EmailTone): readonly string[] {
-  return TONES[tone].wishes;
+  return DEFAULT_EMAIL_WISHES[tone];
 }
 
 export function defaultSparkLines(): readonly string[] {
-  return SPARKS;
+  return DEFAULT_EMAIL_SPARKS;
 }
 
 export function defaultGreetingNamedTemplates(): readonly string[] {
-  return GREETINGS_NAMED.map((fn) => fn('{name}'));
+  return DEFAULT_EMAIL_GREETINGS_NAMED;
 }
 
 export function defaultGreetingAnonLines(): readonly string[] {
-  return GREETINGS_ANON;
+  return DEFAULT_EMAIL_GREETINGS_ANON;
 }
 
 function wishLines(tone: EmailTone): readonly string[] {
   const custom = wishPoolOverride?.wishes?.[tone];
-  return custom?.length ? custom : TONES[tone].wishes;
+  return custom?.length ? custom : DEFAULT_EMAIL_WISHES[tone];
 }
 
 function sparkLines(): readonly string[] {
   const custom = wishPoolOverride?.sparks;
-  return custom?.length ? custom : SPARKS;
+  return custom?.length ? custom : DEFAULT_EMAIL_SPARKS;
 }
 
 function greetingNamedTemplates(): readonly string[] {
   const custom = wishPoolOverride?.greetingsNamed;
-  return custom?.length ? custom : GREETINGS_NAMED.map((fn) => fn('{name}'));
+  return custom?.length ? custom : DEFAULT_EMAIL_GREETINGS_NAMED;
 }
 
 function greetingAnonLines(): readonly string[] {
   const custom = wishPoolOverride?.greetingsAnon;
-  return custom?.length ? custom : GREETINGS_ANON;
+  return custom?.length ? custom : DEFAULT_EMAIL_GREETINGS_ANON;
 }
 
 /** Tone wish + rotating spark; stable for the same seed (retries), varied across messages. */

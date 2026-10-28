@@ -85,8 +85,7 @@ describe('lease journey with electronic approvals', () => {
     const lifecycle: ReservationLifecycle = {
       approval: { at: paid.esignSignedAt, byUserId: null, byName: 'Owner', automatic: true },
       contractDraft: {
-        at: paid.esignSignedAt,
-        byUserId: null,
+        savedAt: paid.esignSignedAt,
         byName: 'Owner',
       },
       contract: {
