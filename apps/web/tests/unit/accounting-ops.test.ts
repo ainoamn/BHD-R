@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  postingIncomeReceived,
-  postingPurchase,
-  postingSale,
-} from '@/lib/accounting-posting';
+import { postingIncomeReceived, postingPurchase, postingSale } from '@/lib/accounting-posting';
 import { parseChequeImportCsv } from '@/lib/accounting-ops';
 
 const map = new Map([

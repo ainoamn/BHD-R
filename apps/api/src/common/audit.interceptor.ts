@@ -53,7 +53,9 @@ export class AuditInterceptor implements NestInterceptor {
             ? String((request.params as Record<string, unknown>).id)
             : null,
         requestId: requestIdOf(request),
-        ipHash: createHash('sha256').update(request.ip ?? '').digest('hex'),
+        ipHash: createHash('sha256')
+          .update(request.ip ?? '')
+          .digest('hex'),
         metadata: {
           outcome,
           durationMs: Date.now() - started,

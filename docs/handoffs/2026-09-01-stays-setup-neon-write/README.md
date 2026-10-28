@@ -5,7 +5,7 @@
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main` (مدموج مباشرة — لا PR معلّق)  
-**آخر commit عند التوثيق:** `38b4f26` — *Stays setup saves via Vercel Neon as 0.4.22.*  
+**آخر commit عند التوثيق:** `38b4f26` — _Stays setup saves via Vercel Neon as 0.4.22._  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
 ---
@@ -14,11 +14,11 @@
 
 ### ما اكتمل في جلسة الإقامات اليومية (0.4.19 → 0.4.22)
 
-| الإصدار | Commit | الملخص |
-| --- | --- | --- |
-| **0.4.19** | `8f3fb79` | API إعداد الإقامة + معالج 5 خطوات + نشر |
-| **0.4.20** | `a7d6779` | إصلاح `STAYS_ORG_ALLOWLIST` الفارغ → pilot مفتوح |
-| **0.4.21** | `737bf84` | تحميل سياق المعالج SSR + fallback قراءة Neon |
+| الإصدار    | Commit    | الملخص                                                  |
+| ---------- | --------- | ------------------------------------------------------- |
+| **0.4.19** | `8f3fb79` | API إعداد الإقامة + معالج 5 خطوات + نشر                 |
+| **0.4.20** | `a7d6779` | إصلاح `STAYS_ORG_ALLOWLIST` الفارغ → pilot مفتوح        |
+| **0.4.21** | `737bf84` | تحميل سياق المعالج SSR + fallback قراءة Neon            |
 | **0.4.22** | `38b4f26` | **حفظ/نشر عبر Vercel/Neon** — لا يعتمد على Nest timeout |
 
 ### مشاكل المستخدم التي أُصلحت (0.4.22)
@@ -40,12 +40,12 @@
 
 ## المحادثة كاملة (نسخة حرفية)
 
-| الملف | الوصف |
-| --- | --- |
+| الملف                                                                        | الوصف                                                                                                                        |
+| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | [`conversation-transcript-FULL.jsonl`](./conversation-transcript-FULL.jsonl) | JSONL خام كامل (**3635** سطر) — SHA256 `e8412578b4d1601e4edc14e6817142b0e37f03f5e6ac3140d71f50cd1f7090d4` (**أسرار منقّحة**) |
-| [`conversation-readable-FULL.md`](./conversation-readable-FULL.md) | نسخة مقروءة (**1270** رسالة مستخرجة) |
-| [`MANIFEST.md`](./MANIFEST.md) | أحجام وهاش |
-| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) | **خطة الاستكمال بالأولويات** |
+| [`conversation-readable-FULL.md`](./conversation-readable-FULL.md)           | نسخة مقروءة (**1270** رسالة مستخرجة)                                                                                         |
+| [`MANIFEST.md`](./MANIFEST.md)                                               | أحجام وهاش                                                                                                                   |
+| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md)                               | **خطة الاستكمال بالأولويات**                                                                                                 |
 
 **نطاق المحادثة:** من مراجعة BHD-OM وبناء BHD R (2026-08-23) حتى إصلاح إعداد الإقامة اليومية ورفع 0.4.22 (2026-09-01).
 
@@ -71,18 +71,19 @@ git pull origin main
 4. عند الحاجة: `conversation-readable-FULL.md` أو الـ JSONL الكامل
 
 **في Cursor:** افتح محادثة جديدة واذكر:
+
 > اقرأ `docs/handoffs/2026-09-01-stays-setup-neon-write/README.md` و `CONTINUE-PLAN-AR.md` ثم استكمل من آخر commit على `main`.
 
 ---
 
 ## حالة البيئة (عند التوثيق)
 
-| الطبقة | المتغير / الحالة |
-| --- | --- |
-| **Vercel** | `STAYS_PLATFORM_ENABLED=true` · `DATABASE_URL` مطلوب للحفظ |
-| **Render Nest** | `STAYS_PLATFORM_ENABLED=true` · `STAYS_ORG_ALLOWLIST=*` أو فارغ (0.4.20+) |
-| **الإصدار** | `0.4.22` |
-| **Nest للإعداد** | **اختياري** للتحميل/الحفظ — مطلوب لاحقاً لـ inventory rebuild من outbox |
+| الطبقة           | المتغير / الحالة                                                          |
+| ---------------- | ------------------------------------------------------------------------- |
+| **Vercel**       | `STAYS_PLATFORM_ENABLED=true` · `DATABASE_URL` مطلوب للحفظ                |
+| **Render Nest**  | `STAYS_PLATFORM_ENABLED=true` · `STAYS_ORG_ALLOWLIST=*` أو فارغ (0.4.20+) |
+| **الإصدار**      | `0.4.22`                                                                  |
+| **Nest للإعداد** | **اختياري** للتحميل/الحفظ — مطلوب لاحقاً لـ inventory rebuild من outbox   |
 
 ---
 
@@ -105,14 +106,14 @@ docs/product/daily-stays/                    # خطة المنتج
 
 ## commits ذات الصلة (الأحدث أولاً)
 
-| Commit | الملخص |
-| --- | --- |
-| *(هذا التسليم)* | أرشفة المحادثة الكاملة + HANDOFF |
-| `38b4f26` | 0.4.22 — حفظ إعداد الإقامة عبر Vercel/Neon |
-| `737bf84` | 0.4.21 — SSR context + Neon read fallback |
-| `a7d6779` | 0.4.20 — allowlist fix |
-| `8f3fb79` | 0.4.19 — setup API + wizard |
-| `59c7324` | رابط الإقامة في تصفح العقارات العام |
+| Commit          | الملخص                                     |
+| --------------- | ------------------------------------------ |
+| _(هذا التسليم)_ | أرشفة المحادثة الكاملة + HANDOFF           |
+| `38b4f26`       | 0.4.22 — حفظ إعداد الإقامة عبر Vercel/Neon |
+| `737bf84`       | 0.4.21 — SSR context + Neon read fallback  |
+| `a7d6779`       | 0.4.20 — allowlist fix                     |
+| `8f3fb79`       | 0.4.19 — setup API + wizard                |
+| `59c7324`       | رابط الإقامة في تصفح العقارات العام        |
 
 ---
 

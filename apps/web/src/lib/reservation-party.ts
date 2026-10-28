@@ -228,7 +228,9 @@ export function partyErrorText(code: string, ar: boolean): string {
         ? 'السجل التجاري ينتهي خلال أقل من شهرين.'
         : 'The commercial registration expires in less than two months.';
     case 'term_too_short':
-      return ar ? 'مدة العقد أقصر من الحد الأدنى للعقار.' : 'The term is shorter than the property minimum.';
+      return ar
+        ? 'مدة العقد أقصر من الحد الأدنى للعقار.'
+        : 'The term is shorter than the property minimum.';
     case 'email_unverified':
       return ar
         ? 'أكّد البريد الإلكتروني برمز التحقق المرسل إلى بريدك.'
@@ -283,9 +285,7 @@ export function partyToLeaseTenant(party: ReservationParty) {
           ? company.signatories.map((row) => row.name).join('، ')
           : (first?.name ?? ''),
       signatoryCivilId: company.signingMode === 'joint' ? '' : (first?.civilId ?? ''),
-      signatoryNationality: first?.nationality
-        ? countryName(first.nationality, 'ar')
-        : '',
+      signatoryNationality: first?.nationality ? countryName(first.nationality, 'ar') : '',
       phone: company.phone,
       email: company.email,
     };

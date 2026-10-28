@@ -213,7 +213,9 @@ export function postingReceivableCollection(
   ];
 }
 
-export function expenseCodeFromCategory(category: string): '5000' | '5100' | '5200' | '5300' | '5500' {
+export function expenseCodeFromCategory(
+  category: string,
+): '5000' | '5100' | '5200' | '5300' | '5500' {
   const value = category.toLowerCase();
   if (/صيان|maint|repair/.test(value)) return '5100';
   if (/قانون|legal|قض|court/.test(value)) return '5200';

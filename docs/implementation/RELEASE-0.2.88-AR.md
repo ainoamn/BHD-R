@@ -7,12 +7,12 @@
 
 ## ما نُفّذ
 
-| بند | الإجراء |
-| --- | --- |
-| **P0-02** | `POST /v1/public/units/:id/booking-checkouts` — hold + reservation pending + prospect party |
-| **Abuse** | Throttle 8/دقيقة؛ honeypot `website`؛ انتهاء holds/reservations قبل الفحص |
-| **Idempotency** | `submissionId` → `sessionReference` ثابت؛ إعادة الطلب تعيد نفس الحجز |
-| **BFF** | `createPublicBookingNestOrNeon` مع Neon fallback |
+| بند             | الإجراء                                                                                     |
+| --------------- | ------------------------------------------------------------------------------------------- |
+| **P0-02**       | `POST /v1/public/units/:id/booking-checkouts` — hold + reservation pending + prospect party |
+| **Abuse**       | Throttle 8/دقيقة؛ honeypot `website`؛ انتهاء holds/reservations قبل الفحص                   |
+| **Idempotency** | `submissionId` → `sessionReference` ثابت؛ إعادة الطلب تعيد نفس الحجز                        |
+| **BFF**         | `createPublicBookingNestOrNeon` مع Neon fallback                                            |
 
 بهذا تُغلق مسارات الكتابة المباشرة الحرجة عبر Nest-first (عقارات المالك + وسائط + معاينة + حجز). يبقى تأكيد الدفع sandbox fail-closed في الإنتاج.
 
@@ -24,9 +24,9 @@
 
 ## تحقق
 
-1. بعد نشر Nest: بدء حجز يعيد `via: nest`.  
-2. قبل نشر Nest: `via: neon` (fallback).  
-3. إعادة نفس `idempotency-key` (UUID) تعيد نفس `sessionReference`.  
+1. بعد نشر Nest: بدء حجز يعيد `via: nest`.
+2. قبل نشر Nest: `via: neon` (fallback).
+3. إعادة نفس `idempotency-key` (UUID) تعيد نفس `sessionReference`.
 4. وحدة بلا عربون → `deposit_not_set`.
 
 ## وثائق

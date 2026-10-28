@@ -86,7 +86,9 @@ export async function loadPropertyDiscoveryRails(
     .map((item) => {
       const overlap = (item.amenities ?? []).filter((code) => amenityCodes.has(code)).length;
       const bedScore =
-        unit && item.bedrooms != null ? Math.max(0, 3 - Math.abs(item.bedrooms - unit.bedrooms)) : 0;
+        unit && item.bedrooms != null
+          ? Math.max(0, 3 - Math.abs(item.bedrooms - unit.bedrooms))
+          : 0;
       return { item, score: overlap * 2 + bedScore };
     })
     .sort((a, b) => b.score - a.score)

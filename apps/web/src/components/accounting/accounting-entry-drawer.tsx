@@ -134,12 +134,24 @@ export function AccountingEntryDrawer({
   if (!journalId) return null;
 
   return (
-    <div className="accounting-drawer" role="dialog" aria-modal="true" aria-labelledby="gl-drawer-title">
-      <button type="button" className="accounting-drawer__backdrop" aria-label="Close" onClick={onClose} />
+    <div
+      className="accounting-drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="gl-drawer-title"
+    >
+      <button
+        type="button"
+        className="accounting-drawer__backdrop"
+        aria-label="Close"
+        onClick={onClose}
+      />
       <aside className="accounting-drawer__panel">
         <header className="accounting-drawer__head">
           <div>
-            <p className="accounting-drawer__eyebrow">{ar ? 'تفاصيل المعاملة' : 'Transaction detail'}</p>
+            <p className="accounting-drawer__eyebrow">
+              {ar ? 'تفاصيل المعاملة' : 'Transaction detail'}
+            </p>
             <h2 id="gl-drawer-title">{detail?.reference ?? '…'}</h2>
           </div>
           <button type="button" className="button button--quiet button--sm" onClick={onClose}>
@@ -147,7 +159,9 @@ export function AccountingEntryDrawer({
           </button>
         </header>
 
-        {loading ? <p className="accounting-hub__muted">{ar ? 'جاري التحميل…' : 'Loading…'}</p> : null}
+        {loading ? (
+          <p className="accounting-hub__muted">{ar ? 'جاري التحميل…' : 'Loading…'}</p>
+        ) : null}
         {error ? <p className="accounting-hub__error">{error}</p> : null}
 
         {detail ? (
@@ -159,7 +173,9 @@ export function AccountingEntryDrawer({
               </div>
               <div>
                 <span>{ar ? 'الحالة' : 'Status'}</span>
-                <strong className={`accounting-hub__status accounting-hub__status--${detail.status}`}>
+                <strong
+                  className={`accounting-hub__status accounting-hub__status--${detail.status}`}
+                >
                   {accountingJournalStatusLabel(detail.status, locale)}
                 </strong>
               </div>
@@ -205,7 +221,9 @@ export function AccountingEntryDrawer({
                         {line.debitMinor !== '0' ? money(line.debitMinor, line.currency, ar) : '—'}
                       </td>
                       <td className="num">
-                        {line.creditMinor !== '0' ? money(line.creditMinor, line.currency, ar) : '—'}
+                        {line.creditMinor !== '0'
+                          ? money(line.creditMinor, line.currency, ar)
+                          : '—'}
                       </td>
                     </tr>
                   ))}
@@ -231,7 +249,9 @@ export function AccountingEntryDrawer({
                 ))}
               </ol>
             ) : (
-              <p className="accounting-hub__muted">{ar ? 'لا أحداث مسجّلة بعد' : 'No events yet'}</p>
+              <p className="accounting-hub__muted">
+                {ar ? 'لا أحداث مسجّلة بعد' : 'No events yet'}
+              </p>
             )}
 
             <div className="accounting-hub__actions">
@@ -283,11 +303,7 @@ export function AccountingEntryDrawer({
                       );
                     } catch (err) {
                       setError(
-                        err instanceof ApiError
-                          ? err.message
-                          : ar
-                            ? 'تعذر الإرسال'
-                            : 'Send failed',
+                        err instanceof ApiError ? err.message : ar ? 'تعذر الإرسال' : 'Send failed',
                       );
                     } finally {
                       setSending(false);

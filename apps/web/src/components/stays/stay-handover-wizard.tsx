@@ -88,7 +88,12 @@ export function StayHandoverWizard({
 }) {
   const ar = locale === 'ar';
   const checkIn = kind === 'check_in';
-  const steps = checkIn && !skipVerify ? CHECK_IN_STEPS : checkIn ? CHECK_IN_STEPS.filter((s) => s.id !== 'verify') : CHECK_OUT_STEPS;
+  const steps =
+    checkIn && !skipVerify
+      ? CHECK_IN_STEPS
+      : checkIn
+        ? CHECK_IN_STEPS.filter((s) => s.id !== 'verify')
+        : CHECK_OUT_STEPS;
   const [stepIndex, setStepIndex] = useState(0);
   const step = steps[stepIndex]!.id;
 
@@ -143,8 +148,7 @@ export function StayHandoverWizard({
           }),
         });
         const payload = (await response.json().catch(() => null)) as
-          | (Preview & { error?: { code?: string; messageAr?: string; message?: string } })
-          | null;
+          (Preview & { error?: { code?: string; messageAr?: string; message?: string } }) | null;
         if (!response.ok || !payload?.reference) {
           setVerifyError(
             ar
@@ -182,9 +186,8 @@ export function StayHandoverWizard({
     }
     let stopped = false;
     let timer = 0;
-    const Detector = (
-      globalThis as unknown as { BarcodeDetector?: DetectorConstructor }
-    ).BarcodeDetector;
+    const Detector = (globalThis as unknown as { BarcodeDetector?: DetectorConstructor })
+      .BarcodeDetector;
     if (!Detector) {
       setVerifyError(
         ar ? 'الكاميرا أو ماسح الباركود غير متاحين.' : 'Camera or barcode scanner unavailable.',
@@ -350,26 +353,32 @@ export function StayHandoverWizard({
           <header>
             <div>
               <span className="ops-kicker">
-                {ar ? `الخطوة ${stepIndex + 1} من ${steps.length}` : `Step ${stepIndex + 1} of ${steps.length}`}
+                {ar
+                  ? `الخطوة ${stepIndex + 1} من ${steps.length}`
+                  : `Step ${stepIndex + 1} of ${steps.length}`}
               </span>
               <h2 id="handover-wizard-title">{title}</h2>
               {guestName ? <p className="muted">{guestName}</p> : null}
             </div>
-            <button type="button" aria-label={ar ? 'إغلاق' : 'Close'} disabled={busy} onClick={onClose}>
+            <button
+              type="button"
+              aria-label={ar ? 'إغلاق' : 'Close'}
+              disabled={busy}
+              onClick={onClose}
+            >
               ×
             </button>
           </header>
 
-          <ol className="handover-wizard__steps" aria-label={ar ? 'خطوات التسجيل' : 'Handover steps'}>
+          <ol
+            className="handover-wizard__steps"
+            aria-label={ar ? 'خطوات التسجيل' : 'Handover steps'}
+          >
             {steps.map((item, index) => (
               <li
                 key={item.id}
                 className={
-                  index === stepIndex
-                    ? 'is-current'
-                    : index < stepIndex
-                      ? 'is-done'
-                      : undefined
+                  index === stepIndex ? 'is-current' : index < stepIndex ? 'is-done' : undefined
                 }
               >
                 <span aria-hidden="true">{index < stepIndex ? '✓' : index + 1}</span>
@@ -512,7 +521,9 @@ export function StayHandoverWizard({
               <div className="handover-wizard__pane">
                 <div className="handover-recipient__grid">
                   <div className="field">
-                    <label htmlFor="wizard-phone">{ar ? 'رقم هاتف المستلم *' : 'Recipient phone *'}</label>
+                    <label htmlFor="wizard-phone">
+                      {ar ? 'رقم هاتف المستلم *' : 'Recipient phone *'}
+                    </label>
                     <input
                       id="wizard-phone"
                       className="input"
@@ -539,7 +550,9 @@ export function StayHandoverWizard({
                     ) : null}
                   </div>
                   <div className="field">
-                    <label htmlFor="wizard-name">{ar ? 'اسم المستلم (اختياري)' : 'Recipient name (optional)'}</label>
+                    <label htmlFor="wizard-name">
+                      {ar ? 'اسم المستلم (اختياري)' : 'Recipient name (optional)'}
+                    </label>
                     <input
                       id="wizard-name"
                       className="input"
@@ -564,7 +577,9 @@ export function StayHandoverWizard({
                     </select>
                   </div>
                 </div>
-                <div className={`handover-doc${tried && !document ? ' handover-doc--missing' : ''}`}>
+                <div
+                  className={`handover-doc${tried && !document ? ' handover-doc--missing' : ''}`}
+                >
                   <span className="handover-doc__label">
                     {ar ? 'صورة وثيقة المستلم *' : 'Recipient ID photo *'}
                   </span>
@@ -804,11 +819,21 @@ export function StayHandoverWizard({
           </div>
 
           <div className="form-actions handover-wizard__actions">
-            <button type="button" className="button button--quiet" disabled={busy} onClick={onClose}>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={busy}
+              onClick={onClose}
+            >
               {ar ? 'إلغاء' : 'Cancel'}
             </button>
             {stepIndex > 0 ? (
-              <button type="button" className="button button--quiet" disabled={busy} onClick={goBack}>
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={busy}
+                onClick={goBack}
+              >
                 {ar ? 'السابق' : 'Back'}
               </button>
             ) : null}

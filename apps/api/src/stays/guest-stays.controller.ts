@@ -10,10 +10,7 @@ import {
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { readStaysFlagsFromEnv } from '@bhd-r/config';
-import {
-  stayGuestBookingClaimSchema,
-  type StayGuestBookingClaim,
-} from '@bhd-r/contracts';
+import { stayGuestBookingClaimSchema, type StayGuestBookingClaim } from '@bhd-r/contracts';
 import type { ApiRequest } from '../common/api-http.js';
 import { Authenticated } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';

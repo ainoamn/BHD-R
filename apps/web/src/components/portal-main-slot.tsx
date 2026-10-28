@@ -121,11 +121,7 @@ export function PortalMainSlot({
   return (
     <PortalPageContext.Provider value={register}>
       {/* Live RSC for the active route; hide only while soft panes own the main area. */}
-      <div
-        hidden={softPane}
-        inert={softPane || undefined}
-        aria-hidden={softPane || undefined}
-      >
+      <div hidden={softPane} inert={softPane || undefined} aria-hidden={softPane || undefined}>
         {children}
       </div>
       {Object.entries(pages).map(([path, content]) => (

@@ -18,9 +18,9 @@
 
 ## تحقق
 
-| فحص | نتيجة |
-| --- | --- |
-| `pnpm --filter @bhd-r/domain test` | 18 passed |
-| Neon migrate `0016_stay_housekeeping` | applied |
-| `/ar/stays` والعلم off | بلا سطح إقامة |
-| Worker بدون العلم | jobs idle / outbox stay → skipped |
+| فحص                                   | نتيجة                             |
+| ------------------------------------- | --------------------------------- |
+| `pnpm --filter @bhd-r/domain test`    | 18 passed                         |
+| Neon migrate `0016_stay_housekeeping` | applied                           |
+| `/ar/stays` والعلم off                | بلا سطح إقامة                     |
+| Worker بدون العلم                     | jobs idle / outbox stay → skipped |

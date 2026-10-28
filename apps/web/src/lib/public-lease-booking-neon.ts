@@ -877,9 +877,9 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
             rejected: lifecycle.bookingDocsReturn.rejected ?? [],
             replaced: lifecycle.bookingDocsReturn.replaced ?? [],
             locked: lifecycle.bookingDocsReturn.locked ?? [],
-            stagedEsign: (
-              ['id-front', 'id-back', 'selfie'] as const
-            ).filter((code) => Boolean(lifecycle.bookingDocsReturn?.fixFiles?.[code])),
+            stagedEsign: (['id-front', 'id-back', 'selfie'] as const).filter((code) =>
+              Boolean(lifecycle.bookingDocsReturn?.fixFiles?.[code]),
+            ),
           }
         : null,
     tenantSignedAt: lifecycle.tenantSignature?.signedAt ?? null,

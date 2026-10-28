@@ -25,10 +25,7 @@ import {
   stayArrivalWindow,
   type StayCheckinType,
 } from '@/lib/stay-checkin-window';
-import {
-  ensureStayDepositPaymentInTx,
-  loadStayDepositGate,
-} from '@/lib/stay-deposit-gate-neon';
+import { ensureStayDepositPaymentInTx, loadStayDepositGate } from '@/lib/stay-deposit-gate-neon';
 
 const ARRIVAL_READY = new Set(['confirmed', 'paid', 'pre_arrival']);
 
@@ -38,9 +35,7 @@ function fail(code: string): never {
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
-type StayKey =
-  | { token: string }
-  | { reference: string; code: string };
+type StayKey = { token: string } | { reference: string; code: string };
 
 type StayFacts = {
   id: string;
@@ -166,10 +161,7 @@ function enforceCheckinWindow(facts: StayFacts, now: Date = new Date()) {
 }
 
 /** Public: guest page loads a rotating sealed pass for a paid booking. */
-export async function guestStayCheckinPass(
-  referenceCode: string,
-  locale: 'ar' | 'en' = 'ar',
-) {
+export async function guestStayCheckinPass(referenceCode: string, locale: 'ar' | 'en' = 'ar') {
   const { createDatabase } = await import('@bhd-r/db');
   const url = process.env.DATABASE_URL;
   if (!url) fail('db_unconfigured');
@@ -185,18 +177,38 @@ export async function guestStayCheckinPass(
     let facts = (await loadStayById(tx, hit.id)) ?? fail('booking_not_found');
     const now = new Date();
     const window = enforceCheckinWindow(facts, now);
-    if (!window.ok && window.code === 'stay_checkin_window_closed' && ARRIVAL_READY.has(facts.status)) {
+    if (
+      !window.ok &&
+      window.code === 'stay_checkin_window_closed' &&
+      ARRIVAL_READY.has(facts.status)
+    ) {
       await markNoShowInTx(tx, facts, now);
       facts = { ...facts, status: 'no_show' };
     }
-    if (facts.status === 'checked_in' || facts.status === 'checked_out' || facts.status === 'closed') {
-      return { state: 'arrived' as const, referenceCode: facts.referenceCode, status: facts.status };
+    if (
+      facts.status === 'checked_in' ||
+      facts.status === 'checked_out' ||
+      facts.status === 'closed'
+    ) {
+      return {
+        state: 'arrived' as const,
+        referenceCode: facts.referenceCode,
+        status: facts.status,
+      };
     }
     if (facts.status === 'no_show' || facts.status === 'cancelled') {
-      return { state: 'expired' as const, referenceCode: facts.referenceCode, status: facts.status };
+      return {
+        state: 'expired' as const,
+        referenceCode: facts.referenceCode,
+        status: facts.status,
+      };
     }
     if (!ARRIVAL_READY.has(facts.status)) {
-      return { state: 'not_ready' as const, referenceCode: facts.referenceCode, status: facts.status };
+      return {
+        state: 'not_ready' as const,
+        referenceCode: facts.referenceCode,
+        status: facts.status,
+      };
     }
     if (!window.ok && window.code === 'stay_checkin_too_early') {
       return {
@@ -304,12 +316,20 @@ export async function previewStayGate(
     await assertPropertyAccess(tx, claims, facts, propertyId);
     const now = new Date();
     const window = enforceCheckinWindow(facts, now);
-    if (!window.ok && window.code === 'stay_checkin_window_closed' && ARRIVAL_READY.has(facts.status)) {
+    if (
+      !window.ok &&
+      window.code === 'stay_checkin_window_closed' &&
+      ARRIVAL_READY.has(facts.status)
+    ) {
       await markNoShowInTx(tx, facts, now);
       facts = { ...facts, status: 'no_show' };
       fail('stay_checkin_window_closed');
     }
-    if (facts.status === 'checked_in' || facts.status === 'checked_out' || facts.status === 'closed') {
+    if (
+      facts.status === 'checked_in' ||
+      facts.status === 'checked_out' ||
+      facts.status === 'closed'
+    ) {
       const [stamp] = await tx
         .select({
           at: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'at'`,
@@ -332,11 +352,7 @@ export async function previewStayGate(
     if (!ARRIVAL_READY.has(facts.status)) fail('stay_not_ready');
     if (!window.ok) fail(window.code);
     const { findStayBookingContractInTx } = await import('@/lib/property-contracts-neon');
-    const stayContract = await findStayBookingContractInTx(
-      tx,
-      facts.organizationId,
-      facts.id,
-    );
+    const stayContract = await findStayBookingContractInTx(tx, facts.organizationId, facts.id);
     if (!stayContract) fail('contract_required');
     const deposit = await loadStayDepositGate(tx, facts.organizationId, facts.id);
     return {
@@ -369,11 +385,19 @@ export async function confirmStayGate(
     await assertPropertyAccess(tx, claims, facts, propertyId);
     const now = new Date();
     const window = enforceCheckinWindow(facts, now);
-    if (!window.ok && window.code === 'stay_checkin_window_closed' && ARRIVAL_READY.has(facts.status)) {
+    if (
+      !window.ok &&
+      window.code === 'stay_checkin_window_closed' &&
+      ARRIVAL_READY.has(facts.status)
+    ) {
       await markNoShowInTx(tx, facts, now);
       fail('stay_checkin_window_closed');
     }
-    if (facts.status === 'checked_in' || facts.status === 'checked_out' || facts.status === 'closed') {
+    if (
+      facts.status === 'checked_in' ||
+      facts.status === 'checked_out' ||
+      facts.status === 'closed'
+    ) {
       const [stamp] = await tx
         .select({
           at: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'at'`,
@@ -388,7 +412,11 @@ export async function confirmStayGate(
         )
         .orderBy(desc(stayBookingStatusHistory.createdAt))
         .limit(1);
-      return gatePayload(facts, true, stamp?.at ?? stamp?.createdAt?.toISOString() ?? now.toISOString());
+      return gatePayload(
+        facts,
+        true,
+        stamp?.at ?? stamp?.createdAt?.toISOString() ?? now.toISOString(),
+      );
     }
     if (!ARRIVAL_READY.has(facts.status)) fail('stay_not_ready');
     if (!window.ok) fail(window.code);

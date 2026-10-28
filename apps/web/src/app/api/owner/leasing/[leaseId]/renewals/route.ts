@@ -141,9 +141,6 @@ export async function POST(request: Request, context: RouteContext) {
                 : code === 'renewal_template_missing'
                   ? 'قالب ملحق التجديد غير موجود.'
                   : 'تعذّر حفظ ملحق التجديد.';
-    return NextResponse.json(
-      { error: { code, message: code, messageAr } },
-      { status },
-    );
+    return NextResponse.json({ error: { code, message: code, messageAr } }, { status });
   }
 }

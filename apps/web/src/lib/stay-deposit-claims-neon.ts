@@ -316,9 +316,7 @@ async function confirmReceiptAfterNotReceivedDismissed(
  * If every «not received» claim is closed but `guest_receipt` is still stuck,
  * mark the transfer as confirmed (self-heal for older decisions).
  */
-export async function healStaleDepositNotReceivedReceipt(
-  bookingId: string,
-): Promise<boolean> {
+export async function healStaleDepositNotReceivedReceipt(bookingId: string): Promise<boolean> {
   if (!UUID.test(bookingId)) return false;
   return elevated(async (tx) => {
     const [booking] = await tx
@@ -470,7 +468,11 @@ async function nextClaimReference(
     .from(stayDepositClaims)
     .where(eq(stayDepositClaims.bookingId, bookingId));
   const seq = String((row?.n ?? 0) + 1).padStart(2, '0');
-  const base = bookingReference.replace(/[^A-Za-z0-9-]/g, '').slice(0, 24).toUpperCase() || 'STAY';
+  const base =
+    bookingReference
+      .replace(/[^A-Za-z0-9-]/g, '')
+      .slice(0, 24)
+      .toUpperCase() || 'STAY';
   return `DC-${base}-${seq}`;
 }
 
@@ -528,9 +530,7 @@ async function alertStaffDepositNotReceived(input: {
   amountMinor: string | null;
   currency: string;
 }): Promise<void> {
-  const money = input.amountMinor
-    ? formatMoney(input.amountMinor, input.currency, 'ar')
-    : null;
+  const money = input.amountMinor ? formatMoney(input.amountMinor, input.currency, 'ar') : null;
   const accountingUrl = appLink(
     `/ar/owner/accounting?focus=${encodeURIComponent(input.bookingId)}#deposits`,
   );
@@ -634,12 +634,7 @@ export async function guestDepositClaimAction(
           .from(stayDepositClaims)
           .where(eq(stayDepositClaims.id, created!.id))
           .limit(1);
-        const whatsapp = await notifySiteAdmins(
-          tx,
-          booking,
-          toView(row!, settledAt),
-          message!,
-        );
+        const whatsapp = await notifySiteAdmins(tx, booking, toView(row!, settledAt), message!);
         return { whatsapp, alert: null };
       }
       return { whatsapp: [] as ComplaintWhatsapp[], alert: null };
@@ -659,11 +654,11 @@ export async function guestDepositClaimAction(
     const counts = await claimCounts(tx, booking.id);
     if (counts.open > 0) fail('claim_open_exists');
     if (counts.regular >= MAX_REGULAR_CLAIMS_PER_STAY) fail('claim_limit');
-    if (guestDepositNextStep(
-      (
-        await loadDepositClaims(tx, booking.organizationId, [booking.id])
-      ).get(booking.id) ?? [],
-    ).step !== 'claim') {
+    if (
+      guestDepositNextStep(
+        (await loadDepositClaims(tx, booking.organizationId, [booking.id])).get(booking.id) ?? [],
+      ).step !== 'claim'
+    ) {
       fail('track_not_ready');
     }
 
@@ -1313,9 +1308,7 @@ export async function loadOpenClaimQueue(
         inArray(stayDepositClaims.status, [...statuses]),
         eq(properties.organizationId, orgId),
         ...(scope.ownerPartyId ? [eq(properties.ownerPartyId, scope.ownerPartyId)] : []),
-        ...(scope.kinds?.length
-          ? [inArray(stayDepositClaims.kind, [...scope.kinds])]
-          : []),
+        ...(scope.kinds?.length ? [inArray(stayDepositClaims.kind, [...scope.kinds])] : []),
       ),
     )
     .orderBy(asc(stayDepositClaims.createdAt))

@@ -76,8 +76,10 @@ async function proxy(request: NextRequest, pathSegments: string[]): Promise<Next
     pathSegments[1] === 'leasing' &&
     !isRead &&
     (pathSegments.includes('renewals') || pathSegments[pathSegments.length - 1] === 'leases');
-  const isCsrf = pathSegments[0] === 'v1' && pathSegments[1] === 'auth' && pathSegments[2] === 'csrf';
-  const timeoutMs = isMediaIngress || isLeaseWrite ? 55_000 : isCsrf ? 35_000 : isRead ? 15_000 : 30_000;
+  const isCsrf =
+    pathSegments[0] === 'v1' && pathSegments[1] === 'auth' && pathSegments[2] === 'csrf';
+  const timeoutMs =
+    isMediaIngress || isLeaseWrite ? 55_000 : isCsrf ? 35_000 : isRead ? 15_000 : 30_000;
   init.signal = AbortSignal.timeout(timeoutMs);
 
   let upstream: Response;
@@ -107,9 +109,7 @@ async function proxy(request: NextRequest, pathSegments: string[]): Promise<Next
   });
 
   const setCookies =
-    typeof upstream.headers.getSetCookie === 'function'
-      ? upstream.headers.getSetCookie()
-      : [];
+    typeof upstream.headers.getSetCookie === 'function' ? upstream.headers.getSetCookie() : [];
   for (const cookie of setCookies) {
     responseHeaders.append('set-cookie', cookie);
   }

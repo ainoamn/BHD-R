@@ -21,10 +21,7 @@ export function formatListingLocation(
 }
 
 /** Multi-unit card headline: «شقة A-02» (kind + code), not building-prefixed unit name. */
-export function formatUnitCardHeadline(
-  listing: CatalogueListing,
-  locale: 'ar' | 'en',
-): string {
+export function formatUnitCardHeadline(listing: CatalogueListing, locale: 'ar' | 'en'): string {
   const kind = inferUnitKind({
     ...(listing.unitCode != null ? { code: listing.unitCode } : {}),
     nameAr: listing.unitNameAr,
@@ -36,10 +33,7 @@ export function formatUnitCardHeadline(
   return unitTitle || unitKindLabel(kind, locale);
 }
 
-export function formatBuildingCardLine(
-  listing: CatalogueListing,
-  locale: 'ar' | 'en',
-): string {
+export function formatBuildingCardLine(listing: CatalogueListing, locale: 'ar' | 'en'): string {
   return localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
 }
 

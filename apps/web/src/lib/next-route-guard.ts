@@ -97,7 +97,11 @@ export async function requireLiveSession(
   }
 
   const session = await db.query.sessions.findFirst({
-    where: and(eq(sessions.id, claims.sid), eq(sessions.userId, claims.sub), isNull(sessions.revokedAt)),
+    where: and(
+      eq(sessions.id, claims.sid),
+      eq(sessions.userId, claims.sub),
+      isNull(sessions.revokedAt),
+    ),
     columns: { id: true, tokenIdHash: true, expiresAt: true, revokedAt: true },
   });
   if (!session || session.expiresAt.getTime() <= Date.now()) {

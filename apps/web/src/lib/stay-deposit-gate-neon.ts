@@ -39,15 +39,12 @@ export async function loadStayDepositGate(
     })
     .from(stayBookings)
     .leftJoin(stayProfiles, eq(stayProfiles.id, stayBookings.stayProfileId))
-    .where(
-      and(eq(stayBookings.organizationId, organizationId), eq(stayBookings.id, bookingId)),
-    )
+    .where(and(eq(stayBookings.organizationId, organizationId), eq(stayBookings.id, bookingId)))
     .limit(1);
   if (!row) {
     return { required: false, status: 'none', amountMinor: null, currency: 'OMR' };
   }
-  const amount =
-    row.depositMinor && row.depositMinor > 0n ? row.depositMinor.toString() : null;
+  const amount = row.depositMinor && row.depositMinor > 0n ? row.depositMinor.toString() : null;
   if (!amount) {
     return { required: false, status: 'none', amountMinor: null, currency: row.currency };
   }

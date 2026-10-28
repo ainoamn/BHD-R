@@ -9,14 +9,7 @@ import type { WhatsAppDraft } from '@/lib/whatsapp-message';
 export type NotificationChannel = 'email' | 'whatsapp' | 'both';
 
 export type NotificationCategory =
-  | 'team'
-  | 'viewing'
-  | 'booking'
-  | 'contract'
-  | 'finance'
-  | 'maintenance'
-  | 'reminder'
-  | 'account';
+  'team' | 'viewing' | 'booking' | 'contract' | 'finance' | 'maintenance' | 'reminder' | 'account';
 
 export type NotificationTemplateMeta = {
   id: string;
@@ -88,12 +81,7 @@ function bilingualEmail(input: BilingualSample): BrandedEmailInput & { subject: 
     recipientName: input.recipientName,
     title: `${input.titleAr} · ${input.titleEn}`,
     intro: input.introAr,
-    lines: [
-      ...(input.linesAr ?? []),
-      EN_MARK,
-      input.introEn,
-      ...(input.linesEn ?? []),
-    ],
+    lines: [...(input.linesAr ?? []), EN_MARK, input.introEn, ...(input.linesEn ?? [])],
     details: input.details.map((item) => ({
       label: `${item.labelAr} / ${item.labelEn}`,
       value: item.value,
@@ -152,9 +140,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       titleEn: 'You’re invited to Mabani Al Noor',
       introAr: `خبر سار: ${SAMPLE_OWNER} دعاك للانضمام إلى فريق «مبنى النور» بصفة حارس مبنى. مرحباً بك معنا — فنجان القهوة الافتراضي جاهز!`,
       introEn: `Good news: ${SAMPLE_OWNER_EN} invited you to join the “Mabani Al Noor” team as Building guard. Welcome aboard — virtual coffee is on us!`,
-      linesAr: [
-        'إن لم يكن لديك حساب بعد، اضغط الزر أدناه وسجّل أو فعّل حسابك بنفس هذا البريد.',
-      ],
+      linesAr: ['إن لم يكن لديك حساب بعد، اضغط الزر أدناه وسجّل أو فعّل حسابك بنفس هذا البريد.'],
       linesEn: [
         'If you do not have an account yet, tap the button below and sign in or activate with this same email.',
       ],
@@ -177,7 +163,8 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
     nameAr: 'تأكيد موعد معاينة للعميل',
     nameEn: 'Viewing schedule — guest',
     descriptionAr: 'بريد وواتساب للعميل بعد تأكيد الموعد مع بطاقة الزيارة.',
-    descriptionEn: 'Email and WhatsApp to the guest after the viewing is confirmed, with visit pass.',
+    descriptionEn:
+      'Email and WhatsApp to the guest after the viewing is confirmed, with visit pass.',
     editable: false,
     tone: 'booking',
     ...pair({
@@ -240,7 +227,8 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       titleAr: 'زائر معاينة في الطريق 🤝',
       titleEn: 'A viewing guest is coming',
       introAr: 'حُدّد موعد معاينة. عند وصول الزائر امسح باركود بطاقة الزيارة من بوابة المسح.',
-      introEn: 'A viewing is scheduled. When the guest arrives, scan their visit-pass barcode at the gate.',
+      introEn:
+        'A viewing is scheduled. When the guest arrives, scan their visit-pass barcode at the gate.',
       details: [
         { labelAr: 'العقار', labelEn: 'Property', value: 'مبنى النور / Mabani Al Noor' },
         { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
@@ -395,7 +383,8 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       titleAr: 'تذكير لطيف ⏰',
       titleEn: 'A gentle reminder',
       introAr: 'نذكّرك بوجود مبلغ مستحق. إن دفعتَ مسبقاً فتجاهل هذه الرسالة.',
-      introEn: 'This is a friendly note about an outstanding amount. If you already paid, please ignore this.',
+      introEn:
+        'This is a friendly note about an outstanding amount. If you already paid, please ignore this.',
       details: [
         { labelAr: 'المبلغ', labelEn: 'Amount', value: '150.000 ر.ع / OMR' },
         { labelAr: 'الوحدة', labelEn: 'Unit', value: 'مبنى النور · A-12' },
@@ -425,7 +414,8 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       titleAr: 'طلب الصيانة قيد التنفيذ 🛠️',
       titleEn: 'Maintenance in progress',
       introAr: 'الفني في الطريق أو يعمل على البلاغ. سنُعلمك عند الإغلاق.',
-      introEn: 'A technician is on the way or working on the request. We will notify you when it is closed.',
+      introEn:
+        'A technician is on the way or working on the request. We will notify you when it is closed.',
       details: [
         { labelAr: 'الوحدة', labelEn: 'Unit', value: 'A-12' },
         { labelAr: 'الحالة', labelEn: 'Status', value: 'قيد التنفيذ / In progress' },
@@ -456,9 +446,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       titleEn: 'Your account is verified',
       introAr: 'اعتماد التوثيق يفتح صلاحيات أوضح وثقة أعلى للمستأجرين.',
       introEn: 'Verification unlocks clearer permissions and stronger trust with tenants.',
-      details: [
-        { labelAr: 'الحالة', labelEn: 'Status', value: 'موثّق / Verified' },
-      ],
+      details: [{ labelAr: 'الحالة', labelEn: 'Status', value: 'موثّق / Verified' }],
       ctaAr: 'فتح الحساب',
       ctaEn: 'Open account',
       ctaUrl: `${SAMPLE_ORIGIN}/ar/portal`,
@@ -485,9 +473,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       titleEn: 'A new badge to celebrate',
       introAr: 'أُضيفت شارة إلى ملفك تقديراً لالتزامك.',
       introEn: 'A badge was added to your profile in recognition of your commitment.',
-      details: [
-        { labelAr: 'الشارة', labelEn: 'Badge', value: 'مضيف موثوق / Trusted host' },
-      ],
+      details: [{ labelAr: 'الشارة', labelEn: 'Badge', value: 'مضيف موثوق / Trusted host' }],
       ctaAr: 'عرض الشارات',
       ctaEn: 'View badges',
       ctaUrl: `${SAMPLE_ORIGIN}/ar/admin/badges`,

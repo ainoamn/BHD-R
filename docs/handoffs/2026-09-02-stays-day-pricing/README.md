@@ -4,7 +4,7 @@
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main`  
-**آخر commit:** `b26678f` — *Ship stay calendar green availability and per-day rates/notes as 0.4.30.*  
+**آخر commit:** `b26678f` — _Ship stay calendar green availability and per-day rates/notes as 0.4.30._  
 **الإصدار:** 0.4.30  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
@@ -12,12 +12,12 @@
 
 ## ما أُنجز
 
-| الطلب | الحل |
-| --- | --- |
-| كل الأيام الشاغرة خضراء | `fillInventoryCalendarDays` يفترض `available` + السعر الأساسي |
-| تسعير يوم معيّن (رفع/تخفيض) | `manual_rate` + واجهة مالك |
-| ملاحظة/تهنئة للجمهور | `public_note` يظهر في التقويم العام |
-| السعر في التقويم | مبلغ تحت رقم اليوم |
+| الطلب                       | الحل                                                          |
+| --------------------------- | ------------------------------------------------------------- |
+| كل الأيام الشاغرة خضراء     | `fillInventoryCalendarDays` يفترض `available` + السعر الأساسي |
+| تسعير يوم معيّن (رفع/تخفيض) | `manual_rate` + واجهة مالك                                    |
+| ملاحظة/تهنئة للجمهور        | `public_note` يظهر في التقويم العام                           |
+| السعر في التقويم            | مبلغ تحت رقم اليوم                                            |
 
 ## ترحيل Neon (إلزامي)
 

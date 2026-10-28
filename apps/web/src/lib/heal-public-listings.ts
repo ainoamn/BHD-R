@@ -1,12 +1,6 @@
 import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
-import {
-  createDatabase,
-  listings,
-  properties,
-  units,
-  type Database,
-} from '@bhd-r/db';
+import { createDatabase, listings, properties, units, type Database } from '@bhd-r/db';
 
 type DbHandle = { db: Database };
 const globalForDb = globalThis as unknown as { __bhdRListingHealDb?: DbHandle };

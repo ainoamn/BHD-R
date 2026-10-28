@@ -39,7 +39,11 @@
   padding: 1.15rem 1.25rem;
   border-radius: 1.15rem;
   background:
-    radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, #0f6b45 14%, transparent), transparent 55%),
+    radial-gradient(
+      90% 120% at 0% 0%,
+      color-mix(in srgb, #0f6b45 14%, transparent),
+      transparent 55%
+    ),
     linear-gradient(135deg, #f7fbf8 0%, #eef5f0 100%);
   border: 1px solid var(--gl-line);
 }
@@ -253,7 +257,11 @@
   gap: 1.1rem;
   border: 0;
   background:
-    radial-gradient(110% 80% at 100% 0%, color-mix(in srgb, #0f6b45 11%, transparent), transparent 50%),
+    radial-gradient(
+      110% 80% at 100% 0%,
+      color-mix(in srgb, #0f6b45 11%, transparent),
+      transparent 50%
+    ),
     linear-gradient(180deg, #f5faf6 0%, #ffffff 58%);
   box-shadow: 0 10px 30px color-mix(in srgb, #0b3d2e 5%, transparent);
 }
@@ -657,7 +665,9 @@
   cursor: pointer;
   font: inherit;
   box-shadow: 0 8px 22px rgb(190 18 60 / 12%);
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
 }
 .accounting-tasks-alert:hover {
   transform: translateY(-1px);
@@ -887,10 +897,21 @@
   color: #334155;
 }
 
-.accounting-task__priority--info { background: #e7eefb; color: #123a86; }
-.accounting-task__priority--warn { background: #fff1df; color: #8a4b08; }
-.accounting-task__priority--bad { background: #fdecec; color: #9f1239; }
-.accounting-task__priority.is-on { outline: 2px solid currentColor; }
+.accounting-task__priority--info {
+  background: #e7eefb;
+  color: #123a86;
+}
+.accounting-task__priority--warn {
+  background: #fff1df;
+  color: #8a4b08;
+}
+.accounting-task__priority--bad {
+  background: #fdecec;
+  color: #9f1239;
+}
+.accounting-task__priority.is-on {
+  outline: 2px solid currentColor;
+}
 
 .accounting-task__note {
   display: grid;
@@ -1279,33 +1300,85 @@
   flex: 0 0 auto;
 }
 
-.accounting-tab-icon--dashboard { background: #0f6b45; }
-.accounting-tab-icon--documents { background: #0f766e; }
-.accounting-tab-icon--journal { background: #1d4ed8; }
-.accounting-tab-icon--tasks { background: #be123c; }
-.accounting-tab-icon--deposits { background: #b45309; }
-.accounting-tab-icon--expenses { background: #be123c; }
-.accounting-tab-icon--trading { background: #7c3aed; }
-.accounting-tab-icon--cheques { background: #0e7490; }
-.accounting-tab-icon--reports { background: #334155; }
-.accounting-tab-icon--accounts { background: #0369a1; }
-.accounting-tab-icon--ledgers { background: #4338ca; }
-.accounting-tab-icon--periods { background: #a16207; }
-.accounting-tab-icon--audit { background: #047857; }
-.accounting-tab-icon--settings { background: #475569; }
+.accounting-tab-icon--dashboard {
+  background: #0f6b45;
+}
+.accounting-tab-icon--documents {
+  background: #0f766e;
+}
+.accounting-tab-icon--journal {
+  background: #1d4ed8;
+}
+.accounting-tab-icon--tasks {
+  background: #be123c;
+}
+.accounting-tab-icon--deposits {
+  background: #b45309;
+}
+.accounting-tab-icon--expenses {
+  background: #be123c;
+}
+.accounting-tab-icon--trading {
+  background: #7c3aed;
+}
+.accounting-tab-icon--cheques {
+  background: #0e7490;
+}
+.accounting-tab-icon--reports {
+  background: #334155;
+}
+.accounting-tab-icon--accounts {
+  background: #0369a1;
+}
+.accounting-tab-icon--ledgers {
+  background: #4338ca;
+}
+.accounting-tab-icon--periods {
+  background: #a16207;
+}
+.accounting-tab-icon--audit {
+  background: #047857;
+}
+.accounting-tab-icon--settings {
+  background: #475569;
+}
 
-.accounting-hub__tab--journal[aria-selected='true'] { color: #1d4ed8; }
-.accounting-hub__tab--deposits[aria-selected='true'] { color: #b45309; }
-.accounting-hub__tab--expenses[aria-selected='true'] { color: #be123c; }
-.accounting-hub__tab--trading[aria-selected='true'] { color: #6d28d9; }
-.accounting-hub__tab--cheques[aria-selected='true'] { color: #0e7490; }
-.accounting-hub__tab--documents[aria-selected='true'] { color: #0f766e; }
-.accounting-hub__tab--reports[aria-selected='true'] { color: #1e293b; }
-.accounting-hub__tab--accounts[aria-selected='true'] { color: #0369a1; }
-.accounting-hub__tab--ledgers[aria-selected='true'] { color: #4338ca; }
-.accounting-hub__tab--periods[aria-selected='true'] { color: #a16207; }
-.accounting-hub__tab--audit[aria-selected='true'] { color: #047857; }
-.accounting-hub__tab--settings[aria-selected='true'] { color: #334155; }
+.accounting-hub__tab--journal[aria-selected='true'] {
+  color: #1d4ed8;
+}
+.accounting-hub__tab--deposits[aria-selected='true'] {
+  color: #b45309;
+}
+.accounting-hub__tab--expenses[aria-selected='true'] {
+  color: #be123c;
+}
+.accounting-hub__tab--trading[aria-selected='true'] {
+  color: #6d28d9;
+}
+.accounting-hub__tab--cheques[aria-selected='true'] {
+  color: #0e7490;
+}
+.accounting-hub__tab--documents[aria-selected='true'] {
+  color: #0f766e;
+}
+.accounting-hub__tab--reports[aria-selected='true'] {
+  color: #1e293b;
+}
+.accounting-hub__tab--accounts[aria-selected='true'] {
+  color: #0369a1;
+}
+.accounting-hub__tab--ledgers[aria-selected='true'] {
+  color: #4338ca;
+}
+.accounting-hub__tab--periods[aria-selected='true'] {
+  color: #a16207;
+}
+.accounting-hub__tab--audit[aria-selected='true'] {
+  color: #047857;
+}
+.accounting-hub__tab--settings[aria-selected='true'] {
+  color: #334155;
+}
 
 .accounting-settings {
   display: grid;
@@ -1450,18 +1523,34 @@
 }
 
 .accounting-hub__kpi--in span,
-.accounting-hub__kpi--in strong { color: #047857; }
+.accounting-hub__kpi--in strong {
+  color: #047857;
+}
 .accounting-hub__kpi--hold span,
-.accounting-hub__kpi--hold strong { color: #b45309; }
+.accounting-hub__kpi--hold strong {
+  color: #b45309;
+}
 .accounting-hub__kpi--due span,
-.accounting-hub__kpi--due strong { color: #c2410c; }
+.accounting-hub__kpi--due strong {
+  color: #c2410c;
+}
 .accounting-hub__kpi--out span,
-.accounting-hub__kpi--out strong { color: #be123c; }
+.accounting-hub__kpi--out strong {
+  color: #be123c;
+}
 
-.accounting-collect__card--today { border-inline-start: 3px solid #c2410c; }
-.accounting-collect__card--week { border-inline-start: 3px solid #1d4ed8; }
-.accounting-collect__card--month { border-inline-start: 3px solid #059669; }
-.accounting-collect__card--year { border-inline-start: 3px solid #7c3aed; }
+.accounting-collect__card--today {
+  border-inline-start: 3px solid #c2410c;
+}
+.accounting-collect__card--week {
+  border-inline-start: 3px solid #1d4ed8;
+}
+.accounting-collect__card--month {
+  border-inline-start: 3px solid #059669;
+}
+.accounting-collect__card--year {
+  border-inline-start: 3px solid #7c3aed;
+}
 
 .accounting-hub__chip {
   align-items: center;
@@ -1504,40 +1593,90 @@
   border-color: #67e8f9;
 }
 
-.accounting-hub__table tbody tr[data-kind='invoice'] { background: #fffaf3; }
-.accounting-hub__table tbody tr[data-kind='receipt'] { background: #f3fdf8; }
-.accounting-hub__table tbody tr[data-kind='journal'] { background: #f5f8ff; }
-.accounting-hub__table tbody tr[data-kind='expense'] { background: #fff5f6; }
-.accounting-hub__table tbody tr[data-kind='cheque'] { background: #f3fcfd; }
+.accounting-hub__table tbody tr[data-kind='invoice'] {
+  background: #fffaf3;
+}
+.accounting-hub__table tbody tr[data-kind='receipt'] {
+  background: #f3fdf8;
+}
+.accounting-hub__table tbody tr[data-kind='journal'] {
+  background: #f5f8ff;
+}
+.accounting-hub__table tbody tr[data-kind='expense'] {
+  background: #fff5f6;
+}
+.accounting-hub__table tbody tr[data-kind='cheque'] {
+  background: #f3fcfd;
+}
 
-.accounting-hub__table tbody tr[data-kind='invoice'] td:first-child { box-shadow: inset 3px 0 0 #ea580c; }
-.accounting-hub__table tbody tr[data-kind='receipt'] td:first-child { box-shadow: inset 3px 0 0 #059669; }
-.accounting-hub__table tbody tr[data-kind='journal'] td:first-child { box-shadow: inset 3px 0 0 #2563eb; }
-.accounting-hub__table tbody tr[data-kind='expense'] td:first-child { box-shadow: inset 3px 0 0 #e11d48; }
-.accounting-hub__table tbody tr[data-kind='cheque'] td:first-child { box-shadow: inset 3px 0 0 #0891b2; }
+.accounting-hub__table tbody tr[data-kind='invoice'] td:first-child {
+  box-shadow: inset 3px 0 0 #ea580c;
+}
+.accounting-hub__table tbody tr[data-kind='receipt'] td:first-child {
+  box-shadow: inset 3px 0 0 #059669;
+}
+.accounting-hub__table tbody tr[data-kind='journal'] td:first-child {
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+.accounting-hub__table tbody tr[data-kind='expense'] td:first-child {
+  box-shadow: inset 3px 0 0 #e11d48;
+}
+.accounting-hub__table tbody tr[data-kind='cheque'] td:first-child {
+  box-shadow: inset 3px 0 0 #0891b2;
+}
 
-[dir='rtl'] .accounting-hub__table tbody tr[data-kind='invoice'] td:first-child { box-shadow: inset -3px 0 0 #ea580c; }
-[dir='rtl'] .accounting-hub__table tbody tr[data-kind='receipt'] td:first-child { box-shadow: inset -3px 0 0 #059669; }
-[dir='rtl'] .accounting-hub__table tbody tr[data-kind='journal'] td:first-child { box-shadow: inset -3px 0 0 #2563eb; }
-[dir='rtl'] .accounting-hub__table tbody tr[data-kind='expense'] td:first-child { box-shadow: inset -3px 0 0 #e11d48; }
-[dir='rtl'] .accounting-hub__table tbody tr[data-kind='cheque'] td:first-child { box-shadow: inset -3px 0 0 #0891b2; }
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='invoice'] td:first-child {
+  box-shadow: inset -3px 0 0 #ea580c;
+}
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='receipt'] td:first-child {
+  box-shadow: inset -3px 0 0 #059669;
+}
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='journal'] td:first-child {
+  box-shadow: inset -3px 0 0 #2563eb;
+}
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='expense'] td:first-child {
+  box-shadow: inset -3px 0 0 #e11d48;
+}
+[dir='rtl'] .accounting-hub__table tbody tr[data-kind='cheque'] td:first-child {
+  box-shadow: inset -3px 0 0 #0891b2;
+}
 
-.accounting-hub__table tbody tr[data-kind='invoice'] td.num { color: #c2410c; }
-.accounting-hub__table tbody tr[data-kind='receipt'] td.num { color: #047857; }
-.accounting-hub__table tbody tr[data-kind='journal'] td.num { color: #1d4ed8; }
-.accounting-hub__table tbody tr[data-kind='expense'] td.num { color: #be123c; }
-.accounting-hub__table tbody tr[data-kind='cheque'] td.num { color: #0e7490; }
+.accounting-hub__table tbody tr[data-kind='invoice'] td.num {
+  color: #c2410c;
+}
+.accounting-hub__table tbody tr[data-kind='receipt'] td.num {
+  color: #047857;
+}
+.accounting-hub__table tbody tr[data-kind='journal'] td.num {
+  color: #1d4ed8;
+}
+.accounting-hub__table tbody tr[data-kind='expense'] td.num {
+  color: #be123c;
+}
+.accounting-hub__table tbody tr[data-kind='cheque'] td.num {
+  color: #0e7490;
+}
 
 .accounting-hub__table--interactive tbody tr[data-kind='invoice']:hover,
-.accounting-hub__table--interactive tbody tr[data-kind='invoice'].is-focus { background: #ffedd5; }
+.accounting-hub__table--interactive tbody tr[data-kind='invoice'].is-focus {
+  background: #ffedd5;
+}
 .accounting-hub__table--interactive tbody tr[data-kind='receipt']:hover,
-.accounting-hub__table--interactive tbody tr[data-kind='receipt'].is-focus { background: #d1fae5; }
+.accounting-hub__table--interactive tbody tr[data-kind='receipt'].is-focus {
+  background: #d1fae5;
+}
 .accounting-hub__table--interactive tbody tr[data-kind='journal']:hover,
-.accounting-hub__table--interactive tbody tr[data-kind='journal'].is-focus { background: #dbeafe; }
+.accounting-hub__table--interactive tbody tr[data-kind='journal'].is-focus {
+  background: #dbeafe;
+}
 .accounting-hub__table--interactive tbody tr[data-kind='expense']:hover,
-.accounting-hub__table--interactive tbody tr[data-kind='expense'].is-focus { background: #ffe4e6; }
+.accounting-hub__table--interactive tbody tr[data-kind='expense'].is-focus {
+  background: #ffe4e6;
+}
 .accounting-hub__table--interactive tbody tr[data-kind='cheque']:hover,
-.accounting-hub__table--interactive tbody tr[data-kind='cheque'].is-focus { background: #cffafe; }
+.accounting-hub__table--interactive tbody tr[data-kind='cheque'].is-focus {
+  background: #cffafe;
+}
 
 /* Modal entry forms: roomy 2-column grid — overrides the compact 9.5rem packing. */
 .accounting-hub__modal-card--form {
@@ -1658,7 +1797,9 @@
 }
 
 .accounting-hub__modal-card--form .accounting-hub__line {
-  grid-template-columns: minmax(11rem, 2.4fr) minmax(5.5rem, 0.9fr) minmax(5.5rem, 0.9fr) minmax(7rem, 1.3fr) 2.25rem;
+  grid-template-columns:
+    minmax(11rem, 2.4fr) minmax(5.5rem, 0.9fr) minmax(5.5rem, 0.9fr) minmax(7rem, 1.3fr)
+    2.25rem;
   gap: 0.5rem;
   align-items: stretch;
   padding: 0.35rem 0.4rem;

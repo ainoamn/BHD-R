@@ -3,19 +3,10 @@
 import Link from 'next/link';
 import { pushSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { siteAdminSoftSectionFromPath } from '@/lib/site-admin-soft-nav';
-import {
-  siteConsoleSectionsFor,
-  type SiteAdminAccess,
-} from '@/lib/site-admin-shared';
+import { siteConsoleSectionsFor, type SiteAdminAccess } from '@/lib/site-admin-shared';
 
 /** Vertical sidebar — soft-switches sections without remounting the shell. */
-export function SiteAdminNav({
-  access,
-  locale,
-}: {
-  access: SiteAdminAccess;
-  locale: 'ar' | 'en';
-}) {
+export function SiteAdminNav({ access, locale }: { access: SiteAdminAccess; locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const pathname = useSoftPortalPathname() || `/${locale}/admin`;
   const current = siteAdminSoftSectionFromPath(pathname) ?? 'overview';

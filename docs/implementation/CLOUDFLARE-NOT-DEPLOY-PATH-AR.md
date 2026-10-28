@@ -5,11 +5,11 @@
 **مشروع Cloudflare Workers باسم `bhd-r` ليس مسار النشر المعتمد لـ BHD-R.**  
 فشل كل البناء هناك متوقع ولا يوقف الموقع الحقيقي.
 
-| دور | المنصة الصحيحة | ملاحظة |
-| --- | --- | --- |
-| الواجهة Next (`apps/web`) | **Vercel** مشروع `bhd-r-api` | Preview مثل `bhd-r-api-phi.vercel.app` · إنتاج `r.bhd-om.com` |
-| Nest API (`apps/api`) | **Render** Docker | `https://bhd-r.onrender.com` |
-| طوابير الخلفية (`apps/worker`) | حاوية Node (Render/VM لاحقاً) | **ليست** Cloudflare Workers — الاسم متشابه فقط |
+| دور                            | المنصة الصحيحة                | ملاحظة                                                        |
+| ------------------------------ | ----------------------------- | ------------------------------------------------------------- |
+| الواجهة Next (`apps/web`)      | **Vercel** مشروع `bhd-r-api`  | Preview مثل `bhd-r-api-phi.vercel.app` · إنتاج `r.bhd-om.com` |
+| Nest API (`apps/api`)          | **Render** Docker             | `https://bhd-r.onrender.com`                                  |
+| طوابير الخلفية (`apps/worker`) | حاوية Node (Render/VM لاحقاً) | **ليست** Cloudflare Workers — الاسم متشابه فقط                |
 
 لا يوجد في المستودع `wrangler.toml` ولا إعداد OpenNext لـ Cloudflare. ربط Git بـ Workers يحاول نشر monorepo Next/Nest كـ Worker فيفشل دائماً.
 

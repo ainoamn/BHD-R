@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02  
 **Release:** 0.4.32  
-**Production:** https://r.bhd-om.com  
+**Production:** https://r.bhd-om.com
 
 ## Root cause
 

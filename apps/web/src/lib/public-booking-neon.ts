@@ -201,7 +201,9 @@ export async function ensureProspectParty(
   });
   if (existing) {
     const meta =
-      existing.metadata && typeof existing.metadata === 'object' && !Array.isArray(existing.metadata)
+      existing.metadata &&
+      typeof existing.metadata === 'object' &&
+      !Array.isArray(existing.metadata)
         ? { ...(existing.metadata as Record<string, unknown>) }
         : {};
     if (meta.userId !== user.id) {

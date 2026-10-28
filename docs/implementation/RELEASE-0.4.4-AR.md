@@ -15,17 +15,17 @@
 
 ## تدفق
 
-1. Quote (TTL ~30 د)  
-2. Hold (TTL ~15 د، قفل مخزون)  
-3. Booking + payment intent  
+1. Quote (TTL ~30 د)
+2. Hold (TTL ~15 د، قفل مخزون)
+3. Booking + payment intent
 4. مزوّد الدفع → webhook → confirmed
 
 ## تحقق
 
-| فحص | نتيجة |
-| --- | --- |
-| العلم off → quotes / holds / bookings / availability | 404 |
-| Domain + API typecheck | يُشغَّل قبل الدمج |
+| فحص                                                  | نتيجة             |
+| ---------------------------------------------------- | ----------------- |
+| العلم off → quotes / holds / bookings / availability | 404               |
+| Domain + API typecheck                               | يُشغَّل قبل الدمج |
 
 ## تفعيل
 

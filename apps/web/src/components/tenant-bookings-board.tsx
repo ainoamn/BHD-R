@@ -333,9 +333,7 @@ export function TenantBookingsBoard({
                   {item.href && item.cta ? (
                     <Link
                       href={item.href}
-                      className={`button ${
-                        item.attention ? 'button--primary' : 'button--quiet'
-                      }`}
+                      className={`button ${item.attention ? 'button--primary' : 'button--quiet'}`}
                     >
                       {item.cta}
                     </Link>

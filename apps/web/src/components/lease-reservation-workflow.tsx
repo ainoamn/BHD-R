@@ -31,10 +31,7 @@ import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 
 const BOOKING_NOTE_MAX = Math.min(1000, NOTE_TRANSLATE_MAX);
 import type { ApprovalPolicy } from '@/lib/approval-policy';
-import {
-  DEFAULT_LEASE_DOCUMENT_RULES,
-  type LeaseDocumentRules,
-} from '@/lib/lease-document-rules';
+import { DEFAULT_LEASE_DOCUMENT_RULES, type LeaseDocumentRules } from '@/lib/lease-document-rules';
 import {
   BOOKING_IDENTITY_DOC_LABELS,
   bookingIdentityFileKind,
@@ -290,8 +287,14 @@ function RestoreCancelledBooking({
                 'The booking reopens and the client is notified. A voided contract stays void; the journey continues from documents/contract.',
               )}
             </p>
-            <button type="submit" className="button button--primary" disabled={busy || note.trim().length < 2}>
-              {busy ? t('جارٍ الاسترجاع…', 'Restoring…') : t('تأكيد استرجاع الحجز', 'Confirm restore booking')}
+            <button
+              type="submit"
+              className="button button--primary"
+              disabled={busy || note.trim().length < 2}
+            >
+              {busy
+                ? t('جارٍ الاسترجاع…', 'Restoring…')
+                : t('تأكيد استرجاع الحجز', 'Confirm restore booking')}
             </button>
             <button
               type="button"
@@ -510,10 +513,7 @@ function OwnerBookingActionsCard({
             onChange={(event) => setNote(event.target.value)}
             placeholder={
               mode === 'return'
-                ? t(
-                    'مثال: صورة الهوية الأمامية غير واضحة',
-                    'e.g. The front ID photo is unclear',
-                  )
+                ? t('مثال: صورة الهوية الأمامية غير واضحة', 'e.g. The front ID photo is unclear')
                 : t(
                     'مثال: المستندات مخالفة للاشتراطات ولا يمكن قبول الحجز',
                     'e.g. Documents break the requirements and the booking cannot proceed',
@@ -773,7 +773,10 @@ function VerificationPanel({
                   maxLength={BOOKING_NOTE_MAX}
                   required
                   onChange={(event) => setNote(event.target.value)}
-                  placeholder={t('مثال: الصورة غير واضحة — أعد الرفع', 'e.g. Image unclear — please re-upload')}
+                  placeholder={t(
+                    'مثال: الصورة غير واضحة — أعد الرفع',
+                    'e.g. Image unclear — please re-upload',
+                  )}
                 />
                 <NoteTranslateBar
                   value={note}
@@ -873,9 +876,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [localViewing, setLocalViewing] = useState<number | null>(null);
-  const viewing = serverProps.onViewingChange
-    ? (serverProps.viewing ?? null)
-    : localViewing;
+  const viewing = serverProps.onViewingChange ? (serverProps.viewing ?? null) : localViewing;
   const setViewing = serverProps.onViewingChange ?? setLocalViewing;
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const [decisions, setDecisions] = useState<Record<string, DocumentDecision>>({});
@@ -1360,8 +1361,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 registration={lifecycle.municipalRegistration}
                 handover={lifecycle.handover}
                 draftTerms={
-                  (lifecycle.contractDraft?.lease as { terms?: LeaseTermsDraft } | undefined)
-                    ?.terms
+                  (lifecycle.contractDraft?.lease as { terms?: LeaseTermsDraft } | undefined)?.terms
                 }
                 onSave={(payload) =>
                   void act({
@@ -1411,9 +1411,7 @@ function MunicipalRegistrationCard({
     waterReadingPhoto: string;
   }) => void;
 }) {
-  const [formNo, setFormNo] = useState(
-    registration?.formNo ?? draftTerms?.municipalFormNo ?? '',
-  );
+  const [formNo, setFormNo] = useState(registration?.formNo ?? draftTerms?.municipalFormNo ?? '');
   const [contractNo, setContractNo] = useState(
     registration?.contractNo ?? draftTerms?.municipalContractNo ?? '',
   );
@@ -1426,9 +1424,9 @@ function MunicipalRegistrationCard({
   const [photoBusy, setPhotoBusy] = useState(false);
   const metersComplete = Boolean(
     handover?.electricityReading?.trim() &&
-      handover?.waterReading?.trim() &&
-      draftTerms?.electricityReadingPhoto?.trim() &&
-      draftTerms?.waterReadingPhoto?.trim(),
+    handover?.waterReading?.trim() &&
+    draftTerms?.electricityReadingPhoto?.trim() &&
+    draftTerms?.waterReadingPhoto?.trim(),
   );
   const [editing, setEditing] = useState(!registration || !metersComplete);
 
@@ -1444,10 +1442,7 @@ function MunicipalRegistrationCard({
     if (registration && metersComplete) setEditing(false);
   }, [registration, handover, draftTerms, metersComplete]);
 
-  async function readPhoto(
-    file: File | null,
-    setter: (value: string) => void,
-  ) {
+  async function readPhoto(file: File | null, setter: (value: string) => void) {
     if (!file) {
       setter('');
       return;
@@ -1493,11 +1488,7 @@ function MunicipalRegistrationCard({
               <dt>{t('صورة عداد الكهرباء', 'Electricity meter photo')}</dt>
               <dd>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={draftTerms.electricityReadingPhoto}
-                  alt=""
-                  className="lcf-meter-thumb"
-                />
+                <img src={draftTerms.electricityReadingPhoto} alt="" className="lcf-meter-thumb" />
               </dd>
             </div>
           ) : null}
@@ -1600,9 +1591,7 @@ function MunicipalRegistrationCard({
             accept="image/*"
             disabled={busy || photoBusy || !canManage}
             required={elecPhotoMissing}
-            onChange={(event) =>
-              void readPhoto(event.target.files?.[0] ?? null, setElecPhoto)
-            }
+            onChange={(event) => void readPhoto(event.target.files?.[0] ?? null, setElecPhoto)}
           />
           {elecPhoto ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -1645,16 +1634,16 @@ function MunicipalRegistrationCard({
             accept="image/*"
             disabled={busy || photoBusy || !canManage}
             required={waterPhotoMissing}
-            onChange={(event) =>
-              void readPhoto(event.target.files?.[0] ?? null, setWaterPhoto)
-            }
+            onChange={(event) => void readPhoto(event.target.files?.[0] ?? null, setWaterPhoto)}
           />
           {waterPhoto ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={waterPhoto} alt="" className="lcf-meter-thumb" />
           ) : null}
         </div>
-        <div className={`field field--required-mark${formMissing ? ' field--missing' : ' field--ok'}`}>
+        <div
+          className={`field field--required-mark${formMissing ? ' field--missing' : ' field--ok'}`}
+        >
           <label htmlFor="lrw-mform">
             {t('رقم استمارة العقد البلدي', 'Municipal form no.')}
             <span className="field__req" aria-hidden="true">
@@ -1724,7 +1713,10 @@ function MunicipalRegistrationCard({
           </div>
         ) : (
           <p className="muted span-2">
-            {t('يلزم صلاحية إدارة الحجوزات لإدخال البيانات.', 'Booking manage permission is required.')}
+            {t(
+              'يلزم صلاحية إدارة الحجوزات لإدخال البيانات.',
+              'Booking manage permission is required.',
+            )}
           </p>
         )}
       </form>
@@ -2190,9 +2182,7 @@ function ChequesReview({
   const reviewItem =
     (reviewKey && instructions.find((item) => item.key === reviewKey)) || submitted[0] || null;
   const reviewSubmitted = reviewItem ? byKey.get(reviewItem.key) : undefined;
-  const reviewIndex = reviewItem
-    ? submitted.findIndex((item) => item.key === reviewItem.key)
-    : -1;
+  const reviewIndex = reviewItem ? submitted.findIndex((item) => item.key === reviewItem.key) : -1;
 
   function openReview(key: string) {
     const item = instructions.find((row) => row.key === key);
@@ -2496,9 +2486,7 @@ function ChequesReview({
   );
 }
 
-type ReviewQueueItem =
-  | { kind: 'doc'; code: string }
-  | { kind: 'cheque'; key: string };
+type ReviewQueueItem = { kind: 'doc'; code: string } | { kind: 'cheque'; key: string };
 
 function RequirementsReview({
   lifecycle,
@@ -2514,11 +2502,7 @@ function RequirementsReview({
   busy: boolean;
   fileHref: (file: string) => string;
   onReview: (code: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
-  onReviewCheque?: (
-    key: string,
-    decision: 'approved' | 'rejected',
-    note?: string,
-  ) => Promise<void>;
+  onReviewCheque?: (key: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
   onAddRequirements?: (
     requirements: Array<{ code: string; labelAr: string; labelEn: string }>,
   ) => void;
@@ -2553,8 +2537,7 @@ function RequirementsReview({
   const catalogue = REQUIREMENT_CATALOGUE.filter(
     (item) => (sale ? item.sale : item.rent) && !existingCodes.has(item.code),
   );
-  const reviewItem =
-    (reviewCode && requirements.find((item) => item.code === reviewCode)) || null;
+  const reviewItem = (reviewCode && requirements.find((item) => item.code === reviewCode)) || null;
   const reviewChequeItem =
     (reviewChequeKey && chequeInstructions.find((item) => item.key === reviewChequeKey)) || null;
   const reviewChequeSubmitted = reviewChequeItem
@@ -2655,9 +2638,9 @@ function RequirementsReview({
     const current =
       target ??
       (reviewChequeItem && onReviewCheque
-        ? ({ kind: 'cheque' as const, key: reviewChequeItem.key })
+        ? { kind: 'cheque' as const, key: reviewChequeItem.key }
         : reviewItem
-          ? ({ kind: 'doc' as const, code: reviewItem.code })
+          ? { kind: 'doc' as const, code: reviewItem.code }
           : null);
     if (!current) return;
     if (current.kind === 'doc') {
@@ -2901,8 +2884,7 @@ function RequirementsReview({
               </>
             ) : null}
           </div>
-          {rejecting &&
-          (rejecting === reviewItem?.code || rejecting === reviewChequeItem?.key) ? (
+          {rejecting && (rejecting === reviewItem?.code || rejecting === reviewChequeItem?.key) ? (
             <form
               className="lrw__reject"
               onSubmit={(event) => {
@@ -3189,8 +3171,7 @@ function ClientRequest({
     rows.push([
       sale ? (ar ? 'المشتري' : 'Buyer') : ar ? 'المستأجر' : 'Tenant',
       <>
-        {partyDisplayName(party, ar)}{' '}
-        <PartyNationalityTag party={party} locale={locale} />
+        {partyDisplayName(party, ar)} <PartyNationalityTag party={party} locale={locale} />
         {' · '}
         {party.entityType === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Individual'}
       </>,
@@ -3263,10 +3244,9 @@ function ContractDraftEditor({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch(
-      `/api/owner/lease-document-rules?propertyId=${encodeURIComponent(propertyId)}`,
-      { credentials: 'same-origin' },
-    )
+    void fetch(`/api/owner/lease-document-rules?propertyId=${encodeURIComponent(propertyId)}`, {
+      credentials: 'same-origin',
+    })
       .then(async (response) => {
         if (!response.ok) return;
         const data = (await response.json()) as {
@@ -3367,8 +3347,7 @@ function ContractDraftEditor({
         lockInitial={requirementsLocked}
         context={{
           entityType: party?.entityType === 'company' ? 'company' : 'person',
-          nationality:
-            party?.entityType === 'person' ? party.person?.nationality : undefined,
+          nationality: party?.entityType === 'person' ? party.person?.nationality : undefined,
           signatoryNationality:
             party?.entityType === 'company'
               ? party.company?.signatories[0]?.nationality
@@ -3466,7 +3445,12 @@ function ContractDraftEditor({
             <button type="submit" className="button button--primary" disabled={busy}>
               {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ العقد والمستندات' : 'Save'}
             </button>
-            <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={onCancel}
+              disabled={busy}
+            >
               {ar ? 'إلغاء' : 'Cancel'}
             </button>
           </div>

@@ -65,7 +65,9 @@ export async function POST(request: Request, context: { params: Promise<{ refere
 
   const { reference } = await context.params;
   try {
-    return leaseBookingJson(await replaceReturnedBookingIdentityDoc(claims, reference, parsed.data));
+    return leaseBookingJson(
+      await replaceReturnedBookingIdentityDoc(claims, reference, parsed.data),
+    );
   } catch (error) {
     return leaseBookingErrorResponse(error, 'request_failed');
   }

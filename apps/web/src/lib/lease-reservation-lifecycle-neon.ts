@@ -49,11 +49,7 @@ import {
   type ReservationRequirement,
   type ReservationSaleDraft,
 } from '@/lib/lease-reservation-lifecycle';
-import {
-  computeLeaseTerms,
-  minorDigitsFor,
-  type LeaseTermsDraft,
-} from '@/lib/lease-terms';
+import { computeLeaseTerms, minorDigitsFor, type LeaseTermsDraft } from '@/lib/lease-terms';
 import {
   assertLeaseTermsValid,
   completeCounterpartySignatureInTx,
@@ -1111,7 +1107,7 @@ async function ownerActionInTx(
           assertLeaseTermsValid(input.lease.terms, row.currency, { deferUntilHandover });
           if (
             input.lease.terms.paymentMethod === 'cheque' &&
-            !(input.lease.terms.chequeAccountName?.trim())
+            !input.lease.terms.chequeAccountName?.trim()
           ) {
             fail('invalid_body');
           }
@@ -1335,7 +1331,11 @@ async function ownerActionInTx(
         const handover = row.lifecycle.handover;
         // Effective once filed by staff (including legacy awaiting_tenant records).
         if (!handover) fail('reservation_not_ready');
-        if (handover.status && handover.status !== 'accepted' && handover.status !== 'awaiting_tenant') {
+        if (
+          handover.status &&
+          handover.status !== 'accepted' &&
+          handover.status !== 'awaiting_tenant'
+        ) {
           fail('reservation_not_ready');
         }
         const formNo = input.formNo.trim().slice(0, 80);
@@ -1363,8 +1363,7 @@ async function ownerActionInTx(
         let nextDraft = draft;
         if (draft?.lease && typeof draft.lease === 'object') {
           const lease = draft.lease as { terms?: Record<string, unknown> };
-          const terms =
-            lease.terms && typeof lease.terms === 'object' ? { ...lease.terms } : {};
+          const terms = lease.terms && typeof lease.terms === 'object' ? { ...lease.terms } : {};
           terms.municipalFormNo = formNo;
           terms.municipalContractNo = contractNo;
           terms.electricityReading = electricityReading;
@@ -1619,22 +1618,12 @@ export async function runReservationAutomation(
               ...lifecycle,
               requirements: (lifecycle.requirements ?? []).map((item) => {
                 if (!autoApprovedCodes.has(item.code) || !item.autoApproved) return item;
-                const {
-                  autoApproved: _a,
-                  reviewedAt: _r,
-                  reviewedByName: _n,
-                  ...rest
-                } = item;
+                const { autoApproved: _a, reviewedAt: _r, reviewedByName: _n, ...rest } = item;
                 return { ...rest, status: 'submitted' as const, note: null };
               }),
               chequeSubmissions: (lifecycle.chequeSubmissions ?? []).map((item) => {
                 if (!autoApprovedChequeKeys.has(item.key) || !item.autoApproved) return item;
-                const {
-                  autoApproved: _a,
-                  reviewedAt: _r,
-                  reviewedByName: _n,
-                  ...rest
-                } = item;
+                const { autoApproved: _a, reviewedAt: _r, reviewedByName: _n, ...rest } = item;
                 return { ...rest, status: 'submitted' as const, note: null };
               }),
             };
@@ -1679,19 +1668,13 @@ async function customerReservation(transaction: Tx, userId: string, referenceCod
 }
 
 function assertTenantAttested(lifecycle: ReservationLifecycle) {
-  if (
-    lifecycle.autoFlow?.requireTenantAttestation &&
-    !lifecycle.tenantAttestation?.accepted
-  ) {
+  if (lifecycle.autoFlow?.requireTenantAttestation && !lifecycle.tenantAttestation?.accepted) {
     leaseBookingFail('attestation_required');
   }
 }
 
 /** Tenant confirms document accuracy and cancel-if-invalid responsibility. */
-export async function attestReservationDocuments(
-  claims: SessionClaims,
-  referenceCode: string,
-) {
+export async function attestReservationDocuments(claims: SessionClaims, referenceCode: string) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     const current = await customerReservation(transaction, claims.sub, referenceCode);
@@ -2427,8 +2410,10 @@ export async function readReservationFileForTenant(
             )
             .limit(1);
           const meta = row?.metadata;
-          return meta && typeof meta === 'object' && typeof (meta as { dataUrl?: unknown }).dataUrl === 'string'
-            ? ((meta as { dataUrl: string }).dataUrl)
+          return meta &&
+            typeof meta === 'object' &&
+            typeof (meta as { dataUrl?: unknown }).dataUrl === 'string'
+            ? (meta as { dataUrl: string }).dataUrl
             : null;
         });
         return value ? { value, name: staged.name || file } : null;
@@ -3019,8 +3004,7 @@ export async function acceptHandover(claims: SessionClaims, referenceCode: strin
     }
     if (!handover || handover.status !== 'awaiting_tenant') leaseBookingFail('not_ready');
     const acceptedAt = handover.at;
-    const defectsUntil =
-      handover.defectsUntil ?? handoverDefectsUntilFrom(handover.at);
+    const defectsUntil = handover.defectsUntil ?? handoverDefectsUntilFrom(handover.at);
     const orgId = current.match.organizationId;
     await saveLifecycle(
       transaction,

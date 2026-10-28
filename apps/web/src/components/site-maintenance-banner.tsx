@@ -43,9 +43,7 @@ export function SiteMaintenanceBanner() {
           if (!cancelled) setMessage(null);
           return;
         }
-        setMessage(
-          locale === 'ar' ? payload.maintenance.messageAr : payload.maintenance.messageEn,
-        );
+        setMessage(locale === 'ar' ? payload.maintenance.messageAr : payload.maintenance.messageEn);
       })
       .catch(() => {
         if (!cancelled) setMessage(null);

@@ -69,8 +69,7 @@ export function PortalPendingApprovalsPanel({
   if (!data.total) return null;
 
   const moreCount = data.total - 6;
-  const moreText =
-    moreCount > 0 ? moreLabel.replace('{count}', String(moreCount)) : null;
+  const moreText = moreCount > 0 ? moreLabel.replace('{count}', String(moreCount)) : null;
 
   return (
     <section id="pending-approvals" className="dash-approvals" aria-label={title}>
@@ -85,7 +84,9 @@ export function PortalPendingApprovalsPanel({
         {data.items.slice(0, 6).map((item) => {
           const kindTone =
             item.kind === 'contract' || item.kind === 'renewal_term'
-              ? contractKindTone(item.contractKind ?? (item.kind === 'renewal_term' ? 'renewal' : 'initial'))
+              ? contractKindTone(
+                  item.contractKind ?? (item.kind === 'renewal_term' ? 'renewal' : 'initial'),
+                )
               : null;
           const linkTone =
             kindTone === 'renewal'

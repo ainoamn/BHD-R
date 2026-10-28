@@ -3,16 +3,16 @@
 **تاريخ:** 2026-09-01  
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الفرع:** `main` (مدمج على GitHub)  
-**آخر commit:** `80aa5dd` — *Ship stays public UX, wizard improvements, and portfolio list fix as 0.4.24.*  
+**آخر commit:** `80aa5dd` — _Ship stays public UX, wizard improvements, and portfolio list fix as 0.4.24._  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
 ---
 
 ## ما أُنجز في هذه الجلسة (0.4.23 → 0.4.24)
 
-| الإصدار | الملخص |
-| --- | --- |
-| **0.4.23** | إصلاح BigInt في JSON عند حفظ السعر (معالج الإقامة) |
+| الإصدار    | الملخص                                                                                |
+| ---------- | ------------------------------------------------------------------------------------- |
+| **0.4.23** | إصلاح BigInt في JSON عند حفظ السعر (معالج الإقامة)                                    |
 | **0.4.24** | ترجمة + AI + معاينة + redirect + inventory Neon + صفحات `/stays` غنية + إصلاح المحفظة |
 
 ### 0.4.24 — تفاصيل
@@ -51,12 +51,12 @@ git pull origin main
 
 ## المحادثة الكاملة
 
-| المصدر | الموقع |
-| --- | --- |
-| **تسليم سابق (JSONL كامل حتى 0.4.22)** | [`../2026-09-01-stays-setup-neon-write/`](../2026-09-01-stays-setup-neon-write/) |
-| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) | خطوات التحقق والاستكمال من جهاز آخر |
-| [`MANIFEST.md`](./MANIFEST.md) | commit hash وروابط |
-| **استمرار جلسة Cursor (0.4.23–0.4.24)** | Transcript `d0d5551b-99f7-449e-92d1-5d812bcf527d` |
+| المصدر                                         | الموقع                                                                           |
+| ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| **تسليم سابق (JSONL كامل حتى 0.4.22)**         | [`../2026-09-01-stays-setup-neon-write/`](../2026-09-01-stays-setup-neon-write/) |
+| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) | خطوات التحقق والاستكمال من جهاز آخر                                              |
+| [`MANIFEST.md`](./MANIFEST.md)                 | commit hash وروابط                                                               |
+| **استمرار جلسة Cursor (0.4.23–0.4.24)**        | Transcript `d0d5551b-99f7-449e-92d1-5d812bcf527d`                                |
 
 ---
 
@@ -71,9 +71,9 @@ git pull origin main
 
 ## متغيرات Vercel / Render
 
-| الطبقة | مطلوب |
-| --- | --- |
-| Vercel | `DATABASE_URL`, `STAYS_PLATFORM_ENABLED=true` |
+| الطبقة | مطلوب                                                     |
+| ------ | --------------------------------------------------------- |
+| Vercel | `DATABASE_URL`, `STAYS_PLATFORM_ENABLED=true`             |
 | Render | `STAYS_PLATFORM_ENABLED=true` (للـ outbox/worker اختياري) |
 
 **ملاحظة:** `scripts/set-database-url.mjs` محلي فقط — لا يُرفع.

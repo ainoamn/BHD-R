@@ -18,12 +18,12 @@
 
 ## التقويم — دليل الألوان
 
-| اللون | الحالة |
-| --- | --- |
-| أخضر | شاغر — قابل للحجز |
-| أحمر | محجوز |
-| برتقالي | hold (محجوز مؤقتاً) |
-| رمادي | مغلق / صيانة / غير متاح |
+| اللون   | الحالة                  |
+| ------- | ----------------------- |
+| أخضر    | شاغر — قابل للحجز       |
+| أحمر    | محجوز                   |
+| برتقالي | hold (محجوز مؤقتاً)     |
+| رمادي   | مغلق / صيانة / غير متاح |
 
 ## لوحة المالك
 
@@ -37,14 +37,14 @@
 
 ## ملفات محورية
 
-| الملف | الدور |
-| --- | --- |
-| `apps/web/src/app/[locale]/stays/[slug]/page.tsx` | Property 360 + `stayBooking` |
-| `apps/web/src/components/property-detail-manager.tsx` | دعم `stayBooking` في الشريط الجانبي |
-| `apps/web/src/components/stays/stay-availability-calendar.tsx` | التقويم التفاعلي |
-| `apps/web/src/components/stays/stay-ops-calendar-panel.tsx` | تقويم المالك |
-| `apps/api/src/stays/stays-inventory.service.ts` | قراءة `stay_inventory_days` + locks |
-| `packages/contracts/src/stays/schemas.ts` | عقود التقويم |
+| الملف                                                          | الدور                               |
+| -------------------------------------------------------------- | ----------------------------------- |
+| `apps/web/src/app/[locale]/stays/[slug]/page.tsx`              | Property 360 + `stayBooking`        |
+| `apps/web/src/components/property-detail-manager.tsx`          | دعم `stayBooking` في الشريط الجانبي |
+| `apps/web/src/components/stays/stay-availability-calendar.tsx` | التقويم التفاعلي                    |
+| `apps/web/src/components/stays/stay-ops-calendar-panel.tsx`    | تقويم المالك                        |
+| `apps/api/src/stays/stays-inventory.service.ts`                | قراءة `stay_inventory_days` + locks |
+| `packages/contracts/src/stays/schemas.ts`                      | عقود التقويم                        |
 
 ## تحقق بعد النشر
 
@@ -55,7 +55,7 @@
 
 ## متغيرات الإنتاج
 
-| الطبقة | مطلوب |
-| --- | --- |
-| Vercel | `DATABASE_URL`, `STAYS_PLATFORM_ENABLED=true` |
+| الطبقة       | مطلوب                                         |
+| ------------ | --------------------------------------------- |
+| Vercel       | `DATABASE_URL`, `STAYS_PLATFORM_ENABLED=true` |
 | Render (API) | `STAYS_PLATFORM_ENABLED=true`, `DATABASE_URL` |

@@ -150,17 +150,11 @@ export function DepositRefundCell({
   const depositPayBadge = (() => {
     switch (row.depositStatus) {
       case 'paid':
-        return (
-          <span className="pmh-badge pmh-badge--ready">{ar ? 'مدفوع' : 'Paid'}</span>
-        );
+        return <span className="pmh-badge pmh-badge--ready">{ar ? 'مدفوع' : 'Paid'}</span>;
       case 'waived':
-        return (
-          <span className="pmh-badge pmh-badge--info">{ar ? 'معفى' : 'Waived'}</span>
-        );
+        return <span className="pmh-badge pmh-badge--info">{ar ? 'معفى' : 'Waived'}</span>;
       case 'unpaid':
-        return (
-          <span className="pmh-badge pmh-badge--warn">{ar ? 'غير مدفوع' : 'Unpaid'}</span>
-        );
+        return <span className="pmh-badge pmh-badge--warn">{ar ? 'غير مدفوع' : 'Unpaid'}</span>;
       default:
         return null;
     }

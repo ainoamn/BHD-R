@@ -36,9 +36,7 @@ describe('proxy canonical host', () => {
   });
 
   it('passes API routes through untouched on the canonical host', () => {
-    const response = proxy(
-      requestFor('https://r.bhd-om.com/api/auth/bhd/start', 'r.bhd-om.com'),
-    );
+    const response = proxy(requestFor('https://r.bhd-om.com/api/auth/bhd/start', 'r.bhd-om.com'));
     expect(response.headers.get('location')).toBeNull();
     expect(response.headers.get('x-middleware-next')).toBe('1');
   });

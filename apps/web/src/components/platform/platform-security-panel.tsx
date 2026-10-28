@@ -37,7 +37,9 @@ export function PlatformSecurityPanel({ locale }: { locale: 'ar' | 'en' }) {
     );
   }
   if (!data) {
-    return <p className="muted">{ar ? 'جارٍ تحميل الإشارات الأمنية…' : 'Loading security signals…'}</p>;
+    return (
+      <p className="muted">{ar ? 'جارٍ تحميل الإشارات الأمنية…' : 'Loading security signals…'}</p>
+    );
   }
 
   return (

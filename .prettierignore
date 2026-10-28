@@ -9,3 +9,5 @@ test-results
 apps/web/next-env.d.ts
 
 docs/verification/_baseline-logs/
+# Archived chat dumps — not product source; Prettier thrashing them is noise.
+docs/handoffs/**/conversation-readable*.md

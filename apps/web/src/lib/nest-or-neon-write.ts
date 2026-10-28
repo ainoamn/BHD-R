@@ -62,7 +62,8 @@ export async function createViewingRequestNestOrNeon(
 ): Promise<{ accepted: true; reference: string; status: string; via: 'nest' | 'neon' }> {
   const contact = await loadViewerContact(claims.sub);
   const submissionId = asSubmissionId(options.idempotencyKey);
-  const interest = options.interest === 'sale' || options.interest === 'rent' ? options.interest : null;
+  const interest =
+    options.interest === 'sale' || options.interest === 'rent' ? options.interest : null;
   const interestNote =
     interest === 'sale'
       ? locale === 'ar'
@@ -204,7 +205,8 @@ export async function createPublicBookingNestOrNeon(
             message?: string;
             error?: { message?: string };
           } | null;
-          const message = `${payload?.message ?? ''} ${payload?.error?.message ?? ''}`.toLowerCase();
+          const message =
+            `${payload?.message ?? ''} ${payload?.error?.message ?? ''}`.toLowerCase();
           if (message.includes('deposit')) throw new Error('deposit_not_set');
           if (message.includes('available')) throw new Error('unit_unavailable');
         }
@@ -385,9 +387,8 @@ export async function uploadUnitMediaNestOrNeon(
   _csrfToken: string | null,
   options: { idempotencyKey?: string | null } = {},
 ): Promise<{ assetId: string; url: string; via: 'nest' | 'neon' }> {
-  const { detectAllowedMime, uploadUnitMediaOnNeon } = await import(
-    '@/lib/upload-property-media-neon'
-  );
+  const { detectAllowedMime, uploadUnitMediaOnNeon } =
+    await import('@/lib/upload-property-media-neon');
   const detected = detectAllowedMime(input.bytes, input.purpose);
   if (!detected) throw new Error('invalid_file');
   if (input.bytes.byteLength < 1 || input.bytes.byteLength > 12 * 1024 * 1024) {
@@ -483,7 +484,11 @@ export async function uploadUnitMediaNestOrNeon(
         });
         if (!completeResponse.ok) {
           const detail = await completeResponse.text().catch(() => '');
-          console.error('Nest media complete failed', completeResponse.status, detail.slice(0, 300));
+          console.error(
+            'Nest media complete failed',
+            completeResponse.status,
+            detail.slice(0, 300),
+          );
           throw new Error('upload_failed');
         }
         const completed = (await completeResponse.json()) as { assetId?: string };

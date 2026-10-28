@@ -86,8 +86,7 @@ export function guestDepositClaimNoteService(referenceCode: string): NoteService
       signal,
     });
     const payload = (await response.json().catch(() => null)) as
-      | (T & { error?: { code?: string; messageAr?: string; message?: string } })
-      | null;
+      (T & { error?: { code?: string; messageAr?: string; message?: string } }) | null;
     if (!response.ok || !payload) {
       throw new ApiError(
         response.status,

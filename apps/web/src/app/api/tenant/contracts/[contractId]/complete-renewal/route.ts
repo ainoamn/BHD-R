@@ -13,7 +13,10 @@ export const maxDuration = 60;
 type RouteContext = { params: Promise<{ contractId: string }> };
 
 const bodySchema = z.object({
-  endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  endsOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional(),
   consentAccepted: z.literal(true),
 });
 

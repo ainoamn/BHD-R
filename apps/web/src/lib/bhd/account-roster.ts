@@ -1,11 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { NextResponse } from 'next/server';
 import { PRODUCT_SESSION_MAX_AGE_SECONDS } from '@bhd-r/authz';
-import {
-  asProviders,
-  inferProviders,
-  type RosterAccount,
-} from '@/lib/bhd/account-roster-shared';
+import { asProviders, inferProviders, type RosterAccount } from '@/lib/bhd/account-roster-shared';
 import { secureCookies } from '@/lib/bhd/oauth';
 import { requireSessionSecret } from '@/lib/runtime-env';
 
@@ -49,9 +45,7 @@ function normalizeAccount(item: Partial<RosterAccount> & { sub: string }): Roste
         ? item.username.trim().slice(0, 100)
         : null,
     phone:
-      typeof item.phone === 'string' && item.phone.trim()
-        ? item.phone.trim().slice(0, 40)
-        : null,
+      typeof item.phone === 'string' && item.phone.trim() ? item.phone.trim().slice(0, 40) : null,
     picture,
     providers: providers.length ? providers : (['password'] as RosterAccount['providers']),
   };

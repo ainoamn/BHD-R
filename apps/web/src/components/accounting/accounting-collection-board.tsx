@@ -90,15 +90,19 @@ export function AccountingCollectionBoard({
     });
   }, [horizon, outlook, today]);
 
-  const cards: Array<{ id: Horizon; icon: string; label: string; stat?: WindowStat | undefined }> = [
-    { id: 'today', icon: '📅', label: ar ? 'تحصيل اليوم' : 'Due today', stat: windows?.today },
-    { id: 'week', icon: '🗓️', label: ar ? 'خلال ٧ أيام' : 'Next 7 days', stat: windows?.week },
-    { id: 'month', icon: '📊', label: ar ? 'هذا الشهر' : 'This month', stat: windows?.month },
-    { id: 'year', icon: '🏦', label: ar ? 'هذا العام' : 'This year', stat: windows?.year },
-  ];
+  const cards: Array<{ id: Horizon; icon: string; label: string; stat?: WindowStat | undefined }> =
+    [
+      { id: 'today', icon: '📅', label: ar ? 'تحصيل اليوم' : 'Due today', stat: windows?.today },
+      { id: 'week', icon: '🗓️', label: ar ? 'خلال ٧ أيام' : 'Next 7 days', stat: windows?.week },
+      { id: 'month', icon: '📊', label: ar ? 'هذا الشهر' : 'This month', stat: windows?.month },
+      { id: 'year', icon: '🏦', label: ar ? 'هذا العام' : 'This year', stat: windows?.year },
+    ];
 
   return (
-    <section className="accounting-collect" aria-label={ar ? 'التحصيل المتوقع' : 'Expected collections'}>
+    <section
+      className="accounting-collect"
+      aria-label={ar ? 'التحصيل المتوقع' : 'Expected collections'}
+    >
       <header>
         <h3>{ar ? 'المبالغ الواجبة التحصيل' : 'Amounts to collect'}</h3>
         <p>
@@ -121,9 +125,7 @@ export function AccountingCollectionBoard({
             </span>
             <span>{card.label}</span>
             <strong>{formatMoney(card.stat?.amountMinor ?? '0', currency, locale)}</strong>
-            <small>
-              {ar ? `${card.stat?.count ?? 0} بند` : `${card.stat?.count ?? 0} items`}
-            </small>
+            <small>{ar ? `${card.stat?.count ?? 0} بند` : `${card.stat?.count ?? 0} items`}</small>
           </button>
         ))}
       </div>
@@ -150,7 +152,9 @@ export function AccountingCollectionBoard({
                         <bdi>{row.dueOn}</bdi>
                       </small>
                     </div>
-                    <span className={`accounting-hub__status accounting-hub__status--${row.lineStatus || row.reviewStatus}`}>
+                    <span
+                      className={`accounting-hub__status accounting-hub__status--${row.lineStatus || row.reviewStatus}`}
+                    >
                       {row.lineStatus
                         ? ledgerStatusLabel(row.lineStatus as LedgerLineStatus, ar)
                         : row.reviewStatus}

@@ -3,10 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { outstandingMinorOf, RentDocLinks } from '@/components/rent-doc-links';
-import {
-  fetchAccountingJson,
-  getAccountingCache,
-} from '@/lib/accounting-client-cache';
+import { fetchAccountingJson, getAccountingCache } from '@/lib/accounting-client-cache';
 import { accountingChequeStatusLabel } from '@/lib/accounting-i18n';
 import { browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -48,7 +45,8 @@ type Summary = {
   currency: string;
 };
 
-type Filter = 'all' | 'pending' | 'accepted' | 'deposited' | 'cleared' | 'bounced' | 'overdue' | 'upcoming';
+type Filter =
+  'all' | 'pending' | 'accepted' | 'deposited' | 'cleared' | 'bounced' | 'overdue' | 'upcoming';
 
 /** Tenant collection register: schedule from signed leases + cheque status + CSV import. */
 export function AccountingChequesPanel({
@@ -120,9 +118,7 @@ export function AccountingChequesPanel({
           row.lineStatus === 'upcoming' ||
           row.lineStatus === 'due_soon' ||
           row.lineStatus === 'due' ||
-          (row.dueOn >= today &&
-            row.reviewStatus !== 'cleared' &&
-            row.reviewStatus !== 'cancelled')
+          (row.dueOn >= today && row.reviewStatus !== 'cleared' && row.reviewStatus !== 'cancelled')
         );
       }
       return row.reviewStatus === filter;
@@ -178,7 +174,11 @@ export function AccountingChequesPanel({
               </ul>
             </section>
           ) : null}
-          <div className="accounting-hub__stat-row" role="group" aria-label={ar ? 'ملخص التحصيل' : 'Collection summary'}>
+          <div
+            className="accounting-hub__stat-row"
+            role="group"
+            aria-label={ar ? 'ملخص التحصيل' : 'Collection summary'}
+          >
             <div className="accounting-hub__stat">
               <span className="accounting-hub__stat-label">
                 {ar ? 'متوقع استلامه لاحقاً' : 'Expected receipts'}
@@ -209,7 +209,9 @@ export function AccountingChequesPanel({
       </div>
 
       {failed ? (
-        <p className="accounting-hub__error">{ar ? 'تعذر تحميل الشيكات' : 'Could not load cheques'}</p>
+        <p className="accounting-hub__error">
+          {ar ? 'تعذر تحميل الشيكات' : 'Could not load cheques'}
+        </p>
       ) : null}
 
       <div className="accounting-hub__table-wrap">
@@ -255,15 +257,11 @@ export function AccountingChequesPanel({
                     <td>
                       <bdi>{row.tenantName || '—'}</bdi>
                     </td>
-                    <td>
-                      {[row.propertyName, row.unitCode].filter(Boolean).join(' · ') || '—'}
-                    </td>
+                    <td>{[row.propertyName, row.unitCode].filter(Boolean).join(' · ') || '—'}</td>
                     <td>{row.bankName}</td>
                     <td dir="ltr">{row.dueOn}</td>
                     <td>
-                      <span
-                        className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}
-                      >
+                      <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>
                         {statusLabel(row)}
                       </span>
                     </td>

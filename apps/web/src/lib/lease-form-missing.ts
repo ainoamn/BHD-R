@@ -11,11 +11,7 @@ export type LeaseTenantSnapshot = {
   signatoryName?: string | undefined;
 };
 
-function gap(
-  code: string,
-  labelAr: string,
-  labelEn: string,
-): MissingField {
+function gap(code: string, labelAr: string, labelEn: string): MissingField {
   return { code, labelAr, labelEn, group: 'lease' };
 }
 
@@ -115,7 +111,9 @@ export function missingLeaseContractFields(input: {
 
   if (!draft.schedule.length) {
     out.push(gap('schedule', 'جدول الدفع', 'Payment schedule'));
-  } else if (draft.schedule.some((row) => !isIsoDate(row.dueOn) || parseMoney(row.rent, digits) === null)) {
+  } else if (
+    draft.schedule.some((row) => !isIsoDate(row.dueOn) || parseMoney(row.rent, digits) === null)
+  ) {
     out.push(gap('schedule_rows', 'صفوف جدول الدفع', 'Payment schedule rows'));
   }
 

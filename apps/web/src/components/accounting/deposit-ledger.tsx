@@ -213,33 +213,37 @@ export function DepositLedgerPanel({
   const all = rows ?? [];
   const held = all.filter((row) => row.status !== 'deposit_settled');
   const awaiting = all.filter((row) => row.status === 'awaiting_refund_transfer');
-  const cards: Array<{ label: string; hint: string; values: Array<[string, bigint]>; tone: string }> =
-    [
-      {
-        label: ar ? `محتجز (${held.length})` : `Held (${held.length})`,
-        hint: ar ? 'أمانة' : 'In trust',
-        values: totals(held, (row) => row.depositMinor),
-        tone: 'held',
-      },
-      {
-        label: ar ? `للتحويل (${awaiting.length})` : `To pay (${awaiting.length})`,
-        hint: ar ? 'معتمد' : 'Approved',
-        values: totals(awaiting, pendingRefund),
-        tone: 'pay',
-      },
-      {
-        label: ar ? 'حُوّل' : 'Paid out',
-        hint: ar ? 'للضيوف' : 'To guests',
-        values: totals(all, (row) => row.refundedMinor),
-        tone: 'paid',
-      },
-      {
-        label: ar ? 'مخصوم' : 'Kept',
-        hint: ar ? 'دخل العقار' : 'Property income',
-        values: totals(all, (row) => row.retainedMinor),
-        tone: 'kept',
-      },
-    ];
+  const cards: Array<{
+    label: string;
+    hint: string;
+    values: Array<[string, bigint]>;
+    tone: string;
+  }> = [
+    {
+      label: ar ? `محتجز (${held.length})` : `Held (${held.length})`,
+      hint: ar ? 'أمانة' : 'In trust',
+      values: totals(held, (row) => row.depositMinor),
+      tone: 'held',
+    },
+    {
+      label: ar ? `للتحويل (${awaiting.length})` : `To pay (${awaiting.length})`,
+      hint: ar ? 'معتمد' : 'Approved',
+      values: totals(awaiting, pendingRefund),
+      tone: 'pay',
+    },
+    {
+      label: ar ? 'حُوّل' : 'Paid out',
+      hint: ar ? 'للضيوف' : 'To guests',
+      values: totals(all, (row) => row.refundedMinor),
+      tone: 'paid',
+    },
+    {
+      label: ar ? 'مخصوم' : 'Kept',
+      hint: ar ? 'دخل العقار' : 'Property income',
+      values: totals(all, (row) => row.retainedMinor),
+      tone: 'kept',
+    },
+  ];
   const filters: Array<[Filter, string]> = [
     ['open', ar ? 'تحتاج إجراء' : 'Needs action'],
     ['awaiting_refund_transfer', ar ? 'للتحويل' : 'To pay'],
@@ -317,9 +321,7 @@ export function DepositLedgerPanel({
         </div>
         {awaiting.length ? (
           <p className="deposit-ledger__cue" role="status">
-            {ar
-              ? `${awaiting.length} بانتظار تحويلك`
-              : `${awaiting.length} awaiting your transfer`}
+            {ar ? `${awaiting.length} بانتظار تحويلك` : `${awaiting.length} awaiting your transfer`}
           </p>
         ) : null}
       </header>
@@ -495,9 +497,7 @@ export function DepositLedgerPanel({
                       {domainStatusLabel(status, locale)}
                     </span>
                     {row.kind === 'reservation_deposit' ? (
-                      <span className="pmh-badge pmh-badge--info">
-                        {ar ? 'عربون' : 'Booking'}
-                      </span>
+                      <span className="pmh-badge pmh-badge--info">{ar ? 'عربون' : 'Booking'}</span>
                     ) : null}
                     {row.kind === 'stay_payment_refund' ? (
                       <span className="pmh-badge pmh-badge--warn">

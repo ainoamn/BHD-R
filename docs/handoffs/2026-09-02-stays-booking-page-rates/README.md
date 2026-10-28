@@ -4,7 +4,7 @@
 **Release:** 0.4.31  
 **Commit:** `b101547`  
 **Production:** https://r.bhd-om.com  
-**Repo:** https://github.com/ainoamn/BHD-R  
+**Repo:** https://github.com/ainoamn/BHD-R
 
 ## Shipped
 

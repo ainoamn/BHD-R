@@ -400,8 +400,7 @@ export function PortalNav({
         href={`${root}${item.path}`}
         section={section}
         softPath={
-          SOFT_PORTAL_PATHS.has(basePath) ||
-          (portal === 'tenant' && isTenantSoftBasePath(basePath))
+          SOFT_PORTAL_PATHS.has(basePath) || (portal === 'tenant' && isTenantSoftBasePath(basePath))
         }
         active={isActive(item)}
         mark={item.mark}

@@ -21,8 +21,7 @@ function cropToAspect(
   maxEdge = 1280,
   mirror = false,
 ): string {
-  const sw =
-    'videoWidth' in source ? source.videoWidth || source.clientWidth : source.naturalWidth;
+  const sw = 'videoWidth' in source ? source.videoWidth || source.clientWidth : source.naturalWidth;
   const sh =
     'videoHeight' in source ? source.videoHeight || source.clientHeight : source.naturalHeight;
   if (!sw || !sh) throw new Error('capture_empty');
@@ -252,13 +251,7 @@ export function EsignCameraCapture({
               void openCamera();
             }}
           >
-            {starting
-              ? ar
-                ? 'جارٍ الفتح…'
-                : 'Opening…'
-              : ar
-                ? 'افتح الكاميرا'
-                : 'Open camera'}
+            {starting ? (ar ? 'جارٍ الفتح…' : 'Opening…') : ar ? 'افتح الكاميرا' : 'Open camera'}
           </button>
         )}
         {!ready && !preferNativeFirst ? (

@@ -87,12 +87,7 @@ export function tenantPaymentHoldStatus(
 
 /** Tenant-facing phase of a stay deposit refund (partial / dispute are derived). */
 export type TenantDepositRefundPhase =
-  | 'requested'
-  | 'approved_processing'
-  | 'partial'
-  | 'transferred'
-  | 'not_received'
-  | 'rejected';
+  'requested' | 'approved_processing' | 'partial' | 'transferred' | 'not_received' | 'rejected';
 
 export function tenantDepositRefundPhase(refund: {
   status: DepositRefundStatus;
@@ -111,7 +106,10 @@ export function tenantDepositRefundPhase(refund: {
   return 'approved_processing';
 }
 
-export function tenantDepositRefundStatusLabel(phase: TenantDepositRefundPhase, ar: boolean): string {
+export function tenantDepositRefundStatusLabel(
+  phase: TenantDepositRefundPhase,
+  ar: boolean,
+): string {
   switch (phase) {
     case 'requested':
       return ar ? 'طلب استرداد التأمين قيد المراجعة' : 'Deposit refund under review';
@@ -124,7 +122,9 @@ export function tenantDepositRefundStatusLabel(phase: TenantDepositRefundPhase, 
     case 'transferred':
       return ar ? 'تم التحويل' : 'Transferred';
     case 'not_received':
-      return ar ? 'مهمة: لم يصل مبلغ التأمين · قيد المتابعة' : 'Task: deposit not received · in progress';
+      return ar
+        ? 'مهمة: لم يصل مبلغ التأمين · قيد المتابعة'
+        : 'Task: deposit not received · in progress';
     case 'rejected':
       return ar ? 'رفض التحويل' : 'Transfer declined';
   }

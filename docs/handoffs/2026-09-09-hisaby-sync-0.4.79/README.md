@@ -6,9 +6,9 @@
 
 ## Live behavior (after one-time key paste)
 
-| Direction | Mechanism |
-| --- | --- |
-| R → Hisaby | Worker push to `POST https://hisaby.bhd-om.com/api/integrations/bhd-r/events` |
+| Direction  | Mechanism                                                                                       |
+| ---------- | ----------------------------------------------------------------------------------------------- |
+| R → Hisaby | Worker push to `POST https://hisaby.bhd-om.com/api/integrations/bhd-r/events`                   |
 | Hisaby → R | Pull every 15 min (+ immediate on save) via `GET /v1/integrations/hisaby/export` then list APIs |
 
 Hisaby flattens worker payloads and returns HTTP 200 `skipped` for informational topics (journals/cheques) so auto-push does not fail.

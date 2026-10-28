@@ -21,12 +21,7 @@ export const TRACK_CLAIM_KINDS = ['property_complaint', 'appeal', 'site_complain
 export type TrackClaimKind = (typeof TRACK_CLAIM_KINDS)[number];
 
 export type DepositClaimStatus =
-  | 'open'
-  | 'with_accountant'
-  | 'accepted'
-  | 'rejected'
-  | 'escalated'
-  | 'resolved';
+  'open' | 'with_accountant' | 'accepted' | 'rejected' | 'escalated' | 'resolved';
 
 /** Still in flight — guest cannot open another request until these close. */
 export function claimIsActive(status: string): boolean {

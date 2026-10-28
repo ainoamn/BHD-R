@@ -46,9 +46,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
           cache: 'no-store',
         });
         const body = (await response.json().catch(() => null)) as
-          | { templates?: NotificationTemplateMeta[] }
-          | { error?: { code?: string } }
-          | null;
+          { templates?: NotificationTemplateMeta[] } | { error?: { code?: string } } | null;
         if (stopped) return;
         if (!response.ok || !body || !('templates' in body) || !body.templates) {
           setError((body && 'error' in body && body.error?.code) || 'load_failed');
@@ -87,9 +85,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
           { credentials: 'same-origin', cache: 'no-store' },
         );
         const body = (await response.json().catch(() => null)) as
-          | PreviewPayload
-          | { error?: { code?: string } }
-          | null;
+          PreviewPayload | { error?: { code?: string } } | null;
         if (stopped) return;
         if (!response.ok || !body || !('id' in body)) {
           setError((body && 'error' in body && body.error?.code) || 'load_failed');
@@ -117,10 +113,9 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
   const filtered =
     category === 'all' ? templates : templates.filter((item) => item.category === category);
   const selected = templates.find((item) => item.id === selectedId) ?? null;
-  const categories = [
-    'all',
-    ...new Set(templates.map((item) => item.category)),
-  ] as Array<NotificationCategory | 'all'>;
+  const categories = ['all', ...new Set(templates.map((item) => item.category))] as Array<
+    NotificationCategory | 'all'
+  >;
 
   return (
     <div className="form-shell notify-studio">
@@ -136,7 +131,11 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
         </div>
       </header>
 
-      <div className="notify-studio__filters" role="tablist" aria-label={ar ? 'التصنيف' : 'Category'}>
+      <div
+        className="notify-studio__filters"
+        role="tablist"
+        aria-label={ar ? 'التصنيف' : 'Category'}
+      >
         {categories.map((key) => (
           <button
             key={key}
@@ -180,9 +179,7 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
                     <span className="notify-studio__chip">
                       {ar ? CHANNEL_LABEL[item.channel].ar : CHANNEL_LABEL[item.channel].en}
                     </span>
-                    <span className="muted">
-                      {ar ? item.descriptionAr : item.descriptionEn}
-                    </span>
+                    <span className="muted">{ar ? item.descriptionAr : item.descriptionEn}</span>
                   </button>
                 </li>
               ))}
@@ -235,7 +232,11 @@ export function NotificationTemplatesStudio({ locale }: { locale: 'ar' | 'en' })
               </div>
 
               {tab === 'email' && preview?.email ? (
-                <div className="notify-studio__devices" role="group" aria-label={ar ? 'الجهاز' : 'Device'}>
+                <div
+                  className="notify-studio__devices"
+                  role="group"
+                  aria-label={ar ? 'الجهاز' : 'Device'}
+                >
                   {(
                     [
                       ['phone', ar ? 'جوال' : 'Phone'],

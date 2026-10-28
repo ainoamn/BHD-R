@@ -1,11 +1,5 @@
 export type TenantSpaceView =
-  | 'overview'
-  | 'bookings'
-  | 'contracts'
-  | 'leases'
-  | 'invoices'
-  | 'payments'
-  | 'requests';
+  'overview' | 'bookings' | 'contracts' | 'leases' | 'invoices' | 'payments' | 'requests';
 
 export const TENANT_SPACE_SECTIONS: Record<string, TenantSpaceView> = {
   reservations: 'bookings',

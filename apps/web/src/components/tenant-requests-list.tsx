@@ -441,7 +441,12 @@ export function TenantRequestsList({
       format: column.kind === 'date' ? ('date' as const) : undefined,
     }));
     const matched = records.filter((row) =>
-      matchesOpsColumnFilter(row, filter, columnDefs, (item, key) => item[key as keyof typeof item]),
+      matchesOpsColumnFilter(
+        row,
+        filter,
+        columnDefs,
+        (item, key) => item[key as keyof typeof item],
+      ),
     );
     return sortOpsColumnRows(
       matched,

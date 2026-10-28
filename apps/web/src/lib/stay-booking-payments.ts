@@ -3,10 +3,7 @@ import { stayPaymentIntents, type Database } from '@bhd-r/db';
 import type { StayBookingPaymentKind } from '@/lib/stay-booking-payment-labels';
 
 export type { StayBookingPaymentKind } from '@/lib/stay-booking-payment-labels';
-export {
-  stayPaymentKindLabel,
-  stayPaymentMethodLabel,
-} from '@/lib/stay-booking-payment-labels';
+export { stayPaymentKindLabel, stayPaymentMethodLabel } from '@/lib/stay-booking-payment-labels';
 
 export type StayBookingPaymentLine = {
   id: string;

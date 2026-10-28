@@ -172,12 +172,7 @@ export async function loadPropertyOpsPulseOnNeon(
       })
       .from(stayProfiles)
       .innerJoin(units, eq(units.id, stayProfiles.unitId))
-      .where(
-        and(
-          eq(stayProfiles.organizationId, organizationId),
-          eq(units.propertyId, propertyId),
-        ),
-      )
+      .where(and(eq(stayProfiles.organizationId, organizationId), eq(units.propertyId, propertyId)))
       .limit(200);
 
     const [unitRows, stayRows, refundQueue, stayProfileRows] = await Promise.all([

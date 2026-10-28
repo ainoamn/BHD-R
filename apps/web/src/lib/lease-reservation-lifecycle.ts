@@ -590,7 +590,9 @@ export function documentsPhase(lifecycle: ReservationLifecycle): LeaseJourneyPha
 }
 
 /** Status per cheque instruction (missing submission counts as pending). */
-export function chequeStatusesOf(lifecycle: ReservationLifecycle | null | undefined): RequirementStatus[] {
+export function chequeStatusesOf(
+  lifecycle: ReservationLifecycle | null | undefined,
+): RequirementStatus[] {
   const instructions = lifecycle?.chequeInstructions ?? [];
   if (!instructions.length) return [];
   const byKey = new Map((lifecycle?.chequeSubmissions ?? []).map((row) => [row.key, row]));

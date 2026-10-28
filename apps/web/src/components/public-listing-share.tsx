@@ -248,7 +248,10 @@ export function PublicListingShare({
   );
 
   return (
-    <div className="listing-share listing-share--icons" aria-label={ar ? 'مشاركة العقار' : 'Share listing'}>
+    <div
+      className="listing-share listing-share--icons"
+      aria-label={ar ? 'مشاركة العقار' : 'Share listing'}
+    >
       <div className="listing-share__grid">
         {channels.map((channel) => {
           const label = ar ? channel.labelAr : channel.labelEn;

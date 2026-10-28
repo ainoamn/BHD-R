@@ -6,11 +6,7 @@ import type { PortalRole } from '@/lib/types';
 export { taskEventLabel, TASK_EVENT_LABEL } from '@/lib/work-task-print-labels';
 
 /** Absolute URL a phone camera opens when scanning the printed QR. */
-export function workTaskOpenUrl(
-  locale: 'ar' | 'en',
-  portal: PortalRole,
-  taskId: string,
-): string {
+export function workTaskOpenUrl(locale: 'ar' | 'en', portal: PortalRole, taskId: string): string {
   return `${publicWebOrigin()}/${locale}/${portal}/tasks/${encodeURIComponent(taskId)}`;
 }
 

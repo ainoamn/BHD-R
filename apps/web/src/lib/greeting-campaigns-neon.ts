@@ -7,10 +7,7 @@ import { auditLogs, memberships, parties, platformSettings, users } from '@bhd-r
 import { elevatedTx, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
 import { appLink, emailableAddress, queueBrandedEmail } from '@/lib/email-notify';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
-import {
-  generateGreetingDesign,
-  greetingCardPublicUrl,
-} from '@/lib/greeting-card-ai';
+import { generateGreetingDesign, greetingCardPublicUrl } from '@/lib/greeting-card-ai';
 import {
   emptyGreetingAudience,
   isGreetingAudience,
@@ -157,7 +154,9 @@ function matchesAudience(row: AudienceRow, audience: GreetingAudience): boolean 
   if (audience.roles.length && !audience.roles.includes('all')) {
     const role = (row.roleKey ?? '').toLowerCase();
     const isOwner =
-      role.includes('owner') || role.includes('organization_admin') || role.includes('property_manager');
+      role.includes('owner') ||
+      role.includes('organization_admin') ||
+      role.includes('property_manager');
     const isTenant = role.includes('tenant') || role.includes('resident') || role.includes('guest');
     const isStaff =
       role.includes('staff') ||
@@ -218,10 +217,7 @@ async function loadAudienceRows(tx: ElevatedTx): Promise<AudienceRow[]> {
       metadata: parties.metadata,
     })
     .from(users)
-    .leftJoin(
-      memberships,
-      and(eq(memberships.userId, users.id), eq(memberships.status, 'active')),
-    )
+    .leftJoin(memberships, and(eq(memberships.userId, users.id), eq(memberships.status, 'active')))
     .leftJoin(parties, eq(parties.id, memberships.partyId))
     .where(isNull(users.disabledAt))
     .limit(5000);
@@ -235,7 +231,11 @@ async function loadAudienceRows(tx: ElevatedTx): Promise<AudienceRow[]> {
       continue;
     }
     if (!existing.metadata && row.metadata) {
-      byUser.set(row.userId, { ...existing, metadata: row.metadata, roleKey: row.roleKey ?? existing.roleKey });
+      byUser.set(row.userId, {
+        ...existing,
+        metadata: row.metadata,
+        roleKey: row.roleKey ?? existing.roleKey,
+      });
     } else if (!existing.roleKey && row.roleKey) {
       byUser.set(row.userId, { ...existing, roleKey: row.roleKey });
     }
@@ -245,7 +245,9 @@ async function loadAudienceRows(tx: ElevatedTx): Promise<AudienceRow[]> {
 
 function currentDesign(campaign: GreetingCampaign): GreetingDesignVersion | null {
   if (!campaign.currentDesignId) return campaign.designs[0] ?? null;
-  return campaign.designs.find((d) => d.id === campaign.currentDesignId) ?? campaign.designs[0] ?? null;
+  return (
+    campaign.designs.find((d) => d.id === campaign.currentDesignId) ?? campaign.designs[0] ?? null
+  );
 }
 
 export async function listGreetingCampaigns(claims: SessionClaims): Promise<{
@@ -279,7 +281,9 @@ async function estimateAudience(
   audience: GreetingAudience,
 ): Promise<GreetingAudienceEstimate> {
   const rows = await loadAudienceRows(tx);
-  const matched = rows.filter((row) => matchesAudience(row, audience) && emailableAddress(row.email));
+  const matched = rows.filter(
+    (row) => matchesAudience(row, audience) && emailableAddress(row.email),
+  );
   return {
     matched: matched.length,
     sample: matched.slice(0, 5).map((row) => ({
@@ -481,8 +485,7 @@ export async function updateGreetingCampaign(
         input.occasionDate && /^\d{4}-\d{2}-\d{2}$/.test(input.occasionDate)
           ? input.occasionDate
           : previous.occasionDate,
-      meaning:
-        input.meaning !== undefined ? input.meaning.trim().slice(0, 800) : previous.meaning,
+      meaning: input.meaning !== undefined ? input.meaning.trim().slice(0, 800) : previous.meaning,
       audience: input.audience ? normalizeAudience(input.audience) : previous.audience,
       designs,
       currentDesignId,
@@ -513,7 +516,10 @@ export async function updateGreetingCampaign(
   });
 }
 
-export async function deleteGreetingCampaign(claims: SessionClaims, id: string): Promise<{ ok: true }> {
+export async function deleteGreetingCampaign(
+  claims: SessionClaims,
+  id: string,
+): Promise<{ ok: true }> {
   return elevatedTx(async (tx) => {
     await requireRoot(claims);
     const store = await readStore(tx);
@@ -548,7 +554,9 @@ export async function uploadGreetingDesign(
     let designs: GreetingDesignVersion[];
     if (input.replaceCurrent && campaign.currentDesignId) {
       designs = campaign.designs.map((row) =>
-        row.id === campaign.currentDesignId ? { ...design, id: row.id, createdAt: row.createdAt } : row,
+        row.id === campaign.currentDesignId
+          ? { ...design, id: row.id, createdAt: row.createdAt }
+          : row,
       );
     } else {
       designs = [design, ...campaign.designs].slice(0, MAX_DESIGNS);
@@ -557,9 +565,8 @@ export async function uploadGreetingDesign(
       ...campaign,
       meaning: campaign.meaning || bodyAr,
       designs,
-      currentDesignId: input.replaceCurrent && campaign.currentDesignId
-        ? campaign.currentDesignId
-        : design.id,
+      currentDesignId:
+        input.replaceCurrent && campaign.currentDesignId ? campaign.currentDesignId : design.id,
       updatedAt: new Date().toISOString(),
     };
     store.campaigns[index] = next;
@@ -713,7 +720,11 @@ export async function sendGreetingCampaignNow(
     if (campaign.status === 'sending') fail('greeting_locked');
     if (!currentDesign(campaign)) fail('greeting_no_design');
 
-    store.campaigns[index] = { ...campaign, status: 'sending', updatedAt: new Date().toISOString() };
+    store.campaigns[index] = {
+      ...campaign,
+      status: 'sending',
+      updatedAt: new Date().toISOString(),
+    };
     await writeStore(tx, store, claims.sub);
 
     const { sent } = await dispatchCampaign(tx, campaign);

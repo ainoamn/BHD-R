@@ -68,7 +68,10 @@ export async function fetchAccountingJson<T>(
         error?: { messageAr?: string; message?: string; code?: string };
       } | null;
       throw new Error(
-        payload?.error?.messageAr ?? payload?.error?.message ?? payload?.error?.code ?? 'request_failed',
+        payload?.error?.messageAr ??
+          payload?.error?.message ??
+          payload?.error?.code ??
+          'request_failed',
       );
     }
     const data = (await response.json()) as T;

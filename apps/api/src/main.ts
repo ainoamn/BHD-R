@@ -46,13 +46,16 @@ function proxyToNest(req: IncomingMessage, res: ServerResponse, nestPort: number
   if (req.headers.authorization) headers.authorization = req.headers.authorization;
   if (req.headers['x-api-key']) headers['x-api-key'] = req.headers['x-api-key'];
   if (req.headers['x-csrf-token']) headers['x-csrf-token'] = req.headers['x-csrf-token'];
-  if (req.headers['x-organization-id']) headers['x-organization-id'] = req.headers['x-organization-id'];
+  if (req.headers['x-organization-id'])
+    headers['x-organization-id'] = req.headers['x-organization-id'];
   if (req.headers['idempotency-key']) headers['idempotency-key'] = req.headers['idempotency-key'];
   if (req.headers['x-request-id']) headers['x-request-id'] = req.headers['x-request-id'];
   if (req.headers.origin) headers.origin = req.headers.origin;
   if (req.headers['x-forwarded-for']) headers['x-forwarded-for'] = req.headers['x-forwarded-for'];
-  if (req.headers['x-forwarded-proto']) headers['x-forwarded-proto'] = req.headers['x-forwarded-proto'];
-  if (req.headers['x-forwarded-host']) headers['x-forwarded-host'] = req.headers['x-forwarded-host'];
+  if (req.headers['x-forwarded-proto'])
+    headers['x-forwarded-proto'] = req.headers['x-forwarded-proto'];
+  if (req.headers['x-forwarded-host'])
+    headers['x-forwarded-host'] = req.headers['x-forwarded-host'];
 
   const upstream = httpRequest(
     {
@@ -185,7 +188,10 @@ async function bootstrap(): Promise<void> {
 
   app.enableCors({
     // Express `cors` requires (origin, cb) — a sync-only resolver never invokes cb → hang.
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean | string) => void) => {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean | string) => void,
+    ) => {
       try {
         callback(null, resolveCorsOrigin(origin));
       } catch (error) {

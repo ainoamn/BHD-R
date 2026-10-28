@@ -81,7 +81,7 @@ Redeploy **web (Vercel)** after this change. Redeploy **Nest (Render)** when pul
    - [`/healthz`](https://bhd-r.onrender.com/healthz) → ok + `nestReady:true` + `dispatch:express-proxy`
    - [`/raw-ping`](https://bhd-r.onrender.com/raw-ping) → `{"ok":true,"via":"express"}`
    - [`/health/live`](https://bhd-r.onrender.com/health/live) → ok JSON  
-   إن نجح الثلاثة فقط: ارجع للبوابة → «إعادة الاتصال بـ Nest».
+     إن نجح الثلاثة فقط: ارجع للبوابة → «إعادة الاتصال بـ Nest».
 5. التفاصيل الكاملة للأعطال والمسارات البديلة: [`HANDOFF-NEST-RENDER-2026-08-26-AR.md`](./HANDOFF-NEST-RENDER-2026-08-26-AR.md).
 
 من 0.2.33: **قائمة العقارات والأطراف** تُعرض من Neon حتى لو Nest down (قراءة فقط). الحفظ ما زال يحتاج Nest Live.
@@ -143,37 +143,37 @@ Web app pings Nest every 5 minutes via `GET /api/cron/warmup-nest` (`apps/web/ve
 
 After Docker build, Nest boots with `loadEnvironment`. Missing keys abort the process.
 
-| Key | Source |
-|-----|--------|
-| `DATABASE_URL` | Neon |
-| `REDIS_URL` | Upstash or Render Redis |
-| `S3_ENDPOINT`, `S3_BUCKET_PRIVATE`, `S3_BUCKET_PUBLIC`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | S3 / R2 / MinIO |
-| `BHD_IDENTITY_CLIENT_ID` | `bhd-r` (or set `BHD_OAUTH_CLIENT_ID` — accepted as alias) |
-| `BHD_IDENTITY_CLIENT_SECRET`, `BHD_IDENTITY_ISSUER`, `BHD_IDENTITY_REDIRECT_URI` | Identity / Vercel |
-| `BHD_R_SESSION_SECRET`, `CSRF_SECRET`, `FIELD_ENCRYPTION_KEY_V1` | Generate ≥32 chars; keep stable |
-| `PAYMENT_WEBHOOK_SECRET` | Generate ≥8 chars (placeholder OK until payments) |
-| `PUBLIC_PROPERTY_BASE_URL` | `https://r.bhd-om.com` |
+| Key                                                                                      | Source                                                     |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `DATABASE_URL`                                                                           | Neon                                                       |
+| `REDIS_URL`                                                                              | Upstash or Render Redis                                    |
+| `S3_ENDPOINT`, `S3_BUCKET_PRIVATE`, `S3_BUCKET_PUBLIC`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | S3 / R2 / MinIO                                            |
+| `BHD_IDENTITY_CLIENT_ID`                                                                 | `bhd-r` (or set `BHD_OAUTH_CLIENT_ID` — accepted as alias) |
+| `BHD_IDENTITY_CLIENT_SECRET`, `BHD_IDENTITY_ISSUER`, `BHD_IDENTITY_REDIRECT_URI`         | Identity / Vercel                                          |
+| `BHD_R_SESSION_SECRET`, `CSRF_SECRET`, `FIELD_ENCRYPTION_KEY_V1`                         | Generate ≥32 chars; keep stable                            |
+| `PAYMENT_WEBHOOK_SECRET`                                                                 | Generate ≥8 chars (placeholder OK until payments)          |
+| `PUBLIC_PROPERTY_BASE_URL`                                                               | `https://r.bhd-om.com`                                     |
 
 ## Security
 
-- Never set `API_INTERNAL_ORIGIN=http://localhost:4000` on Vercel.  
-- Rotate Neon password if it was pasted in chat; update Render + Vercel `DATABASE_URL`.  
+- Never set `API_INTERNAL_ORIGIN=http://localhost:4000` on Vercel.
+- Rotate Neon password if it was pasted in chat; update Render + Vercel `DATABASE_URL`.
 - Do not commit connection strings.
 
 ## Status
 
-| Item | Status |
-|------|--------|
-| `Dockerfile.api` | Ready |
-| `render.yaml` | Ready (scaffold) |
-| Public Nest URL | `https://bhd-r.onrender.com` (`/healthz` + `/health/live` → ok; StaysModule routes auth-gated as of 0.4.x) |
-| Stays on Nest | `/v1/stays/*` → 401 when unauthenticated; 404 when `STAYS_PLATFORM_ENABLED` off for public surface |
-| Browser mutations | Via Vercel BFF `/api/backend/v1/*` (sets trusted `Origin`) |
-| Vercel `API_INTERNAL_ORIGIN` | Must be Nest HTTPS on Production **and** Preview |
-| CSRF / preview | Nest allowlist + BFF; redeploy **both** Vercel and Render after API CSRF changes |
-| HTTP adapter (0.2.45) | **Express** + public edge proxy; CORS via `origin(origin, callback)` |
-| Fastify on Render | **Avoid** until proven; caused multi-hour hang loops in Aug 2026 |
-| Vercel production project | Always **`bhd-r-api`** → `https://r.bhd-om.com` from branch **`main`**. Ignore project **`web`** (wrong Root / stale branches). |
+| Item                         | Status                                                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `Dockerfile.api`             | Ready                                                                                                                           |
+| `render.yaml`                | Ready (scaffold)                                                                                                                |
+| Public Nest URL              | `https://bhd-r.onrender.com` (`/healthz` + `/health/live` → ok; StaysModule routes auth-gated as of 0.4.x)                      |
+| Stays on Nest                | `/v1/stays/*` → 401 when unauthenticated; 404 when `STAYS_PLATFORM_ENABLED` off for public surface                              |
+| Browser mutations            | Via Vercel BFF `/api/backend/v1/*` (sets trusted `Origin`)                                                                      |
+| Vercel `API_INTERNAL_ORIGIN` | Must be Nest HTTPS on Production **and** Preview                                                                                |
+| CSRF / preview               | Nest allowlist + BFF; redeploy **both** Vercel and Render after API CSRF changes                                                |
+| HTTP adapter (0.2.45)        | **Express** + public edge proxy; CORS via `origin(origin, callback)`                                                            |
+| Fastify on Render            | **Avoid** until proven; caused multi-hour hang loops in Aug 2026                                                                |
+| Vercel production project    | Always **`bhd-r-api`** → `https://r.bhd-om.com` from branch **`main`**. Ignore project **`web`** (wrong Root / stale branches). |
 
 ### Vercel deploy Errors around Stays 0.4.0–0.4.1 (2026-08-31)
 
@@ -181,12 +181,12 @@ Dashboard project name **`bhd-r-api`** is the **Next.js** app (`apps/web` → `r
 
 **Root cause for sticky Production Errors (fixed 0.4.15):** root `engines.node: >=24` + `.npmrc` `engine-strict=true` while Vercel often runs **Node 22** → `pnpm install` aborts in ~25–35s. Tip of `main` never went Live, so older translate/upload bugs remained on `r.bhd-om.com`.
 
-| Deploy shown | Branch / commit | Likely cause | Action |
-| --- | --- | --- | --- |
-| Error Preview `feat/stays-phase-0` @ `9cfa48f` (~10s) | stale lockfile | `ERR_PNPM_OUTDATED_LOCKFILE` | Do not redeploy; use `main` |
-| Error Preview dependabot | lockfile / engines | Ignore or close PR | Keep Production on `main` |
-| Error / Ready mix on `6e8feb6` (0.4.0) | flake / retry | Manual Redeploy succeeded | Tip of `main` is source of truth |
-| Error Production `92b0b1c` (0.4.1) | engine-strict / superseded | Fixed in **0.4.15** | Redeploy latest `main` |
+| Deploy shown                                          | Branch / commit            | Likely cause                 | Action                           |
+| ----------------------------------------------------- | -------------------------- | ---------------------------- | -------------------------------- |
+| Error Preview `feat/stays-phase-0` @ `9cfa48f` (~10s) | stale lockfile             | `ERR_PNPM_OUTDATED_LOCKFILE` | Do not redeploy; use `main`      |
+| Error Preview dependabot                              | lockfile / engines         | Ignore or close PR           | Keep Production on `main`        |
+| Error / Ready mix on `6e8feb6` (0.4.0)                | flake / retry              | Manual Redeploy succeeded    | Tip of `main` is source of truth |
+| Error Production `92b0b1c` (0.4.1)                    | engine-strict / superseded | Fixed in **0.4.15**          | Redeploy latest `main`           |
 
 **Verified 2026-08-31 (local):**
 

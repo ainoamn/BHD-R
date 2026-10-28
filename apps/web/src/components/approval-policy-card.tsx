@@ -53,9 +53,7 @@ function KindEditor({
   const t = (arText: string, enText: string) => (ar ? arText : enText);
   const kind = state.kind;
   const [saved, setSaved] = useState<ApprovalPolicy | null>(state.initialPolicy);
-  const [draft, setDraft] = useState<ApprovalPolicy>(
-    state.initialPolicy ?? state.inherited.policy,
-  );
+  const [draft, setDraft] = useState<ApprovalPolicy>(state.initialPolicy ?? state.inherited.policy);
   const [signer, setSigner] = useState(state.delegateName);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
@@ -425,7 +423,11 @@ export function ApprovalPolicyCard({
         </div>
       </header>
 
-      <div className="approval-policy__tabs" role="tablist" aria-label={t('نوع العقد', 'Contract type')}>
+      <div
+        className="approval-policy__tabs"
+        role="tablist"
+        aria-label={t('نوع العقد', 'Contract type')}
+      >
         {ordered.map((row) => (
           <button
             key={row.kind}

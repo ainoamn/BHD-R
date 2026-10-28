@@ -31,10 +31,7 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
-import {
-  delegateClaims,
-  resolveApprovalPolicy,
-} from '@/lib/approval-policy-neon';
+import { delegateClaims, resolveApprovalPolicy } from '@/lib/approval-policy-neon';
 import {
   DEFAULT_CONTRACT_TEMPLATES,
   type DefaultContractTemplateKey,
@@ -1110,10 +1107,8 @@ export async function approveGuestRescheduleOnNeon(
   paymentRedirectUrl?: string;
 }> {
   if (!hasPermission(claims, 'stay.booking.manage')) fail('forbidden');
-  const {
-    applyStoredPendingRescheduleInTx,
-    createRescheduleTopUpPaymentInTx,
-  } = await import('@/lib/public-stays-guest-neon');
+  const { applyStoredPendingRescheduleInTx, createRescheduleTopUpPaymentInTx } =
+    await import('@/lib/public-stays-guest-neon');
   return withinViewerTenant(claims, async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${bookingId}, 29))`);
     const { orgId, property } = await loadProperty(tx, claims, propertyId);

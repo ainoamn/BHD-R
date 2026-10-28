@@ -194,11 +194,21 @@ function uniqAges(values: GreetingAge[]): GreetingAge[] {
 
 export function audienceSummary(audience: GreetingAudience, ar: boolean): string {
   const parts: string[] = [];
-  if (!audience.locales.length && !audience.roles.length && !audience.nationalities.length && !audience.genders.length && !audience.ages.length) {
+  if (
+    !audience.locales.length &&
+    !audience.roles.length &&
+    !audience.nationalities.length &&
+    !audience.genders.length &&
+    !audience.ages.length
+  ) {
     return ar ? 'الكل' : 'Everyone';
   }
   if (audience.locales.length) {
-    parts.push(audience.locales.map((l) => (l === 'ar' ? (ar ? 'عربي' : 'Arabic') : ar ? 'إنجليزي' : 'English')).join('/'));
+    parts.push(
+      audience.locales
+        .map((l) => (l === 'ar' ? (ar ? 'عربي' : 'Arabic') : ar ? 'إنجليزي' : 'English'))
+        .join('/'),
+    );
   }
   if (audience.roles.length && !audience.roles.includes('all')) {
     const map: Record<string, [string, string]> = {
@@ -212,14 +222,24 @@ export function audienceSummary(audience: GreetingAudience, ar: boolean): string
     parts.push(
       audience.nationalities
         .map((code) =>
-          code === 'OM' ? (ar ? 'عمانيون' : 'Omani') : code === 'expat' ? (ar ? 'وافدون' : 'expats') : code,
+          code === 'OM'
+            ? ar
+              ? 'عمانيون'
+              : 'Omani'
+            : code === 'expat'
+              ? ar
+                ? 'وافدون'
+                : 'expats'
+              : code,
         )
         .join('/'),
     );
   }
   if (audience.genders.length) {
     parts.push(
-      audience.genders.map((g) => (g === 'male' ? (ar ? 'رجال' : 'men') : ar ? 'نساء' : 'women')).join('/'),
+      audience.genders
+        .map((g) => (g === 'male' ? (ar ? 'رجال' : 'men') : ar ? 'نساء' : 'women'))
+        .join('/'),
     );
   }
   if (audience.ages.length) {

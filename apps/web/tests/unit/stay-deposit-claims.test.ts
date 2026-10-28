@@ -115,8 +115,6 @@ describe('deposit receipt and claims', () => {
 
   it('normalises WhatsApp digits and builds wa.me links', () => {
     expect(whatsappDigits('91234567')).toBe('96891234567');
-    expect(whatsappLink('+968 9123 4567', 'hi')).toBe(
-      'https://wa.me/96891234567?text=hi',
-    );
+    expect(whatsappLink('+968 9123 4567', 'hi')).toBe('https://wa.me/96891234567?text=hi');
   });
 });

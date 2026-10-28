@@ -79,42 +79,33 @@ async function sumDeletes(
 export async function labResetCounts(claims: SessionClaims): Promise<LabResetCounts> {
   const orgId = requireOwnerReset(claims);
   return elevatedTx(async (tx) => {
-    const [
-      tasks,
-      accounting,
-      leasing,
-      bookings,
-      stays,
-      maintenance,
-      legal,
-      sales,
-      approvals,
-    ] = await Promise.all([
-      (async () =>
-        (await countTable(tx, orgId, 'work_tasks')) +
-        (await countTable(tx, orgId, 'workflow_events')))(),
-      (async () =>
-        (await countTable(tx, orgId, 'journal_entries')) +
-        (await countTable(tx, orgId, 'expenses')) +
-        (await countTable(tx, orgId, 'cheques')))(),
-      (async () =>
-        (await countTable(tx, orgId, 'leases')) +
-        (await countTable(tx, orgId, 'invoices')) +
-        (await countTable(tx, orgId, 'payments')) +
-        (await countTable(tx, orgId, 'receipts')))(),
-      (async () =>
-        (await countTable(tx, orgId, 'reservations')) +
-        (await countTable(tx, orgId, 'contracts')) +
-        (await countTable(tx, orgId, 'holds')))(),
-      countTable(tx, orgId, 'stay_bookings'),
-      (async () =>
-        (await countTable(tx, orgId, 'maintenance_tickets')) +
-        (await countTable(tx, orgId, 'maintenance_work_orders')) +
-        (await countTable(tx, orgId, 'operational_requests')))(),
-      countTable(tx, orgId, 'legal_cases'),
-      countTable(tx, orgId, 'sales_deals'),
-      countTable(tx, orgId, 'approval_requests'),
-    ]);
+    const [tasks, accounting, leasing, bookings, stays, maintenance, legal, sales, approvals] =
+      await Promise.all([
+        (async () =>
+          (await countTable(tx, orgId, 'work_tasks')) +
+          (await countTable(tx, orgId, 'workflow_events')))(),
+        (async () =>
+          (await countTable(tx, orgId, 'journal_entries')) +
+          (await countTable(tx, orgId, 'expenses')) +
+          (await countTable(tx, orgId, 'cheques')))(),
+        (async () =>
+          (await countTable(tx, orgId, 'leases')) +
+          (await countTable(tx, orgId, 'invoices')) +
+          (await countTable(tx, orgId, 'payments')) +
+          (await countTable(tx, orgId, 'receipts')))(),
+        (async () =>
+          (await countTable(tx, orgId, 'reservations')) +
+          (await countTable(tx, orgId, 'contracts')) +
+          (await countTable(tx, orgId, 'holds')))(),
+        countTable(tx, orgId, 'stay_bookings'),
+        (async () =>
+          (await countTable(tx, orgId, 'maintenance_tickets')) +
+          (await countTable(tx, orgId, 'maintenance_work_orders')) +
+          (await countTable(tx, orgId, 'operational_requests')))(),
+        countTable(tx, orgId, 'legal_cases'),
+        countTable(tx, orgId, 'sales_deals'),
+        countTable(tx, orgId, 'approval_requests'),
+      ]);
     return {
       tasks,
       accounting,
@@ -205,12 +196,7 @@ async function wipeLeasing(
 ): Promise<number> {
   await softNull(tx, orgId, 'legal_cases', 'lease_id = null');
   await softNull(tx, orgId, 'cheques', 'lease_id = null');
-  await softNull(
-    tx,
-    orgId,
-    'leases',
-    'renewal_pending_contract_id = null, contract_id = null',
-  );
+  await softNull(tx, orgId, 'leases', 'renewal_pending_contract_id = null, contract_id = null');
   const n =
     (await deleteTable(tx, orgId, 'receipts')) +
     (await deleteTable(tx, orgId, 'refunds')) +

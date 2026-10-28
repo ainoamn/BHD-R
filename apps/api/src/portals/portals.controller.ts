@@ -16,9 +16,7 @@ export class PlatformPortalController {
 @Controller('v1/owner')
 export class OwnerPortalController {
   constructor(private readonly service: PortalsService) {}
-  @RequirePermissions('organization.read') @Get('overview') overview(
-    @Req() request: ApiRequest,
-  ) {
+  @RequirePermissions('organization.read') @Get('overview') overview(@Req() request: ApiRequest) {
     return this.service.organizationOverview(request.auth!);
   }
   @RequirePermissions('property.read') @Get('properties') properties(
@@ -63,9 +61,7 @@ export class DeveloperPortalController {
 @Controller('v1/tenant')
 export class TenantPortalController {
   constructor(private readonly service: PortalsService) {}
-  @RequirePermissions('tenant.profile.read') @Get('overview') overview(
-    @Req() request: ApiRequest,
-  ) {
+  @RequirePermissions('tenant.profile.read') @Get('overview') overview(@Req() request: ApiRequest) {
     return this.service.tenantOverview(request.auth!);
   }
   @RequirePermissions('contract.read') @Get('contracts') contracts(@Req() request: ApiRequest) {

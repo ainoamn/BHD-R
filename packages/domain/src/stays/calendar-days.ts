@@ -80,9 +80,7 @@ export function fillInventoryCalendarDays(
         : options.defaultCurrency != null
           ? { currency: options.defaultCurrency }
           : {}),
-      ...(row.publicNote != null && row.publicNote !== ''
-        ? { publicNote: row.publicNote }
-        : {}),
+      ...(row.publicNote != null && row.publicNote !== '' ? { publicNote: row.publicNote } : {}),
     };
   });
 }

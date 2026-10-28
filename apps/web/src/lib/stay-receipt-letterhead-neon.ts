@@ -13,7 +13,9 @@ export type StayReceiptLetterhead = {
 };
 
 function fingerprintOf(payload: unknown): string {
-  return createHash('sha256').update(JSON.stringify({ v: 1, payload })).digest('hex');
+  return createHash('sha256')
+    .update(JSON.stringify({ v: 1, payload }))
+    .digest('hex');
 }
 
 function signatureCode(fingerprint: string): string {

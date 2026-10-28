@@ -79,8 +79,7 @@ async function logout(request: Request) {
 
   const { identitySub } = await revokeCurrentSession();
 
-  const home =
-    process.env.BHD_OAUTH_POST_LOGOUT_REDIRECT_URI?.trim() || `${url.origin}/${locale}`;
+  const home = process.env.BHD_OAUTH_POST_LOGOUT_REDIRECT_URI?.trim() || `${url.origin}/${locale}`;
   const portalReturn = safeReturnTo(null, `/${locale}/portal`);
 
   const remaining = identitySub

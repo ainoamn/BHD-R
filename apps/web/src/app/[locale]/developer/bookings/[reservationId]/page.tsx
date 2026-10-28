@@ -7,11 +7,7 @@ import {
 import { ApiError, apiFetch } from '@/lib/server-api';
 import { requirePortal } from '@/lib/viewer';
 
-async function Page({
-  params,
-}: {
-  params: Promise<{ locale: string; reservationId: string }>;
-}) {
+async function Page({ params }: { params: Promise<{ locale: string; reservationId: string }> }) {
   const { locale: rawLocale, reservationId } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   await requirePortal(locale, 'developer');

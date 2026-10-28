@@ -31,10 +31,7 @@ import {
   type RefundFormMode,
   type RefundSubmit,
 } from './stays/stay-deposit-refund-admin';
-import {
-  RejectStayNoteForm,
-  type RejectStayKind,
-} from './stays/reject-stay-note-form';
+import { RejectStayNoteForm, type RejectStayKind } from './stays/reject-stay-note-form';
 import { HANDOVER_PHOTOS_MAX, handoverDocumentKind } from '@/lib/stay-handover';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { muscatToday } from '@/lib/contract-list-facets';
@@ -865,12 +862,7 @@ function Cell({
     }
     case 'stayLog':
       return (
-        <StayLogCell
-          row={row}
-          locale={locale}
-          documentHref={documentHref}
-          compact={compactDense}
-        />
+        <StayLogCell row={row} locale={locale} documentHref={documentHref} compact={compactDense} />
       );
     case 'kind':
       if (value === 'reservation' && row.bookingMode === 'rent') {
@@ -976,7 +968,10 @@ function Cell({
         row.rescheduleCheckOutOn
       ) {
         return (
-          <span className="psr-period psr-period--change" title={ar ? 'طلب تعديل التواريخ' : 'Date change requested'}>
+          <span
+            className="psr-period psr-period--change"
+            title={ar ? 'طلب تعديل التواريخ' : 'Date change requested'}
+          >
             <span className="psr-period__leg psr-period__leg--from">
               <span className="psr-period__label">{ar ? 'من' : 'From'}</span>
               <span className="psr-period__range" dir="ltr">
@@ -1977,7 +1972,9 @@ export function PropertySectionRecords({
     setRejectForm(null);
     setNotice({
       tone: 'success',
-      text: ar ? `رُفض طلب التعديل لـ ${row.reference}.` : `Date change rejected for ${row.reference}.`,
+      text: ar
+        ? `رُفض طلب التعديل لـ ${row.reference}.`
+        : `Date change rejected for ${row.reference}.`,
     });
     setReloadKey((key) => key + 1);
   }
@@ -2456,7 +2453,9 @@ export function PropertySectionRecords({
                                 <div>
                                   <dt>{ar ? 'العقار' : 'Property'}</dt>
                                   <dd>
-                                    <bdi>{(ar ? row.propertyNameAr : row.propertyNameEn) || '—'}</bdi>
+                                    <bdi>
+                                      {(ar ? row.propertyNameAr : row.propertyNameEn) || '—'}
+                                    </bdi>
                                   </dd>
                                 </div>
                                 <div>
@@ -2490,11 +2489,7 @@ export function PropertySectionRecords({
                                   <dt>{ar ? 'المبلغ' : 'Amount'}</dt>
                                   <dd>
                                     {row.amountMinor
-                                      ? formatMoney(
-                                          row.amountMinor,
-                                          row.currency ?? 'OMR',
-                                          locale,
-                                        )
+                                      ? formatMoney(row.amountMinor, row.currency ?? 'OMR', locale)
                                       : '—'}
                                   </dd>
                                 </div>

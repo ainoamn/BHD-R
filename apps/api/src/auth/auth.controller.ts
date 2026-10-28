@@ -19,10 +19,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService, type IssuedSession } from './auth.service.js';
 import { Authenticated, Public, RequirePermissions } from '../common/decorators.js';
 import { requestIdOf } from '../common/http-request.js';
-import {
-  requireCsrfSecret,
-  requireSessionSecretString,
-} from '../common/runtime-secrets.js';
+import { requireCsrfSecret, requireSessionSecretString } from '../common/runtime-secrets.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 
 const loginSchema = z.object({

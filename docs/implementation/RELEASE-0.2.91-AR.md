@@ -6,11 +6,11 @@
 
 في خطوة **الوحدات** بمعالج إنشاء/تعديل العقار (`/owner/properties/new` و`…/edit`):
 
-| الحقل | التخزين |
-| --- | --- |
-| عدد المجالس | `units.majlis` |
-| عدد الصالات | `units.halls` |
-| المطابخ | `units.kitchens` |
+| الحقل                         | التخزين          |
+| ----------------------------- | ---------------- |
+| عدد المجالس                   | `units.majlis`   |
+| عدد الصالات                   | `units.halls`    |
+| المطابخ                       | `units.kitchens` |
 | حوض سباحة (متوفر / غير متوفر) | `units.has_pool` |
 
 - عقود Zod + Nest + Neon create/update/load.

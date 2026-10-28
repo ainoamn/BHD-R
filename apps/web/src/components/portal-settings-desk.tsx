@@ -50,9 +50,7 @@ export async function PortalSettingsDesk({
       loadOwnerLeaseDocumentRules(scope, null).catch(() => null),
       loadOwnerLeaseRenewalAutomation(scope).catch(() => null),
       claims?.organizationId && isStaysPlatformEnabled()
-        ? loadPropertyStaySettingsOnNeon(claims, null).catch(
-            (): PropertyStaySettingsUnit[] => [],
-          )
+        ? loadPropertyStaySettingsOnNeon(claims, null).catch((): PropertyStaySettingsUnit[] => [])
         : Promise.resolve([] as PropertyStaySettingsUnit[]),
       loadApprovalPolicyBuildingIndex(scope).catch(() => []),
     ]);
@@ -130,11 +128,7 @@ export async function PortalSettingsDesk({
         </section>
       )}
 
-      <ApprovalPolicyBuildingsPanel
-        locale={locale}
-        portal={portal}
-        buildings={approvalBuildings}
-      />
+      <ApprovalPolicyBuildingsPanel locale={locale} portal={portal} buildings={approvalBuildings} />
 
       {documentRules ? (
         <LeaseDocumentRulesCard
@@ -155,10 +149,7 @@ export async function PortalSettingsDesk({
       )}
 
       {renewalAutomation ? (
-        <LeaseRenewalAutomationCard
-          locale={locale}
-          initialPolicy={renewalAutomation.policy}
-        />
+        <LeaseRenewalAutomationCard locale={locale} initialPolicy={renewalAutomation.policy} />
       ) : (
         <section className="portal-settings__card">
           <h2>{ar ? 'تجديد العقود تلقائياً' : 'Automatic lease renewals'}</h2>
@@ -175,7 +166,9 @@ export async function PortalSettingsDesk({
       ) : (
         <section className="portal-settings__card" aria-labelledby="stay-reschedule-fallback">
           <h2 id="stay-reschedule-fallback">
-            {ar ? 'اعتماد تعديل الحجز (التواريخ / الفترة)' : 'Approve booking changes (dates / period)'}
+            {ar
+              ? 'اعتماد تعديل الحجز (التواريخ / الفترة)'
+              : 'Approve booking changes (dates / period)'}
           </h2>
           <p className="muted">
             {ar

@@ -4,10 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-const apiRoot = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '../../src/app/api',
-);
+const apiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../src/app/api');
 
 const WRITE_EXPORT =
   /export\s+(?:async\s+)?function\s+(POST|PATCH|PUT|DELETE)\b|export\s+const\s+(POST|PATCH|PUT|DELETE)\s*=/;

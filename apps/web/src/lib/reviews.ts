@@ -135,8 +135,7 @@ export async function resolveReviewContext(input: {
         from properties where id = ${input.targetId}::uuid limit 1
       `);
       const row = (Array.isArray(prop) ? prop[0] : (prop as { rows?: unknown[] }).rows?.[0]) as
-        | { organization_id?: string; owner_party_id?: string }
-        | undefined;
+        { organization_id?: string; owner_party_id?: string } | undefined;
       if (!row?.organization_id) throw new Error('target_not_found');
 
       let verifiedRole: VerifiedContext['verifiedRole'] = null;
@@ -164,14 +163,13 @@ export async function resolveReviewContext(input: {
               and sd.status::text = 'closed_won'
             limit 1
           `);
-          const saleHit = Array.isArray(sale)
-            ? sale[0]
-            : (sale as { rows?: unknown[] }).rows?.[0];
+          const saleHit = Array.isArray(sale) ? sale[0] : (sale as { rows?: unknown[] }).rows?.[0];
           if (saleHit) verifiedRole = 'buyer';
         }
       }
       return {
-        verifiedStay: verifiedRole === 'tenant' || verifiedRole === 'buyer' || verifiedRole === 'owner',
+        verifiedStay:
+          verifiedRole === 'tenant' || verifiedRole === 'buyer' || verifiedRole === 'owner',
         verifiedRole,
         organizationId: row.organization_id,
       };

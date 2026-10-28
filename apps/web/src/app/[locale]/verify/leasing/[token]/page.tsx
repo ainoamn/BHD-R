@@ -1,10 +1,7 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
 import { LeasingOpsReportView } from '@/components/leasing-ops-report-view';
-import {
-  leasingReportPresentation,
-  loadLeasingOpsReport,
-} from '@/lib/leasing-report-neon';
+import { leasingReportPresentation, loadLeasingOpsReport } from '@/lib/leasing-report-neon';
 import { privatePortalRobots } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';

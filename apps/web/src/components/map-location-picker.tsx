@@ -4,10 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@bhd-r/ui';
 import type { Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
 import { MAP_TILE_ATTRIBUTION, MAP_TILE_SUBDOMAINS, MAP_TILE_URL } from '@/lib/map-tiles';
-import {
-  googleMapsLinkFromCoords,
-  type MapCoordinates,
-} from '@/lib/parse-google-maps-url';
+import { googleMapsLinkFromCoords, type MapCoordinates } from '@/lib/parse-google-maps-url';
 
 const MUSCAT: MapCoordinates = { latitude: 23.588, longitude: 58.3829 };
 
@@ -154,7 +151,12 @@ export function MapLocationPicker({
 
   return (
     <div className="map-picker" role="dialog" aria-modal="true" aria-label={labels.title}>
-      <button type="button" className="map-picker__backdrop" aria-label={labels.cancel} onClick={onClose} />
+      <button
+        type="button"
+        className="map-picker__backdrop"
+        aria-label={labels.cancel}
+        onClick={onClose}
+      />
       <div className="map-picker__panel">
         <header className="map-picker__head">
           <h2>{labels.title}</h2>
@@ -173,7 +175,12 @@ export function MapLocationPicker({
             placeholder={labels.searchPlaceholder}
             dir={locale === 'ar' ? 'rtl' : 'ltr'}
           />
-          <Button type="button" variant="quiet" disabled={searching} onClick={() => void runSearch()}>
+          <Button
+            type="button"
+            variant="quiet"
+            disabled={searching}
+            onClick={() => void runSearch()}
+          >
             {searching ? '…' : labels.search}
           </Button>
         </div>

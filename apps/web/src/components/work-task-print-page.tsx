@@ -3,10 +3,7 @@
 import { Link } from '@/i18n/navigation';
 import type { WorkTaskDetail } from '@/lib/work-task-shared';
 import type { PortalRole } from '@/lib/types';
-import {
-  taskPriorityLabel,
-  taskStatusLabel,
-} from '@/lib/work-task-ui';
+import { taskPriorityLabel, taskStatusLabel } from '@/lib/work-task-ui';
 import { taskEventLabel } from '@/lib/work-task-print-labels';
 
 function day(value: string | null | undefined): string {
@@ -68,10 +65,7 @@ export function WorkTaskPrintPage({
             </p>
           </div>
           <div className="task-print__qr">
-            <div
-              className="task-print__qr-svg"
-              dangerouslySetInnerHTML={{ __html: qrSvg }}
-            />
+            <div className="task-print__qr-svg" dangerouslySetInnerHTML={{ __html: qrSvg }} />
             <small>{ar ? 'امسح لفتح المهمة' : 'Scan to open task'}</small>
             <span className="task-print__qr-url" dir="ltr">
               {openUrl}
@@ -228,7 +222,8 @@ export function WorkTaskPrintPage({
           <h2>
             {ar ? 'المحادثة' : 'Conversation'}{' '}
             <small>
-              {conversation.length} {ar ? 'رسالة' : conversation.length === 1 ? 'message' : 'messages'}
+              {conversation.length}{' '}
+              {ar ? 'رسالة' : conversation.length === 1 ? 'message' : 'messages'}
             </small>
           </h2>
           {conversation.length ? (
@@ -236,7 +231,9 @@ export function WorkTaskPrintPage({
               {conversation.map((event, index) => (
                 <li
                   key={event.id}
-                  className={index % 2 === 0 ? 'task-print__chat-item--a' : 'task-print__chat-item--b'}
+                  className={
+                    index % 2 === 0 ? 'task-print__chat-item--a' : 'task-print__chat-item--b'
+                  }
                 >
                   <header>
                     <strong>{event.actorName || (ar ? 'مستخدم' : 'User')}</strong>
@@ -269,9 +266,7 @@ export function WorkTaskPrintPage({
                 >
                   <header>
                     <strong>{taskEventLabel(event.type, locale)}</strong>
-                    <span>
-                      {[event.actorName, stamp(event.at)].filter(Boolean).join(' · ')}
-                    </span>
+                    <span>{[event.actorName, stamp(event.at)].filter(Boolean).join(' · ')}</span>
                   </header>
                   {event.fromStatus || event.toStatus ? (
                     <p>

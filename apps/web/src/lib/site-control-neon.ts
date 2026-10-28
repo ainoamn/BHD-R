@@ -4,12 +4,7 @@ import { sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
 import { auditLogs, platformSettings } from '@bhd-r/db';
-import {
-  buildFieldKeyring,
-  encryptField,
-  decryptField,
-  type Keyring,
-} from '@bhd-r/security';
+import { buildFieldKeyring, encryptField, decryptField, type Keyring } from '@bhd-r/security';
 import { elevatedTx, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
 import {
   PAYMENT_METHOD_IDS,
@@ -156,8 +151,7 @@ function buildPaymentsView(stored: StoredPayments | null): PaymentGatewaysView {
   const providers = PAYMENT_PROVIDERS.map((def): PaymentProviderState => {
     const row = stored?.providers?.[def.id];
     const credentials = decryptCredentials(def.id, row?.credentialsEncrypted);
-    const hasCredentials =
-      def.kind === 'sandbox' ? true : credentialsComplete(def, credentials);
+    const hasCredentials = def.kind === 'sandbox' ? true : credentialsComplete(def, credentials);
     const active =
       row?.active !== undefined
         ? Boolean(row.active)
@@ -211,9 +205,8 @@ export async function isPlatformSandboxPaymentActive(): Promise<boolean> {
 export async function resolveActiveLivePaymentProvider(): Promise<PaymentProviderState | null> {
   const view = await readPaymentGatewaysPublic();
   return (
-    view.providers.find(
-      (item) => item.id !== 'bhd_pay_sandbox' && item.active && item.ready,
-    ) ?? null
+    view.providers.find((item) => item.id !== 'bhd_pay_sandbox' && item.active && item.ready) ??
+    null
   );
 }
 

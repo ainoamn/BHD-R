@@ -27,13 +27,7 @@ function Stars({ value, size = 'md' }: { value: number; size?: 'sm' | 'md' }) {
   );
 }
 
-function StarsInput({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-}) {
+function StarsInput({ value, onChange }: { value: number; onChange: (n: number) => void }) {
   return (
     <div className="review-stars review-stars--input" role="group">
       {[1, 2, 3, 4, 5].map((n) => (
@@ -112,8 +106,7 @@ export function ReviewsPanel({
     summary: { avgRating: null, reviewCount: 0, verifiedCount: 0 },
     data: [],
   };
-  const avgTen =
-    payload.summary.avgRating != null ? toTenScale(payload.summary.avgRating) : null;
+  const avgTen = payload.summary.avgRating != null ? toTenScale(payload.summary.avgRating) : null;
 
   async function submit() {
     if (!signedIn || !target) return;
@@ -199,9 +192,7 @@ export function ReviewsPanel({
             {payload.summary.reviewCount}{' '}
             {ar ? 'مراجعة' : payload.summary.reviewCount === 1 ? 'review' : 'reviews'}
           </p>
-          {payload.summary.avgRating != null ? (
-            <Stars value={payload.summary.avgRating} />
-          ) : null}
+          {payload.summary.avgRating != null ? <Stars value={payload.summary.avgRating} /> : null}
         </div>
         <div className="reviews-panel__overall">
           <h3>{ar ? 'التقييم العام' : 'Overall rating'}</h3>

@@ -44,7 +44,9 @@ function errorMessage(code: string, ar: boolean): string {
     case 'viewing_schedule_invalid':
       return ar ? 'اختر موعداً صالحاً في المستقبل.' : 'Pick a valid future date and time.';
     default:
-      return ar ? 'تعذّر إكمال الطلب. حاول مرة أخرى.' : 'Could not complete the request. Try again.';
+      return ar
+        ? 'تعذّر إكمال الطلب. حاول مرة أخرى.'
+        : 'Could not complete the request. Try again.';
   }
 }
 
@@ -116,9 +118,7 @@ export function ViewingPassCard({
       cache: 'no-store',
     });
     const body = (await response.json().catch(() => null)) as
-      | PassPayload
-      | { error?: { code?: string } }
-      | null;
+      PassPayload | { error?: { code?: string } } | null;
     if (!response.ok || !body || !('accessUsername' in body)) {
       throw new Error((body && 'error' in body && body.error?.code) || 'not_found');
     }
@@ -379,7 +379,9 @@ export function ViewingPassCard({
                   <div>
                     <span>{ar ? 'هاتف الحارس' : 'Guard phone'}</span>
                     <strong dir="ltr">
-                      <a href={`tel:${pass.contactPhone.replace(/[^\d+]/g, '')}`}>{pass.contactPhone}</a>
+                      <a href={`tel:${pass.contactPhone.replace(/[^\d+]/g, '')}`}>
+                        {pass.contactPhone}
+                      </a>
                     </strong>
                   </div>
                 ) : null}
@@ -478,11 +480,17 @@ export function ViewingPassCard({
                   disabled={busy}
                   maxLength={500}
                   placeholder={
-                    ar ? 'مثال: أحتاج موعداً مساءً بعد العمل' : 'e.g. I need an evening slot after work'
+                    ar
+                      ? 'مثال: أحتاج موعداً مساءً بعد العمل'
+                      : 'e.g. I need an evening slot after work'
                   }
                 />
               </label>
-              <div className="vp__suggestions" role="group" aria-label={ar ? 'جمل جاهزة' : 'Ready phrases'}>
+              <div
+                className="vp__suggestions"
+                role="group"
+                aria-label={ar ? 'جمل جاهزة' : 'Ready phrases'}
+              >
                 <p className="muted" style={{ margin: 0, fontSize: '0.85rem' }}>
                   {ar ? 'جمل جاهزة — اضغط لإدراجها:' : 'Ready phrases — tap to insert:'}
                 </p>
@@ -493,9 +501,7 @@ export function ViewingPassCard({
                       type="button"
                       className="button button--quiet vp__chip"
                       disabled={busy}
-                      onClick={() =>
-                        setManageNote((ar ? item.textAr : item.textEn).slice(0, 500))
-                      }
+                      onClick={() => setManageNote((ar ? item.textAr : item.textEn).slice(0, 500))}
                     >
                       {ar ? item.labelAr : item.labelEn}
                     </button>
@@ -629,14 +635,20 @@ export function ViewingPassCard({
 
       {pass.guestDecision === 'book_rent' ? (
         <p className="vp__cta">
-          <Link className="button button--primary" href={`/${locale}/book/${pass.unitId}?mode=rent`}>
+          <Link
+            className="button button--primary"
+            href={`/${locale}/book/${pass.unitId}?mode=rent`}
+          >
             {ar ? 'إكمال بيانات الاستئجار' : 'Complete rental details'}
           </Link>
         </p>
       ) : null}
       {pass.guestDecision === 'book_sale' ? (
         <p className="vp__cta">
-          <Link className="button button--primary" href={`/${locale}/book/${pass.unitId}?mode=sale`}>
+          <Link
+            className="button button--primary"
+            href={`/${locale}/book/${pass.unitId}?mode=sale`}
+          >
             {ar ? 'إكمال بيانات الشراء' : 'Complete purchase details'}
           </Link>
         </p>

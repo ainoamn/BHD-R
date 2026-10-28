@@ -110,8 +110,7 @@ export function LeaseTotalsSummary({ terms, locale }: { terms: LeaseTerms; local
   const money = (minor: number) => <Money minor={minor} currency={currency} locale={locale} />;
   const payer = terms.municipalityFee.payer ?? 'owner';
   const municipalityOnTenant =
-    totals.municipalityFeeOnTenantMinor ??
-    (payer === 'tenant' ? totals.municipalityFeeMinor : 0);
+    totals.municipalityFeeOnTenantMinor ?? (payer === 'tenant' ? totals.municipalityFeeMinor : 0);
 
   const lines: SummaryLine[] = [
     {
@@ -183,7 +182,9 @@ export function LeaseTotalsSummary({ terms, locale }: { terms: LeaseTerms; local
         label: line.title,
         value: line.amountMinor,
         tone: 'info',
-        hint: ar ? 'عند التجديد (خارج إجمالي هذا العقد)' : 'At renewal (outside this contract total)',
+        hint: ar
+          ? 'عند التجديد (خارج إجمالي هذا العقد)'
+          : 'At renewal (outside this contract total)',
       });
       continue;
     }
@@ -205,9 +206,7 @@ export function LeaseTotalsSummary({ terms, locale }: { terms: LeaseTerms; local
   if (terms.graceDays > 0) {
     lines.push({
       key: 'grace',
-      label: ar
-        ? `فترة السماح (${terms.graceDays} يوم)`
-        : `Grace period (${terms.graceDays} days)`,
+      label: ar ? `فترة السماح (${terms.graceDays} يوم)` : `Grace period (${terms.graceDays} days)`,
       value: terms.graceAsDiscount ? -terms.graceAmountMinor : terms.graceAmountMinor,
       tone: terms.graceAsDiscount ? 'minus' : 'info',
       hint: terms.graceAsDiscount
@@ -243,10 +242,7 @@ export function LeaseTotalsSummary({ terms, locale }: { terms: LeaseTerms; local
         const sign =
           line.tone === 'minus' ? '−' : line.tone === 'plus' && line.value >= 0 ? '+' : '';
         return (
-          <div
-            key={line.key}
-            className={line.tone ? `lcf-totals__${line.tone}` : undefined}
-          >
+          <div key={line.key} className={line.tone ? `lcf-totals__${line.tone}` : undefined}>
             <dt>
               <span>{line.label}</span>
               {line.hint ? <small>{line.hint}</small> : null}
@@ -558,8 +554,7 @@ export function parseLeaseTerms(json: string | null | undefined): LeaseTerms | n
         : 'owner';
     const municipalityFeeMinor = value.totals.municipalityFeeMinor ?? 0;
     const municipalityFeeOnTenantMinor =
-      value.totals.municipalityFeeOnTenantMinor ??
-      (payer === 'tenant' ? municipalityFeeMinor : 0);
+      value.totals.municipalityFeeOnTenantMinor ?? (payer === 'tenant' ? municipalityFeeMinor : 0);
     return {
       ...value,
       municipalityFee: {

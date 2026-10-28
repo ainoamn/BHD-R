@@ -41,7 +41,12 @@ function readDeskSession(): Key | null {
     const raw = sessionStorage.getItem(DESK_SESSION_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Key;
-    if (parsed && typeof parsed === 'object' && 'token' in parsed && typeof parsed.token === 'string') {
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      'token' in parsed &&
+      typeof parsed.token === 'string'
+    ) {
       return { token: parsed.token };
     }
     if (

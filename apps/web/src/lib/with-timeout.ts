@@ -30,9 +30,7 @@ export async function withTimeoutFallback<T>(
 }
 
 export type TimedResult<T> =
-  | { status: 'ok'; value: T }
-  | { status: 'timeout' }
-  | { status: 'error'; error: unknown };
+  { status: 'ok'; value: T } | { status: 'timeout' } | { status: 'error'; error: unknown };
 
 /** Distinguish timeout vs error vs success — callers must not treat timeout as "missing". */
 export async function withTimedResult<T>(

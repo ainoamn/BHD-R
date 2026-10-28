@@ -13,16 +13,16 @@
 
 ## الملفات الرئيسية
 
-| الملف | التغيير |
-|-------|---------|
-| `packages/config/src/payment-sandbox.ts` | `isPaymentSandboxPilotEnabled()` |
-| `apps/web/src/lib/public-stays-payment-neon.ts` | إنشاء جلسة + إتمام sandbox |
-| `apps/web/src/app/api/public/stays/payment-sessions/` | POST جلسة + POST sandbox-complete |
-| `apps/web/src/components/stays/stay-checkout.tsx` | استدعاء API محلي بدلاً من Nest |
-| `apps/web/src/components/sandbox-payment-form.tsx` | إتمام دفع الإقامة عبر Vercel |
-| `apps/web/src/proxy.ts` + `app/[locale]/admin/` | تحويل `/admin` و `/ADMIN` → `/platform` |
-| `apps/api/src/finance/finance.service.ts` | نفس منطق sandbox للمسار الاحتياطي على Render |
-| `render.yaml` | `PAYMENT_SANDBOX_ENABLED=true` |
+| الملف                                                 | التغيير                                      |
+| ----------------------------------------------------- | -------------------------------------------- |
+| `packages/config/src/payment-sandbox.ts`              | `isPaymentSandboxPilotEnabled()`             |
+| `apps/web/src/lib/public-stays-payment-neon.ts`       | إنشاء جلسة + إتمام sandbox                   |
+| `apps/web/src/app/api/public/stays/payment-sessions/` | POST جلسة + POST sandbox-complete            |
+| `apps/web/src/components/stays/stay-checkout.tsx`     | استدعاء API محلي بدلاً من Nest               |
+| `apps/web/src/components/sandbox-payment-form.tsx`    | إتمام دفع الإقامة عبر Vercel                 |
+| `apps/web/src/proxy.ts` + `app/[locale]/admin/`       | تحويل `/admin` و `/ADMIN` → `/platform`      |
+| `apps/api/src/finance/finance.service.ts`             | نفس منطق sandbox للمسار الاحتياطي على Render |
+| `render.yaml`                                         | `PAYMENT_SANDBOX_ENABLED=true`               |
 
 ## تحقق بعد النشر
 
@@ -33,11 +33,11 @@
 
 ## متغيرات البيئة
 
-| المنصة | المتغير | القيمة الموصى بها |
-|--------|---------|-------------------|
-| Vercel | `STAYS_PLATFORM_ENABLED` | `true` (موجود) |
-| Vercel | `DATABASE_URL` | Neon (موجود) |
-| Render | `STAYS_PLATFORM_ENABLED` | `true` |
+| المنصة | المتغير                   | القيمة الموصى بها       |
+| ------ | ------------------------- | ----------------------- |
+| Vercel | `STAYS_PLATFORM_ENABLED`  | `true` (موجود)          |
+| Vercel | `DATABASE_URL`            | Neon (موجود)            |
+| Render | `STAYS_PLATFORM_ENABLED`  | `true`                  |
 | Render | `PAYMENT_SANDBOX_ENABLED` | `true` (في render.yaml) |
 
 لا حاجة لمتغير إضافي على Vercel إذا كان `STAYS_PLATFORM_ENABLED=true` — sandbox يُفعَّل تلقائياً.

@@ -39,7 +39,9 @@ export async function POST(request: Request, context: Context) {
       .strict()
       .safeParse(await request.json().catch(() => null));
     if (!parsed.success) return legalJson({ error: { code: 'invalid_body' } }, { status: 400 });
-    return legalJson(await replyWorkTask(claims, taskId, parsed.data.note ?? '', parsed.data.files ?? []));
+    return legalJson(
+      await replyWorkTask(claims, taskId, parsed.data.note ?? '', parsed.data.files ?? []),
+    );
   } catch (error) {
     return legalErrorResponse(error, 'update_failed');
   }

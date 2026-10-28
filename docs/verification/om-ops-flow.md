@@ -6,27 +6,27 @@
 
 ## Steps
 
-| # | Rule | Code / UI proof | Status |
-|---|------|-----------------|--------|
-| 1 | Address book | Ops `contacts` + party roles; booking rejects incomplete tenant | Wired |
-| 2 | Property + units + owner | Owner/developer property wizard; owner party provisioning for SSO | Wired |
-| 3 | Vacant listing | `GET /v1/operations/context` → `vacantUnits` | Wired |
-| 4 | Vacant → pending → accountant → confirmed → lease | Reservation `pending` → accountant `confirmed` → convert | Wired |
-| 5 | Lease in progress | Grace, cheques, multi-approval, e-sign, activate | Wired |
-| 6 | Active lease on portals | Leasing default `active`; overview quick links; accounting cheques/invoices | Wired |
-| 7 | Vacant again → ops deep-links | Vacant strip `?create=1&unitId=` | Wired |
-| 8 | Deposit confirm → ledger | `postReservationDepositJournal` Dr 1000 / Cr 2100 | Wired |
-| 9 | Lease end → vacancy task | `work_tasks` `related_type=lease_vacancy` | Wired |
-| 10 | Party-scoped portal metrics | `PortalsService` owner/tenant scope by `partyId` | Wired |
-| 11 | Nest API public host | `render.yaml` + `NEST-API-HOSTING.md` scaffold; go-live needs secrets | Scaffolded |
-| 12 | Lease lifecycle ops UI | Activate / End / Terminate buttons on leasing console | Wired |
-| 13 | Vacancy → maintenance + legal | Auto `vacancy_handover` ticket + `vacancy_deposit_review` legal case | Wired |
-| 14 | Vacancy → accounts expense | Auto expense `vacancy_settlement` (`EXP-VAC-…`) | Wired |
-| 15 | Ops Nest-missing banner | Banner when `API_*` unset or context fails | Wired |
-| 16 | Deposit confirm in bookings UI | Pending row: Confirm deposit; confirmed: convert + ledger links | Wired |
-| 17 | Vacancy follow-up pipeline | `vacancyFollowUps` in ops context + pipeline strip | Wired |
-| 18 | Prefill lease from reservation | `leasing?create=1&reservationId&unitId&tenantId` + form defaults | Wired |
-| 19 | Pending deposit queue | Bookings strip lists pending deposits with confirm action | Wired |
+| #   | Rule                                              | Code / UI proof                                                             | Status     |
+| --- | ------------------------------------------------- | --------------------------------------------------------------------------- | ---------- |
+| 1   | Address book                                      | Ops `contacts` + party roles; booking rejects incomplete tenant             | Wired      |
+| 2   | Property + units + owner                          | Owner/developer property wizard; owner party provisioning for SSO           | Wired      |
+| 3   | Vacant listing                                    | `GET /v1/operations/context` → `vacantUnits`                                | Wired      |
+| 4   | Vacant → pending → accountant → confirmed → lease | Reservation `pending` → accountant `confirmed` → convert                    | Wired      |
+| 5   | Lease in progress                                 | Grace, cheques, multi-approval, e-sign, activate                            | Wired      |
+| 6   | Active lease on portals                           | Leasing default `active`; overview quick links; accounting cheques/invoices | Wired      |
+| 7   | Vacant again → ops deep-links                     | Vacant strip `?create=1&unitId=`                                            | Wired      |
+| 8   | Deposit confirm → ledger                          | `postReservationDepositJournal` Dr 1000 / Cr 2100                           | Wired      |
+| 9   | Lease end → vacancy task                          | `work_tasks` `related_type=lease_vacancy`                                   | Wired      |
+| 10  | Party-scoped portal metrics                       | `PortalsService` owner/tenant scope by `partyId`                            | Wired      |
+| 11  | Nest API public host                              | `render.yaml` + `NEST-API-HOSTING.md` scaffold; go-live needs secrets       | Scaffolded |
+| 12  | Lease lifecycle ops UI                            | Activate / End / Terminate buttons on leasing console                       | Wired      |
+| 13  | Vacancy → maintenance + legal                     | Auto `vacancy_handover` ticket + `vacancy_deposit_review` legal case        | Wired      |
+| 14  | Vacancy → accounts expense                        | Auto expense `vacancy_settlement` (`EXP-VAC-…`)                             | Wired      |
+| 15  | Ops Nest-missing banner                           | Banner when `API_*` unset or context fails                                  | Wired      |
+| 16  | Deposit confirm in bookings UI                    | Pending row: Confirm deposit; confirmed: convert + ledger links             | Wired      |
+| 17  | Vacancy follow-up pipeline                        | `vacancyFollowUps` in ops context + pipeline strip                          | Wired      |
+| 18  | Prefill lease from reservation                    | `leasing?create=1&reservationId&unitId&tenantId` + form defaults            | Wired      |
+| 19  | Pending deposit queue                             | Bookings strip lists pending deposits with confirm action                   | Wired      |
 
 ## Step 10 acceptance
 
@@ -72,26 +72,26 @@
 
 After each OM step: commit → `git push origin main` → Vercel Production deploy → update docs.
 
-| Step | Commit | Vercel |
-|------|--------|--------|
-| 8 Deposit journal | `f27f2de` | Ready |
-| 9 Vacancy task | `0a4c297` | Ready |
-| 10 Party-scoped portals | `8edaf35` | Ready |
-| 11 Nest hosting scaffold | `6b4dc32` | Ready |
-| 12 Lease lifecycle UI | `ad27d7d` | Ready |
-| 13 Vacancy maint+legal | `d5403cf` | Ready |
-| 14–15 Accounts + API banner | `777bc4b` | Ready |
-| 16–17 Deposit UI + vacancy pipeline | `09cd3d2` | Ready |
-| 18–19 Prefill lease + deposit queue | `bff75a7` | Ready |
+| Step                                | Commit    | Vercel |
+| ----------------------------------- | --------- | ------ |
+| 8 Deposit journal                   | `f27f2de` | Ready  |
+| 9 Vacancy task                      | `0a4c297` | Ready  |
+| 10 Party-scoped portals             | `8edaf35` | Ready  |
+| 11 Nest hosting scaffold            | `6b4dc32` | Ready  |
+| 12 Lease lifecycle UI               | `ad27d7d` | Ready  |
+| 13 Vacancy maint+legal              | `d5403cf` | Ready  |
+| 14–15 Accounts + API banner         | `777bc4b` | Ready  |
+| 16–17 Deposit UI + vacancy pipeline | `09cd3d2` | Ready  |
+| 18–19 Prefill lease + deposit queue | `bff75a7` | Ready  |
 
 ## Cycle rules v1.3 (product-owner approved — coded on main)
 
 Source of truth: `docs/implementation/TRANSACTION-FLOW-MAP.md` (+ HTML) **v1.3**.
 
-| ID | Rule | Code status |
-|----|------|-------------|
-| R1 | Cancel request → admin date → accountant clearance → tenant sees cancelled | Approved + coded |
-| R2 | Deposit settlement tied on every exit path | Approved + coded (note + vacancy seed before terminal) |
-| R3 | Renewal: signed addendum → cheques + invoices → accountant (manager exception) | Approved + coded |
-| R4 | `closed_won` → in-system ownership transfer + prior owner history | Approved + coded |
-| R5 | Sale of leased unit allowed; lease rights follow new owner | Approved + coded |
+| ID  | Rule                                                                           | Code status                                            |
+| --- | ------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| R1  | Cancel request → admin date → accountant clearance → tenant sees cancelled     | Approved + coded                                       |
+| R2  | Deposit settlement tied on every exit path                                     | Approved + coded (note + vacancy seed before terminal) |
+| R3  | Renewal: signed addendum → cheques + invoices → accountant (manager exception) | Approved + coded                                       |
+| R4  | `closed_won` → in-system ownership transfer + prior owner history              | Approved + coded                                       |
+| R5  | Sale of leased unit allowed; lease rights follow new owner                     | Approved + coded                                       |

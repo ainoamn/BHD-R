@@ -22,10 +22,7 @@ const patchSchema = z
   .strict();
 
 /** GET — current viewing contact + staff candidates for this property. */
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ propertyId: string }> },
-) {
+export async function GET(request: Request, context: { params: Promise<{ propertyId: string }> }) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }

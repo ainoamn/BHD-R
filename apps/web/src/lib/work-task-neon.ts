@@ -110,7 +110,11 @@ function tagsFrom(metadata: unknown): string[] {
   const rows = (metadata as { tags?: unknown }).tags;
   if (!Array.isArray(rows)) return [];
   return rows
-    .map((row) => String(row ?? '').trim().slice(0, 40))
+    .map((row) =>
+      String(row ?? '')
+        .trim()
+        .slice(0, 40),
+    )
     .filter(Boolean)
     .slice(0, 12);
 }
@@ -203,7 +207,12 @@ export async function listWorkTaskPlaceChoices(claims: SessionClaims): Promise<{
         .orderBy(properties.nameAr)
         .limit(200),
       tx
-        .select({ id: units.id, label: units.code, propertyId: units.propertyId, name: units.nameAr })
+        .select({
+          id: units.id,
+          label: units.code,
+          propertyId: units.propertyId,
+          name: units.nameAr,
+        })
         .from(units)
         .where(eq(units.organizationId, orgId))
         .orderBy(units.code)
@@ -481,15 +490,13 @@ export async function createWorkTask(
       note: title,
       metadata: {
         tags,
-        followers: input.assignedToUserId
-          ? [{ userId: input.assignedToUserId, duty: 'lead' }]
-          : [],
+        followers: input.assignedToUserId ? [{ userId: input.assignedToUserId, duty: 'lead' }] : [],
       },
     });
     if (place) {
-      const note = [place.propertyLabel, place.unitLabel, place.partyLabel]
-        .filter(Boolean)
-        .join(' · ') || place.label;
+      const note =
+        [place.propertyLabel, place.unitLabel, place.partyLabel].filter(Boolean).join(' · ') ||
+        place.label;
       await tx.insert(workflowEvents).values({
         organizationId: orgId,
         actorUserId: claims.sub,
@@ -562,9 +569,7 @@ export async function reopenWorkTask(
       const successors = await tx
         .select({ id: workTasks.id, status: workTasks.status })
         .from(workTasks)
-        .where(
-          and(eq(workTasks.organizationId, orgId), inArray(workTasks.id, successorIds)),
-        );
+        .where(and(eq(workTasks.organizationId, orgId), inArray(workTasks.id, successorIds)));
       if (successors.some((row) => !CLOSED.has(row.status))) followupOpen();
     }
 
@@ -594,8 +599,9 @@ export async function reopenWorkTask(
     const createdMeta =
       events.find((event) => event.type === 'task.roster')?.metadata ??
       events.find((event) => event.type === 'task.created')?.metadata;
-    const tagsMeta = events.find((event) => event.type === 'task.tags' || event.type === 'task.created')
-      ?.metadata;
+    const tagsMeta = events.find(
+      (event) => event.type === 'task.tags' || event.type === 'task.created',
+    )?.metadata;
     const linkMeta = events.find((event) => event.type === 'task.link')?.metadata;
     const tags = tagsFrom(tagsMeta ?? createdMeta);
     const followers = followersFrom(createdMeta);
@@ -604,10 +610,7 @@ export async function reopenWorkTask(
       done: false,
     }));
     const reference = await nextTaskReference(tx, orgId);
-    const reopenNote = [
-      `إعادة فتح / Reopen — ${reason}`,
-      source.description?.trim() || null,
-    ]
+    const reopenNote = [`إعادة فتح / Reopen — ${reason}`, source.description?.trim() || null]
       .filter(Boolean)
       .join('\n\n')
       .slice(0, 4000);
@@ -694,10 +697,7 @@ export async function reopenWorkTask(
   return readWorkTask(claims, createdId);
 }
 
-export async function readWorkTask(
-  claims: SessionClaims,
-  taskId: string,
-): Promise<WorkTaskDetail> {
+export async function readWorkTask(claims: SessionClaims, taskId: string): Promise<WorkTaskDetail> {
   if (!canRead(claims)) deny();
   const orgId = claims.organizationId!;
   const assignee = alias(users, 'work_task_assignee');
@@ -729,7 +729,14 @@ export async function readWorkTask(
       .limit(1);
     if (!task) missing();
     if (task.relatedType?.startsWith('acct_') && task.relatedId) {
-      await ensureAccountingPlace(tx, orgId, claims.sub, task.id, task.relatedType.slice(5), task.relatedId);
+      await ensureAccountingPlace(
+        tx,
+        orgId,
+        claims.sub,
+        task.id,
+        task.relatedType.slice(5),
+        task.relatedId,
+      );
     }
 
     const events = await tx
@@ -773,7 +780,9 @@ export async function readWorkTask(
             .limit(1)
         )[0]
       : null;
-    const created = [...events].reverse().find((event) => event.type === 'task.roster') ?? events.find((event) => event.type === 'task.created');
+    const created =
+      [...events].reverse().find((event) => event.type === 'task.roster') ??
+      events.find((event) => event.type === 'task.created');
     const link = [...events].reverse().find((event) => event.type === 'task.link');
     const linkMeta =
       link?.metadata && typeof link.metadata === 'object'
@@ -793,7 +802,11 @@ export async function readWorkTask(
           : task.propertyId
             ? { kind: 'property', id: task.propertyId, label: task.propertyId.slice(0, 8) }
             : null;
-    const fileRows = await tx.execute<{ id: string; name: string | null; reply_id: string | null }>(sql`
+    const fileRows = await tx.execute<{
+      id: string;
+      name: string | null;
+      reply_id: string | null;
+    }>(sql`
       select id::text as id, metadata->>'name' as name, metadata->>'replyId' as reply_id
       from workflow_events
       where organization_id = ${orgId}
@@ -803,7 +816,9 @@ export async function readWorkTask(
       order by occurred_at
       limit 12
     `);
-    const fileList = (Array.isArray(fileRows) ? fileRows : ((fileRows as { rows?: unknown[] }).rows ?? [])) as Array<{
+    const fileList = (
+      Array.isArray(fileRows) ? fileRows : ((fileRows as { rows?: unknown[] }).rows ?? [])
+    ) as Array<{
       id: string;
       name: string | null;
       reply_id: string | null;
@@ -823,7 +838,12 @@ export async function readWorkTask(
         .orderBy(properties.nameAr)
         .limit(200),
       tx
-        .select({ id: units.id, label: units.code, propertyId: units.propertyId, name: units.nameAr })
+        .select({
+          id: units.id,
+          label: units.code,
+          propertyId: units.propertyId,
+          name: units.nameAr,
+        })
         .from(units)
         .where(eq(units.organizationId, orgId))
         .orderBy(units.code)
@@ -886,10 +906,7 @@ export async function readWorkTask(
           })
           .from(workTasks)
           .where(
-            and(
-              eq(workTasks.organizationId, orgId),
-              inArray(workTasks.id, [...relatedIds.keys()]),
-            ),
+            and(eq(workTasks.organizationId, orgId), inArray(workTasks.id, [...relatedIds.keys()])),
           )
       : [];
     const related: WorkTaskRelated[] = relatedRows
@@ -1008,10 +1025,7 @@ export async function replyWorkTask(
         metadata: { name: file.name, data: file.data, replyId: reply.id },
       });
     }
-    await tx
-      .update(workTasks)
-      .set({ updatedAt: new Date() })
-      .where(eq(workTasks.id, taskId));
+    await tx.update(workTasks).set({ updatedAt: new Date() }).where(eq(workTasks.id, taskId));
   });
   return readWorkTask(claims, taskId);
 }
@@ -1048,9 +1062,7 @@ export async function updateWorkTask(
       if (!STATUSES.has(input.status) || input.status === task.status) bad();
       const closing = !OPEN.has(input.status);
       const needsReason =
-        input.status === 'rejected' ||
-        input.status === 'cancelled' ||
-        input.status === 'completed';
+        input.status === 'rejected' || input.status === 'cancelled' || input.status === 'completed';
       if (needsReason && (!note || note.length < 5)) reasonRequired();
       await tx
         .update(workTasks)
@@ -1210,84 +1222,87 @@ export async function openLegalCaseFromTask(
   if (!canRead(claims) || !hasPermission(claims, 'legal.manage')) deny();
   const orgId = claims.organizationId!;
   await withinViewerTenant(claims, async (tx) => {
-  const [task] = await tx
-    .select()
-    .from(workTasks)
-    .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
-    .limit(1);
-  if (!task) missing();
-  const prior = await tx
-    .select({ metadata: workflowEvents.metadata })
-    .from(workflowEvents)
-    .where(
-      and(
-        eq(workflowEvents.organizationId, orgId),
-        eq(workflowEvents.resourceType, 'work_task'),
-        eq(workflowEvents.resourceId, task.id),
-        eq(workflowEvents.eventType, 'task.legal'),
-      ),
-    )
-    .limit(1);
-  const existingId =
-    prior[0]?.metadata &&
-    typeof prior[0].metadata === 'object' &&
-    typeof (prior[0].metadata as { legalCaseId?: unknown }).legalCaseId === 'string'
-      ? (prior[0].metadata as { legalCaseId: string }).legalCaseId
-      : null;
-  if (existingId) return;
-
-  let lawyerPartyId: string | null = null;
-  if (input.lawyerPartyId) {
-    const [lawyer] = await tx
-      .select({ id: parties.id })
-      .from(parties)
-      .innerJoin(
-        partyRoles,
+    const [task] = await tx
+      .select()
+      .from(workTasks)
+      .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.id, taskId)))
+      .limit(1);
+    if (!task) missing();
+    const prior = await tx
+      .select({ metadata: workflowEvents.metadata })
+      .from(workflowEvents)
+      .where(
         and(
-          eq(partyRoles.partyId, parties.id),
-          eq(partyRoles.organizationId, orgId),
-          eq(partyRoles.roleKey, 'lawyer'),
-          eq(partyRoles.status, 'active'),
+          eq(workflowEvents.organizationId, orgId),
+          eq(workflowEvents.resourceType, 'work_task'),
+          eq(workflowEvents.resourceId, task.id),
+          eq(workflowEvents.eventType, 'task.legal'),
         ),
       )
-      .where(and(eq(parties.organizationId, orgId), eq(parties.id, input.lawyerPartyId)))
       .limit(1);
-    if (!lawyer) bad();
-    lawyerPartyId = lawyer.id;
-  }
+    const existingId =
+      prior[0]?.metadata &&
+      typeof prior[0].metadata === 'object' &&
+      typeof (prior[0].metadata as { legalCaseId?: unknown }).legalCaseId === 'string'
+        ? (prior[0].metadata as { legalCaseId: string }).legalCaseId
+        : null;
+    if (existingId) return;
 
-  const now = new Date();
-  const stamp = now.toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
-  const reference = `LGL-${stamp}-${randomUUID().slice(0, 6).toUpperCase()}`;
-  const note = input.note?.trim().slice(0, 2000) || null;
-  const [legal] = await tx
-    .insert(legalCases)
-    .values({
+    let lawyerPartyId: string | null = null;
+    if (input.lawyerPartyId) {
+      const [lawyer] = await tx
+        .select({ id: parties.id })
+        .from(parties)
+        .innerJoin(
+          partyRoles,
+          and(
+            eq(partyRoles.partyId, parties.id),
+            eq(partyRoles.organizationId, orgId),
+            eq(partyRoles.roleKey, 'lawyer'),
+            eq(partyRoles.status, 'active'),
+          ),
+        )
+        .where(and(eq(parties.organizationId, orgId), eq(parties.id, input.lawyerPartyId)))
+        .limit(1);
+      if (!lawyer) bad();
+      lawyerPartyId = lawyer.id;
+    }
+
+    const now = new Date();
+    const stamp = now
+      .toISOString()
+      .replace(/[-:TZ.]/g, '')
+      .slice(0, 14);
+    const reference = `LGL-${stamp}-${randomUUID().slice(0, 6).toUpperCase()}`;
+    const note = input.note?.trim().slice(0, 2000) || null;
+    const [legal] = await tx
+      .insert(legalCases)
+      .values({
+        organizationId: orgId,
+        reference,
+        caseType: 'collection',
+        title: task.title.slice(0, 240),
+        description: [task.description, note].filter(Boolean).join('\n\n').slice(0, 8000) || null,
+        propertyId: task.propertyId,
+        unitId: task.unitId,
+        lawyerPartyId,
+        assignedToUserId: claims.sub,
+        status: 'assessment',
+        currency: 'OMR',
+        minorUnit: 3,
+        openedOn: muscatToday(),
+      })
+      .returning({ id: legalCases.id, reference: legalCases.reference });
+    if (!legal) bad();
+    await tx.insert(workflowEvents).values({
       organizationId: orgId,
-      reference,
-      caseType: 'collection',
-      title: task.title.slice(0, 240),
-      description: [task.description, note].filter(Boolean).join('\n\n').slice(0, 8000) || null,
-      propertyId: task.propertyId,
-      unitId: task.unitId,
-      lawyerPartyId,
-      assignedToUserId: claims.sub,
-      status: 'assessment',
-      currency: 'OMR',
-      minorUnit: 3,
-      openedOn: muscatToday(),
-    })
-    .returning({ id: legalCases.id, reference: legalCases.reference });
-  if (!legal) bad();
-  await tx.insert(workflowEvents).values({
-    organizationId: orgId,
-    actorUserId: claims.sub,
-    resourceType: 'work_task',
-    resourceId: task.id,
-    eventType: 'task.legal',
-    note: note ?? `قضية ${legal.reference}`,
-    metadata: { legalCaseId: legal.id, reference: legal.reference },
-  });
+      actorUserId: claims.sub,
+      resourceType: 'work_task',
+      resourceId: task.id,
+      eventType: 'task.legal',
+      note: note ?? `قضية ${legal.reference}`,
+      metadata: { legalCaseId: legal.id, reference: legal.reference },
+    });
   });
   return readWorkTask(claims, taskId);
 }
@@ -1304,7 +1319,11 @@ export async function addWorkTaskFollower(
   taskId: string,
   input: { userId: string; duty: string },
 ): Promise<WorkTaskDetail> {
-  if (!canRead(claims) || (!hasPermission(claims, 'task.assign') && !hasPermission(claims, 'task.update'))) deny();
+  if (
+    !canRead(claims) ||
+    (!hasPermission(claims, 'task.assign') && !hasPermission(claims, 'task.update'))
+  )
+    deny();
   const duty = DUTIES.has(input.duty) ? input.duty : '';
   if (!duty) bad();
   const orgId = claims.organizationId!;
@@ -1359,7 +1378,10 @@ export async function inviteWorkTaskFollower(
   taskId: string,
   input: { email: string; duty: string; displayName?: string },
 ): Promise<WorkTaskDetail> {
-  if (!canRead(claims) || (!hasPermission(claims, 'task.assign') && !hasPermission(claims, 'task.update'))) {
+  if (
+    !canRead(claims) ||
+    (!hasPermission(claims, 'task.assign') && !hasPermission(claims, 'task.update'))
+  ) {
     deny();
   }
   const duty = DUTIES.has(input.duty) ? input.duty : '';
@@ -1584,14 +1606,19 @@ export async function linkWorkTaskSubject(
       if (!same) linkLocked();
       return;
     }
-    const place = await resolvePlaceLink(tx, orgId, { kind: input.kind, id: input.id }, {
-      propertyId: task.propertyId,
-      unitId: task.unitId,
-      partyId: priorPartyId,
-      propertyLabel: typeof priorMeta.propertyLabel === 'string' ? priorMeta.propertyLabel : '',
-      unitLabel: typeof priorMeta.unitLabel === 'string' ? priorMeta.unitLabel : '',
-      partyLabel: typeof priorMeta.partyLabel === 'string' ? priorMeta.partyLabel : '',
-    });
+    const place = await resolvePlaceLink(
+      tx,
+      orgId,
+      { kind: input.kind, id: input.id },
+      {
+        propertyId: task.propertyId,
+        unitId: task.unitId,
+        partyId: priorPartyId,
+        propertyLabel: typeof priorMeta.propertyLabel === 'string' ? priorMeta.propertyLabel : '',
+        unitLabel: typeof priorMeta.unitLabel === 'string' ? priorMeta.unitLabel : '',
+        partyLabel: typeof priorMeta.partyLabel === 'string' ? priorMeta.partyLabel : '',
+      },
+    );
     if (
       input.kind === 'unit' &&
       input.propertyId &&
@@ -1659,12 +1686,19 @@ export async function listSubjectTasks(
           status: workTasks.status,
         })
         .from(workTasks)
-        .where(and(eq(workTasks.organizationId, orgId), eq(workTasks.propertyId, filter.propertyId)))
+        .where(
+          and(eq(workTasks.organizationId, orgId), eq(workTasks.propertyId, filter.propertyId)),
+        )
         .orderBy(desc(workTasks.createdAt))
         .limit(40);
     }
     if (!filter.partyId) return [];
-    const result = await tx.execute<{ id: string; reference: string; title: string; status: string }>(sql`
+    const result = await tx.execute<{
+      id: string;
+      reference: string;
+      title: string;
+      status: string;
+    }>(sql`
       select t.id::text as id, t.reference, t.title, t.status::text as status
       from work_tasks t
       join lateral (
@@ -1694,7 +1728,8 @@ function placeFrom(
   propertyId: string | null,
   unitId: string | null,
 ): WorkTaskPlace {
-  const meta = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
+  const meta =
+    metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
   const property = idOf(meta.propertyId) ?? propertyId;
   const unit = idOf(meta.unitId) ?? unitId;
   const party = idOf(meta.partyId);

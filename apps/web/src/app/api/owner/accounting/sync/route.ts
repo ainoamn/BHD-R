@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { canManageAccounting, canPostAccounting, syncOperationalGl } from '@/lib/accounting-gl-neon';
+import {
+  canManageAccounting,
+  canPostAccounting,
+  syncOperationalGl,
+} from '@/lib/accounting-gl-neon';
 import { accountingErrorResponse } from '@/lib/accounting-gl-http';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';

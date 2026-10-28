@@ -6,7 +6,9 @@ import type { AiTag } from '@/lib/property-discovery';
 function RailCard({ listing, locale }: { listing: CatalogueListing; locale: string }) {
   const ar = locale === 'ar';
   const title = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
-  const href = listing.propertyId ? `/properties/${listing.propertyId}` : `/units/${listing.unitId}`;
+  const href = listing.propertyId
+    ? `/properties/${listing.propertyId}`
+    : `/units/${listing.unitId}`;
   const price =
     listing.listingPurpose === 'sale' && listing.salePrice
       ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
@@ -17,9 +19,7 @@ function RailCard({ listing, locale }: { listing: CatalogueListing; locale: stri
       <div
         className="discovery-card__img"
         style={
-          listing.coverImageUrl
-            ? { backgroundImage: `url(${listing.coverImageUrl})` }
-            : undefined
+          listing.coverImageUrl ? { backgroundImage: `url(${listing.coverImageUrl})` } : undefined
         }
       />
       <div className="discovery-card__body">
@@ -29,8 +29,7 @@ function RailCard({ listing, locale }: { listing: CatalogueListing; locale: stri
           {listing.wilayat ? ` · ${listing.wilayat}` : ''}
         </span>
         <span className="discovery-card__meta">
-          {listing.bedrooms} {ar ? 'غرف' : 'beds'} · {listing.bathrooms}{' '}
-          {ar ? 'حمّامات' : 'baths'}
+          {listing.bedrooms} {ar ? 'غرف' : 'beds'} · {listing.bathrooms} {ar ? 'حمّامات' : 'baths'}
           {listing.avgRating ? ` · ★ ${listing.avgRating}` : ''}
         </span>
         <em>{price}</em>

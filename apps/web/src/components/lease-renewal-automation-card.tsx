@@ -70,9 +70,14 @@ export function LeaseRenewalAutomationCard({
         <input
           type="checkbox"
           checked={draft.enabled}
-          onChange={(event) => setDraft((current) => ({ ...current, enabled: event.target.checked }))}
+          onChange={(event) =>
+            setDraft((current) => ({ ...current, enabled: event.target.checked }))
+          }
         />
-        {t('تفعيل التجديد الإلكتروني التلقائي لكل العقود', 'Enable automatic electronic renewal for all leases')}
+        {t(
+          'تفعيل التجديد الإلكتروني التلقائي لكل العقود',
+          'Enable automatic electronic renewal for all leases',
+        )}
       </label>
 
       <div className="form-grid" style={{ marginTop: '1rem' }}>

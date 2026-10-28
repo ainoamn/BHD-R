@@ -76,11 +76,7 @@ export function DocStatusMark({
         : 'Rejected'
       : docStatusLabel(status, ar, viewer);
   return (
-    <span
-      className={`doc-status-mark doc-status-mark--${kind}`}
-      title={label}
-      aria-label={label}
-    >
+    <span className={`doc-status-mark doc-status-mark--${kind}`} title={label} aria-label={label}>
       <span className="doc-status-mark__glyph" aria-hidden="true">
         {MARK_GLYPH[kind]}
       </span>

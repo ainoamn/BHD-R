@@ -12,9 +12,7 @@ describe('clientSafeErrorCode', () => {
       'request_failed',
     );
     expect(clientSafeErrorCode(new Error('42703'))).toBe('request_failed');
-    expect(clientSafeErrorCode(new Error('password authentication failed'))).toBe(
-      'request_failed',
-    );
+    expect(clientSafeErrorCode(new Error('password authentication failed'))).toBe('request_failed');
   });
 
   it('maps statuses', () => {

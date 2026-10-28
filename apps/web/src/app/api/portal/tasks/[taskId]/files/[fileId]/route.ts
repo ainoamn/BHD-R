@@ -13,7 +13,10 @@ type Context = { params: Promise<{ taskId: string; fileId: string }> };
 export async function GET(request: Request, context: Context) {
   if (!hasDatabaseUrl()) return legalJson({ error: { code: 'db_unconfigured' } }, { status: 503 });
   const { taskId, fileId } = await context.params;
-  if (!z.string().uuid().safeParse(taskId).success || !z.string().uuid().safeParse(fileId).success) {
+  if (
+    !z.string().uuid().safeParse(taskId).success ||
+    !z.string().uuid().safeParse(fileId).success
+  ) {
     return legalJson({ error: { code: 'not_found' } }, { status: 404 });
   }
   try {

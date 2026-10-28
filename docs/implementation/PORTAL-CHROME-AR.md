@@ -14,14 +14,14 @@
 
 ## المكوّنات
 
-| ملف | دور |
-|-----|-----|
-| `apps/web/src/components/portal-shell.tsx` | غلاف البوابة + `requirePortal` |
-| `apps/web/src/components/portal-header.tsx` | الهيدر: علامة، لغة، مستخدم، App Switcher |
-| `apps/web/src/components/portal-nav.tsx` | قائمة مجمّعة + درج الجوال |
-| `apps/web/src/app/globals.css` | أنماط `.portal-layout` / `.portal-chrome` / `.portal-sidebar` |
-| `apps/web/src/app/portal-adaptive.css` | طبقة قياس موحّدة (أيقونات/نص/حقول) حسب العرض — **0.2.59** |
-| `packages/i18n/src/index.ts` | مفاتيح `Portal.group*` + عناوين البوابات |
+| ملف                                         | دور                                                           |
+| ------------------------------------------- | ------------------------------------------------------------- |
+| `apps/web/src/components/portal-shell.tsx`  | غلاف البوابة + `requirePortal`                                |
+| `apps/web/src/components/portal-header.tsx` | الهيدر: علامة، لغة، مستخدم، App Switcher                      |
+| `apps/web/src/components/portal-nav.tsx`    | قائمة مجمّعة + درج الجوال                                     |
+| `apps/web/src/app/globals.css`              | أنماط `.portal-layout` / `.portal-chrome` / `.portal-sidebar` |
+| `apps/web/src/app/portal-adaptive.css`      | طبقة قياس موحّدة (أيقونات/نص/حقول) حسب العرض — **0.2.59**     |
+| `packages/i18n/src/index.ts`                | مفاتيح `Portal.group*` + عناوين البوابات                      |
 
 كل مسارات `owner|developer|tenant|platform` تستخدم `PortalShell` فقط — لا يوجد قالب منفصل لكل دور.
 
@@ -39,12 +39,12 @@
 
 ## التجاوب (Responsive)
 
-| العرض | السلوك |
-|------|--------|
-| >1100px | عمود قائمة 17rem + نص المستخدم كامل |
-| 961–1100px | قائمة أضيق (15.25rem) + تقليص عرض بطاقة المستخدم |
-| ≤960px | تخطيط عمود واحد للمحتوى؛ قائمة درج مخفية خارج الشاشة؛ زر ☰؛ إخفاء عناوين الهيدر/بطاقة المستخدم/شبكة التطبيقات؛ محفظة العقارات كبطاقات (انظر [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)) |
-| ≤520px | عنوان بوابة مختصر؛ شعار وأيقونات أصغر عبر `--portal-*` |
+| العرض      | السلوك                                                                                                                                                                                                                 |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| >1100px    | عمود قائمة 17rem + نص المستخدم كامل                                                                                                                                                                                    |
+| 961–1100px | قائمة أضيق (15.25rem) + تقليص عرض بطاقة المستخدم                                                                                                                                                                       |
+| ≤960px     | تخطيط عمود واحد للمحتوى؛ قائمة درج مخفية خارج الشاشة؛ زر ☰؛ إخفاء عناوين الهيدر/بطاقة المستخدم/شبكة التطبيقات؛ محفظة العقارات كبطاقات (انظر [`PORTAL-ADAPTIVE-PROPERTIES-AR.md`](./PORTAL-ADAPTIVE-PROPERTIES-AR.md)) |
+| ≤520px     | عنوان بوابة مختصر؛ شعار وأيقونات أصغر عبر `--portal-*`                                                                                                                                                                 |
 
 ### إصلاح الدرج (0.2.23)
 
@@ -61,7 +61,6 @@
 2. Tablet 768–960 — درج + محتوى بعرض كامل
 3. Desktop 1280+ — شريط جانبي ظاهر دائمًا وقابل للنقر
 4. `dir=rtl` و`dir=ltr` لانزلاق الدرج
-
 
 ## اللغات
 

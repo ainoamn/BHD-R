@@ -55,7 +55,9 @@ export function AccountingRecordActions({
         });
         onDone();
       } catch (error) {
-        onError(error instanceof Error ? error.message : ar ? 'تعذر تنفيذ الإجراء' : 'Action failed');
+        onError(
+          error instanceof Error ? error.message : ar ? 'تعذر تنفيذ الإجراء' : 'Action failed',
+        );
       }
     })();
   };
@@ -63,11 +65,7 @@ export function AccountingRecordActions({
   const archiveKind: Kind = kind === 'receipt' ? 'invoice' : kind;
   const invoiceLike = kind === 'invoice' || (kind === 'receipt' && status !== 'succeeded');
   const journalTarget =
-    journalId && /^[0-9a-f-]{36}$/i.test(journalId)
-      ? journalId
-      : kind === 'journal'
-        ? id
-        : null;
+    journalId && /^[0-9a-f-]{36}$/i.test(journalId) ? journalId : kind === 'journal' ? id : null;
   const resolvedSource =
     sourceType ??
     (kind === 'receipt' && status === 'succeeded'
@@ -92,7 +90,9 @@ export function AccountingRecordActions({
     );
     if (reason === null) return;
     if (protectedLine && reason.trim().length < 8) {
-      onError(ar ? 'أدخل سبباً أوضح (ثمانية أحرف على الأقل).' : 'Enter a clearer reason (8+ characters).');
+      onError(
+        ar ? 'أدخل سبباً أوضح (ثمانية أحرف على الأقل).' : 'Enter a clearer reason (8+ characters).',
+      );
       return;
     }
     if (protectedLine) {
@@ -119,7 +119,11 @@ export function AccountingRecordActions({
 
   return (
     <div className="accounting-hub__row-actions">
-      {journalTarget && status !== 'draft' && status !== 'reversed' && status !== 'void' && posted ? (
+      {journalTarget &&
+      status !== 'draft' &&
+      status !== 'reversed' &&
+      status !== 'void' &&
+      posted ? (
         <button
           type="button"
           className="accounting-act accounting-act--draft"
@@ -135,7 +139,11 @@ export function AccountingRecordActions({
           className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() =>
-            run('discard', 'journal', ar ? 'حذف مسودة القيد نهائياً؟' : 'Delete this draft journal?')
+            run(
+              'discard',
+              'journal',
+              ar ? 'حذف مسودة القيد نهائياً؟' : 'Delete this draft journal?',
+            )
           }
         >
           {ar ? 'حذف' : 'Delete'}

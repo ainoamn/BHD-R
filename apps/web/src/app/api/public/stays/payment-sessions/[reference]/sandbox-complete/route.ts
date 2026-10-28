@@ -23,16 +23,16 @@ const bodySchema = z
       .regex(/^\/(ar|en)(\/[A-Za-z0-9._~-]{1,64}){0,6}(\?[A-Za-z0-9._~=&%-]{0,200})?$/)
       .optional(),
     /** Safe display fields only — never accept full PAN / CVC. */
-    cardLast4: z.string().regex(/^\d{4}$/).optional(),
+    cardLast4: z
+      .string()
+      .regex(/^\d{4}$/)
+      .optional(),
     cardBrand: z.enum(['visa', 'mastercard', 'amex', 'other']).optional(),
     cardholderName: z.string().trim().min(2).max(80).optional(),
   })
   .strict();
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ reference: string }> },
-) {
+export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!isPaymentSandboxPilotEnabled()) {
     return stayBookingJson(
       {
@@ -93,11 +93,15 @@ export async function POST(
   }
 
   try {
-    const payload = await completeStaySandboxPaymentOnNeon(reference, parsed.data.returnPath ?? null, {
-      ...(parsed.data.cardLast4 ? { cardLast4: parsed.data.cardLast4 } : {}),
-      ...(parsed.data.cardBrand ? { cardBrand: parsed.data.cardBrand } : {}),
-      ...(parsed.data.cardholderName ? { cardholderName: parsed.data.cardholderName } : {}),
-    });
+    const payload = await completeStaySandboxPaymentOnNeon(
+      reference,
+      parsed.data.returnPath ?? null,
+      {
+        ...(parsed.data.cardLast4 ? { cardLast4: parsed.data.cardLast4 } : {}),
+        ...(parsed.data.cardBrand ? { cardBrand: parsed.data.cardBrand } : {}),
+        ...(parsed.data.cardholderName ? { cardholderName: parsed.data.cardholderName } : {}),
+      },
+    );
     if (isStayEsignRequiredServer() && payload.referenceCode) {
       const locale = localeFromReturnPath(parsed.data.returnPath ?? payload.returnPath);
       return stayBookingJson({

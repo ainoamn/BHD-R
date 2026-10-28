@@ -31,10 +31,13 @@ export function TenantCancelLeaseButton({
     setBusy(true);
     setError(null);
     try {
-      await browserMutation(`/v1/tenant/leases/${encodeURIComponent(leaseId)}/cancellation-requests`, {
-        method: 'POST',
-        body: JSON.stringify({ proposedEndsOn: proposed }),
-      });
+      await browserMutation(
+        `/v1/tenant/leases/${encodeURIComponent(leaseId)}/cancellation-requests`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ proposedEndsOn: proposed }),
+        },
+      );
       router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
@@ -45,7 +48,12 @@ export function TenantCancelLeaseButton({
 
   return (
     <span className="tenant-cancel-lease">
-      <button className="button button--quiet" type="button" disabled={busy} onClick={() => void requestCancel()}>
+      <button
+        className="button button--quiet"
+        type="button"
+        disabled={busy}
+        onClick={() => void requestCancel()}
+      >
         {ar ? 'طلب إلغاء العقد' : 'Request cancellation'}
       </button>
       {error ? <span className="form-error">{error}</span> : null}

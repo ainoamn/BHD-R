@@ -74,8 +74,7 @@ export async function GET(request: Request) {
       .filter((item): item is NonNullable<typeof item> => Boolean(item));
     const currency = url.searchParams.get('currency');
     const purposeRaw = url.searchParams.get('purpose');
-    const purpose =
-      purposeRaw === 'rent' || purposeRaw === 'sale' ? purposeRaw : undefined;
+    const purpose = purposeRaw === 'rent' || purposeRaw === 'sale' ? purposeRaw : undefined;
     const priceMin = parseMajor(url.searchParams.get('priceMin'));
     const priceMax = parseMajor(url.searchParams.get('priceMax'));
     const amenities = (url.searchParams.get('amenities') ?? '')
@@ -86,8 +85,7 @@ export async function GET(request: Request) {
     const hasPool =
       url.searchParams.get('hasPool') === '1' || url.searchParams.get('hasPool') === 'true';
     const hasParking =
-      url.searchParams.get('hasParking') === '1' ||
-      url.searchParams.get('hasParking') === 'true';
+      url.searchParams.get('hasParking') === '1' || url.searchParams.get('hasParking') === 'true';
 
     if (countryCode) search.countryCode = countryCode;
     if (governorate) search.governorate = governorate;

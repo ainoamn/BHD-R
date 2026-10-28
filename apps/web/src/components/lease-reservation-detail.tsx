@@ -10,10 +10,7 @@ import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 import { ReservationActivityLog } from '@/components/reservation-activity-log';
-import {
-  bookingDocsReturnOpen,
-  leasePhaseLabel,
-} from '@/lib/lease-reservation-lifecycle';
+import { bookingDocsReturnOpen, leasePhaseLabel } from '@/lib/lease-reservation-lifecycle';
 import type { loadLeaseBookingForStaff } from '@/lib/public-lease-booking-neon';
 
 export type LeaseReservationStaffView = NonNullable<
@@ -80,7 +77,10 @@ export function LeaseReservationDetail({
   const bookingsHref = `/${locale}/${portal}/properties/${encodeURIComponent(booking.propertyId)}?section=bookings&focus=${encodeURIComponent(booking.reservationId)}`;
 
   const bookingSummary = (
-    <section className="ops-metrics lrw-page-summary" aria-label={ar ? 'ملخص الحجز' : 'Booking summary'}>
+    <section
+      className="ops-metrics lrw-page-summary"
+      aria-label={ar ? 'ملخص الحجز' : 'Booking summary'}
+    >
       <article>
         <span>{ar ? 'العميل' : 'Client'}</span>
         <strong className="name-with-mark">

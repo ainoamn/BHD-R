@@ -2,7 +2,12 @@ import 'server-only';
 import { and, eq } from 'drizzle-orm';
 import { journalLines, parties } from '@bhd-r/db';
 import type { SessionClaims } from '@bhd-r/authz';
-import { canReadAccounting, fail, getJournal, listAccountingDocuments } from '@/lib/accounting-gl-neon';
+import {
+  canReadAccounting,
+  fail,
+  getJournal,
+  listAccountingDocuments,
+} from '@/lib/accounting-gl-neon';
 import { accountingClientShareUrl } from '@/lib/accounting-letterhead-neon';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
@@ -212,9 +217,17 @@ export async function sendAccountingArtifact(
       });
     }
     const titleAr =
-      doc.kind === 'receipt' ? 'إيصال قبض' : doc.kind === 'invoice' ? 'فاتورة مطالبة' : 'مستند محاسبي';
+      doc.kind === 'receipt'
+        ? 'إيصال قبض'
+        : doc.kind === 'invoice'
+          ? 'فاتورة مطالبة'
+          : 'مستند محاسبي';
     const titleEn =
-      doc.kind === 'receipt' ? 'Receipt' : doc.kind === 'invoice' ? 'Demand invoice' : 'Accounting document';
+      doc.kind === 'receipt'
+        ? 'Receipt'
+        : doc.kind === 'invoice'
+          ? 'Demand invoice'
+          : 'Accounting document';
     const text = accountingWhatsAppText({
       titleAr,
       titleEn,
@@ -224,9 +237,7 @@ export async function sendAccountingArtifact(
         { labelAr: 'المرجع', labelEn: 'Reference', value: doc.reference },
         { labelAr: 'التاريخ', labelEn: 'Date', value: doc.occurredOn },
         { labelAr: 'المبلغ', labelEn: 'Amount', value: amount },
-        ...(doc.partyName
-          ? [{ labelAr: 'الطرف', labelEn: 'Party', value: doc.partyName }]
-          : []),
+        ...(doc.partyName ? [{ labelAr: 'الطرف', labelEn: 'Party', value: doc.partyName }] : []),
       ],
       link: share,
       linkLabelAr: 'عرض المستند الرسمي',

@@ -7,9 +7,7 @@ import {
 } from '@/lib/stay-deposit-claims';
 import { hasDeposit, maskAccount, type DepositRefundView } from '@/lib/stay-deposit-refund';
 import type { StayBookingPaymentLine } from '@/lib/stay-booking-payments';
-import {
-  stayPaymentKindLabel,
-} from '@/lib/stay-booking-payment-labels';
+import { stayPaymentKindLabel } from '@/lib/stay-booking-payment-labels';
 import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import { stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
@@ -157,9 +155,10 @@ function historyEvent(
       ...base,
       tone: 'warn',
       title: ar ? 'طلب الضيف تعديل التواريخ / الفترة' : 'Guest requested a date / period change',
-      detail: [range ? (ar ? `إلى: ${range}` : `To: ${range}`) : null, stay, extra]
-        .filter(Boolean)
-        .join('\n') || null,
+      detail:
+        [range ? (ar ? `إلى: ${range}` : `To: ${range}`) : null, stay, extra]
+          .filter(Boolean)
+          .join('\n') || null,
     };
   }
   if (reason === 'owner_rejected_reschedule') {
@@ -174,17 +173,15 @@ function historyEvent(
       title: ar ? 'رفض المالك طلب تعديل التواريخ' : 'Host declined the date-change request',
       detail:
         freeText ||
-        (declined
-          ? ar
-            ? `الطلب المرفوض: ${declined}`
-            : `Declined request: ${declined}`
-          : null),
+        (declined ? (ar ? `الطلب المرفوض: ${declined}` : `Declined request: ${declined}`) : null),
     };
   }
-  if (reason === 'owner_approved_reschedule' || reason === 'owner_approved_reschedule_awaiting_payment') {
+  if (
+    reason === 'owner_approved_reschedule' ||
+    reason === 'owner_approved_reschedule_awaiting_payment'
+  ) {
     const awaitingPay = reason === 'owner_approved_reschedule_awaiting_payment';
-    const extra =
-      d?.extraDueMinor && d.extraDueMinor !== '0' ? money(d.extraDueMinor) : null;
+    const extra = d?.extraDueMinor && d.extraDueMinor !== '0' ? money(d.extraDueMinor) : null;
     const range = withTimes(
       dateRange(d?.checkInOn, d?.checkOutOn, d?.stayType) ||
         dateRange(d?.toCheckInOn, d?.toCheckOutOn, d?.toStayType),
@@ -201,17 +198,14 @@ function historyEvent(
         : ar
           ? 'وافق المالك على تعديل التواريخ'
           : 'Host approved the date change',
-      detail: [
-        range ? (ar ? `إلى: ${range}` : `To: ${range}`) : null,
-        stayLabel(d?.stayType ?? d?.toStayType, ar),
-        extra
-          ? ar
-            ? `المبلغ المطلوب: ${extra}`
-            : `Amount due: ${extra}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join('\n') || null,
+      detail:
+        [
+          range ? (ar ? `إلى: ${range}` : `To: ${range}`) : null,
+          stayLabel(d?.stayType ?? d?.toStayType, ar),
+          extra ? (ar ? `المبلغ المطلوب: ${extra}` : `Amount due: ${extra}`) : null,
+        ]
+          .filter(Boolean)
+          .join('\n') || null,
     };
   }
   if (reason === 'guest_rescheduled' || reason === 'reschedule_applied') {
@@ -245,14 +239,15 @@ function historyEvent(
       ...base,
       tone: 'done',
       title: ar ? 'طُبّق تعديل التواريخ / نوع الإقامة' : 'Date / stay-type change applied',
-      detail: [
-        from && to ? (ar ? `من: ${from}\nإلى: ${to}` : `From: ${from}\nTo: ${to}`) : to || from,
-        stayChange,
-        charged,
-        amendment,
-      ]
-        .filter(Boolean)
-        .join('\n') || null,
+      detail:
+        [
+          from && to ? (ar ? `من: ${from}\nإلى: ${to}` : `From: ${from}\nTo: ${to}`) : to || from,
+          stayChange,
+          charged,
+          amendment,
+        ]
+          .filter(Boolean)
+          .join('\n') || null,
     };
   }
   if (reason === 'stay_contract_issued' || reason === 'contract_issued') {
@@ -453,9 +448,7 @@ export function buildStayBookingTimeline(
   const guestReview = facts.reviews.find((review) => review.direction === 'guest_to_host') ?? null;
   const openClaim = facts.claims.find(
     (claim) =>
-      claim.status === 'open' ||
-      claim.status === 'with_accountant' ||
-      claim.status === 'escalated',
+      claim.status === 'open' || claim.status === 'with_accountant' || claim.status === 'escalated',
   );
 
   const events: StayTimelineEvent[] = [];
@@ -463,7 +456,11 @@ export function buildStayBookingTimeline(
     const event = historyEvent(row, index, ar, request, money);
     if (event) events.push(event);
   });
-  if (!facts.history.some((row) => row.toStatus === 'request_pending' || row.reason === 'public_booking_created')) {
+  if (
+    !facts.history.some(
+      (row) => row.toStatus === 'request_pending' || row.reason === 'public_booking_created',
+    )
+  ) {
     events.push({
       key: 'created',
       at: input.createdAt,

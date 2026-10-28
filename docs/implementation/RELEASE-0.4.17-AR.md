@@ -20,7 +20,7 @@
 3. انتظر **Ready**.
 4. في Environment Variables لـ Production تأكد من وجود:
    - `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET_PRIVATE`  
-   **أو** على الأقل Nest Live + `API_INTERNAL_ORIGIN=https://bhd-r.onrender.com`
+     **أو** على الأقل Nest Live + `API_INTERNAL_ORIGIN=https://bhd-r.onrender.com`
 5. حدّث صفحة التعديل بقوة (Ctrl+Shift+R) ثم أعد حفظ صورة واحدة صغيرة.
 
 ## تحقق

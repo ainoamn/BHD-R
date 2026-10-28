@@ -27,11 +27,7 @@ export function LeaseReservationStageBody({
   return (
     <>
       {bookingSummary}
-      <LeaseReservationWorkflow
-        {...workflow}
-        viewing={viewing}
-        onViewingChange={setViewing}
-      />
+      <LeaseReservationWorkflow {...workflow} viewing={viewing} onViewingChange={setViewing} />
       {shownStage === 0 ? bookingDetails : null}
     </>
   );

@@ -719,7 +719,10 @@ export function PropertyManageHub({
                 ) : null}
               </div>
               {offeringSummary.channels.length ? (
-                <div className="ops-channel-badges pmh-offering-badges" aria-label={ar ? 'نوع العرض' : 'Offering'}>
+                <div
+                  className="ops-channel-badges pmh-offering-badges"
+                  aria-label={ar ? 'نوع العرض' : 'Offering'}
+                >
                   {offeringSummary.channels.map((channel) => (
                     <span
                       key={channel}

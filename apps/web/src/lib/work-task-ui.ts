@@ -49,12 +49,7 @@ export function taskNeedsReason(status: string): boolean {
 }
 
 /** Open statuses shown as Kanban columns (closed ones stay list-only). */
-export const TASK_BOARD_COLUMNS = [
-  'pending',
-  'approved',
-  'in_progress',
-  'on_hold',
-] as const;
+export const TASK_BOARD_COLUMNS = ['pending', 'approved', 'in_progress', 'on_hold'] as const;
 
 export function taskDay(value: string | null | undefined): string {
   return value ? value.slice(0, 10) : '';

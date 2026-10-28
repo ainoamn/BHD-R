@@ -17,7 +17,10 @@ const bodySchema = z
     decision: z.enum(['accept', 'reject', 'refer']),
     note: z.string().max(CLAIM_MESSAGE_MAX * 2),
     /** Staff-only (owner→accountant or accountant→owner); never shown to the guest. */
-    internalNote: z.string().max(CLAIM_MESSAGE_MAX * 2).optional(),
+    internalNote: z
+      .string()
+      .max(CLAIM_MESSAGE_MAX * 2)
+      .optional(),
     amount: z.string().max(24).optional(),
   })
   .strict();

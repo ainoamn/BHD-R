@@ -395,8 +395,7 @@ export async function sendDailyReminders(
     for (const [ahead, lines] of offsets) {
       const key = `reminder:collect:${orgId}:${plusDays(today, ahead)}:d${ahead}`;
       if (!fresh(key) || !lines.length) continue;
-      const when =
-        ahead === 0 ? 'اليوم' : ahead === 1 ? 'غداً' : 'بعد يومين';
+      const when = ahead === 0 ? 'اليوم' : ahead === 1 ? 'غداً' : 'بعد يومين';
       run.collections += await notifyByEmail({
         orgId,
         aggregateType: 'organization',

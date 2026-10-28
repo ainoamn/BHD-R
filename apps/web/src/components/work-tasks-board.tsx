@@ -183,11 +183,7 @@ export function WorkTasksBoard({
     (item) => !draft.propertyScopeId || item.propertyId === draft.propertyScopeId,
   );
   const placeChoices =
-    draft.linkKind === 'party'
-      ? parties
-      : draft.linkKind === 'property'
-        ? properties
-        : unitChoices;
+    draft.linkKind === 'party' ? parties : draft.linkKind === 'property' ? properties : unitChoices;
   const selectedUnit = units.find((item) => item.id === draft.linkId);
   const scopedProperty =
     properties.find((item) => item.id === draft.propertyScopeId) ??
@@ -210,7 +206,9 @@ export function WorkTasksBoard({
   const submitCreate = async (andOpen = true) => {
     const title = draft.title.trim();
     if (title.length < 2) {
-      setMessage(ar ? 'اكتب اسم المهمة (حرفان على الأقل).' : 'Enter a task name (at least 2 characters).');
+      setMessage(
+        ar ? 'اكتب اسم المهمة (حرفان على الأقل).' : 'Enter a task name (at least 2 characters).',
+      );
       return;
     }
     if (draft.linkKind === 'unit' && draft.linkId && !draft.propertyScopeId) {
@@ -281,7 +279,9 @@ export function WorkTasksBoard({
       const code = error instanceof ApiError ? error.code : '';
       if (code === 'forbidden') {
         setCanCreate(false);
-        setMessage(ar ? 'ليست لديك صلاحية إنشاء المهام.' : 'You do not have permission to create tasks.');
+        setMessage(
+          ar ? 'ليست لديك صلاحية إنشاء المهام.' : 'You do not have permission to create tasks.',
+        );
       } else {
         setMessage(ar ? 'تعذر إنشاء المهمة.' : 'Could not create the task.');
       }
@@ -296,7 +296,11 @@ export function WorkTasksBoard({
     <section className="task-board" aria-label={ar ? 'المهام' : 'Tasks'}>
       <div className="task-board__toolbar task-board__toolbar--slim">
         <div className="task-board__tools">
-          <div className="task-board__views" role="group" aria-label={ar ? 'طريقة العرض' : 'View mode'}>
+          <div
+            className="task-board__views"
+            role="group"
+            aria-label={ar ? 'طريقة العرض' : 'View mode'}
+          >
             <button
               type="button"
               className={view === 'list' ? 'is-active' : undefined}
@@ -339,7 +343,15 @@ export function WorkTasksBoard({
         </p>
       ) : !shown.length && view === 'list' ? (
         <div className="task-board__hero-empty">
-          <h3>{needle ? (ar ? 'لا مهام مطابقة' : 'No matching tasks') : ar ? 'ابدأ أول مهمة' : 'Start your first task'}</h3>
+          <h3>
+            {needle
+              ? ar
+                ? 'لا مهام مطابقة'
+                : 'No matching tasks'
+              : ar
+                ? 'ابدأ أول مهمة'
+                : 'Start your first task'}
+          </h3>
           <p>
             {needle
               ? ar
@@ -516,13 +528,19 @@ export function WorkTasksBoard({
             />
             <NoteTranslateBar
               value={draft.description}
-              onChange={(next) => setDraft((prev) => ({ ...prev, description: next.slice(0, 4000) }))}
+              onChange={(next) =>
+                setDraft((prev) => ({ ...prev, description: next.slice(0, 4000) }))
+              }
               locale={locale}
               max={4000}
               disabled={busy}
             />
 
-            <div className="task-quick__chips" role="toolbar" aria-label={ar ? 'خصائص المهمة' : 'Task details'}>
+            <div
+              className="task-quick__chips"
+              role="toolbar"
+              aria-label={ar ? 'خصائص المهمة' : 'Task details'}
+            >
               <button
                 type="button"
                 className={chip === 'assignee' || draft.assignedToUserId ? 'is-on' : undefined}
@@ -634,7 +652,9 @@ export function WorkTasksBoard({
                   <input
                     type="date"
                     value={draft.dueAt}
-                    onChange={(event) => setDraft((prev) => ({ ...prev, dueAt: event.target.value }))}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, dueAt: event.target.value }))
+                    }
                   />
                 </label>
               </div>
@@ -666,7 +686,9 @@ export function WorkTasksBoard({
                   <input
                     value={draft.tags}
                     placeholder={ar ? 'صيانة، تحصيل…' : 'maintenance, collection…'}
-                    onChange={(event) => setDraft((prev) => ({ ...prev, tags: event.target.value }))}
+                    onChange={(event) =>
+                      setDraft((prev) => ({ ...prev, tags: event.target.value }))
+                    }
                   />
                 </label>
                 <NoteTranslateBar
@@ -748,13 +770,7 @@ export function WorkTasksBoard({
                 ) : null}
                 <label>
                   <span>
-                    {draft.linkKind === 'unit'
-                      ? ar
-                        ? 'الوحدة'
-                        : 'Unit'
-                      : ar
-                        ? 'الاسم'
-                        : 'Name'}
+                    {draft.linkKind === 'unit' ? (ar ? 'الوحدة' : 'Unit') : ar ? 'الاسم' : 'Name'}
                   </span>
                   <select
                     value={draft.linkId}
@@ -835,7 +851,10 @@ function TaskRow({
         prefetch={false}
       >
         <span className="task-board__name">
-          <i className={`task-priority-flag task-priority-flag--${item.priority}`} aria-hidden="true" />
+          <i
+            className={`task-priority-flag task-priority-flag--${item.priority}`}
+            aria-hidden="true"
+          />
           <i className={`task-status-dot task-status-dot--${item.status}`} aria-hidden="true" />
           <span>
             <strong>{item.title}</strong>

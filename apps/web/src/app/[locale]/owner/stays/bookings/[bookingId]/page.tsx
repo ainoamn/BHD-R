@@ -14,10 +14,7 @@ import { stayBookingBadges } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { getOwnerStayBookingContractOnNeon } from '@/lib/owner-stays-ops-neon';
 import { requireSessionSecret } from '@/lib/runtime-env';
-import {
-  canDecideDepositRefunds,
-  canPayDepositRefunds,
-} from '@/lib/stay-deposit-refund-neon';
+import { canDecideDepositRefunds, canPayDepositRefunds } from '@/lib/stay-deposit-refund-neon';
 import { isStaysPlatformEnabled } from '@/lib/stays-flags';
 
 async function loadPage(bookingId: string): Promise<{

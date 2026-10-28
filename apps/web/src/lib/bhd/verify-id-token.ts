@@ -146,8 +146,7 @@ function toIdentity(payload: JWTPayload): {
   const providers = Array.isArray(payload.providers)
     ? payload.providers.filter(
         (item): item is (typeof AUTH_PROVIDERS)[number] =>
-          typeof item === 'string' &&
-          (AUTH_PROVIDERS as readonly string[]).includes(item),
+          typeof item === 'string' && (AUTH_PROVIDERS as readonly string[]).includes(item),
       )
     : undefined;
   return {

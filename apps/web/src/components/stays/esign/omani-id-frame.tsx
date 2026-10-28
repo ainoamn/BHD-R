@@ -1,12 +1,6 @@
 /** Abstract Omani civil-ID silhouette (ID-1). No personal data. Overlay-friendly translucency. */
 
-export function OmaniIdFrame({
-  side,
-  className,
-}: {
-  side: 'front' | 'back';
-  className?: string;
-}) {
+export function OmaniIdFrame({ side, className }: { side: 'front' | 'back'; className?: string }) {
   if (side === 'back') {
     return (
       <svg
@@ -37,7 +31,14 @@ export function OmaniIdFrame({
           strokeWidth="2"
           strokeDasharray="8 6"
         />
-        <text x="58" y="248" fontSize="28" fill="#e8f2ef" fontFamily="system-ui,sans-serif" opacity="0.85">
+        <text
+          x="58"
+          y="248"
+          fontSize="28"
+          fill="#e8f2ef"
+          fontFamily="system-ui,sans-serif"
+          opacity="0.85"
+        >
           Signature / التوقيع
         </text>
         <rect
@@ -61,10 +62,34 @@ export function OmaniIdFrame({
             opacity="0.55"
           />
         ))}
-        <path d="M40 40 h70 M40 40 v70" stroke="#08a39f" strokeWidth="7" strokeLinecap="round" fill="none" />
-        <path d="M816 40 h-70 M816 40 v70" stroke="#08a39f" strokeWidth="7" strokeLinecap="round" fill="none" />
-        <path d="M40 500 h70 M40 500 v-70" stroke="#08a39f" strokeWidth="7" strokeLinecap="round" fill="none" />
-        <path d="M816 500 h-70 M816 500 v-70" stroke="#08a39f" strokeWidth="7" strokeLinecap="round" fill="none" />
+        <path
+          d="M40 40 h70 M40 40 v70"
+          stroke="#08a39f"
+          strokeWidth="7"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path
+          d="M816 40 h-70 M816 40 v70"
+          stroke="#08a39f"
+          strokeWidth="7"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path
+          d="M40 500 h70 M40 500 v-70"
+          stroke="#08a39f"
+          strokeWidth="7"
+          strokeLinecap="round"
+          fill="none"
+        />
+        <path
+          d="M816 500 h-70 M816 500 v-70"
+          stroke="#08a39f"
+          strokeWidth="7"
+          strokeLinecap="round"
+          fill="none"
+        />
       </svg>
     );
   }
@@ -90,7 +115,14 @@ export function OmaniIdFrame({
       <rect x="8" y="90" width="840" height="36" fill="rgb(8 163 159 / 0.35)" />
       <circle cx="780" cy="62" r="28" fill="rgb(244 240 232 / 0.55)" />
       <circle cx="780" cy="62" r="18" fill="none" stroke="#f4f0e8" strokeWidth="3" />
-      <text x="40" y="58" fontSize="26" fill="#f4f0e8" fontFamily="system-ui,sans-serif" fontWeight="700">
+      <text
+        x="40"
+        y="58"
+        fontSize="26"
+        fill="#f4f0e8"
+        fontFamily="system-ui,sans-serif"
+        fontWeight="700"
+      >
         سلطنة عُمان
       </text>
       <text x="40" y="92" fontSize="18" fill="#d7ebe8" fontFamily="system-ui,sans-serif">
@@ -109,17 +141,55 @@ export function OmaniIdFrame({
       />
       <circle cx="715" cy="230" r="42" fill="rgb(197 213 208 / 0.35)" />
       <ellipse cx="715" cy="330" rx="58" ry="48" fill="rgb(197 213 208 / 0.28)" />
-      <rect x="48" y="170" width="72" height="56" rx="8" fill="rgb(212 175 55 / 0.55)" stroke="#d4af37" strokeWidth="2" />
-      <path d="M60 184 h48 M60 198 h48 M60 212 h48" stroke="#f4f0e8" strokeWidth="2" opacity="0.7" />
+      <rect
+        x="48"
+        y="170"
+        width="72"
+        height="56"
+        rx="8"
+        fill="rgb(212 175 55 / 0.55)"
+        stroke="#d4af37"
+        strokeWidth="2"
+      />
+      <path
+        d="M60 184 h48 M60 198 h48 M60 212 h48"
+        stroke="#f4f0e8"
+        strokeWidth="2"
+        opacity="0.7"
+      />
       <rect x="150" y="175" width="430" height="28" rx="6" fill="rgb(255 255 255 / 0.22)" />
       <rect x="150" y="220" width="380" height="22" rx="6" fill="rgb(255 255 255 / 0.16)" />
       <rect x="150" y="260" width="400" height="22" rx="6" fill="rgb(255 255 255 / 0.16)" />
       <rect x="150" y="300" width="300" height="22" rx="6" fill="rgb(255 255 255 / 0.14)" />
       <rect x="150" y="360" width="430" height="70" rx="10" fill="rgb(255 255 255 / 0.12)" />
-      <path d="M40 40 h70 M40 40 v70" stroke="#f4f0e8" strokeWidth="7" strokeLinecap="round" fill="none" />
-      <path d="M816 40 h-70 M816 40 v70" stroke="#f4f0e8" strokeWidth="7" strokeLinecap="round" fill="none" />
-      <path d="M40 500 h70 M40 500 v-70" stroke="#08a39f" strokeWidth="7" strokeLinecap="round" fill="none" />
-      <path d="M816 500 h-70 M816 500 v-70" stroke="#08a39f" strokeWidth="7" strokeLinecap="round" fill="none" />
+      <path
+        d="M40 40 h70 M40 40 v70"
+        stroke="#f4f0e8"
+        strokeWidth="7"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M816 40 h-70 M816 40 v70"
+        stroke="#f4f0e8"
+        strokeWidth="7"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M40 500 h70 M40 500 v-70"
+        stroke="#08a39f"
+        strokeWidth="7"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M816 500 h-70 M816 500 v-70"
+        stroke="#08a39f"
+        strokeWidth="7"
+        strokeLinecap="round"
+        fill="none"
+      />
     </svg>
   );
 }
@@ -143,12 +213,53 @@ export function SelfiePortraitFrame({ className }: { className?: string }) {
         strokeWidth="5"
         strokeDasharray="14 10"
       />
-      <circle cx="150" cy="140" r="58" fill="none" stroke="#f4f0e8" strokeWidth="3" opacity="0.75" />
-      <ellipse cx="150" cy="270" rx="78" ry="70" fill="none" stroke="#f4f0e8" strokeWidth="3" opacity="0.55" />
-      <path d="M30 30 h50 M30 30 v50" stroke="#08a39f" strokeWidth="5" strokeLinecap="round" fill="none" />
-      <path d="M270 30 h-50 M270 30 v50" stroke="#08a39f" strokeWidth="5" strokeLinecap="round" fill="none" />
-      <path d="M30 370 h50 M30 370 v-50" stroke="#08a39f" strokeWidth="5" strokeLinecap="round" fill="none" />
-      <path d="M270 370 h-50 M270 370 v-50" stroke="#08a39f" strokeWidth="5" strokeLinecap="round" fill="none" />
+      <circle
+        cx="150"
+        cy="140"
+        r="58"
+        fill="none"
+        stroke="#f4f0e8"
+        strokeWidth="3"
+        opacity="0.75"
+      />
+      <ellipse
+        cx="150"
+        cy="270"
+        rx="78"
+        ry="70"
+        fill="none"
+        stroke="#f4f0e8"
+        strokeWidth="3"
+        opacity="0.55"
+      />
+      <path
+        d="M30 30 h50 M30 30 v50"
+        stroke="#08a39f"
+        strokeWidth="5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M270 30 h-50 M270 30 v50"
+        stroke="#08a39f"
+        strokeWidth="5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M30 370 h50 M30 370 v-50"
+        stroke="#08a39f"
+        strokeWidth="5"
+        strokeLinecap="round"
+        fill="none"
+      />
+      <path
+        d="M270 370 h-50 M270 370 v-50"
+        stroke="#08a39f"
+        strokeWidth="5"
+        strokeLinecap="round"
+        fill="none"
+      />
     </svg>
   );
 }

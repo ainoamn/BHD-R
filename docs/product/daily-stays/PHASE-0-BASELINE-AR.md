@@ -5,11 +5,11 @@
 
 ## قنوات العرض الحالية (لا تتغير في المرحلة 0)
 
-| القناة | آلية العرض | ملاحظات |
-| ------ | ---------- | ------- |
-| بيع | `units.listing_purpose` ∈ `sale` \| `both` | كتالوج `/properties` |
-| إيجار طويل | `listing_purpose` ∈ `rent` \| `both` + availability | حجز → عقد |
-| إقامة يومية | **غير موجودة** | Feature Flags مغلقة؛ لا `/stays` |
+| القناة      | آلية العرض                                          | ملاحظات                          |
+| ----------- | --------------------------------------------------- | -------------------------------- |
+| بيع         | `units.listing_purpose` ∈ `sale` \| `both`          | كتالوج `/properties`             |
+| إيجار طويل  | `listing_purpose` ∈ `rent` \| `both` + availability | حجز → عقد                        |
+| إقامة يومية | **غير موجودة**                                      | Feature Flags مغلقة؛ لا `/stays` |
 
 قيد القاعدة: `units_listing_purpose_check` يسمح فقط `rent` / `sale` / `both` — **لا `daily`**.
 

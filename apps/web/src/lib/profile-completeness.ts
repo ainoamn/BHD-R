@@ -124,15 +124,18 @@ export function missingPersonFields(person: CompletenessPerson | null | undefine
   if (blank(person.email)) out.push(missing('email', 'البريد الإلكتروني', 'Email', 'tenant'));
   else if (!person.emailVerified) {
     out.push(
-      missing('email_verified', 'تأكيد البريد الإلكتروني (رمز OTP)', 'Email verified (OTP)', 'tenant'),
+      missing(
+        'email_verified',
+        'تأكيد البريد الإلكتروني (رمز OTP)',
+        'Email verified (OTP)',
+        'tenant',
+      ),
     );
   }
   if (blank(person.civilId))
     out.push(missing('civil_id', 'الرقم المدني / البطاقة', 'Civil ID number', 'tenant'));
   if (!isoOk(person.civilIdExpiresOn)) {
-    out.push(
-      missing('civil_id_expiry', 'تاريخ انتهاء البطاقة', 'Civil ID expiry date', 'tenant'),
-    );
+    out.push(missing('civil_id_expiry', 'تاريخ انتهاء البطاقة', 'Civil ID expiry date', 'tenant'));
   }
   if (!hasCopy(person.civilIdCopy)) {
     out.push(missing('civil_id_copy', 'نسخة من البطاقة', 'Civil ID copy', 'tenant'));
@@ -141,9 +144,7 @@ export function missingPersonFields(person: CompletenessPerson | null | undefine
     if (blank(person.passport))
       out.push(missing('passport', 'رقم الجواز', 'Passport number', 'tenant'));
     if (!isoOk(person.passportExpiresOn)) {
-      out.push(
-        missing('passport_expiry', 'تاريخ انتهاء الجواز', 'Passport expiry date', 'tenant'),
-      );
+      out.push(missing('passport_expiry', 'تاريخ انتهاء الجواز', 'Passport expiry date', 'tenant'));
     }
     if (!hasCopy(person.passportCopy)) {
       out.push(missing('passport_copy', 'نسخة من الجواز', 'Passport copy', 'tenant'));
@@ -152,10 +153,7 @@ export function missingPersonFields(person: CompletenessPerson | null | undefine
   return out;
 }
 
-function missingSignatoryFields(
-  row: CompletenessSignatory,
-  index: number,
-): MissingField[] {
+function missingSignatoryFields(row: CompletenessSignatory, index: number): MissingField[] {
   const tag = index + 1;
   const out: MissingField[] = [];
   if (blank(row.name))
@@ -178,7 +176,12 @@ function missingSignatoryFields(
   if (omani) {
     if (blank(row.civilId)) {
       out.push(
-        missing(`sig${tag}_civil`, `بطاقة المفوّض ${tag}`, `Signatory ${tag} civil ID`, 'signatory'),
+        missing(
+          `sig${tag}_civil`,
+          `بطاقة المفوّض ${tag}`,
+          `Signatory ${tag} civil ID`,
+          'signatory',
+        ),
       );
     }
     if (!isoOk(row.civilIdExpiresOn)) {
@@ -254,9 +257,12 @@ export function missingCompanyFields(
     out.push(missing('cr_expiry', 'تاريخ انتهاء السجل', 'CR expiry date', 'company'));
   if (!hasCopy(company.crCopy))
     out.push(missing('cr_copy', 'نسخة السجل التجاري', 'CR document copy', 'company'));
-  if (blank(company.phone)) out.push(missing('company_phone', 'هاتف الشركة', 'Company phone', 'company'));
+  if (blank(company.phone))
+    out.push(missing('company_phone', 'هاتف الشركة', 'Company phone', 'company'));
   if (blank(company.altPhone))
-    out.push(missing('company_alt_phone', 'هاتف بديل للشركة', 'Company alternate phone', 'company'));
+    out.push(
+      missing('company_alt_phone', 'هاتف بديل للشركة', 'Company alternate phone', 'company'),
+    );
   if (blank(company.email))
     out.push(missing('company_email', 'بريد الشركة', 'Company email', 'company'));
   else if (!company.emailVerified) {
@@ -275,7 +281,12 @@ export function missingCompanyFields(
     out.push(missing('activity', 'النشاط', 'Business activity', 'company'));
   if (company.signingMode !== 'single' && company.signingMode !== 'joint') {
     out.push(
-      missing('signing_mode', 'طريقة التوقيع (منفرد / متحد)', 'Signing mode (single / joint)', 'company'),
+      missing(
+        'signing_mode',
+        'طريقة التوقيع (منفرد / متحد)',
+        'Signing mode (single / joint)',
+        'company',
+      ),
     );
   }
   const signatories = company.signatories ?? [];
@@ -284,12 +295,8 @@ export function missingCompanyFields(
     out.push(
       missing(
         'signatories_count',
-        company.signingMode === 'joint'
-          ? 'مفوّضان على الأقل للتوقيع المتحد'
-          : 'مفوّض بالتوقيع',
-        company.signingMode === 'joint'
-          ? 'At least two joint signatories'
-          : 'Authorized signatory',
+        company.signingMode === 'joint' ? 'مفوّضان على الأقل للتوقيع المتحد' : 'مفوّض بالتوقيع',
+        company.signingMode === 'joint' ? 'At least two joint signatories' : 'Authorized signatory',
         'signatory',
       ),
     );
@@ -309,14 +316,11 @@ export function missingOwnerFields(owner: CompletenessOwner | null | undefined):
     out.push(missing('owner_name', 'اسم المالك', 'Owner name', 'owner'));
   if (blank(owner.civilId))
     out.push(missing('owner_civil_id', 'الرقم المدني للمالك', 'Owner civil ID', 'owner'));
-  if (blank(owner.phone))
-    out.push(missing('owner_phone', 'هاتف المالك', 'Owner phone', 'owner'));
+  if (blank(owner.phone)) out.push(missing('owner_phone', 'هاتف المالك', 'Owner phone', 'owner'));
   if (!owner.civilIdCopy)
     out.push(missing('owner_civil_copy', 'نسخة بطاقة المالك', 'Owner ID copy', 'owner'));
   if (!isoOk(owner.civilIdExpiresOn)) {
-    out.push(
-      missing('owner_civil_expiry', 'انتهاء بطاقة المالك', 'Owner ID expiry', 'owner'),
-    );
+    out.push(missing('owner_civil_expiry', 'انتهاء بطاقة المالك', 'Owner ID expiry', 'owner'));
   }
   if (owner.isAgent) {
     if (!owner.hasPowerOfAttorney) {
@@ -350,7 +354,8 @@ export function missingBuildingFields(
   if (blank(building.governorate))
     out.push(missing('governorate', 'المحافظة', 'Governorate', 'building'));
   if (blank(building.wilayat)) out.push(missing('wilayat', 'الولاية', 'Wilayat', 'building'));
-  if (blank(building.city)) out.push(missing('city', 'المدينة / القرية', 'City / village', 'building'));
+  if (blank(building.city))
+    out.push(missing('city', 'المدينة / القرية', 'City / village', 'building'));
   if (blank(building.mapsUrl))
     out.push(missing('maps_url', 'رابط خرائط جوجل', 'Google Maps link', 'building'));
   return out;

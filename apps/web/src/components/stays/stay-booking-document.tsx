@@ -110,13 +110,7 @@ export function StayBookingDocument({
     : new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
         dateStyle: 'medium',
       }).format(new Date());
-  const issuerName = issuer
-    ? ar
-      ? issuer.nameAr
-      : issuer.nameEn
-    : ar
-      ? 'BHD R'
-      : 'BHD R';
+  const issuerName = issuer ? (ar ? issuer.nameAr : issuer.nameEn) : ar ? 'BHD R' : 'BHD R';
   const docNumber = payment
     ? `${booking.referenceCode}-P${String(payment.sequence).padStart(2, '0')}`
     : booking.referenceCode;
@@ -284,9 +278,7 @@ export function StayBookingDocument({
               <div>
                 <dt>{ar ? 'الموقّع' : 'Signed by'}</dt>
                 <dd>
-                  {ar
-                    ? `${issuerName} — عبر منصة BHD R`
-                    : `${issuerName} — via the BHD R platform`}
+                  {ar ? `${issuerName} — عبر منصة BHD R` : `${issuerName} — via the BHD R platform`}
                 </dd>
               </div>
               <div>

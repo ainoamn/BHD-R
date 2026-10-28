@@ -86,9 +86,7 @@ const hashToken = (token: string) => createHash('sha256').update(token).digest('
 function sanitizeRelativeReturnPath(value: string | null | undefined): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  if (
-    !/^\/(ar|en)(\/[A-Za-z0-9._~-]{1,64}){1,6}(\?[A-Za-z0-9._~=&%-]{0,200})?$/.test(trimmed)
-  ) {
+  if (!/^\/(ar|en)(\/[A-Za-z0-9._~-]{1,64}){1,6}(\?[A-Za-z0-9._~=&%-]{0,200})?$/.test(trimmed)) {
     return null;
   }
   return trimmed;

@@ -47,9 +47,7 @@ export async function POST(request: Request) {
       return NextResponse.json({
         journal: await reverseJournal(claims, id, muscatToday(), body.note, {
           refundConfirmed: Boolean(body.refundConfirmed),
-          ...(body.approvalId && UUID.test(body.approvalId)
-            ? { approvalId: body.approvalId }
-            : {}),
+          ...(body.approvalId && UUID.test(body.approvalId) ? { approvalId: body.approvalId } : {}),
         }),
       });
     }
@@ -59,13 +57,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: { code: 'invalid_input' } }, { status: 400 });
       }
       return NextResponse.json({
-        journal: await approveAndReverseJournal(
-          claims,
-          id,
-          approvalId,
-          muscatToday(),
-          body.note,
-        ),
+        journal: await approveAndReverseJournal(claims, id, approvalId, muscatToday(), body.note),
       });
     }
     if (body.action === 'void' && body.kind === 'invoice') {

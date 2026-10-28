@@ -191,8 +191,7 @@ export function LeaseRenewalForm({
         },
       }));
       const defaultBank =
-        (computed.terms.chequeBankName || payload.terms.chequeBankName || '').trim() ||
-        'Bank';
+        (computed.terms.chequeBankName || payload.terms.chequeBankName || '').trim() || 'Bank';
       const leaseShort = context.lease.id.replace(/-/g, '').slice(0, 8).toUpperCase();
       const cheques =
         computed.terms.paymentMethod === 'cheque'
@@ -216,8 +215,14 @@ export function LeaseRenewalForm({
           : [];
 
       // Compact terms only — avoid huge payloads (photos / noise) that break the BFF.
-      const { meters, schedule, vatCheques, adjustments: termAdjustments, totals, ...termRest } =
-        computed.terms;
+      const {
+        meters,
+        schedule,
+        vatCheques,
+        adjustments: termAdjustments,
+        totals,
+        ...termRest
+      } = computed.terms;
       const leanLeaseTerms = {
         ...termRest,
         meters: {
@@ -303,7 +308,8 @@ export function LeaseRenewalForm({
                   ? ar
                     ? 'ليست لديك صلاحية إنشاء ملحق التجديد.'
                     : 'You do not have permission to create a renewal.'
-                  : code === 'renewal_duplicate' || /unique|duplicate/i.test(`${code} ${caught.message}`)
+                  : code === 'renewal_duplicate' ||
+                      /unique|duplicate/i.test(`${code} ${caught.message}`)
                     ? ar
                       ? 'تعذّر الحفظ بسبب تكرار — حدّث الصفحة وأعد المحاولة.'
                       : 'Save failed due to a duplicate — refresh and retry.'

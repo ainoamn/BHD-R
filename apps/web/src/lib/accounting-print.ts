@@ -14,7 +14,11 @@ function currentAccountingReturn(): string | null {
 }
 
 /** Hub return URL with focus/open so Back highlights the printed row. */
-function returnWithFocus(kind: AccountingPrintKind, id: string, from: string | null): string | null {
+function returnWithFocus(
+  kind: AccountingPrintKind,
+  id: string,
+  from: string | null,
+): string | null {
   const base = from ?? '/owner/accounting';
   if (!base.startsWith('/owner/accounting')) return from;
   const qIndex = base.indexOf('?');

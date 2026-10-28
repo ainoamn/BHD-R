@@ -16,18 +16,18 @@
 
 ## الملفات الرئيسية
 
-| مسار | دور |
-| --- | --- |
-| `apps/web/src/components/stays/stay-checkout.tsx` | ألوان، prefill، تحويل دفع تلقائي |
-| `apps/web/src/app/globals.css` | CSS tones/chips |
-| `apps/web/src/app/[locale]/stays/[slug]/book/page.tsx` | تمرير بيانات المشاهد |
-| `apps/web/src/app/[locale]/stays/booking/confirmed/page.tsx` | ألوان + رابط الإيصال |
-| `apps/web/src/app/[locale]/stays/booking/receipt/` | صفحة الإيصال + زر طباعة PDF |
-| `apps/web/src/lib/public-stays-booking-neon.ts` | حفظ `guestContact` + stayType في snapshot |
-| `apps/web/src/lib/public-stays-payment-neon.ts` | طابور إيميل بعد تأكيد الدفع |
-| `apps/web/src/lib/public-stays-guest-neon.ts` | إسقاط بيانات الإيصال من الحجز |
-| `packages/contracts/src/stays/schemas.ts` | `guestEmail` / `guestPhone` اختياريان |
-| `apps/api/src/stays/stays-booking.service.ts` | نفس حقول الضيف على Nest |
+| مسار                                                         | دور                                       |
+| ------------------------------------------------------------ | ----------------------------------------- |
+| `apps/web/src/components/stays/stay-checkout.tsx`            | ألوان، prefill، تحويل دفع تلقائي          |
+| `apps/web/src/app/globals.css`                               | CSS tones/chips                           |
+| `apps/web/src/app/[locale]/stays/[slug]/book/page.tsx`       | تمرير بيانات المشاهد                      |
+| `apps/web/src/app/[locale]/stays/booking/confirmed/page.tsx` | ألوان + رابط الإيصال                      |
+| `apps/web/src/app/[locale]/stays/booking/receipt/`           | صفحة الإيصال + زر طباعة PDF               |
+| `apps/web/src/lib/public-stays-booking-neon.ts`              | حفظ `guestContact` + stayType في snapshot |
+| `apps/web/src/lib/public-stays-payment-neon.ts`              | طابور إيميل بعد تأكيد الدفع               |
+| `apps/web/src/lib/public-stays-guest-neon.ts`                | إسقاط بيانات الإيصال من الحجز             |
+| `packages/contracts/src/stays/schemas.ts`                    | `guestEmail` / `guestPhone` اختياريان     |
+| `apps/api/src/stays/stays-booking.service.ts`                | نفس حقول الضيف على Nest                   |
 
 ## تحقق يدوي
 

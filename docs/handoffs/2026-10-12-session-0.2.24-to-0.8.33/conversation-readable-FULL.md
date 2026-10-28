@@ -13,15 +13,17 @@
 ## 1. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://github.com/ainoamn/BHD-R
 Website Title: GitHub - ainoamn/BHD-R · GitHub
 Website Content:
-Skip to content 
+Skip to content
 
 ## Navigation Menu
 
@@ -29,88 +31,88 @@ Sign in
 
 Appearance settings
 
-* Platform  
-   * AI CODE CREATION  
-         * GitHub CopilotWrite better code with AI  
-         * GitHub Copilot appDirect agents from issue to merge  
-         * MCP RegistryIntegrate external tools  
-   * DEVELOPER WORKFLOWS  
-         * ActionsAutomate any workflow  
-         * CodespacesInstant dev environments  
-         * IssuesPlan and track work  
-         * Code ReviewManage code changes  
-         * Code QualityEnforce quality at merge  
-   * APPLICATION SECURITY  
-         * GitHub Advanced SecurityFind and fix vulnerabilities  
-         * Code securitySecure your code as you build  
-         * Secret protectionStop leaks before they start  
-   * EXPLORE  
-         * Why GitHub  
-         * Documentation  
-         * Blog  
-         * Changelog  
-         * Marketplace  
-View all features
-* Solutions  
-   * BY COMPANY SIZE  
-         * Enterprises  
-         * Small and medium teams  
-         * Startups  
-         * Nonprofits  
-   * BY USE CASE  
-         * App Modernization  
-         * DevSecOps  
-         * DevOps  
-         * CI/CD  
-         * View all use cases  
-   * BY INDUSTRY  
-         * Healthcare  
-         * Financial services  
-         * Manufacturing  
-         * Government  
-         * View all industries  
-View all solutions
-* Resources  
-   * EXPLORE BY TOPIC  
-         * AI  
-         * Software Development  
-         * DevOps  
-         * Security  
-         * View all topics  
-   * EXPLORE BY TYPE  
-         * Customer stories  
-         * Events & webinars  
-         * Ebooks & reports  
-         * Business insights  
-         * GitHub Skills  
-   * SUPPORT & SERVICES  
-         * Documentation  
-         * Customer support  
-         * Community forum  
-         * Trust center  
-         * Partners  
-View all resources
-* Open Source  
-   * COMMUNITY  
-         * GitHub SponsorsFund open source developers  
-   * PROGRAMS  
-         * Security Lab  
-         * Maintainer Community  
-         * Accelerator  
-         * GitHub Stars  
-         * Archive Program  
-   * REPOSITORIES  
-         * Topics  
-         * Trending  
-         * Collections
-* Enterprise  
-   * ENTERPRISE SOLUTIONS  
-         * Enterprise platformAI-powered developer platform  
-   * AVAILABLE ADD-ONS  
-         * GitHub Advanced SecurityEnterprise-grade security features  
-         * Copilot for BusinessEnterprise-grade AI features  
-         * Premium SupportEnterprise-grade 24/7 support
-* Pricing
+- Platform
+  - AI CODE CREATION  
+    * GitHub CopilotWrite better code with AI  
+    * GitHub Copilot appDirect agents from issue to merge  
+    * MCP RegistryIntegrate external tools
+  - DEVELOPER WORKFLOWS  
+    * ActionsAutomate any workflow  
+    * CodespacesInstant dev environments  
+    * IssuesPlan and track work  
+    * Code ReviewManage code changes  
+    * Code QualityEnforce quality at merge
+  - APPLICATION SECURITY  
+    * GitHub Advanced SecurityFind and fix vulnerabilities  
+    * Code securitySecure your code as you build  
+    * Secret protectionStop leaks before they start
+  - EXPLORE  
+    * Why GitHub  
+    * Documentation  
+    * Blog  
+    * Changelog  
+    * Marketplace  
+    View all features
+- Solutions
+  - BY COMPANY SIZE  
+    * Enterprises  
+    * Small and medium teams  
+    * Startups  
+    * Nonprofits
+  - BY USE CASE  
+    * App Modernization  
+    * DevSecOps  
+    * DevOps  
+    * CI/CD  
+    * View all use cases
+  - BY INDUSTRY  
+    * Healthcare  
+    * Financial services  
+    * Manufacturing  
+    * Government  
+    * View all industries  
+    View all solutions
+- Resources
+  - EXPLORE BY TOPIC  
+    * AI  
+    * Software Development  
+    * DevOps  
+    * Security  
+    * View all topics
+  - EXPLORE BY TYPE  
+    * Customer stories  
+    * Events & webinars  
+    * Ebooks & reports  
+    * Business insights  
+    * GitHub Skills
+  - SUPPORT & SERVICES  
+    * Documentation  
+    * Customer support  
+    * Community forum  
+    * Trust center  
+    * Partners  
+    View all resources
+- Open Source
+  - COMMUNITY  
+    * GitHub SponsorsFund open source developers
+  - PROGRAMS  
+    * Security Lab  
+    * Maintainer Community  
+    * Accelerator  
+    * GitHub Stars  
+    * Archive Program
+  - REPOSITORIES  
+    * Topics  
+    * Trending  
+    * Collections
+- Enterprise
+  - ENTERPRISE SOLUTIONS  
+    * Enterprise platformAI-powered developer platform
+  - AVAILABLE ADD-ONS  
+    * GitHub Advanced SecurityEnterprise-grade security features  
+    * Copilot for BusinessEnterprise-grade AI features  
+    * Premium SupportEnterprise-grade 24/7 support
+- Pricing
 
 Search/
 
@@ -120,33 +122,33 @@ Sign up
 
 Appearance settings
 
-You signed in with another tab or window. Reload to refresh your session. You signed out in another tab or window. Reload to refresh your session. You switched accounts on another tab or window. Reload to refresh your session. Dismiss alert 
+You signed in with another tab or window. Reload to refresh your session. You signed out in another tab or window. Reload to refresh your session. You switched accounts on another tab or window. Reload to refresh your session. Dismiss alert
 
 {{ message }}
 
- ainoamn / **BHD-R** Public 
+ainoamn / **BHD-R** Public
 
-* Notifications You must be signed in to change notification settings
-* Fork0
-* Star 0
+- Notifications You must be signed in to change notification settings
+- Fork0
+- Star 0
 
-* Code
-* Issues 0
-* Pull requests 12
-* Actions
-* Projects
-* Security and quality 0
-* Insights
+- Code
+- Issues 0
+- Pull requests 12
+- Actions
+- Projects
+- Security and quality 0
+- Insights
 
-Additional navigation options 
+Additional navigation options
 
-* Code
-* Issues
-* Pull requests
-* Actions
-* Projects
-* Security and quality
-* Insights
+- Code
+- Issues
+- Pull requests
+- Actions
+- Projects
+- Security and quality
+- Insights
 
 main
 
@@ -170,44 +172,44 @@ Open more actions menu
 
 | Name                                                                                                              | Name                                                                                                              | Last commit message | Last commit date |
 | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------- | ---------------- |
-| [.github](/ainoamn/BHD-R/tree/main/.github ".github")                                                             | [.github](/ainoamn/BHD-R/tree/main/.github ".github")                                                             |                     |                  |
-| [apps](/ainoamn/BHD-R/tree/main/apps "apps")                                                                      | [apps](/ainoamn/BHD-R/tree/main/apps "apps")                                                                      |                     |                  |
-| [docker/postgres/init](/ainoamn/BHD-R/tree/main/docker/postgres/init "This path skips through empty directories") | [docker/postgres/init](/ainoamn/BHD-R/tree/main/docker/postgres/init "This path skips through empty directories") |                     |                  |
-| [docs](/ainoamn/BHD-R/tree/main/docs "docs")                                                                      | [docs](/ainoamn/BHD-R/tree/main/docs "docs")                                                                      |                     |                  |
-| [packages](/ainoamn/BHD-R/tree/main/packages "packages")                                                          | [packages](/ainoamn/BHD-R/tree/main/packages "packages")                                                          |                     |                  |
-| [scripts](/ainoamn/BHD-R/tree/main/scripts "scripts")                                                             | [scripts](/ainoamn/BHD-R/tree/main/scripts "scripts")                                                             |                     |                  |
-| [.dockerignore](/ainoamn/BHD-R/blob/main/.dockerignore ".dockerignore")                                           | [.dockerignore](/ainoamn/BHD-R/blob/main/.dockerignore ".dockerignore")                                           |                     |                  |
-| [.editorconfig](/ainoamn/BHD-R/blob/main/.editorconfig ".editorconfig")                                           | [.editorconfig](/ainoamn/BHD-R/blob/main/.editorconfig ".editorconfig")                                           |                     |                  |
-| [.env.example](/ainoamn/BHD-R/blob/main/.env.example ".env.example")                                              | [.env.example](/ainoamn/BHD-R/blob/main/.env.example ".env.example")                                              |                     |                  |
-| [.gitattributes](/ainoamn/BHD-R/blob/main/.gitattributes ".gitattributes")                                        | [.gitattributes](/ainoamn/BHD-R/blob/main/.gitattributes ".gitattributes")                                        |                     |                  |
-| [.gitignore](/ainoamn/BHD-R/blob/main/.gitignore ".gitignore")                                                    | [.gitignore](/ainoamn/BHD-R/blob/main/.gitignore ".gitignore")                                                    |                     |                  |
-| [.npmrc](/ainoamn/BHD-R/blob/main/.npmrc ".npmrc")                                                                | [.npmrc](/ainoamn/BHD-R/blob/main/.npmrc ".npmrc")                                                                |                     |                  |
-| [.prettierignore](/ainoamn/BHD-R/blob/main/.prettierignore ".prettierignore")                                     | [.prettierignore](/ainoamn/BHD-R/blob/main/.prettierignore ".prettierignore")                                     |                     |                  |
-| [.prettierrc.json](/ainoamn/BHD-R/blob/main/.prettierrc.json ".prettierrc.json")                                  | [.prettierrc.json](/ainoamn/BHD-R/blob/main/.prettierrc.json ".prettierrc.json")                                  |                     |                  |
-| [.vercelignore](/ainoamn/BHD-R/blob/main/.vercelignore ".vercelignore")                                           | [.vercelignore](/ainoamn/BHD-R/blob/main/.vercelignore ".vercelignore")                                           |                     |                  |
-| [CHANGELOG.md](/ainoamn/BHD-R/blob/main/CHANGELOG.md "CHANGELOG.md")                                              | [CHANGELOG.md](/ainoamn/BHD-R/blob/main/CHANGELOG.md "CHANGELOG.md")                                              |                     |                  |
-| [CONTRIBUTING.md](/ainoamn/BHD-R/blob/main/CONTRIBUTING.md "CONTRIBUTING.md")                                     | [CONTRIBUTING.md](/ainoamn/BHD-R/blob/main/CONTRIBUTING.md "CONTRIBUTING.md")                                     |                     |                  |
-| [Dockerfile.api](/ainoamn/BHD-R/blob/main/Dockerfile.api "Dockerfile.api")                                        | [Dockerfile.api](/ainoamn/BHD-R/blob/main/Dockerfile.api "Dockerfile.api")                                        |                     |                  |
-| [Dockerfile.migrate](/ainoamn/BHD-R/blob/main/Dockerfile.migrate "Dockerfile.migrate")                            | [Dockerfile.migrate](/ainoamn/BHD-R/blob/main/Dockerfile.migrate "Dockerfile.migrate")                            |                     |                  |
-| [Dockerfile.web](/ainoamn/BHD-R/blob/main/Dockerfile.web "Dockerfile.web")                                        | [Dockerfile.web](/ainoamn/BHD-R/blob/main/Dockerfile.web "Dockerfile.web")                                        |                     |                  |
-| [Dockerfile.worker](/ainoamn/BHD-R/blob/main/Dockerfile.worker "Dockerfile.worker")                               | [Dockerfile.worker](/ainoamn/BHD-R/blob/main/Dockerfile.worker "Dockerfile.worker")                               |                     |                  |
-| [README.md](/ainoamn/BHD-R/blob/main/README.md "README.md")                                                       | [README.md](/ainoamn/BHD-R/blob/main/README.md "README.md")                                                       |                     |                  |
-| [SECURITY.md](/ainoamn/BHD-R/blob/main/SECURITY.md "SECURITY.md")                                                 | [SECURITY.md](/ainoamn/BHD-R/blob/main/SECURITY.md "SECURITY.md")                                                 |                     |                  |
-| [docker-compose.yml](/ainoamn/BHD-R/blob/main/docker-compose.yml "docker-compose.yml")                            | [docker-compose.yml](/ainoamn/BHD-R/blob/main/docker-compose.yml "docker-compose.yml")                            |                     |                  |
-| [eslint.config.mjs](/ainoamn/BHD-R/blob/main/eslint.config.mjs "eslint.config.mjs")                               | [eslint.config.mjs](/ainoamn/BHD-R/blob/main/eslint.config.mjs "eslint.config.mjs")                               |                     |                  |
-| [package.json](/ainoamn/BHD-R/blob/main/package.json "package.json")                                              | [package.json](/ainoamn/BHD-R/blob/main/package.json "package.json")                                              |                     |                  |
-| [pnpm-lock.yaml](/ainoamn/BHD-R/blob/main/pnpm-lock.yaml "pnpm-lock.yaml")                                        | [pnpm-lock.yaml](/ainoamn/BHD-R/blob/main/pnpm-lock.yaml "pnpm-lock.yaml")                                        |                     |                  |
-| [pnpm-workspace.yaml](/ainoamn/BHD-R/blob/main/pnpm-workspace.yaml "pnpm-workspace.yaml")                         | [pnpm-workspace.yaml](/ainoamn/BHD-R/blob/main/pnpm-workspace.yaml "pnpm-workspace.yaml")                         |                     |                  |
-| [render.yaml](/ainoamn/BHD-R/blob/main/render.yaml "render.yaml")                                                 | [render.yaml](/ainoamn/BHD-R/blob/main/render.yaml "render.yaml")                                                 |                     |                  |
-| [tsconfig.base.json](/ainoamn/BHD-R/blob/main/tsconfig.base.json "tsconfig.base.json")                            | [tsconfig.base.json](/ainoamn/BHD-R/blob/main/tsconfig.base.json "tsconfig.base.json")                            |                     |                  |
-| [turbo.json](/ainoamn/BHD-R/blob/main/turbo.json "turbo.json")                                                    | [turbo.json](/ainoamn/BHD-R/blob/main/turbo.json "turbo.json")                                                    |                     |                  |
+| [.github](/ainoamn/BHD-R/tree/main/.github '.github')                                                             | [.github](/ainoamn/BHD-R/tree/main/.github '.github')                                                             |                     |                  |
+| [apps](/ainoamn/BHD-R/tree/main/apps 'apps')                                                                      | [apps](/ainoamn/BHD-R/tree/main/apps 'apps')                                                                      |                     |                  |
+| [docker/postgres/init](/ainoamn/BHD-R/tree/main/docker/postgres/init 'This path skips through empty directories') | [docker/postgres/init](/ainoamn/BHD-R/tree/main/docker/postgres/init 'This path skips through empty directories') |                     |                  |
+| [docs](/ainoamn/BHD-R/tree/main/docs 'docs')                                                                      | [docs](/ainoamn/BHD-R/tree/main/docs 'docs')                                                                      |                     |                  |
+| [packages](/ainoamn/BHD-R/tree/main/packages 'packages')                                                          | [packages](/ainoamn/BHD-R/tree/main/packages 'packages')                                                          |                     |                  |
+| [scripts](/ainoamn/BHD-R/tree/main/scripts 'scripts')                                                             | [scripts](/ainoamn/BHD-R/tree/main/scripts 'scripts')                                                             |                     |                  |
+| [.dockerignore](/ainoamn/BHD-R/blob/main/.dockerignore '.dockerignore')                                           | [.dockerignore](/ainoamn/BHD-R/blob/main/.dockerignore '.dockerignore')                                           |                     |                  |
+| [.editorconfig](/ainoamn/BHD-R/blob/main/.editorconfig '.editorconfig')                                           | [.editorconfig](/ainoamn/BHD-R/blob/main/.editorconfig '.editorconfig')                                           |                     |                  |
+| [.env.example](/ainoamn/BHD-R/blob/main/.env.example '.env.example')                                              | [.env.example](/ainoamn/BHD-R/blob/main/.env.example '.env.example')                                              |                     |                  |
+| [.gitattributes](/ainoamn/BHD-R/blob/main/.gitattributes '.gitattributes')                                        | [.gitattributes](/ainoamn/BHD-R/blob/main/.gitattributes '.gitattributes')                                        |                     |                  |
+| [.gitignore](/ainoamn/BHD-R/blob/main/.gitignore '.gitignore')                                                    | [.gitignore](/ainoamn/BHD-R/blob/main/.gitignore '.gitignore')                                                    |                     |                  |
+| [.npmrc](/ainoamn/BHD-R/blob/main/.npmrc '.npmrc')                                                                | [.npmrc](/ainoamn/BHD-R/blob/main/.npmrc '.npmrc')                                                                |                     |                  |
+| [.prettierignore](/ainoamn/BHD-R/blob/main/.prettierignore '.prettierignore')                                     | [.prettierignore](/ainoamn/BHD-R/blob/main/.prettierignore '.prettierignore')                                     |                     |                  |
+| [.prettierrc.json](/ainoamn/BHD-R/blob/main/.prettierrc.json '.prettierrc.json')                                  | [.prettierrc.json](/ainoamn/BHD-R/blob/main/.prettierrc.json '.prettierrc.json')                                  |                     |                  |
+| [.vercelignore](/ainoamn/BHD-R/blob/main/.vercelignore '.vercelignore')                                           | [.vercelignore](/ainoamn/BHD-R/blob/main/.vercelignore '.vercelignore')                                           |                     |                  |
+| [CHANGELOG.md](/ainoamn/BHD-R/blob/main/CHANGELOG.md 'CHANGELOG.md')                                              | [CHANGELOG.md](/ainoamn/BHD-R/blob/main/CHANGELOG.md 'CHANGELOG.md')                                              |                     |                  |
+| [CONTRIBUTING.md](/ainoamn/BHD-R/blob/main/CONTRIBUTING.md 'CONTRIBUTING.md')                                     | [CONTRIBUTING.md](/ainoamn/BHD-R/blob/main/CONTRIBUTING.md 'CONTRIBUTING.md')                                     |                     |                  |
+| [Dockerfile.api](/ainoamn/BHD-R/blob/main/Dockerfile.api 'Dockerfile.api')                                        | [Dockerfile.api](/ainoamn/BHD-R/blob/main/Dockerfile.api 'Dockerfile.api')                                        |                     |                  |
+| [Dockerfile.migrate](/ainoamn/BHD-R/blob/main/Dockerfile.migrate 'Dockerfile.migrate')                            | [Dockerfile.migrate](/ainoamn/BHD-R/blob/main/Dockerfile.migrate 'Dockerfile.migrate')                            |                     |                  |
+| [Dockerfile.web](/ainoamn/BHD-R/blob/main/Dockerfile.web 'Dockerfile.web')                                        | [Dockerfile.web](/ainoamn/BHD-R/blob/main/Dockerfile.web 'Dockerfile.web')                                        |                     |                  |
+| [Dockerfile.worker](/ainoamn/BHD-R/blob/main/Dockerfile.worker 'Dockerfile.worker')                               | [Dockerfile.worker](/ainoamn/BHD-R/blob/main/Dockerfile.worker 'Dockerfile.worker')                               |                     |                  |
+| [README.md](/ainoamn/BHD-R/blob/main/README.md 'README.md')                                                       | [README.md](/ainoamn/BHD-R/blob/main/README.md 'README.md')                                                       |                     |                  |
+| [SECURITY.md](/ainoamn/BHD-R/blob/main/SECURITY.md 'SECURITY.md')                                                 | [SECURITY.md](/ainoamn/BHD-R/blob/main/SECURITY.md 'SECURITY.md')                                                 |                     |                  |
+| [docker-compose.yml](/ainoamn/BHD-R/blob/main/docker-compose.yml 'docker-compose.yml')                            | [docker-compose.yml](/ainoamn/BHD-R/blob/main/docker-compose.yml 'docker-compose.yml')                            |                     |                  |
+| [eslint.config.mjs](/ainoamn/BHD-R/blob/main/eslint.config.mjs 'eslint.config.mjs')                               | [eslint.config.mjs](/ainoamn/BHD-R/blob/main/eslint.config.mjs 'eslint.config.mjs')                               |                     |                  |
+| [package.json](/ainoamn/BHD-R/blob/main/package.json 'package.json')                                              | [package.json](/ainoamn/BHD-R/blob/main/package.json 'package.json')                                              |                     |                  |
+| [pnpm-lock.yaml](/ainoamn/BHD-R/blob/main/pnpm-lock.yaml 'pnpm-lock.yaml')                                        | [pnpm-lock.yaml](/ainoamn/BHD-R/blob/main/pnpm-lock.yaml 'pnpm-lock.yaml')                                        |                     |                  |
+| [pnpm-workspace.yaml](/ainoamn/BHD-R/blob/main/pnpm-workspace.yaml 'pnpm-workspace.yaml')                         | [pnpm-workspace.yaml](/ainoamn/BHD-R/blob/main/pnpm-workspace.yaml 'pnpm-workspace.yaml')                         |                     |                  |
+| [render.yaml](/ainoamn/BHD-R/blob/main/render.yaml 'render.yaml')                                                 | [render.yaml](/ainoamn/BHD-R/blob/main/render.yaml 'render.yaml')                                                 |                     |                  |
+| [tsconfig.base.json](/ainoamn/BHD-R/blob/main/tsconfig.base.json 'tsconfig.base.json')                            | [tsconfig.base.json](/ainoamn/BHD-R/blob/main/tsconfig.base.json 'tsconfig.base.json')                            |                     |                  |
+| [turbo.json](/ainoamn/BHD-R/blob/main/turbo.json 'turbo.json')                                                    | [turbo.json](/ainoamn/BHD-R/blob/main/turbo.json 'turbo.json')                                                    |                     |                  |
 | View all files                                                                                                    |                                                                                                                   |                     |                  |
 
 ## Repository files navigation
 
-* README
-* Contributing
-* Security
+- README
+- Contributing
+- Security
 
 More items
 
@@ -251,9 +253,9 @@ More items
 
 ## المتطلبات
 
-* Node.js 24+
-* pnpm 10+
-* Docker 28+ (لبيئة التطوير المتكاملة)
+- Node.js 24+
+- pnpm 10+
+- Docker 28+ (لبيئة التطوير المتكاملة)
 
 ## تشغيل سريع
 
@@ -266,18 +268,18 @@ pnpm dev
 
 للتطوير عبر HTTP المحلي غيّر `COOKIE_SECURE=false` في `.env`. اتركه `true` في staging والإنتاج. ويمكن تشغيل المنظومة كلها بالحاويات عبر `docker compose --profile app up -d --build`؛ عندها تطبق خدمة migration المخطط، ثم تنشئ حسابات التشغيل غير فائقة الصلاحية قبل بدء التطبيقات.
 
-* الواجهة: `http://localhost:3000`
-* API: `http://localhost:4000/v1`
-* توثيق API: docs/API\_OVERVIEW.md
-* Health: `http://localhost:4000/health/ready`
+- الواجهة: `http://localhost:3000`
+- API: `http://localhost:4000/v1`
+- توثيق API: docs/API\_OVERVIEW.md
+- Health: `http://localhost:4000/health/ready`
 
 راجع `docs/` للتصميم، الأمان، التشغيل، النشر، والهجرة.
 
 ## التطبيقات
 
-* `apps/web`: الموقع العام واللوحات الأربع (المنصة، المالك، المطور، المستأجر).
-* `apps/api`: الـ API المركزية، الدخول الموحد، الصلاحيات، والمعاملات.
-* `apps/worker`: الصور والعلامة المائية وPDF والإشعارات والمهام الخلفية.
+- `apps/web`: الموقع العام واللوحات الأربع (المنصة، المالك، المطور، المستأجر).
+- `apps/api`: الـ API المركزية، الدخول الموحد، الصلاحيات، والمعاملات.
+- `apps/worker`: الصور والعلامة المائية وPDF والإشعارات والمهام الخلفية.
 
 ## فحوص التسليم
 
@@ -333,27 +335,28 @@ Report repository
 
 ## Footer
 
- © 2026 GitHub, Inc. 
+© 2026 GitHub, Inc.
 
 ### Footer navigation
 
-* Terms
-* Privacy
-* Security
-* Status
-* Community
-* Docs
-* Contact
-* Manage cookies
-* Do not share my personal information
+- Terms
+- Privacy
+- Security
+- Status
+- Community
+- Docs
+- Contact
+- Manage cookies
+- Do not share my personal information
 
- You can’t perform that action at this time.
-____
+You can’t perform that action at this time.
+
+---
 
 </external_links>
 <timestamp>Tuesday, Aug 25, 2026, 8:34 PM (UTC+4)</timestamp>
 <user_query>
-اسحب المستودع كاملا https://github.com/ainoamn/BHD-R 
+اسحب المستودع كاملا https://github.com/ainoamn/BHD-R
 </user_query>
 
 ---
@@ -392,7 +395,7 @@ Git غير موجود في PATH. أبحث عن تثبيته أو بدائل.
 
 <timestamp>Tuesday, Aug 25, 2026, 8:36 PM (UTC+4)</timestamp>
 <user_query>
-ما اخر ما قمنا به في هذا الموقع 
+ما اخر ما قمنا به في هذا الموقع
 </user_query>
 
 ---
@@ -422,7 +425,7 @@ Git غير موجود في PATH. أبحث عن تثبيته أو بدائل.
 
 <timestamp>Tuesday, Aug 25, 2026, 8:40 PM (UTC+4)</timestamp>
 <user_query>
-بعد اخر تحديث الذي اجريناه  صفحه التحكم غير متناسقه مع الهاتف كذلك القائمه الجانبيه تبقى ثابته لا تختفي 
+بعد اخر تحديث الذي اجريناه صفحه التحكم غير متناسقه مع الهاتف كذلك القائمه الجانبيه تبقى ثابته لا تختفي
 </user_query>
 
 ---
@@ -447,6 +450,7 @@ Git غير موجود في PATH. أبحث عن تثبيته أو بدائل.
 2. **لوحة التحكم غير متناسقة:** الهيرو والمقاييس والاختصارات لم تكن تتكيّف جيداً مع عرض الهاتف.
 
 **ما تغيّر الآن:**
+
 - القائمة درج منزلق: مخفية افتراضياً، تُفتح من ☰ وتُغلق بالخلفية أو × أو Escape
 - المحتوى بعرض كامل على الهاتف بدون عمود فارغ بجانب الصفحة
 - لوحة التحكم: ترتيب عمودي، أزرار أوضح، مقاييس وتنبيهات أنسب للشاشات الصغيرة
@@ -485,6 +489,7 @@ Git غير موجود في PATH. أبحث عن تثبيته أو بدائل.
 **الإصدار:** `0.2.23`
 
 **ما شُمل:**
+
 - إصلاح درج القائمة ولوحة التحكم على الجوال
 - تحديث `CHANGELOG.md` و`README.md` و`package.json`
 - توثيق في `PORTAL-DASHBOARD-AR.md` و`PORTAL-CHROME-AR.md`
@@ -498,6 +503,7 @@ Vercel يبني من `main` تلقائياً (Root: `apps/web`). بعد اكتم
 [Image]
 <image_files>
 The following images were provided by the user and saved to the workspace for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-212764ae-a43d-45e4-9f77-4156f274e092.png
 
 These images can be copied for use in other locations.
@@ -551,12 +557,14 @@ These images can be copied for use in other locations.
 سبب **Failed to fetch** عند الحفظ: المتصفح كان يرفع الصور مباشرة إلى S3/MinIO، بينما سياسة الأمان في الموقع (`connect-src 'self'`) تمنع ذلك فيظهر الخطأ العام.
 
 **ما تم إصلاحه (0.2.24 — `00ca5df`):**
+
 - رفع الملفات عبر Nest برمز مؤقت (`/v1/media/ingress/...`) بدل S3 من المتصفح
 - السماح باتصال Nest في CSP
 - رسائل خطأ أوضح بالعربية
 - تسخين الـ API عند فتح المعالج
 
 **مهم للنشر:**
+
 1. انتظر اكتمال نشر **Vercel** من `main`
 2. أعد نشر **Nest على Render** (هذا التغيير يحتاج الـ API أيضاً)
 3. على Render تأكد من `PUBLIC_NEST_ORIGIN=https://bhd-r.onrender.com` (أو الاعتماد على `RENDER_EXTERNAL_URL`)
@@ -571,6 +579,7 @@ These images can be copied for use in other locations.
 [Image]
 <image_files>
 The following images were provided by the user and saved to the workspace for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-6c29df66-ad46-4585-bab9-c2fdf60b97c6.png
 
 These images can be copied for use in other locations.
@@ -578,7 +587,7 @@ These images can be copied for use in other locations.
 <timestamp>Tuesday, Aug 25, 2026, 9:11 PM (UTC+4)</timestamp>
 <user_query>
 ما زالت نفس الاشكالية Failed to fetch
-كذلك يوجد الكثير من اخطا البنا على Render 
+كذلك يوجد الكثير من اخطا البنا على Render
 Deploy failed for 00ca5df: Fix property save Failed to fetch via Nest media ingress and CSP.
 Exited with status 1 while building your code. Check your deploy logs for more information.
 August 25, 2026 at 9:00 PM
@@ -704,14 +713,17 @@ August 25, 2026 at 5:20 PM
 سبب استمرار **Failed to fetch** أن **Nest على Render لم يتحدّث أصلاً** منذ `2deea1b` — كل عمليات النشر بعده كانت تفشل في البناء.
 
 **سبب فشل البناء (من CI):**
+
 ```
 origin: corsOriginDelegate  // نمط Express callback
 ```
+
 لا يتوافق مع أنواع Nest/Fastify → `nest build` يخرج بخطأ TS2322، فيفشل Docker على Render وCI.
 
 **الإصلاح (`6e5b607` — 0.2.25):** استبدالها بـ `resolveCorsOrigin` المتوافق مع Nest. البناء المحلي نجح.
 
 **ماذا تفعل الآن:**
+
 1. في Render انتظر اكتمال Deploy لـ `6e5b607` حتى يصبح **Live** (ليس Failed)
 2. تأكد أن Vercel نشر أيضاً من `main`
 3. أعد تجربة حفظ العقار
@@ -724,7 +736,7 @@ origin: corsOriginDelegate  // نمط Express callback
 
 <timestamp>Tuesday, Aug 25, 2026, 9:30 PM (UTC+4)</timestamp>
 <user_query>
-ارفع كل شي ووثق كل شي و انشر كل شي 
+ارفع كل شي ووثق كل شي و انشر كل شي
 </user_query>
 
 ---
@@ -746,6 +758,7 @@ origin: corsOriginDelegate  // نمط Express callback
 تم الرفع والتوثيق والنشر على `main`.
 
 **آخر commits:**
+
 - `6e5b607` — إصلاح بناء Nest/Render (CORS)
 - `efed4c0` — توثيق النشر الكامل
 
@@ -755,6 +768,7 @@ origin: corsOriginDelegate  // نمط Express callback
 **حالة البناء:** صورة Docker للـ API نجحت في CI (`containers api => success`) — هذا ما كان يكسر Render.
 
 **ما عليك التحقق منه في اللوحات:**
+
 1. **Render** → Deploy لـ `6e5b607` أو `efed4c0` يصبح **Live**
 2. **Vercel** → Deployment من `main` = Ready
 3. جرّب حفظ عقار من `/ar/owner/properties/new`
@@ -801,7 +815,7 @@ origin: corsOriginDelegate  // نمط Express callback
 
 <timestamp>Tuesday, Aug 25, 2026, 9:33 PM (UTC+4)</timestamp>
 <user_query>
-لماذا التنقل بين الصفحات او حفظ عقار جديد ياخذ ما يزيد الى 80 ثانيه المفترض عند فتح الموقع اول مره كل شي يتحمل مره واحده ويكون التنقل بين الصفات و الاجزا وكانه تنقل في نفس الصفحه سلس وسريع  عدل و ارفع ووثق و انشر 
+لماذا التنقل بين الصفحات او حفظ عقار جديد ياخذ ما يزيد الى 80 ثانيه المفترض عند فتح الموقع اول مره كل شي يتحمل مره واحده ويكون التنقل بين الصفات و الاجزا وكانه تنقل في نفس الصفحه سلس وسريع عدل و ارفع ووثق و انشر
 </user_query>
 
 ---
@@ -825,6 +839,7 @@ origin: corsOriginDelegate  // نمط Express callback
 **لماذا كان بطيئاً (~80ث):** Nest على Render ينام ثم يستيقظ ببطء، كل نقرة كانت تعيد فحص الصحة وجلب الصفحة كاملة، روابط `<a>` تعيد تحميل الموقع، والحفظ يطلب CSRF ويرفع الصور واحداً تلو الآخر.
 
 **ما تغيّر:**
+
 - إبقاء Nest دافئاً أثناء فتح البوابة (`/api/warm`)
 - تنقل بـ `Link` + prefetch وكاش عميل (كأنك في نفس الصفحة)
 - CSRF مرة واحدة ثم إعادة استخدامه
@@ -839,6 +854,7 @@ origin: corsOriginDelegate  // نمط Express callback
 [Image]
 <image_files>
 The following images were provided by the user and saved to the workspace for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-22c72098-a478-4816-999b-104cae641c37.png
 
 These images can be copied for use in other locations.
@@ -871,12 +887,14 @@ Nest على Render متوقف فعلياً (502) — الرسالة صحيحة. 
 الرسالة **صحيحة**: الواجهة مضبوطة، لكن **Nest على Render متوقف حالياً**.
 
 فحص مباشر الآن:
+
 - `https://bhd-r.onrender.com/health/ready` → لا يرد (timeout / اتصال يُقطع)
 - `/api/warm` من الموقع → `ok: false` مع 502
 
 لذلك تظهر «تعذّر الوصول» ولا توجد سجلات.
 
 **ما تفعله في Render (الآن):**
+
 1. افتح خدمة Nest (تبويب Render عندك)
 2. **Logs** — ابحث عن crash أو `Invalid environment`
 3. **Manual Deploy** لأحدث `main` (بعد `6e5b607`) وانتظر حتى تصبح **Live**
@@ -943,6 +961,7 @@ Nest على Render متوقف فعلياً (502) — الرسالة صحيحة. 
 [Image]
 <image_files>
 The following images were provided by the user and saved to the workspace for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-f093f5fe-f726-430b-bc31-de2464241fe0.png
 2. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-4ef2f8bb-e5c1-4f9d-85f5-014324f9d45e.png
 
@@ -975,6 +994,7 @@ These images can be copied for use in other locations.
 **ما تم رفعه (`4f17580`):** فشل سريع + رسالة عربية توضح أن المشكلة في Render، بدل الانتظار الطويل.
 
 **حتى ينجح الحفظ فعلياً** يجب أن يعمل Nest:
+
 1. Render → Manual Deploy / Restart حتى تصبح **Live**
 2. افتح: https://bhd-r.onrender.com/health/ready → يجب أن يظهر `ready`
 3. بعدها احفظ العقار من جديد
@@ -987,7 +1007,7 @@ These images can be copied for use in other locations.
 
 <timestamp>Monday, Aug 31, 2026, 7:58 PM (UTC+4)</timestamp>
 <user_query>
-اسحب كل شي من المستودع 
+اسحب كل شي من المستودع
 </user_query>
 
 ---
@@ -1008,7 +1028,7 @@ These images can be copied for use in other locations.
 
 <timestamp>Monday, Aug 31, 2026, 8:00 PM (UTC+4)</timestamp>
 <user_query>
-ما اخر ما تم رفعه و تحديثه وتوثيقه و الساعه كم 
+ما اخر ما تم رفعه و تحديثه وتوثيقه و الساعه كم
 </user_query>
 
 ---
@@ -1017,13 +1037,13 @@ These images can be copied for use in other locations.
 
 آخر ما على `main` اليوم **31 آب 2026** (توقيت مسقط +0400):
 
-| الوقت | Commit | المحتوى |
-|------|--------|---------|
-| **19:38** | `76f0966` | توثيق فشل lockfile على Vercel لفرع `feat/stays-phase-0` |
+| الوقت     | Commit    | المحتوى                                                                               |
+| --------- | --------- | ------------------------------------------------------------------------------------- |
+| **19:38** | `76f0966` | توثيق فشل lockfile على Vercel لفرع `feat/stays-phase-0`                               |
 | **19:33** | `8b8297c` | **0.4.13** — إصلاح عرض الكتالوج على الجوال (قائمة/شبكة/جدول) + `RELEASE-0.4.13-AR.md` |
-| **19:27** | `23e429d` | **0.4.12** — إصلاح CSRF للعقارات، الأرشيف/الاستعادة/الحذف النهائي |
-| **19:14** | `bb9605e` | **0.4.11** — تصدير iCal للإقامات |
-| **19:04** | `04468a7` | **0.4.10** — إلغاء / عدم حضور لحجوزات الإقامة |
+| **19:27** | `23e429d` | **0.4.12** — إصلاح CSRF للعقارات، الأرشيف/الاستعادة/الحذف النهائي                     |
+| **19:14** | `bb9605e` | **0.4.11** — تصدير iCal للإقامات                                                      |
+| **19:04** | `04468a7` | **0.4.10** — إلغاء / عدم حضور لحجوزات الإقامة                                         |
 
 **آخر رفع فعلي للمنتج:** **0.4.13** الساعة **19:33**.  
 **آخر توثيق في المستودع:** الساعة **19:38** (ملاحظة Vercel lockfile).
@@ -1034,8 +1054,8 @@ These images can be copied for use in other locations.
 
 <timestamp>Monday, Aug 31, 2026, 8:05 PM (UTC+4)</timestamp>
 <user_query>
-بعد التحديثات الاخيره توجد الكثير من الاخطاء 
-اريد تقريرا كاملا بالعمل الذي تم من الساعه 5 الى الان 
+بعد التحديثات الاخيره توجد الكثير من الاخطاء
+اريد تقريرا كاملا بالعمل الذي تم من الساعه 5 الى الان
 </user_query>
 
 ---
@@ -1044,8 +1064,8 @@ These images can be copied for use in other locations.
 
 <timestamp>Monday, Aug 31, 2026, 8:05 PM (UTC+4)</timestamp>
 <user_query>
-بعد التحديثات الاخيره توجد الكثير من الاخطاء 
-اريد تقريرا كاملا بالعمل الذي تم من الساعه 5 الى الان 
+بعد التحديثات الاخيره توجد الكثير من الاخطاء
+اريد تقريرا كاملا بالعمل الذي تم من الساعه 5 الى الان
 </user_query>
 
 ---
@@ -1067,6 +1087,7 @@ These images can be copied for use in other locations.
 من **17:00 إلى 19:38** اليوم شُحن على `main` **19 commit** (~**+10 600** سطر، **137** ملف) من **0.3.10** إلى **0.4.13**. التقرير التفصيلي مع الجدول الزمني مفتوح في الـ canvas بجانب المحادثة.
 
 ### ماذا حدث؟
+
 1. **17:01** — إصلاح جلسة التسويق (`0.3.10`): الهيدر يقرأ Next `/api/auth/me` بدل Nest.
 2. **17:18–19:14** — سلسلة **Stays** كاملة خلف Feature Flags: مخطط DB، أقفال، بحث/حجز/دفع، لوحة عمليات، تقارير، إلغاء/no-show، iCal (`0.4.0` → `0.4.11`).
 3. **19:27** — **`0.4.12`**: إصلاح CSRF العقارات + أرشيف/استعادة/حذف نهائي (مشاكل كانت موثّقة في `KNOWN-ISSUES-PROPERTY-PORTFOLIO-AR`).
@@ -1074,7 +1095,9 @@ These images can be copied for use in other locations.
 5. **19:38** — توثيق فشل Vercel بسبب lockfile قديم على فرع قديم.
 
 ### لماذا «أخطاء كثيرة» بعد التحديث؟
+
 الشحن كان كثيفاً جداً في أقل من 3 ساعات. الأرجح تشغيلياً وليس بالضرورة كوداً مكسوراً على tip:
+
 - Nest على Render نائم/غير Live → 502 / CSRF / فشل حفظ
 - هجرات Stays `0015`/`0016` غير مطبّقة إن فُعّلت الأعلام
 - CSRF_SECRET غير متطابق بين Vercel و Render (عولج منطقياً في 0.4.12 — يحتاج نشر فعلي)
@@ -1089,26 +1112,31 @@ These images can be copied for use in other locations.
 [Image]
 [Image]
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/properties
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-ec489b4d-7ee2-4422-a3b9-f06cce2eb945.png
 2. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-41fe19df-e5a9-44f3-8752-8e03f423890c.png
 
@@ -1118,12 +1146,12 @@ These files can be read with tools, copied to other locations, or attached to su
 <user_query>
 الخطا الاول ان عند تقيم عقار يظهر هذا الخطا تعذّر حفظ التقييم. سجّل الدخول وحاول مجدداً.
 
-عندما افتح https://r.bhd-om.com/ar/owner/properties  يتاخر حتى يجلب العقارات حتى 30 ثانيه 
-الترجمه المباشره بين اللغات في https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit  لا تعمل كذلك عند رفع صور للعقار 
-عند اضافه او تعديل عقار جديد يظهر  لي خطا عند رفع الصور ولاكن العقار يتم حفظه تم تحديث العقار، لكن رفع الصور فشل: Failed to fetch. أعد رفع الصور من التعديل.
+عندما افتح https://r.bhd-om.com/ar/owner/properties يتاخر حتى يجلب العقارات حتى 30 ثانيه
+الترجمه المباشره بين اللغات في https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit لا تعمل كذلك عند رفع صور للعقار
+عند اضافه او تعديل عقار جديد يظهر لي خطا عند رفع الصور ولاكن العقار يتم حفظه تم تحديث العقار، لكن رفع الصور فشل: Failed to fetch. أعد رفع الصور من التعديل.
 
 تم تحديث العقار، لكن رفع الصور فشل: Failed to fetch. أعد رفع الصور من التعديل.
-كذلك عند الحفظ ياخذ اكثر من 30 الى 60 ثانيه حتى يتم الحفظ 
+كذلك عند الحفظ ياخذ اكثر من 30 الى 60 ثانيه حتى يتم الحفظ
 
 </user_query>
 
@@ -1146,18 +1174,22 @@ These files can be read with tools, copied to other locations, or attached to su
 حدّدت الأسباب الأربعة وأصلحتها محلياً في **0.4.14** (لم يُدفع بعد إلى الإنتاج).
 
 ### 1) التقييم يطلب «سجّل الدخول»
+
 الواجهة كانت تستدعي `browserMutation` (مسارات Nest) على `/api/public/reviews` فيفشل فوراً.  
 الإصلاح: `browserNextMutation` مع CSRF من Vercel.
 
 ### 2) رفع الصور → `Failed to fetch` + بانرين بنفس النص
+
 الرفع كان يمرّ عبر Nest ingress مع سباق CSRF، فتنتهي مهلة الطلب ويظهر `Failed to fetch`. والحفظ نفسه عبر Neon ينجح.  
 الإصلاح: رفع المالك عبر `/api/owner/media` → R2/Neon فقط، وإظهار خطأ واحد فقط (بدون بانر أخضر مكرر).
 
 ### 3) الترجمة لا تعمل
+
 تسخين CSRF لـ Nest عند فتح المعالج كان يكتب فوق كوكي الحماية ويُفشل `/api/translate`.  
 الإصلاح: إيقاف تسخين Nest CSRF؛ إعادة سكّ رمز Next قبل الترجمة + إعادة محاولة عند 403.
 
 ### 4) قائمة العقارات ~30 ثانية
+
 التحميل كان ينتظر استعلام سياق ثقيل مع مهلة عميل قصيرة.  
 الإصلاح: جلب القائمة أولاً، ومهلة سياق 1.8ث، وتسخين قسم العقارات أولاً.
 
@@ -1171,7 +1203,7 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Monday, Aug 31, 2026, 8:19 PM (UTC+4)</timestamp>
 <user_query>
-حل كل المشاكل و ارفع ووثق و انشر ادمج 
+حل كل المشاكل و ارفع ووثق و انشر ادمج
 </user_query>
 
 ---
@@ -1192,14 +1224,15 @@ These files can be read with tools, copied to other locations, or attached to su
 
 تم. الإصلاحات على `main` ومنشورة على GitHub.
 
-| | |
-|---|---|
-| الإصدار | **0.4.14** |
-| Commits | `d4c4ece` + `085e680` |
-| الفرع | `main` ← `origin/main` |
+|         |                                                       |
+| ------- | ----------------------------------------------------- |
+| الإصدار | **0.4.14**                                            |
+| Commits | `d4c4ece` + `085e680`                                 |
+| الفرع   | `main` ← `origin/main`                                |
 | التوثيق | `CHANGELOG.md` · `RELEASE-0.4.14-AR.md` · `STATUS.md` |
 
 **ما دخل الإنتاج بعد نشر Vercel:**
+
 - إصلاح التقييم (Next CSRF)
 - رفع الصور عبر Neon/R2 بدون `Failed to fetch`
 - إصلاح الترجمة وسباق CSRF
@@ -1331,25 +1364,28 @@ github/ainoamn
 هذه القائمة من لوحة مشروع **`bhd-r-api`** على **Vercel** (الويب → `r.bhd-om.com`)، وليست بالضرورة فشل Nest Docker.
 
 ### الوضع الآن
-| فحص | النتيجة |
-|------|---------|
-| بناء `@bhd-r/api` محلياً | ناجح |
-| بناء `@bhd-r/web` محلياً | ناجح |
-| Nest `healthz` | `nestReady: true` |
-| Nest `health/ready` | DB ok |
-| الموقع | HTTP 200 |
+
+| فحص                      | النتيجة           |
+| ------------------------ | ----------------- |
+| بناء `@bhd-r/api` محلياً | ناجح              |
+| بناء `@bhd-r/web` محلياً | ناجح              |
+| Nest `healthz`           | `nestReady: true` |
+| Nest `health/ready`      | DB ok             |
+| الموقع                   | HTTP 200          |
 
 ### تفسير الأخطاء التي أرسلتها
-| السطر | السبب |
-|-------|--------|
-| Preview `feat/stays-phase-0` (~10ث) | lockfile قديم — موثّق مسبقاً |
-| Preview dependabot | تحديثات حزم على فروع منفصلة — لا تلمس Production |
-| Production `92b0b1c` (0.4.1) Error | نشر قديم تجاوزه `main` الحالي (0.4.14) |
-| `6e8feb6` Error ثم Ready | إعادة محاولة نجحت |
+
+| السطر                               | السبب                                            |
+| ----------------------------------- | ------------------------------------------------ |
+| Preview `feat/stays-phase-0` (~10ث) | lockfile قديم — موثّق مسبقاً                     |
+| Preview dependabot                  | تحديثات حزم على فروع منفصلة — لا تلمس Production |
+| Production `92b0b1c` (0.4.1) Error  | نشر قديم تجاوزه `main` الحالي (0.4.14)           |
+| `6e8feb6` Error ثم Ready            | إعادة محاولة نجحت                                |
 
 الكود الحالي يبني بنجاح؛ الأخطاء المعروضة تاريخية/فروع معاينة.
 
 ### ماذا فعلت
+
 دفعت `2624fde` على `main` مع توثيق التشخيص في `NEST-API-HOSTING.md` — هذا يعيد تشغيل نشر Production من آخر commit.
 
 في Vercel: تأكد أن Environment Production يتتبع **`main`** فقط، وتجاهل/احذف Preview على `feat/*` و dependabot. إن بقي Error أحمر على آخر `main`، افتح الـ log وأرسله لأصلحه فوراً.
@@ -1359,22 +1395,25 @@ github/ainoamn
 ## 80. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Aug 31, 2026, 8:30 PM (UTC+4)</timestamp>
 <user_query>
-https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit  ما زالت الترجمه لا تعمل 
-رفع الصور نفس الملاحظه يعطيني 
+https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit ما زالت الترجمه لا تعمل
+رفع الصور نفس الملاحظه يعطيني
 </user_query>
 
 ---
@@ -1402,8 +1441,9 @@ https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/ed
 السبب: إصلاحات 0.4.14 **لم تصل للإنتاج** لأن نشر Vercel كان يفشل (اشتراط Node ≥24 بينما Vercel على Node 22)، فبقي الموقع على بناء قديم.
 
 ### ما أُصلح الآن في **0.4.15** (`fb0a74d`)
+
 1. **نشر Vercel:** تخفيف `engines` + `engine-strict=false` حتى ينجح التثبيت.
-2. **الترجمة:** Google أولاً (جرّبناها: «شقة فاخرة في المعبيلة» → *Luxury apartment in Maabilah*) بدل MyMemory الضعيف.
+2. **الترجمة:** Google أولاً (جرّبناها: «شقة فاخرة في المعبيلة» → _Luxury apartment in Maabilah_) بدل MyMemory الضعيف.
 3. **رفع الصور:** إعادة بناء FormData لكل محاولة (Bug كان يفرّغ الطلب عند إعادة المحاولة) + رفع صورة بصوره + ضغط أقوى.
 
 انتظر حتى يظهر نشر Production **Ready** على Vercel لـ `fb0a74d`، ثم حدّث الصفحة بقوة وجرّب من جديد على [صفحة التعديل](https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit).
@@ -1415,16 +1455,18 @@ https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/ed
 ## 85. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://dashboard.render.com/web/srv-d9gu4tvlk1mc738lgnm0/events
 Website Title: Render · The Easiest Cloud For All Your Apps
 Website Content:
 
-____
+---
 
 </external_links>
 <timestamp>Monday, Aug 31, 2026, 8:35 PM (UTC+4)</timestamp>
@@ -1574,7 +1616,7 @@ Deploy failed for 4db68cf: Notify guests on resto order cancel and harden delive
 Exited with status 1 while building your code. Check your deploy logs for more information.
 July 28, 2026 at 8:58 PM
 
-كل الاشياء اعلاه فيها اخطا على https://dashboard.render.com/web/srv-d9gu4tvlk1mc738lgnm0/events 
+كل الاشياء اعلاه فيها اخطا على https://dashboard.render.com/web/srv-d9gu4tvlk1mc738lgnm0/events
 </user_query>
 
 ---
@@ -1591,20 +1633,22 @@ July 28, 2026 at 8:58 PM
 
 أنت تفتح خدمة Render أخرى:
 
-| | الخدمة التي فتحتها | خدمة BHD-R الصحيحة |
-|---|---|---|
-| الرابط | [`srv-d9gu4tvlk1mc738lgnm0`](https://dashboard.render.com/web/srv-d9gu4tvlk1mc738lgnm0/events) | `srv-da6nrmm7bikc739638og` |
-| المحتوى | Prisma، Nasab، مطعم، POS، WhatsApp، `bhd_sub` | Nest API لعقارات BHD-R |
-| Commits مثل `f84acdb` | موجودة في ذلك المستودع | **غير موجودة** في `BHD-R` |
+|                       | الخدمة التي فتحتها                                                                             | خدمة BHD-R الصحيحة         |
+| --------------------- | ---------------------------------------------------------------------------------------------- | -------------------------- |
+| الرابط                | [`srv-d9gu4tvlk1mc738lgnm0`](https://dashboard.render.com/web/srv-d9gu4tvlk1mc738lgnm0/events) | `srv-da6nrmm7bikc739638og` |
+| المحتوى               | Prisma، Nasab، مطعم، POS، WhatsApp، `bhd_sub`                                                  | Nest API لعقارات BHD-R     |
+| Commits مثل `f84acdb` | موجودة في ذلك المستودع                                                                         | **غير موجودة** في `BHD-R`  |
 
 رسائل مثل «Ensure users.bhd_sub… Prisma… resto floor… WhatsApp» تخص منتج محاسبة/مطعم (غالباً Hisaby/Nasab)، وليست مستودع [BHD-R](https://github.com/ainoamn/BHD-R).
 
 ### حالة BHD-R الآن
+
 Nest الصحيح يعمل:
 
 `https://bhd-r.onrender.com/healthz` → `nestReady: true`
 
 ### ماذا تفعل؟
+
 1. في Render افتح خدمة **`BHD-R` / `bhd-r-api`** المرتبطة بـ `bhd-r.onrender.com` (ليس `srv-d9gu4tvlk1mc738lgnm0`).
 2. للأخطاء على `srv-d9gu4tvlk1mc738lgnm0`: عالجها داخل مستودع ذلك المنتج، أو أوقف Auto-Deploy إن كانت الخدمة مربوطة بمستودع خاطئ.
 3. مشاكل الترجمة/الصور على `r.bhd-om.com` تُحل عبر **Vercel** (نشر 0.4.15)، وليس عبر سجل أحداث تلك الخدمة.
@@ -1647,7 +1691,9 @@ August 31, 2026 at 8:35 PM
 سبب فشل `fb0a74d`: في 0.4.15 ضُبط `apps/web` على `node: 22.x` بينما صورة Render تستخدم **Node 24**، فـ `pnpm install` يخرج فوراً.
 
 ### الإصلاح (0.4.16) — دُفع الآن
+
 Commit: `a9a8b48`
+
 - `engines` → `>=22`
 - `Dockerfile.api` يعطّل `engine-strict` أثناء التثبيت
 
@@ -1660,13 +1706,14 @@ Commit: `a9a8b48`
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-6b623f46-5506-48c9-9f92-f2191a63541d.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 8:40 PM (UTC+4)</timestamp>
 <user_query>
-في هذه الصفحه لا اريد ان يظهر اسم المالك و في بدايه بينات العقار واحد من الاثنين اما ان تجعل الباركود كمفتاح السطر او الصوره اليقونيه التي جعلنها ايقونه للعقار تكون هي الصوره المفتاح وعند الضغط عليها تكبر 
+في هذه الصفحه لا اريد ان يظهر اسم المالك و في بدايه بينات العقار واحد من الاثنين اما ان تجعل الباركود كمفتاح السطر او الصوره اليقونيه التي جعلنها ايقونه للعقار تكون هي الصوره المفتاح وعند الضغط عليها تكبر
 </user_query>
 
 ---
@@ -1682,6 +1729,7 @@ These files can be read with tools, copied to other locations, or attached to su
 تم ونُشر على `main` (`73d3d24`).
 
 ### التغييرات في قائمة العقارات
+
 1. **إخفاء عمود المالك** من الجدول وبطاقة الموبايل.
 2. **عمود مفتاح في بداية السطر:**
    - إن وُجدت صورة غلاف للعقار → تظهر كأيقونة، والضغط عليها يكبّرها.
@@ -1695,27 +1743,31 @@ These files can be read with tools, copied to other locations, or attached to su
 
 [Image]
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-d34ed8d5-f9b4-4a72-9bd7-cb0cdb69148f.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 8:44 PM (UTC+4)</timestamp>
 <user_query>
-ما زالت المشكله https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit  تظهر لي نفس الملاحظه عند حفظ العقار بعد التعديل اوو عقار جديد 
+ما زالت المشكله https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit تظهر لي نفس الملاحظه عند حفظ العقار بعد التعديل اوو عقار جديد
 تم تحديث العقار، لكن رفع الصور فشل: Failed to fetch. أعد رفع الصور من التعديل.
 
 تم تحديث العقار، لكن رفع الصور فشل: Failed to fetch. أعد رفع الصور من التعديل.
@@ -1739,27 +1791,31 @@ These files can be read with tools, copied to other locations, or attached to su
 
 [Image]
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-d34ed8d5-f9b4-4a72-9bd7-cb0cdb69148f.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 8:44 PM (UTC+4)</timestamp>
 <user_query>
-ما زالت المشكله https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit  تظهر لي نفس الملاحظه عند حفظ العقار بعد التعديل اوو عقار جديد 
+ما زالت المشكله https://r.bhd-om.com/ar/owner/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e/edit تظهر لي نفس الملاحظه عند حفظ العقار بعد التعديل اوو عقار جديد
 تم تحديث العقار، لكن رفع الصور فشل: Failed to fetch. أعد رفع الصور من التعديل.
 
 تم تحديث العقار، لكن رفع الصور فشل: Failed to fetch. أعد رفع الصور من التعديل.
@@ -1785,7 +1841,7 @@ These files can be read with tools, copied to other locations, or attached to su
 4. بعد Ready: حدّث صفحة التعديل بقوة (**Ctrl+Shift+R**).
 5. تأكد في Environment Variables (Production) من:
    - `S3_ENDPOINT` / `S3_ACCESS_KEY` / `S3_SECRET_KEY` / `S3_BUCKET_PRIVATE`  
-   **أو** على الأقل Nest Live + `API_INTERNAL_ORIGIN=https://bhd-r.onrender.com`
+     **أو** على الأقل Nest Live + `API_INTERNAL_ORIGIN=https://bhd-r.onrender.com`
 
 ### بعد النشر الصحيح
 
@@ -1809,16 +1865,16 @@ These files can be read with tools, copied to other locations, or attached to su
 20:43:48.966 Cloning completed: 813.000ms
 20:43:49.062 Found .vercelignore (repository root)
 20:43:49.101 Removed 357 ignored files defined in .vercelignore
-20:43:49.101   /.github/dependabot.yml
-20:43:49.101   /.github/lighthouse-budget.json
-20:43:49.101   /.github/lighthouserc.cjs
-20:43:49.101   /.github/pull_request_template.md
-20:43:49.101   /.github/scripts/create-ci-logins.sql
-20:43:49.101   /.github/workflows/ci.yml
-20:43:49.101   /.github/workflows/performance.yml
-20:43:49.102   /.github/workflows/security.yml
-20:43:49.102   /apps/api/nest-cli.json
-20:43:49.102   /apps/api/package.json
+20:43:49.101 /.github/dependabot.yml
+20:43:49.101 /.github/lighthouse-budget.json
+20:43:49.101 /.github/lighthouserc.cjs
+20:43:49.101 /.github/pull_request_template.md
+20:43:49.101 /.github/scripts/create-ci-logins.sql
+20:43:49.101 /.github/workflows/ci.yml
+20:43:49.101 /.github/workflows/performance.yml
+20:43:49.102 /.github/workflows/security.yml
+20:43:49.102 /apps/api/nest-cli.json
+20:43:49.102 /apps/api/package.json
 20:43:50.294 Restored build cache from previous deployment (7FP8tpydGwUc53CwCP39zRfgrDRc)
 20:43:51.057 Running "vercel build"
 20:43:51.073 Vercel CLI 59.3.0
@@ -1829,23 +1885,23 @@ These files can be read with tools, copied to other locations, or attached to su
 20:43:53.353 Scope: all 12 workspace projects
 20:43:53.443 Lockfile is up to date, resolution step is skipped
 20:43:53.592 Already up to date
-20:43:54.276 
+20:43:54.276
 20:43:54.322 Done in 1.3s using pnpm v10.14.0
 20:43:54.346 Detected Next.js version: 16.3.2
 20:43:54.347 Running "cd ../.. && pnpm --filter @bhd-r/web run build"
-20:43:54.987 
+20:43:54.987
 20:43:54.987 > @bhd-r/web@0.1.0 build /vercel/path0/apps/web
 20:43:54.987 > pnpm run build:packages && next build
-20:43:54.987 
-20:43:55.301 
+20:43:54.987
+20:43:55.301
 20:43:55.301 > @bhd-r/web@0.1.0 build:packages /vercel/path0/apps/web
 20:43:55.301 > cd ../.. && pnpm exec turbo run build --filter=@bhd-r/config --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --filter=@bhd-r/db --filter=@bhd-r/authz --filter=@bhd-r/security --force
-20:43:55.301 
-20:43:55.924 
-20:43:55.925    • Packages in scope: @bhd-r/authz, @bhd-r/config, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/i18n, @bhd-r/security, @bhd-r/ui
-20:43:55.925    • Running build in 8 packages
-20:43:55.926    • Remote caching enabled
-20:43:55.926 
+20:43:55.301
+20:43:55.924
+20:43:55.925 • Packages in scope: @bhd-r/authz, @bhd-r/config, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/i18n, @bhd-r/security, @bhd-r/ui
+20:43:55.925 • Running build in 8 packages
+20:43:55.926 • Remote caching enabled
+20:43:55.926
 20:43:55.929 @bhd-r/config:build: cache bypass, force executing e33f6f51a482cd58
 20:43:55.929 @bhd-r/authz:build: cache bypass, force executing bc7b69f46a262da7
 20:43:55.930 @bhd-r/ui:build: cache bypass, force executing e5b74e50fc6b8f26
@@ -1853,260 +1909,260 @@ These files can be read with tools, copied to other locations, or attached to su
 20:43:55.930 @bhd-r/i18n:build: cache bypass, force executing a0fe86d78ae8f6ab
 20:43:55.935 @bhd-r/db:build: cache bypass, force executing f5ced7d650206c8c
 20:43:55.936 @bhd-r/contracts:build: cache bypass, force executing 12da0631a5826531
-20:43:56.757 @bhd-r/db:build: 
+20:43:56.757 @bhd-r/db:build:
 20:43:56.757 @bhd-r/db:build: > @bhd-r/db@0.1.0 build /vercel/path0/packages/db
 20:43:56.762 @bhd-r/db:build: > tsc -p tsconfig.build.json
-20:43:56.763 @bhd-r/db:build: 
-20:43:56.838 @bhd-r/authz:build: 
-20:43:56.839 @bhd-r/config:build: 
+20:43:56.763 @bhd-r/db:build:
+20:43:56.838 @bhd-r/authz:build:
+20:43:56.839 @bhd-r/config:build:
 20:43:56.839 @bhd-r/config:build: > @bhd-r/config@0.1.0 build /vercel/path0/packages/config
 20:43:56.839 @bhd-r/config:build: > tsc -p tsconfig.json
-20:43:56.840 @bhd-r/config:build: 
+20:43:56.840 @bhd-r/config:build:
 20:43:56.840 @bhd-r/authz:build: > @bhd-r/authz@0.1.0 build /vercel/path0/packages/authz
 20:43:56.841 @bhd-r/authz:build: > tsc -p tsconfig.json
-20:43:56.841 @bhd-r/authz:build: 
-20:43:57.006 @bhd-r/security:build: 
+20:43:56.841 @bhd-r/authz:build:
+20:43:57.006 @bhd-r/security:build:
 20:43:57.007 @bhd-r/security:build: > @bhd-r/security@0.1.0 build /vercel/path0/packages/security
 20:43:57.007 @bhd-r/security:build: > tsc -p tsconfig.json
-20:43:57.007 @bhd-r/security:build: 
-20:43:57.015 @bhd-r/contracts:build: 
+20:43:57.007 @bhd-r/security:build:
+20:43:57.015 @bhd-r/contracts:build:
 20:43:57.016 @bhd-r/contracts:build: > @bhd-r/contracts@0.1.0 build /vercel/path0/packages/contracts
 20:43:57.016 @bhd-r/contracts:build: > tsc -p tsconfig.json
-20:43:57.017 @bhd-r/contracts:build: 
-20:43:57.055 @bhd-r/i18n:build: 
+20:43:57.017 @bhd-r/contracts:build:
+20:43:57.055 @bhd-r/i18n:build:
 20:43:57.056 @bhd-r/i18n:build: > @bhd-r/i18n@0.1.0 build /vercel/path0/packages/i18n
 20:43:57.056 @bhd-r/i18n:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
-20:43:57.057 @bhd-r/i18n:build: 
-20:43:57.104 @bhd-r/ui:build: 
+20:43:57.057 @bhd-r/i18n:build:
+20:43:57.104 @bhd-r/ui:build:
 20:43:57.105 @bhd-r/ui:build: > @bhd-r/ui@0.1.0 build /vercel/path0/packages/ui
 20:43:57.106 @bhd-r/ui:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
-20:43:57.106 @bhd-r/ui:build: 
+20:43:57.106 @bhd-r/ui:build:
 20:44:03.463 @bhd-r/country-packs:build: cache bypass, force executing 7b944f8e543cd3cf
-20:44:03.951 @bhd-r/country-packs:build: 
+20:44:03.951 @bhd-r/country-packs:build:
 20:44:03.952 @bhd-r/country-packs:build: > @bhd-r/country-packs@0.1.0 build /vercel/path0/packages/country-packs
 20:44:03.953 @bhd-r/country-packs:build: > tsc -p tsconfig.json
-20:44:03.953 @bhd-r/country-packs:build: 
-20:44:07.097  WARNING  finished with warnings
+20:44:03.953 @bhd-r/country-packs:build:
+20:44:07.097 WARNING finished with warnings
 20:44:07.098 Warning - the following environment variables are set on your Vercel project, but missing from "turbo.json". These variables WILL NOT be available to your application and may cause your build to fail. Learn more at https://turborepo.dev/docs/crafting-your-repository/using-environment-variables#platform-environment-variables
-20:44:07.098 
+20:44:07.098
 20:44:07.098 [warn] @bhd-r/config#build
-20:44:07.098 [warn]   - API_INTERNAL_ORIGIN 
-20:44:07.098 [warn]   - API_ORIGIN 
-20:44:07.098 [warn]   - REDIS_URL 
-20:44:07.098 [warn]   - PORT 
-20:44:07.098 [warn]   - NODE_ENV 
-20:44:07.098 [warn]   - WEB_ORIGIN 
-20:44:07.098 [warn]   - S3_ENDPOINT 
-20:44:07.098 [warn]   - S3_ACCESS_KEY 
-20:44:07.098 [warn]   - S3_SECRET_KEY 
-20:44:07.098 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-20:44:07.098 [warn]   - PAYMENT_WEBHOOK_SECRET 
-20:44:07.099 [warn]   - PUBLIC_NEST_ORIGIN 
-20:44:07.099 [warn]   - RESEND_FROM_EMAIL 
-20:44:07.099 [warn]   - RESEND_API_KEY 
-20:44:07.099 [warn]   - UPSTASH_REDIS_REST_URL 
-20:44:07.099 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-20:44:07.099 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-20:44:07.099 [warn]   - BHD_IDENTITY_CLIENT_ID 
-20:44:07.099 [warn]   - WEB_ORIGINS 
-20:44:07.099 [warn]   - S3_BUCKET_PRIVATE 
-20:44:07.100 [warn]   - S3_BUCKET_PUBLIC 
-20:44:07.100 [warn]   - S3_REGION 
-20:44:07.100 [warn]   - CRON_SECRET 
+20:44:07.098 [warn] - API_INTERNAL_ORIGIN
+20:44:07.098 [warn] - API_ORIGIN
+20:44:07.098 [warn] - REDIS_URL
+20:44:07.098 [warn] - PORT
+20:44:07.098 [warn] - NODE_ENV
+20:44:07.098 [warn] - WEB_ORIGIN
+20:44:07.098 [warn] - S3_ENDPOINT
+20:44:07.098 [warn] - S3_ACCESS_KEY
+20:44:07.098 [warn] - S3_SECRET_KEY
+20:44:07.098 [warn] - FIELD_ENCRYPTION_KEY_V1
+20:44:07.098 [warn] - PAYMENT_WEBHOOK_SECRET
+20:44:07.099 [warn] - PUBLIC_NEST_ORIGIN
+20:44:07.099 [warn] - RESEND_FROM_EMAIL
+20:44:07.099 [warn] - RESEND_API_KEY
+20:44:07.099 [warn] - UPSTASH_REDIS_REST_URL
+20:44:07.099 [warn] - UPSTASH_REDIS_REST_TOKEN
+20:44:07.099 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+20:44:07.099 [warn] - BHD_IDENTITY_CLIENT_ID
+20:44:07.099 [warn] - WEB_ORIGINS
+20:44:07.099 [warn] - S3_BUCKET_PRIVATE
+20:44:07.100 [warn] - S3_BUCKET_PUBLIC
+20:44:07.100 [warn] - S3_REGION
+20:44:07.100 [warn] - CRON_SECRET
 20:44:07.100 [warn] @bhd-r/authz#build
-20:44:07.100 [warn]   - API_INTERNAL_ORIGIN 
-20:44:07.100 [warn]   - API_ORIGIN 
-20:44:07.100 [warn]   - REDIS_URL 
-20:44:07.100 [warn]   - PORT 
-20:44:07.100 [warn]   - NODE_ENV 
-20:44:07.100 [warn]   - WEB_ORIGIN 
-20:44:07.100 [warn]   - S3_ENDPOINT 
-20:44:07.101 [warn]   - S3_ACCESS_KEY 
-20:44:07.101 [warn]   - S3_SECRET_KEY 
-20:44:07.101 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-20:44:07.101 [warn]   - PAYMENT_WEBHOOK_SECRET 
-20:44:07.101 [warn]   - PUBLIC_NEST_ORIGIN 
-20:44:07.101 [warn]   - RESEND_FROM_EMAIL 
-20:44:07.101 [warn]   - RESEND_API_KEY 
-20:44:07.101 [warn]   - UPSTASH_REDIS_REST_URL 
-20:44:07.101 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-20:44:07.101 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-20:44:07.101 [warn]   - BHD_IDENTITY_CLIENT_ID 
-20:44:07.101 [warn]   - WEB_ORIGINS 
-20:44:07.102 [warn]   - S3_BUCKET_PRIVATE 
-20:44:07.102 [warn]   - S3_BUCKET_PUBLIC 
-20:44:07.102 [warn]   - S3_REGION 
-20:44:07.102 [warn]   - CRON_SECRET 
+20:44:07.100 [warn] - API_INTERNAL_ORIGIN
+20:44:07.100 [warn] - API_ORIGIN
+20:44:07.100 [warn] - REDIS_URL
+20:44:07.100 [warn] - PORT
+20:44:07.100 [warn] - NODE_ENV
+20:44:07.100 [warn] - WEB_ORIGIN
+20:44:07.100 [warn] - S3_ENDPOINT
+20:44:07.101 [warn] - S3_ACCESS_KEY
+20:44:07.101 [warn] - S3_SECRET_KEY
+20:44:07.101 [warn] - FIELD_ENCRYPTION_KEY_V1
+20:44:07.101 [warn] - PAYMENT_WEBHOOK_SECRET
+20:44:07.101 [warn] - PUBLIC_NEST_ORIGIN
+20:44:07.101 [warn] - RESEND_FROM_EMAIL
+20:44:07.101 [warn] - RESEND_API_KEY
+20:44:07.101 [warn] - UPSTASH_REDIS_REST_URL
+20:44:07.101 [warn] - UPSTASH_REDIS_REST_TOKEN
+20:44:07.101 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+20:44:07.101 [warn] - BHD_IDENTITY_CLIENT_ID
+20:44:07.101 [warn] - WEB_ORIGINS
+20:44:07.102 [warn] - S3_BUCKET_PRIVATE
+20:44:07.102 [warn] - S3_BUCKET_PUBLIC
+20:44:07.102 [warn] - S3_REGION
+20:44:07.102 [warn] - CRON_SECRET
 20:44:07.102 [warn] @bhd-r/ui#build
-20:44:07.102 [warn]   - API_INTERNAL_ORIGIN 
-20:44:07.102 [warn]   - API_ORIGIN 
-20:44:07.103 [warn]   - REDIS_URL 
-20:44:07.103 [warn]   - PORT 
-20:44:07.103 [warn]   - NODE_ENV 
-20:44:07.103 [warn]   - WEB_ORIGIN 
-20:44:07.103 [warn]   - S3_ENDPOINT 
-20:44:07.103 [warn]   - S3_ACCESS_KEY 
-20:44:07.103 [warn]   - S3_SECRET_KEY 
-20:44:07.103 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-20:44:07.103 [warn]   - PAYMENT_WEBHOOK_SECRET 
-20:44:07.103 [warn]   - PUBLIC_NEST_ORIGIN 
-20:44:07.104 [warn]   - RESEND_FROM_EMAIL 
-20:44:07.104 [warn]   - RESEND_API_KEY 
-20:44:07.104 [warn]   - UPSTASH_REDIS_REST_URL 
-20:44:07.104 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-20:44:07.104 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-20:44:07.104 [warn]   - BHD_IDENTITY_CLIENT_ID 
-20:44:07.104 [warn]   - WEB_ORIGINS 
-20:44:07.104 [warn]   - S3_BUCKET_PRIVATE 
-20:44:07.105 [warn]   - S3_BUCKET_PUBLIC 
-20:44:07.105 [warn]   - S3_REGION 
-20:44:07.105 [warn]   - CRON_SECRET 
+20:44:07.102 [warn] - API_INTERNAL_ORIGIN
+20:44:07.102 [warn] - API_ORIGIN
+20:44:07.103 [warn] - REDIS_URL
+20:44:07.103 [warn] - PORT
+20:44:07.103 [warn] - NODE_ENV
+20:44:07.103 [warn] - WEB_ORIGIN
+20:44:07.103 [warn] - S3_ENDPOINT
+20:44:07.103 [warn] - S3_ACCESS_KEY
+20:44:07.103 [warn] - S3_SECRET_KEY
+20:44:07.103 [warn] - FIELD_ENCRYPTION_KEY_V1
+20:44:07.103 [warn] - PAYMENT_WEBHOOK_SECRET
+20:44:07.103 [warn] - PUBLIC_NEST_ORIGIN
+20:44:07.104 [warn] - RESEND_FROM_EMAIL
+20:44:07.104 [warn] - RESEND_API_KEY
+20:44:07.104 [warn] - UPSTASH_REDIS_REST_URL
+20:44:07.104 [warn] - UPSTASH_REDIS_REST_TOKEN
+20:44:07.104 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+20:44:07.104 [warn] - BHD_IDENTITY_CLIENT_ID
+20:44:07.104 [warn] - WEB_ORIGINS
+20:44:07.104 [warn] - S3_BUCKET_PRIVATE
+20:44:07.105 [warn] - S3_BUCKET_PUBLIC
+20:44:07.105 [warn] - S3_REGION
+20:44:07.105 [warn] - CRON_SECRET
 20:44:07.105 [warn] @bhd-r/security#build
-20:44:07.105 [warn]   - API_INTERNAL_ORIGIN 
-20:44:07.106 [warn]   - API_ORIGIN 
-20:44:07.107 [warn]   - REDIS_URL 
-20:44:07.107 [warn]   - PORT 
-20:44:07.107 [warn]   - NODE_ENV 
-20:44:07.107 [warn]   - WEB_ORIGIN 
-20:44:07.107 [warn]   - S3_ENDPOINT 
-20:44:07.108 [warn]   - S3_ACCESS_KEY 
-20:44:07.108 [warn]   - S3_SECRET_KEY 
-20:44:07.108 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-20:44:07.108 [warn]   - PAYMENT_WEBHOOK_SECRET 
-20:44:07.108 [warn]   - PUBLIC_NEST_ORIGIN 
-20:44:07.108 [warn]   - RESEND_FROM_EMAIL 
-20:44:07.108 [warn]   - RESEND_API_KEY 
-20:44:07.108 [warn]   - UPSTASH_REDIS_REST_URL 
-20:44:07.108 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-20:44:07.108 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-20:44:07.108 [warn]   - BHD_IDENTITY_CLIENT_ID 
-20:44:07.108 [warn]   - WEB_ORIGINS 
-20:44:07.108 [warn]   - S3_BUCKET_PRIVATE 
-20:44:07.108 [warn]   - S3_BUCKET_PUBLIC 
-20:44:07.108 [warn]   - S3_REGION 
-20:44:07.108 [warn]   - CRON_SECRET 
+20:44:07.105 [warn] - API_INTERNAL_ORIGIN
+20:44:07.106 [warn] - API_ORIGIN
+20:44:07.107 [warn] - REDIS_URL
+20:44:07.107 [warn] - PORT
+20:44:07.107 [warn] - NODE_ENV
+20:44:07.107 [warn] - WEB_ORIGIN
+20:44:07.107 [warn] - S3_ENDPOINT
+20:44:07.108 [warn] - S3_ACCESS_KEY
+20:44:07.108 [warn] - S3_SECRET_KEY
+20:44:07.108 [warn] - FIELD_ENCRYPTION_KEY_V1
+20:44:07.108 [warn] - PAYMENT_WEBHOOK_SECRET
+20:44:07.108 [warn] - PUBLIC_NEST_ORIGIN
+20:44:07.108 [warn] - RESEND_FROM_EMAIL
+20:44:07.108 [warn] - RESEND_API_KEY
+20:44:07.108 [warn] - UPSTASH_REDIS_REST_URL
+20:44:07.108 [warn] - UPSTASH_REDIS_REST_TOKEN
+20:44:07.108 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+20:44:07.108 [warn] - BHD_IDENTITY_CLIENT_ID
+20:44:07.108 [warn] - WEB_ORIGINS
+20:44:07.108 [warn] - S3_BUCKET_PRIVATE
+20:44:07.108 [warn] - S3_BUCKET_PUBLIC
+20:44:07.108 [warn] - S3_REGION
+20:44:07.108 [warn] - CRON_SECRET
 20:44:07.108 [warn] @bhd-r/i18n#build
-20:44:07.108 [warn]   - API_INTERNAL_ORIGIN 
-20:44:07.108 [warn]   - API_ORIGIN 
-20:44:07.109 [warn]   - REDIS_URL 
-20:44:07.109 [warn]   - PORT 
-20:44:07.109 [warn]   - NODE_ENV 
-20:44:07.109 [warn]   - WEB_ORIGIN 
-20:44:07.109 [warn]   - S3_ENDPOINT 
-20:44:07.109 [warn]   - S3_ACCESS_KEY 
-20:44:07.109 [warn]   - S3_SECRET_KEY 
-20:44:07.109 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-20:44:07.109 [warn]   - PAYMENT_WEBHOOK_SECRET 
-20:44:07.109 [warn]   - PUBLIC_NEST_ORIGIN 
-20:44:07.109 [warn]   - RESEND_FROM_EMAIL 
-20:44:07.109 [warn]   - RESEND_API_KEY 
-20:44:07.109 [warn]   - UPSTASH_REDIS_REST_URL 
-20:44:07.109 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-20:44:07.109 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-20:44:07.109 [warn]   - BHD_IDENTITY_CLIENT_ID 
-20:44:07.109 [warn]   - WEB_ORIGINS 
-20:44:07.109 [warn]   - S3_BUCKET_PRIVATE 
-20:44:07.109 [warn]   - S3_BUCKET_PUBLIC 
-20:44:07.110 [warn]   - S3_REGION 
-20:44:07.110 [warn]   - CRON_SECRET 
+20:44:07.108 [warn] - API_INTERNAL_ORIGIN
+20:44:07.108 [warn] - API_ORIGIN
+20:44:07.109 [warn] - REDIS_URL
+20:44:07.109 [warn] - PORT
+20:44:07.109 [warn] - NODE_ENV
+20:44:07.109 [warn] - WEB_ORIGIN
+20:44:07.109 [warn] - S3_ENDPOINT
+20:44:07.109 [warn] - S3_ACCESS_KEY
+20:44:07.109 [warn] - S3_SECRET_KEY
+20:44:07.109 [warn] - FIELD_ENCRYPTION_KEY_V1
+20:44:07.109 [warn] - PAYMENT_WEBHOOK_SECRET
+20:44:07.109 [warn] - PUBLIC_NEST_ORIGIN
+20:44:07.109 [warn] - RESEND_FROM_EMAIL
+20:44:07.109 [warn] - RESEND_API_KEY
+20:44:07.109 [warn] - UPSTASH_REDIS_REST_URL
+20:44:07.109 [warn] - UPSTASH_REDIS_REST_TOKEN
+20:44:07.109 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+20:44:07.109 [warn] - BHD_IDENTITY_CLIENT_ID
+20:44:07.109 [warn] - WEB_ORIGINS
+20:44:07.109 [warn] - S3_BUCKET_PRIVATE
+20:44:07.109 [warn] - S3_BUCKET_PUBLIC
+20:44:07.110 [warn] - S3_REGION
+20:44:07.110 [warn] - CRON_SECRET
 20:44:07.110 [warn] @bhd-r/db#build
-20:44:07.110 [warn]   - API_INTERNAL_ORIGIN 
-20:44:07.110 [warn]   - API_ORIGIN 
-20:44:07.110 [warn]   - REDIS_URL 
-20:44:07.110 [warn]   - PORT 
-20:44:07.110 [warn]   - NODE_ENV 
-20:44:07.110 [warn]   - WEB_ORIGIN 
-20:44:07.110 [warn]   - S3_ENDPOINT 
-20:44:07.110 [warn]   - S3_ACCESS_KEY 
-20:44:07.110 [warn]   - S3_SECRET_KEY 
-20:44:07.110 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-20:44:07.110 [warn]   - PAYMENT_WEBHOOK_SECRET 
-20:44:07.110 [warn]   - PUBLIC_NEST_ORIGIN 
-20:44:07.110 [warn]   - RESEND_FROM_EMAIL 
-20:44:07.110 [warn]   - RESEND_API_KEY 
-20:44:07.110 [warn]   - UPSTASH_REDIS_REST_URL 
-20:44:07.110 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-20:44:07.111 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-20:44:07.111 [warn]   - BHD_IDENTITY_CLIENT_ID 
-20:44:07.111 [warn]   - WEB_ORIGINS 
-20:44:07.111 [warn]   - S3_BUCKET_PRIVATE 
-20:44:07.111 [warn]   - S3_BUCKET_PUBLIC 
-20:44:07.111 [warn]   - S3_REGION 
-20:44:07.111 [warn]   - CRON_SECRET 
+20:44:07.110 [warn] - API_INTERNAL_ORIGIN
+20:44:07.110 [warn] - API_ORIGIN
+20:44:07.110 [warn] - REDIS_URL
+20:44:07.110 [warn] - PORT
+20:44:07.110 [warn] - NODE_ENV
+20:44:07.110 [warn] - WEB_ORIGIN
+20:44:07.110 [warn] - S3_ENDPOINT
+20:44:07.110 [warn] - S3_ACCESS_KEY
+20:44:07.110 [warn] - S3_SECRET_KEY
+20:44:07.110 [warn] - FIELD_ENCRYPTION_KEY_V1
+20:44:07.110 [warn] - PAYMENT_WEBHOOK_SECRET
+20:44:07.110 [warn] - PUBLIC_NEST_ORIGIN
+20:44:07.110 [warn] - RESEND_FROM_EMAIL
+20:44:07.110 [warn] - RESEND_API_KEY
+20:44:07.110 [warn] - UPSTASH_REDIS_REST_URL
+20:44:07.110 [warn] - UPSTASH_REDIS_REST_TOKEN
+20:44:07.111 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+20:44:07.111 [warn] - BHD_IDENTITY_CLIENT_ID
+20:44:07.111 [warn] - WEB_ORIGINS
+20:44:07.111 [warn] - S3_BUCKET_PRIVATE
+20:44:07.111 [warn] - S3_BUCKET_PUBLIC
+20:44:07.111 [warn] - S3_REGION
+20:44:07.111 [warn] - CRON_SECRET
 20:44:07.111 [warn] @bhd-r/contracts#build
-20:44:07.111 [warn]   - API_INTERNAL_ORIGIN 
-20:44:07.111 [warn]   - API_ORIGIN 
-20:44:07.111 [warn]   - REDIS_URL 
-20:44:07.111 [warn]   - PORT 
-20:44:07.111 [warn]   - NODE_ENV 
-20:44:07.111 [warn]   - WEB_ORIGIN 
-20:44:07.111 [warn]   - S3_ENDPOINT 
-20:44:07.111 [warn]   - S3_ACCESS_KEY 
-20:44:07.111 [warn]   - S3_SECRET_KEY 
-20:44:07.111 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-20:44:07.113 [warn]   - PAYMENT_WEBHOOK_SECRET 
-20:44:07.113 [warn]   - PUBLIC_NEST_ORIGIN 
-20:44:07.113 [warn]   - RESEND_FROM_EMAIL 
-20:44:07.113 [warn]   - RESEND_API_KEY 
-20:44:07.113 [warn]   - UPSTASH_REDIS_REST_URL 
-20:44:07.113 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-20:44:07.113 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-20:44:07.113 [warn]   - BHD_IDENTITY_CLIENT_ID 
-20:44:07.113 [warn]   - WEB_ORIGINS 
-20:44:07.113 [warn]   - S3_BUCKET_PRIVATE 
-20:44:07.113 [warn]   - S3_BUCKET_PUBLIC 
-20:44:07.113 [warn]   - S3_REGION 
-20:44:07.113 [warn]   - CRON_SECRET 
+20:44:07.111 [warn] - API_INTERNAL_ORIGIN
+20:44:07.111 [warn] - API_ORIGIN
+20:44:07.111 [warn] - REDIS_URL
+20:44:07.111 [warn] - PORT
+20:44:07.111 [warn] - NODE_ENV
+20:44:07.111 [warn] - WEB_ORIGIN
+20:44:07.111 [warn] - S3_ENDPOINT
+20:44:07.111 [warn] - S3_ACCESS_KEY
+20:44:07.111 [warn] - S3_SECRET_KEY
+20:44:07.111 [warn] - FIELD_ENCRYPTION_KEY_V1
+20:44:07.113 [warn] - PAYMENT_WEBHOOK_SECRET
+20:44:07.113 [warn] - PUBLIC_NEST_ORIGIN
+20:44:07.113 [warn] - RESEND_FROM_EMAIL
+20:44:07.113 [warn] - RESEND_API_KEY
+20:44:07.113 [warn] - UPSTASH_REDIS_REST_URL
+20:44:07.113 [warn] - UPSTASH_REDIS_REST_TOKEN
+20:44:07.113 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+20:44:07.113 [warn] - BHD_IDENTITY_CLIENT_ID
+20:44:07.113 [warn] - WEB_ORIGINS
+20:44:07.113 [warn] - S3_BUCKET_PRIVATE
+20:44:07.113 [warn] - S3_BUCKET_PUBLIC
+20:44:07.113 [warn] - S3_REGION
+20:44:07.113 [warn] - CRON_SECRET
 20:44:07.113 [warn] @bhd-r/country-packs#build
-20:44:07.113 [warn]   - API_INTERNAL_ORIGIN 
-20:44:07.113 [warn]   - API_ORIGIN 
-20:44:07.113 [warn]   - REDIS_URL 
-20:44:07.113 [warn]   - PORT 
-20:44:07.113 [warn]   - NODE_ENV 
-20:44:07.113 [warn]   - WEB_ORIGIN 
-20:44:07.113 [warn]   - S3_ENDPOINT 
-20:44:07.113 [warn]   - S3_ACCESS_KEY 
-20:44:07.113 [warn]   - S3_SECRET_KEY 
-20:44:07.114 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-20:44:07.114 [warn]   - PAYMENT_WEBHOOK_SECRET 
-20:44:07.114 [warn]   - PUBLIC_NEST_ORIGIN 
-20:44:07.114 [warn]   - RESEND_FROM_EMAIL 
-20:44:07.114 [warn]   - RESEND_API_KEY 
-20:44:07.114 [warn]   - UPSTASH_REDIS_REST_URL 
-20:44:07.114 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-20:44:07.114 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-20:44:07.114 [warn]   - BHD_IDENTITY_CLIENT_ID 
-20:44:07.114 [warn]   - WEB_ORIGINS 
-20:44:07.114 [warn]   - S3_BUCKET_PRIVATE 
-20:44:07.115 [warn]   - S3_BUCKET_PUBLIC 
-20:44:07.115 [warn]   - S3_REGION 
-20:44:07.115 [warn]   - CRON_SECRET 
-20:44:07.115 
-20:44:07.115   Tasks:    8 successful, 8 total
-20:44:07.115  Cached:    0 cached, 8 total
-20:44:07.115    Time:    11.32s 
-20:44:07.115 Summary:    /vercel/path0/.turbo/runs/3IgmaFyQKRiOzQMKhRlIHhNAtPU.json
-20:44:07.115 
+20:44:07.113 [warn] - API_INTERNAL_ORIGIN
+20:44:07.113 [warn] - API_ORIGIN
+20:44:07.113 [warn] - REDIS_URL
+20:44:07.113 [warn] - PORT
+20:44:07.113 [warn] - NODE_ENV
+20:44:07.113 [warn] - WEB_ORIGIN
+20:44:07.113 [warn] - S3_ENDPOINT
+20:44:07.113 [warn] - S3_ACCESS_KEY
+20:44:07.113 [warn] - S3_SECRET_KEY
+20:44:07.114 [warn] - FIELD_ENCRYPTION_KEY_V1
+20:44:07.114 [warn] - PAYMENT_WEBHOOK_SECRET
+20:44:07.114 [warn] - PUBLIC_NEST_ORIGIN
+20:44:07.114 [warn] - RESEND_FROM_EMAIL
+20:44:07.114 [warn] - RESEND_API_KEY
+20:44:07.114 [warn] - UPSTASH_REDIS_REST_URL
+20:44:07.114 [warn] - UPSTASH_REDIS_REST_TOKEN
+20:44:07.114 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+20:44:07.114 [warn] - BHD_IDENTITY_CLIENT_ID
+20:44:07.114 [warn] - WEB_ORIGINS
+20:44:07.114 [warn] - S3_BUCKET_PRIVATE
+20:44:07.115 [warn] - S3_BUCKET_PUBLIC
+20:44:07.115 [warn] - S3_REGION
+20:44:07.115 [warn] - CRON_SECRET
+20:44:07.115
+20:44:07.115 Tasks: 8 successful, 8 total
+20:44:07.115 Cached: 0 cached, 8 total
+20:44:07.115 Time: 11.32s
+20:44:07.115 Summary: /vercel/path0/.turbo/runs/3IgmaFyQKRiOzQMKhRlIHhNAtPU.json
+20:44:07.115
 20:44:07.781 ▲ Next.js 16.3.2 (Turbopack)
-20:44:08.089   Applying modifyConfig from Vercel
+20:44:08.089 Applying modifyConfig from Vercel
 20:44:08.101 ✓ Running next.config.ts took 319ms
 20:44:08.121 - Experiments (use with caution):
-20:44:08.121   · optimizePackageImports
-20:44:08.121   · staleTimes
-20:44:08.121 
-20:44:08.163   Creating an optimized production build ...
+20:44:08.121 · optimizePackageImports
+20:44:08.121 · staleTimes
+20:44:08.121
+20:44:08.163 Creating an optimized production build ...
 20:44:11.230 ✓ Compiled successfully in 2.2s
-20:44:11.232   Running TypeScript ...
+20:44:11.232 Running TypeScript ...
 20:44:17.001 src/components/operations-console.tsx(3065,28): error TS2375: Type '{ propertyId: string; coverImageUrl: string | null; locale: "ar" | "en"; name: string | undefined; }' is not assignable to type '{ propertyId: string; coverImageUrl?: string | null; locale: "ar" | "en"; name?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
-20:44:17.002   Types of property 'name' are incompatible.
-20:44:17.002     Type 'string | undefined' is not assignable to type 'string'.
-20:44:17.002       Type 'undefined' is not assignable to type 'string'.
+20:44:17.002 Types of property 'name' are incompatible.
+20:44:17.002 Type 'string | undefined' is not assignable to type 'string'.
+20:44:17.002 Type 'undefined' is not assignable to type 'string'.
 20:44:17.002 src/components/operations-console.tsx(3373,22): error TS2375: Type '{ propertyId: string; coverImageUrl: string | null; locale: "ar" | "en"; name: string | undefined; }' is not assignable to type '{ propertyId: string; coverImageUrl?: string | null; locale: "ar" | "en"; name?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
-20:44:17.002   Types of property 'name' are incompatible.
-20:44:17.002     Type 'string | undefined' is not assignable to type 'string'.
-20:44:17.002       Type 'undefined' is not assignable to type 'string'.
+20:44:17.002 Types of property 'name' are incompatible.
+20:44:17.002 Type 'string | undefined' is not assignable to type 'string'.
+20:44:17.002 Type 'undefined' is not assignable to type 'string'.
 20:44:17.043 Failed to type check.
-20:44:17.044 
+20:44:17.044
 20:44:17.088 /vercel/path0/apps/web:
 20:44:17.088  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @bhd-r/web@0.1.0 build: `pnpm run build:packages && next build`
 20:44:17.088 Exit status 1
@@ -2194,6 +2250,7 @@ github/ainoamn
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-149bb323-a4fa-408d-b6f7-f7e2e1b6f4b5.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
@@ -2229,6 +2286,7 @@ Nest Live لكن مسار الرفع كان يفشل بسبب CSRF (كوكيز �
 Nest نفسه **Live** (`/healthz` = ok). زر «إعادة الاتصال» ظهر لأن النص القديم ذكر Nest/Vercel؛ هذا مضلّل وتم تعديله.
 
 ### ما تم إصلاحه في 0.4.18 (`69aab13`)
+
 1. رفع عبر Nest بـ **Bearer** (بدون CSRF).
 2. إن فشل ذلك: تخزين الصورة مؤقتاً في Neon (بعد الضغط).
 3. رسالة أوضح بدون زر إعادة الاتصال الخاطئ.
@@ -2236,6 +2294,7 @@ Nest نفسه **Live** (`/healthz` = ok). زر «إعادة الاتصال» ظ�
 انتظر نشر Vercel لـ **`69aab13` → Ready**، ثم Ctrl+Shift+R وجرب صورة صغيرة.
 
 ### للتخزين الدائم لاحقاً
+
 في Vercel → Environment Variables تأكد أن القيم **غير فارغة** (نفس Render):
 `S3_ENDPOINT` · `S3_ACCESS_KEY` · `S3_SECRET_KEY` · `S3_BUCKET_PRIVATE`
 
@@ -2244,11 +2303,13 @@ Nest نفسه **Live** (`/healthz` = ok). زر «إعادة الاتصال» ظ�
 ## 112. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e
 Website Title: منزل راقي للبيع · BHD R
 Website Content:
@@ -2290,24 +2351,24 @@ BHD R · LISTING
 
 ## المرافق
 
-* 🚪_غرفة خادمة_
-* 🕌_قرب المسجد_
-* 🏠_منزل ذكي_
-* 🏫_قرب المدارس_
-* 📦_مخزن_
-* ❄_تكييف مركزي_
-* 🛡_حراسة_
-* 🌊_إطلالة بحرية_
-* 🧺_غسيل ملابس_
-* ♿_مهيأ لذوي الإعاقة_
-* ⛰_إطلالة جبلية_
-* 📶_إنترنت_
-* 🔥_نظام حريق_
-* 🌳_حديقة_
-* 🏋_نادي صحي_
-* 🏙_شرفة_
-* 🧒_منطقة أطفال_
-* 🍳_مطبخ مجهّز_
+- 🚪_غرفة خادمة_
+- 🕌_قرب المسجد_
+- 🏠_منزل ذكي_
+- 🏫_قرب المدارس_
+- 📦_مخزن_
+- ❄*تكييف مركزي*
+- 🛡_حراسة_
+- 🌊_إطلالة بحرية_
+- 🧺_غسيل ملابس_
+- ♿*مهيأ لذوي الإعاقة*
+- ⛰*إطلالة جبلية*
+- 📶_إنترنت_
+- 🔥_نظام حريق_
+- 🌳_حديقة_
+- 🏋_نادي صحي_
+- 🏙_شرفة_
+- 🧒_منطقة أطفال_
+- 🍳_مطبخ مجهّز_
 
 ## الموقع على الخريطة
 
@@ -2409,7 +2470,7 @@ apartment
 
 يلزم تسجيل الدخول للتقييم والتعليق. دخول
 
-* لا توجد تقييمات بعد. كن أول من يقيّم.
+- لا توجد تقييمات بعد. كن أول من يقيّم.
 
 ## علامات ذكية
 
@@ -2422,12 +2483,13 @@ apartment
 **منزل فاخر للايجار**مسقط · السيب4 غرف · 5 حمّامات_‏١٬٢٥٠٫٠٠٠ ر.ع.‏_
 
 **منزل فاخر للايجار**مسقط · السيب4 غرف · 5 حمّامات_‏١٬٢٥٠٫٠٠٠ ر.ع.‏_
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Aug 31, 2026, 9:03 PM (UTC+4)</timestamp>
 <user_query>
-https://r.bhd-om.com/ar/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e  لماذا تظهر علامئه مائيه في الصوره مرتين اريد العلامه التي على اليمين اسفل لا تظهر 
+https://r.bhd-om.com/ar/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e لماذا تظهر علامئه مائيه في الصوره مرتين اريد العلامه التي على اليمين اسفل لا تظهر
 </user_query>
 
 ---
@@ -2447,6 +2509,7 @@ https://r.bhd-om.com/ar/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e  لما�
 ## 115. المساعد
 
 السبب: كانت تظهر **علامتان**:
+
 1. مدمجة داخل الصورة (أسفل اليمين)
 2. طبقة واجهة CSS فوق الصورة
 
@@ -2459,21 +2522,24 @@ https://r.bhd-om.com/ar/properties/8bf6abfc-3bf1-4e4d-a190-1d86fa50923e  لما�
 ## 116. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/properties
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Aug 31, 2026, 9:05 PM (UTC+4)</timestamp>
 <user_query>
-لماذا صفحه https://r.bhd-om.com/ar/owner/properties  تتاخر حتى تجلب العقارات وتاخذ اكثر من 20 - 40 ثانيه حتى تجلب العقارات المفترض ان يكون في مللي من الثانيه 
+لماذا صفحه https://r.bhd-om.com/ar/owner/properties تتاخر حتى تجلب العقارات وتاخذ اكثر من 20 - 40 ثانيه حتى تجلب العقارات المفترض ان يكون في مللي من الثانيه
 </user_query>
 
 ---
@@ -2499,6 +2565,7 @@ ____
 3. **تسخين خلفي لكل الأقسام** يتنافس مع طلب القائمة على نفس اتصال Neon (كان `max: 1`).
 
 ### ما تم إصلاحه (`a40f3e8`)
+
 - تخطّي تحميل السياق في صفحة العقارات.
 - استعلام أغلفة أخف (`DISTINCT ON` للعقار فقط).
 - زيادة مجمع الاتصالات إلى 3، وتأجيل التسخين الخلفي حتى تنتهي القائمة.
@@ -2512,11 +2579,13 @@ ____
 ## 120. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/properties/798c8455-0ac0-4563-908c-ed48978c9f72
 Website Title: منزل فاخر للايجار · BHD R
 Website Content:
@@ -2558,28 +2627,28 @@ BHD R · LISTING
 
 ## المرافق
 
-* ♿_مهيأ لذوي الإعاقة_
-* 🏙_شرفة_
-* 📹_كاميرات مراقبة_
-* ❄_تكييف مركزي_
-* 🛗_مصعد_
-* 🔥_نظام حريق_
-* 🌳_حديقة_
-* 🏋_نادي صحي_
-* 🧒_منطقة أطفال_
-* 🚪_غرفة خادمة_
-* 🕌_قرب المسجد_
-* 🅿_مواقف_
-* 🏊_مسبح_
-* 🏫_قرب المدارس_
-* 🛡_حراسة_
-* 🏠_منزل ذكي_
-* ⛰_إطلالة جبلية_
-* 🌊_إطلالة بحرية_
-* 📦_مخزن_
-* 🍳_مطبخ مجهّز_
-* 🧺_غسيل ملابس_
-* 📶_إنترنت_
+- ♿*مهيأ لذوي الإعاقة*
+- 🏙_شرفة_
+- 📹_كاميرات مراقبة_
+- ❄*تكييف مركزي*
+- 🛗_مصعد_
+- 🔥_نظام حريق_
+- 🌳_حديقة_
+- 🏋_نادي صحي_
+- 🧒_منطقة أطفال_
+- 🚪_غرفة خادمة_
+- 🕌_قرب المسجد_
+- 🅿_مواقف_
+- 🏊_مسبح_
+- 🏫_قرب المدارس_
+- 🛡_حراسة_
+- 🏠_منزل ذكي_
+- ⛰*إطلالة جبلية*
+- 🌊_إطلالة بحرية_
+- 📦_مخزن_
+- 🍳_مطبخ مجهّز_
+- 🧺_غسيل ملابس_
+- 📶_إنترنت_
 
 ## الموقع على الخريطة
 
@@ -2681,7 +2750,7 @@ apartment
 
 يلزم تسجيل الدخول للتقييم والتعليق. دخول
 
-* لا توجد تقييمات بعد. كن أول من يقيّم.
+- لا توجد تقييمات بعد. كن أول من يقيّم.
 
 ## علامات ذكية
 
@@ -2698,13 +2767,14 @@ apartment
 **منزل راقي للبيع**مسقط · السيب9 غرف · 8 حمّامات · ★ 5_‏٨٠٠٫٠٠٠ ر.ع.‏_
 
 **منزل راقي للبيع**مسقط · السيب9 غرف · 8 حمّامات · ★ 5_‏٨٠٠٫٠٠٠ ر.ع.‏_
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Aug 31, 2026, 9:10 PM (UTC+4)</timestamp>
 <user_query>
-اريد اسفل الصوره او اعلاه https://r.bhd-om.com/ar/properties/798c8455-0ac0-4563-908c-ed48978c9f72  يظهر الرقم المتسلسل للعقار 
-او اسفل الباركود 
+اريد اسفل الصوره او اعلاه https://r.bhd-om.com/ar/properties/798c8455-0ac0-4563-908c-ed48978c9f72 يظهر الرقم المتسلسل للعقار
+او اسفل الباركود
 
 </user_query>
 
@@ -2732,14 +2802,15 @@ https://r.bhd-om.com/ar/properties/798c8455-0ac0-4563-908c-ed48978c9f72
 
 <uploaded_documents>
 The following documents have been saved to your filesystem. You can read them using your file-reading tool or other tools:
+
 - C:\Users\ameed\.cursor\projects\c-dev-BHD-R/uploads/bhd-om-0.md
-</uploaded_documents>
-<timestamp>Monday, Aug 31, 2026, 9:11 PM (UTC+4)</timestamp>
-<user_query>
-احاول تسجيل عقار عقار متعدد الوحدات 
-عند ادخال البينات لا يوجد اي فرق في حقول العقار المتعدد الوحدات و العقار الوخده الواحده 
-المفترض ان عقار متعدد الوحدات تكون بيناته مختلفه تماما يمكنك اخذ الفكره للعقار المتعدد الوحدات من https://github.com/ainoamn/bhd-om طبق نفس الفكره تماما 
-</user_query>
+  </uploaded_documents>
+  <timestamp>Monday, Aug 31, 2026, 9:11 PM (UTC+4)</timestamp>
+  <user_query>
+  احاول تسجيل عقار عقار متعدد الوحدات
+  عند ادخال البينات لا يوجد اي فرق في حقول العقار المتعدد الوحدات و العقار الوخده الواحده
+  المفترض ان عقار متعدد الوحدات تكون بيناته مختلفه تماما يمكنك اخذ الفكره للعقار المتعدد الوحدات من https://github.com/ainoamn/bhd-om طبق نفس الفكره تماما
+  </user_query>
 
 ---
 
@@ -2760,9 +2831,11 @@ The following documents have been saved to your filesystem. You can read them us
 تم تطبيق نفس فكرة [bhd-om](https://github.com/ainoamn/bhd-om) على معالج العقار (`cb258f2`).
 
 ### عقار فردي (كما كان)
+
 غرف، حمامات، مجالس، صالات، مطابخ، مسبح، طابق، سعر…
 
 ### عقار متعدد الوحدات (مختلف الآن)
+
 1. **التصنيف** يُثبَّت على «مبنى».
 2. **عدد الوحدات:** محلات · معارض · شقق.
 3. **المساحة الإجمالية للمبنى.**
@@ -2779,13 +2852,14 @@ The following documents have been saved to your filesystem. You can read them us
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-4c42c386-70f0-4c5f-9170-64840a5f82d4.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 9:23 PM (UTC+4)</timestamp>
 <user_query>
- في الخيار الثاني بعد تعئبه الخيار الاول للمحلات على سبيل المثال اريد ان يكون زر استنساخ نفس البينات لباقي المحلات و كذلك للشقق و المكاتب بدل ان يقوم بتعئبه الخيارات واحد واحد 
+في الخيار الثاني بعد تعئبه الخيار الاول للمحلات على سبيل المثال اريد ان يكون زر استنساخ نفس البينات لباقي المحلات و كذلك للشقق و المكاتب بدل ان يقوم بتعئبه الخيارات واحد واحد
 </user_query>
 
 ---
@@ -2812,7 +2886,7 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Monday, Aug 31, 2026, 9:26 PM (UTC+4)</timestamp>
 <user_query>
-اريد خاصيه امكانيه رفع لكل وحده صوره في المباني المتعدده او صوره واحده للمبنى و ستظهر نفسها في كل الوحدات مع امكانيه في ما بعد تعديل كل وحده على حده و رفع صور خاصه بالوحده 
+اريد خاصيه امكانيه رفع لكل وحده صوره في المباني المتعدده او صوره واحده للمبنى و ستظهر نفسها في كل الوحدات مع امكانيه في ما بعد تعديل كل وحده على حده و رفع صور خاصه بالوحده
 </user_query>
 
 ---
@@ -2846,7 +2920,7 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Monday, Aug 31, 2026, 9:33 PM (UTC+4)</timestamp>
 <user_query>
-اريد اضافه خاصيه حفظ المبنى كمسوده قبل الحفظ النهائي وسيظهر حاله المبنى مسوده 
+اريد اضافه خاصيه حفظ المبنى كمسوده قبل الحفظ النهائي وسيظهر حاله المبنى مسوده
 </user_query>
 
 ---
@@ -2873,7 +2947,7 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Monday, Aug 31, 2026, 9:33 PM (UTC+4)</timestamp>
 <user_query>
-اريد اضافه خاصيه حفظ المبنى كمسوده قبل الحفظ النهائي وسيظهر حاله المبنى مسوده 
+اريد اضافه خاصيه حفظ المبنى كمسوده قبل الحفظ النهائي وسيظهر حاله المبنى مسوده
 </user_query>
 
 ---
@@ -2889,6 +2963,7 @@ These files can be read with tools, copied to other locations, or attached to su
 تم تفعيل **حفظ كمسودة**.
 
 ### ما الذي يعمل الآن
+
 - زر **حفظ كمسودة** في معالج إضافة/تعديل العقار
 - المسودة تحتاج فقط البيانات الأساسية (الاسم والموقع والخريطة)
 - حالة العقار والوحدات: `draft` وتظهر في المحفظة كـ **مسودة**
@@ -2904,11 +2979,13 @@ These files can be read with tools, copied to other locations, or attached to su
 
 [Image]
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/properties/d0840631-207d-477a-853a-043572d49240
 Website Title: مبنى النور · BHD R
 Website Content:
@@ -2954,12 +3031,12 @@ BHD-2026-PRP-I-0001
 
 ## المرافق
 
-* 🏫_قرب المدارس_
-* 🕌_قرب المسجد_
-* 🚪_غرفة خادمة_
-* 🏠_منزل ذكي_
-* 🧒_منطقة أطفال_
-* 🏙_شرفة_
+- 🏫_قرب المدارس_
+- 🕌_قرب المسجد_
+- 🚪_غرفة خادمة_
+- 🏠_منزل ذكي_
+- 🧒_منطقة أطفال_
+- 🏙_شرفة_
 
 ## الموقع على الخريطة
 
@@ -3279,7 +3356,7 @@ building
 
 يلزم تسجيل الدخول للتقييم والتعليق. دخول
 
-* لا توجد تقييمات بعد. كن أول من يقيّم.
+- لا توجد تقييمات بعد. كن أول من يقيّم.
 
 ## علامات ذكية
 
@@ -3294,25 +3371,27 @@ building
 **منزل راقي للبيع**مسقط · السيب9 غرف · 8 حمّامات · ★ 5_‏٨٠٠٫٠٠٠ ر.ع.‏_
 
 **منزل راقي للبيع**مسقط · السيب9 غرف · 8 حمّامات · ★ 5_‏٨٠٠٫٠٠٠ ر.ع.‏_
-____
+
+---
 
 </external_links>
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-e4639d1e-b1e1-44d0-987d-4a8f98deb98b.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 9:43 PM (UTC+4)</timestamp>
 <user_query>
-يجيب ان يكون الوصف الخاص في المباني المتعدده ان يكون وصف يختلف عن المباني العامه يبين فيه اسم المبنى و عمره وعدد الوحدات و نوعها و اللمميزات الخاصه بها و مساجحته الاجماليه 
-ليس بهذه الطريقه 
+يجيب ان يكون الوصف الخاص في المباني المتعدده ان يكون وصف يختلف عن المباني العامه يبين فيه اسم المبنى و عمره وعدد الوحدات و نوعها و اللمميزات الخاصه بها و مساجحته الاجماليه
+ليس بهذه الطريقه
 نقدم لكم مبنى مميزة بعنوان «مبنى النور» للإيجار أو البيع في مطرح الكبرى، مطرح، مسقط. تضم بدون حوض سباحة، بمساحة تقارب 60 م². العقار غير مؤثثة، ويقع على النور. من أبرز المرافق: قرب المدارس، قرب المسجد، غرفة خادمة، منزل ذكي، منطقة أطفال، شرفة. موقع مناسب للمعيشة والعمل، مع إدارة موثوقة عبر منصة BHD R.
 
-كذلك في صفحه تفاصيل العقار يجيب ان يظهر تفاصيل المبنى كامله و الوحدات المرتبطه به و نوعها واعدادها 
+كذلك في صفحه تفاصيل العقار يجيب ان يظهر تفاصيل المبنى كامله و الوحدات المرتبطه به و نوعها واعدادها
 ويمكن الاطلاع على العقار كاملا او الوحدات مجزئه https://r.bhd-om.com/ar/properties/d0840631-207d-477a-853a-043572d49240  
-كذلك كل وحده النظام سيعطيها سريل خاص بها 
-وستظهر في العقارات على اساس وحدات مجزئه وليس مبتى كامل يعني ستظهر كل وحده على حده تحت المبنى الرئيسي  كما تظهر في الموقع القديم 
+كذلك كل وحده النظام سيعطيها سريل خاص بها
+وستظهر في العقارات على اساس وحدات مجزئه وليس مبتى كامل يعني ستظهر كل وحده على حده تحت المبنى الرئيسي كما تظهر في الموقع القديم
 </user_query>
 
 ---
@@ -3340,7 +3419,9 @@ These files can be read with tools, copied to other locations, or attached to su
 تم تطبيق التعديلات ورفعها (`afa3ae9`).
 
 ### الوصف (مبانٍ متعددة الوحدات)
+
 زر **توليد بالذكاء** يولّد الآن وصفاً خاصاً بالمبنى يذكر:
+
 - اسم المبنى
 - عمر/سنة البناء
 - المساحة الإجمالية
@@ -3352,12 +3433,14 @@ These files can be read with tools, copied to other locations, or attached to su
 > لتحديث وصف «مبنى النور» الحالي: افتح التعديل → توليد الوصف → حفظ.
 
 ### صفحة التفاصيل
+
 - قسم **تفاصيل المبنى** (الاسم، السيريال، العمر، المساحة، أعداد الأنواع)
 - قائمة الوحدات مع النوع والسيريال وزر **عرض هذه الوحدة**
 - رابط **عرض المبنى كاملاً** من صفحة الوحدة
 - يمكن فتح المبنى أو وحدة محددة: `/properties/...` أو `/units/{unitId}`
 
 ### القائمة العامة
+
 كل وحدة تظهر **بطاقة منفصلة** تحت اسم المبنى، مع سيريال خاص مثل:
 `BHD-2026-PRP-I-0001-S1` / `-M1` / `-A1`
 
@@ -3369,8 +3452,8 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Monday, Aug 31, 2026, 9:53 PM (UTC+4)</timestamp>
 <user_query>
-المفترض ان العقارات الخاصه بالمبنى بعد ان تظهر في  العقارات ان تظهر مفصوله و ان يظهر كل وحده بمفردها و فيها في الوصف يظهر بان هذه الشقه مرتبطه بالمبنى وعند الضغط على ذاك المبنى تظهر كل الوحدات الخاصه به ويظهر حالتها شاغره ام ماجره 
-كذلك ان اخترت ان هذه العقارات للايجار او للبيع و في الموقع فقط تظهر بانها للايجار المفترض انها تظهر بالخيارين و العميل يختار اي الخيرات يريد ان يختار تاجير ام شراء و اذا اختار ايجار ستظهر للمدير في خيرات الايجار و اذا اختار البيع ستظهر في النظام للبيع 
+المفترض ان العقارات الخاصه بالمبنى بعد ان تظهر في العقارات ان تظهر مفصوله و ان يظهر كل وحده بمفردها و فيها في الوصف يظهر بان هذه الشقه مرتبطه بالمبنى وعند الضغط على ذاك المبنى تظهر كل الوحدات الخاصه به ويظهر حالتها شاغره ام ماجره
+كذلك ان اخترت ان هذه العقارات للايجار او للبيع و في الموقع فقط تظهر بانها للايجار المفترض انها تظهر بالخيارين و العميل يختار اي الخيرات يريد ان يختار تاجير ام شراء و اذا اختار ايجار ستظهر للمدير في خيرات الايجار و اذا اختار البيع ستظهر في النظام للبيع
 </user_query>
 
 ---
@@ -3392,15 +3475,18 @@ These files can be read with tools, copied to other locations, or attached to su
 تم التنفيذ والرفع (`f643306`).
 
 ### الوحدات في قائمة العقارات
+
 - كل وحدة تظهر **بطاقة منفصلة**
 - يظهر أنها **مرتبطة بالمبنى** مع رابط «عرض المبنى وكل وحداته»
 - الحالة: **للإيجار / للبيع / للإيجار أو البيع**
 
 ### صفحة المبنى
+
 - تعرض كل الوحدات مع حالتها: **شاغرة / محجوزة / مؤجّرة / مباعة**
 - من صفحة الوحدة يمكن الرجوع لعرض المبنى كاملاً
 
 ### خيار الإيجار أو البيع (`both`)
+
 - في الموقع تظهر **السعر الشهري + سعر البيع** معاً
 - العميل يختار:
   - **أريد التأجير** → معاينة / حجز → يظهر للإدارة في مسار التأجير
@@ -3412,9 +3498,9 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Monday, Aug 31, 2026, 9:59 PM (UTC+4)</timestamp>
 <user_query>
-تاكد بان كل وحده من الوحدات لها سجل منفصل عن الوحدات الاخرى كتاجير حسابات بيع كل المعاملات الاخرى و في المحصل كل الوحدات مربوطه في المبنى الرئيسي تظهر لمدير العقارات 
-كذلك صور العقار العقارات الفرعيه لا تظهر في الوحدات الاخرى ولا تظهر في العقار الرئيسي وكذلك صور العقار الرئيسي لا تظهر في الوحدات االخرى الا اذا لم يتم رفع صور في الوحدات سيتم استخدام الصور للعقار الام 
-كذلك وصف الوحات تولد بالذكاء الاصطناعي اولا يوصف الوحدات بناء على الموجود فيها ومن ثم اسفل الوصف يبين ان هذه الوحده مرتبطه بالمبنى و يكتب تفاصيل المبنى ووصفه و رقم المتسلسل الخاص به 
+تاكد بان كل وحده من الوحدات لها سجل منفصل عن الوحدات الاخرى كتاجير حسابات بيع كل المعاملات الاخرى و في المحصل كل الوحدات مربوطه في المبنى الرئيسي تظهر لمدير العقارات
+كذلك صور العقار العقارات الفرعيه لا تظهر في الوحدات الاخرى ولا تظهر في العقار الرئيسي وكذلك صور العقار الرئيسي لا تظهر في الوحدات االخرى الا اذا لم يتم رفع صور في الوحدات سيتم استخدام الصور للعقار الام
+كذلك وصف الوحات تولد بالذكاء الاصطناعي اولا يوصف الوحدات بناء على الموجود فيها ومن ثم اسفل الوصف يبين ان هذه الوحده مرتبطه بالمبنى و يكتب تفاصيل المبنى ووصفه و رقم المتسلسل الخاص به
 </user_query>
 
 ---
@@ -3436,16 +3522,20 @@ These files can be read with tools, copied to other locations, or attached to su
 تم التأكيد والتنفيذ (`dccf2ae`, `9e92778`).
 
 ### السجلات المنفصلة
+
 كل وحدة لها سجل تشغيلي مستقل (تأجير، بيع، حجوزات، محاسبة)، وكلها مربوطة بالمبنى في محفظة المدير. يظهر ذلك أيضاً في صفحة المبنى.
 
 ### الصور
+
 - صور الوحدة تظهر فقط في تلك الوحدة
 - صور المبنى لا تُنسخ على الوحدات الأخرى
 - صفحة المبنى لا تعرض صور الوحدات الفرعية
 - إذا لم تُرفع صور للوحدة → تُستخدم صور المبنى الأم كاحتياطي
 
 ### وصف الوحدات
+
 في صفحة الوحدة يظهر الوصف بهذا الترتيب:
+
 1. وصف الوحدة (النوع، الغرف، المساحة، السعر…)
 2. ثم أنها مرتبطة بالمبنى + تفاصيل المبنى + الرقم المتسلسل + وصف المبنى
 
@@ -3458,13 +3548,14 @@ These files can be read with tools, copied to other locations, or attached to su
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-cdd29b44-5f24-4466-b745-9bd3d4cd125b.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 10:06 PM (UTC+4)</timestamp>
 <user_query>
-اريد في هذه الصوره اولا ان يظهر نوع الوحده على سبيل المثال 
+اريد في هذه الصوره اولا ان يظهر نوع الوحده على سبيل المثال
 شقة A-02
 مبنى النور — مبنى النور
 النور · مطرح الكبرى · مطرح الكبرى · مطرح · مسقط
@@ -3489,13 +3580,14 @@ BHD-2026-PRP-I-0001-A2
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-cdd29b44-5f24-4466-b745-9bd3d4cd125b.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 10:06 PM (UTC+4)</timestamp>
 <user_query>
-اريد في هذه الصوره اولا ان يظهر نوع الوحده على سبيل المثال 
+اريد في هذه الصوره اولا ان يظهر نوع الوحده على سبيل المثال
 شقة A-02
 مبنى النور — مبنى النور
 النور · مطرح الكبرى · مطرح الكبرى · مطرح · مسقط
@@ -3530,6 +3622,7 @@ BHD-2026-PRP-I-0001-A2
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-7e287ad6-af0c-425e-8573-fdff446cf4bb.png
 2. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-8710929e-d644-4ba0-8e01-d928b0755e43.png
 
@@ -3537,8 +3630,8 @@ These files can be read with tools, copied to other locations, or attached to su
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 10:12 PM (UTC+4)</timestamp>
 <user_query>
-بنفس الطريقه اريد عرض البينات في صفحه العقارت 
-اسم المالك لا يظهر في بينات العقار الا اذا سمح المالك الاعلان باظهار الاسم 
+بنفس الطريقه اريد عرض البينات في صفحه العقارت
+اسم المالك لا يظهر في بينات العقار الا اذا سمح المالك الاعلان باظهار الاسم
 </user_query>
 
 ---
@@ -3560,6 +3653,7 @@ These files can be read with tools, copied to other locations, or attached to su
 تم تطبيق نفس ترتيب العرض على صفحة العقار، وإخفاء اسم المالك افتراضياً.
 
 **عرض الوحدة / المبنى**
+
 - عنوان الوحدة: مثل `شقة A-02` أو `محل S-01`
 - ثم اسم المبنى
 - ثم الموقع (بدون تكرار)
@@ -3567,6 +3661,7 @@ These files can be read with tools, copied to other locations, or attached to su
 - ثم المواصفات والسعر كما هي
 
 **اسم المالك**
+
 - لا يظهر في الصفحة العامة إلا إذا فعّل المالك الخيار في تعديل العقار:  
   **«السماح بإظهار اسم المالك في الإعلان العام»**
 - الخيار مقفول افتراضياً
@@ -3579,11 +3674,13 @@ These files can be read with tools, copied to other locations, or attached to su
 
 [Image]
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR
 Website Title: العقارات المتاحة · BHD R
 Website Content:
@@ -3685,8 +3782,8 @@ BHD-2026-PRP-I-0001-A2
 
 2 غرف2 حمامات100 م²
 
-* موقف سيارات
-* شرفة
+- موقف سيارات
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -3712,8 +3809,8 @@ BHD-2026-PRP-I-0001-A1
 
 2 غرف2 حمامات100 م²
 
-* موقف سيارات
-* شرفة
+- موقف سيارات
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -3739,8 +3836,8 @@ BHD-2026-PRP-I-0001-M3
 
 0 غرف0 حمامات150 م²
 
-* موقف سيارات
-* شرفة
+- موقف سيارات
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -3766,8 +3863,8 @@ BHD-2026-PRP-I-0001-M2
 
 0 غرف0 حمامات120 م²
 
-* موقف سيارات
-* شرفة
+- موقف سيارات
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -3793,8 +3890,8 @@ BHD-2026-PRP-I-0001-M1
 
 0 غرف0 حمامات120 م²
 
-* موقف سيارات
-* شرفة
+- موقف سيارات
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -3820,8 +3917,8 @@ BHD-2026-PRP-I-0001-S2
 
 0 غرف0 حمامات60 م²
 
-* موقف سيارات
-* شرفة
+- موقف سيارات
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -3847,8 +3944,8 @@ BHD-2026-PRP-I-0001-S1
 
 0 غرف0 حمامات60 م²
 
-* موقف سيارات
-* شرفة
+- موقف سيارات
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -3872,10 +3969,10 @@ BHD-2026-PRP-R-0002-A1
 
 9 غرف8 حمامات5050 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 **5.0**1 تقييممتاح للإيجار أو البيع
 
@@ -3899,10 +3996,10 @@ BHD-2026-PRP-R-0001-A1
 
 4 غرف5 حمامات120 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار
 
@@ -3911,24 +4008,26 @@ BHD-2026-PRP-R-0001-A1
 عرض التوافر
 
 تصفية (0)الخريطة
-____
+
+---
 
 </external_links>
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-468884e8-804a-4bba-a50b-f998decd6ad7.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 10:20 PM (UTC+4)</timestamp>
 <user_query>
-ما ز الت صفحه https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR  لا تعرض البينات كما طلبتها 
+ما ز الت صفحه https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR لا تعرض البينات كما طلبتها
 كذلك اريد ان تعمل زر مرتب ل
 وحدة مرتبطة بالمبنى
 عرض «مبنى النور» وكل وحداته
-وليس بالطريقه التي يعرضها الان الموقع اجعلها بداخل اطهار بنفس ثيم الموقع 
+وليس بالطريقه التي يعرضها الان الموقع اجعلها بداخل اطهار بنفس ثيم الموقع
 
-تاكد من انك رفعت كل شي 
+تاكد من انك رفعت كل شي
 </user_query>
 
 ---
@@ -3944,6 +4043,7 @@ These files can be read with tools, copied to other locations, or attached to su
 تم الدفع إلى `main` (`b6e0125`). السبب أن [صفحة العقارات](https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR) كانت ما زالت على النسخة القديمة.
 
 بعد اكتمال نشر Vercel ستظهر البطاقات بهذا الشكل:
+
 1. **معرض R-02** (نوع الوحدة + الرمز)
 2. اسم المبنى
 3. الموقع الكامل
@@ -3960,14 +4060,15 @@ These files can be read with tools, copied to other locations, or attached to su
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-8c699d57-8f5f-4fc1-b3aa-9c50399b5cf0.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 10:26 PM (UTC+4)</timestamp>
 <user_query>
-جميل ولاكن السبيس بين السطر و السطر جدا كبير اريد منك ان تصغر المسافه بين الاسطر لكي تظهر البينات بطريقه احترافية 
-كذلك عنوان العقار اجعله بخط كبير وبلون مغاير او داكن عن باقي التفاصيل وكذلك السعر 
+جميل ولاكن السبيس بين السطر و السطر جدا كبير اريد منك ان تصغر المسافه بين الاسطر لكي تظهر البينات بطريقه احترافية
+كذلك عنوان العقار اجعله بخط كبير وبلون مغاير او داكن عن باقي التفاصيل وكذلك السعر
 </user_query>
 
 ---
@@ -3982,10 +4083,10 @@ These files can be read with tools, copied to other locations, or attached to su
 
 تم التصغير والدفع (`efbf064`).
 
-- المسافات بين الأسطر أضيق بكثير  
-- **عنوان الوحدة** أكبر وأغمق (مثل شقة A-02)  
-- **السعر** أكبر وأوضح من التفاصيل الثانوية  
-- زر المبنى أصبح أوضح داخل الإطار  
+- المسافات بين الأسطر أضيق بكثير
+- **عنوان الوحدة** أكبر وأغمق (مثل شقة A-02)
+- **السعر** أكبر وأوضح من التفاصيل الثانوية
+- زر المبنى أصبح أوضح داخل الإطار
 
 بعد اكتمال النشر حدّث الصفحة بقوة (Ctrl+F5).
 
@@ -3995,8 +4096,8 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Monday, Aug 31, 2026, 10:29 PM (UTC+4)</timestamp>
 <user_query>
-اريد ان ترفع هذه المحادثه كامله و توثقها كما هي بدون ان تحذف حرف واحد لكي ارجع لها يوم غد من جهازي الثاني لستكمال العمل حيث توقفنا 
-فرفعها كما هي لكي ووثقها بتاريخ اليوم و ساعه الان و تاكد من انك رفعت كل شي ووثقت كل شي و نشرت كل شي ودمجت كل شي 
+اريد ان ترفع هذه المحادثه كامله و توثقها كما هي بدون ان تحذف حرف واحد لكي ارجع لها يوم غد من جهازي الثاني لستكمال العمل حيث توقفنا
+فرفعها كما هي لكي ووثقها بتاريخ اليوم و ساعه الان و تاكد من انك رفعت كل شي ووثقت كل شي و نشرت كل شي ودمجت كل شي
 </user_query>
 
 ---
@@ -4016,6 +4117,7 @@ These files can be read with tools, copied to other locations, or attached to su
 **المستودع:** https://github.com/ainoamn/BHD-R
 
 ### أين تجد المحادثة كاملة غداً
+
 من الجهاز الثاني بعد `git pull origin main`:
 
 - نقطة الاستكمال: [`docs/handoffs/2026-08-31-multi-unit-listing-cards/README.md`](https://github.com/ainoamn/BHD-R/blob/main/docs/handoffs/2026-08-31-multi-unit-listing-cards/README.md)
@@ -4024,13 +4126,15 @@ These files can be read with tools, copied to other locations, or attached to su
 - ملخص سريع: `docs/implementation/HANDOFF-2026-08-31-MULTI-UNIT-CARDS-AR.md`
 
 ### الحالة
+
 - العمل مدموج مباشرة في `main` (لا فرع معلّق)
 - الكود + التوثيق مرفوعان إلى GitHub
 - لا تغييرات محلية معلّقة
 
 ### أول خطوة غداً
-1. `git pull origin main`  
-2. افتح ملف الـ README أعلاه من قسم «أين توقّفنا»  
+
+1. `git pull origin main`
+2. افتح ملف الـ README أعلاه من قسم «أين توقّفنا»
 3. تحقق نشر Vercel + هجرة Neon `0017`
 
 ---
@@ -4041,16 +4145,19 @@ These files can be read with tools, copied to other locations, or attached to su
 [Image]
 [Image]
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/properties/d0840631-207d-477a-853a-043572d49240/edit
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/units/90cd9d0b-3526-4419-8066-4c24f6534b90
 Website Title: مبنى النور — مبنى النور — شقة A-02 · BHD R
@@ -4076,7 +4183,8 @@ _R_بن حمود للتطوير
 © 2026 شركة بن حمود للتطوير. جميع الحقوق محفوظة.مسقط · سلطنة عُمان
 
 مبنى النور — مبنى النور — شقة A-02 · BHD R
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR
 Website Title: العقارات المتاحة · BHD R
@@ -4179,10 +4287,10 @@ BHD-2026-PRP-I-0001-A2
 
 2 غرف2 حمامات100 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -4208,10 +4316,10 @@ BHD-2026-PRP-I-0001-A1
 
 2 غرف2 حمامات100 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -4237,10 +4345,10 @@ BHD-2026-PRP-I-0001-M3
 
 0 غرف0 حمامات150 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -4266,10 +4374,10 @@ BHD-2026-PRP-I-0001-M2
 
 0 غرف0 حمامات120 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -4295,10 +4403,10 @@ BHD-2026-PRP-I-0001-M1
 
 0 غرف0 حمامات120 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -4324,10 +4432,10 @@ BHD-2026-PRP-I-0001-S2
 
 0 غرف0 حمامات60 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -4353,10 +4461,10 @@ BHD-2026-PRP-I-0001-S1
 
 0 غرف0 حمامات60 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار أو البيع
 
@@ -4380,10 +4488,10 @@ BHD-2026-PRP-R-0002-A1
 
 9 غرف8 حمامات5050 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 **5.0**1 تقييممتاح للإيجار أو البيع
 
@@ -4407,10 +4515,10 @@ BHD-2026-PRP-R-0001-A1
 
 4 غرف5 حمامات120 م²
 
-* مسبح
-* موقف سيارات
-* واي فاي
-* شرفة
+- مسبح
+- موقف سيارات
+- واي فاي
+- شرفة
 
 متاح للإيجار
 
@@ -4419,11 +4527,13 @@ BHD-2026-PRP-R-0001-A1
 عرض التوافر
 
 تصفية (0)الخريطة
-____
+
+---
 
 </external_links>
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-05aaa6ca-4ad6-4d9e-9da8-f2354a16dc34.png
 2. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-7db0824d-55ec-4ab8-8b1e-9152d875be9d.png
 3. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-65853786-f694-4c1c-a9de-6db81de941ec.png
@@ -4432,10 +4542,10 @@ These files can be read with tools, copied to other locations, or attached to su
 </image_files>
 <timestamp>Monday, Aug 31, 2026, 10:33 PM (UTC+4)</timestamp>
 <user_query>
-بعد التحديثات الاخيره التي قمنا بها 
-تعديل العقار https://r.bhd-om.com/ar/owner/properties/d0840631-207d-477a-853a-043572d49240/edit  يظهر لي خطا تعذر تحديث العقار في قاعدة البيانات 
-كذلك عندما افتح https://r.bhd-om.com/ar/units/90cd9d0b-3526-4419-8066-4c24f6534b90  تفاصيل العقار يظهر لي الصفحة غير متاحة · Page unavailable
-مع ان كل العقارات موجوده في https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR 
+بعد التحديثات الاخيره التي قمنا بها
+تعديل العقار https://r.bhd-om.com/ar/owner/properties/d0840631-207d-477a-853a-043572d49240/edit يظهر لي خطا تعذر تحديث العقار في قاعدة البيانات
+كذلك عندما افتح https://r.bhd-om.com/ar/units/90cd9d0b-3526-4419-8066-4c24f6534b90 تفاصيل العقار يظهر لي الصفحة غير متاحة · Page unavailable
+مع ان كل العقارات موجوده في https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR
 
 </user_query>
 
@@ -4458,10 +4568,12 @@ These files can be read with tools, copied to other locations, or attached to su
 السبب كان واحداً للاثنين: عمود `show_owner_name_on_listing` دخل مع التحديث الأخير ولم يكن موجوداً بعد في Neon، ففشل حفظ العقار وصفحة الوحدة (بينما الكتالوج لا يمسّ هذا العمود فيظهر الوحدات).
 
 **ما تم إصلاحه ودفعه** (`f6a67e8`):
+
 - إنشاء العمود تلقائياً إن أمكن، أو تجاوزه بأمان إن لم تُطبَّق الهجرة بعد
 - الحفظ وصفحة الوحدة يعملان دون انتظار هجرة يدوية
 
 بعد اكتمال نشر Vercel:
+
 1. أعد حفظ [تعديل العقار](https://r.bhd-om.com/ar/owner/properties/d0840631-207d-477a-853a-043572d49240/edit)
 2. افتح [تفاصيل الوحدة](https://r.bhd-om.com/ar/units/90cd9d0b-3526-4419-8066-4c24f6534b90)
 
@@ -4473,8 +4585,8 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Monday, Aug 31, 2026, 10:43 PM (UTC+4)</timestamp>
 <user_query>
-الان وثق كل هذه المحادثه مره اخرى وارفع كل ما دار في هذه المادحدثه لكي استكمل العمل من كبيوتري الاخر غدا 
-اريد منك كذلك عمل خطه مقترحه للعمل ليوم غد للتطوير و البناء بحسب الاولويات 
+الان وثق كل هذه المحادثه مره اخرى وارفع كل ما دار في هذه المادحدثه لكي استكمل العمل من كبيوتري الاخر غدا
+اريد منك كذلك عمل خطه مقترحه للعمل ليوم غد للتطوير و البناء بحسب الاولويات
 </user_query>
 
 ---
@@ -4490,23 +4602,27 @@ These files can be read with tools, copied to other locations, or attached to su
 تم التوثيق والرفع إلى `main` (`4b61e8a`) بتاريخ **2026-08-31 · 22:43 مسقط**.
 
 ### من الجهاز الثاني غداً
+
 ```bash
 git pull origin main
 ```
+
 ثم افتح:
+
 - [README التسليم](https://github.com/ainoamn/BHD-R/blob/main/docs/handoffs/2026-08-31-evening-continue-tomorrow/README.md)
 - [خطة الغد بالأولويات](https://github.com/ainoamn/BHD-R/blob/main/docs/handoffs/2026-08-31-evening-continue-tomorrow/TOMORROW-PLAN-AR.md)
 - المحادثة الحرفية: `conversation-transcript-FULL.jsonl`
 - النسخة المقروءة: `conversation-readable-FULL.md`
 
 ### خطة الغد (مختصر)
-| أولوية | ماذا |
-| --- | --- |
-| **P0** | تحقق الإنتاج: حفظ العقار + صفحة الوحدة + هجرة Neon `0017` |
+
+| أولوية | ماذا                                                               |
+| ------ | ------------------------------------------------------------------ |
+| **P0** | تحقق الإنتاج: حفظ العقار + صفحة الوحدة + هجرة Neon `0017`          |
 | **P1** | صقل العرض العام (زر المبنى في كل العروض، عنوان الصفحة/SEO، الموقع) |
-| **P2** | إكمال تجربة «إظهار اسم المالك» بعد الهجرة |
-| **P3** | اختبار انحدار الوحدات المتعددة (صور، both، سيريالات) |
-| **P4** | مسار منتج واحد فقط إن بقي وقت (تشغيل مالك / اكتشاف / stays) |
+| **P2** | إكمال تجربة «إظهار اسم المالك» بعد الهجرة                          |
+| **P3** | اختبار انحدار الوحدات المتعددة (صور، both، سيريالات)               |
+| **P4** | مسار منتج واحد فقط إن بقي وقت (تشغيل مالك / اكتشاف / stays)        |
 
 قاعدة القرار: أي كسر في الحفظ أو العرض → ابقَ على **P0** ولا تنتقل لميزات جديدة.
 
@@ -4516,7 +4632,7 @@ git pull origin main
 
 <timestamp>Monday, Aug 31, 2026, 10:46 PM (UTC+4)</timestamp>
 <user_query>
-وثق  ارفع 
+وثق ارفع
 </user_query>
 
 ---
@@ -4531,9 +4647,9 @@ git pull origin main
 
 تم التوثيق والرفع.
 
-- **الوقت:** 2026-08-31 · 22:46 مسقط  
-- **Commit:** `bd4545b` على `main`  
-- **المجلد:** [docs/handoffs/2026-08-31-evening-continue-tomorrow](https://github.com/ainoamn/BHD-R/tree/main/docs/handoffs/2026-08-31-evening-continue-tomorrow)  
+- **الوقت:** 2026-08-31 · 22:46 مسقط
+- **Commit:** `bd4545b` على `main`
+- **المجلد:** [docs/handoffs/2026-08-31-evening-continue-tomorrow](https://github.com/ainoamn/BHD-R/tree/main/docs/handoffs/2026-08-31-evening-continue-tomorrow)
 - **الخطة:** [TOMORROW-PLAN-AR.md](https://github.com/ainoamn/BHD-R/blob/main/docs/handoffs/2026-08-31-evening-continue-tomorrow/TOMORROW-PLAN-AR.md)
 
 غداً: `git pull origin main`
@@ -4544,7 +4660,7 @@ git pull origin main
 
 <timestamp>Wednesday, Sep 2, 2026, 7:19 PM (UTC+4)</timestamp>
 <user_query>
-اسحب كل شي من جيت واخر التحديات 
+اسحب كل شي من جيت واخر التحديات
 </user_query>
 
 ---
@@ -4557,11 +4673,13 @@ git pull origin main
 - **من:** `bd4545b` (آخر ما كان على هذا الجهاز) → أحدث التحديثات حتى اليوم
 
 ### أبرز ما وصل
+
 - مسار **الإقامات (Stays)** واسع: كتالوج، حجز، تقويم، إعداد، تقييمات
 - **0.4.41:** دفع تجريبي على Vercel/Neon + مسار `/ar/admin` → المنصة
 - عدة تسليمات وخطط في `docs/handoffs/2026-09-02-*`
 
 ### ابدأ من هنا
+
 - [خطة الاستكمال](docs/handoffs/2026-09-02-evening-home-handoff/CONTINUE-PLAN-AR.md)
 - [ملاحظات 0.4.41](docs/implementation/RELEASE-0.4.41-AR.md)
 
@@ -4573,7 +4691,7 @@ git pull origin main
 
 <timestamp>Wednesday, Sep 2, 2026, 7:24 PM (UTC+4)</timestamp>
 <user_query>
- اكمل خطه الاستكمال مباشره  \و ارفع كل شي بدون ان ترجع لي و تسالني و دائما وثق كل شي قبل الرفع 
+اكمل خطه الاستكمال مباشره \و ارفع كل شي بدون ان ترجع لي و تسالني و دائما وثق كل شي قبل الرفع
 </user_query>
 
 ---
@@ -4594,7 +4712,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 
 <timestamp>Wednesday, Sep 2, 2026, 7:24 PM (UTC+4)</timestamp>
 <user_query>
- اكمل خطه الاستكمال مباشره  \و ارفع كل شي بدون ان ترجع لي و تسالني و دائما وثق كل شي قبل الرفع 
+اكمل خطه الاستكمال مباشره \و ارفع كل شي بدون ان ترجع لي و تسالني و دائما وثق كل شي قبل الرفع
 </user_query>
 
 ---
@@ -4604,6 +4722,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 تم شحن **0.4.42** إلى `main` (`c56e3b8` → `ac564db`).
 
 **ما أُنجز من الخطة**
+
 - P0/P1: الإنتاج ما زال يعرض **3** إقامات (A-01, A-02, R-01)
 - P3: شارات قنوات (إيجار / بيع / إقامة) في محفظة العقارات + إصلاح تصغير عناوين الهاتف بحيث لا يؤثر على صفحات الإقامة العامة
 - توثيق + أرشفة المحادثة قبل الرفع
@@ -4612,6 +4731,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 نشر R-02 / R-03 / S-01 / S-02 من معالج الإعداد (يحتاج جلسة مالك).
 
 **مراجع**
+
 - الإصدار: `docs/implementation/RELEASE-0.4.42-AR.md`
 - التسليم والخطة التالية: `docs/handoffs/2026-09-02-continue-0.4.42/`
 
@@ -4621,7 +4741,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 
 <timestamp>Wednesday, Sep 2, 2026, 7:36 PM (UTC+4)</timestamp>
 <user_query>
-اكمل ووثق و ارفع و انشر 
+اكمل ووثق و ارفع و انشر
 </user_query>
 
 ---
@@ -4649,6 +4769,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 تم شحن **0.4.43** إلى `main` (`10ca569` → `38a2a5a`) — Vercel ينشر تلقائياً من `main`.
 
 **ما أُصلح ونُشر**
+
 - الحجز كان يتجاهل `?unit=` ويختار وحدة أخرى (مثل A-02 بدل R-01) — الآن التقويم/التوافر/السعر/الدفع مربوطون بـ `unitId`
 - إتمام دفع sandbox كان معطلاً في الإنتاج — أُصلح ليعمل مع `STAYS_PLATFORM_ENABLED`
 - معالج الإعداد يفضّل الوحدات غير المنشورة + زر «اختر غير المنشور فقط»
@@ -4681,7 +4802,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 
 <timestamp>Wednesday, Sep 2, 2026, 8:03 PM (UTC+4)</timestamp>
 <user_query>
-اكمل 
+اكمل
 </user_query>
 
 ---
@@ -4717,6 +4838,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 **المشكلة:** بناء 0.4.43 كان يفشل على Vercel بسبب `exactOptionalPropertyTypes`، فبقي الموقع على بناء قديم.
 
 **ما تأكد على الإنتاج الآن**
+
 - الحجز يلتزم بـ `unitId` (R-01 وليس A-02)
 - مسار الدفع الكامل حتى **confirmed** (`ST-F47F63F7`)
 
@@ -4743,7 +4865,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 
 <timestamp>Wednesday, Sep 2, 2026, 8:18 PM (UTC+4)</timestamp>
 <user_query>
-اكمل 
+اكمل
 </user_query>
 
 ---
@@ -4759,6 +4881,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 تم شحن **0.4.45** (`32532f6`) إلى `main`.
 
 **ما أُكمل في الكود**
+
 - صفحة الإقامة تقبل `?unit=` و`?unitId=`
 - شارة «إقامة» في المحفظة فقط للوحدات المنشورة فعلياً
 - بعد النشر من المعالج يفتح الرابط مع `?unit=`
@@ -4772,7 +4895,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 
 <timestamp>Wednesday, Sep 2, 2026, 8:25 PM (UTC+4)</timestamp>
 <user_query>
-ما هو رابط لوحه التحكم للادمن 
+ما هو رابط لوحه التحكم للادمن
 </user_query>
 
 ---
@@ -4784,6 +4907,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 **https://r.bhd-om.com/ar/platform**
 
 اختصارات تصل لنفس المكان:
+
 - https://r.bhd-om.com/ar/admin
 - https://r.bhd-om.com/ar/ADMIN
 
@@ -4796,7 +4920,7 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 
 <timestamp>Wednesday, Sep 2, 2026, 8:27 PM (UTC+4)</timestamp>
 <user_query>
-ما هو ايميل الادارة 
+ما هو ايميل الادارة
 </user_query>
 
 ---
@@ -4816,21 +4940,24 @@ P1 على الإنتاج سليم (3 إقامات). أنفّذ P3: شارات ا
 ## 210. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/platform
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <timestamp>Wednesday, Sep 2, 2026, 8:32 PM (UTC+4)</timestamp>
 <user_query>
- لقد قمت بعمل ايميل الادمن a.hamid89@hotmail.com  وعلته على BHD_PLATFORM_ADMIN_EMAILS و نشرته وعندما ادخخل الى https://r.bhd-om.com/ar/platform  ينقلني الى حساب المالك 
+لقد قمت بعمل ايميل الادمن a.hamid89@hotmail.com وعلته على BHD_PLATFORM_ADMIN_EMAILS و نشرته وعندما ادخخل الى https://r.bhd-om.com/ar/platform ينقلني الى حساب المالك
 </user_query>
 
 ---
@@ -4882,6 +5009,7 @@ ON CONFLICT DO NOTHING;
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-a0078e66-63d9-4bff-a9cf-fe71769beb73.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
@@ -4911,6 +5039,7 @@ SET status = 'active';
 ```
 
 ثم:
+
 1. تحقق: نفس استعلام `SELECT` يجب أن يظهر صفّين (`organization_owner` و `platform_admin`)
 2. اخرج من الجلسة ثم ادخل من: https://r.bhd-om.com/api/auth/admin-entry
 3. افتح: https://r.bhd-om.com/ar/platform
@@ -4924,13 +5053,14 @@ SET status = 'active';
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-9f77131c-3888-4071-aaeb-5f47805e844c.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 9:36 PM (UTC+4)</timestamp>
 <user_query>
-المفترض في التقويم عندما اختار بين تاريخين ان يغير لون الحقول المختاره الى اللون الازرق او الاحمر او لون ثيم الموقع  لكي يظهر للعميل التواريخ المختاره 
+المفترض في التقويم عندما اختار بين تاريخين ان يغير لون الحقول المختاره الى اللون الازرق او الاحمر او لون ثيم الموقع لكي يظهر للعميل التواريخ المختاره
 
 </user_query>
 
@@ -4949,6 +5079,7 @@ These files can be read with tools, copied to other locations, or attached to su
 **المشكلة:** لون «شاغر» الأخضر كان يغطي تنسيق التواريخ المختارة بسبب أولوية CSS.
 
 **الآن بعد نشر Vercel:**
+
 - أيام النطاق بلون ثيم الموقع (فيروزي)
 - يوم الوصول والمغادرة بلون ثيم أقوى + تسمية «وصول / مغادرة»
 - الأيام الوسطى تظهر «مختار»
@@ -4964,6 +5095,7 @@ These files can be read with tools, copied to other locations, or attached to su
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-cf69a95d-cc36-482f-be14-18cef0aa98b4.png
 2. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-0954fc44-9fb5-4e78-bf37-24637e9f7563.png
 3. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-39a80d44-e63b-4559-a019-3a4cbb202c45.png
@@ -4972,11 +5104,11 @@ These files can be read with tools, copied to other locations, or attached to su
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 9:47 PM (UTC+4)</timestamp>
 <user_query>
- اريد في هذه الصفحه ان الون تاريخ الوصول و تاريخ المغادره ليكون كل تاريخ بلون للتميز 
-كذلك نوع الاقامة كل نوع من الاقامه اعطيه لون ولون البالغون بلون ولااطفال بلون 
-في البينات النظام مباشره يجلب بينات المستخدم مع قابلية التغير 
-في صفحه المراجع اجعلها مطابقه للالون التي اخترنها في الصفحه الاولى 
-عند تاكيد الحجز ينتقل الى بوابه الدفع  بعد الدفع و تاكيد الدفع سيظهر ايصال الدفع بي دي اف مع رابط وسيرسل النظام ايميل للمستخدم بالايميل المسجل الايصال وتاكيد الحجز 
+اريد في هذه الصفحه ان الون تاريخ الوصول و تاريخ المغادره ليكون كل تاريخ بلون للتميز
+كذلك نوع الاقامة كل نوع من الاقامه اعطيه لون ولون البالغون بلون ولااطفال بلون
+في البينات النظام مباشره يجلب بينات المستخدم مع قابلية التغير
+في صفحه المراجع اجعلها مطابقه للالون التي اخترنها في الصفحه الاولى
+عند تاكيد الحجز ينتقل الى بوابه الدفع بعد الدفع و تاكيد الدفع سيظهر ايصال الدفع بي دي اف مع رابط وسيرسل النظام ايميل للمستخدم بالايميل المسجل الايصال وتاكيد الحجز
 </user_query>
 
 ---
@@ -5034,6 +5166,7 @@ If an MCP-backed namespace requires authentication, call `mcp_auth` through `Cal
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-cf69a95d-cc36-482f-be14-18cef0aa98b4.png
 2. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-0954fc44-9fb5-4e78-bf37-24637e9f7563.png
 3. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-39a80d44-e63b-4559-a019-3a4cbb202c45.png
@@ -5042,11 +5175,11 @@ These files can be read with tools, copied to other locations, or attached to su
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 9:47 PM (UTC+4)</timestamp>
 <user_query>
- اريد في هذه الصفحه ان الون تاريخ الوصول و تاريخ المغادره ليكون كل تاريخ بلون للتميز 
-كذلك نوع الاقامة كل نوع من الاقامه اعطيه لون ولون البالغون بلون ولااطفال بلون 
-في البينات النظام مباشره يجلب بينات المستخدم مع قابلية التغير 
-في صفحه المراجع اجعلها مطابقه للالون التي اخترنها في الصفحه الاولى 
-عند تاكيد الحجز ينتقل الى بوابه الدفع  بعد الدفع و تاكيد الدفع سيظهر ايصال الدفع بي دي اف مع رابط وسيرسل النظام ايميل للمستخدم بالايميل المسجل الايصال وتاكيد الحجز 
+اريد في هذه الصفحه ان الون تاريخ الوصول و تاريخ المغادره ليكون كل تاريخ بلون للتميز
+كذلك نوع الاقامة كل نوع من الاقامه اعطيه لون ولون البالغون بلون ولااطفال بلون
+في البينات النظام مباشره يجلب بينات المستخدم مع قابلية التغير
+في صفحه المراجع اجعلها مطابقه للالون التي اخترنها في الصفحه الاولى
+عند تاكيد الحجز ينتقل الى بوابه الدفع بعد الدفع و تاكيد الدفع سيظهر ايصال الدفع بي دي اف مع رابط وسيرسل النظام ايميل للمستخدم بالايميل المسجل الايصال وتاكيد الحجز
 </user_query>
 
 ---
@@ -5062,18 +5195,22 @@ Implementing color-coded fields, guest prefill, auto payment redirect, and recei
 تم تنفيذ المطلوب على مسار الحجز:
 
 ### الألوان (خطوة الإقامة + المراجعة)
+
 - **الوصول** أخضر · **المغادرة** برتقالي
 - كل **نوع إقامة** بلون مختلف
 - **بالغون** أزرق · **أطفال** برتقالي محمر  
-نفس الألوان تظهر في المراجعة وصفحة التأكيد والإيصال.
+  نفس الألوان تظهر في المراجعة وصفحة التأكيد والإيصال.
 
 ### بيانات الضيف
+
 النظام يملأ الاسم والبريد من الحساب المسجّل (مع إمكانية التعديل)، ويحفظ البريد/الهاتف مع الحجز لإرسال الإيصال.
 
 ### الدفع بعد التأكيد
+
 زر **تأكيد الحجز** ينشئ الحجز ثم يحوّل مباشرة إلى **بوابة الدفع**. إن فشل التحويل يبقى زر **ادفع الآن**.
 
 ### بعد الدفع
+
 - صفحة تأكيد مع رابط **إيصال الدفع (PDF)**
 - صفحة إيصال قابلة للطباعة/الحفظ كـ PDF: `/ar/stays/booking/receipt?ref=...`
 - إيميل تأكيد + رابط الإيصال يُرسل عبر الـ worker إلى البريد المسجّل (يتطلب SMTP على الـ worker)
@@ -5086,7 +5223,7 @@ Implementing color-coded fields, guest prefill, auto payment redirect, and recei
 
 <timestamp>Wednesday, Sep 2, 2026, 9:58 PM (UTC+4)</timestamp>
 <user_query>
-اخبرتك مباشره ارفع كل شي مع التوثيق 
+اخبرتك مباشره ارفع كل شي مع التوثيق
 </user_query>
 
 ---
@@ -5102,10 +5239,12 @@ Implementing color-coded fields, guest prefill, auto payment redirect, and recei
 تم الرفع إلى `main`.
 
 **الإصدار 0.4.46**
+
 - الكود: `9404d91` — ألوان الحجز، تعبئة الضيف، تحويل الدفع، الإيصال والإيميل
 - التوثيق: `67f5945` — تثبيت هاش الإصدار
 
 **الوثائق**
+
 - `docs/implementation/RELEASE-0.4.46-AR.md`
 - `docs/handoffs/2026-09-02-stay-checkout-0.4.46/README.md`
 
@@ -5119,11 +5258,13 @@ Implementing color-coded fields, guest prefill, auto payment redirect, and recei
 
 [Image]
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/payments/sandbox/OAvjjnViTydQF58i-vnsIv3FcqopKt8B?kind=stay&return=%2Far%2Fstays%2Fbooking%2Fconfirmed%3Fref%3DST-0A58F0FE
 Website Title: Sandbox payment | دفع تجريبي · BHD R
 Website Content:
@@ -5148,18 +5289,20 @@ _R_بن حمود للتطوير
 عن الشركةهوية الشركةبرامجناالخصوصيةالشروطالأماندخول الإدارة
 
 © 2026 شركة بن حمود للتطوير. جميع الحقوق محفوظة.مسقط · سلطنة عُمان
-____
+
+---
 
 </external_links>
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-4de6a80e-e31f-47f3-a694-98c94cec9feb.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 10:03 PM (UTC+4)</timestamp>
 <user_query>
-https://r.bhd-om.com/ar/payments/sandbox/OAvjjnViTydQF58i-vnsIv3FcqopKt8B?kind=stay&return=%2Far%2Fstays%2Fbooking%2Fconfirmed%3Fref%3DST-0A58F0FE  عند التحويل الى صفحه الدفع يظهر هذا الخطا 
+https://r.bhd-om.com/ar/payments/sandbox/OAvjjnViTydQF58i-vnsIv3FcqopKt8B?kind=stay&return=%2Far%2Fstays%2Fbooking%2Fconfirmed%3Fref%3DST-0A58F0FE عند التحويل الى صفحه الدفع يظهر هذا الخطا
 
 </user_query>
 
@@ -5184,6 +5327,7 @@ https://r.bhd-om.com/ar/payments/sandbox/OAvjjnViTydQF58i-vnsIv3FcqopKt8B?kind=s
 تم التوحيد مع بوابة الـ pilot ورفع الإصلاح **0.4.47** (`cac6115`) إلى `main`.
 
 بعد اكتمال نشر Vercel:
+
 1. أعد فتح رابط الدفع نفسه، أو
 2. أكّد حجزاً جديداً من جديد.
 
@@ -5195,7 +5339,7 @@ https://r.bhd-om.com/ar/payments/sandbox/OAvjjnViTydQF58i-vnsIv3FcqopKt8B?kind=s
 
 <timestamp>Wednesday, Sep 2, 2026, 10:07 PM (UTC+4)</timestamp>
 <user_query>
-اريد ان تنشي صفحه دفع وكانها حقيقيه يدخل فيها بينات البطاقه الدفع 
+اريد ان تنشي صفحه دفع وكانها حقيقيه يدخل فيها بينات البطاقه الدفع
 </user_query>
 
 ---
@@ -5217,6 +5361,7 @@ https://r.bhd-om.com/ar/payments/sandbox/OAvjjnViTydQF58i-vnsIv3FcqopKt8B?kind=s
 تم. صفحة الدفع أصبحت تشبه بوابة حقيقية ورفعناها (**0.4.48**).
 
 ما ستراه بعد نشر Vercel:
+
 - **BHD Pay** مع المبلغ ومرجع الحجز
 - بطاقة بصرية تتحدّث أثناء الكتابة
 - حقول: الاسم، رقم البطاقة، الانتهاء، CVC
@@ -5233,13 +5378,14 @@ https://r.bhd-om.com/ar/payments/sandbox/OAvjjnViTydQF58i-vnsIv3FcqopKt8B?kind=s
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-8c8be6ff-52ef-4243-ab29-beea8747d746.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 10:14 PM (UTC+4)</timestamp>
 <user_query>
- اريد ان تكون بوابه الدفع تظهر على مل الشاشه و تتفاعل مع مع الاجهزه الاخرى تكون متجانسه 
+اريد ان تكون بوابه الدفع تظهر على مل الشاشه و تتفاعل مع مع الاجهزه الاخرى تكون متجانسه
 </user_query>
 
 ---
@@ -5261,6 +5407,7 @@ These files can be read with tools, copied to other locations, or attached to su
 تم ورفعنا **0.4.49**.
 
 بوابة الدفع الآن:
+
 - **ملء الشاشة** بدون هيدر/فوتر الموقع
 - **موبايل:** ملخص المبلغ أعلى + النموذج بعرض كامل
 - **ديسكتوب:** عمودان متجانسان (ملخص + بيانات البطاقة)
@@ -5273,7 +5420,7 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Wednesday, Sep 2, 2026, 10:19 PM (UTC+4)</timestamp>
 <user_query>
-في بطاقه الدفع اعمل فيها شعار الموقع  وريد بطاقه البنك اريد فيها صوره لمعلم من معالم عمان 
+في بطاقه الدفع اعمل فيها شعار الموقع وريد بطاقه البنك اريد فيها صوره لمعلم من معالم عمان
 </user_query>
 
 ---
@@ -5289,6 +5436,7 @@ These files can be read with tools, copied to other locations, or attached to su
 تم ورفعنا **0.4.50**.
 
 بطاقة الدفع الآن فيها:
+
 - **شعار BHD R** أعلى البطاقة
 - خلفية **جامع السلطان قابوس · مسقط**
 - طبقة شفافة حتى يبقى رقم البطاقة واضحاً
@@ -5327,10 +5475,10 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Wednesday, Sep 2, 2026, 10:25 PM (UTC+4)</timestamp>
 <user_query>
- البطاقه تظهر بشكل مستطيل كبير اريدها ان تظهر و كانها بطاقه حقيقيه 
-كذلك رقم البطاقه بدل ان يكون نقاط اكتبه ارقام متسله تبدا من 1234123412341234 
+البطاقه تظهر بشكل مستطيل كبير اريدها ان تظهر و كانها بطاقه حقيقيه
+كذلك رقم البطاقه بدل ان يكون نقاط اكتبه ارقام متسله تبدا من 1234123412341234
 تاريخ الانتهاء اجعله 10/89
-كذلك  البطاقه في الجهه اليمنى اجعل لها صوره من معالم عمان وبنفس الطريقه 
+كذلك البطاقه في الجهه اليمنى اجعل لها صوره من معالم عمان وبنفس الطريقه
 </user_query>
 
 ---
@@ -5346,6 +5494,7 @@ These files can be read with tools, copied to other locations, or attached to su
 تم ورفعنا التغيير.
 
 البطاقة الآن:
+
 - بحجم **بطاقة بنكية حقيقية** (نسبة ID-1) وليست مستطيلاً كبيراً
 - الرقم الافتراضي: **1234 1234 1234 1234**
 - الانتهاء: **10/89**
@@ -5360,7 +5509,7 @@ These files can be read with tools, copied to other locations, or attached to su
 
 <timestamp>Wednesday, Sep 2, 2026, 10:28 PM (UTC+4)</timestamp>
 <user_query>
-اجعل البطاقة التي تعرض البينات ادناه تظهر بشكل مربع بدل ان تظهر بهذا المظهر مع صوره خلفيه لمعلم اخر من معالم عمان مثل جبال صلاله او مينا السلطان قابوس 
+اجعل البطاقة التي تعرض البينات ادناه تظهر بشكل مربع بدل ان تظهر بهذا المظهر مع صوره خلفيه لمعلم اخر من معالم عمان مثل جبال صلاله او مينا السلطان قابوس
 المبلغ المستحق
 
 ‏٨٤٠ ر.ع.‏
@@ -5386,6 +5535,7 @@ ST-0A58F0FE
 تم.
 
 بطاقة **المبلغ المستحق** أصبحت:
+
 - بشكل **مربع**
 - بخلفية **جبال صلالة · ظفار**
 - فوقها المبلغ والمرجع وتواريخ الوصول/المغادرة بوضوح
@@ -5398,8 +5548,8 @@ ST-0A58F0FE
 
 <timestamp>Wednesday, Sep 2, 2026, 10:31 PM (UTC+4)</timestamp>
 <user_query>
-كبر بطاقة المبلغ المستحق الذي هو بشكل مربع و اجعله اكبر من الان 
-كذلك الصوره الجامع الاكبر الان تظهر نص البطاقه والنص الاخر باللون الاخضر 
+كبر بطاقة المبلغ المستحق الذي هو بشكل مربع و اجعله اكبر من الان
+كذلك الصوره الجامع الاكبر الان تظهر نص البطاقه والنص الاخر باللون الاخضر
 </user_query>
 
 ---
@@ -5425,9 +5575,9 @@ ST-0A58F0FE
 
 <timestamp>Wednesday, Sep 2, 2026, 10:33 PM (UTC+4)</timestamp>
 <user_query>
-في البطاقة المبلغ المستحق اكتب عدد الايام 
+في البطاقة المبلغ المستحق اكتب عدد الايام
 
-في مكان تعبئة البينات الان الاسم ورقم البطاقة يظهر تلقائيا اريد ان يكون مكتوب في الخلفيه بخط خافت  كي كبيان للمستخدم لادخال النص  
+في مكان تعبئة البينات الان الاسم ورقم البطاقة يظهر تلقائيا اريد ان يكون مكتوب في الخلفيه بخط خافت كي كبيان للمستخدم لادخال النص  
 </user_query>
 
 ---
@@ -5459,16 +5609,16 @@ ST-0A58F0FE
 22:35:41.587 Cloning completed: 1.842s
 22:35:41.668 Found .vercelignore (repository root)
 22:35:41.698 Removed 430 ignored files defined in .vercelignore
-22:35:41.698   /.github/dependabot.yml
-22:35:41.698   /.github/lighthouse-budget.json
-22:35:41.698   /.github/lighthouserc.cjs
-22:35:41.698   /.github/pull_request_template.md
-22:35:41.698   /.github/scripts/create-ci-logins.sql
-22:35:41.698   /.github/workflows/ci.yml
-22:35:41.698   /.github/workflows/performance.yml
-22:35:41.698   /.github/workflows/security.yml
-22:35:41.698   /apps/api/nest-cli.json
-22:35:41.698   /apps/api/package.json
+22:35:41.698 /.github/dependabot.yml
+22:35:41.698 /.github/lighthouse-budget.json
+22:35:41.698 /.github/lighthouserc.cjs
+22:35:41.698 /.github/pull_request_template.md
+22:35:41.698 /.github/scripts/create-ci-logins.sql
+22:35:41.698 /.github/workflows/ci.yml
+22:35:41.698 /.github/workflows/performance.yml
+22:35:41.698 /.github/workflows/security.yml
+22:35:41.698 /apps/api/nest-cli.json
+22:35:41.698 /apps/api/package.json
 22:35:41.800 Restored build cache from previous deployment (8LVMqMMzmApNN4uHSvDPuaiCMyuv)
 22:35:43.017 Running "vercel build"
 22:35:43.033 Vercel CLI 59.3.0
@@ -5479,23 +5629,23 @@ ST-0A58F0FE
 22:35:45.227 Scope: all 12 workspace projects
 22:35:45.318 Lockfile is up to date, resolution step is skipped
 22:35:45.442 Already up to date
-22:35:46.027 
+22:35:46.027
 22:35:46.069 Done in 1.2s using pnpm v10.14.0
 22:35:46.090 Detected Next.js version: 16.3.2
 22:35:46.090 Running "cd ../.. && pnpm --filter @bhd-r/web run build"
-22:35:46.658 
+22:35:46.658
 22:35:46.659 > @bhd-r/web@0.1.0 build /vercel/path0/apps/web
 22:35:46.659 > pnpm run build:packages && next build
-22:35:46.659 
-22:35:46.933 
+22:35:46.659
+22:35:46.933
 22:35:46.934 > @bhd-r/web@0.1.0 build:packages /vercel/path0/apps/web
 22:35:46.934 > cd ../.. && pnpm exec turbo run build --filter=@bhd-r/config --filter=@bhd-r/contracts --filter=@bhd-r/country-packs --filter=@bhd-r/i18n --filter=@bhd-r/ui --filter=@bhd-r/db --filter=@bhd-r/domain --filter=@bhd-r/authz --filter=@bhd-r/security --force
-22:35:46.934 
-22:35:47.443 
-22:35:47.445    • Packages in scope: @bhd-r/authz, @bhd-r/config, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/domain, @bhd-r/i18n, @bhd-r/security, @bhd-r/ui
-22:35:47.445    • Running build in 9 packages
-22:35:47.445    • Remote caching enabled
-22:35:47.445 
+22:35:46.934
+22:35:47.443
+22:35:47.445 • Packages in scope: @bhd-r/authz, @bhd-r/config, @bhd-r/contracts, @bhd-r/country-packs, @bhd-r/db, @bhd-r/domain, @bhd-r/i18n, @bhd-r/security, @bhd-r/ui
+22:35:47.445 • Running build in 9 packages
+22:35:47.445 • Remote caching enabled
+22:35:47.445
 22:35:47.449 @bhd-r/security:build: cache bypass, force executing ba90e00341f0680f
 22:35:47.449 @bhd-r/config:build: cache bypass, force executing 63feac1dee721292
 22:35:47.449 @bhd-r/contracts:build: cache bypass, force executing cb44cf7f05aa5adb
@@ -5503,302 +5653,302 @@ ST-0A58F0FE
 22:35:47.449 @bhd-r/ui:build: cache bypass, force executing e5b74e50fc6b8f26
 22:35:47.457 @bhd-r/i18n:build: cache bypass, force executing c8c26f0e7f4ad45b
 22:35:47.457 @bhd-r/db:build: cache bypass, force executing 26bf94429a3434a6
-22:35:48.290 @bhd-r/ui:build: 
+22:35:48.290 @bhd-r/ui:build:
 22:35:48.291 @bhd-r/ui:build: > @bhd-r/ui@0.1.0 build /vercel/path0/packages/ui
 22:35:48.291 @bhd-r/ui:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
-22:35:48.291 @bhd-r/ui:build: 
-22:35:48.355 @bhd-r/authz:build: 
+22:35:48.291 @bhd-r/ui:build:
+22:35:48.355 @bhd-r/authz:build:
 22:35:48.355 @bhd-r/authz:build: > @bhd-r/authz@0.1.0 build /vercel/path0/packages/authz
 22:35:48.355 @bhd-r/authz:build: > tsc -p tsconfig.json
-22:35:48.355 @bhd-r/authz:build: 
-22:35:48.377 @bhd-r/config:build: 
+22:35:48.355 @bhd-r/authz:build:
+22:35:48.377 @bhd-r/config:build:
 22:35:48.378 @bhd-r/config:build: > @bhd-r/config@0.1.0 build /vercel/path0/packages/config
 22:35:48.378 @bhd-r/config:build: > tsc -p tsconfig.json
-22:35:48.378 @bhd-r/config:build: 
-22:35:48.404 @bhd-r/security:build: 
+22:35:48.378 @bhd-r/config:build:
+22:35:48.404 @bhd-r/security:build:
 22:35:48.406 @bhd-r/security:build: > @bhd-r/security@0.1.0 build /vercel/path0/packages/security
 22:35:48.406 @bhd-r/security:build: > tsc -p tsconfig.json
-22:35:48.406 @bhd-r/security:build: 
-22:35:48.435 @bhd-r/contracts:build: 
+22:35:48.406 @bhd-r/security:build:
+22:35:48.435 @bhd-r/contracts:build:
 22:35:48.441 @bhd-r/contracts:build: > @bhd-r/contracts@0.1.0 build /vercel/path0/packages/contracts
 22:35:48.442 @bhd-r/contracts:build: > tsc -p tsconfig.json
-22:35:48.442 @bhd-r/contracts:build: 
-22:35:48.446 @bhd-r/db:build: 
+22:35:48.442 @bhd-r/contracts:build:
+22:35:48.446 @bhd-r/db:build:
 22:35:48.446 @bhd-r/db:build: > @bhd-r/db@0.1.0 build /vercel/path0/packages/db
 22:35:48.446 @bhd-r/db:build: > tsc -p tsconfig.build.json
-22:35:48.446 @bhd-r/db:build: 
-22:35:48.477 @bhd-r/i18n:build: 
+22:35:48.446 @bhd-r/db:build:
+22:35:48.477 @bhd-r/i18n:build:
 22:35:48.478 @bhd-r/i18n:build: > @bhd-r/i18n@0.1.0 build /vercel/path0/packages/i18n
 22:35:48.478 @bhd-r/i18n:build: > node --input-type=module -e "import fs from 'node:fs'; fs.rmSync('dist',{recursive:true,force:true})" && tsc -p tsconfig.json
-22:35:48.478 @bhd-r/i18n:build: 
+22:35:48.478 @bhd-r/i18n:build:
 22:35:54.093 @bhd-r/country-packs:build: cache bypass, force executing 0dbb034fc451426e
 22:35:54.094 @bhd-r/domain:build: cache bypass, force executing b4868d1e5ea893d1
-22:35:54.506 @bhd-r/domain:build: 
+22:35:54.506 @bhd-r/domain:build:
 22:35:54.506 @bhd-r/domain:build: > @bhd-r/domain@0.1.0 build /vercel/path0/packages/domain
 22:35:54.507 @bhd-r/domain:build: > tsc -p tsconfig.build.json
-22:35:54.507 @bhd-r/domain:build: 
-22:35:54.583 @bhd-r/country-packs:build: 
+22:35:54.507 @bhd-r/domain:build:
+22:35:54.583 @bhd-r/country-packs:build:
 22:35:54.584 @bhd-r/country-packs:build: > @bhd-r/country-packs@0.1.0 build /vercel/path0/packages/country-packs
 22:35:54.584 @bhd-r/country-packs:build: > tsc -p tsconfig.json
-22:35:54.584 @bhd-r/country-packs:build: 
-22:35:57.741  WARNING  finished with warnings
+22:35:54.584 @bhd-r/country-packs:build:
+22:35:57.741 WARNING finished with warnings
 22:35:57.742 Warning - the following environment variables are set on your Vercel project, but missing from "turbo.json". These variables WILL NOT be available to your application and may cause your build to fail. Learn more at https://turborepo.dev/docs/crafting-your-repository/using-environment-variables#platform-environment-variables
-22:35:57.742 
+22:35:57.742
 22:35:57.742 [warn] @bhd-r/security#build
-22:35:57.742 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.742 [warn]   - API_ORIGIN 
-22:35:57.742 [warn]   - REDIS_URL 
-22:35:57.742 [warn]   - PORT 
-22:35:57.742 [warn]   - NODE_ENV 
-22:35:57.742 [warn]   - WEB_ORIGIN 
-22:35:57.742 [warn]   - S3_ENDPOINT 
-22:35:57.742 [warn]   - S3_ACCESS_KEY 
-22:35:57.742 [warn]   - S3_SECRET_KEY 
-22:35:57.742 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.742 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.743 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.743 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.743 [warn]   - RESEND_API_KEY 
-22:35:57.743 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.743 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.743 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.743 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.743 [warn]   - WEB_ORIGINS 
-22:35:57.743 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.743 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.743 [warn]   - S3_REGION 
-22:35:57.743 [warn]   - CRON_SECRET 
-22:35:57.743 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.743 [warn]   - platform_admin 
+22:35:57.742 [warn] - API_INTERNAL_ORIGIN
+22:35:57.742 [warn] - API_ORIGIN
+22:35:57.742 [warn] - REDIS_URL
+22:35:57.742 [warn] - PORT
+22:35:57.742 [warn] - NODE_ENV
+22:35:57.742 [warn] - WEB_ORIGIN
+22:35:57.742 [warn] - S3_ENDPOINT
+22:35:57.742 [warn] - S3_ACCESS_KEY
+22:35:57.742 [warn] - S3_SECRET_KEY
+22:35:57.742 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.742 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.743 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.743 [warn] - RESEND_FROM_EMAIL
+22:35:57.743 [warn] - RESEND_API_KEY
+22:35:57.743 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.743 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.743 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.743 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.743 [warn] - WEB_ORIGINS
+22:35:57.743 [warn] - S3_BUCKET_PRIVATE
+22:35:57.743 [warn] - S3_BUCKET_PUBLIC
+22:35:57.743 [warn] - S3_REGION
+22:35:57.743 [warn] - CRON_SECRET
+22:35:57.743 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.743 [warn] - platform_admin
 22:35:57.743 [warn] @bhd-r/config#build
-22:35:57.743 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.744 [warn]   - API_ORIGIN 
-22:35:57.744 [warn]   - REDIS_URL 
-22:35:57.744 [warn]   - PORT 
-22:35:57.744 [warn]   - NODE_ENV 
-22:35:57.744 [warn]   - WEB_ORIGIN 
-22:35:57.744 [warn]   - S3_ENDPOINT 
-22:35:57.744 [warn]   - S3_ACCESS_KEY 
-22:35:57.744 [warn]   - S3_SECRET_KEY 
-22:35:57.744 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.744 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.744 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.744 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.745 [warn]   - RESEND_API_KEY 
-22:35:57.746 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.746 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.746 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.746 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.746 [warn]   - WEB_ORIGINS 
-22:35:57.746 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.746 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.746 [warn]   - S3_REGION 
-22:35:57.746 [warn]   - CRON_SECRET 
-22:35:57.746 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.746 [warn]   - platform_admin 
+22:35:57.743 [warn] - API_INTERNAL_ORIGIN
+22:35:57.744 [warn] - API_ORIGIN
+22:35:57.744 [warn] - REDIS_URL
+22:35:57.744 [warn] - PORT
+22:35:57.744 [warn] - NODE_ENV
+22:35:57.744 [warn] - WEB_ORIGIN
+22:35:57.744 [warn] - S3_ENDPOINT
+22:35:57.744 [warn] - S3_ACCESS_KEY
+22:35:57.744 [warn] - S3_SECRET_KEY
+22:35:57.744 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.744 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.744 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.744 [warn] - RESEND_FROM_EMAIL
+22:35:57.745 [warn] - RESEND_API_KEY
+22:35:57.746 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.746 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.746 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.746 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.746 [warn] - WEB_ORIGINS
+22:35:57.746 [warn] - S3_BUCKET_PRIVATE
+22:35:57.746 [warn] - S3_BUCKET_PUBLIC
+22:35:57.746 [warn] - S3_REGION
+22:35:57.746 [warn] - CRON_SECRET
+22:35:57.746 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.746 [warn] - platform_admin
 22:35:57.746 [warn] @bhd-r/contracts#build
-22:35:57.747 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.747 [warn]   - API_ORIGIN 
-22:35:57.747 [warn]   - REDIS_URL 
-22:35:57.747 [warn]   - PORT 
-22:35:57.747 [warn]   - NODE_ENV 
-22:35:57.747 [warn]   - WEB_ORIGIN 
-22:35:57.747 [warn]   - S3_ENDPOINT 
-22:35:57.747 [warn]   - S3_ACCESS_KEY 
-22:35:57.747 [warn]   - S3_SECRET_KEY 
-22:35:57.747 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.747 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.747 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.747 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.747 [warn]   - RESEND_API_KEY 
-22:35:57.747 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.747 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.747 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.747 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.747 [warn]   - WEB_ORIGINS 
-22:35:57.747 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.747 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.747 [warn]   - S3_REGION 
-22:35:57.747 [warn]   - CRON_SECRET 
-22:35:57.747 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.747 [warn]   - platform_admin 
+22:35:57.747 [warn] - API_INTERNAL_ORIGIN
+22:35:57.747 [warn] - API_ORIGIN
+22:35:57.747 [warn] - REDIS_URL
+22:35:57.747 [warn] - PORT
+22:35:57.747 [warn] - NODE_ENV
+22:35:57.747 [warn] - WEB_ORIGIN
+22:35:57.747 [warn] - S3_ENDPOINT
+22:35:57.747 [warn] - S3_ACCESS_KEY
+22:35:57.747 [warn] - S3_SECRET_KEY
+22:35:57.747 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.747 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.747 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.747 [warn] - RESEND_FROM_EMAIL
+22:35:57.747 [warn] - RESEND_API_KEY
+22:35:57.747 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.747 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.747 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.747 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.747 [warn] - WEB_ORIGINS
+22:35:57.747 [warn] - S3_BUCKET_PRIVATE
+22:35:57.747 [warn] - S3_BUCKET_PUBLIC
+22:35:57.747 [warn] - S3_REGION
+22:35:57.747 [warn] - CRON_SECRET
+22:35:57.747 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.747 [warn] - platform_admin
 22:35:57.747 [warn] @bhd-r/authz#build
-22:35:57.747 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.747 [warn]   - API_ORIGIN 
-22:35:57.748 [warn]   - REDIS_URL 
-22:35:57.748 [warn]   - PORT 
-22:35:57.748 [warn]   - NODE_ENV 
-22:35:57.748 [warn]   - WEB_ORIGIN 
-22:35:57.748 [warn]   - S3_ENDPOINT 
-22:35:57.748 [warn]   - S3_ACCESS_KEY 
-22:35:57.748 [warn]   - S3_SECRET_KEY 
-22:35:57.749 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.749 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.749 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.749 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.749 [warn]   - RESEND_API_KEY 
-22:35:57.750 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.750 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.750 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.750 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.750 [warn]   - WEB_ORIGINS 
-22:35:57.750 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.750 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.750 [warn]   - S3_REGION 
-22:35:57.750 [warn]   - CRON_SECRET 
-22:35:57.750 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.751 [warn]   - platform_admin 
+22:35:57.747 [warn] - API_INTERNAL_ORIGIN
+22:35:57.747 [warn] - API_ORIGIN
+22:35:57.748 [warn] - REDIS_URL
+22:35:57.748 [warn] - PORT
+22:35:57.748 [warn] - NODE_ENV
+22:35:57.748 [warn] - WEB_ORIGIN
+22:35:57.748 [warn] - S3_ENDPOINT
+22:35:57.748 [warn] - S3_ACCESS_KEY
+22:35:57.748 [warn] - S3_SECRET_KEY
+22:35:57.749 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.749 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.749 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.749 [warn] - RESEND_FROM_EMAIL
+22:35:57.749 [warn] - RESEND_API_KEY
+22:35:57.750 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.750 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.750 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.750 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.750 [warn] - WEB_ORIGINS
+22:35:57.750 [warn] - S3_BUCKET_PRIVATE
+22:35:57.750 [warn] - S3_BUCKET_PUBLIC
+22:35:57.750 [warn] - S3_REGION
+22:35:57.750 [warn] - CRON_SECRET
+22:35:57.750 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.751 [warn] - platform_admin
 22:35:57.751 [warn] @bhd-r/ui#build
-22:35:57.751 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.751 [warn]   - API_ORIGIN 
-22:35:57.751 [warn]   - REDIS_URL 
-22:35:57.751 [warn]   - PORT 
-22:35:57.751 [warn]   - NODE_ENV 
-22:35:57.751 [warn]   - WEB_ORIGIN 
-22:35:57.751 [warn]   - S3_ENDPOINT 
-22:35:57.751 [warn]   - S3_ACCESS_KEY 
-22:35:57.752 [warn]   - S3_SECRET_KEY 
-22:35:57.752 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.752 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.752 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.752 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.752 [warn]   - RESEND_API_KEY 
-22:35:57.752 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.752 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.752 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.752 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.752 [warn]   - WEB_ORIGINS 
-22:35:57.753 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.753 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.753 [warn]   - S3_REGION 
-22:35:57.753 [warn]   - CRON_SECRET 
-22:35:57.753 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.753 [warn]   - platform_admin 
+22:35:57.751 [warn] - API_INTERNAL_ORIGIN
+22:35:57.751 [warn] - API_ORIGIN
+22:35:57.751 [warn] - REDIS_URL
+22:35:57.751 [warn] - PORT
+22:35:57.751 [warn] - NODE_ENV
+22:35:57.751 [warn] - WEB_ORIGIN
+22:35:57.751 [warn] - S3_ENDPOINT
+22:35:57.751 [warn] - S3_ACCESS_KEY
+22:35:57.752 [warn] - S3_SECRET_KEY
+22:35:57.752 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.752 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.752 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.752 [warn] - RESEND_FROM_EMAIL
+22:35:57.752 [warn] - RESEND_API_KEY
+22:35:57.752 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.752 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.752 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.752 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.752 [warn] - WEB_ORIGINS
+22:35:57.753 [warn] - S3_BUCKET_PRIVATE
+22:35:57.753 [warn] - S3_BUCKET_PUBLIC
+22:35:57.753 [warn] - S3_REGION
+22:35:57.753 [warn] - CRON_SECRET
+22:35:57.753 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.753 [warn] - platform_admin
 22:35:57.753 [warn] @bhd-r/i18n#build
-22:35:57.753 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.753 [warn]   - API_ORIGIN 
-22:35:57.753 [warn]   - REDIS_URL 
-22:35:57.753 [warn]   - PORT 
-22:35:57.754 [warn]   - NODE_ENV 
-22:35:57.754 [warn]   - WEB_ORIGIN 
-22:35:57.754 [warn]   - S3_ENDPOINT 
-22:35:57.754 [warn]   - S3_ACCESS_KEY 
-22:35:57.754 [warn]   - S3_SECRET_KEY 
-22:35:57.754 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.754 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.754 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.754 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.754 [warn]   - RESEND_API_KEY 
-22:35:57.754 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.754 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.755 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.755 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.755 [warn]   - WEB_ORIGINS 
-22:35:57.755 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.755 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.756 [warn]   - S3_REGION 
-22:35:57.756 [warn]   - CRON_SECRET 
-22:35:57.756 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.756 [warn]   - platform_admin 
+22:35:57.753 [warn] - API_INTERNAL_ORIGIN
+22:35:57.753 [warn] - API_ORIGIN
+22:35:57.753 [warn] - REDIS_URL
+22:35:57.753 [warn] - PORT
+22:35:57.754 [warn] - NODE_ENV
+22:35:57.754 [warn] - WEB_ORIGIN
+22:35:57.754 [warn] - S3_ENDPOINT
+22:35:57.754 [warn] - S3_ACCESS_KEY
+22:35:57.754 [warn] - S3_SECRET_KEY
+22:35:57.754 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.754 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.754 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.754 [warn] - RESEND_FROM_EMAIL
+22:35:57.754 [warn] - RESEND_API_KEY
+22:35:57.754 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.754 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.755 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.755 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.755 [warn] - WEB_ORIGINS
+22:35:57.755 [warn] - S3_BUCKET_PRIVATE
+22:35:57.755 [warn] - S3_BUCKET_PUBLIC
+22:35:57.756 [warn] - S3_REGION
+22:35:57.756 [warn] - CRON_SECRET
+22:35:57.756 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.756 [warn] - platform_admin
 22:35:57.756 [warn] @bhd-r/db#build
-22:35:57.756 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.756 [warn]   - API_ORIGIN 
-22:35:57.756 [warn]   - REDIS_URL 
-22:35:57.756 [warn]   - PORT 
-22:35:57.756 [warn]   - NODE_ENV 
-22:35:57.756 [warn]   - WEB_ORIGIN 
-22:35:57.756 [warn]   - S3_ENDPOINT 
-22:35:57.756 [warn]   - S3_ACCESS_KEY 
-22:35:57.757 [warn]   - S3_SECRET_KEY 
-22:35:57.757 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.757 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.757 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.757 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.757 [warn]   - RESEND_API_KEY 
-22:35:57.757 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.757 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.757 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.757 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.757 [warn]   - WEB_ORIGINS 
-22:35:57.757 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.757 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.757 [warn]   - S3_REGION 
-22:35:57.757 [warn]   - CRON_SECRET 
-22:35:57.758 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.758 [warn]   - platform_admin 
+22:35:57.756 [warn] - API_INTERNAL_ORIGIN
+22:35:57.756 [warn] - API_ORIGIN
+22:35:57.756 [warn] - REDIS_URL
+22:35:57.756 [warn] - PORT
+22:35:57.756 [warn] - NODE_ENV
+22:35:57.756 [warn] - WEB_ORIGIN
+22:35:57.756 [warn] - S3_ENDPOINT
+22:35:57.756 [warn] - S3_ACCESS_KEY
+22:35:57.757 [warn] - S3_SECRET_KEY
+22:35:57.757 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.757 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.757 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.757 [warn] - RESEND_FROM_EMAIL
+22:35:57.757 [warn] - RESEND_API_KEY
+22:35:57.757 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.757 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.757 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.757 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.757 [warn] - WEB_ORIGINS
+22:35:57.757 [warn] - S3_BUCKET_PRIVATE
+22:35:57.757 [warn] - S3_BUCKET_PUBLIC
+22:35:57.757 [warn] - S3_REGION
+22:35:57.757 [warn] - CRON_SECRET
+22:35:57.758 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.758 [warn] - platform_admin
 22:35:57.758 [warn] @bhd-r/country-packs#build
-22:35:57.758 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.758 [warn]   - API_ORIGIN 
-22:35:57.758 [warn]   - REDIS_URL 
-22:35:57.758 [warn]   - PORT 
-22:35:57.758 [warn]   - NODE_ENV 
-22:35:57.758 [warn]   - WEB_ORIGIN 
-22:35:57.758 [warn]   - S3_ENDPOINT 
-22:35:57.758 [warn]   - S3_ACCESS_KEY 
-22:35:57.758 [warn]   - S3_SECRET_KEY 
-22:35:57.758 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.758 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.758 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.758 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.758 [warn]   - RESEND_API_KEY 
-22:35:57.759 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.759 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.759 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.759 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.759 [warn]   - WEB_ORIGINS 
-22:35:57.759 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.759 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.759 [warn]   - S3_REGION 
-22:35:57.760 [warn]   - CRON_SECRET 
-22:35:57.760 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.760 [warn]   - platform_admin 
+22:35:57.758 [warn] - API_INTERNAL_ORIGIN
+22:35:57.758 [warn] - API_ORIGIN
+22:35:57.758 [warn] - REDIS_URL
+22:35:57.758 [warn] - PORT
+22:35:57.758 [warn] - NODE_ENV
+22:35:57.758 [warn] - WEB_ORIGIN
+22:35:57.758 [warn] - S3_ENDPOINT
+22:35:57.758 [warn] - S3_ACCESS_KEY
+22:35:57.758 [warn] - S3_SECRET_KEY
+22:35:57.758 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.758 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.758 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.758 [warn] - RESEND_FROM_EMAIL
+22:35:57.758 [warn] - RESEND_API_KEY
+22:35:57.759 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.759 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.759 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.759 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.759 [warn] - WEB_ORIGINS
+22:35:57.759 [warn] - S3_BUCKET_PRIVATE
+22:35:57.759 [warn] - S3_BUCKET_PUBLIC
+22:35:57.759 [warn] - S3_REGION
+22:35:57.760 [warn] - CRON_SECRET
+22:35:57.760 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.760 [warn] - platform_admin
 22:35:57.760 [warn] @bhd-r/domain#build
-22:35:57.760 [warn]   - API_INTERNAL_ORIGIN 
-22:35:57.760 [warn]   - API_ORIGIN 
-22:35:57.760 [warn]   - REDIS_URL 
-22:35:57.760 [warn]   - PORT 
-22:35:57.760 [warn]   - NODE_ENV 
-22:35:57.760 [warn]   - WEB_ORIGIN 
-22:35:57.760 [warn]   - S3_ENDPOINT 
-22:35:57.760 [warn]   - S3_ACCESS_KEY 
-22:35:57.760 [warn]   - S3_SECRET_KEY 
-22:35:57.760 [warn]   - FIELD_ENCRYPTION_KEY_V1 
-22:35:57.760 [warn]   - PAYMENT_WEBHOOK_SECRET 
-22:35:57.760 [warn]   - PUBLIC_NEST_ORIGIN 
-22:35:57.760 [warn]   - RESEND_FROM_EMAIL 
-22:35:57.760 [warn]   - RESEND_API_KEY 
-22:35:57.760 [warn]   - UPSTASH_REDIS_REST_URL 
-22:35:57.760 [warn]   - UPSTASH_REDIS_REST_TOKEN 
-22:35:57.760 [warn]   - BHD_PLATFORM_ADMIN_EMAILS 
-22:35:57.761 [warn]   - BHD_IDENTITY_CLIENT_ID 
-22:35:57.761 [warn]   - WEB_ORIGINS 
-22:35:57.761 [warn]   - S3_BUCKET_PRIVATE 
-22:35:57.761 [warn]   - S3_BUCKET_PUBLIC 
-22:35:57.761 [warn]   - S3_REGION 
-22:35:57.761 [warn]   - CRON_SECRET 
-22:35:57.761 [warn]   - STAYS_PLATFORM_ENABLED 
-22:35:57.761 [warn]   - platform_admin 
-22:35:57.761 
-22:35:57.761   Tasks:    9 successful, 9 total
-22:35:57.761  Cached:    0 cached, 9 total
-22:35:57.761    Time:    10.418s 
-22:35:57.761 Summary:    /vercel/path0/.turbo/runs/3ImeQtCrxBmvCx5Gq7vPcCcJTck.json
-22:35:57.761 
+22:35:57.760 [warn] - API_INTERNAL_ORIGIN
+22:35:57.760 [warn] - API_ORIGIN
+22:35:57.760 [warn] - REDIS_URL
+22:35:57.760 [warn] - PORT
+22:35:57.760 [warn] - NODE_ENV
+22:35:57.760 [warn] - WEB_ORIGIN
+22:35:57.760 [warn] - S3_ENDPOINT
+22:35:57.760 [warn] - S3_ACCESS_KEY
+22:35:57.760 [warn] - S3_SECRET_KEY
+22:35:57.760 [warn] - FIELD_ENCRYPTION_KEY_V1
+22:35:57.760 [warn] - PAYMENT_WEBHOOK_SECRET
+22:35:57.760 [warn] - PUBLIC_NEST_ORIGIN
+22:35:57.760 [warn] - RESEND_FROM_EMAIL
+22:35:57.760 [warn] - RESEND_API_KEY
+22:35:57.760 [warn] - UPSTASH_REDIS_REST_URL
+22:35:57.760 [warn] - UPSTASH_REDIS_REST_TOKEN
+22:35:57.760 [warn] - BHD_PLATFORM_ADMIN_EMAILS
+22:35:57.761 [warn] - BHD_IDENTITY_CLIENT_ID
+22:35:57.761 [warn] - WEB_ORIGINS
+22:35:57.761 [warn] - S3_BUCKET_PRIVATE
+22:35:57.761 [warn] - S3_BUCKET_PUBLIC
+22:35:57.761 [warn] - S3_REGION
+22:35:57.761 [warn] - CRON_SECRET
+22:35:57.761 [warn] - STAYS_PLATFORM_ENABLED
+22:35:57.761 [warn] - platform_admin
+22:35:57.761
+22:35:57.761 Tasks: 9 successful, 9 total
+22:35:57.761 Cached: 0 cached, 9 total
+22:35:57.761 Time: 10.418s
+22:35:57.761 Summary: /vercel/path0/.turbo/runs/3ImeQtCrxBmvCx5Gq7vPcCcJTck.json
+22:35:57.761
 22:35:58.337 ▲ Next.js 16.3.2 (Turbopack)
-22:35:58.582   Applying modifyConfig from Vercel
+22:35:58.582 Applying modifyConfig from Vercel
 22:35:58.590 ✓ Running next.config.ts took 252ms
 22:35:58.605 - Experiments (use with caution):
-22:35:58.605   · optimizePackageImports
-22:35:58.605   · staleTimes
-22:35:58.605 
-22:35:58.644   Creating an optimized production build ...
+22:35:58.605 · optimizePackageImports
+22:35:58.605 · staleTimes
+22:35:58.605
+22:35:58.644 Creating an optimized production build ...
 22:36:01.323 ✓ Compiled successfully in 1882ms
-22:36:01.325   Running TypeScript ...
+22:36:01.325 Running TypeScript ...
 22:36:06.454 src/app/[locale]/payments/sandbox/[sessionReference]/page.tsx(146,11): error TS2375: Type '{ amountMinor?: string; currency?: string; referenceCode?: string; returnPath?: string; sessionReference: string; stayKind: boolean; defaultCardholderName: any; }' is not assignable to type 'IntrinsicAttributes & { sessionReference: string; returnPath?: string; stayKind?: boolean; amountMinor?: string; currency?: string; referenceCode?: string; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
-22:36:06.455   Property 'defaultCardholderName' does not exist on type 'IntrinsicAttributes & { sessionReference: string; returnPath?: string; stayKind?: boolean; amountMinor?: string; currency?: string; referenceCode?: string; }'.
+22:36:06.455 Property 'defaultCardholderName' does not exist on type 'IntrinsicAttributes & { sessionReference: string; returnPath?: string; stayKind?: boolean; amountMinor?: string; currency?: string; referenceCode?: string; }'.
 22:36:06.455 src/app/[locale]/payments/sandbox/[sessionReference]/page.tsx(146,34): error TS2304: Cannot find name 'defaultCardholderName'.
 22:36:06.490 Failed to type check.
-22:36:06.490 
+22:36:06.490
 22:36:06.525 /vercel/path0/apps/web:
 22:36:06.525  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @bhd-r/web@0.1.0 build: `pnpm run build:packages && next build`
 22:36:06.525 Exit status 1
@@ -5829,9 +5979,9 @@ Vercel بنى النسخة السابقة قبل وصول هذا الـ commit. 
 
 <timestamp>Wednesday, Sep 2, 2026, 10:39 PM (UTC+4)</timestamp>
 <user_query>
- رقم البطاقه دائما يكون 16 رقم  و الان انا ادخلت 16 رقم و يعطيني رقم البطاقة غير صالح
+رقم البطاقه دائما يكون 16 رقم و الان انا ادخلت 16 رقم و يعطيني رقم البطاقة غير صالح
 
- لان الان يطلب مني ادخال 19 رقم 
+لان الان يطلب مني ادخال 19 رقم
 </user_query>
 
 ---
@@ -5849,6 +5999,7 @@ Vercel بنى النسخة السابقة قبل وصول هذا الـ commit. 
 السبب: التحقق كان يعتمد على خوارزمية Luhn (ورقم تجريبي خاص)، فأي 16 رقماً عشوائياً يُرفض.
 
 الآن:
+
 - الرقم **16 خانة فقط**
 - أي 16 رقماً مقبولة في الوضع التجريبي
 - الحد الأقصى للإدخال مضبوط على 16 رقماً
@@ -5861,7 +6012,7 @@ Vercel بنى النسخة السابقة قبل وصول هذا الـ commit. 
 
 <timestamp>Wednesday, Sep 2, 2026, 10:42 PM (UTC+4)</timestamp>
 <user_query>
- غير الرقم الذي يظهر بالبطاقة بدل 123412341234123 الى 1001198910011989
+غير الرقم الذي يظهر بالبطاقة بدل 123412341234123 الى 1001198910011989
 </user_query>
 
 ---
@@ -5875,11 +6026,13 @@ Vercel بنى النسخة السابقة قبل وصول هذا الـ commit. 
 ## 265. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/stays/booking/confirmed?ref=ST-0A58F0FE
 Website Title: BHD R — إدارة العقارات
 Website Content:
@@ -5952,12 +6105,13 @@ Abdul Hamid Al Rawahi
 إيصال الدفع (PDF)
 
 متابعة رحلتي
-____
+
+---
 
 </external_links>
 <timestamp>Wednesday, Sep 2, 2026, 10:45 PM (UTC+4)</timestamp>
 <user_query>
-صفحه https://r.bhd-om.com/ar/stays/booking/confirmed?ref=ST-0A58F0FE  بعد الدفع اريدها انت تظهر بمل الشاشه وتعمل على كل الاجهزه 
+صفحه https://r.bhd-om.com/ar/stays/booking/confirmed?ref=ST-0A58F0FE بعد الدفع اريدها انت تظهر بمل الشاشه وتعمل على كل الاجهزه
 </user_query>
 
 ---
@@ -5973,6 +6127,7 @@ ____
 تم ورفعنا (`b7f4fec`).
 
 صفحة [تأكيد الحجز](https://r.bhd-om.com/ar/stays/booking/confirmed?ref=ST-0A58F0FE) أصبحت:
+
 - **ملء الشاشة** بدون هيدر/فوتر الموقع
 - **موبايل:** بانر تأكيد أعلى + التفاصيل بعرض كامل
 - **ديسكتوب:** عمودان متجانسان (ملخص بصري + تفاصيل الحجز والأزرار)
@@ -5985,7 +6140,7 @@ ____
 
 <timestamp>Wednesday, Sep 2, 2026, 10:50 PM (UTC+4)</timestamp>
 <user_query>
-في هذه المكان بدل العباره 
+في هذه المكان بدل العباره
 BHD R
 
 مؤكّد
@@ -5996,8 +6151,8 @@ BHD R
 ‏٨٤٠ ر.ع.‏
 
 ST-0A58F0FE
-اريد ترحيب بالذي حجز على سبيل المثال عزيزي عبد الحميد الرواحي نود التاكيد لك على استلام حجزك ونود التاكيد الحجز لك و الدفع بنجاح  بمبلغ اجمالي 840 ريا لرقم الحجز ST-0A58F0FE
-او عباره راقيه بنفس الالسوب 
+اريد ترحيب بالذي حجز على سبيل المثال عزيزي عبد الحميد الرواحي نود التاكيد لك على استلام حجزك ونود التاكيد الحجز لك و الدفع بنجاح بمبلغ اجمالي 840 ريا لرقم الحجز ST-0A58F0FE
+او عباره راقيه بنفس الالسوب
 </user_query>
 
 ---
@@ -6012,7 +6167,7 @@ ST-0A58F0FE
 
 <timestamp>Wednesday, Sep 2, 2026, 10:50 PM (UTC+4)</timestamp>
 <user_query>
-في هذه المكان بدل العباره 
+في هذه المكان بدل العباره
 BHD R
 
 مؤكّد
@@ -6023,8 +6178,8 @@ BHD R
 ‏٨٤٠ ر.ع.‏
 
 ST-0A58F0FE
-اريد ترحيب بالذي حجز على سبيل المثال عزيزي عبد الحميد الرواحي نود التاكيد لك على استلام حجزك ونود التاكيد الحجز لك و الدفع بنجاح  بمبلغ اجمالي 840 ريا لرقم الحجز ST-0A58F0FE
-او عباره راقيه بنفس الالسوب 
+اريد ترحيب بالذي حجز على سبيل المثال عزيزي عبد الحميد الرواحي نود التاكيد لك على استلام حجزك ونود التاكيد الحجز لك و الدفع بنجاح بمبلغ اجمالي 840 ريا لرقم الحجز ST-0A58F0FE
+او عباره راقيه بنفس الالسوب
 </user_query>
 
 ---
@@ -6108,13 +6263,14 @@ github/ainoamn
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-cbeaf1a2-9a8c-41d0-82e2-7265dcc7668f.jpg
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 10:59 PM (UTC+4)</timestamp>
 <user_query>
-اجعل شعار الموقع يظهر في الصوره و الكتابه تظهر في وسط الصوره بشكل مرتب منظم متسق  و الاسم يظهر بالخط الكبير هوه ورقم التاكيد 
+اجعل شعار الموقع يظهر في الصوره و الكتابه تظهر في وسط الصوره بشكل مرتب منظم متسق و الاسم يظهر بالخط الكبير هوه ورقم التاكيد
 </user_query>
 
 ---
@@ -6129,11 +6285,11 @@ These files can be read with tools, copied to other locations, or attached to su
 
 تم. جانب الصورة أصبح هكذا:
 
-- شعار **BHD R** الرسمي في الأعلى  
-- النص في **وسط** الصورة، محاذاة مركزية  
-- **الاسم** بخط كبير  
-- رسالة التأكيد المختصرة في الوسط  
-- **رقم التأكيد** (مثل ST-0A58F0FE) بخط كبير أسفلها  
+- شعار **BHD R** الرسمي في الأعلى
+- النص في **وسط** الصورة، محاذاة مركزية
+- **الاسم** بخط كبير
+- رسالة التأكيد المختصرة في الوسط
+- **رقم التأكيد** (مثل ST-0A58F0FE) بخط كبير أسفلها
 
 رُفع على `main` (`2d62272`). بعد Ready على Vercel حدّث الصفحة بقوة.
 
@@ -6144,17 +6300,18 @@ These files can be read with tools, copied to other locations, or attached to su
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-b79eaf5b-450d-4f64-91c0-760c015f2350.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 11:04 PM (UTC+4)</timestamp>
 <user_query>
- الكتابه لا تبدو جيده الاسم فوق بعضه المفترض ان يكون في خط و اححد الاسم و الشعار يظهر في يسار او يمين الشاشه من الاعلى  
+الكتابه لا تبدو جيده الاسم فوق بعضه المفترض ان يكون في خط و اححد الاسم و الشعار يظهر في يسار او يمين الشاشه من الاعلى  
 كذلك هذا النص احذفه بعد انتهاء الإقامة سيظهر لك طلب تقييم بأسلوب Booking.com من صفحة رحلاتي وصفحة الإقامة.
 
- كذلك ايصال الدفع و تاكيد الحجز يمكن تنزيلهم من هذه الصفحه 
-تاكد من ان ايصال الدفع و تاكيد الحجز يظهر بشكل مرتب بنفس الطريقه في ايصالات و ازن 
+كذلك ايصال الدفع و تاكيد الحجز يمكن تنزيلهم من هذه الصفحه
+تاكد من ان ايصال الدفع و تاكيد الحجز يظهر بشكل مرتب بنفس الطريقه في ايصالات و ازن
 </user_query>
 
 ---
@@ -6175,9 +6332,9 @@ These files can be read with tools, copied to other locations, or attached to su
 
 تم. التغييرات:
 
-- الاسم في سطر واحد، والشعار أعلى زاوية الصورة  
-- حذف نص تقييم Booking.com  
-- من صفحة التأكيد: زرّان **إيصال الدفع (PDF)** و**تأكيد الحجز (PDF)**  
+- الاسم في سطر واحد، والشعار أعلى زاوية الصورة
+- حذف نص تقييم Booking.com
+- من صفحة التأكيد: زرّان **إيصال الدفع (PDF)** و**تأكيد الحجز (PDF)**
 - المستندان بنفس أسلوب الإيصالات الرسمية (شعار، رقم، جدول تفاصيل، مبلغ بارز، تذييل)
 
 رُفع على `main` (`0acde99`). بعد Ready حدّث الصفحة وجرّب تنزيل/طباعة PDF.
@@ -6189,13 +6346,14 @@ These files can be read with tools, copied to other locations, or attached to su
 [Image]
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-884aa654-2c8d-45c7-8388-b85fbcf797d9.png
 
 These files can be read with tools, copied to other locations, or attached to subagents using the file_attachments parameter.
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 11:12 PM (UTC+4)</timestamp>
 <user_query>
-لماذا الشعار يظهر عده مرات في الايصال و التاكيد 
+لماذا الشعار يظهر عده مرات في الايصال و التاكيد
 </user_query>
 
 ---
@@ -6211,6 +6369,7 @@ These files can be read with tools, copied to other locations, or attached to su
 كان السبب أن المستند يعرض الشعار الرسومي **ونص «BHD R»** بجانبه، بالإضافة لشعار الموقع في الشريط العلوي.
 
 تم الإصلاح:
+
 - شعار واحد فقط داخل الإيصال/التأكيد
 - إخفاء شريط الموقع في صفحات المستند حتى لا يتكرر الشعار
 
@@ -6223,20 +6382,24 @@ These files can be read with tools, copied to other locations, or attached to su
 [Image]
 [Image]
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <image_files>
 The following images were provided by the user and saved to disk for future use:
+
 1. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-3a958cff-fa0c-4065-b45c-12e16c2d1e33.png
 2. C:\Users\ameed\.cursor\projects\c-dev-BHD-R/assets/c__Users_ameed_AppData_Roaming_Cursor_User_workspaceStorage_[REDACTED-ACCESS-KEY-ID]_images_image-5aafe72f-5cba-4cf8-879d-90822574041e.png
 
@@ -6244,8 +6407,8 @@ These files can be read with tools, copied to other locations, or attached to su
 </image_files>
 <timestamp>Wednesday, Sep 2, 2026, 11:16 PM (UTC+4)</timestamp>
 <user_query>
-https://r.bhd-om.com/ar/owner   في صفحه مسؤول العقارات لماذا غير معرب وكذلك الحجوزات المفترض ان تظهر في الصفحه الرئيسية للتحكم 
-كذلك الحجز لا ينعكس في الحجوزات اليومية 
+https://r.bhd-om.com/ar/owner في صفحه مسؤول العقارات لماذا غير معرب وكذلك الحجوزات المفترض ان تظهر في الصفحه الرئيسية للتحكم
+كذلك الحجز لا ينعكس في الحجوزات اليومية
 ولا في لوحة الإقامات
 التقويم
 الحجوزات اليومية
@@ -6295,7 +6458,7 @@ https://r.bhd-om.com/ar/owner   في صفحه مسؤول العقارات لما
 
 <timestamp>Wednesday, Sep 2, 2026, 11:28 PM (UTC+4)</timestamp>
 <user_query>
-تاكد من تعريب كل الموقع بكل مصطلحاته و افرعه و انشطته و مستنداته و اقسامه وصفحاته و لوحاته و ايقوناته و يكون الموقع دائما باللغتين العربيه و الانلجليزيه 
+تاكد من تعريب كل الموقع بكل مصطلحاته و افرعه و انشطته و مستنداته و اقسامه وصفحاته و لوحاته و ايقوناته و يكون الموقع دائما باللغتين العربيه و الانلجليزيه
 </user_query>
 
 ---
@@ -6317,6 +6480,7 @@ https://r.bhd-om.com/ar/owner   في صفحه مسؤول العقارات لما
 الموقع أصلاً ثنائي اللغة عبر `/ar` و`/en`. المشكلة كانت في **مصطلحات الحالات والأنشطة** التي تظهر كمفاتيح إنجليزية خام.
 
 تم توحيد قاموس عربي/إنجليزي وربطه بـ:
+
 - آخر النشاط في لوحة المالك
 - الحجوزات اليومية والتقويم ولوحات الإقامات
 - التأكيد / الإيصال / الدفع / رحلات الضيف
@@ -6331,21 +6495,24 @@ https://r.bhd-om.com/ar/owner   في صفحه مسؤول العقارات لما
 ## 298. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/stays
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <timestamp>Wednesday, Sep 2, 2026, 11:34 PM (UTC+4)</timestamp>
 <user_query>
-هذه اللوحه كذلك غير معربه https://r.bhd-om.com/ar/owner/stays  كذلك الان يظهر لي الحجز و رقم الحجز لاكن لا يظهر لي اي عقار ولا يمكنني الوصول الى العقار من خلال الحجز نفسه كما ان الحز لا يغير التقويم في صفحه العقار بانه مجوز ما شابه حتى بعد تاكيد عمليه الدفع 
+هذه اللوحه كذلك غير معربه https://r.bhd-om.com/ar/owner/stays كذلك الان يظهر لي الحجز و رقم الحجز لاكن لا يظهر لي اي عقار ولا يمكنني الوصول الى العقار من خلال الحجز نفسه كما ان الحز لا يغير التقويم في صفحه العقار بانه مجوز ما شابه حتى بعد تاكيد عمليه الدفع
 </user_query>
 
 ---
@@ -6360,11 +6527,12 @@ ____
 
 تم الإصلاح ورُفع (`f059bc6`):
 
-1. **تعريب لوحة الإقامات** ونصوص الأداء  
-2. **اسم العقار والوحدة** يظهران مع رابط لفتح صفحة العقار من الحجز  
+1. **تعريب لوحة الإقامات** ونصوص الأداء
+2. **اسم العقار والوحدة** يظهران مع رابط لفتح صفحة العقار من الحجز
 3. **التقويم** يُحدَّث إلى «محجوز» بعد الدفع، ويُصلَّح أيضاً عند فتح تقويم التشغيل للحجوزات القديمة
 
 بعد Ready على Vercel:
+
 - افتح [`/ar/owner/stays`](https://r.bhd-om.com/ar/owner/stays) و**الحجوزات اليومية**
 - افتح العقار من رابط الحجز، ثم راجع التقويم
 
@@ -6374,7 +6542,7 @@ ____
 
 <timestamp>Wednesday, Sep 2, 2026, 11:38 PM (UTC+4)</timestamp>
 <user_query>
-ارفع هذه المحادثه كامله ووثقها في نفس الملف السابق الذي وثقنا فيه كل شي وذلك لاكمل العمل في الكمبيوتر الاخر 
+ارفع هذه المحادثه كامله ووثقها في نفس الملف السابق الذي وثقنا فيه كل شي وذلك لاكمل العمل في الكمبيوتر الاخر
 </user_query>
 
 ---
@@ -6383,7 +6551,7 @@ ____
 
 <timestamp>Wednesday, Sep 2, 2026, 11:38 PM (UTC+4)</timestamp>
 <user_query>
-ارفع هذه المحادثه كامله ووثقها في نفس الملف السابق الذي وثقنا فيه كل شي وذلك لاكمل العمل في الكمبيوتر الاخر 
+ارفع هذه المحادثه كامله ووثقها في نفس الملف السابق الذي وثقنا فيه كل شي وذلك لاكمل العمل في الكمبيوتر الاخر
 </user_query>
 
 ---
@@ -6430,7 +6598,7 @@ ____
 
 <timestamp>Monday, Oct 12, 2026, 8:25 PM (UTC+4)</timestamp>
 <user_query>
-اسحب كل شي من جيت 
+اسحب كل شي من جيت
 </user_query>
 
 ---
@@ -6484,7 +6652,7 @@ Since dependencies changed, I should run pnpm install to keep the workspace in s
 
 <timestamp>Monday, Oct 12, 2026, 8:27 PM (UTC+4)</timestamp>
 <user_query>
-اخبرني باخر ما قمنا به من خطوات و تنفيذ وتضميم 
+اخبرني باخر ما قمنا به من خطوات و تنفيذ وتضميم
 </user_query>
 
 ---
@@ -6509,17 +6677,18 @@ I see the status notes active focus on owner dashboard speed and redesign, with 
 
 ## آخر خمس خطوات
 
-| الإصدار | ما تم |
-| --- | --- |
+| الإصدار    | ما تم                                                  |
+| ---------- | ------------------------------------------------------ |
 | **0.8.26** | مشهد متحرك وترحيب باسم الضيف في كل خطوة من صفحتي الحجز |
-| **0.8.25** | توقيت ظهور زر «طلب أو اعتراض جديد» على التأمين |
-| **0.8.24** | ملاحق العقد في صفحته، واختيار ما يُطبع |
-| **0.8.23** | جدول حجوزات موحّد بين صفحة الحجوزات وصفحة العقار |
-| **0.8.22** | تسريع البوابة: تحميل بيانات الصفحة أولاً ثم الخلفية |
+| **0.8.25** | توقيت ظهور زر «طلب أو اعتراض جديد» على التأمين         |
+| **0.8.24** | ملاحق العقد في صفحته، واختيار ما يُطبع                 |
+| **0.8.23** | جدول حجوزات موحّد بين صفحة الحجوزات وصفحة العقار       |
+| **0.8.22** | تسريع البوابة: تحميل بيانات الصفحة أولاً ثم الخلفية    |
 
 ## التنفيذ والتصميم في هذه الإصدارات
 
 **0.8.26: صفحتا الحجز بروح صفحة الإقامة.** التغيير في الشكل والصياغة فقط، ولم يتغيّر منطق الحجز أو الدفع.
+
 - يشمل صفحة الإقامة اليومية `/stays/{slug}/book` وصفحة الإيجار أو الشراء `/book/{unitId}?mode=rent`.
 - تحت شريط الخطوات مشهد مرسوم: الضيف بالدشداشة والكمة، وبيت المالك بعلم عُمان، ونخيل وشمس.
 - شاشة جوال الضيف في المشهد تعرض الخطوة الحالية: التقويم، ثم العقد والتوقيع، ثم بيانات الضيف، ثم المراجعة، ثم الدفع.
@@ -6528,19 +6697,23 @@ I see the status notes active focus on owner dashboard speed and redesign, with 
 - الملفات الجديدة: `booking-step-scene.tsx` و`booking-step-greeting.ts`.
 
 **0.8.25: زر الاعتراض على التأمين.** يظهر الزر في حالتين فقط:
+
 - بعد تحويل مبلغ التأمين للضيف، أو رفض الاسترداد.
 - أو بعد 10 أيام عمل من طلب الاسترداد، مع استثناء الجمعة والسبت.
 - الخادم يطبّق القاعدة نفسها، فيرفض الطلب المبكر بالرمز `claim_not_yet`.
 
 **0.8.24: ملاحق العقد.**
+
 - في صفحة العقد شريط فيه الملاحق A1 (محضر الاستلام) وA2 (محضر الإعادة) وA3 (استرداد التأمين).
 - عند الطباعة أو تصدير PDF تظهر قائمة «ماذا تريد أن تطبع؟»: العقد، أو الملاحق، أو الكل في ملف واحد.
 
 **0.8.23: الحجوزات.**
+
 - صفحة `/owner/bookings` تعرض الآن جدول صفحة العقار نفسه، مع عمود إضافي باسم العقار.
 - رقم العقد الرسمي (مثل `CTR-2026-000002`) يفتح العقد نفسه.
 
 **0.8.22: السرعة.**
+
 - التحميل المسبق في الخلفية ينتظر حتى تظهر بيانات الصفحة.
 - رُفعت اتصالات قاعدة البيانات إلى 8، ورُفع الحد الأدنى لحوسبة Neon إلى 0.5.
 - مثال القياس: أمانات التأمين نزلت من 9.2 إلى 5.3 ثانية.
@@ -6559,6 +6732,7 @@ I see the status notes active focus on owner dashboard speed and redesign, with 
 حسب ملف `STATUS.md`، العمل الحالي على سرعة لوحة المالك وتصميمها. المراحل 1 إلى 3 شُحنت، والتالي مراجعة الصفحات واحدة واحدة على الإنتاج، وإضافة هياكل تحميل (skeletons) تظهر أثناء انتظار البيانات.
 
 **ملاحظات تبقى قائمة:**
+
 - هجرات قاعدة البيانات الجديدة من `0023` إلى `0029` لم تُطبَّق على أي قاعدة محلية، ويلزم تطبيقها قبل التشغيل المحلي.
 - يوجد اختباران فاشلان من قبل، في `next-write-route-policy` و`proxy-canonical-host`.
 
@@ -6569,11 +6743,13 @@ I think I have enough now to summarize in Arabic. I'll note that the commits aft
 ## 319. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/book/sign?ref=RSV-KMF42LNE
 Website Title: Sign contract | توقيع العقد · BHD R
 Website Content:
@@ -6598,18 +6774,20 @@ _R_بن حمود للتطوير
 عن الشركةهوية الشركةبرامجناالخصوصيةالشروطالأماندخول الإدارة
 
 © 2026 شركة بن حمود للتطوير. جميع الحقوق محفوظة.مسقط · سلطنة عُمان
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/owner/contracts/0b17fcb0-5fa9-4fa9-a38e-ecc9c5c89a88
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Oct 12, 2026, 8:45 PM (UTC+4)</timestamp>
 <user_query>
- اريد اعاده بناء هذه الصفحه https://r.bhd-om.com/ar/book/sign?ref=RSV-KMF42LNE  و طريقه عرض العقد لكي يتطابق مع طريقه عرض العقد في https://r.bhd-om.com/ar/owner/contracts/0b17fcb0-5fa9-4fa9-a38e-ecc9c5c89a88  يكون بنفس التصميم و بنفس الالوان لان العقد في https://r.bhd-om.com/ar/owner/contracts/0b17fcb0-5fa9-4fa9-a38e-ecc9c5c89a88  هو المعتمد بنفس الشكل و الاسلوب وكل توقيع يقوم به الموقع اكترونيا له رقم متسلسل 
+اريد اعاده بناء هذه الصفحه https://r.bhd-om.com/ar/book/sign?ref=RSV-KMF42LNE و طريقه عرض العقد لكي يتطابق مع طريقه عرض العقد في https://r.bhd-om.com/ar/owner/contracts/0b17fcb0-5fa9-4fa9-a38e-ecc9c5c89a88 يكون بنفس التصميم و بنفس الالوان لان العقد في https://r.bhd-om.com/ar/owner/contracts/0b17fcb0-5fa9-4fa9-a38e-ecc9c5c89a88 هو المعتمد بنفس الشكل و الاسلوب وكل توقيع يقوم به الموقع اكترونيا له رقم متسلسل
 </user_query>
 
 ---
@@ -6626,7 +6804,6 @@ I should look at the sign page located at apps/web/src/app/[locale]/book/sign/pa
 
 I should check the standard doc along with contract-document-view, stay-esign-wizard, lease-booking-contract, and contract-doc-parts to understand this better.
 
-
 سأطّلع على معيار تصميم المستندات الموحّد `DOCUMENTS-DESIGN-STANDARD-AR.md` إلى جانب الملف المرجعي `contract-document-view.tsx` ومعالج التوقيع الحالي.
 
 ---
@@ -6634,7 +6811,6 @@ I should check the standard doc along with contract-document-view, stay-esign-wi
 ## 322. المساعد
 
 I need to figure out how the owner contract generates e-signature serials, following the ES-YYYY-NNNNNN format, so I'm searching for where these serials are assigned in the codebase.
-
 
 سأتحقق الآن من آلية توليد الرقم التسلسلي للتوقيع (ES-YYYY-NNNNNN) في العقود الحالية، وكيفية تخزين حجوزات الإيجار عند التوقيع.
 
@@ -6645,7 +6821,6 @@ I need to figure out how the owner contract generates e-signature serials, follo
 I realize the serial numbers currently only come from contract_signatures, but lease reservation e-signs write into workflowEvents instead, so reservation signatures never get a serial. Since the user wants every e-signature to carry a serial in the same sequence, I'm thinking about merging both sources into a unified numbering scheme when a reservation is signed.
 
 But merging risks renumbering existing contract serials since the rule is that serials must never change once issued — if I insert reservation signatures chronologically into the same sequence, any contracts signed after that point would shift. I should check whether reservations that get converted into contracts already generate a contract_signatures entry via "booking_terms_acceptance", since that might already solve part of this without needing a merged series.
-
 
 الرقم المتسلسل ES-YYYY-NNNNNN يُحسب من جدول contract_signatures فقط، بينما توقيع حجز الإيجار يُحفظ منفصلاً ولا يدخل ضمن هذا التسلسل. سأتحقق الآن من كيفية تحول الحجز إلى عقد لاحقاً.
 
@@ -6887,7 +7062,6 @@ Now I'm tracing how ContractArticle builds its bilingual contract data — pulli
 
 I need to confirm `pick` isn't actually used inside the article body itself, so I only destructure what's needed to keep the linter happy. Then I'll copy the original article's rendering block and adjust it to use the new links function before applying the str-replace edits.
 
-
 I'll refactor the contract document into a reusable `ContractArticle` component, build the reservation agreement from Neon data in the same shape, unify e-signature serials, and replace the signing wizard's old HTML—starting with the document view refactor.
 
 ---
@@ -6981,7 +7155,6 @@ I'm worried about a race condition: since signatureSerials was previously called
 The real risk is that while platform_admin is set to true inside my function, other concurrently-issued queries that rely solely on RLS for tenant scoping could run and leak cross-tenant rows. This affects both contract-detail-neon and contract-verify-neon, which both use Promise.all alongside signatureSerials. The fix is to pull the serials call out of Promise.all and run it sequentially after, in every caller including my reservation loader -- though this remains a fragile pattern for future callers.
 
 I also need to keep elevation for the guest page since guest isn't in the org and that transaction has no app.organization_id set, so RLS alone wouldn't expose contract_signatures. I'll document the constraint in the docstring and update contract-detail-neon and contract-verify-neon to call signatureSerials sequentially instead of inside Promise.all.
-
 
 I found that the serial query temporarily changes row visibility on its transaction, so it can't safely run alongside other queries in `Promise.all` as both contract loaders currently do. I'll pull it out to run separately on its own.
 
@@ -7119,7 +7292,6 @@ I see it reports "[2/3]" with 2 failed tests, which seems off—let me look at t
 
 These are known pre-existing failures in routes I didn't touch, so that's fine. Now I want to double-check the owner contract page is unchanged by reviewing the diff of contract-document-view.tsx, since it's a large refactor — I'll scan the key portions and confirm ESLint already caught any unused variables.
 
-
 These two failing tests are pre-existing failures unrelated to the routes I touched. Before committing, I'll review the contract view refactor to confirm the owner contract page still renders correctly.
 
 ---
@@ -7164,7 +7336,6 @@ That's odd, nothing came through, not even the expected echo—seems like the ou
 
 Since I don't have database access to verify, I'll move on to updating the documentation: the release doc, CHANGELOG, CONTINUE, PROJECT_DOCUMENTATION_AR, STATUS, package.json version, and the standard documents table entry, checking the documents standard doc for the right format.
 
-
 No database config is available here, so I can't test the database-backed parts—I'll note that in the release. Now updating the docs, starting with the reservation-agreement row in the documents standard.
 
 ---
@@ -7192,7 +7363,6 @@ Given that the actual time is right around that cutoff and deployment might land
 ## 383. المساعد
 
 Since deploy takes about 15 minutes, I should push the cutoff to 17:30Z to keep it close to the deploy window and avoid shifting contract-signature timing — I'll set it to '2026-10-12T17:30:00Z'.
-
 
 I noticed the serial cutoff (17:00 UTC) is too close to the actual deploy time, risking serial shifts for contracts signed in that window. I'm updating the cutoff to 17:30 UTC to align with the expected deploy.
 
@@ -7231,6 +7401,7 @@ Prettier reformatted the markdown tables, so I'll run prettier on docs and contr
 لكن لم أجرّب الصفحة على قاعدة البيانات، لأن هذا الجهاز ليس فيه اتصال بها.
 
 **ما تغيّر في الصفحة:**
+
 - صارت الاتفاقية مطابقة للعقد في الشكل: الترويسة، والعنوان بالعربية والإنجليزية، وشريط الرقم والتاريخ والحالة، والإطار الذهبي، وخط Amiri، وألوان المستندات نفسها، والختم المائل، والمواد المرقّمة.
 - بعض الخانات تختلف عن العقد لأنها اتفاقية حجز:
   - لا يظهر تاريخ البدء ولا تاريخ الانتهاء.
@@ -7243,22 +7414,26 @@ Prettier reformatted the markdown tables, so I'll run prettier on docs and contr
   - تتحدّث الصفحة تلقائياً ليظهر رقم التوقيع.
 
 **الرقم التسلسلي:**
+
 - بالصيغة `ES-2026-000123`، ويظهر بالأحمر في الختم وفي شاشة «تم التوقيع».
 - تواقيع العقود وتواقيع الحجز صارت في سلسلة واحدة لكل مالك ولكل سنة.
 - أرقام العقود الموقّعة سابقاً لا تتغير. تواقيع الحجز التي تمت قبل الساعة 21:30 بتوقيت مسقط اليوم تُرتَّب كأنها تمت في تلك اللحظة، فلا تتقدّم على عقود سبقتها. اخترت هذا الوقت ليكون قريباً من موعد النشر.
 - أصلحت أيضاً مشكلة كان فيها المستأجر يرى رقم توقيع مختلفاً عن الذي يراه المالك. هذا الإصلاح يعمل فقط إذا كان مستخدم قاعدة البيانات الذي يتصل به التطبيق له صلاحية النظام (`bhd_r_system`). وإن لم تكن له، يبقى الرقم صحيحاً عند المالك كما كان.
 
 **التحقق:**
+
 - فحص الأنواع (`tsc`) نجح.
 - فحص ESLint نجح على الملفات المعدّلة.
 - نجح 103 من 105 اختبارات. الاختباران الفاشلان كانا يفشلان قبل هذا التعديل، ولا علاقة لهما به.
 
 **بعد النشر، افتح هذه الروابط وتأكد بنفسك:**
+
 - افتح `https://r.bhd-om.com/ar/book/sign?ref=RSV-KMF42LNE` وقارنها بصفحة عقد المالك.
 - وقّع حجزاً، وتأكد أن رقم `ES-…` يظهر في الختم وفي شاشة «تم التوقيع».
 - تأكد أن أرقام تواقيع العقود القديمة لم تتغير.
 
 **ما لم يُنفَّذ بعد:**
+
 - اتفاقية الحجز بلا رمز QR، لأن صفحة التحقق العامة مخصصة للعقود فقط.
 - ملخص عقد الإقامة اليومية قبل التوقيع ما زال بتصميمه القديم.
 
@@ -7293,11 +7468,13 @@ That's odd that it's empty, but I already confirmed only .env.example exists and
 ## 391. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/book/confirmed?ref=RSV-KMF42LNE
 Website Title: Booking confirmed | تأكيد الحجز · BHD R
 Website Content:
@@ -7322,12 +7499,13 @@ _R_بن حمود للتطوير
 عن الشركةهوية الشركةبرامجناالخصوصيةالشروطالأماندخول الإدارة
 
 © 2026 شركة بن حمود للتطوير. جميع الحقوق محفوظة.مسقط · سلطنة عُمان
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Oct 12, 2026, 9:06 PM (UTC+4)</timestamp>
 <user_query>
-اكملت الحجز كاملا في https://r.bhd-om.com/ar/book/confirmed?ref=RSV-KMF42LNE  ولاكن لم يعطني اشعار في الصفحه الرئيسية للمالك ولا في جرس الانذار ولا في الحجوزات ان هناك حجز للعقار كذلك المبلغ لم ينعكس في المحاسب
+اكملت الحجز كاملا في https://r.bhd-om.com/ar/book/confirmed?ref=RSV-KMF42LNE ولاكن لم يعطني اشعار في الصفحه الرئيسية للمالك ولا في جرس الانذار ولا في الحجوزات ان هناك حجز للعقار كذلك المبلغ لم ينعكس في المحاسب
 </user_query>
 
 ---
@@ -7352,7 +7530,6 @@ I notice the payment flow has no notification or ledger entry, just workflow eve
 
 I notice the deposit_paid topic isn't included in HISABY_PUSH_TOPICS, meaning that accounting page wouldn't receive it. Let me check how the payment_confirmed event for stay bookings is handled as a reference.
 
-
 I found a gap: the worker only forwards `reservation.deposit_confirmed` to Hisaby, but the website deposit event is `reservation.deposit_paid`, so it gets dropped. Now I'll check how stay payments flow into owner notifications, the bookings list, and accounting.
 
 ---
@@ -7375,7 +7552,6 @@ I'm also considering how to backfill the journal entry for the existing RSV-KMF4
 
 Weighing whether to mirror the API's real-payment journal-posting approach on the web side too, versus just sourcing deposit rows the way stay_payment_intents are listed (which would avoid backfilling but risks double-counting if both journals and row sources exist) — I'm leaning toward posting journals in the web flow for consistency, but first I want to check if there's already web-side journal posting code to build on.
 
-
 I found that three of four owner surfaces lack a path for website deposit bookings, showing poor data in the bookings list. Next I'll check if the web app already has a journal-posting helper and review the reservation schema before designing a fix.
 
 ---
@@ -7387,7 +7563,6 @@ This is a significant scope of work. I'm planning to port the deposit journal po
 For the backfill on the existing reservation, I need to verify the RLS policies on journal_entries and related tables to ensure the organization-scoped insert from the web path will actually pass, since the booker's claims drive the insert context rather than an admin user.
 
 Weighing options for the missing journal row: a lazy write-on-read inside the owner's accounting loader feels risky since loaders might run in read-only contexts, while a one-time SQL migration seems like the cleaner path despite needing careful testing. I'm leaning toward writing a plpgsql migration that finds reservations with the deposit flow and a paid timestamp but no corresponding journal entry, then inserts the ledger accounts, sequence allocation, and entry/lines for each — so now I should check the migration infrastructure to see how these are structured and run.
-
 
 I found that journal posting only happens via the Nest API, not in the web app. Next I'll review the database migrations and row-level security on the journal tables before deciding how to post the deposit and backfill the existing booking.
 
@@ -7419,7 +7594,6 @@ I'm mapping out the details — the title text in Arabic, permission check via r
 
 I need to check how loadBookings handles reservation rows and why the owner might have missed it in the list — maybe a filter or sort issue. I also want to improve the accounting journal description to include the RSV code, and check whether the property hub's accounting tab reads from journals at all, since it may need the same addition.
 
-
 Since the bell and dashboard share one approvals queue, adding the website-reservation item there covers both. Now checking the bookings-list and accounting loaders to see where reservation deposits need to plug in.
 
 ---
@@ -7429,7 +7603,6 @@ Since the bell and dashboard share one approvals queue, adding the website-reser
 I'm thinking the "collected" total only aggregates payments while journals appear separately in the list, so to keep the accounting page consistent without needing a backfill, I could add a parallel row source that pulls reservations using the public deposit flow with a paid deposit timestamp, tagging them as reservation deposit records to mirror how stay payments are listed.
 
 This mirrors how stays already work in web, since stays sandbox doesn't write journal entries either, so following that same pattern avoids double-counting and works immediately for existing bookings without extra writes. I'll go with this row-source approach and now want to check listStayAccountingRows, loadStayIncomeRowsForViewer, how the operations console renders stay_payment rows, and the property hub's loadAccounting logic around lines 1005-1132.
-
 
 I'll apply the same pattern to deposits, building rows directly from deposit records without journal entries or data migration, so the existing RSV-KMF42LNE booking is picked up right away.
 
@@ -7476,7 +7649,6 @@ I'll start implementing by updating the bookings list loader to pull reference c
 ## 407. المساعد
 
 I'm noting that abandoned unpaid checkouts with pending or expired status still show up in the owner list, which is probably just noise I can ignore. Now I'll start writing the code for loading reservation rows in the property-records-neon booking logic.
-
 
 I have everything I need. I'll start building the bookings list so website deposit rows show the RSV reference, deposit amount, paid date, reserved-until date, and an e-sign badge, with paid rows sorted to the top.
 
@@ -7725,11 +7897,13 @@ Same pre-existing failures as before, nothing new. I'll bump the version to 0.8.
 أصلحت المشكلة ورفعتها في الإصدار 0.8.28 (commit `aa94683`). صار حجز الإيجار أو الشراء المدفوع يظهر للمالك في الجرس والصفحة الرئيسية والحجوزات والمحاسبة. لم أجرّب ذلك على قاعدة البيانات لأن هذا الجهاز لا يتصل بها، فتحقّق منه بعد النشر.
 
 **سبب المشكلة:** الحجز المدفوع من الموقع كان يُحفظ، لكن صفحات المالك لا تقرأه:
+
 - **الجرس والصفحة الرئيسية:** يعرضان العقود وطلبات الإقامة اليومية وطلبات التأمين فقط، ولا يقرآن حجوزات الإيجار والشراء.
 - **الحجوزات:** الحجز موجود في القائمة، لكن برقم داخلي بدل `RSV-KMF42LNE`، وبالإيجار الشهري بدل العربون، وفي آخر القائمة. لذلك كان شبه مخفي.
 - **المحاسبة:** الدفع من الموقع لا يُسجَّل كحركة مالية، وصفحة المحاسبة لا تقرأ إلا مدفوعات الإقامة والقيود.
 
 **ما سيظهر بعد النشر:**
+
 - **الجرس و«بانتظار اعتمادك»:** بند «حجز إيجار مدفوع — جهّز العقد» (أو «حجز شراء مدفوع») فيه مبلغ العربون واسم العميل. يبقى حتى يتحوّل الحجز إلى عقد أو يُلغى أو تنتهي مدته، والضغط عليه يفتح الحجز في تبويب حجوزات العقار.
 - **الصفحة الرئيسية:** تنبيه «حجز إيجار أو شراء مدفوع العربون بانتظار العقد». وأحداث الحجز (الدفع والتوقيع) تظهر في «النشاط الأخير» بأسماء عربية.
 - **قائمة الحجوزات:** الحجز المدفوع في أعلى القائمة، ويعرض:
@@ -7744,6 +7918,7 @@ Same pre-existing failures as before, nothing new. I'll bump the version to 0.8.
 **التحقق:** فحص الأنواع (`tsc`) نجح للموقع والـ worker. لا أخطاء ESLint جديدة؛ بقيت ثلاثة أخطاء قديمة في أسطر لم أعدّلها. نجح 103 من 105 اختبارات، والاختباران الفاشلان يفشلان من قبل هذا التعديل.
 
 **ما لم يُنفَّذ بعد:**
+
 - لا يُرسَل للمالك بريد أو واتساب عند حدوث الحجز؛ يظهر له داخل الموقع فقط.
 - العربون المدفوع من الموقع يظهر سطراً في المحاسبة، لكن لا يُنشأ له قيد يومية رسمي، كما هو الحال في مدفوعات الإقامة من الموقع. القيد يُنشأ فقط عند الدفع الحقيقي عبر بوابة الدفع.
 
@@ -7756,21 +7931,24 @@ I'm noting that changes in the i18n package should trigger a build on Vercel sin
 ## 442. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Oct 12, 2026, 9:18 PM (UTC+4)</timestamp>
 <user_query>
-عند فتح الحجز https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814  لا تظهر لي اي بينات 
+عند فتح الحجز https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814 لا تظهر لي اي بينات
 
 This page couldn’t load
 A server error occurred. Reload to try again.
@@ -7793,7 +7971,6 @@ The owner reservation detail page relies on the Nest API, so I should check that
 
 This likely depends on the Nest API being unavailable, so I'm checking what the compliance endpoint returns and what the ReservationComplianceManager actually needs. I'm leaning toward loading directly from Neon in the web app instead, consistent with how other pages avoid Nest, so I'll look at the component and the API's compliance method.
 
-
 I see the page depends entirely on the compliance API endpoint, and any error from it crashes the page. Let me check what that endpoint returns and what the component expects.
 
 ---
@@ -7804,7 +7981,6 @@ This compliance page doesn't show what the user actually needs for a website boo
 
 For the design, I'd add a new loader `loadOwnerReservationDetail` that enforces tenant and owner party scoping, and reuse the agreement-viewing logic via ContractArticle so the owner can see the signed agreement. The existing `loadLeaseBookingAgreement` is keyed to the booker's userId though, so I need an owner-facing variant—I should look at that function and `findLeaseReservation` to split the logic into authorization and agreement-building steps.
 
-
 I found that the old documents checklist page relies on a separate API call that crashes the page on failure and never shows booking details—I'll rebuild it to pull booking data directly from the database like other owner pages, then review the agreement loader so owners can view the signed agreement too.
 
 ---
@@ -7814,7 +7990,6 @@ I found that the old documents checklist page relies on a separate API call that
 I'm planning to refactor the code by extracting a helper for building the lease agreement, and generalizing the lease reservation lookup function so it can accept a flexible query condition, enabling a new staff-facing function that loads a lease booking agreement by reservation ID.
 
 For authorization, I need to check organization match, require 'reservation.read' permission, and verify owner party scope against the reservation's owner. On the page side, I'm designing an owner-facing detail view for website reservations with status badges, customer and booking facts, payment and e-sign details, and action links, while falling back gracefully for non-website reservations if the compliance API errors out. I'm noting that ID documents are sensitive and should be skipped for now, then starting the refactor on the public lease booking file.
-
 
 I'm splitting the agreement loader to reuse it across the customer signing page and a new owner view, with the owner view validating organisation, `reservation.read` permission, and property ownership.
 
@@ -7935,6 +8110,7 @@ Same two failures as before. Writing the release notes and pushing.
 **سبب الخطأ:** كانت الصفحة تطلب بياناتها من خدمة الـ API المنفصلة، وأي خطأ أو تأخر منها يُسقط الصفحة كلها. وحتى حين تعمل، كانت تعرض قائمة مستندات فقط، دون العميل أو العربون أو الاتفاقية.
 
 **ما تغيّر:** صار حجز الموقع يُقرأ من قاعدة البيانات مباشرة مثل باقي صفحات المالك. وتعرض الصفحة الآن:
+
 - المرجع `RSV-…` مع العقار والوحدة، وزرًّا للانتقال إلى حجوزات العقار.
 - تنبيهًا يقول إن العميل دفع العربون ووقّع، وإن الوحدة محجوزة له حتى تاريخ معيّن، فجهّز العقد النهائي قبله.
 - حالة الحجز، والعربون المدفوع ووقت دفعه، وتاريخ «محجوزة حتى» مع الإيجار الشهري أو سعر البيع، ورقم التوقيع الإلكتروني بالأحمر.
@@ -7946,6 +8122,7 @@ Same two failures as before. Writing the release notes and pushing.
 الحجوزات القديمة التي لم تُنشأ من الموقع تبقى على صفحة المستندات السابقة. لكن إن تعذّر تحميلها تظهر الآن رسالة «تعذّر تحميل ملف هذا الحجز الآن» مع زر للعودة، بدل خطأ الخادم.
 
 **ما لم يُنفَّذ بعد:**
+
 - صور الهوية والسيلفي التي رفعها العميل عند التوقيع لا تظهر للمالك في هذه الصفحة.
 - لا يوجد زر لتحويل الحجز إلى عقد من هذه الصفحة.
 
@@ -7956,16 +8133,19 @@ Same two failures as before. Writing the release notes and pushing.
 ## 463. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/book/confirmed?ref=RSV-KMF42LNE
 Website Title: Booking confirmed | تأكيد الحجز · BHD R
@@ -7991,7 +8171,8 @@ _R_بن حمود للتطوير
 عن الشركةهوية الشركةبرامجناالخصوصيةالشروطالأماندخول الإدارة
 
 © 2026 شركة بن حمود للتطوير. جميع الحقوق محفوظة.مسقط · سلطنة عُمان
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/book/sign?ref=RSV-KMF42LNE
 Website Title: Sign contract | توقيع العقد · BHD R
@@ -8017,17 +8198,18 @@ _R_بن حمود للتطوير
 عن الشركةهوية الشركةبرامجناالخصوصيةالشروطالأماندخول الإدارة
 
 © 2026 شركة بن حمود للتطوير. جميع الحقوق محفوظة.مسقط · سلطنة عُمان
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Oct 12, 2026, 9:33 PM (UTC+4)</timestamp>
 <user_query>
-الان بعد ان تم الحجز من العميل ووقع الشروط ووافق عليها و دفع مبلغ الحجز اريد ان اضيف زر في https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814  لعتماد الحجز و بعد اعتماد الحجز من قبل المالك او ممثله يظهر في https://r.bhd-om.com/ar/book/confirmed?ref=RSV-KMF42LNE و https://r.bhd-om.com/ar/book/sign?ref=RSV-KMF42LNE   بان الحجز معتمد وفي انتظار قيام المالك بعمل العقد 
-اريد تحويل الصفحه https://r.bhd-om.com/ar/book/confirmed?ref=RSV-KMF42LNE  الى صفحه ذكيه تفعاليه بعبارات مره دعوبه كما قمنا في صفحه الحجز او تاجير الوحدات اليوميه و تكون على مراحل 
-الاولى اتمام الحجز  والثانيه اعتماد الحجز من المالك المرحلة الثالثه اكمال المستندات الازمه للعقد  و المرحلة الرابعة اعتماد العقد من المالك و من ثم المستاجر و المرحلة الخامسه تسليم العقار كما قمنا في العقود اليوميه 
-بعد اعتماد الحجز من قبل المالك او ممثله يتحول الحجز الى معتمد و يفتح نافذه العقد الايجار و يبعي المالك البينات كامله لعقد الايجار و المستندات المطلوبه وتظهر المستندات المطلوبه للعميل وبعد توفيرها يقوم المالك بعتماد العقد و المستندات المطلوبه وبعد اعتمادها يظهر العقد بانتظار توقيع الطرف الثاني المستاجر وبعد توقيعه يتحول العقد الى عقد موقع اكترونيا من الطرفين 
-و من ثم يتحول الى المرحله التاليه تسليم العقار  و من ثم المراحل التاليه 
-نفذ التالي كذلك 
+الان بعد ان تم الحجز من العميل ووقع الشروط ووافق عليها و دفع مبلغ الحجز اريد ان اضيف زر في https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814 لعتماد الحجز و بعد اعتماد الحجز من قبل المالك او ممثله يظهر في https://r.bhd-om.com/ar/book/confirmed?ref=RSV-KMF42LNE و https://r.bhd-om.com/ar/book/sign?ref=RSV-KMF42LNE بان الحجز معتمد وفي انتظار قيام المالك بعمل العقد
+اريد تحويل الصفحه https://r.bhd-om.com/ar/book/confirmed?ref=RSV-KMF42LNE الى صفحه ذكيه تفعاليه بعبارات مره دعوبه كما قمنا في صفحه الحجز او تاجير الوحدات اليوميه و تكون على مراحل
+الاولى اتمام الحجز والثانيه اعتماد الحجز من المالك المرحلة الثالثه اكمال المستندات الازمه للعقد و المرحلة الرابعة اعتماد العقد من المالك و من ثم المستاجر و المرحلة الخامسه تسليم العقار كما قمنا في العقود اليوميه
+بعد اعتماد الحجز من قبل المالك او ممثله يتحول الحجز الى معتمد و يفتح نافذه العقد الايجار و يبعي المالك البينات كامله لعقد الايجار و المستندات المطلوبه وتظهر المستندات المطلوبه للعميل وبعد توفيرها يقوم المالك بعتماد العقد و المستندات المطلوبه وبعد اعتمادها يظهر العقد بانتظار توقيع الطرف الثاني المستاجر وبعد توقيعه يتحول العقد الى عقد موقع اكترونيا من الطرفين
+و من ثم يتحول الى المرحله التاليه تسليم العقار و من ثم المراحل التاليه
+نفذ التالي كذلك
 
 صور الهوية والسيلفي التي رفعها العميل عند التوقيع لا تظهر للمالك في هذه الصفحة.
 لا يوجد زر لتحويل الحجز إلى عقد من هذه الصفحة.
@@ -8071,7 +8253,6 @@ Now reading the contract-issuing engine, since converting the booking into a con
 
 I'm weighing whether to reuse the full manual lease contract form for creating a contract from a reservation, so the owner can fill in complete details, and considering adding a new action like "create_lease_from_reservation" that passes the reservation ID and terms to the existing records route.
 
-
 I'll add a new "waiting for tenant signature" mode to the contract engine for booking contracts, then check the manual lease form to reuse it for the full lease data step.
 
 ---
@@ -8096,7 +8277,6 @@ Now I'm designing the customer-facing public routes: one for uploading identity/
 
 For the owner and customer GET routes, I'm planning file access scoped by reservation and ownership permissions, and considering the UI flow for final contract signing — likely a dedicated page linking to the full contract view plus a signature pad component, which I should check for reuse from the existing e-sign wizard.
 
-
 I'll reuse the manual lease form, adding optional props for preselected tenant, title, and button text. Next I'll check the e-sign components for a reusable signature pad to capture the tenant's final contract signature.
 
 ---
@@ -8108,7 +8288,6 @@ I'm checking whether the customer can view the signed contract using ContractArt
 For the final tenant signature, canSign stays false since there's no rendered PDF hash yet, and I'll add a new label to SIGNATURE_METHODS for the electronic handwritten-style signature method used in reservation contracts. Since contract-detail-neon only pulls esign images for stay sources, I'll skip rendering the tenant's signature image directly but still store the signature PNG in evidence so the owner can view it later.
 
 I want to extend issueContract with an awaitCounterparty option: when set and canSign is true, the contract status becomes 'partially_signed', the owner signs, the lease stays in 'draft', and no approval request is created; if canSign is false, the caller should fail with forbidden. But I'm worried that since contractDisplayStatus maps 'partially_signed' to pending_manager_approval, the owner's property contracts tab might still surface an approve button that lets them force-complete the contract without the tenant's signature -- I need to check the approve_contract button logic in property-section-records to confirm this won't happen.
-
 
 I'll add a signature pad and contract link to the journey page, then verify the owner's "approve contract" action on the property contracts tab can't bypass the tenant's required signature.
 
@@ -8151,7 +8330,6 @@ I'm mapping out the remaining phases - owner approval of contract draft, documen
 I'm also tracking that once the tenant signs, the reservation gets converted with a linked lease ID, but the owner's view of the reservation snapshot should remain accessible since the lookup doesn't filter by status. For handover, since there's no dedicated lease handover flow in the web app yet, I'll just record it as a workflow event and snapshot update rather than building new infrastructure.
 
 I need to exclude document uploads from the overview feed the same way evidence is excluded, which means swapping the `ne` filter for `notInArray` in portal-overview-data. I also need to build a new owner-facing file route for serving reservation documents (ID photos, signatures, contracts) by decoding the stored data URL into a binary response, gated by proper claims and org scope, plus a staff-access helper function to fetch these files securely. For displaying ID images on the owner page, I should check how existing evidence photos are rendered to match the pattern, including how any lint warnings around using plain `<img>` tags were handled before.
-
 
 I'll make sure approval refreshes the reservation's expiry date so the 30-day cron doesn't expire it while documents are still being gathered. Next I'll check how stay e-sign evidence images are served to the owner, so I can follow the same pattern.
 
@@ -8199,7 +8377,6 @@ I'll add an optional label prop for the Arabic "وصول" handover state, plus o
 
 For the server piece, I need owner actions and customer actions with file loading, plus exported helpers for issuing lease/sale contracts that accept a transaction. Owner actions run under withinViewerTenant, while customer signing happens through a separate transaction using applyOrgScope since customers aren't org members—so I need to check what applyOrgScope actually sets and how that affects RLS for contracts, leases, and signature updates by reading through the public-booking-neon module.
 
-
 I'll add optional label props to the stay scenes so captions can read "rent booking" or "lease contract," then check how public routes scope database access since the tenant's signature needs to update contracts and leases outside the owner's session.
 
 ---
@@ -8231,7 +8408,6 @@ Now I'll create the lease reservation lifecycle module.
 I'm adding an `awaitCounterparty` flag to contract issuing so that when true, the contract goes to a partially-signed state with the owner's signature only, no approval request yet, and emits an "awaiting counterparty" workflow event instead of completing. Now I'm defining the exported function that issues a reservation contract within a transaction, taking the property and reservation details as input.
 
 Since owner actions run within the viewer tenant context, I'm planning to move this owner action logic into a new lifecycle file, and refactor the existing manual lease/sale creation logic into internal reusable functions (`createManualLeaseInTx`, `createManualSaleInTx`) that property-contracts-neon can call with the reservation's tenant and deal info already resolved server-side -- for sales, reusing the existing deal from the booking rather than creating a new one, and transitioning it to closed_won once the tenant signs. Now I'm going to refactor property-contracts-neon accordingly.
-
 
 I'll update the contract engine so `issueContract` supports an "await counterparty" mode—owner signs first, contract goes `partially_signed`, and the lease stays `draft` until the tenant signs—while also refactoring the manual lease and sale logic into reusable transaction functions.
 
@@ -8324,7 +8500,6 @@ I'll pass nulls for meters coming from a separate table, and I need to verify wh
 I'm expanding the staff loader's query to pull in unit deposit, tenant name, party type, and phone, then updating the lease booking snapshot type to include lifecycle info.
 
 After that, I'll implement a lifecycle-neon module containing the actual actions, then start making the edits.
-
 
 I'll extend the reservation loader so both owner and customer pages receive the lifecycle, current phase, and reserved unit/tenant data needed for the contract form.
 
@@ -8458,7 +8633,6 @@ I'm sketching the layout: a stage progress bar for the owner, then a current-act
 
 For the lease contract form, I'm adding optional props for prefilling tenant and terms data so the requirements picker and form submission work together in the workflow component, though I'm accepting that re-editing after manual schedule row edits could overwrite custom rent values since the mount effect rebuilds the payment schedule from defaults. Now I'm moving to actually edit the LeaseContractForm component.
 
-
 Routes check out. Next I'll update `LeaseContractForm` with optional props (prefilled tenant, saved terms, heading, submit label, footnote) so it can be reused for the reservation contract.
 
 ---
@@ -8474,7 +8648,6 @@ I should check how other components call owner write routes with browserNextMuta
 ## 515. المساعد
 
 Since owner route errors return only codes, I'll need to map those codes to Arabic messages within the component itself. Now I'll start building the owner workflow component for lease reservations.
-
 
 `browserNextMutation` checks out for both owner and customer routes. Now I'll build the owner workflow component covering approval, contract and documents, review, contract approval, handover, and ID images.
 
@@ -8510,7 +8683,6 @@ The booking type looks solid with its rent/sale mode and serializable fields. No
 
 I'm also designing `lease-journey.tsx` as a client component that renders a journey card with steps using the stay journey provider, plus custom scenes and actions like document upload and contract signing—I need to export a `useStayJourney` hook for this. I'm mapping scenes to each stage: booking uses a phone-send scene with customizable labels, approval uses the approval desk component, documents may skip a scene in favor of a list, contract reuses the approval desk for signing, and handover uses a trip/arrival scene conditioned on whether the unit was handed over. I'll need to extend these scene components with optional label and title props to support this.
 
-
 Owner page done. Now I'll add optional caption props to the stay scenes (phone, approval desk, car arrival) so they display "rent booking" or "lease contract" wording instead of stay-specific text.
 
 ---
@@ -8542,7 +8714,6 @@ I'm tracing how the tenant portal loads contract details and checks access by em
 ## 522. المساعد
 
 With renderedPdfHash null, canSign comes out false, confirming there's no Nest form here. Now I'll move on to building the customer journey component.
-
 
 Found that tenant contracts lack a rendered PDF hash, so the Nest signature form won't display and signing must go through the new journey instead. I'll now write the customer journey component.
 
@@ -8608,18 +8779,20 @@ I should also update the pending approvals notifications and property bookings l
 
 <available_subagent_types>
 Available subagent_types and a quick description of what they do:
+
 - generalPurpose: General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. Use when searching for a keyword or file and not confident you'll find the match quickly.
 - explore: Fast agent specialized for exploring codebases. Use this when you need to quickly find files by patterns (eg. "src/components/**/*.tsx"), search code for keywords (eg. "API endpoints"), or answer questions about the codebase (eg. "how do API endpoints work?"). When calling this agent, specify the desired thoroughness level: "quick" for basic searches, "medium" for moderate exploration, or "very thorough" for comprehensive analysis across multiple locations and naming conventions.
 - browser-use: Perform browser-based testing and web automation. This subagent can navigate web pages, interact with elements, fill forms, and take screenshots. Use this for testing web applications, verifying UI changes, or any browser-based tasks. Use this browser subagent when you need to either: (1) parallelize browser tasks alongside other work, or (2) execute a longer sequence of browser actions that benefit from dedicated context. For simple, single browser actions, you may use the browser tools directly. This subagent requires agent mode because browser MCP access is unavailable in readonly mode. This subagent_type is stateful; if a browserUse subagent already exists, the previously created subagent will be resumed if you reuse the Task tool with subagent_type set to browserUse. (Auto-resumes most recent agent of this type; `resume` arg is ignored)
 - cursor-guide: Read Cursor product documentation to answer questions about how Cursor Desktop, IDE, CLI, Cloud Agents, Bugbot, and other features work. Use when the user asks 'In Cursor, how do I...?' or similar questions about Cursor products.
 - ci-investigator: Investigate a single failing PR CI check and return a short root-cause summary. Use when the user asks to summarize, explain, diagnose, or investigate a specific failed check from a pull request.
-- bugbot: Use only when the user *explicitly* asks for a Bugbot-like review of local code changes. When launching this subagent, set the Task description to exactly "Bugbot". Launch exactly one Bugbot subagent with `run_in_background: false` unless the user explicitly asks to run in background. Use this fixed prompt form: "Full Repository Path: ...\nDiff: <one of: \"branch changes\", \"uncommitted changes\", \"natural language\">\nChange Description: ...\nCustom Instructions: ..."; default to `Diff: branch changes`; include `Change Description` only when `Diff` is `natural language`, formatting it as one block per changed file (a `<path> (added|modified|deleted|renamed)` header followed by bullets of what changed, mentioning line numbers or ranges inline where helpful), and only use `natural language` as a last resort after a regular diff-based review failed because the diff could not be computed; include `Custom Instructions` only when the user gave specific review instructions. This subagent is single-shot and does not support `resume`; always launch a fresh subagent instead.
-- security-review: Use only when the user *explicitly* asks for a security review of local code changes. When launching this subagent, set the Task description to exactly "Security Review". Launch exactly one security-review subagent with `run_in_background: false` unless the user explicitly asks to run in background. Use this fixed prompt form: "Full Repository Path: ...\nDiff: <one of: \"branch changes\", \"uncommitted changes\">\nCustom Instructions: ..."; default to `Diff: branch changes`; include `Custom Instructions` only when the user gave specific review instructions. This subagent is single-shot and does not support `resume`; always launch a fresh subagent instead.
+- bugbot: Use only when the user _explicitly_ asks for a Bugbot-like review of local code changes. When launching this subagent, set the Task description to exactly "Bugbot". Launch exactly one Bugbot subagent with `run_in_background: false` unless the user explicitly asks to run in background. Use this fixed prompt form: "Full Repository Path: ...\nDiff: <one of: \"branch changes\", \"uncommitted changes\", \"natural language\">\nChange Description: ...\nCustom Instructions: ..."; default to `Diff: branch changes`; include `Change Description` only when `Diff` is `natural language`, formatting it as one block per changed file (a `<path> (added|modified|deleted|renamed)` header followed by bullets of what changed, mentioning line numbers or ranges inline where helpful), and only use `natural language` as a last resort after a regular diff-based review failed because the diff could not be computed; include `Custom Instructions` only when the user gave specific review instructions. This subagent is single-shot and does not support `resume`; always launch a fresh subagent instead.
+- security-review: Use only when the user _explicitly_ asks for a security review of local code changes. When launching this subagent, set the Task description to exactly "Security Review". Launch exactly one security-review subagent with `run_in_background: false` unless the user explicitly asks to run in background. Use this fixed prompt form: "Full Repository Path: ...\nDiff: <one of: \"branch changes\", \"uncommitted changes\">\nCustom Instructions: ..."; default to `Diff: branch changes`; include `Custom Instructions` only when the user gave specific review instructions. This subagent is single-shot and does not support `resume`; always launch a fresh subagent instead.
 - best-of-n-runner: Run a task in an isolated git worktree. Each best-of-n-runner gets its own branch and working directory. Use for best-of-N parallel attempts or isolated experiments.
-</available_subagent_types>
+  </available_subagent_types>
 
 <available_subagent_models>
 If the user explicitly asks for the model of a subagent/task, you may ONLY use model slugs from this list:
+
 - inherit (default; required unless the user explicitly requested another model)
 - claude-4.5-opus-high-thinking
 - claude-4.5-sonnet-thinking
@@ -8648,6 +8821,7 @@ These dynamic tool namespaces were available when this conversation started. Ava
 <namespace name="cursor-ide-browser" tools="browser_navigate, browser_snapshot, browser_click, browser_mouse_click_xy, browser_type, browser_fill, browser_select_option, browser_press_key, browser_scroll, browser_drag, browser_get_bounding_box, browser_highlight, browser_tabs, browser_cdp, browser_take_screenshot, browser_lock" namespaceUseInstructions="The cursor-ide-browser MCP server provides a Cursor-owned browser tab plus a raw Chrome DevTools Protocol command tool.
 
 CORE WORKFLOW:
+
 1. Start by understanding the user's goal and what success looks like on the page.
 2. Use browser_tabs with action "list" to inspect open tabs and URLs before acting.
 3. Use browser_navigate to create or navigate the target tab. Omit the position parameter for background automation so focus is preserved.
@@ -8658,6 +8832,7 @@ CORE WORKFLOW:
 8. Use browser_cdp for page inspection, profiling, runtime evaluation, DOM/CSS queries, and performance data.
 
 AVOID RABBIT HOLES:
+
 1. Do not repeat the same failing action more than once without new evidence such as a fresh snapshot, a different ref, a changed page state, or a clear new hypothesis.
 2. IMPORTANT: If four attempts fail or progress stalls, stop acting and report what you observed, what blocked progress, and the most likely next step.
 3. Prefer gathering evidence over brute force. If the page is confusing, use browser_snapshot, browser_take_screenshot, or CDP inspection before trying more actions.
@@ -8665,6 +8840,7 @@ AVOID RABBIT HOLES:
 5. Do not get stuck in wait-action-wait loops. Every retry should be justified by something newly observed.
 
 CRITICAL - Lock/unlock workflow:
+
 1. browser_lock requires an existing browser tab - you CANNOT call browser_lock with action: "lock" before browser_navigate
 2. Correct order: browser_navigate -> browser_lock({ action: "lock" }) -> (interactions) -> browser_lock({ action: "unlock" })
 3. If a browser tab already exists (check with browser_tabs list), call browser_lock with action: "lock" FIRST before any interactions
@@ -8674,6 +8850,7 @@ IMPORTANT - Waiting strategy:
 When waiting for page changes, prefer short CDP polling loops with Runtime.evaluate, DOM queries, Page lifecycle signals, or browser_snapshot checks rather than a single long wait.
 
 CDP USAGE:
+
 - Use browser_cdp with a DevTools Protocol method and params object, for example Runtime.evaluate, DOM.getDocument, CSS.getComputedStyleForNode, Profiler.start/stop, Performance.getMetrics, Log.enable, and Network.enable.
 - Do not use browser_cdp with CDP Input.* methods. They are denied because they are focus-sensitive in Electron webviews and can route input to Cursor UI instead of the browser page.
 - Use browser_click, browser_type, browser_fill, browser_select_option, browser_press_key, browser_scroll, and browser_drag for clicks, typing, filling inputs, selecting options, keyboard actions, scrolling, and drag-and-drop.
@@ -8685,24 +8862,28 @@ CDP USAGE:
 - Large CDP responses are saved to files instead of being inlined. Prefer using the returned file path over immediately stuffing large payloads into context; read focused sections only when needed.
 
 VISION:
+
 - browser_take_screenshot attaches an image result that the model can inspect. CDP Page.captureScreenshot returns data inside JSON and should not replace browser_take_screenshot when visual verification is needed.
 
 NOTES:
+
 - browser_snapshot returns snapshot YAML and is the main source of truth for page structure.
 - Refs are opaque handles tied to the latest browser_snapshot for that tab.
 - Iframe content is not accessible - only elements outside iframes can be interacted with.
 - When you stop to report a blocker, include the current page, the target you were trying to reach, the blocker you observed, and the best next action. If the blocker requires manual user interaction, ask the user to take over at that point rather than assuming it in advance." source="mcp" />
 <namespace name="plugin-datadog-datadog" source="mcp" />
+
 <namespace name="cursor" tools="AwaitShell, CreateGoal, Delete, EditNotebook, FetchMcpResource, GenerateImage, ReadLints, SwitchMode, Task, TodoWrite, UpdateGoal, WebFetch, WebSearch" namespaceUseInstructions="Native Cursor tools for this session. These are highly recommended and useful tools that you should use when the right situation arises. Don't be afraid to look at one if it seems relevant, even if you don't end up using it. You MUST read the tool schemas before calling them.
 
 Here are some crucial instructions:
+
 - AwaitShell: Use to sleep and check shell progress. Never sleep using shell.
 - ReadLints: Check for linter errors after substantive edits.
 - SwitchMode: Switch between modes: Agent and Plan. Proactively consider switching modes for relevant requests.
 - Task: Spawn local and cloud subagents natively.
 - TodoWrite: Use this tool to manage complex multi-step tasks." source="cursor" />
-</dynamic_tool_namespaces>
-</dynamic_tool_catalog>
+  </dynamic_tool_namespaces>
+  </dynamic_tool_catalog>
 
 ---
 
@@ -8846,7 +9027,6 @@ I notice public-stays-guest-neon.ts and the RELEASE-0.4.49/0.4.50 docs show as m
 
 That indentation mangling isn't something I did — looks like whitespace damage from another tool, so I'll leave it untouched in the working tree and exclude it from my commit along with the docs changes. Now let me run ESLint on the files I actually edited.
 
-
 Those whitespace-only diffs weren't changes I made, so I'll exclude them from the commit. Now running ESLint on my files.
 
 ---
@@ -8868,7 +9048,6 @@ That no-img-element rule doesn't actually exist, and I noticed stay-esign-wizard
 ## 555. المساعد
 
 This lint rule is missing from the eslint config entirely, and plenty of existing files already use disable comments as a workaround since other files like contract-document-view also use plain img tags without comments. I'll just remove the disable comments in my files to stay consistent with the working ones, rather than trying to fix the broader repo-wide issue.
-
 
 I'll remove the unneeded eslint-disable comments and fix the other four errors.
 
@@ -8945,6 +9124,7 @@ The glob escaping for brackets isn't matching untracked directories properly, so
 نفّذت المطلوب كاملاً، ورفعته إلى GitHub كإصدار **0.8.30** (commit `06657ea`). لكن **لم أجرّبه على قاعدة البيانات**، لأنها غير متاحة من هذا الجهاز. بعد النشر جرّب الرحلة كاملة على الحجز `RSV-KMF42LNE`.
 
 **المراحل الخمس:**
+
 1. إتمام الحجز: يدفع العميل ويوقّع على الشروط، كما هو الآن.
 2. اعتماد المالك: زر «اعتماد الحجز». بعده يصبح الحجز معتمداً، وتُمدَّد مدة حجز الوحدة 30 يوماً.
 3. المستندات:
@@ -8957,23 +9137,28 @@ The glob escaping for brackets isn't matching untracked directories properly, so
 5. تسليم العقار: يسجّل المالك المستلم والمفاتيح وقراءات العدادات والملاحظات.
 
 **عند المالك** (`/owner/bookings/{id}`):
+
 - تظهر صور وجه البطاقة وظهرها والسيلفي والتوقيع. لا يراها إلا من له صلاحية إدارة الحجوزات، وفي عقاراته فقط.
 - زر تحويل الحجز إلى عقد صار ضمن المرحلة الرابعة.
 
 **عند العميل:**
+
 - صفحة `/book/confirmed` صارت تفاعلية بروح صفحة الإقامة اليومية، بمشهد متحرك وعبارات دافئة لكل مرحلة، توضّح أين وصل وما التالي ومن عليه الدور.
 - صفحة `/book/sign` يظهر فيها شريط بالحالة: «حجزك معتمد — بانتظار إعداد العقد»، أو «العقد بانتظار توقيعك»، أو «موقّع من الطرفين».
 
 **الجرس وقائمة الحجوزات:**
+
 - الجرس يعرض الحجز فقط حين يكون الدور على المالك، بعنوان المرحلة مثل «مستندات بانتظار مراجعتك» أو «العقد جاهز لاعتمادك»، ويفتح صفحة الحجز مباشرة.
 - قائمة حجوزات العقار تعرض المرحلة الحالية، وما ينتظر المالك يظهر في أعلاها.
 
 **الفحوصات:**
+
 - فحص الأنواع (`tsc`) وESLint بلا أخطاء.
 - اختبارات الوحدة: نجح 103 من 105. الاختباران الفاشلان يفشلان بسبب مسارات قديمة لم ألمسها (مسارات الإقامة اليومية العامة وثلاثة مسارات للمالك).
 - لا يوجد ترحيل لقاعدة البيانات.
 
 **ما بقي مفتوحاً:**
+
 - لا يصل العميل إشعار بالبريد أو الواتساب عند تغيّر المرحلة بعد.
 - صفحة العقد عند المستأجر (`/tenant/contracts/{id}`) للقراءة فقط؛ التوقيع يتم من `/book/confirmed`.
 - ثلاثة ملفات فيها تغييرات في المسافات أو نهايات الأسطر فقط، ولم أجرِها أنا، فاستثنيتها من الـ commit: `public-stays-guest-neon.ts`، وملفّا الإصدارين 0.4.49 و0.4.50. تغيير `public-stays-guest-neon.ts` كسر المحاذاة فيه، فالأفضل التراجع عنه.
@@ -8987,29 +9172,33 @@ I'm done, and since the user is writing in Arabic, I'll summarize my response in
 ## 567. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/owner/contracts/0b17fcb0-5fa9-4fa9-a38e-ecc9c5c89a88
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Oct 12, 2026, 9:55 PM (UTC+4)</timestamp>
 <user_query>
- اريد ان يظهر في العقود القصيره و العقود الطويله و عقود البيع و الحجوجزات خارطه موقع العقار و بجانب الخارطه باركود عند مسحه يظهر موقع العقار 
+اريد ان يظهر في العقود القصيره و العقود الطويله و عقود البيع و الحجوجزات خارطه موقع العقار و بجانب الخارطه باركود عند مسحه يظهر موقع العقار
 على سبيل المثال https://r.bhd-om.com/ar/owner/contracts/0b17fcb0-5fa9-4fa9-a38e-ecc9c5c89a88 و https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814  
-اريد ان تظهر الخارطه بشكل جميل و مرتب و فيها علامئه مائيه لشعار الموقع و الباركود فيه شعار الموقع 
+اريد ان تظهر الخارطه بشكل جميل و مرتب و فيها علامئه مائيه لشعار الموقع و الباركود فيه شعار الموقع
 </user_query>
 
 ---
@@ -9028,7 +9217,6 @@ I need to check whether property records store lat/lng, whether there's already 
 
 I'm checking how properties link to addresses with geography points, and looking at how contract-verify generates QR codes and how the properties-map-panel reads coordinates.
 
-
 Properties already store a geographic point, and the project uses Leaflet with OpenStreetMap tiles plus the `qrcode` library. I'll now check how coordinates are currently read and how the contract QR code is generated.
 
 ---
@@ -9037,7 +9225,6 @@ Properties already store a geographic point, and the project uses Leaflet with O
 
 I'm tracing how contract documents get rendered, looking at contract-document-view.tsx, where contract head data comes from in contract-detail-neon.ts, and how stay-booking and lease-booking contracts use ContractArticle, to figure out where I could add a map and QR code section.
 
-
 I found that property coordinates live in `addresses.location` and contracts already include a QR code with the BHD mark. Next, I'll check how the contract document and stay contract are rendered to find the best spot to add the map.
 
 ---
@@ -9045,7 +9232,6 @@ I found that property coordinates live in `addresses.location` and contracts alr
 ## 571. المساعد
 
 I'm confirming that short stays route through ContractArticle via the owner contracts page since doc.type==='stay' is handled there, plus there's a separate stay-booking-contract component for the guest side. Now I want to check the contract document builder to see whether ContractPremises includes location data.
-
 
 All agreements render through `ContractArticle`, so the map belongs in its "The Premises" article. Next I'll check where the premises data is loaded.
 
@@ -9067,7 +9253,6 @@ I'm leaning toward composing a static map mosaic server-side: absolutely positio
 
 I also want to add a semi-transparent brand logo watermark and a styled pin marker on the map, framed in the contract's gold-and-rounded visual style, and I should check how the PDF export in the contract document toolbar handles this before finalizing.
 
-
 I'll compute property coordinates and a QR code server-side for each agreement, then render the map on the premises article. First I need to check how PDF export/printing works, how location links are parsed, and what the CSP permits before deciding between a live Leaflet map or a static one.
 
 ---
@@ -9075,7 +9260,6 @@ I'll compute property coordinates and a QR code server-side for each agreement, 
 ## 574. المساعد
 
 Printing just relies on window.print(), and since the OSM tile images are allowed by CSP, the static tile mosaic should render fine for print output, so no extra client JS is needed. I also want to check where extractMapsUrl is located, since profile notes might be where the maps URL gets stored.
-
 
 Since PDF/printing uses the browser's print function and the CSP already permits OpenStreetMap tiles, I'll build a static tile-based map image with no JavaScript for fast, reliable printing. Next, I'll check how properties store their map link when coordinates are missing.
 
@@ -9092,7 +9276,6 @@ For adding these fields, I'm wary that spreading `propertyRow` with `...rest` wo
 For the reservation agreement flow, I'm thinking of adding latitude, longitude, and notes to the premises select, computing a `location` value separately, and stripping the raw notes/lat/lng out before returning premises to callers like the booking sign page or LeaseReservationDetail, since those could end up exposed. Then I need to thread `location` through `leaseBookingAgreement`'s document builder and ContractDocument type, and check for other places constructing ContractDocument that might also need the update.
 
 For rendering, I'll build a server-compatible `ContractLocationMap` component placed after the premises block, showing a map tile with a pin and watermark alongside a QR card with bilingual scan instructions. I also need to check whether this map should appear on stay-type contract pages too, not just lease reservations — so I'm going to look at how stay-booking-contract.tsx is used to see if it needs the same treatment.
-
 
 I'll use `addresses.location` for coordinates, falling back to the Google Maps link in property notes if missing. First, I'm checking a few related areas: other `ContractDocument` usages, the reservation-agreement builder, and the guest stay contract component.
 
@@ -9119,7 +9302,6 @@ I'm sketching out a function that builds the final property location object: it 
 Now I'm defining the PropertyLocation type and sketching the map display component, which renders a clickable map thumbnail built from stitched-together map tile images with a pin marker, brand watermark, and attribution text, falling back to a placeholder when no coordinates are available.
 
 I'm figuring out tile positioning math and pin centering, zoom level 16 with tile server URLs, and designing the watermark treatment—a faint centered logo plus a small branded chip in the corner. I also need to handle print styling and offline fallback colors, and match the gold double-frame look used elsewhere in the contract document by checking the existing CSS variables.
-
 
 I'll build a shared helper to load a property's location (coordinates or maps link from notes) plus a branded QR code, along with one map component used in the contract document and stay booking page. First, checking the existing contract CSS variables and QR styles so the map matches the current design.
 
@@ -9283,7 +9465,6 @@ The mobile layout stacked correctly based on the viewport width matching the med
 
 The map fraction and QR size at 9.5rem look fine, and the RTL caption text reads correctly. For print, the contract doc's media query threshold won't match the wider print page width, so that should behave as expected. Time to clean up by killing the server and removing temp files.
 
-
 Both mobile and desktop layouts render correctly — tiles, pin, watermark, badge, and QR all placed as expected. Now I'll clean up the preview files.
 
 ---
@@ -9307,7 +9488,6 @@ It already waits for images. Running ESLint and Prettier on the changed files:
 These other errors are pre-existing issues in lines I didn't modify—like the stale disable comments and the metadata cast around line 405—so I'll leave them alone since they're out of scope for my changes.
 
 The no-img-element lint warning is also repo-wide, not something to fix here. I should double-check whether the prettier formatting on globals.css only touched my block or reformatted other parts too, by looking at the diff stat.
-
 
 The eight errors are all pre-existing issues unrelated to my changes—stale `no-img-element` comments and two older type assertions in `owner-stays-ops-neon.ts`. I'll double-check the CSS diff only contains my block.
 
@@ -9338,6 +9518,7 @@ The proxy-canonical-host file failure matches the same count as before (2 failed
 المعاينة على إحداثيات في مسقط، والصورة بعرض الجوال، لذلك يظهر رمز QR تحت الخارطة. على الشاشة العريضة يظهر بجانبها.
 
 **شكل البطاقة:** عنوانها «موقع العقار»، وتظهر داخل مادة «العين المؤجَّرة» أو «العقار المبيع» في المستند:
+
 - **الخارطة:** إطار ذهبي مزدوج بألوان العقد، وعليها علامة مائية لشعار BHD في الوسط، وشارة BHD R في الزاوية.
 - **الدبوس:** بلون الشعار وعليه رمز بيت، ومعه نبض خفيف لا يظهر في الطباعة.
 - **رمز QR:** في وسطه شعار BHD، بنفس أسلوب رمز التحقق من العقد. عند مسحه يفتح موقع العقار في خرائط Google، وتحته «امسح لفتح موقع العقار».
@@ -9345,17 +9526,20 @@ The proxy-canonical-host file failure matches the same count as before (2 failed
 - **الطباعة وPDF:** الخارطة صور عادية، فتظهر في النسخة المطبوعة.
 
 **أين تظهر:**
+
 - صفحة العقد، مثل `/owner/contracts/0b17fcb0-…`، لكل أنواع العقود: الإقامة القصيرة والإيجار والبيع.
 - اتفاقية حجز الإيجار أو الشراء: عند المالك في `/owner/bookings/b0fd4e25-…`، وعند العميل في `/book/sign`.
 - مستند حجز الإقامة اليومية عند المالك (`/owner/stays/bookings/{id}`)، في قسم «العقار والوحدة».
 
 **من أين يأتي الموقع:**
+
 - أولاً من إحداثيات عنوان العقار.
 - إن لم توجد، فمن رابط Google Maps المحفوظ مع العقار في معالج العقار.
 - إن كان الرابط مختصراً بلا إحداثيات، يظهر رمز QR والرابط فقط دون خارطة.
 - إن لم يوجد موقع أصلاً لا تظهر البطاقة. فإذا لم تظهر في العقد بعد النشر، أضف موقع العقار من معالج العقار.
 
 **الفحوصات:**
+
 - فحص الأنواع (`tsc`) بلا أخطاء.
 - ESLint لم يُظهر أخطاء جديدة. الأخطاء الباقية قديمة وفي أسطر لم ألمسها.
 - اختبارات الوحدة: نجح 103 من 105، والفاشلان هما نفسهما من قبل.
@@ -9384,11 +9568,13 @@ The proxy-canonical-host file failure matches the same count as before (2 failed
 ## 607. المستخدم
 
 <external_links>
+
 ### Potentially Relevant Websearch Results
 
 You should respond as if these information are known to you. Refrain from saying "I am unable to browse the internet" or "I don't have access to the internet" or "I'm unable to provide real-time news updates". This is your internet search results. Please always cite any links you referenced from the above search results in your response in markdown format.
 
--------
+---
+
 Website URL: https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR
 Website Title: العقارات المتاحة · BHD R
 Website Content:
@@ -9479,7 +9665,8 @@ _R_بن حمود للتطوير
 جاري تحميل العقارات…
 
 تصفية (0)الخريطة
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/book/94dac017-b46e-4a0e-9474-1b7a17fbdc68?mode=rent
 Website Title: Book | حجز · BHD R
@@ -9505,25 +9692,27 @@ _R_بن حمود للتطوير
 عن الشركةهوية الشركةبرامجناالخصوصيةالشروطالأماندخول الإدارة
 
 © 2026 شركة بن حمود للتطوير. جميع الحقوق محفوظة.مسقط · سلطنة عُمان
-____
+
+---
 
 Website URL: https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814
 Website Title: BHD R — إدارة العقارات
 Website Content:
 انتقل إلى المحتوى
-____
+
+---
 
 </external_links>
 <timestamp>Monday, Oct 12, 2026, 10:15 PM (UTC+4)</timestamp>
 <user_query>
-اريد عندما يكون هناك حجز و تم دفع الحجز اريد ان يظهر في الصفحه العقارات https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR  اشاره بان العقار محجوز و الحجز ساري لمده 30 يوم اذا لم يتم استكمال الاجراءات سيكون العقار شاغر و في حال تم اعتماد الحجز من المالك اريد العقار يختفي تلقائيا من الصفحه https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR  
-واذا كان المبنى كان معروض للايجار و البيع بعد تاجيره يظهر ملاحظة للمالك هل ما زلت تريد بيع العقار ؟ اذا اختار نعم و يريد عرضه كعقار للبيع سيظهر في الموقع ان العقار للبيع و يختفي زر التاجير واذا اختار لا فان النظام مباشره سيخفيه من العقارات 
+اريد عندما يكون هناك حجز و تم دفع الحجز اريد ان يظهر في الصفحه العقارات https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR اشاره بان العقار محجوز و الحجز ساري لمده 30 يوم اذا لم يتم استكمال الاجراءات سيكون العقار شاغر و في حال تم اعتماد الحجز من المالك اريد العقار يختفي تلقائيا من الصفحه https://r.bhd-om.com/ar/properties?countryCode=OM&currency=OMR  
+واذا كان المبنى كان معروض للايجار و البيع بعد تاجيره يظهر ملاحظة للمالك هل ما زلت تريد بيع العقار ؟ اذا اختار نعم و يريد عرضه كعقار للبيع سيظهر في الموقع ان العقار للبيع و يختفي زر التاجير واذا اختار لا فان النظام مباشره سيخفيه من العقارات
 
-كذلك اريد ان اغير في صفحه الحجز https://r.bhd-om.com/ar/book/94dac017-b46e-4a0e-9474-1b7a17fbdc68?mode=rent  اريد ان اضيف حقول يجيب على المستاجر تعئبتها  وهي نفس الحقول التي ستظهر في بينات الحجز وكذلك عند اعتماد الحجز سظهر مباشره في https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814 
-ومن البينات التي يجيب على المستاجر او الحاجز او المشتري تعئبتها البينات التالية 
+كذلك اريد ان اغير في صفحه الحجز https://r.bhd-om.com/ar/book/94dac017-b46e-4a0e-9474-1b7a17fbdc68?mode=rent اريد ان اضيف حقول يجيب على المستاجر تعئبتها وهي نفس الحقول التي ستظهر في بينات الحجز وكذلك عند اعتماد الحجز سظهر مباشره في https://r.bhd-om.com/ar/owner/bookings/b0fd4e25-3da5-4822-98ec-4661ef773814
+ومن البينات التي يجيب على المستاجر او الحاجز او المشتري تعئبتها البينات التالية
 نوع العقد
-المستأجر اذا كان نفسه المستاجر او شخص اخر و اذا كان شخص اخر هل شخصي ام شركه  واذا كان شخصي يدخل اسمه باللغتين و جنسيته و رقم الهاتف الخاص به  و الرقم المدني ورقم الجواز اذا كان اجنبي و اذا عماني لا يحتاج الى رقم الجواز 
-اذا كانت شركة يدخل اسم الشركة و رقم السجل التجاري و تاريخ التاسيسي و تاريخ انتهاء السجل ولا يقبل اذا كان السجل منتهي او سينتهي في مهله اقل من شهرين يجيب تجديد السجل اولا  و يدخل البريد الاكتروني و رقم التواصل و عنوان السجل و النشاط المراد الاستاجار لاجله و نوع التوقيع في السجل هل منفرد او متحد و اذا كان منفرد يدخل اسم المفوض بالتوقيع و الرقم المدني  الخاص به و رقهم هاتفه ويمكن اضافه اكثر من مفوض و اذا كان متحد يدخل اسماء الاشخاص المتحده توقيعه بحسب بينات السجل التجاري 
+المستأجر اذا كان نفسه المستاجر او شخص اخر و اذا كان شخص اخر هل شخصي ام شركه واذا كان شخصي يدخل اسمه باللغتين و جنسيته و رقم الهاتف الخاص به و الرقم المدني ورقم الجواز اذا كان اجنبي و اذا عماني لا يحتاج الى رقم الجواز
+اذا كانت شركة يدخل اسم الشركة و رقم السجل التجاري و تاريخ التاسيسي و تاريخ انتهاء السجل ولا يقبل اذا كان السجل منتهي او سينتهي في مهله اقل من شهرين يجيب تجديد السجل اولا و يدخل البريد الاكتروني و رقم التواصل و عنوان السجل و النشاط المراد الاستاجار لاجله و نوع التوقيع في السجل هل منفرد او متحد و اذا كان منفرد يدخل اسم المفوض بالتوقيع و الرقم المدني الخاص به و رقهم هاتفه ويمكن اضافه اكثر من مفوض و اذا كان متحد يدخل اسماء الاشخاص المتحده توقيعه بحسب بينات السجل التجاري
 نوع الجهة المستأجرة
 اسم المستأجر (عربي) *
 اسم المستأجر بالإنجليزية
@@ -9532,13 +9721,13 @@ ____
 الجنسية
 رقم الجوال
 البريد الإلكتروني
-مده العقد ستكون الزاميه سنه او كما قام بادخالها المالك كم اقل فتره للعقد 
+مده العقد ستكون الزاميه سنه او كما قام بادخالها المالك كم اقل فتره للعقد
 
-اريد اضافه خاصيه الترجمه الفوريه للاسماء بالذكاء الاصطناعي 
-اريد اضافه كل جنسيات العالم و فتح الخط لكل العالم 
+اريد اضافه خاصيه الترجمه الفوريه للاسماء بالذكاء الاصطناعي
+اريد اضافه كل جنسيات العالم و فتح الخط لكل العالم
 الايميل ورقم الهاتف اجباريه ويجيب ادخال رقم الهاتف و رقم هاتف بديل ضروي
-هذه البينات يجيب ان يعبيها المستاجر عند الحجز للايجار او الشراء و هي ستنعكس  في عقد الايجار بدون الحاجه الى تعئبتها من المالك او من يمثله 
-طبق هذه وارفع ووثق 
+هذه البينات يجيب ان يعبيها المستاجر عند الحجز للايجار او الشراء و هي ستنعكس في عقد الايجار بدون الحاجه الى تعئبتها من المالك او من يمثله
+طبق هذه وارفع ووثق
 
 اكمل ما لم يُضف بعد: صفحة الضيف لحجز الإقامة، وصفحة /book/confirmed. أستطيع إضافة البطاقة نفسها إليهما إن أردت.
 

@@ -156,20 +156,14 @@ export function ViewingRequestDesk({
         body: JSON.stringify({
           action,
           scheduledAt:
-            action === 'schedule' && scheduledAt
-              ? new Date(scheduledAt).toISOString()
-              : undefined,
+            action === 'schedule' && scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
           note: note.trim() || undefined,
         }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | ViewingRequestDetail
-        | { error?: { code?: string } }
-        | null;
+        ViewingRequestDetail | { error?: { code?: string } } | null;
       if (!response.ok) {
-        throw new Error(
-          (payload && 'error' in payload && payload.error?.code) || 'update_failed',
-        );
+        throw new Error((payload && 'error' in payload && payload.error?.code) || 'update_failed');
       }
       setViewing(payload as ViewingRequestDetail);
       setNote('');
@@ -228,7 +222,9 @@ export function ViewingRequestDesk({
     {
       id: 'scheduled',
       label: ar ? 'جدولة' : 'Scheduled',
-      done: Boolean(viewing.scheduledAt) || ['scheduled', 'completed', 'converted'].includes(viewing.status),
+      done:
+        Boolean(viewing.scheduledAt) ||
+        ['scheduled', 'completed', 'converted'].includes(viewing.status),
     },
     {
       id: 'arrived',
@@ -478,9 +474,7 @@ export function ViewingRequestDesk({
 
       {(viewing.timeline?.length ?? 0) > 0 ? (
         <section className="vd__card vd__card--timeline" aria-labelledby="vd-timeline-title">
-          <h2 id="vd-timeline-title">
-            {ar ? 'سجل الموافقات والردود' : 'Approvals & replies log'}
-          </h2>
+          <h2 id="vd-timeline-title">{ar ? 'سجل الموافقات والردود' : 'Approvals & replies log'}</h2>
           <p className="vd__hint">
             {ar
               ? 'من وافق، ومتى سجّل الحارس الوصول، وما كتبه العميل أو الحارس.'
@@ -557,7 +551,11 @@ export function ViewingRequestDesk({
               }
             />
           </label>
-          <div className="vd__suggestions" role="group" aria-label={ar ? 'اقتراحات جاهزة' : 'Ready suggestions'}>
+          <div
+            className="vd__suggestions"
+            role="group"
+            aria-label={ar ? 'اقتراحات جاهزة' : 'Ready suggestions'}
+          >
             <p className="vd__hint">
               {ar ? 'اقتراحات جاهزة — اضغط لإدراجها:' : 'Ready suggestions — tap to insert:'}
             </p>
@@ -577,7 +575,13 @@ export function ViewingRequestDesk({
               ))}
             </div>
           </div>
-          <NoteTranslateBar value={note} onChange={setNote} locale={locale} max={4000} disabled={busy} />
+          <NoteTranslateBar
+            value={note}
+            onChange={setNote}
+            locale={locale}
+            max={4000}
+            disabled={busy}
+          />
           <div className="vd__action-row">
             <button
               type="button"

@@ -187,8 +187,7 @@ function multiUnitCompositionAr(input: NonNullable<DescriptionInput['multiUnit']
 
 function multiUnitCompositionEn(input: NonNullable<DescriptionInput['multiUnit']>): string {
   const parts: string[] = [];
-  if (input.shopCount > 0)
-    parts.push(`${input.shopCount} shop${input.shopCount === 1 ? '' : 's'}`);
+  if (input.shopCount > 0) parts.push(`${input.shopCount} shop${input.shopCount === 1 ? '' : 's'}`);
   if (input.showroomCount > 0)
     parts.push(`${input.showroomCount} showroom${input.showroomCount === 1 ? '' : 's'}`);
   if (input.apartmentCount > 0)
@@ -229,12 +228,10 @@ export function generateListingDescriptions(input: DescriptionInput): {
     .map((a) => amenityPhrase[a.code]?.en ?? a.labelEn)
     .filter(Boolean);
 
-  const titleEn =
-    input.nameEn.trim() || lexiconTranslate(input.nameAr, 'en') || cat.en;
+  const titleEn = input.nameEn.trim() || lexiconTranslate(input.nameAr, 'en') || cat.en;
 
   if (input.multiUnit) {
-    const totalArea =
-      input.multiUnit.totalArea?.trim() || input.area?.trim() || undefined;
+    const totalArea = input.multiUnit.totalArea?.trim() || input.area?.trim() || undefined;
     const ageAr = buildingAgePhrase(input.multiUnit.yearBuilt, 'ar');
     const ageEn = buildingAgePhrase(input.multiUnit.yearBuilt, 'en');
     const descriptionAr = [
@@ -333,8 +330,7 @@ export function generateUnitListingDescriptions(input: UnitDescriptionInput): {
   descriptionAr: string;
   descriptionEn: string;
 } {
-  const kindAr =
-    input.unitKind === 'shop' ? 'محل' : input.unitKind === 'showroom' ? 'معرض' : 'شقة';
+  const kindAr = input.unitKind === 'shop' ? 'محل' : input.unitKind === 'showroom' ? 'معرض' : 'شقة';
   const kindEn =
     input.unitKind === 'shop' ? 'shop' : input.unitKind === 'showroom' ? 'showroom' : 'apartment';
   const purposeAr =
@@ -358,7 +354,8 @@ export function generateUnitListingDescriptions(input: UnitDescriptionInput): {
   const roomAr = roomDetailsAr({
     nameAr: input.unitNameAr,
     nameEn: input.unitNameEn,
-    category: input.unitKind === 'shop' ? 'shop' : input.unitKind === 'showroom' ? 'office' : 'apartment',
+    category:
+      input.unitKind === 'shop' ? 'shop' : input.unitKind === 'showroom' ? 'office' : 'apartment',
     governorate: input.governorate ?? '',
     wilayat: input.wilayat ?? '',
     village: input.village ?? '',
@@ -376,7 +373,8 @@ export function generateUnitListingDescriptions(input: UnitDescriptionInput): {
   const roomEn = roomDetailsEn({
     nameAr: input.unitNameAr,
     nameEn: input.unitNameEn,
-    category: input.unitKind === 'shop' ? 'shop' : input.unitKind === 'showroom' ? 'office' : 'apartment',
+    category:
+      input.unitKind === 'shop' ? 'shop' : input.unitKind === 'showroom' ? 'office' : 'apartment',
     governorate: input.governorate ?? '',
     wilayat: input.wilayat ?? '',
     village: input.village ?? '',
@@ -408,9 +406,7 @@ export function generateUnitListingDescriptions(input: UnitDescriptionInput): {
     `A ${kindEn} titled “${input.unitNameEn || input.unitCode}” (${input.unitCode}) ${purposeEn}${placeEn ? ` in ${placeEn}` : ''}.`,
     input.floor ? `Located on floor ${input.floor}.` : null,
     roomEn,
-    input.rentLabel && input.listingPurpose !== 'sale'
-      ? `Monthly rent: ${input.rentLabel}.`
-      : null,
+    input.rentLabel && input.listingPurpose !== 'sale' ? `Monthly rent: ${input.rentLabel}.` : null,
     input.saleLabel && input.listingPurpose !== 'rent' ? `Sale price: ${input.saleLabel}.` : null,
   ]
     .filter(Boolean)
@@ -425,9 +421,7 @@ export function generateUnitListingDescriptions(input: UnitDescriptionInput): {
     input.buildingTotalArea
       ? `المساحة الإجمالية للمبنى تقارب ${input.buildingTotalArea} م².`
       : null,
-    input.buildingDescriptionAr?.trim()
-      ? `عن المبنى: ${input.buildingDescriptionAr.trim()}`
-      : null,
+    input.buildingDescriptionAr?.trim() ? `عن المبنى: ${input.buildingDescriptionAr.trim()}` : null,
   ]
     .filter(Boolean)
     .join(' ');
@@ -503,7 +497,9 @@ export async function translateText(text: string, target: 'ar' | 'en'): Promise<
         message?: string;
         error?: string;
       } | null;
-      throw new Error(payload?.messageAr ?? payload?.message ?? payload?.error ?? 'translate_failed');
+      throw new Error(
+        payload?.messageAr ?? payload?.message ?? payload?.error ?? 'translate_failed',
+      );
     }
   } catch (error) {
     if (error instanceof Error && error.message && error.message !== 'translate_failed') {

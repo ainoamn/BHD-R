@@ -2,9 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
-import {
-  saveOwnerLeaseRenewalAutomation,
-} from '@/lib/lease-renewal-automation-neon';
+import { saveOwnerLeaseRenewalAutomation } from '@/lib/lease-renewal-automation-neon';
 import { sanitizeLeaseRenewalAutomation } from '@/lib/lease-renewal-automation';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 
@@ -42,9 +40,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const policy = parsed.data.policy
-      ? sanitizeLeaseRenewalAutomation(parsed.data.policy)
-      : null;
+    const policy = parsed.data.policy ? sanitizeLeaseRenewalAutomation(parsed.data.policy) : null;
     const result = await saveOwnerLeaseRenewalAutomation(claims, policy);
     return NextResponse.json(result);
   } catch (error) {

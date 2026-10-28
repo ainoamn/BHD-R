@@ -9,9 +9,7 @@ describe('accountingPrintBackHref', () => {
         '7b8f4590-1ccc-418d-89c4-c4e11e48312f',
         '/owner/accounting?tab=documents',
       ),
-    ).toBe(
-      '/owner/accounting?tab=documents&focus=7b8f4590-1ccc-418d-89c4-c4e11e48312f',
-    );
+    ).toBe('/owner/accounting?tab=documents&focus=7b8f4590-1ccc-418d-89c4-c4e11e48312f');
   });
 
   it('falls back to the matching tab and reopens the journal/document', () => {
@@ -21,7 +19,9 @@ describe('accountingPrintBackHref', () => {
     expect(accountingPrintBackHref('journal', '7b8f4590-1ccc-418d-89c4-c4e11e48312f')).toBe(
       '/owner/accounting?tab=journal&open=7b8f4590-1ccc-418d-89c4-c4e11e48312f&focus=7b8f4590-1ccc-418d-89c4-c4e11e48312f',
     );
-    expect(accountingPrintBackHref('report', 'trial-2026-10-18')).toBe('/owner/accounting?tab=reports');
+    expect(accountingPrintBackHref('report', 'trial-2026-10-18')).toBe(
+      '/owner/accounting?tab=reports',
+    );
   });
 
   it('rejects open redirects', () => {

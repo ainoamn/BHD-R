@@ -178,7 +178,8 @@ export function workspaceUrlForApp(app: BhdApp, pageOrigin?: string): string {
   if (app.mode === 'identity') {
     if (pageOrigin) {
       const here = pageOrigin.replace(/\/$/, '');
-      if (here === 'https://id.bhd-om.com' || samePortalOrigin(pageOrigin)) return app.workspacePath;
+      if (here === 'https://id.bhd-om.com' || samePortalOrigin(pageOrigin))
+        return app.workspacePath;
     }
     return `${app.origin.replace(/\/$/, '')}${app.workspacePath}`;
   }

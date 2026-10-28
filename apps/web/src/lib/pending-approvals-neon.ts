@@ -351,8 +351,12 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
             propertyNameEn: properties.nameEn,
             unitCode: units.code,
             party: parties.displayName,
-            proposedAt: sql<string | null>`${contracts.payloadSnapshot}->'tenantTermProposal'->>'proposedAt'`,
-            proposedEndsOn: sql<string | null>`${contracts.payloadSnapshot}->'tenantTermProposal'->>'endsOn'`,
+            proposedAt: sql<
+              string | null
+            >`${contracts.payloadSnapshot}->'tenantTermProposal'->>'proposedAt'`,
+            proposedEndsOn: sql<
+              string | null
+            >`${contracts.payloadSnapshot}->'tenantTermProposal'->>'endsOn'`,
           })
           .from(contracts)
           .innerJoin(units, eq(units.id, contracts.unitId))

@@ -30,10 +30,7 @@ export const PAYMENT_METHOD_IDS = [
 ] as const;
 export type PaymentMethodId = (typeof PAYMENT_METHOD_IDS)[number];
 
-export const PAYMENT_METHOD_LABELS: Record<
-  PaymentMethodId,
-  { ar: string; en: string }
-> = {
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethodId, { ar: string; en: string }> = {
   card: { ar: 'بطاقة ائتمان / مدى', en: 'Card' },
   apple_pay: { ar: 'Apple Pay', en: 'Apple Pay' },
   google_pay: { ar: 'Google Pay', en: 'Google Pay' },
@@ -142,9 +139,7 @@ export const PAYMENT_PROVIDERS: PaymentProviderDefinition[] = [
     hintEn: 'Invoices and multi-currency payment links.',
     kind: 'live',
     defaultEndpoint: 'https://api.myfatoorah.com',
-    credentialFields: [
-      { key: 'apiKey', labelAr: 'مفتاح API', labelEn: 'API key', secret: true },
-    ],
+    credentialFields: [{ key: 'apiKey', labelAr: 'مفتاح API', labelEn: 'API key', secret: true }],
     methods: ['card', 'apple_pay', 'google_pay', 'bank_transfer'],
   },
   {

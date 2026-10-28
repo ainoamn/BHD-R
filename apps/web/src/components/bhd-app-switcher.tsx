@@ -11,12 +11,7 @@ import {
   type AuthProvider,
   type RosterAccount,
 } from '@/lib/bhd/account-roster-shared';
-import {
-  BHD_APPS,
-  hopOrigins,
-  launchUrlForApp,
-  type BhdApp,
-} from '@/lib/bhd/apps';
+import { BHD_APPS, hopOrigins, launchUrlForApp, type BhdApp } from '@/lib/bhd/apps';
 import { BhdAppIcon } from '@/components/bhd/bhd-app-icon';
 import {
   addAccountUrl,
@@ -490,7 +485,8 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
           </div>
           <div className="bhd-switcher-apps">
             {apps.map((app) => {
-              const pageOrigin = origin || (typeof window !== 'undefined' ? window.location.origin : '');
+              const pageOrigin =
+                origin || (typeof window !== 'undefined' ? window.location.origin : '');
               const currentApp = pageOrigin ? isCurrentApp(app, pageOrigin) : false;
               const href = launchUrlForApp(app, pageOrigin || undefined);
               return (
@@ -522,10 +518,18 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
             <a className="bhd-switcher-manage" href="https://id.bhd-om.com/account">
               {ar ? 'إدارة الحساب' : 'Manage account'}
             </a>
-            <Link className="bhd-switcher-manage" href={`/${locale}/portal`} onClick={() => setPanel(null)}>
+            <Link
+              className="bhd-switcher-manage"
+              href={`/${locale}/portal`}
+              onClick={() => setPanel(null)}
+            >
               {ar ? 'مساحتي في BHD R' : 'My BHD R workspace'}
             </Link>
-            <Link className="bhd-switcher-manage" href={`/${locale}/account`} onClick={() => setPanel(null)}>
+            <Link
+              className="bhd-switcher-manage"
+              href={`/${locale}/account`}
+              onClick={() => setPanel(null)}
+            >
               {ar ? 'صورتي وتوثيق حسابي ✓' : 'Picture & verification ✓'}
             </Link>
             {siteAdmin ? (

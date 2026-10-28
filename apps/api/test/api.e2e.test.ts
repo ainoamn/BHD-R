@@ -31,10 +31,9 @@ describe('API runtime boundaries (Express)', () => {
         },
       })
       .compile();
-    app = module.createNestApplication<NestExpressApplication>(
-      new ExpressAdapter(serverAdapter),
-      { rawBody: true },
-    );
+    app = module.createNestApplication<NestExpressApplication>(new ExpressAdapter(serverAdapter), {
+      rawBody: true,
+    });
     app.useLogger(false);
     await app.init();
     await app.listen(0, '127.0.0.1');

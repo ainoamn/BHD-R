@@ -1,8 +1,4 @@
-import {
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, inArray } from 'drizzle-orm';
 import {
   outboxEvents,
@@ -55,9 +51,7 @@ export class StaysSetupService {
           defaultCurrency: properties.defaultCurrency,
         })
         .from(properties)
-        .where(
-          and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)),
-        )
+        .where(and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)))
         .limit(1);
       if (!property) throw new NotFoundException('Property not found');
 
@@ -305,7 +299,7 @@ export class StaysSetupService {
     });
   }
 
-      async updateProfile(claims: SessionClaims, profileId: string, input: UpdateStayProfileInput) {
+  async updateProfile(claims: SessionClaims, profileId: string, input: UpdateStayProfileInput) {
     const organizationId = claims.organizationId;
     if (!organizationId) throw new ConflictException('Organization context required');
 
@@ -313,19 +307,12 @@ export class StaysSetupService {
       const [profile] = await transaction
         .select({ id: stayProfiles.id })
         .from(stayProfiles)
-        .where(
-          and(eq(stayProfiles.id, profileId), eq(stayProfiles.organizationId, organizationId)),
-        )
+        .where(and(eq(stayProfiles.id, profileId), eq(stayProfiles.organizationId, organizationId)))
         .limit(1);
       if (!profile) throw new NotFoundException('Stay profile not found');
 
-      const {
-        depositMinor,
-        policiesJson,
-        overnightCheckOutUntil,
-        overnightMaxGuests,
-        ...rest
-      } = input;
+      const { depositMinor, policiesJson, overnightCheckOutUntil, overnightMaxGuests, ...rest } =
+        input;
 
       const [updated] = await transaction
         .update(stayProfiles)
@@ -357,11 +344,7 @@ export class StaysSetupService {
     });
   }
 
-  async upsertRatePlan(
-    claims: SessionClaims,
-    profileId: string,
-    input: UpsertStayRatePlanInput,
-  ) {
+  async upsertRatePlan(claims: SessionClaims, profileId: string, input: UpsertStayRatePlanInput) {
     const organizationId = claims.organizationId;
     if (!organizationId) throw new ConflictException('Organization context required');
 
@@ -369,9 +352,7 @@ export class StaysSetupService {
       const [profile] = await transaction
         .select({ id: stayProfiles.id, currency: stayProfiles.currency })
         .from(stayProfiles)
-        .where(
-          and(eq(stayProfiles.id, profileId), eq(stayProfiles.organizationId, organizationId)),
-        )
+        .where(and(eq(stayProfiles.id, profileId), eq(stayProfiles.organizationId, organizationId)))
         .limit(1);
       if (!profile) throw new NotFoundException('Stay profile not found');
       if (profile.currency !== input.currency) {
@@ -398,13 +379,9 @@ export class StaysSetupService {
         nameEn: input.nameEn,
         currency: input.currency,
         baseNightlyMinor: BigInt(input.baseNightlyMinor),
-        weekendNightlyMinor: input.weekendNightlyMinor
-          ? BigInt(input.weekendNightlyMinor)
-          : null,
+        weekendNightlyMinor: input.weekendNightlyMinor ? BigInt(input.weekendNightlyMinor) : null,
         dayUseMinor: input.dayUseMinor ? BigInt(input.dayUseMinor) : null,
-        overnightOnlyMinor: input.overnightOnlyMinor
-          ? BigInt(input.overnightOnlyMinor)
-          : null,
+        overnightOnlyMinor: input.overnightOnlyMinor ? BigInt(input.overnightOnlyMinor) : null,
         refundable: input.refundable,
         enabled: true,
         priority: 100,
@@ -504,9 +481,7 @@ export class StaysSetupService {
           publishStatus: stayProfiles.publishStatus,
         })
         .from(stayProfiles)
-        .where(
-          and(eq(stayProfiles.id, profileId), eq(stayProfiles.organizationId, organizationId)),
-        )
+        .where(and(eq(stayProfiles.id, profileId), eq(stayProfiles.organizationId, organizationId)))
         .limit(1);
       if (!profile) throw new NotFoundException('Stay profile not found');
 
@@ -598,9 +573,7 @@ export class StaysSetupService {
         defaultCurrency: properties.defaultCurrency,
       })
       .from(properties)
-      .where(
-        and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)),
-      )
+      .where(and(eq(properties.id, propertyId), eq(properties.organizationId, organizationId)))
       .limit(1);
     if (!property) throw new NotFoundException('Property not found');
     return property;

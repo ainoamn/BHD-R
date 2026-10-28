@@ -412,11 +412,7 @@ function AddMemberForm({
   };
 
   return (
-    <form
-      className="team-card team-add"
-      noValidate
-      onSubmit={(event) => void submit(event)}
-    >
+    <form className="team-card team-add" noValidate onSubmit={(event) => void submit(event)}>
       <h2>{ar ? 'إضافة عضو للفريق' : 'Add a team member'}</h2>
       <p className="team-muted">
         {ar
@@ -438,9 +434,7 @@ function AddMemberForm({
           <label className="team-field">
             <span>{ar ? 'من دفتر العناوين' : 'From address book'}</span>
             <select value={partyId} onChange={(event) => pickContact(event.target.value)}>
-              <option value="">
-                {ar ? '— إدخال يدوي بالبريد —' : '— Enter email manually —'}
-              </option>
+              <option value="">{ar ? '— إدخال يدوي بالبريد —' : '— Enter email manually —'}</option>
               {(view.directoryContacts ?? []).map((contact) => (
                 <option key={contact.partyId} value={contact.partyId}>
                   {contact.displayName} — {contact.email}

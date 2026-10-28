@@ -194,8 +194,7 @@ export async function loadPlatformDiagnostics(claims: SessionClaims): Promise<Pl
       id: 'storage',
       labelAr: 'التخزين الخاص',
       labelEn: 'Private object storage',
-      status:
-        envConfigured('S3_BUCKET_PRIVATE') && envConfigured('S3_ACCESS_KEY') ? 'ok' : 'warn',
+      status: envConfigured('S3_BUCKET_PRIVATE') && envConfigured('S3_ACCESS_KEY') ? 'ok' : 'warn',
       detailAr:
         envConfigured('S3_BUCKET_PRIVATE') && envConfigured('S3_ACCESS_KEY')
           ? 'مُعدّ'
@@ -265,12 +264,12 @@ export async function loadPlatformDiagnostics(claims: SessionClaims): Promise<Pl
 }
 
 /** Manual SaaS subscription desk stats (prices × org counts; no automated collection yet). */
-export async function loadPlatformBillingStats(claims: SessionClaims): Promise<PlatformBillingStats> {
+export async function loadPlatformBillingStats(
+  claims: SessionClaims,
+): Promise<PlatformBillingStats> {
   const access = await siteAdminAccess(claims).catch(() => null);
   const allowed =
-    Boolean(access?.root) ||
-    Boolean(access?.scopes.includes('plans')) ||
-    canPlatform(claims);
+    Boolean(access?.root) || Boolean(access?.scopes.includes('plans')) || canPlatform(claims);
   if (!allowed) fail('forbidden');
 
   const [plans, subscriptions, orgRows] = await Promise.all([
@@ -278,7 +277,9 @@ export async function loadPlatformBillingStats(claims: SessionClaims): Promise<P
     loadSubscriptions(),
     elevatedTx(async (tx) =>
       rowsOf<{ id: string; plan_key: string | null }>(
-        await tx.execute(sql`select id, plan_key from organizations order by created_at desc limit 2000`),
+        await tx.execute(
+          sql`select id, plan_key from organizations order by created_at desc limit 2000`,
+        ),
       ),
     ),
   ]);
@@ -301,7 +302,9 @@ export async function loadPlatformBillingStats(claims: SessionClaims): Promise<P
     const organizations = planCounts.get(plan.key) ?? 0;
     const priceMinor = Math.round(Number(plan.price || '0') * 1000);
     const monthly =
-      plan.period === 'year' ? Math.round((priceMinor * organizations) / 12) : priceMinor * organizations;
+      plan.period === 'year'
+        ? Math.round((priceMinor * organizations) / 12)
+        : priceMinor * organizations;
     return {
       key: plan.key,
       nameAr: plan.nameAr,
@@ -313,7 +316,10 @@ export async function loadPlatformBillingStats(claims: SessionClaims): Promise<P
     };
   });
 
-  const estimatedMonthly = planStats.reduce((sum, row) => sum + BigInt(row.estimatedMonthlyMinor), 0n);
+  const estimatedMonthly = planStats.reduce(
+    (sum, row) => sum + BigInt(row.estimatedMonthlyMinor),
+    0n,
+  );
   const omr = (Number(estimatedMonthly) / 1000).toFixed(3);
 
   return {

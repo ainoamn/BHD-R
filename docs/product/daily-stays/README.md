@@ -15,23 +15,23 @@
 
 ## حالة التنفيذ
 
-| المرحلة | الحالة |
-| ------- | ------ |
-| 0 — التثبيت | **مدموج في main** |
-| 1–8 — أساسات (علم مغلق) | **0.4.0** — انظر [`RELEASE-0.4.0-AR.md`](../../implementation/RELEASE-0.4.0-AR.md) |
-| Webhook + أقفال حية | **0.4.1** — [`RELEASE-0.4.1-AR.md`](../../implementation/RELEASE-0.4.1-AR.md) |
-| Projector + housekeeping | **0.4.2** — [`RELEASE-0.4.2-AR.md`](../../implementation/RELEASE-0.4.2-AR.md) |
-| بحث عام من inventory days | **0.4.3** — [`RELEASE-0.4.3-AR.md`](../../implementation/RELEASE-0.4.3-AR.md) |
-| عرض سعر → حجز مؤقت → نية دفع | **0.4.4** — [`RELEASE-0.4.4-AR.md`](../../implementation/RELEASE-0.4.4-AR.md) |
-| واجهة حجز الضيف التفاعلية | **0.4.5** — [`RELEASE-0.4.5-AR.md`](../../implementation/RELEASE-0.4.5-AR.md) |
-| رحلات الضيف + claim بالمرجع | **0.4.6** — [`RELEASE-0.4.6-AR.md`](../../implementation/RELEASE-0.4.6-AR.md) |
-| Occupancy / ADR / RevPAR | **0.4.7** — [`RELEASE-0.4.7-AR.md`](../../implementation/RELEASE-0.4.7-AR.md) |
-| توجيه دفع الإقامة (sandbox) | **0.4.8** — [`RELEASE-0.4.8-AR.md`](../../implementation/RELEASE-0.4.8-AR.md) |
-| قائمة حجوزات التشغيل | **0.4.9** — [`RELEASE-0.4.9-AR.md`](../../implementation/RELEASE-0.4.9-AR.md) |
-| إلغاء / عدم حضور (ops) | **0.4.10** — [`RELEASE-0.4.10-AR.md`](../../implementation/RELEASE-0.4.10-AR.md) |
-| تصدير iCal (قراءة فقط) | **0.4.11** — [`RELEASE-0.4.11-AR.md`](../../implementation/RELEASE-0.4.11-AR.md) |
-| 3 — لوحة الإدارة | **0.4.19** — setup API + wizard + publish | [`RELEASE-0.4.19-AR.md`](../../implementation/RELEASE-0.4.19-AR.md) |
-| تفعيل إنتاجي تجريبي | بشري: Flag + allowlist + معالج إعداد |
+| المرحلة                      | الحالة                                                                             |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| 0 — التثبيت                  | **مدموج في main**                                                                  |
+| 1–8 — أساسات (علم مغلق)      | **0.4.0** — انظر [`RELEASE-0.4.0-AR.md`](../../implementation/RELEASE-0.4.0-AR.md) |
+| Webhook + أقفال حية          | **0.4.1** — [`RELEASE-0.4.1-AR.md`](../../implementation/RELEASE-0.4.1-AR.md)      |
+| Projector + housekeeping     | **0.4.2** — [`RELEASE-0.4.2-AR.md`](../../implementation/RELEASE-0.4.2-AR.md)      |
+| بحث عام من inventory days    | **0.4.3** — [`RELEASE-0.4.3-AR.md`](../../implementation/RELEASE-0.4.3-AR.md)      |
+| عرض سعر → حجز مؤقت → نية دفع | **0.4.4** — [`RELEASE-0.4.4-AR.md`](../../implementation/RELEASE-0.4.4-AR.md)      |
+| واجهة حجز الضيف التفاعلية    | **0.4.5** — [`RELEASE-0.4.5-AR.md`](../../implementation/RELEASE-0.4.5-AR.md)      |
+| رحلات الضيف + claim بالمرجع  | **0.4.6** — [`RELEASE-0.4.6-AR.md`](../../implementation/RELEASE-0.4.6-AR.md)      |
+| Occupancy / ADR / RevPAR     | **0.4.7** — [`RELEASE-0.4.7-AR.md`](../../implementation/RELEASE-0.4.7-AR.md)      |
+| توجيه دفع الإقامة (sandbox)  | **0.4.8** — [`RELEASE-0.4.8-AR.md`](../../implementation/RELEASE-0.4.8-AR.md)      |
+| قائمة حجوزات التشغيل         | **0.4.9** — [`RELEASE-0.4.9-AR.md`](../../implementation/RELEASE-0.4.9-AR.md)      |
+| إلغاء / عدم حضور (ops)       | **0.4.10** — [`RELEASE-0.4.10-AR.md`](../../implementation/RELEASE-0.4.10-AR.md)   |
+| تصدير iCal (قراءة فقط)       | **0.4.11** — [`RELEASE-0.4.11-AR.md`](../../implementation/RELEASE-0.4.11-AR.md)   |
+| 3 — لوحة الإدارة             | **0.4.19** — setup API + wizard + publish                                          | [`RELEASE-0.4.19-AR.md`](../../implementation/RELEASE-0.4.19-AR.md) |
+| تفعيل إنتاجي تجريبي          | بشري: Flag + allowlist + معالج إعداد                                               |
 
 ## قواعد لا يجوز تجاوزها
 

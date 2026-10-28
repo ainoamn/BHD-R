@@ -346,10 +346,7 @@ export function StayOpsBookingsTable({
               >
                 <div className="stays-bookings-card__main">
                   <div
-                    className={[
-                      'stays-bookings-card__dates',
-                      pendingReschedule ? 'is-change' : '',
-                    ]
+                    className={['stays-bookings-card__dates', pendingReschedule ? 'is-change' : '']
                       .filter(Boolean)
                       .join(' ')}
                     title={
@@ -363,9 +360,7 @@ export function StayOpsBookingsTable({
                     {pendingReschedule ? (
                       <>
                         <div className="stays-bookings-card__dates-leg is-from">
-                          <span className="stays-bookings-card__label">
-                            {ar ? 'من' : 'From'}
-                          </span>
+                          <span className="stays-bookings-card__label">{ar ? 'من' : 'From'}</span>
                           <strong dir="ltr">
                             {formatStayDate(booking.checkInOn, locale)}
                             <span className="stays-bookings-card__arrow" aria-hidden>
@@ -375,9 +370,7 @@ export function StayOpsBookingsTable({
                           </strong>
                         </div>
                         <div className="stays-bookings-card__dates-leg is-to">
-                          <span className="stays-bookings-card__label">
-                            {ar ? 'إلى' : 'To'}
-                          </span>
+                          <span className="stays-bookings-card__label">{ar ? 'إلى' : 'To'}</span>
                           <strong dir="ltr">
                             {formatStayDate(pendingReschedule.checkInOn, locale)}
                             <span className="stays-bookings-card__arrow" aria-hidden>
@@ -442,7 +435,9 @@ export function StayOpsBookingsTable({
                           {ar ? 'تعديل تواريخ' : 'Date change'}
                         </span>
                       ) : null}
-                      <span className={`stays-bookings-card__badge is-${statusTone(booking.status)}`}>
+                      <span
+                        className={`stays-bookings-card__badge is-${statusTone(booking.status)}`}
+                      >
                         {stayStatusLabel(booking.status, locale)}
                       </span>
                     </div>

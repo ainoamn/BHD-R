@@ -34,12 +34,14 @@ export function PropertyFilters({
   const [governorate, setGovernorate] = useState(defaults.governorate ?? '');
   const [wilayat, setWilayat] = useState(defaults.wilayat ?? '');
   const [village, setVillage] = useState(defaults.village ?? '');
-  const purpose = defaults.purpose === 'sale' || defaults.purpose === 'rent' ? defaults.purpose : '';
+  const purpose =
+    defaults.purpose === 'sale' || defaults.purpose === 'rent' ? defaults.purpose : '';
 
   const selectedGov = useMemo(
     () =>
       omanLocations.find(
-        (item) => item.en === governorate || item.ar === governorate || item.en === defaults.governorate,
+        (item) =>
+          item.en === governorate || item.ar === governorate || item.en === defaults.governorate,
       ) ?? null,
     [governorate, defaults.governorate],
   );
@@ -66,7 +68,11 @@ export function PropertyFilters({
 
   return (
     <div className={compact ? 'property-filters property-filters--compact' : 'property-filters'}>
-      <div className="purpose-tabs" role="tablist" aria-label={ar ? 'نوع العرض' : 'Listing purpose'}>
+      <div
+        className="purpose-tabs"
+        role="tablist"
+        aria-label={ar ? 'نوع العرض' : 'Listing purpose'}
+      >
         <Link
           href={purposeHref('')}
           scroll={false}
@@ -101,7 +107,11 @@ export function PropertyFilters({
       >
         {purpose ? <input type="hidden" name="purpose" value={purpose} /> : null}
         {compact ? null : <h2>{ar ? 'ابحث عن وحدتك القادمة' : 'Find your next unit'}</h2>}
-        <div className={compact ? 'filters-bar__grid filters-bar__grid--rich' : 'search-grid search-grid--rich'}>
+        <div
+          className={
+            compact ? 'filters-bar__grid filters-bar__grid--rich' : 'search-grid search-grid--rich'
+          }
+        >
           <div className="field">
             <label htmlFor="filter-country">{ar ? 'الدولة' : 'Country'}</label>
             <select

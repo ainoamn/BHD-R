@@ -16,14 +16,14 @@
 
 ## تحقق إنتاج (تم)
 
-| فحص | نتيجة |
-| ---- | ------ |
-| `main` = `origin/main` | متزامن |
-| كتالوج عام | `latitude` / `longitude` / `mapsUrl` حاضرة |
-| `/api/public/reviews?targetType=property&targetId=…` | `200` + ملخص فارغ سليم |
-| صفحة عقار | `ReviewsPanel` + علامات ذكية |
-| `/ar/parties/{ownerPartyId}` | ملف عام + تقييمات الطرف/المؤسسة |
-| Vercel Production `bhd-r-api` | **Ready** → `r.bhd-om.com` |
+| فحص                                                  | نتيجة                                      |
+| ---------------------------------------------------- | ------------------------------------------ |
+| `main` = `origin/main`                               | متزامن                                     |
+| كتالوج عام                                           | `latitude` / `longitude` / `mapsUrl` حاضرة |
+| `/api/public/reviews?targetType=property&targetId=…` | `200` + ملخص فارغ سليم                     |
+| صفحة عقار                                            | `ReviewsPanel` + علامات ذكية               |
+| `/ar/parties/{ownerPartyId}`                         | ملف عام + تقييمات الطرف/المؤسسة            |
+| Vercel Production `bhd-r-api`                        | **Ready** → `r.bhd-om.com`                 |
 
 ## تحقق يدوي سريع
 

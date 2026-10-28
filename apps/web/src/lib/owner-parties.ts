@@ -22,9 +22,7 @@ export type OwnerPartyOption = {
 };
 
 /** Active parties in the org — used to choose property ownership. */
-export async function listOwnerPartyOptions(
-  organizationId: string,
-): Promise<OwnerPartyOption[]> {
+export async function listOwnerPartyOptions(organizationId: string): Promise<OwnerPartyOption[]> {
   const { db } = getDatabase();
   return db
     .select({

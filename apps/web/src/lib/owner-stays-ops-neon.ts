@@ -160,9 +160,7 @@ function readGuestContact(snapshot: unknown): {
   };
 }
 
-function readPendingReschedule(
-  snapshot: unknown,
-): StayBookingContractData['pendingReschedule'] {
+function readPendingReschedule(snapshot: unknown): StayBookingContractData['pendingReschedule'] {
   if (!snapshot || typeof snapshot !== 'object') return null;
   const pending = (snapshot as Record<string, unknown>).pendingReschedule;
   if (!pending || typeof pending !== 'object') return null;
@@ -197,7 +195,9 @@ const SETTLED_STATUSES = new Set([
   'closed',
 ]);
 
-function timelineHistoryDetail(meta: unknown): StayBookingTimelineFacts['history'][number]['detail'] {
+function timelineHistoryDetail(
+  meta: unknown,
+): StayBookingTimelineFacts['history'][number]['detail'] {
   if (!meta || typeof meta !== 'object') return null;
   const root = meta as Record<string, unknown>;
   const pending =
@@ -237,8 +237,7 @@ function timelineHistoryDetail(meta: unknown): StayBookingTimelineFacts['history
   const amendmentContractId = pick('amendmentContractId');
   const contractReference = pick('contractReference');
   const contractId = pick('contractId');
-  const paymentIntentId =
-    typeof root.paymentIntentId === 'string' ? root.paymentIntentId : null;
+  const paymentIntentId = typeof root.paymentIntentId === 'string' ? root.paymentIntentId : null;
   if (fromCheckInOn) detail.fromCheckInOn = fromCheckInOn;
   if (fromCheckOutOn) detail.fromCheckOutOn = fromCheckOutOn;
   if (toCheckInOn) detail.toCheckInOn = toCheckInOn;
@@ -313,8 +312,7 @@ async function loadTimelineFacts(
         entry.metadataJson && typeof entry.metadataJson === 'object'
           ? (entry.metadataJson as Record<string, unknown>)
           : null;
-      const note =
-        typeof meta?.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
+      const note = typeof meta?.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
       return {
         at: entry.at instanceof Date ? entry.at.toISOString() : String(entry.at),
         fromStatus: entry.fromStatus ?? null,
@@ -627,9 +625,7 @@ export async function getOwnerStayBookingContractOnNeon(
       0n,
     );
     const paidCurrency =
-      succeededPayments[succeededPayments.length - 1]?.currency ??
-      latestIntent?.currency ??
-      null;
+      succeededPayments[succeededPayments.length - 1]?.currency ?? latestIntent?.currency ?? null;
     const lastPaid = succeededPayments[succeededPayments.length - 1] ?? null;
 
     let cardLast4: string | null = null;
@@ -728,16 +724,13 @@ export async function getOwnerStayBookingContractOnNeon(
       children: contact.children ?? null,
       stayType: contact.stayType ?? null,
       ...(() => {
-        const period = resolveStayPeriodTimes(
-          (contact.stayType as StayPeriodType | null) ?? null,
-          {
-            checkInFrom: row.checkInFrom,
-            dayUseCheckInFrom: row.dayUseCheckInFrom,
-            dayUseCheckOutUntil: row.dayUseCheckOutUntil,
-            overnightCheckOutUntil: row.overnightCheckOutUntil,
-            checkOutUntil: row.checkOutUntil,
-          },
-        );
+        const period = resolveStayPeriodTimes((contact.stayType as StayPeriodType | null) ?? null, {
+          checkInFrom: row.checkInFrom,
+          dayUseCheckInFrom: row.dayUseCheckInFrom,
+          dayUseCheckOutUntil: row.dayUseCheckOutUntil,
+          overnightCheckOutUntil: row.overnightCheckOutUntil,
+          checkOutUntil: row.checkOutUntil,
+        });
         return { checkInTime: period.checkInTime, checkOutTime: period.checkOutTime };
       })(),
       otherSlot,
@@ -795,8 +788,7 @@ export async function getOwnerStayBookingContractOnNeon(
         ? {
             id: latestAmendment.id,
             reference:
-              latestAmendment.reference ??
-              `CTR-${latestAmendment.id.slice(0, 8).toUpperCase()}`,
+              latestAmendment.reference ?? `CTR-${latestAmendment.id.slice(0, 8).toUpperCase()}`,
             status: latestAmendment.status,
           }
         : null,

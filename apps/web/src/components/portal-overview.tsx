@@ -171,7 +171,8 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
             code: 'viewing_requests',
             count: approvals.viewings,
             href:
-              approvals.viewings === 1 && approvals.items.find((item) => item.kind === 'viewing_request')
+              approvals.viewings === 1 &&
+              approvals.items.find((item) => item.kind === 'viewing_request')
                 ? pendingApprovalHref(
                     portal,
                     approvals.items.find((item) => item.kind === 'viewing_request')!,

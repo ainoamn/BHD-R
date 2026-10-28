@@ -37,10 +37,7 @@ function stamp(value: string, ar: boolean): string {
   }).format(date);
 }
 
-function guestDecisionLabel(
-  decision: 'accepted' | 'rejected' | 'referred',
-  ar: boolean,
-): string {
+function guestDecisionLabel(decision: 'accepted' | 'rejected' | 'referred', ar: boolean): string {
   if (decision === 'referred') {
     return ar ? 'أُحيل الموضوع للمحاسب' : 'Referred to accounting';
   }
@@ -99,10 +96,7 @@ export function StayDepositClaims({
   const router = useRouter();
   const locale = ar ? 'ar' : 'en';
   const money = (minor: string) => formatMoney(minor, refund.currency, locale);
-  const noteService = useMemo(
-    () => guestDepositClaimNoteService(referenceCode),
-    [referenceCode],
-  );
+  const noteService = useMemo(() => guestDepositClaimNoteService(referenceCode), [referenceCode]);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -360,7 +354,9 @@ export function StayDepositClaims({
                       {claim.status === 'open' && !claim.response ? (
                         <div className="stay-deposit-claims__reply">
                           <strong>
-                            {ar ? 'وصل طلبك للمالك / الإدارة' : 'Received by the owner / management'}
+                            {ar
+                              ? 'وصل طلبك للمالك / الإدارة'
+                              : 'Received by the owner / management'}
                           </strong>
                           <p>
                             {ar

@@ -9,10 +9,10 @@
 
 ## مبدأ عدم التعارض
 
-| النظام | الدور | ماذا يرحّل رسمياً؟ |
-| --- | --- | --- |
-| **BHD-R** | محاسبة تشغيلية للعقار (قيود مزدوجة، إيصالات، ميزان مراجعة داخلي) | حركات الإيجار/الإقامة/التأمين/المصروف داخل بوابة المالك |
-| **Hisaby** | GL مفصّل + ضريبة + تقارير محاسبية عميقة | فواتير/سندات/مراكز تكلفة من أحداث المال |
+| النظام     | الدور                                                            | ماذا يرحّل رسمياً؟                                      |
+| ---------- | ---------------------------------------------------------------- | ------------------------------------------------------- |
+| **BHD-R**  | محاسبة تشغيلية للعقار (قيود مزدوجة، إيصالات، ميزان مراجعة داخلي) | حركات الإيجار/الإقامة/التأمين/المصروف داخل بوابة المالك |
+| **Hisaby** | GL مفصّل + ضريبة + تقارير محاسبية عميقة                          | فواتير/سندات/مراكز تكلفة من أحداث المال                 |
 
 **لا يُنسخ كود Hisaby داخل العقارات.** الربط عبر API + SSO فقط (قرار D-207).
 
@@ -28,17 +28,17 @@
 
 كل كيان في التصدير يحمل `externalId` بالبادئة `bhd-r:`:
 
-| كيان | الشكل |
-| --- | --- |
-| جهة | `bhd-r:party:{uuid}` |
-| عقار | `bhd-r:property:{uuid}` |
-| وحدة | `bhd-r:unit:{uuid}` |
-| حساب | `bhd-r:account:{uuid}` |
-| قيد | `bhd-r:journal:{uuid}` |
-| فاتورة | `bhd-r:invoice:{uuid}` |
-| دفعة | `bhd-r:payment:{uuid}` |
-| إيصال | `bhd-r:receipt:{uuid}` |
-| مصروف | `bhd-r:expense:{uuid}` |
+| كيان   | الشكل                   |
+| ------ | ----------------------- |
+| جهة    | `bhd-r:party:{uuid}`    |
+| عقار   | `bhd-r:property:{uuid}` |
+| وحدة   | `bhd-r:unit:{uuid}`     |
+| حساب   | `bhd-r:account:{uuid}`  |
+| قيد    | `bhd-r:journal:{uuid}`  |
+| فاتورة | `bhd-r:invoice:{uuid}`  |
+| دفعة   | `bhd-r:payment:{uuid}`  |
+| إيصال  | `bhd-r:receipt:{uuid}`  |
+| مصروف  | `bhd-r:expense:{uuid}`  |
 
 المبالغ دائماً **نص أعداد صحيحة** بوحدة صغرى (`amountMinor`)؛ للريال العماني **3 خانات** (`150000` = 150.000 ر.ع).
 
@@ -48,15 +48,15 @@
 
 ## حقول حدث الدفع (توافق جسم Hisaby)
 
-| حقل | استخدام BHD-R |
-| --- | --- |
-| `organizationExternalId` | `organizations.id` |
-| `propertyId` / `unitId` + كائنات الاسم/العنوان | أبعاد العقار |
-| `counterparty.externalId` | `bhd-r:party:…` أو `parties.id` |
-| `sourceRefs.bookingId` / `invoiceId` / `paymentId` / `journalId` / `leaseId` / `expenseId` | ربط المستندات |
-| `amountMinor` + `currency` | نفس وحدات GL التشغيلي |
-| `direction` | `inbound` / `outbound` |
-| `accountLabel` | تسمية تشغيلية للعرض في حسابي |
+| حقل                                                                                        | استخدام BHD-R                   |
+| ------------------------------------------------------------------------------------------ | ------------------------------- |
+| `organizationExternalId`                                                                   | `organizations.id`              |
+| `propertyId` / `unitId` + كائنات الاسم/العنوان                                             | أبعاد العقار                    |
+| `counterparty.externalId`                                                                  | `bhd-r:party:…` أو `parties.id` |
+| `sourceRefs.bookingId` / `invoiceId` / `paymentId` / `journalId` / `leaseId` / `expenseId` | ربط المستندات                   |
+| `amountMinor` + `currency`                                                                 | نفس وحدات GL التشغيلي           |
+| `direction`                                                                                | `inbound` / `outbound`          |
+| `accountLabel`                                                                             | تسمية تشغيلية للعرض في حسابي    |
 
 Worker: `apps/worker/src/hisaby-push.ts` · تصدير: `apps/api/.../hisaby.service.ts` · لقطة: `compatibility` في JSON التصدير.
 

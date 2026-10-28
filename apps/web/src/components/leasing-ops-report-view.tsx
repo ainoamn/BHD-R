@@ -80,7 +80,11 @@ export function LeasingOpsReportView({
     <div className="leasing-report" dir={ar ? 'rtl' : 'ltr'}>
       {mode === 'owner' ? (
         <div className="leasing-report__toolbar no-print">
-          <div className="leasing-report__pdf-group" role="group" aria-label={ar ? 'تنزيل PDF' : 'Download PDF'}>
+          <div
+            className="leasing-report__pdf-group"
+            role="group"
+            aria-label={ar ? 'تنزيل PDF' : 'Download PDF'}
+          >
             <span className="leasing-report__pdf-label">
               {ar ? 'تنزيل PDF رسمي' : 'Official PDF download'}
             </span>
@@ -153,8 +157,7 @@ export function LeasingOpsReportView({
                 {snapshot.byName ? ` · ${snapshot.byName}` : ''}
               </p>
               <p>
-                {snapshot.rowCount} {ar ? 'سجل' : 'rows'} ·{' '}
-                <span dir="ltr">{snapshot.token}</span>
+                {snapshot.rowCount} {ar ? 'سجل' : 'rows'} · <span dir="ltr">{snapshot.token}</span>
               </p>
             </div>
           </div>

@@ -28,7 +28,10 @@ export function labResetLabel(category: LabResetCategory, locale: 'ar' | 'en'): 
     accounting: ['المحاسبة والمصروفات والقيود', 'Accounting, expenses & journals'],
     leasing: ['الإيجارات والفواتير والمدفوعات والإيصالات', 'Leases, invoices, payments & receipts'],
     bookings: ['الحجوزات والعقود والطلبات المرتبطة', 'Reservations, contracts & related holds'],
-    stays: ['حجوزات الإقامة اليومية (بدون إعداد العقار)', 'Daily stay bookings (keep property stay setup)'],
+    stays: [
+      'حجوزات الإقامة اليومية (بدون إعداد العقار)',
+      'Daily stay bookings (keep property stay setup)',
+    ],
     maintenance: ['الصيانة وأوامر العمل والطلبات', 'Maintenance, work orders & requests'],
     legal: ['القضايا القانونية', 'Legal cases'],
     sales: ['صفقات البيع', 'Sales deals'],

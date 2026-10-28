@@ -208,7 +208,11 @@ export function normalizeAccountingSettings(raw: unknown): AccountingSettings {
               .slice(0, 120) || labelAr;
           const propertyIds = Array.isArray(item.propertyIds)
             ? item.propertyIds
-                .map((value) => String(value ?? '').trim().slice(0, 64))
+                .map((value) =>
+                  String(value ?? '')
+                    .trim()
+                    .slice(0, 64),
+                )
                 .filter((value) => /^[0-9a-f-]{36}$/i.test(value))
                 .slice(0, 200)
             : [];

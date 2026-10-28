@@ -167,7 +167,9 @@ export function AccountingTasksInbox({
         </p>
       </header>
       {tasks.length === 0 ? (
-        <p className="accounting-hub__muted">{ar ? 'لا مهام محاسبية بعد.' : 'No accounting tasks yet.'}</p>
+        <p className="accounting-hub__muted">
+          {ar ? 'لا مهام محاسبية بعد.' : 'No accounting tasks yet.'}
+        </p>
       ) : (
         <ul>
           {tasks.map((task) => {
@@ -176,7 +178,9 @@ export function AccountingTasksInbox({
             return (
               <li key={task.id}>
                 <Link href={`/owner/tasks/${encodeURIComponent(task.id)}`}>
-                  <span className={live ? 'accounting-tasks__mark is-open' : 'accounting-tasks__mark'}>
+                  <span
+                    className={live ? 'accounting-tasks__mark is-open' : 'accounting-tasks__mark'}
+                  >
                     {live ? (ar ? 'مفتوحة' : 'Open') : ar ? 'مغلقة' : 'Closed'}
                   </span>
                   <strong>{task.title}</strong>
@@ -298,7 +302,11 @@ export function AccountingFollowTask({
     const taken = new Set(seats.map((seat) => seat.userId));
     const next = assignees?.find((person) => !taken.has(person.userId));
     if (!next) {
-      setMessage(ar ? 'كل أعضاء الفريق مضافون. أضف مستخدماً جديداً من صفحة الفريق.' : 'Everyone on the team is already added.');
+      setMessage(
+        ar
+          ? 'كل أعضاء الفريق مضافون. أضف مستخدماً جديداً من صفحة الفريق.'
+          : 'Everyone on the team is already added.',
+      );
       return;
     }
     setSeats((current) => [...current, { userId: next.userId, duty: 'viewer' }]);
@@ -384,10 +392,18 @@ export function AccountingFollowTask({
           >
             <div className="accounting-hub__modal-head">
               <div>
-                <p className="accounting-hub__eyebrow">{ar ? 'إسناد متابعة' : 'Assign follow-up'}</p>
-                <h2 id="accounting-follow-title">{ar ? 'تحويل البند إلى مهمة' : 'Turn this into a task'}</h2>
+                <p className="accounting-hub__eyebrow">
+                  {ar ? 'إسناد متابعة' : 'Assign follow-up'}
+                </p>
+                <h2 id="accounting-follow-title">
+                  {ar ? 'تحويل البند إلى مهمة' : 'Turn this into a task'}
+                </h2>
               </div>
-              <button type="button" className="accounting-act accounting-act--archive" onClick={() => setOpen(false)}>
+              <button
+                type="button"
+                className="accounting-act accounting-act--archive"
+                onClick={() => setOpen(false)}
+              >
                 {ar ? 'إغلاق' : 'Close'}
               </button>
             </div>
@@ -405,9 +421,13 @@ export function AccountingFollowTask({
             <fieldset className="accounting-task__people">
               <legend>{ar ? 'المتابعون وأدوارهم' : 'Followers and their roles'}</legend>
               {assignees === null ? (
-                <p className="accounting-hub__muted">{ar ? 'جارٍ تحميل الفريق…' : 'Loading the team…'}</p>
+                <p className="accounting-hub__muted">
+                  {ar ? 'جارٍ تحميل الفريق…' : 'Loading the team…'}
+                </p>
               ) : assignees.length === 0 ? (
-                <p className="accounting-hub__error">{ar ? 'لا موظفون نشطون في الفريق.' : 'No active team members.'}</p>
+                <p className="accounting-hub__error">
+                  {ar ? 'لا موظفون نشطون في الفريق.' : 'No active team members.'}
+                </p>
               ) : (
                 <ul className="accounting-task__seats">
                   {seats.map((seat, index) => {
@@ -450,7 +470,9 @@ export function AccountingFollowTask({
                           {roles ? <small>{roles}</small> : null}
                         </label>
                         <label>
-                          <span className="sr-only">{ar ? 'الدور في المتابعة' : 'Follow-up role'}</span>
+                          <span className="sr-only">
+                            {ar ? 'الدور في المتابعة' : 'Follow-up role'}
+                          </span>
                           <select
                             value={seat.duty}
                             onChange={(event) => setDuty(index, event.target.value as Duty)}
@@ -467,7 +489,9 @@ export function AccountingFollowTask({
                           className="accounting-act accounting-act--void"
                           disabled={seats.length < 2}
                           onClick={() =>
-                            setSeats((current) => current.filter((_, seatIndex) => seatIndex !== index))
+                            setSeats((current) =>
+                              current.filter((_, seatIndex) => seatIndex !== index),
+                            )
                           }
                         >
                           {ar ? 'إزالة' : 'Remove'}
@@ -478,10 +502,16 @@ export function AccountingFollowTask({
                 </ul>
               )}
               <div className="accounting-task__add">
-                <button type="button" className="accounting-act accounting-act--task" onClick={addSeat}>
+                <button
+                  type="button"
+                  className="accounting-act accounting-act--task"
+                  onClick={addSeat}
+                >
                   {ar ? 'إضافة متابع' : 'Add follower'}
                 </button>
-                <Link href="/owner/team">{ar ? 'إضافة مستخدم للفريق' : 'Add a user to the team'}</Link>
+                <Link href="/owner/team">
+                  {ar ? 'إضافة مستخدم للفريق' : 'Add a user to the team'}
+                </Link>
               </div>
             </fieldset>
 
@@ -522,15 +552,25 @@ export function AccountingFollowTask({
                 onChange={(event) => setNote(event.target.value)}
               />
             </label>
-            <NoteTranslateBar value={note} onChange={setNote} locale={locale} max={2000} disabled={busy} />
+            <NoteTranslateBar
+              value={note}
+              onChange={setNote}
+              locale={locale}
+              max={2000}
+              disabled={busy}
+            />
 
             <label className="accounting-task__files">
-              {ar ? 'مرفقات (أسماء الملفات تُرفق مع المهمة)' : 'Attachments (file names travel with the task)'}
+              {ar
+                ? 'مرفقات (أسماء الملفات تُرفق مع المهمة)'
+                : 'Attachments (file names travel with the task)'}
               <input
                 type="file"
                 multiple
                 onChange={(event) => {
-                  const names = [...(event.target.files ?? [])].map((file) => file.name).slice(0, 8);
+                  const names = [...(event.target.files ?? [])]
+                    .map((file) => file.name)
+                    .slice(0, 8);
                   setFiles(names);
                 }}
               />
@@ -552,7 +592,11 @@ export function AccountingFollowTask({
               </p>
             ) : null}
             <div className="accounting-task__submit">
-              <button className="button button--primary" type="submit" disabled={busy || !seats.length}>
+              <button
+                className="button button--primary"
+                type="submit"
+                disabled={busy || !seats.length}
+              >
                 {busy ? (ar ? 'جارٍ الإسناد…' : 'Assigning…') : ar ? 'إسناد المهمة' : 'Assign task'}
               </button>
             </div>

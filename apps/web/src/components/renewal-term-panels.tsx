@@ -208,9 +208,7 @@ export function OwnerRenewalTermDecisionPanel({
           body: JSON.stringify({
             decision,
             note: note.trim() || undefined,
-            ...(decision === 'approved' && options?.endsOn
-              ? { endsOn: options.endsOn }
-              : {}),
+            ...(decision === 'approved' && options?.endsOn ? { endsOn: options.endsOn } : {}),
           }),
         },
       );
@@ -238,7 +236,9 @@ export function OwnerRenewalTermDecisionPanel({
         </span>
         <div>
           <h2 id="renewal-term-alert-title">
-            {ar ? 'طلب المستأجر: تعديل تاريخ نهاية التجديد' : 'Tenant request: change renewal end date'}
+            {ar
+              ? 'طلب المستأجر: تعديل تاريخ نهاية التجديد'
+              : 'Tenant request: change renewal end date'}
           </h2>
           <p>
             {ar
@@ -328,9 +328,7 @@ export function OwnerRenewalTermDecisionPanel({
             <Button
               type="button"
               disabled={busy || !ownerEndsOn}
-              onClick={() =>
-                void decide('approved', { endsOn: ownerEndsOn, requireNote: true })
-              }
+              onClick={() => void decide('approved', { endsOn: ownerEndsOn, requireNote: true })}
             >
               {busy
                 ? ar
@@ -360,7 +358,9 @@ export function OwnerRenewalTermDecisionPanel({
               : `The tenant request is declined and the end date stays ${currentEndsOn}.`}
           </p>
           <label className="field" htmlFor="renewal-reject-note">
-            <span className="field__label">{ar ? 'سبب الرفض (يظهر للمستأجر)' : 'Rejection reason (shown to tenant)'}</span>
+            <span className="field__label">
+              {ar ? 'سبب الرفض (يظهر للمستأجر)' : 'Rejection reason (shown to tenant)'}
+            </span>
             <textarea
               id="renewal-reject-note"
               className="textarea"
@@ -444,7 +444,9 @@ export function OwnerContractRenewalAutomationPanel({
           }),
         },
       );
-      setMessage(ar ? 'تم حفظ ضبط التجديد لهذا العقد.' : 'Renewal setting saved for this contract.');
+      setMessage(
+        ar ? 'تم حفظ ضبط التجديد لهذا العقد.' : 'Renewal setting saved for this contract.',
+      );
       router.refresh();
     } catch (caught) {
       setMessage(humanizeBrowserError(caught, ar));
@@ -469,7 +471,9 @@ export function OwnerContractRenewalAutomationPanel({
         >
           <option value="inherit">{ar ? 'حسب ضبط المؤسسة' : 'Follow organization settings'}</option>
           <option value="on">{ar ? 'تجديد تلقائي مفعّل' : 'Force automatic renewal on'}</option>
-          <option value="off">{ar ? 'إيقاف التجديد التلقائي' : 'Force automatic renewal off'}</option>
+          <option value="off">
+            {ar ? 'إيقاف التجديد التلقائي' : 'Force automatic renewal off'}
+          </option>
         </select>
         <div style={{ marginTop: '0.75rem' }}>
           <Button type="button" disabled={busy} onClick={() => void save()}>

@@ -12,13 +12,13 @@
 
 ## الملفات الرئيسية
 
-| الملف | التغيير |
-|-------|---------|
-| `apps/web/src/lib/portal-ops-data.ts` | تجميع `channels: ('rent'\|'sale'\|'stay')[]` لكل عقار |
-| `apps/web/src/components/operations-console.tsx` | عمود + تنسيق `channels` + شارات على الجوال |
-| `apps/web/src/app/globals.css` | أنماط `.ops-channel-badges` |
-| `apps/web/src/app/portal-adaptive.css` | نطاق shrink تحت `.portal-layout` فقط |
-| `apps/api/src/portals/portals.service.ts` | مرآة `channels` في Nest |
+| الملف                                            | التغيير                                               |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| `apps/web/src/lib/portal-ops-data.ts`            | تجميع `channels: ('rent'\|'sale'\|'stay')[]` لكل عقار |
+| `apps/web/src/components/operations-console.tsx` | عمود + تنسيق `channels` + شارات على الجوال            |
+| `apps/web/src/app/globals.css`                   | أنماط `.ops-channel-badges`                           |
+| `apps/web/src/app/portal-adaptive.css`           | نطاق shrink تحت `.portal-layout` فقط                  |
+| `apps/api/src/portals/portals.service.ts`        | مرآة `channels` في Nest                               |
 
 ## تحقق بعد النشر
 

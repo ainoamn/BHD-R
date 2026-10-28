@@ -3,7 +3,7 @@
 **تاريخ:** 2026-09-02  
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الفرع:** `main`  
-**آخر commit:** `9643021` — *Polish stays UX with full-width calendar, slim search bar, and Booking-style reviews as 0.4.27.*  
+**آخر commit:** `9643021` — _Polish stays UX with full-width calendar, slim search bar, and Booking-style reviews as 0.4.27._  
 **الإصدار:** 0.4.27  
 **سابق:** [0.4.26 Property 360 + تقويم](../2026-09-02-stays-property360-calendar/README.md)
 
@@ -11,13 +11,13 @@
 
 ## ما أُنجز
 
-| الطلب | الحل |
-| --- | --- |
-| التقويم صغير/غير ملائم | تقويم `large` في العمود الرئيسي |
-| تشتت الوحدات | accordion مطوي + إخفاء في صفحة الإقامة |
-| شريط بحث سميك | booking-bar نحيف، max-width 56rem |
-| زر بحث أزرق | `--oman-teal` |
-| تقييمات Booking | PropertyReviewScore + ReviewsPanel محدّث |
+| الطلب                  | الحل                                     |
+| ---------------------- | ---------------------------------------- |
+| التقويم صغير/غير ملائم | تقويم `large` في العمود الرئيسي          |
+| تشتت الوحدات           | accordion مطوي + إخفاء في صفحة الإقامة   |
+| شريط بحث سميك          | booking-bar نحيف، max-width 56rem        |
+| زر بحث أزرق            | `--oman-teal`                            |
+| تقييمات Booking        | PropertyReviewScore + ReviewsPanel محدّث |
 
 ---
 

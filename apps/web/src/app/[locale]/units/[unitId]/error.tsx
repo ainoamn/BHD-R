@@ -16,15 +16,21 @@ export default function UnitError({
         <span className="eyebrow">تعذّر التحميل · Could not load</span>
         <h1>تعذّر فتح صفحة الوحدة</h1>
         <p>
-          الاتصال استغرق وقتاً أطول من المعتاد أو انقطع أثناء التنقل. الوحدة موجودة غالباً —
-          أعد المحاولة أو افتح الرابط مباشرة.
+          الاتصال استغرق وقتاً أطول من المعتاد أو انقطع أثناء التنقل. الوحدة موجودة غالباً — أعد
+          المحاولة أو افتح الرابط مباشرة.
         </p>
-        <p className="muted">This page could not finish loading. Retry, or open the link in a new tab.</p>
+        <p className="muted">
+          This page could not finish loading. Retry, or open the link in a new tab.
+        </p>
         <div className="ops-inline-actions">
           <button type="button" className="button button--primary" onClick={() => reset()}>
             إعادة المحاولة · Reload
           </button>
-          <button type="button" className="button button--quiet" onClick={() => window.history.back()}>
+          <button
+            type="button"
+            className="button button--quiet"
+            onClick={() => window.history.back()}
+          >
             رجوع · Back
           </button>
           <a className="button button--quiet" href="/ar/properties">

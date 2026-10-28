@@ -75,7 +75,9 @@ function haystack(property: DimensionProperty, units: DimensionUnit[], tenants: 
     property.serial,
     property.place,
     property.ownerName,
-    ...units.filter((unit) => unit.propertyId === property.id).flatMap((unit) => [unit.code, unit.nameAr, unit.nameEn]),
+    ...units
+      .filter((unit) => unit.propertyId === property.id)
+      .flatMap((unit) => [unit.code, unit.nameAr, unit.nameEn]),
     ...tenants.filter((tenant) => tenant.propertyId === property.id).map((tenant) => tenant.name),
   ];
   return bits.filter(Boolean).join(' ').toLowerCase();
@@ -129,8 +131,7 @@ export function AccountingPropertyUnitFields({
   }, [dims.properties, dims.tenants, dims.units, q]);
 
   const units = useMemo(
-    () =>
-      propertyId ? dims.units.filter((unit) => unit.propertyId === propertyId) : [],
+    () => (propertyId ? dims.units.filter((unit) => unit.propertyId === propertyId) : []),
     [dims.units, propertyId],
   );
 
@@ -143,7 +144,8 @@ export function AccountingPropertyUnitFields({
 
   function emit(next: Partial<DimensionPick> & { linkTo?: DimensionLink }) {
     const nextProperty = next.propertyId ?? propertyId;
-    const nextUnit = next.unitId ?? (next.propertyId && next.propertyId !== propertyId ? '' : unitId);
+    const nextUnit =
+      next.unitId ?? (next.propertyId && next.propertyId !== propertyId ? '' : unitId);
     const nextLink = next.linkTo ?? linkTo;
     const building = dims.properties.find((property) => property.id === nextProperty);
     let nextParty = next.partyId ?? partyId;
@@ -165,11 +167,7 @@ export function AccountingPropertyUnitFields({
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder={
-            ar
-              ? 'اسم، وحدة، مالك، مستأجر، موقع…'
-              : 'Name, unit, owner, tenant, place…'
-          }
+          placeholder={ar ? 'اسم، وحدة، مالك، مستأجر، موقع…' : 'Name, unit, owner, tenant, place…'}
         />
       </label>
       <div className="accounting-hub__dims-picks">

@@ -1,9 +1,5 @@
 import { Link } from '@/i18n/navigation';
-import {
-  rentDocHref,
-  rentDocKindsOf,
-  type RentDocSubject,
-} from '@/lib/rent-documents';
+import { rentDocHref, rentDocKindsOf, type RentDocSubject } from '@/lib/rent-documents';
 
 /** Pill links to the signed receipt and/or demand invoice for one rent line. */
 export function RentDocLinks({
@@ -41,13 +37,7 @@ export function RentDocLinks({
           href={rentDocHref(portal, leaseId, key, kind)}
           prefetch={false}
         >
-          {kind === 'receipt'
-            ? ar
-              ? 'إيصال القبض'
-              : 'Receipt'
-            : ar
-              ? 'الفاتورة'
-              : 'Invoice'}
+          {kind === 'receipt' ? (ar ? 'إيصال القبض' : 'Receipt') : ar ? 'الفاتورة' : 'Invoice'}
         </Link>
       ))}
     </span>

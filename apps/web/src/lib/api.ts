@@ -326,8 +326,7 @@ export async function browserNextMutation<T>(path: string, init: RequestInit): P
   const run = async (csrfToken: string): Promise<T> => {
     let response: Response;
     try {
-      const isFormData =
-        typeof FormData !== 'undefined' && init.body instanceof FormData;
+      const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
       response = await fetch(path, {
         ...init,
         credentials: 'same-origin',
@@ -342,11 +341,7 @@ export async function browserNextMutation<T>(path: string, init: RequestInit): P
         signal: init.signal ?? AbortSignal.timeout(45_000),
       });
     } catch {
-      throw new ApiError(
-        0,
-        'network_error',
-        'تعذر إكمال الطلب. تحقق من الشبكة ثم أعد المحاولة.',
-      );
+      throw new ApiError(0, 'network_error', 'تعذر إكمال الطلب. تحقق من الشبكة ثم أعد المحاولة.');
     }
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {
@@ -361,7 +356,7 @@ export async function browserNextMutation<T>(path: string, init: RequestInit): P
         payload?.error?.messageAr ??
           (csrfish
             ? 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة'
-            : payload?.error?.message ?? 'تعذر إكمال الطلب.'),
+            : (payload?.error?.message ?? 'تعذر إكمال الطلب.')),
         payload?.error?.requestId,
       );
     }
@@ -550,11 +545,7 @@ export async function browserStayBookingMutation<T>(
       signal: AbortSignal.timeout(45_000),
     });
   } catch {
-    throw new ApiError(
-      0,
-      'network_error',
-      'تعذر إكمال الحجز — تحقق من الاتصال ثم أعد المحاولة.',
-    );
+    throw new ApiError(0, 'network_error', 'تعذر إكمال الحجز — تحقق من الاتصال ثم أعد المحاولة.');
   }
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as StayBookingErrorPayload | null;

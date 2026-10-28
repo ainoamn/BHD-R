@@ -85,10 +85,7 @@ export class PublicStaysController {
     @Body(new ZodPipe(createStayBookingSchema)) body: CreateStayBookingInput,
   ) {
     assertStaysPlatformEnabled();
-    return this.bookingService.createBookingFromHold(
-      body,
-      requireIdempotencyKey(idempotencyKey),
-    );
+    return this.bookingService.createBookingFromHold(body, requireIdempotencyKey(idempotencyKey));
   }
 
   @Get(':slug/calendar')

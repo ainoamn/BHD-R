@@ -25,9 +25,7 @@ type PreviewResult = CheckInResult & {
   depositCurrency?: string;
 };
 
-type Pending =
-  | { kind: 'token'; token: string }
-  | { kind: 'code'; reference: string; code: string };
+type Pending = { kind: 'token'; token: string } | { kind: 'code'; reference: string; code: string };
 
 type Detector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
 type DetectorConstructor = new (options: { formats: string[] }) => Detector;
@@ -140,9 +138,7 @@ export function StayGateDesk({
           action,
           key,
           ...(propertyId ? { propertyId } : {}),
-          ...(action === 'checkin' && options?.note?.trim()
-            ? { note: options.note.trim() }
-            : {}),
+          ...(action === 'checkin' && options?.note?.trim() ? { note: options.note.trim() } : {}),
           ...(action === 'checkin' && options?.depositWaived ? { depositWaived: true } : {}),
         }),
       });
@@ -152,8 +148,7 @@ export function StayGateDesk({
         | { error?: { code?: string; messageAr?: string; message?: string } }
         | null;
       if (!response.ok) {
-        const errCode =
-          (payload && 'error' in payload && payload.error?.code) || 'checkin_failed';
+        const errCode = (payload && 'error' in payload && payload.error?.code) || 'checkin_failed';
         throw new Error(errCode);
       }
       return payload;
@@ -273,7 +268,9 @@ export function StayGateDesk({
     let timer: number | undefined;
     const start = async () => {
       if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
-        setError(ar ? 'الكاميرا أو ماسح الباركود غير متاحين.' : 'Camera or barcode scanner unavailable.');
+        setError(
+          ar ? 'الكاميرا أو ماسح الباركود غير متاحين.' : 'Camera or barcode scanner unavailable.',
+        );
         setScanning(false);
         return;
       }
@@ -292,7 +289,8 @@ export function StayGateDesk({
           video.srcObject = stream;
           await video.play();
         }
-        const Ctor = (window as unknown as { BarcodeDetector: DetectorConstructor }).BarcodeDetector;
+        const Ctor = (window as unknown as { BarcodeDetector: DetectorConstructor })
+          .BarcodeDetector;
         const detector = new Ctor({ formats: ['qr_code'] });
         const tick = async () => {
           if (stopped || !videoRef.current) return;
@@ -353,53 +351,53 @@ export function StayGateDesk({
     return (
       <>
         {depositDialog}
-      <section className="viewing-gate viewing-gate--ok" aria-live="polite">
-        <div className="viewing-gate__check" aria-hidden>
-          ✓
-        </div>
-        <h2>
-          {result.alreadyArrived
-            ? ar
-              ? 'تم تسجيل الوصول مسبقاً'
-              : 'Already checked in'
-            : ar
-              ? 'تم تسجيل الدخول'
-              : 'Checked in'}
-        </h2>
-        <dl className="viewing-gate__facts">
-          <div>
-            <dt>{ar ? 'الضيف' : 'Guest'}</dt>
-            <dd>{result.guestName}</dd>
+        <section className="viewing-gate viewing-gate--ok" aria-live="polite">
+          <div className="viewing-gate__check" aria-hidden>
+            ✓
           </div>
-          <div>
-            <dt>{ar ? 'المرجع' : 'Reference'}</dt>
-            <dd dir="ltr">{result.reference}</dd>
-          </div>
-          <div>
-            <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
-            <dd>
-              {result.propertyNameAr} · {result.unitCode}
-            </dd>
-          </div>
-          <div>
-            <dt>{ar ? 'تاريخ ووقت الدخول' : 'Check-in date & time'}</dt>
-            <dd dir="ltr">{stamp(result.arrivedAt, ar)}</dd>
-          </div>
-        </dl>
-        <button
-          type="button"
-          className="button button--quiet"
-          onClick={() => {
-            setResult(null);
-            setReference('');
-            setCode('');
-            setPending(null);
-            setPreview(null);
-          }}
-        >
-          {ar ? 'مسح ضيف آخر' : 'Scan another guest'}
-        </button>
-      </section>
+          <h2>
+            {result.alreadyArrived
+              ? ar
+                ? 'تم تسجيل الوصول مسبقاً'
+                : 'Already checked in'
+              : ar
+                ? 'تم تسجيل الدخول'
+                : 'Checked in'}
+          </h2>
+          <dl className="viewing-gate__facts">
+            <div>
+              <dt>{ar ? 'الضيف' : 'Guest'}</dt>
+              <dd>{result.guestName}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'المرجع' : 'Reference'}</dt>
+              <dd dir="ltr">{result.reference}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
+              <dd>
+                {result.propertyNameAr} · {result.unitCode}
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'تاريخ ووقت الدخول' : 'Check-in date & time'}</dt>
+              <dd dir="ltr">{stamp(result.arrivedAt, ar)}</dd>
+            </div>
+          </dl>
+          <button
+            type="button"
+            className="button button--quiet"
+            onClick={() => {
+              setResult(null);
+              setReference('');
+              setCode('');
+              setPending(null);
+              setPreview(null);
+            }}
+          >
+            {ar ? 'مسح ضيف آخر' : 'Scan another guest'}
+          </button>
+        </section>
       </>
     );
   }
@@ -408,85 +406,85 @@ export function StayGateDesk({
     return (
       <>
         {depositDialog}
-      <section className="viewing-gate viewing-gate--preview" aria-live="polite">
-        <h2>{ar ? 'تأكيد وصول الضيف' : 'Confirm guest arrival'}</h2>
-        <p className="muted">
-          {ar
-            ? 'راجع البيانات ثم اضغط تأكيد لتسجيل الدخول.'
-            : 'Review the details, then confirm to record check-in.'}
-        </p>
-        {preview.depositRequired && preview.depositStatus === 'unpaid' ? (
-          <p className="notice notice--warn" role="status">
+        <section className="viewing-gate viewing-gate--preview" aria-live="polite">
+          <h2>{ar ? 'تأكيد وصول الضيف' : 'Confirm guest arrival'}</h2>
+          <p className="muted">
             {ar
-              ? 'تنبيه للمالك: لم يُدفع مبلغ التأمين المسترد بعد. عند التأكيد يمكنك استثناء التأمين أو طلب الدفع أولاً.'
-              : 'Host notice: the refundable deposit is unpaid. On confirm you can waive it or require payment first.'}
+              ? 'راجع البيانات ثم اضغط تأكيد لتسجيل الدخول.'
+              : 'Review the details, then confirm to record check-in.'}
           </p>
-        ) : null}
-        <dl className="viewing-gate__facts">
-          <div>
-            <dt>{ar ? 'الضيف' : 'Guest'}</dt>
-            <dd>{preview.guestName}</dd>
+          {preview.depositRequired && preview.depositStatus === 'unpaid' ? (
+            <p className="notice notice--warn" role="status">
+              {ar
+                ? 'تنبيه للمالك: لم يُدفع مبلغ التأمين المسترد بعد. عند التأكيد يمكنك استثناء التأمين أو طلب الدفع أولاً.'
+                : 'Host notice: the refundable deposit is unpaid. On confirm you can waive it or require payment first.'}
+            </p>
+          ) : null}
+          <dl className="viewing-gate__facts">
+            <div>
+              <dt>{ar ? 'الضيف' : 'Guest'}</dt>
+              <dd>{preview.guestName}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'المرجع' : 'Reference'}</dt>
+              <dd dir="ltr">{preview.reference}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
+              <dd>
+                {preview.propertyNameAr} · {preview.unitCode}
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الإقامة' : 'Stay'}</dt>
+              <dd dir="ltr">
+                {preview.checkInOn} → {preview.checkOutOn}
+              </dd>
+            </div>
+          </dl>
+          <label className="field">
+            <span>{ar ? 'ملاحظة (اختياري)' : 'Note (optional)'}</span>
+            <textarea
+              rows={2}
+              value={guardNote}
+              maxLength={500}
+              disabled={busy}
+              onChange={(event) => setGuardNote(event.target.value)}
+            />
+          </label>
+          <div className="viewing-pass__actions">
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy}
+              onClick={() => void confirmCheckIn()}
+            >
+              {busy
+                ? ar
+                  ? 'جارٍ التسجيل…'
+                  : 'Recording…'
+                : ar
+                  ? 'تأكيد الوصول وتسجيل الدخول'
+                  : 'Confirm arrival & check in'}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={busy}
+              onClick={() => {
+                setPending(null);
+                setPreview(null);
+              }}
+            >
+              {ar ? 'إلغاء' : 'Cancel'}
+            </button>
           </div>
-          <div>
-            <dt>{ar ? 'المرجع' : 'Reference'}</dt>
-            <dd dir="ltr">{preview.reference}</dd>
-          </div>
-          <div>
-            <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
-            <dd>
-              {preview.propertyNameAr} · {preview.unitCode}
-            </dd>
-          </div>
-          <div>
-            <dt>{ar ? 'الإقامة' : 'Stay'}</dt>
-            <dd dir="ltr">
-              {preview.checkInOn} → {preview.checkOutOn}
-            </dd>
-          </div>
-        </dl>
-        <label className="field">
-          <span>{ar ? 'ملاحظة (اختياري)' : 'Note (optional)'}</span>
-          <textarea
-            rows={2}
-            value={guardNote}
-            maxLength={500}
-            disabled={busy}
-            onChange={(event) => setGuardNote(event.target.value)}
-          />
-        </label>
-        <div className="viewing-pass__actions">
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={busy}
-            onClick={() => void confirmCheckIn()}
-          >
-            {busy
-              ? ar
-                ? 'جارٍ التسجيل…'
-                : 'Recording…'
-              : ar
-                ? 'تأكيد الوصول وتسجيل الدخول'
-                : 'Confirm arrival & check in'}
-          </button>
-          <button
-            type="button"
-            className="button button--quiet"
-            disabled={busy}
-            onClick={() => {
-              setPending(null);
-              setPreview(null);
-            }}
-          >
-            {ar ? 'إلغاء' : 'Cancel'}
-          </button>
-        </div>
-        {error ? (
-          <p className="notice notice--error" role="alert">
-            {error}
-          </p>
-        ) : null}
-      </section>
+          {error ? (
+            <p className="notice notice--error" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </section>
       </>
     );
   }
@@ -494,88 +492,92 @@ export function StayGateDesk({
   return (
     <>
       {depositDialog}
-    <section className="viewing-gate">
-      <div className="viewing-gate__scan">
-        {scanning ? (
-          <video ref={videoRef} className="viewing-gate__video" playsInline muted />
-        ) : (
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={busy}
-            onClick={() => setScanning(true)}
-          >
-            {ar ? 'مسح باركود الوصول بالكاميرا' : 'Scan arrival barcode with camera'}
-          </button>
-        )}
-        {scanning ? (
-          <button type="button" className="button button--quiet" onClick={() => setScanning(false)}>
-            {ar ? 'إيقاف المسح' : 'Stop scanning'}
-          </button>
-        ) : null}
-      </div>
+      <section className="viewing-gate">
+        <div className="viewing-gate__scan">
+          {scanning ? (
+            <video ref={videoRef} className="viewing-gate__video" playsInline muted />
+          ) : (
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy}
+              onClick={() => setScanning(true)}
+            >
+              {ar ? 'مسح باركود الوصول بالكاميرا' : 'Scan arrival barcode with camera'}
+            </button>
+          )}
+          {scanning ? (
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => setScanning(false)}
+            >
+              {ar ? 'إيقاف المسح' : 'Stop scanning'}
+            </button>
+          ) : null}
+        </div>
 
-      <form
-        className="viewing-gate__manual"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void loadPreview({
-            kind: 'code',
-            reference: reference.trim(),
-            code: code.trim(),
-          });
-        }}
-      >
-        <h2>{ar ? 'أو أدخل رقم الحجز والرمز' : 'Or enter booking ref and code'}</h2>
-        <label className="field">
-          <span>{ar ? 'رقم الحجز' : 'Booking reference'}</span>
-          <input
-            className="input"
-            dir="ltr"
-            value={reference}
-            onChange={(e) => setReference(e.target.value.toUpperCase())}
-            placeholder="ST-…"
-            required
-          />
-        </label>
-        <label className="field">
-          <span>{ar ? 'الرمز اليدوي (6 أرقام)' : 'Manual code (6 digits)'}</span>
-          <input
-            className="input"
-            dir="ltr"
-            inputMode="numeric"
-            pattern="\d{6}"
-            maxLength={6}
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            required
-          />
-        </label>
-        <button
-          type="submit"
-          className="button button--primary"
-          disabled={busy || code.length !== 6}
+        <form
+          className="viewing-gate__manual"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void loadPreview({
+              kind: 'code',
+              reference: reference.trim(),
+              code: code.trim(),
+            });
+          }}
         >
-          {autoConfirm
-            ? busy
-              ? ar
-                ? 'جارٍ التسجيل…'
-                : 'Recording…'
+          <h2>{ar ? 'أو أدخل رقم الحجز والرمز' : 'Or enter booking ref and code'}</h2>
+          <label className="field">
+            <span>{ar ? 'رقم الحجز' : 'Booking reference'}</span>
+            <input
+              className="input"
+              dir="ltr"
+              value={reference}
+              onChange={(e) => setReference(e.target.value.toUpperCase())}
+              placeholder="ST-…"
+              required
+            />
+          </label>
+          <label className="field">
+            <span>{ar ? 'الرمز اليدوي (6 أرقام)' : 'Manual code (6 digits)'}</span>
+            <input
+              className="input"
+              dir="ltr"
+              inputMode="numeric"
+              pattern="\d{6}"
+              maxLength={6}
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              required
+            />
+          </label>
+          <button
+            type="submit"
+            className="button button--primary"
+            disabled={busy || code.length !== 6}
+          >
+            {autoConfirm
+              ? busy
+                ? ar
+                  ? 'جارٍ التسجيل…'
+                  : 'Recording…'
+                : ar
+                  ? 'تسجيل الدخول الآن'
+                  : 'Check in now'
               : ar
-                ? 'تسجيل الدخول الآن'
-                : 'Check in now'
-            : ar
-              ? 'عرض بيانات الضيف'
-              : 'Show guest details'}
-        </button>
-      </form>
+                ? 'عرض بيانات الضيف'
+                : 'Show guest details'}
+          </button>
+        </form>
 
-      {error ? (
-        <p className="notice notice--error" role="alert">
-          {error}
-        </p>
-      ) : null}
-    </section>
+        {error ? (
+          <p className="notice notice--error" role="alert">
+            {error}
+          </p>
+        ) : null}
+      </section>
     </>
   );
 }

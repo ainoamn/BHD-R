@@ -55,8 +55,7 @@ export function leaseTermsToDraft(terms: LeaseTerms): LeaseTermsDraft {
     rentCalcMode: terms.rentCalcMode,
     monthlyRent: money(terms.monthlyRentMinor, digits),
     rentAreaSqm: terms.rentAreaSqm ?? '',
-    rentPerSqm:
-      terms.rentPerSqmMinor != null ? money(terms.rentPerSqmMinor, digits) : '',
+    rentPerSqm: terms.rentPerSqmMinor != null ? money(terms.rentPerSqmMinor, digits) : '',
     handoverOn: terms.handoverOn ?? '',
     startsOn: terms.startsOn,
     endsOn: terms.endsOn,
@@ -71,9 +70,7 @@ export function leaseTermsToDraft(terms: LeaseTerms): LeaseTermsDraft {
     municipalityFeePayer: terms.municipalityFee.payer,
     registrationFee: money(terms.totals.registrationFeeMinor, digits),
     otherTaxName: terms.otherTax?.name ?? '',
-    otherTaxRate: terms.otherTax
-      ? percentFromBasisPoints(terms.otherTax.rateBasisPoints)
-      : '',
+    otherTaxRate: terms.otherTax ? percentFromBasisPoints(terms.otherTax.rateBasisPoints) : '',
     graceAsDiscount: terms.graceAsDiscount,
     deposit: money(terms.totals.depositMinor, digits),
     depositItems: terms.depositItems.map((item) => ({
@@ -93,16 +90,14 @@ export function leaseTermsToDraft(terms: LeaseTerms): LeaseTermsDraft {
       bankName: row.bankName ?? '',
     })),
     vatChequeNumbers: terms.vatCheques.map((row) => row.chequeNumber ?? ''),
-    adjustments: terms.adjustments.map(
-      (line): LeaseAdjustmentDraft => ({
-        kind: line.kind,
-        title: line.title,
-        amount: money(line.amountMinor, digits),
-        recurrence: line.recurrence,
-        scope: line.scope,
-        months: line.months != null ? String(line.months) : '',
-      }),
-    ),
+    adjustments: terms.adjustments.map((line): LeaseAdjustmentDraft => ({
+      kind: line.kind,
+      title: line.title,
+      amount: money(line.amountMinor, digits),
+      recurrence: line.recurrence,
+      scope: line.scope,
+      months: line.months != null ? String(line.months) : '',
+    })),
     electricityReading: terms.meters.electricityReading ?? '',
     waterReading: terms.meters.waterReading ?? '',
     notes: terms.notes ?? '',
@@ -161,9 +156,7 @@ function metersFromRaw(raw: unknown): RenewalPreviousMeters {
   }
   const row = raw as Record<string, unknown>;
   const meters =
-    row.meters && typeof row.meters === 'object'
-      ? (row.meters as Record<string, unknown>)
-      : row;
+    row.meters && typeof row.meters === 'object' ? (row.meters as Record<string, unknown>) : row;
   const text = (value: unknown) =>
     typeof value === 'string' && value.trim() ? value.trim() : undefined;
   return {
@@ -193,8 +186,7 @@ export function buildRenewalTermsDraft(input: RenewalSeedInput): RenewalTermsSee
   }
 
   if (base) {
-    const monthlyRentMinor =
-      parseMoney(base.monthlyRent, digits) ?? Number(input.rentMinor) ?? 0;
+    const monthlyRentMinor = parseMoney(base.monthlyRent, digits) ?? Number(input.rentMinor) ?? 0;
     const schedule = buildRentSchedule({
       startsOn,
       endsOn,
@@ -291,4 +283,3 @@ export function buildRenewalTermsDraft(input: RenewalSeedInput): RenewalTermsSee
     },
   };
 }
-

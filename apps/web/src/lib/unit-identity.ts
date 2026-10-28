@@ -50,7 +50,12 @@ export function getUnitSerialNumber(
 /** Assign serials for every unit under a property (stable by code digits within kind). */
 export function assignUnitSerials(
   propertySerial: string | null | undefined,
-  units: Array<{ id: string; code?: string | null; nameAr?: string | null; nameEn?: string | null }>,
+  units: Array<{
+    id: string;
+    code?: string | null;
+    nameAr?: string | null;
+    nameEn?: string | null;
+  }>,
 ): Map<string, string> {
   const counters: Record<MultiUnitKind, number> = { shop: 0, showroom: 0, apartment: 0 };
   const out = new Map<string, string>();

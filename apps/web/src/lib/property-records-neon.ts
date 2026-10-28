@@ -196,8 +196,7 @@ export async function loadPropertySectionRecords(
               codeOf,
               unitProperty: new Map(unitIds.map((id) => [id, propertyId])),
               viewingFieldUserId:
-                hasPermission(claims, 'viewing.read') &&
-                !hasPermission(claims, 'viewing.manage')
+                hasPermission(claims, 'viewing.read') && !hasPermission(claims, 'viewing.manage')
                   ? claims.sub
                   : null,
             },
@@ -623,9 +622,7 @@ async function loadBookings(
     stays
       .filter(
         (row) =>
-          row.status === 'confirmed' ||
-          row.status === 'paid' ||
-          row.status === 'pre_arrival',
+          row.status === 'confirmed' || row.status === 'paid' || row.status === 'pre_arrival',
       )
       .map(async (row) => {
         const gate = await loadStayDepositGate(tx, orgId, row.id);
@@ -697,11 +694,7 @@ async function loadBookings(
         rescheduleCheckInOn: row.rescheduleCheckInOn,
         rescheduleCheckOutOn:
           row.rescheduleCheckInOn && row.rescheduleCheckOutOn
-            ? displayStayCheckoutOn(
-                row.stayType,
-                row.rescheduleCheckInOn,
-                row.rescheduleCheckOutOn,
-              )
+            ? displayStayCheckoutOn(row.stayType, row.rescheduleCheckInOn, row.rescheduleCheckOutOn)
             : row.rescheduleCheckOutOn,
         sortOn: isoDate(row.createdAt),
       };
@@ -861,8 +854,7 @@ async function loadContracts(
     const isSale = row.contractType === 'sale';
     const fromOn = isoDate(row.startsOn) ?? (isSale ? isoDate(row.payloadStartsOn) : null);
     const rawToOn = isoDate(row.endsOn);
-    const toOn =
-      fromOn && rawToOn ? displayStayCheckoutOn(row.stayType, fromOn, rawToOn) : rawToOn;
+    const toOn = fromOn && rawToOn ? displayStayCheckoutOn(row.stayType, fromOn, rawToOn) : rawToOn;
     return {
       id: row.id,
       reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
@@ -944,8 +936,7 @@ async function loadLeases(
   return rows.map((row) => {
     const fromOn = isoDate(row.startsOn);
     const rawToOn = isoDate(row.endsOn);
-    const toOn =
-      fromOn && rawToOn ? displayStayCheckoutOn(row.stayType, fromOn, rawToOn) : rawToOn;
+    const toOn = fromOn && rawToOn ? displayStayCheckoutOn(row.stayType, fromOn, rawToOn) : rawToOn;
     return {
       id: row.id,
       reference: row.contractReference ?? row.id.slice(0, 8).toUpperCase(),

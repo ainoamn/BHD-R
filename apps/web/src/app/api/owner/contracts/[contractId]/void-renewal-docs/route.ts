@@ -38,11 +38,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const result = await voidRenewalForDocumentMismatchOnNeon(
-      claims,
-      contractId,
-      parsed.data.note,
-    );
+    const result = await voidRenewalForDocumentMismatchOnNeon(claims, contractId, parsed.data.note);
     return NextResponse.json(result);
   } catch (error) {
     const code = clientSafeErrorCode(error, 'decision_failed');

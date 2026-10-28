@@ -13,27 +13,25 @@ export type StayPoliciesStructured = Partial<
 
 export type StayPoliciesJsonValue = string[] | StayPoliciesStructured;
 
-export const STAY_POLICY_SECTION_LABELS: Record<
-  StayPolicySectionKey,
-  { ar: string; en: string }
-> = {
-  general: {
-    ar: 'السياسات العامة لمكان الإقامة',
-    en: 'General stay policies',
-  },
-  cancellation: {
-    ar: 'سياسات الإلغاء والتغيير',
-    en: 'Cancellation & change policies',
-  },
-  events: {
-    ar: 'المناسبات والحفلات المسموح بها',
-    en: 'Allowed events & parties',
-  },
-  payment: {
-    ar: 'خيارات الدفع',
-    en: 'Payment options',
-  },
-};
+export const STAY_POLICY_SECTION_LABELS: Record<StayPolicySectionKey, { ar: string; en: string }> =
+  {
+    general: {
+      ar: 'السياسات العامة لمكان الإقامة',
+      en: 'General stay policies',
+    },
+    cancellation: {
+      ar: 'سياسات الإلغاء والتغيير',
+      en: 'Cancellation & change policies',
+    },
+    events: {
+      ar: 'المناسبات والحفلات المسموح بها',
+      en: 'Allowed events & parties',
+    },
+    payment: {
+      ar: 'خيارات الدفع',
+      en: 'Payment options',
+    },
+  };
 
 export function linesToPolicyLines(text: string): string[] {
   return text
@@ -65,7 +63,7 @@ export function parseStayPoliciesJson(
   const generalLines = isLegacyPoliciesJson(raw) ? raw : [];
   const generalAr = generalLines.length
     ? generalLines.join('\n')
-    : fallback?.policiesAr?.trim() ?? '';
+    : (fallback?.policiesAr?.trim() ?? '');
   const generalEn = fallback?.policiesEn?.trim() ?? '';
   return {
     general: {

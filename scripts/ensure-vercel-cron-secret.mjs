@@ -32,8 +32,16 @@ if (run('npx', ['--yes', 'vercel', 'link', '--yes', '--project', 'bhd-r-api']) !
 
 const pullFile = path.join(root, '.env.vercel.cron-check');
 if (
-  run('npx', ['--yes', 'vercel', 'env', 'pull', pullFile, '--environment', 'production', '--yes']) !==
-  0
+  run('npx', [
+    '--yes',
+    'vercel',
+    'env',
+    'pull',
+    pullFile,
+    '--environment',
+    'production',
+    '--yes',
+  ]) !== 0
 ) {
   throw new Error('env pull failed');
 }
@@ -44,8 +52,7 @@ const existing = (pulled.match(/^CRON_SECRET=(.*)$/m)?.[1] ?? '')
   .replace(/\\n/g, '')
   .trim();
 
-const secret =
-  existing.length >= 16 ? existing : randomBytes(24).toString('base64url');
+const secret = existing.length >= 16 ? existing : randomBytes(24).toString('base64url');
 
 if (existing.length >= 16) {
   console.log('CRON_SECRET already present in production (≥16). Re-syncing preview…');
@@ -60,17 +67,13 @@ try {
   for (const environment of ['production', 'preview']) {
     // Remove then add to avoid duplicate interactive prompts.
     run('npx', ['--yes', 'vercel', 'env', 'rm', 'CRON_SECRET', environment, '--yes']);
-    const add = spawnSync(
-      'npx',
-      ['--yes', 'vercel', 'env', 'add', 'CRON_SECRET', environment],
-      {
-        cwd: root,
-        encoding: 'utf8',
-        shell: true,
-        // Do not append \n — Vercel stores stdin as-is and cron headers reject whitespace.
-        input: secret,
-      },
-    );
+    const add = spawnSync('npx', ['--yes', 'vercel', 'env', 'add', 'CRON_SECRET', environment], {
+      cwd: root,
+      encoding: 'utf8',
+      shell: true,
+      // Do not append \n — Vercel stores stdin as-is and cron headers reject whitespace.
+      input: secret,
+    });
     if (add.stdout) process.stdout.write(add.stdout);
     if (add.stderr) process.stderr.write(add.stderr);
     if ((add.status ?? 1) !== 0) {

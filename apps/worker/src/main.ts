@@ -39,11 +39,7 @@ import {
   pdfJobSchema,
 } from './validation.js';
 import { ensureStayTurnoverTask } from './stays/housekeeping.js';
-import {
-  isStayOutboxTopic,
-  parseStayPlatformEnabled,
-  STAY_JOB_NAMES,
-} from './stays/jobs.js';
+import { isStayOutboxTopic, parseStayPlatformEnabled, STAY_JOB_NAMES } from './stays/jobs.js';
 import {
   rebuildStayInventoryDaysForUnit,
   releaseExpiredStayHolds,
@@ -358,8 +354,7 @@ const workers = [
             const organizationId = event.organizationId;
             if (!organizationId) return { skipped: true, reason: 'missing_organization' };
 
-            let resolvedUnitId =
-              typeof payload.unitId === 'string' ? payload.unitId : undefined;
+            let resolvedUnitId = typeof payload.unitId === 'string' ? payload.unitId : undefined;
             if (!resolvedUnitId && event.aggregateType === 'stay_inventory_lock') {
               const lock = await workerQuery<{ unit_id: string }>(
                 `SELECT unit_id FROM stay_inventory_locks WHERE id = $1::uuid LIMIT 1`,

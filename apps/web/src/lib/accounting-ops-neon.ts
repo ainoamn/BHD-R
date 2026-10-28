@@ -315,10 +315,7 @@ function scheduleChequeNumber(
   return `SCH-${short}-${kind}-${index}`.slice(0, 80);
 }
 
-function reviewStatusFromLine(
-  chequeStatus: string | null,
-  lineStatus: string,
-): string {
+function reviewStatusFromLine(chequeStatus: string | null, lineStatus: string): string {
   if (chequeStatus) return chequeStatus;
   if (lineStatus === 'paid') return 'cleared';
   if (lineStatus === 'bounced') return 'bounced';
@@ -660,7 +657,9 @@ export async function listAccountingCheques(
       });
     }
 
-    out.sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.chequeNumber.localeCompare(b.chequeNumber));
+    out.sort(
+      (a, b) => a.dueOn.localeCompare(b.dueOn) || a.chequeNumber.localeCompare(b.chequeNumber),
+    );
 
     const weekEnd = plusIsoDays(today, 7);
     const monthStart = `${today.slice(0, 7)}-01`;
@@ -718,7 +717,10 @@ function openCheque(row: AccountingChequeRow): boolean {
 }
 
 /** Accountant confirms the office received the installment. Marks the cheque cleared. */
-export async function confirmChequeCollected(claims: SessionClaims, id: string): Promise<{ id: string }> {
+export async function confirmChequeCollected(
+  claims: SessionClaims,
+  id: string,
+): Promise<{ id: string }> {
   if (!canManageAccounting(claims)) fail('forbidden');
   if (!UUID.test(id)) fail('invalid_input');
   const orgId = claims.organizationId!;

@@ -22,9 +22,7 @@ export async function requireSiteAdminPage(
   if (!hasDatabaseUrl()) notFound();
   const path =
     options?.path ??
-    (scope
-      ? ADMIN_SECTIONS.find((section) => section.scope === scope)!.path
-      : '/admin');
+    (scope ? ADMIN_SECTIONS.find((section) => section.scope === scope)!.path : '/admin');
   const claims = await readClaims();
   if (!claims) redirect(`/${locale}/login?next=${encodeURIComponent(`/${locale}${path}`)}`);
   const access = await siteAdminAccess(claims).catch(() => null);

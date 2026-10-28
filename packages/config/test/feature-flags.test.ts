@@ -15,12 +15,10 @@ describe('stays feature flags (phase 0)', () => {
 
   it('resolveStaysEnabled is fail-closed at every layer', () => {
     expect(resolveStaysEnabled({}).reason).toBe('platform_off');
-    expect(
-      resolveStaysEnabled({ platformEnabled: true }).reason,
-    ).toBe('organization_off');
-    expect(
-      resolveStaysEnabled({ platformEnabled: true, organizationEnabled: true }).reason,
-    ).toBe('property_off');
+    expect(resolveStaysEnabled({ platformEnabled: true }).reason).toBe('organization_off');
+    expect(resolveStaysEnabled({ platformEnabled: true, organizationEnabled: true }).reason).toBe(
+      'property_off',
+    );
     expect(
       resolveStaysEnabled({
         platformEnabled: true,
@@ -82,9 +80,7 @@ describe('stays feature flags (phase 0)', () => {
   });
 
   it('treats unknown boolean strings as default false', () => {
-    expect(readStaysFlagsFromEnv({ STAYS_PLATFORM_ENABLED: 'maybe' }).platformEnabled).toBe(
-      false,
-    );
+    expect(readStaysFlagsFromEnv({ STAYS_PLATFORM_ENABLED: 'maybe' }).platformEnabled).toBe(false);
   });
 
   it('env-only public surface follows the platform kill-switch', () => {

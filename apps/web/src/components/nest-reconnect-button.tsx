@@ -43,10 +43,20 @@ export function NestReconnectButton({ locale }: { locale: 'ar' | 'en' }) {
 
   return (
     <div className="ops-api-banner__actions">
-      <button type="button" className="button button--primary" disabled={busy} onClick={() => void reconnect()}>
+      <button
+        type="button"
+        className="button button--primary"
+        disabled={busy}
+        onClick={() => void reconnect()}
+      >
         {busy ? (ar ? 'جارٍ…' : 'Working…') : ar ? 'إعادة الاتصال بـ Nest' : 'Reconnect to Nest'}
       </button>
-      <a className="button button--quiet" href="https://bhd-r.onrender.com/healthz" target="_blank" rel="noreferrer">
+      <a
+        className="button button--quiet"
+        href="https://bhd-r.onrender.com/healthz"
+        target="_blank"
+        rel="noreferrer"
+      >
         /healthz
       </a>
       {hint ? <p className="ops-api-banner__note">{hint}</p> : null}

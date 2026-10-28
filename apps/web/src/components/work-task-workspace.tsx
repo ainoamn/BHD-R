@@ -6,12 +6,7 @@ import { browserNextMutation, ApiError } from '@/lib/api';
 import { NoteTranslateBar, TranslatableNote } from '@/components/note-translate';
 import type { WorkTaskDetail } from '@/lib/work-task-shared';
 import type { PortalRole } from '@/lib/types';
-import {
-  taskDay,
-  taskNeedsReason,
-  taskPriorityLabel,
-  taskStatusLabel,
-} from '@/lib/work-task-ui';
+import { taskDay, taskNeedsReason, taskPriorityLabel, taskStatusLabel } from '@/lib/work-task-ui';
 
 const DUTY: Record<string, [string, string]> = {
   lead: ['المسؤول', 'Responsible'],
@@ -75,8 +70,12 @@ export function WorkTaskWorkspace({
   const [legalNote, setLegalNote] = useState('');
   const [memberId, setMemberId] = useState('');
   const [memberEmail, setMemberEmail] = useState('');
-  const [memberDuty, setMemberDuty] = useState<'lead' | 'executor' | 'supervisor' | 'viewer'>('viewer');
-  const [subjectKind, setSubjectKind] = useState<'party' | 'property' | 'unit'>(detail.subject?.kind ?? 'party');
+  const [memberDuty, setMemberDuty] = useState<'lead' | 'executor' | 'supervisor' | 'viewer'>(
+    'viewer',
+  );
+  const [subjectKind, setSubjectKind] = useState<'party' | 'property' | 'unit'>(
+    detail.subject?.kind ?? 'party',
+  );
   const [subjectId, setSubjectId] = useState(detail.subject?.id ?? '');
   const [subjectPropertyId, setSubjectPropertyId] = useState(
     detail.place.property?.id ??
@@ -93,7 +92,8 @@ export function WorkTaskWorkspace({
   const [dueDraft, setDueDraft] = useState(taskDay(initial.dueAt));
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
-  const closed = detail.status === 'completed' || detail.status === 'cancelled' || detail.status === 'rejected';
+  const closed =
+    detail.status === 'completed' || detail.status === 'cancelled' || detail.status === 'rejected';
   const base = `/api/portal/tasks/${encodeURIComponent(detail.id)}`;
   const steps = NEXT[detail.status] ?? [];
   const due = detail.dueAt ? detail.dueAt.slice(0, 10) : null;
@@ -267,7 +267,10 @@ export function WorkTaskWorkspace({
         <div className="task-desk__meta-item">
           <span className="task-desk__meta-label">{ar ? 'الأولوية' : 'Priority'}</span>
           <strong className={`task-priority task-priority--${detail.priority}`}>
-            <i className={`task-priority-flag task-priority-flag--${detail.priority}`} aria-hidden="true" />{' '}
+            <i
+              className={`task-priority-flag task-priority-flag--${detail.priority}`}
+              aria-hidden="true"
+            />{' '}
             {taskPriorityLabel(detail.priority, locale)}
           </strong>
         </div>
@@ -303,19 +306,28 @@ export function WorkTaskWorkspace({
         </div>
       ) : null}
 
-      {(detail.place.property || detail.place.unit || detail.place.party || detail.related?.length) && (
+      {(detail.place.property ||
+        detail.place.unit ||
+        detail.place.party ||
+        detail.related?.length) && (
         <div className="task-desk__links">
           {detail.place.property ? (
             <Link href={`/${portal}/properties/${encodeURIComponent(detail.place.property.id)}`}>
-              {ar ? `المبنى: ${detail.place.property.label}` : `Building: ${detail.place.property.label}`}
+              {ar
+                ? `المبنى: ${detail.place.property.label}`
+                : `Building: ${detail.place.property.label}`}
             </Link>
           ) : null}
           {detail.place.unit ? (
-            <span>{ar ? `الوحدة: ${detail.place.unit.label}` : `Unit: ${detail.place.unit.label}`}</span>
+            <span>
+              {ar ? `الوحدة: ${detail.place.unit.label}` : `Unit: ${detail.place.unit.label}`}
+            </span>
           ) : null}
           {detail.place.party ? (
             <Link href={`/${portal}/contacts/${encodeURIComponent(detail.place.party.id)}`}>
-              {ar ? `المستأجر / الطرف: ${detail.place.party.label}` : `Tenant / party: ${detail.place.party.label}`}
+              {ar
+                ? `المستأجر / الطرف: ${detail.place.party.label}`
+                : `Tenant / party: ${detail.place.party.label}`}
             </Link>
           ) : null}
           {(detail.related ?? []).map((row) => (
@@ -397,9 +409,7 @@ export function WorkTaskWorkspace({
                 ))}
               </ul>
             ) : (
-              <p className="task-desk__muted">
-                {ar ? 'لا مهام فرعية بعد.' : 'No subtasks yet.'}
-              </p>
+              <p className="task-desk__muted">{ar ? 'لا مهام فرعية بعد.' : 'No subtasks yet.'}</p>
             )}
             {detail.canUpdate && !closed ? (
               <div className="task-desk__stack">
@@ -409,7 +419,11 @@ export function WorkTaskWorkspace({
                     event.preventDefault();
                     const label = subtaskDraft.trim();
                     if (!label) return;
-                    void run(base, { checklistAdd: label }, ar ? 'أُضيفت مهمة فرعية' : 'Subtask added');
+                    void run(
+                      base,
+                      { checklistAdd: label },
+                      ar ? 'أُضيفت مهمة فرعية' : 'Subtask added',
+                    );
                   }}
                 >
                   <input
@@ -564,7 +578,9 @@ export function WorkTaskWorkspace({
                       if (!file) return;
                       if (file.size > 700_000) {
                         setMessage(
-                          ar ? 'الملف أكبر من المسموح (حوالي ٧٠٠ ك.ب).' : 'The file is larger than about 700 KB.',
+                          ar
+                            ? 'الملف أكبر من المسموح (حوالي ٧٠٠ ك.ب).'
+                            : 'The file is larger than about 700 KB.',
                         );
                         return;
                       }
@@ -703,7 +719,9 @@ export function WorkTaskWorkspace({
                           setSubjectId('');
                         }}
                       >
-                        <option value="">{ar ? 'اختر العقار أولاً' : 'Choose property first'}</option>
+                        <option value="">
+                          {ar ? 'اختر العقار أولاً' : 'Choose property first'}
+                        </option>
                         {detail.properties.map((item) => (
                           <option key={item.id} value={item.id}>
                             {item.label}
@@ -714,13 +732,7 @@ export function WorkTaskWorkspace({
                   ) : null}
                   <label>
                     <span>
-                      {subjectKind === 'unit'
-                        ? ar
-                          ? 'الوحدة'
-                          : 'Unit'
-                        : ar
-                          ? 'الاسم'
-                          : 'Name'}
+                      {subjectKind === 'unit' ? (ar ? 'الوحدة' : 'Unit') : ar ? 'الاسم' : 'Name'}
                     </span>
                     <select
                       value={subjectId}
@@ -741,8 +753,7 @@ export function WorkTaskWorkspace({
                         : subjectKind === 'property'
                           ? detail.properties
                           : detail.units.filter(
-                              (item) =>
-                                !subjectPropertyId || item.propertyId === subjectPropertyId,
+                              (item) => !subjectPropertyId || item.propertyId === subjectPropertyId,
                             )
                       ).map((item) => (
                         <option key={item.id} value={item.id}>
@@ -761,11 +772,7 @@ export function WorkTaskWorkspace({
                   <button
                     className="button button--quiet"
                     type="submit"
-                    disabled={
-                      busy ||
-                      !subjectId ||
-                      (subjectKind === 'unit' && !subjectPropertyId)
-                    }
+                    disabled={busy || !subjectId || (subjectKind === 'unit' && !subjectPropertyId)}
                   >
                     {ar ? 'حفظ الربط' : 'Save link'}
                   </button>
@@ -775,7 +782,15 @@ export function WorkTaskWorkspace({
           })()}
 
           <section className="task-desk__card task-desk__card--actions">
-            <h2>{closed ? (ar ? 'المهمة مغلقة' : 'Task closed') : ar ? 'تغيير الحالة' : 'Change status'}</h2>
+            <h2>
+              {closed
+                ? ar
+                  ? 'المهمة مغلقة'
+                  : 'Task closed'
+                : ar
+                  ? 'تغيير الحالة'
+                  : 'Change status'}
+            </h2>
             {detail.canUpdate && !closed ? (
               <>
                 <div className="task-desk__actions">
@@ -925,194 +940,205 @@ export function WorkTaskWorkspace({
           </section>
 
           {!closed ? (
-          <details className="task-desk__more">
-            <summary>{ar ? 'المزيد: أعضاء، تحويل، محامٍ' : 'More: members, transfer, lawyer'}</summary>
-            <div className="task-desk__more-grid">
-              {detail.canAssign ? (
-                <form
-                  className="task-desk__stack"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    const email = memberEmail.trim();
-                    if (email) {
+            <details className="task-desk__more">
+              <summary>
+                {ar ? 'المزيد: أعضاء، تحويل، محامٍ' : 'More: members, transfer, lawyer'}
+              </summary>
+              <div className="task-desk__more-grid">
+                {detail.canAssign ? (
+                  <form
+                    className="task-desk__stack"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      const email = memberEmail.trim();
+                      if (email) {
+                        void run(
+                          `${base}/members`,
+                          { email, duty: memberDuty },
+                          ar ? 'أُرسلت الدعوة / أُضيف العضو' : 'Invitation sent / member added',
+                        );
+                        return;
+                      }
+                      if (!memberId) return;
                       void run(
                         `${base}/members`,
-                        { email, duty: memberDuty },
-                        ar
-                          ? 'أُرسلت الدعوة / أُضيف العضو'
-                          : 'Invitation sent / member added',
+                        { userId: memberId, duty: memberDuty },
+                        ar ? 'أُضيف العضو' : 'Member added',
                       );
-                      return;
-                    }
-                    if (!memberId) return;
-                    void run(
-                      `${base}/members`,
-                      { userId: memberId, duty: memberDuty },
-                      ar ? 'أُضيف العضو' : 'Member added',
-                    );
-                  }}
-                >
-                  <h3>{ar ? 'إضافة عضو' : 'Add a member'}</h3>
-                  <label>
-                    <span>{ar ? 'من الفريق' : 'From the team'}</span>
-                    <select
-                      value={memberId}
-                      disabled={Boolean(memberEmail.trim())}
-                      onChange={(event) => {
-                        setMemberId(event.target.value);
-                        if (event.target.value) setMemberEmail('');
-                      }}
-                    >
-                      <option value="">{ar ? 'اختر موظفاً' : 'Choose a person'}</option>
-                      {detail.people
-                        .filter((person) => !detail.followers.some((seat) => seat.userId === person.userId))
-                        .map((person) => (
-                          <option key={person.userId} value={person.userId}>
-                            {person.name}
+                    }}
+                  >
+                    <h3>{ar ? 'إضافة عضو' : 'Add a member'}</h3>
+                    <label>
+                      <span>{ar ? 'من الفريق' : 'From the team'}</span>
+                      <select
+                        value={memberId}
+                        disabled={Boolean(memberEmail.trim())}
+                        onChange={(event) => {
+                          setMemberId(event.target.value);
+                          if (event.target.value) setMemberEmail('');
+                        }}
+                      >
+                        <option value="">{ar ? 'اختر موظفاً' : 'Choose a person'}</option>
+                        {detail.people
+                          .filter(
+                            (person) =>
+                              !detail.followers.some((seat) => seat.userId === person.userId),
+                          )
+                          .map((person) => (
+                            <option key={person.userId} value={person.userId}>
+                              {person.name}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{ar ? 'أو دعوة بالبريد' : 'Or invite by email'}</span>
+                      <input
+                        type="email"
+                        value={memberEmail}
+                        maxLength={320}
+                        placeholder={ar ? 'name@example.com' : 'name@example.com'}
+                        disabled={Boolean(memberId)}
+                        onChange={(event) => {
+                          setMemberEmail(event.target.value);
+                          if (event.target.value.trim()) setMemberId('');
+                        }}
+                      />
+                    </label>
+                    <p className="task-desk__muted">
+                      {ar
+                        ? 'إذا لم يكن البريد في الفريق تُرسل دعوة للانضمام ثم يُضاف للمهمة.'
+                        : 'If the email is new to the team, an invite is sent and they are added to this task.'}
+                    </p>
+                    <label>
+                      <span>{ar ? 'دوره' : 'Duty'}</span>
+                      <select
+                        value={memberDuty}
+                        onChange={(event) => setMemberDuty(event.target.value as typeof memberDuty)}
+                      >
+                        {Object.entries(DUTY).map(([id, label]) => (
+                          <option key={id} value={id}>
+                            {ar ? label[0] : label[1]}
                           </option>
                         ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>{ar ? 'أو دعوة بالبريد' : 'Or invite by email'}</span>
-                    <input
-                      type="email"
-                      value={memberEmail}
-                      maxLength={320}
-                      placeholder={ar ? 'name@example.com' : 'name@example.com'}
-                      disabled={Boolean(memberId)}
-                      onChange={(event) => {
-                        setMemberEmail(event.target.value);
-                        if (event.target.value.trim()) setMemberId('');
-                      }}
-                    />
-                  </label>
-                  <p className="task-desk__muted">
-                    {ar
-                      ? 'إذا لم يكن البريد في الفريق تُرسل دعوة للانضمام ثم يُضاف للمهمة.'
-                      : 'If the email is new to the team, an invite is sent and they are added to this task.'}
-                  </p>
-                  <label>
-                    <span>{ar ? 'دوره' : 'Duty'}</span>
-                    <select
-                      value={memberDuty}
-                      onChange={(event) => setMemberDuty(event.target.value as typeof memberDuty)}
+                      </select>
+                    </label>
+                    <button
+                      className="button button--quiet"
+                      type="submit"
+                      disabled={busy || (!memberId && !memberEmail.trim())}
                     >
-                      {Object.entries(DUTY).map(([id, label]) => (
-                        <option key={id} value={id}>
-                          {ar ? label[0] : label[1]}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button
-                    className="button button--quiet"
-                    type="submit"
-                    disabled={busy || (!memberId && !memberEmail.trim())}
-                  >
-                    {memberEmail.trim()
-                      ? ar
-                        ? 'دعوة وإضافة'
-                        : 'Invite & add'
-                      : ar
-                        ? 'إضافة'
-                        : 'Add'}
-                  </button>
-                </form>
-              ) : null}
+                      {memberEmail.trim()
+                        ? ar
+                          ? 'دعوة وإضافة'
+                          : 'Invite & add'
+                        : ar
+                          ? 'إضافة'
+                          : 'Add'}
+                    </button>
+                  </form>
+                ) : null}
 
-              {detail.canAssign ? (
-                <form
-                  className="task-desk__stack"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    void run(
-                      base,
-                      { assignedToUserId: assignTo || null },
-                      ar ? 'حُوّلت المهمة' : 'Task transferred',
-                    );
-                  }}
-                >
-                  <h3>{ar ? 'تحويل' : 'Transfer'}</h3>
-                  <label>
-                    <span>{ar ? 'المسؤول الجديد' : 'New owner'}</span>
-                    <select value={assignTo} onChange={(event) => setAssignTo(event.target.value)}>
-                      <option value="">{ar ? 'بدون مسؤول' : 'Unassigned'}</option>
-                      {detail.people.map((person) => (
-                        <option key={person.userId} value={person.userId}>
-                          {person.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button className="button button--quiet" type="submit" disabled={busy}>
-                    {ar ? 'تحويل' : 'Transfer'}
-                  </button>
-                </form>
-              ) : null}
-
-              <div className="task-desk__stack">
-                <h3>{ar ? 'المحامي' : 'Lawyer'}</h3>
-                {detail.legalCase ? (
-                  <Link
-                    className="button button--primary"
-                    href={`/${portal}/legal/${encodeURIComponent(detail.legalCase.id)}`}
-                  >
-                    {ar ? `القضية ${detail.legalCase.reference}` : `Case ${detail.legalCase.reference}`}
-                  </Link>
-                ) : detail.canLegal ? (
+                {detail.canAssign ? (
                   <form
                     className="task-desk__stack"
                     onSubmit={(event) => {
                       event.preventDefault();
                       void run(
-                        `${base}/legal`,
-                        { lawyerPartyId: lawyerId || null, note: legalNote.trim() || undefined },
-                        ar ? 'فُتحت القضية' : 'Case opened',
+                        base,
+                        { assignedToUserId: assignTo || null },
+                        ar ? 'حُوّلت المهمة' : 'Task transferred',
                       );
                     }}
                   >
+                    <h3>{ar ? 'تحويل' : 'Transfer'}</h3>
                     <label>
-                      <span>{ar ? 'اختر المحامي' : 'Choose a lawyer'}</span>
-                      <select value={lawyerId} onChange={(event) => setLawyerId(event.target.value)}>
-                        <option value="">{ar ? 'بدون محامٍ الآن' : 'No lawyer yet'}</option>
-                        {detail.lawyers.map((lawyer) => (
-                          <option key={lawyer.id} value={lawyer.id}>
-                            {lawyer.name}
+                      <span>{ar ? 'المسؤول الجديد' : 'New owner'}</span>
+                      <select
+                        value={assignTo}
+                        onChange={(event) => setAssignTo(event.target.value)}
+                      >
+                        <option value="">{ar ? 'بدون مسؤول' : 'Unassigned'}</option>
+                        {detail.people.map((person) => (
+                          <option key={person.userId} value={person.userId}>
+                            {person.name}
                           </option>
                         ))}
                       </select>
                     </label>
-                    <label>
-                      <span>{ar ? 'ملاحظة للمحامي' : 'Note for the lawyer'}</span>
-                      <textarea
-                        rows={3}
-                        maxLength={2000}
-                        value={legalNote}
-                        onChange={(event) => setLegalNote(event.target.value)}
-                      />
-                    </label>
-                    <NoteTranslateBar
-                      value={legalNote}
-                      onChange={setLegalNote}
-                      locale={locale}
-                      max={2000}
-                      disabled={busy}
-                    />
-                    <button className="button button--primary" type="submit" disabled={busy}>
-                      {ar ? 'فتح قضية' : 'Open a case'}
+                    <button className="button button--quiet" type="submit" disabled={busy}>
+                      {ar ? 'تحويل' : 'Transfer'}
                     </button>
                   </form>
-                ) : (
-                  <p className="task-desk__muted">
-                    {ar
-                      ? 'فتح القضية يحتاج صلاحية إدارة المحاماة.'
-                      : 'Opening a case needs legal management access.'}
-                  </p>
-                )}
+                ) : null}
+
+                <div className="task-desk__stack">
+                  <h3>{ar ? 'المحامي' : 'Lawyer'}</h3>
+                  {detail.legalCase ? (
+                    <Link
+                      className="button button--primary"
+                      href={`/${portal}/legal/${encodeURIComponent(detail.legalCase.id)}`}
+                    >
+                      {ar
+                        ? `القضية ${detail.legalCase.reference}`
+                        : `Case ${detail.legalCase.reference}`}
+                    </Link>
+                  ) : detail.canLegal ? (
+                    <form
+                      className="task-desk__stack"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void run(
+                          `${base}/legal`,
+                          { lawyerPartyId: lawyerId || null, note: legalNote.trim() || undefined },
+                          ar ? 'فُتحت القضية' : 'Case opened',
+                        );
+                      }}
+                    >
+                      <label>
+                        <span>{ar ? 'اختر المحامي' : 'Choose a lawyer'}</span>
+                        <select
+                          value={lawyerId}
+                          onChange={(event) => setLawyerId(event.target.value)}
+                        >
+                          <option value="">{ar ? 'بدون محامٍ الآن' : 'No lawyer yet'}</option>
+                          {detail.lawyers.map((lawyer) => (
+                            <option key={lawyer.id} value={lawyer.id}>
+                              {lawyer.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span>{ar ? 'ملاحظة للمحامي' : 'Note for the lawyer'}</span>
+                        <textarea
+                          rows={3}
+                          maxLength={2000}
+                          value={legalNote}
+                          onChange={(event) => setLegalNote(event.target.value)}
+                        />
+                      </label>
+                      <NoteTranslateBar
+                        value={legalNote}
+                        onChange={setLegalNote}
+                        locale={locale}
+                        max={2000}
+                        disabled={busy}
+                      />
+                      <button className="button button--primary" type="submit" disabled={busy}>
+                        {ar ? 'فتح قضية' : 'Open a case'}
+                      </button>
+                    </form>
+                  ) : (
+                    <p className="task-desk__muted">
+                      {ar
+                        ? 'فتح القضية يحتاج صلاحية إدارة المحاماة.'
+                        : 'Opening a case needs legal management access.'}
+                    </p>
+                  )}
+                </div>
               </div>
-            </div>
-          </details>
+            </details>
           ) : null}
         </div>
 
@@ -1121,8 +1147,7 @@ export function WorkTaskWorkspace({
             <header className="task-desk__activity-head">
               <h2>{ar ? 'النشاط والردود' : 'Activity & comments'}</h2>
               <small>
-                {ar ? 'أُنشئت' : 'Created'}{' '}
-                {detail.events[0]?.at.slice(0, 10) ?? '—'}
+                {ar ? 'أُنشئت' : 'Created'} {detail.events[0]?.at.slice(0, 10) ?? '—'}
               </small>
             </header>
             <ol className="task-desk__thread">
@@ -1134,11 +1159,7 @@ export function WorkTaskWorkspace({
                     <li
                       key={event.id}
                       className={
-                        event.type === 'task.reply'
-                          ? 'is-reply'
-                          : isStatus
-                            ? 'is-status'
-                            : ''
+                        event.type === 'task.reply' ? 'is-reply' : isStatus ? 'is-status' : ''
                       }
                     >
                       <header>
@@ -1151,11 +1172,15 @@ export function WorkTaskWorkspace({
                       </header>
                       {isStatus && (event.fromStatus || event.toStatus) ? (
                         <p className="task-desk__status-change">
-                          <span className={`task-status task-status--sm task-status--${event.fromStatus ?? 'draft'}`}>
+                          <span
+                            className={`task-status task-status--sm task-status--${event.fromStatus ?? 'draft'}`}
+                          >
                             {taskStatusLabel(event.fromStatus ?? 'draft', locale)}
                           </span>
                           <span aria-hidden="true">→</span>
-                          <span className={`task-status task-status--sm task-status--${event.toStatus ?? 'draft'}`}>
+                          <span
+                            className={`task-status task-status--sm task-status--${event.toStatus ?? 'draft'}`}
+                          >
                             {taskStatusLabel(event.toStatus ?? 'draft', locale)}
                           </span>
                         </p>
@@ -1188,9 +1213,7 @@ export function WorkTaskWorkspace({
                 })
               ) : (
                 <li>
-                  <p className="task-desk__muted">
-                    {ar ? 'لا نشاط بعد.' : 'No activity yet.'}
-                  </p>
+                  <p className="task-desk__muted">{ar ? 'لا نشاط بعد.' : 'No activity yet.'}</p>
                 </li>
               )}
             </ol>
@@ -1214,7 +1237,13 @@ export function WorkTaskWorkspace({
                   placeholder={ar ? 'اكتب تعليقاً أو رداً…' : 'Write a comment or reply…'}
                   onChange={(event) => setReply(event.target.value)}
                 />
-                <NoteTranslateBar value={reply} onChange={setReply} locale={locale} max={2000} disabled={busy} />
+                <NoteTranslateBar
+                  value={reply}
+                  onChange={setReply}
+                  locale={locale}
+                  max={2000}
+                  disabled={busy}
+                />
                 <label className="task-desk__stack">
                   <span>{ar ? 'مرفق مع الرد' : 'Attachment with the reply'}</span>
                   <input

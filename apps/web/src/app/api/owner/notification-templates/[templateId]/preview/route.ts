@@ -11,10 +11,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /** GET — live HTML / text / WhatsApp sample for one template. */
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ templateId: string }> },
-) {
+export async function GET(request: Request, context: { params: Promise<{ templateId: string }> }) {
   let claims: SessionClaims;
   try {
     claims = await requireLiveSession(request);

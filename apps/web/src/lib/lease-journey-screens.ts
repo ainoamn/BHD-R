@@ -55,7 +55,10 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
     phase === 'awaiting_terms_signature'
       ? {
           headline: docsReturnOpen
-            ? t('أعد المالك مستندات حجزك للتعديل 📎', 'The owner asked you to fix booking documents 📎')
+            ? t(
+                'أعد المالك مستندات حجزك للتعديل 📎',
+                'The owner asked you to fix booking documents 📎',
+              )
             : t('خطوة صغيرة تفصلك عن حجزك 🖊️', 'One small step to secure it 🖊️'),
           body: docsReturnOpen
             ? t(

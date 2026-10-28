@@ -139,9 +139,7 @@ export function StayGuestReview({
             aria-expanded={hostOpen}
             onClick={() => setHostOpen((open) => !open)}
           >
-            <span>
-              {ar ? 'التقييم والتعليق بالكامل' : 'Full rating and comment'}
-            </span>
+            <span>{ar ? 'التقييم والتعليق بالكامل' : 'Full rating and comment'}</span>
             <span className="muted">
               {hostOpen ? (ar ? 'إخفاء' : 'Hide') : ar ? 'عرض' : 'Show'}
             </span>
@@ -160,7 +158,9 @@ export function StayGuestReview({
                 </p>
               ) : null}
               {state.fromHost.comment ? (
-                <blockquote className="stay-guest-review__quote">{state.fromHost.comment}</blockquote>
+                <blockquote className="stay-guest-review__quote">
+                  {state.fromHost.comment}
+                </blockquote>
               ) : null}
             </div>
           ) : null}
@@ -176,9 +176,7 @@ export function StayGuestReview({
         onClick={() => setHostOpen((open) => !open)}
       >
         <strong>{ar ? 'تقييم المالك لك' : 'The host’s review of you'}</strong>
-        <span className="muted">
-          {hostOpen ? (ar ? 'إخفاء' : 'Hide') : ar ? 'عرض' : 'Show'}
-        </span>
+        <span className="muted">{hostOpen ? (ar ? 'إخفاء' : 'Hide') : ar ? 'عرض' : 'Show'}</span>
       </button>
       {hostOpen ? (
         <p className="muted">
@@ -274,9 +272,7 @@ export function StayGuestReview({
                   <span className="ops-kicker" dir="ltr">
                     {referenceCode}
                   </span>
-                  <h2 id="stay-review-dialog-title">
-                    {ar ? 'تقييم الإقامة' : 'Stay review'}
-                  </h2>
+                  <h2 id="stay-review-dialog-title">{ar ? 'تقييم الإقامة' : 'Stay review'}</h2>
                 </div>
                 <button
                   type="button"

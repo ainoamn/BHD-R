@@ -44,15 +44,9 @@ import {
 import type { DepositClaimView } from '@/lib/stay-deposit-claims';
 import { loadDepositClaims } from '@/lib/stay-deposit-claims-neon';
 import { stayRescheduleCharge, type StayRescheduleCharge } from '@/lib/stay-reschedule-pricing';
-import {
-  loadStayBookingPayments,
-  type StayBookingPaymentLine,
-} from '@/lib/stay-booking-payments';
+import { loadStayBookingPayments, type StayBookingPaymentLine } from '@/lib/stay-booking-payments';
 import type { StayDepositGateStatus } from '@/lib/stay-deposit-gate';
-import {
-  ensureStayDepositPaymentInTx,
-  loadStayDepositGate,
-} from '@/lib/stay-deposit-gate-neon';
+import { ensureStayDepositPaymentInTx, loadStayDepositGate } from '@/lib/stay-deposit-gate-neon';
 import { resolveStayPeriodTimes, type StayPeriodType } from '@/lib/stay-period-times';
 
 type DbHandle = { db: Database };
@@ -263,9 +257,7 @@ function readStayTypeFromSnapshot(snapshot: unknown): string | null {
   return null;
 }
 
-function readPendingReschedule(
-  snapshot: unknown,
-): GuestStayBookingProjection['pendingReschedule'] {
+function readPendingReschedule(snapshot: unknown): GuestStayBookingProjection['pendingReschedule'] {
   if (!snapshot || typeof snapshot !== 'object') return null;
   const pending = (snapshot as Record<string, unknown>).pendingReschedule;
   if (!pending || typeof pending !== 'object') return null;
@@ -554,9 +546,7 @@ async function loadCancelOutcome(
       : null;
   if (!meta) return null;
   const decision =
-    meta.refundDecision === 'refund' || meta.refundDecision === 'keep'
-      ? meta.refundDecision
-      : null;
+    meta.refundDecision === 'refund' || meta.refundDecision === 'keep' ? meta.refundDecision : null;
   const note = typeof meta.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
   const paidAmountMinor =
     typeof meta.paidAmountMinor === 'string' && /^\d+$/.test(meta.paidAmountMinor)
@@ -658,8 +648,7 @@ async function enrichProjection(
       : Promise.resolve(null),
   ]);
   const stamp = stamps?.get(booking.id);
-  const depositMinor =
-    depositGate?.amountMinor ?? deposits?.get(booking.id) ?? null;
+  const depositMinor = depositGate?.amountMinor ?? deposits?.get(booking.id) ?? null;
   let depositPaymentUrl: string | null = null;
   if (
     depositGate?.required &&
@@ -783,9 +772,9 @@ async function enrichProjection(
     pendingReschedule,
     canPay: Boolean(
       (base.canPay && paymentIntentId) ||
-        (pendingReschedule?.paymentRedirectUrl &&
-          (pendingReschedule.status === 'awaiting_guest_payment' ||
-            pendingReschedule.status === 'awaiting_payment')),
+      (pendingReschedule?.paymentRedirectUrl &&
+        (pendingReschedule.status === 'awaiting_guest_payment' ||
+          pendingReschedule.status === 'awaiting_payment')),
     ),
   };
 }
@@ -1210,8 +1199,7 @@ async function syncStayContractAfterRescheduleInTx(
     transaction,
     booking.organizationId,
   );
-  const parentReference =
-    parent.reference ?? `CTR-${parent.id.slice(0, 8).toUpperCase()}`;
+  const parentReference = parent.reference ?? `CTR-${parent.id.slice(0, 8).toUpperCase()}`;
   const reference = await allocateChildContractReference(
     transaction,
     booking.organizationId,
@@ -1364,9 +1352,7 @@ async function syncStayContractAfterRescheduleInTx(
       },
       updatedAt: now,
     })
-    .where(
-      and(eq(contracts.id, parent.id), eq(contracts.organizationId, booking.organizationId)),
-    );
+    .where(and(eq(contracts.id, parent.id), eq(contracts.organizationId, booking.organizationId)));
 
   await transaction
     .update(leases)
@@ -1519,10 +1505,7 @@ async function applyGuestRescheduleInTx(
       updatedAt: now,
     })
     .where(
-      and(
-        eq(stayBookings.id, booking.id),
-        eq(stayBookings.organizationId, booking.organizationId),
-      ),
+      and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, booking.organizationId)),
     )
     .returning();
   if (!updated) {
@@ -1554,12 +1537,7 @@ async function applyGuestRescheduleInTx(
       );
   }
 
-  const amendment = await syncStayContractAfterRescheduleInTx(
-    transaction,
-    updated,
-    stayType,
-    move,
-  );
+  const amendment = await syncStayContractAfterRescheduleInTx(transaction, updated, stayType, move);
   const [profileTimesForLog] = booking.stayProfileId
     ? await transaction
         .select({
@@ -1846,13 +1824,7 @@ export async function rescheduleGuestStayBookingOnNeon(input: {
       return { quote, payment };
     }
 
-    const updated = await applyGuestRescheduleInTx(
-      transaction,
-      booking,
-      priced,
-      stayType,
-      charge,
-    );
+    const updated = await applyGuestRescheduleInTx(transaction, booking, priced, stayType, charge);
     return {
       quote,
       booking: await enrichProjection(transaction, updated),
@@ -1888,10 +1860,7 @@ export async function createRescheduleTopUpPaymentInTx(
       updatedAt: now,
     })
     .where(
-      and(
-        eq(stayBookings.id, booking.id),
-        eq(stayBookings.organizationId, booking.organizationId),
-      ),
+      and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, booking.organizationId)),
     );
 
   const idempotencyKey = `reschedule_topup:${booking.id}:${pending.checkInOn}:${pending.checkOutOn}:${pending.stayType}`;
@@ -2080,14 +2049,15 @@ export async function clearPendingRescheduleInTx(
       updatedAt: now,
     })
     .where(
-      and(
-        eq(stayBookings.id, booking.id),
-        eq(stayBookings.organizationId, booking.organizationId),
-      ),
+      and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, booking.organizationId)),
     )
     .returning();
   if (!updated) {
-    throw new PublicStayBookingError('reschedule_failed', 'Could not clear pending reschedule', 409);
+    throw new PublicStayBookingError(
+      'reschedule_failed',
+      'Could not clear pending reschedule',
+      409,
+    );
   }
   await transaction.insert(stayBookingStatusHistory).values({
     organizationId: booking.organizationId,

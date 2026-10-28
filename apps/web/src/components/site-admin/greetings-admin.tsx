@@ -15,7 +15,9 @@ import { adminDate, adminErrorText, adminGet, type AdminNotice } from './admin-f
 
 function currentDesign(campaign: GreetingCampaign): GreetingDesignVersion | null {
   if (!campaign.currentDesignId) return campaign.designs[0] ?? null;
-  return campaign.designs.find((d) => d.id === campaign.currentDesignId) ?? campaign.designs[0] ?? null;
+  return (
+    campaign.designs.find((d) => d.id === campaign.currentDesignId) ?? campaign.designs[0] ?? null
+  );
 }
 
 function designPreviewSrc(campaignId: string, design: GreetingDesignVersion): string {
@@ -391,9 +393,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
         campaign = uploaded.campaign;
         setPendingImage(null);
       }
-      setCampaigns((current) =>
-        (current ?? []).map((c) => (c.id === campaign.id ? campaign : c)),
-      );
+      setCampaigns((current) => (current ?? []).map((c) => (c.id === campaign.id ? campaign : c)));
       setEstimate(data.estimate);
       setNotice({ tone: 'success', text: ar ? 'حُفظت التعديلات.' : 'Saved.' });
     } catch (error) {
@@ -522,14 +522,11 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
       ? form.bodyAr || design?.bodyAr || ''
       : form.bodyEn || design?.bodyEn || form.bodyAr || '';
   const previewImage =
-    pendingImage?.previewUrl ||
-    (selected && design ? designPreviewSrc(selected.id, design) : null);
+    pendingImage?.previewUrl || (selected && design ? designPreviewSrc(selected.id, design) : null);
   const whatsappCaption = [
     previewHeadline ? `*${previewHeadline}*` : '',
     previewBody,
-    form.occasion
-      ? `${form.occasion}${form.occasionDate ? ` · ${form.occasionDate}` : ''}`
-      : '',
+    form.occasion ? `${form.occasion}${form.occasionDate ? ` · ${form.occasionDate}` : ''}` : '',
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -867,8 +864,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 <p>{previewBody || '—'}</p>
                 {form.meaning ? <p className="muted">{form.meaning}</p> : null}
                 <p className="sa-greetings__email-meta">
-                  {(form.occasion || '—') +
-                    (form.occasionDate ? ` · ${form.occasionDate}` : '')}
+                  {(form.occasion || '—') + (form.occasionDate ? ` · ${form.occasionDate}` : '')}
                 </p>
               </article>
             ) : (
@@ -938,5 +934,7 @@ function fromLocalInput(value: string): string {
   const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
   if (!m) return new Date(value).toISOString();
   const [, y, mo, d, h, mi] = m;
-  return new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h) - 4, Number(mi))).toISOString();
+  return new Date(
+    Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h) - 4, Number(mi)),
+  ).toISOString();
 }

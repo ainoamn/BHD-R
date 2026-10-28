@@ -6,10 +6,7 @@ export async function LegalPage({
   bodyKey,
 }: {
   titleKey:
-    | 'Legal.trustTitle'
-    | 'Legal.privacyTitle'
-    | 'Legal.termsTitle'
-    | 'Legal.accessibilityTitle';
+    'Legal.trustTitle' | 'Legal.privacyTitle' | 'Legal.termsTitle' | 'Legal.accessibilityTitle';
   bodyKey: 'Legal.trustBody' | 'Legal.privacyBody' | 'Legal.termsBody' | 'Legal.accessibilityBody';
 }) {
   const t = await getTranslations();

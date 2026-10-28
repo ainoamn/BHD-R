@@ -36,9 +36,7 @@ export function DepositWaiveDialog({
           <header>
             <div>
               <span className="ops-kicker">{ar ? 'تأمين الإقامة' : 'Stay deposit'}</span>
-              <h2 id="deposit-waive-title">
-                {ar ? 'مبلغ التأمين غير مدفوع' : 'Deposit not paid'}
-              </h2>
+              <h2 id="deposit-waive-title">{ar ? 'مبلغ التأمين غير مدفوع' : 'Deposit not paid'}</h2>
             </div>
             <button
               type="button"

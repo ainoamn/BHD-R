@@ -13,13 +13,13 @@
 
 ## Fix
 
-| Area | Change |
-|------|--------|
+| Area     | Change                                                                                                     |
+| -------- | ---------------------------------------------------------------------------------------------------------- |
 | Login UX | `/login` → `/api/auth/bhd/start` unless `?local=1` or `?bhd=` error; compact error page points to Identity |
-| OAuth | Seal `redirectUri` in state; cookie `Path=/`; clear both legacy paths on logout |
-| Verify | `apps/web/src/lib/bhd/verify-id-token.ts` — userinfo first after PKCE, null-tolerant, HS256 fallback |
-| Ops | `scripts/fix-vercel-identity-env.mjs`, `.vercelignore` |
-| Identity | `bhd-r` `mode=sso`, `startUrl` → `/api/auth/bhd/start` |
+| OAuth    | Seal `redirectUri` in state; cookie `Path=/`; clear both legacy paths on logout                            |
+| Verify   | `apps/web/src/lib/bhd/verify-id-token.ts` — userinfo first after PKCE, null-tolerant, HS256 fallback       |
+| Ops      | `scripts/fix-vercel-identity-env.mjs`, `.vercelignore`                                                     |
+| Identity | `bhd-r` `mode=sso`, `startUrl` → `/api/auth/bhd/start`                                                     |
 
 ## Accept
 

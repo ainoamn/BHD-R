@@ -105,24 +105,21 @@ export function leasingRowUnit(row: Record<string, unknown>, ar: boolean): strin
 export function leasingFilterActive(filter: LeasingTableFilter): boolean {
   return Boolean(
     filter.reference ||
-      filter.property ||
-      filter.unit ||
-      filter.owner ||
-      filter.tenant ||
-      filter.state ||
-      filter.startsFrom ||
-      filter.startsTo ||
-      filter.endsFrom ||
-      filter.endsTo ||
-      filter.rent,
+    filter.property ||
+    filter.unit ||
+    filter.owner ||
+    filter.tenant ||
+    filter.state ||
+    filter.startsFrom ||
+    filter.startsTo ||
+    filter.endsFrom ||
+    filter.endsTo ||
+    filter.rent,
   );
 }
 
 /** Whether a specific column currently has an active filter value. */
-export function leasingColumnHasFilter(
-  filter: LeasingTableFilter,
-  key: LeasingColumnKey,
-): boolean {
+export function leasingColumnHasFilter(filter: LeasingTableFilter, key: LeasingColumnKey): boolean {
   switch (key) {
     case 'reference':
       return Boolean(filter.reference);
@@ -147,10 +144,7 @@ export function leasingColumnHasFilter(
   }
 }
 
-export function leasingTextFilterValue(
-  filter: LeasingTableFilter,
-  key: LeasingColumnKey,
-): string {
+export function leasingTextFilterValue(filter: LeasingTableFilter, key: LeasingColumnKey): string {
   switch (key) {
     case 'reference':
       return filter.reference;
@@ -260,10 +254,12 @@ export function sortLeasingRows<T extends Record<string, unknown>>(
     if (typeof left === 'number' && typeof right === 'number') {
       return (left - right) * dir;
     }
-    return String(left).localeCompare(String(right), ar ? 'ar' : 'en', {
-      numeric: true,
-      sensitivity: 'base',
-    }) * dir;
+    return (
+      String(left).localeCompare(String(right), ar ? 'ar' : 'en', {
+        numeric: true,
+        sensitivity: 'base',
+      }) * dir
+    );
   });
 }
 
@@ -274,7 +270,11 @@ export function toggleLeasingSort(
   if (filter.sortKey === key) {
     return { ...filter, sortDir: filter.sortDir === 'asc' ? 'desc' : 'asc' };
   }
-  return { ...filter, sortKey: key, sortDir: key === 'startsOn' || key === 'endsOn' ? 'desc' : 'asc' };
+  return {
+    ...filter,
+    sortKey: key,
+    sortDir: key === 'startsOn' || key === 'endsOn' ? 'desc' : 'asc',
+  };
 }
 
 export type LeasingPrintRow = {

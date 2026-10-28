@@ -2179,11 +2179,7 @@ export const cheques = pgTable(
   ],
 );
 
-export const reviewTargetType = pgEnum('review_target_type', [
-  'property',
-  'party',
-  'organization',
-]);
+export const reviewTargetType = pgEnum('review_target_type', ['property', 'party', 'organization']);
 
 export const reviewStatus = pgEnum('review_status', ['published', 'hidden']);
 

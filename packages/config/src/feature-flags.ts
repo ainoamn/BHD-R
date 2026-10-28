@@ -136,8 +136,7 @@ export function resolveStaysEnabledFromEnv(
   const orgId = input.organizationId?.trim().toLowerCase() ?? '';
   const allowlist = fromEnv.organizationAllowlist;
   const organizationEnabled =
-    Boolean(orgId) &&
-    (allowlist.size === 0 || allowlist.has('*') || allowlist.has(orgId));
+    Boolean(orgId) && (allowlist.size === 0 || allowlist.has('*') || allowlist.has(orgId));
 
   return resolveStaysEnabled({
     platformEnabled: fromEnv.platformEnabled,

@@ -58,7 +58,11 @@ const ACCOUNT_TYPE: Record<string, { ar: string; en: string }> = {
 };
 
 /** Known fixed phrases stored on journals/documents → bilingual display. */
-const PHRASE: Array<{ match: RegExp; ar: (m: RegExpMatchArray) => string; en: (m: RegExpMatchArray) => string }> = [
+const PHRASE: Array<{
+  match: RegExp;
+  ar: (m: RegExpMatchArray) => string;
+  en: (m: RegExpMatchArray) => string;
+}> = [
   {
     match: /^Reversal of\s+(.+)$/i,
     ar: (m) => `عكس القيد ${m[1]}`,

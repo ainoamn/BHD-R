@@ -5,10 +5,10 @@
 
 ## ماذا يُنشر وأين
 
-| سطح | مضيف | مصدر | ملاحظة |
-| --- | --- | --- | --- |
-| واجهة | Vercel مشروع `bhd-r-api` → `https://r.bhd-om.com` | Auto من `main` | Root = `apps/web` |
-| API | Render → `https://bhd-r.onrender.com` | Auto Docker `Dockerfile.api` | يجب أن يصبح **Live** على `6e5b607+` |
+| سطح   | مضيف                                              | مصدر                         | ملاحظة                              |
+| ----- | ------------------------------------------------- | ---------------------------- | ----------------------------------- |
+| واجهة | Vercel مشروع `bhd-r-api` → `https://r.bhd-om.com` | Auto من `main`               | Root = `apps/web`                   |
+| API   | Render → `https://bhd-r.onrender.com`             | Auto Docker `Dockerfile.api` | يجب أن يصبح **Live** على `6e5b607+` |
 
 ## سلسلة المشاكل التي يغطيها الإصدار
 
@@ -20,11 +20,11 @@
 
 ## التحقق بعد Live
 
-1. Render: Deploy لـ `6e5b607` (أو أحدث) = **Live** وليس Failed  
-2. `GET https://bhd-r.onrender.com/health/ready` → `{"status":"ready",...}`  
-3. Vercel: أحدث Deployment من `main` = Ready  
-4. تسجيل دخول → `/ar/owner/properties/new` → إكمال المعالج مع صورتين → **حفظ العقار والوحدات** بدون Failed to fetch  
-5. على هاتف ≤960px: القائمة مخفية حتى ☰  
+1. Render: Deploy لـ `6e5b607` (أو أحدث) = **Live** وليس Failed
+2. `GET https://bhd-r.onrender.com/health/ready` → `{"status":"ready",...}`
+3. Vercel: أحدث Deployment من `main` = Ready
+4. تسجيل دخول → `/ar/owner/properties/new` → إكمال المعالج مع صورتين → **حفظ العقار والوحدات** بدون Failed to fetch
+5. على هاتف ≤960px: القائمة مخفية حتى ☰
 
 ## متغيرات ضرورية
 
@@ -34,8 +34,8 @@
 
 ## وثائق مرتبطة
 
-- [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md) — استضافة Nest + CORS build fix + media ingress  
-- [`PROPERTY-WIZARD-AR.md`](./PROPERTY-WIZARD-AR.md) — المعالج والحفظ  
-- [`PORTAL-DASHBOARD-AR.md`](./PORTAL-DASHBOARD-AR.md) / [`PORTAL-CHROME-AR.md`](./PORTAL-CHROME-AR.md) — لوحة التحكم والجوال  
-- [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md) — ضبط Vercel يدوياً  
-- [`CHANGELOG.md`](../../CHANGELOG.md) — سجل الإصدارات  
+- [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md) — استضافة Nest + CORS build fix + media ingress
+- [`PROPERTY-WIZARD-AR.md`](./PROPERTY-WIZARD-AR.md) — المعالج والحفظ
+- [`PORTAL-DASHBOARD-AR.md`](./PORTAL-DASHBOARD-AR.md) / [`PORTAL-CHROME-AR.md`](./PORTAL-CHROME-AR.md) — لوحة التحكم والجوال
+- [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md) — ضبط Vercel يدوياً
+- [`CHANGELOG.md`](../../CHANGELOG.md) — سجل الإصدارات

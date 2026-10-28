@@ -1,11 +1,5 @@
 export type StayDayStatus =
-  | 'available'
-  | 'blocked'
-  | 'booked'
-  | 'hold'
-  | 'maintenance'
-  | 'lease'
-  | 'unavailable';
+  'available' | 'blocked' | 'booked' | 'hold' | 'maintenance' | 'lease' | 'unavailable';
 
 export function enumerateStayDates(fromOn: string, toOn: string): string[] {
   const days: string[] = [];

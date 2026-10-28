@@ -21,10 +21,7 @@ const bodySchema = z
   })
   .strict();
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ reference: string }> },
-) {
+export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!isStayEsignRequiredServer()) {
     return stayBookingJson({ error: { code: 'esign_disabled' } }, { status: 404 });
   }

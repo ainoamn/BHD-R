@@ -1,7 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ApprovalPolicyCard, type ApprovalPolicyKindState } from '@/components/approval-policy-card';
+import {
+  ApprovalPolicyCard,
+  type ApprovalPolicyKindState,
+} from '@/components/approval-policy-card';
 import { Link } from '@/i18n/navigation';
 import {
   CONTRACT_APPROVAL_KINDS,
@@ -63,9 +66,7 @@ export function ApprovalPolicyBuildingsPanel({
       if (filter === 'custom' && !custom) return false;
       if (filter === 'inherited' && custom) return false;
       if (!needle) return true;
-      return (
-        normalize(row.nameAr).includes(needle) || normalize(row.nameEn).includes(needle)
-      );
+      return normalize(row.nameAr).includes(needle) || normalize(row.nameEn).includes(needle);
     });
   }, [buildings, filter, query]);
 
@@ -105,9 +106,7 @@ export function ApprovalPolicyBuildingsPanel({
           row.id === propertyId
             ? {
                 ...row,
-                overrideKinds: next
-                  .filter((item) => item.initialPolicy)
-                  .map((item) => item.kind),
+                overrideKinds: next.filter((item) => item.initialPolicy).map((item) => item.kind),
               }
             : row,
         ),
@@ -213,9 +212,7 @@ export function ApprovalPolicyBuildingsPanel({
             })}
           </ul>
 
-          {filtered.length === 0 ? (
-            <p className="muted">{t('لا نتائج.', 'No matches.')}</p>
-          ) : null}
+          {filtered.length === 0 ? <p className="muted">{t('لا نتائج.', 'No matches.')}</p> : null}
 
           {selected ? (
             <div className="approval-buildings__editor">

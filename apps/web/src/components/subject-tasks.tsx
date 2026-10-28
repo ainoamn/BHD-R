@@ -52,7 +52,10 @@ export function SubjectTasks({
 
   if (!rows?.length) return null;
   return (
-    <section className="property-360__section" aria-label={ar ? 'مهام هذا الأصل' : 'Tasks for this asset'}>
+    <section
+      className="property-360__section"
+      aria-label={ar ? 'مهام هذا الأصل' : 'Tasks for this asset'}
+    >
       <h2>
         {unitId
           ? ar

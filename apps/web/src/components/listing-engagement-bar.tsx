@@ -61,15 +61,7 @@ export function ListingEngagementBar({
       writeSet(key, next);
       if (kind === 'like') {
         setLiked(!on);
-        flash(
-          !on
-            ? ar
-              ? 'أُضيف إعجابك.'
-              : 'Liked.'
-            : ar
-              ? 'أُزيل الإعجاب.'
-              : 'Like removed.',
-        );
+        flash(!on ? (ar ? 'أُضيف إعجابك.' : 'Liked.') : ar ? 'أُزيل الإعجاب.' : 'Like removed.');
       } else {
         setFavorited(!on);
         flash(
@@ -88,12 +80,7 @@ export function ListingEngagementBar({
 
   return (
     <div className="listing-engagement" aria-label={ar ? 'مشاركة وتفاعل' : 'Share and save'}>
-      <PublicListingShare
-        path={path}
-        title={title}
-        description={description}
-        locale={locale}
-      />
+      <PublicListingShare path={path} title={title} description={description} locale={locale} />
       <div className="listing-engagement__actions">
         <button
           type="button"

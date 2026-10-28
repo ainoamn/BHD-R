@@ -29,8 +29,7 @@ export class CsrfGuard implements CanActivate {
     // same-origin / same-site: page host matched (Next rewrite/BFF). Preview Origin may differ
     // from WEB_ORIGIN — do not reject solely on Origin.
     const browserSameSite =
-      typeof fetchSite === 'string' &&
-      (fetchSite === 'same-origin' || fetchSite === 'same-site');
+      typeof fetchSite === 'string' && (fetchSite === 'same-origin' || fetchSite === 'same-site');
 
     if (!browserSameSite && typeof origin === 'string' && !isAllowedWebOrigin(origin)) {
       throw new ForbiddenException('Cross-site request rejected');

@@ -74,7 +74,8 @@ function NavigationProgressInner() {
       }
 
       if (url.origin !== window.location.origin) return;
-      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search)
+        return;
 
       start();
     };
@@ -112,7 +113,13 @@ function NavigationProgressInner() {
   if (!visible) return null;
 
   return (
-    <div className="nav-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress)}>
+    <div
+      className="nav-progress"
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress)}
+    >
       <i style={{ width: `${progress}%` }} />
     </div>
   );

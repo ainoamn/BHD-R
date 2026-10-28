@@ -1,8 +1,13 @@
 /** Post-pay e-sign is on unless explicitly disabled with `0` / `false`. */
 
 function isEnabledFlag(value: string | undefined): boolean {
-  const normalized = value?.replace(/^\uFEFF/, '').trim().toLowerCase();
-  return normalized !== '0' && normalized !== 'false' && normalized !== 'off' && normalized !== 'no';
+  const normalized = value
+    ?.replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase();
+  return (
+    normalized !== '0' && normalized !== 'false' && normalized !== 'off' && normalized !== 'no'
+  );
 }
 
 /** Client / build-time: drives returnPath after payment. Platform kill-switch only. */

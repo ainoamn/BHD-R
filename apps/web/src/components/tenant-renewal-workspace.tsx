@@ -132,7 +132,10 @@ export function TenantRenewalWorkspace({
                 : 'Management will review the documents and may cancel the addendum if they differ — you remain liable.'}
             </p>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-              <Link className="button" href={`/${locale}/tenant/contracts/${contract.id}?view=full`}>
+              <Link
+                className="button"
+                href={`/${locale}/tenant/contracts/${contract.id}?view=full`}
+              >
                 {ar ? 'عرض الملحق الموثّق' : 'View documented addendum'}
               </Link>
               <Link className="button button--secondary" href={`/${locale}/tenant`}>
@@ -161,7 +164,9 @@ export function TenantRenewalWorkspace({
       </header>
 
       <section className="card lease-renewal__summary" aria-labelledby="renewal-summary">
-        <h2 id="renewal-summary">{ar ? 'ملخص الملحق (للقراءة)' : 'Addendum summary (read-only)'}</h2>
+        <h2 id="renewal-summary">
+          {ar ? 'ملخص الملحق (للقراءة)' : 'Addendum summary (read-only)'}
+        </h2>
         <dl className="lease-renewal__facts">
           <div>
             <dt>{ar ? 'الرقم' : 'Reference'}</dt>
@@ -264,7 +269,9 @@ export function TenantRenewalWorkspace({
           <CardContent>
             <h2>{ar ? '2) المستندات' : '2) Documents'}</h2>
             <p className="muted">
-              {ar ? 'لا توجد مستندات إضافية مطلوبة لهذا الملحق.' : 'No extra documents are required for this addendum.'}
+              {ar
+                ? 'لا توجد مستندات إضافية مطلوبة لهذا الملحق.'
+                : 'No extra documents are required for this addendum.'}
             </p>
           </CardContent>
         </Card>
@@ -272,7 +279,9 @@ export function TenantRenewalWorkspace({
 
       <Card>
         <CardContent>
-          <h2>{ar ? '3) التوثيق والتوقيع الإلكتروني' : '3) Electronic documentation & signature'}</h2>
+          <h2>
+            {ar ? '3) التوثيق والتوقيع الإلكتروني' : '3) Electronic documentation & signature'}
+          </h2>
           <div className="notice notice--info" role="note">
             <strong>
               {ar ? ELECTRONIC_RENEWAL_NOTICE.titleAr : ELECTRONIC_RENEWAL_NOTICE.titleEn}
@@ -365,7 +374,11 @@ export function TenantRenewalWorkspace({
                 onChange={(event) => setProposedEndsOn(event.target.value)}
               />
               {objectError ? (
-                <div className="notice notice--danger" role="alert" style={{ marginTop: '0.75rem' }}>
+                <div
+                  className="notice notice--danger"
+                  role="alert"
+                  style={{ marginTop: '0.75rem' }}
+                >
                   {objectError}
                 </div>
               ) : null}
@@ -375,13 +388,7 @@ export function TenantRenewalWorkspace({
                   disabled={objectBusy || !proposedEndsOn}
                   onClick={() => void submitObjection()}
                 >
-                  {objectBusy
-                    ? ar
-                      ? 'جاري الإرسال…'
-                      : 'Sending…'
-                    : ar
-                      ? 'إرسال'
-                      : 'Send'}
+                  {objectBusy ? (ar ? 'جاري الإرسال…' : 'Sending…') : ar ? 'إرسال' : 'Send'}
                 </Button>
                 <Button
                   type="button"

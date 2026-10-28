@@ -181,7 +181,8 @@ export async function loadAccountingPrintDoc(
     const journal = await getJournal(claims, input.id);
     const lines = journal.lines.map((line) => ({
       account: `${line.code} · ${ar ? line.nameAr : line.nameEn}`,
-      dimension: [line.partyName, line.propertyNameAr, line.unitCode].filter(Boolean).join(' · ') || '—',
+      dimension:
+        [line.partyName, line.propertyNameAr, line.unitCode].filter(Boolean).join(' · ') || '—',
       memo: line.memo || '—',
       debit: money(line.debitMinor, line.currency, locale),
       credit: money(line.creditMinor, line.currency, locale),
@@ -236,9 +237,17 @@ export async function loadAccountingPrintDoc(
     const doc = docs.find((row) => row.id === input.id);
     if (!doc) fail('not_found');
     const titleAr =
-      doc.kind === 'receipt' ? 'إيصال قبض' : doc.kind === 'invoice' ? 'فاتورة مطالبة' : 'مستند محاسبي';
+      doc.kind === 'receipt'
+        ? 'إيصال قبض'
+        : doc.kind === 'invoice'
+          ? 'فاتورة مطالبة'
+          : 'مستند محاسبي';
     const titleEn =
-      doc.kind === 'receipt' ? 'Payment receipt' : doc.kind === 'invoice' ? 'Demand invoice' : 'Accounting document';
+      doc.kind === 'receipt'
+        ? 'Payment receipt'
+        : doc.kind === 'invoice'
+          ? 'Demand invoice'
+          : 'Accounting document';
     const amountText = money(doc.amountMinor, doc.currency, locale);
     const payload = {
       kind: 'document',
@@ -464,9 +473,7 @@ export async function loadSharedAccountingPrintDoc(
     return await db.transaction(async (tx) => {
       await tx.execute(sql`select set_config('app.platform_admin', 'true', true)`);
       await tx.execute(sql`select set_config('app.public', 'true', true)`);
-      const issuer = issuerFromLetterhead(
-        await readTermsLetterhead(tx, orgId).catch(() => null),
-      );
+      const issuer = issuerFromLetterhead(await readTermsLetterhead(tx, orgId).catch(() => null));
 
       if (parsed.kindChar === 'j') {
         const entry = await tx.query.journalEntries.findFirst({
@@ -633,9 +640,7 @@ export async function loadSharedAccountingPrintDoc(
         .innerJoin(stayBookings, eq(stayBookings.id, stayPaymentIntents.bookingId))
         .leftJoin(units, eq(units.id, stayBookings.unitId))
         .leftJoin(properties, eq(properties.id, units.propertyId))
-        .where(
-          and(eq(stayPaymentIntents.id, id), eq(stayPaymentIntents.organizationId, orgId)),
-        )
+        .where(and(eq(stayPaymentIntents.id, id), eq(stayPaymentIntents.organizationId, orgId)))
         .limit(1);
 
       if (stayPay) {
@@ -662,9 +667,7 @@ export async function loadSharedAccountingPrintDoc(
           titleEn: 'Payment receipt',
           status: stayPay.status,
           occurredOn,
-          description: ar
-            ? `إيصال دفع إقامة ${reference}`
-            : `Stay payment receipt ${reference}`,
+          description: ar ? `إيصال دفع إقامة ${reference}` : `Stay payment receipt ${reference}`,
           amountText,
           currency: stayPay.currency,
           partyName: null,

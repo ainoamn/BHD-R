@@ -175,12 +175,7 @@ export async function resolveApprovalPolicy(
         kind,
       };
     }
-    const orgTyped = await readPolicyRow(
-      transaction,
-      organizationId,
-      policyCode(kind, null),
-      kind,
-    );
+    const orgTyped = await readPolicyRow(transaction, organizationId, policyCode(kind, null), kind);
     if (orgTyped) {
       return {
         source: 'organization' as const,
@@ -240,12 +235,7 @@ export async function loadOwnerApprovalPolicy(
     if (!propertyId) {
       const legacy = ownTyped
         ? null
-        : await readPolicyRow(
-            transaction,
-            scope.organizationId,
-            legacyPolicyCode(null),
-            kind,
-          );
+        : await readPolicyRow(transaction, scope.organizationId, legacyPolicyCode(null), kind);
       return {
         kind,
         own: ownTyped,
@@ -266,12 +256,7 @@ export async function loadOwnerApprovalPolicy(
       : await readPolicyRow(transaction, scope.organizationId, legacyPolicyCode(null), kind);
     const propertyLegacy = ownTyped
       ? null
-      : await readPolicyRow(
-          transaction,
-          scope.organizationId,
-          legacyPolicyCode(propertyId),
-          kind,
-        );
+      : await readPolicyRow(transaction, scope.organizationId, legacyPolicyCode(propertyId), kind);
     const inherited = propertyLegacy
       ? { source: 'legacy' as const, policy: propertyLegacy.policy }
       : orgTyped
@@ -374,7 +359,11 @@ export async function saveApprovalPolicy(
   propertyId: string | null,
   policy: ApprovalPolicy | null,
   kind: ContractApprovalKind = 'rent',
-): Promise<{ policy: ApprovalPolicy | null; delegateName: string | null; kind: ContractApprovalKind }> {
+): Promise<{
+  policy: ApprovalPolicy | null;
+  delegateName: string | null;
+  kind: ContractApprovalKind;
+}> {
   const organizationId = claims.organizationId;
   if (!organizationId) throw new Error('organization_required');
   if (!isContractApprovalKind(kind)) throw new Error('invalid_body');
@@ -483,10 +472,7 @@ async function syncStayRescheduleApprovalInTx(
       .update(stayProfiles)
       .set({ autoApproveReschedule, updatedAt: now })
       .where(
-        and(
-          eq(stayProfiles.organizationId, organizationId),
-          inArray(stayProfiles.unitId, unitIds),
-        ),
+        and(eq(stayProfiles.organizationId, organizationId), inArray(stayProfiles.unitId, unitIds)),
       );
     return;
   }

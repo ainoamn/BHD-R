@@ -105,11 +105,7 @@ export function SitePagesAdmin({ locale }: { locale: 'ar' | 'en' }) {
                   <strong>{ar ? meta.ar : meta.en}</strong>
                   <small>
                     <code>{meta.path}</code>
-                    {locked
-                      ? ar
-                        ? ' — دائماً متاح'
-                        : ' — always on'
-                      : null}
+                    {locked ? (ar ? ' — دائماً متاح' : ' — always on') : null}
                   </small>
                 </span>
               </label>

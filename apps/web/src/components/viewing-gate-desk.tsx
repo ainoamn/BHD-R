@@ -27,8 +27,7 @@ type PreviewResult = {
 };
 
 type Pending =
-  | { kind: 'token'; token: string }
-  | { kind: 'credentials'; username: string; pin: string };
+  { kind: 'token'; token: string } | { kind: 'credentials'; username: string; pin: string };
 
 type Detector = { detect: (source: HTMLVideoElement) => Promise<Array<{ rawValue: string }>> };
 type DetectorConstructor = new (options: { formats: string[] }) => Detector;
@@ -97,14 +96,9 @@ export function ViewingGateDesk({
         }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | CheckInResult
-        | PreviewResult
-        | { error?: { code?: string } }
-        | null;
+        CheckInResult | PreviewResult | { error?: { code?: string } } | null;
       if (!response.ok) {
-        throw new Error(
-          (payload && 'error' in payload && payload.error?.code) || 'checkin_failed',
-        );
+        throw new Error((payload && 'error' in payload && payload.error?.code) || 'checkin_failed');
       }
       return payload;
     },
@@ -187,7 +181,9 @@ export function ViewingGateDesk({
     let timer: number | undefined;
     const start = async () => {
       if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
-        setError(ar ? 'الكاميرا أو ماسح الباركود غير متاحين.' : 'Camera or barcode scanner unavailable.');
+        setError(
+          ar ? 'الكاميرا أو ماسح الباركود غير متاحين.' : 'Camera or barcode scanner unavailable.',
+        );
         setScanning(false);
         return;
       }
@@ -206,7 +202,8 @@ export function ViewingGateDesk({
           video.srcObject = stream;
           await video.play();
         }
-        const Ctor = (window as unknown as { BarcodeDetector: DetectorConstructor }).BarcodeDetector;
+        const Ctor = (window as unknown as { BarcodeDetector: DetectorConstructor })
+          .BarcodeDetector;
         const detector = new Ctor({ formats: ['qr_code'] });
         const tick = async () => {
           if (stopped || !videoRef.current) return;
@@ -341,13 +338,7 @@ export function ViewingGateDesk({
             disabled={busy}
             onClick={() => void confirmCheckIn()}
           >
-            {busy
-              ? ar
-                ? 'جارٍ التسجيل…'
-                : 'Recording…'
-              : ar
-                ? 'تأكيد الوصول'
-                : 'Confirm arrival'}
+            {busy ? (ar ? 'جارٍ التسجيل…' : 'Recording…') : ar ? 'تأكيد الوصول' : 'Confirm arrival'}
           </button>
           <button
             type="button"
@@ -429,7 +420,11 @@ export function ViewingGateDesk({
             required
           />
         </label>
-        <button type="submit" className="button button--primary" disabled={busy || pin.length !== 6}>
+        <button
+          type="submit"
+          className="button button--primary"
+          disabled={busy || pin.length !== 6}
+        >
           {ar ? 'عرض بيانات الزائر' : 'Show visitor details'}
         </button>
       </form>

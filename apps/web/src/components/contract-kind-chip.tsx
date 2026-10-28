@@ -29,7 +29,9 @@ export function ContractKindChip({
 }) {
   const tone = contractKindTone(kind);
   return (
-    <span className={`contract-kind-chip contract-kind-chip--${tone}${className ? ` ${className}` : ''}`}>
+    <span
+      className={`contract-kind-chip contract-kind-chip--${tone}${className ? ` ${className}` : ''}`}
+    >
       {contractKindChipLabel(kind, ar)}
     </span>
   );

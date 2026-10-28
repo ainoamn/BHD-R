@@ -25,10 +25,7 @@ export async function GET() {
     return NextResponse.json(await loadEmailWishPools(claims));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'failed';
-    return NextResponse.json(
-      { error: message },
-      { status: message === 'forbidden' ? 403 : 500 },
-    );
+    return NextResponse.json({ error: message }, { status: message === 'forbidden' ? 403 : 500 });
   }
 }
 
@@ -45,10 +42,7 @@ export async function PUT(request: Request) {
     return NextResponse.json(await saveEmailWishPools(claims, body));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'failed';
-    return NextResponse.json(
-      { error: message },
-      { status: message === 'forbidden' ? 403 : 400 },
-    );
+    return NextResponse.json({ error: message }, { status: message === 'forbidden' ? 403 : 400 });
   }
 }
 
@@ -59,9 +53,6 @@ export async function DELETE() {
     return NextResponse.json(await resetEmailWishPools(claims));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'failed';
-    return NextResponse.json(
-      { error: message },
-      { status: message === 'forbidden' ? 403 : 500 },
-    );
+    return NextResponse.json({ error: message }, { status: message === 'forbidden' ? 403 : 500 });
   }
 }

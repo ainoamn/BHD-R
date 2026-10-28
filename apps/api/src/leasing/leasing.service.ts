@@ -40,10 +40,7 @@ import type { SessionClaims } from '@bhd-r/authz';
 import { hasPermission, type Permission } from '@bhd-r/authz';
 import type { CreateHoldInput, CreateLeaseInput, CurrencyCode } from '@bhd-r/contracts';
 import { currencyMinorUnits, signatureEvidenceSchema } from '@bhd-r/contracts';
-import {
-  formatChildContractReference,
-  nextChildContractSequence,
-} from '@bhd-r/domain';
+import { formatChildContractReference, nextChildContractSequence } from '@bhd-r/domain';
 import { sanitizeDocumentTemplate, sanitizeRichText } from '@bhd-r/security';
 import { createHash, randomUUID } from 'node:crypto';
 import { DatabaseService, type DatabaseTransaction } from '../database/database.service.js';
@@ -596,12 +593,7 @@ export class LeasingService {
       }>;
       paymentMethod?: 'cheque' | 'cash' | 'bank_transfer' | undefined;
       paymentFrequency?:
-        | 'monthly'
-        | 'bimonthly'
-        | 'quarterly'
-        | 'semiannual'
-        | 'annual'
-        | undefined;
+        'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual' | undefined;
       months?: number | undefined;
       cheques?: ReadonlyArray<{
         bankName: string;
@@ -697,9 +689,7 @@ export class LeasingService {
         parentReference,
         nextChildContractSequence(
           parentReference,
-          siblings
-            .map((row) => row.reference)
-            .filter((value): value is string => Boolean(value)),
+          siblings.map((row) => row.reference).filter((value): value is string => Boolean(value)),
         ),
       );
       const rentMinor = input.rent?.amountMinor ?? lease.rentMinor.toString();
@@ -707,9 +697,7 @@ export class LeasingService {
       const graceAsDiscount = input.graceAsDiscount ?? true;
       const graceAmountMinor =
         input.graceAmount?.amountMinor ??
-        (graceDays > 0
-          ? String(Math.round((Number(rentMinor) / 30) * graceDays))
-          : '0');
+        (graceDays > 0 ? String(Math.round((Number(rentMinor) / 30) * graceDays)) : '0');
       const adjustments = (input.adjustments ?? []).map((row) => ({
         kind: row.kind,
         title: row.title,
@@ -756,7 +744,16 @@ export class LeasingService {
       const ownerSignsNow = hasPermission(claims, 'contract.sign');
       const now = new Date();
       const documentHash = createHash('sha256')
-        .update(['renewal', claims.organizationId!, contractReference, startsOn, input.endsOn, rentMinor].join('|'))
+        .update(
+          [
+            'renewal',
+            claims.organizationId!,
+            contractReference,
+            startsOn,
+            input.endsOn,
+            rentMinor,
+          ].join('|'),
+        )
         .digest('hex');
       let contract;
       try {
@@ -1384,9 +1381,7 @@ export class LeasingService {
         .where(
           and(
             eq(leases.organizationId, claims.organizationId!),
-            ...(scopedToTenant && claims.partyId
-              ? [eq(leases.tenantPartyId, claims.partyId)]
-              : []),
+            ...(scopedToTenant && claims.partyId ? [eq(leases.tenantPartyId, claims.partyId)] : []),
           ),
         )
         .orderBy(desc(leases.createdAt));

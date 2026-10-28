@@ -320,12 +320,7 @@ export async function closeStayContractAfterCheckoutInTx(
 
   const templateId = await ensureStayTerminationTemplate(tx, orgId);
   const parentReference = parent.reference ?? `CTR-${parent.id.slice(0, 8).toUpperCase()}`;
-  const reference = await allocateChildContractReference(
-    tx,
-    orgId,
-    parent.id,
-    parentReference,
-  );
+  const reference = await allocateChildContractReference(tx, orgId, parent.id, parentReference);
   const owner = snapshot.owner && typeof snapshot.owner === 'object' ? snapshot.owner : null;
   const tenant =
     (snapshot.tenant && typeof snapshot.tenant === 'object' ? snapshot.tenant : null) ??

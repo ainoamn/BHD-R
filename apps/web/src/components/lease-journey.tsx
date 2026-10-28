@@ -199,9 +199,7 @@ function BookingDocsReturnNotice({
 }) {
   const router = useRouter();
   const rejected = (docsReturn.rejected ?? []).filter(isBookingIdentityDocCode);
-  const replaced = new Set(
-    (docsReturn.replaced ?? []).filter(isBookingIdentityDocCode),
-  );
+  const replaced = new Set((docsReturn.replaced ?? []).filter(isBookingIdentityDocCode));
   const stagedEsign = new Set(docsReturn.stagedEsign ?? []);
   const locked = (docsReturn.locked ?? []).filter(isBookingIdentityDocCode);
   const [busy, setBusy] = useState<string | null>(null);
@@ -269,9 +267,7 @@ function BookingDocsReturnNotice({
 
   return (
     <div className="notice notice--warning booking-docs-return" role="status">
-      <strong>
-        {ar ? 'المستندات المطلوب تعديلها' : 'Documents that must be fixed'}
-      </strong>
+      <strong>{ar ? 'المستندات المطلوب تعديلها' : 'Documents that must be fixed'}</strong>
       {docsReturn.note ? (
         <p className="booking-docs-return__note">
           {ar ? 'ملاحظة المالك: ' : 'Owner note: '}«{docsReturn.note}»
@@ -375,7 +371,10 @@ function BookingDocsReturnNotice({
             {locked.map((code) => {
               const labels = BOOKING_IDENTITY_DOC_LABELS[code];
               return (
-                <li key={code} className="booking-docs-return__item booking-docs-return__item--lock">
+                <li
+                  key={code}
+                  className="booking-docs-return__item booking-docs-return__item--lock"
+                >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={fileOf(code)} alt="" loading="lazy" />
                   <span>{ar ? labels.ar : labels.en}</span>
@@ -405,15 +404,11 @@ function DocumentsNeededNotice({
   lifecycle,
 }: Pick<LeaseJourneyProps, 'locale' | 'phase' | 'lifecycle'>) {
   const ar = locale === 'ar';
-  if (
-    phase !== 'awaiting_documents' &&
-    phase !== 'awaiting_documents_review'
-  ) {
+  if (phase !== 'awaiting_documents' && phase !== 'awaiting_documents_review') {
     return null;
   }
   const approved = Boolean(lifecycle.approvedAt);
-  const needsAttest =
-    lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
+  const needsAttest = lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
   return (
     <div
       className={`notice ${phase === 'awaiting_documents' ? 'notice--info' : 'notice--success'}`}
@@ -472,11 +467,7 @@ export function ElectronicApprovalNotice({
   );
 }
 
-function TenantAttestationGate({
-  locale,
-  referenceCode,
-  lifecycle,
-}: LeaseJourneyProps) {
+function TenantAttestationGate({ locale, referenceCode, lifecycle }: LeaseJourneyProps) {
   const ar = locale === 'ar';
   const router = useRouter();
   const required = lifecycle.requireTenantAttestation;
@@ -489,11 +480,7 @@ function TenantAttestationGate({
 
   async function confirm() {
     if (!checked) {
-      setError(
-        ar
-          ? 'يجب التأشير على الإقرار أولاً.'
-          : 'Tick the confirmation box first.',
-      );
+      setError(ar ? 'يجب التأشير على الإقرار أولاً.' : 'Tick the confirmation box first.');
       return;
     }
     setBusy(true);
@@ -523,9 +510,7 @@ function TenantAttestationGate({
 
   return (
     <div className="lease-attestation" role="group" aria-labelledby="lease-attest-title">
-      <h3 id="lease-attest-title">
-        {ar ? 'تأكيد صحة البيانات' : 'Confirm your details'}
-      </h3>
+      <h3 id="lease-attest-title">{ar ? 'تأكيد صحة البيانات' : 'Confirm your details'}</h3>
       <p className="muted">
         {ar
           ? 'المستندات تُراجع يدوياً قبل التسليم. أي اختلاف أو عدم صحة يمنح المالك حق إلغاء الحجز مع تحمّلك كامل المسؤولية.'
@@ -589,9 +574,7 @@ function DocumentsSendPanel({ locale, referenceCode, lifecycle }: LeaseJourneyPr
       return;
     }
     if (!checked && !attested) {
-      setError(
-        ar ? 'يجب التأشير على الإقرار أولاً.' : 'Tick the confirmation box first.',
-      );
+      setError(ar ? 'يجب التأشير على الإقرار أولاً.' : 'Tick the confirmation box first.');
       return;
     }
     setBusy(true);
@@ -980,9 +963,7 @@ function LeaseCheques({
       : '';
   const [numbers, setNumbers] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
-    const seeded = cheques.map(
-      (item) => item.chequeNumber ?? item.suggestedChequeNumber ?? '',
-    );
+    const seeded = cheques.map((item) => item.chequeNumber ?? item.suggestedChequeNumber ?? '');
     const first = seeded.find((value) => value.trim()) ?? '';
     const sequenced = first ? sequenceChequeNumbers(first, cheques.length) : seeded;
     cheques.forEach((item, index) => {
@@ -1026,7 +1007,9 @@ function LeaseCheques({
     }
     if (!(numbers[key] ?? '').trim()) {
       setError(
-        ar ? 'أدخل رقم الشيك قبل رفع الصورة.' : 'Enter the cheque number before uploading the photo.',
+        ar
+          ? 'أدخل رقم الشيك قبل رفع الصورة.'
+          : 'Enter the cheque number before uploading the photo.',
       );
       return;
     }
@@ -1195,7 +1178,10 @@ function LeaseCheques({
                 ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/cheque-${encodeURIComponent(item.key)}`
                 : null;
               return (
-                <tr key={item.key} className={`lease-cheques__row lease-cheques__row--${item.status}`}>
+                <tr
+                  key={item.key}
+                  className={`lease-cheques__row lease-cheques__row--${item.status}`}
+                >
                   <td>
                     <strong>{ar ? item.labelAr : item.labelEn}</strong>
                     <span className="lease-cheques__status">

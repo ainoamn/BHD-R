@@ -18,10 +18,7 @@ import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-l
 import { getViewer } from '@/lib/viewer';
 import { formatMoney } from '@/lib/format';
 import { LiveSync } from '@/components/live-sync';
-import {
-  displayStayCheckoutOn,
-  isHalfDayStayType,
-} from '@/lib/stay-period-times';
+import { displayStayCheckoutOn, isHalfDayStayType } from '@/lib/stay-period-times';
 import {
   StayJourneyCard,
   StayJourneyProvider,
@@ -583,10 +580,7 @@ export default async function GuestStayDetailPage({
                     {booking.checkInTime ? ` · ${booking.checkInTime}` : ''}
                   </span>
                 </div>
-                <div
-                  className="guest-stay-detail__nights"
-                  aria-hidden={staySpanLabel == null}
-                >
+                <div className="guest-stay-detail__nights" aria-hidden={staySpanLabel == null}>
                   {staySpanLabel ? <span>{staySpanLabel}</span> : null}
                 </div>
                 <div className="guest-stay-detail__date">

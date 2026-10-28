@@ -22,11 +22,12 @@ export function emptyOpsColumnFilter(defaultSortKey = ''): OpsColumnTableFilter 
   return {
     ...EMPTY_OPS_COLUMN_FILTER,
     sortKey: defaultSortKey,
-    sortDir: defaultSortKey.toLowerCase().includes('date') ||
+    sortDir:
+      defaultSortKey.toLowerCase().includes('date') ||
       defaultSortKey.endsWith('On') ||
       defaultSortKey.endsWith('At')
-      ? 'desc'
-      : 'asc',
+        ? 'desc'
+        : 'asc',
   };
 }
 

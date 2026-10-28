@@ -12,32 +12,36 @@
 ## التفاصيل
 
 ### التقويم في صفحة الإقامة
+
 - `PropertyDetailManager` → قسم «التوفر — اختر تواريخ إقامتك» في العمود الرئيسي.
 - الشريط الجانبي: ملخص تواريخ + ضيوف + معالج الحجز (`StayCheckout embedded`).
 
 ### الوحدات
+
 - `property-360__units--accordion` — كل وحدة سطر قابل للتوسيع.
 - `!stayBooking` — إخفاء قسم الوحدات على `/stays/{slug}`.
 
 ### البحث `/stays`
+
 - `booking-bar` — padding أقل، `border-radius: 999px`، `max-width: 56rem`.
 - `.booking-bar__submit` — `background: var(--oman-teal)`.
 - نص hero محدّث في i18n (بدل «واجهة تشغيلية أولية»).
 
 ### التقييمات
+
 - `PropertyReviewScore` — شارة بجانب العنوان.
 - `ReviewsPanel` — بطاقات أفقية، درجة /10، مدمج في Property 360.
 - إزالة التكرار من `/properties/{id}` (المراجعات داخل المكوّن).
 
 ## ملفات محورية
 
-| الملف | التغيير |
-| --- | --- |
-| `property-detail-manager.tsx` | تقويم + accordion + reviews |
-| `property-review-score.tsx` | شارة التقييم |
-| `reviews-panel.tsx` | تصميم Booking |
-| `stay-checkout.tsx` | وضع embedded |
-| `globals.css` | booking-bar + calendar + reviews |
+| الملف                         | التغيير                          |
+| ----------------------------- | -------------------------------- |
+| `property-detail-manager.tsx` | تقويم + accordion + reviews      |
+| `property-review-score.tsx`   | شارة التقييم                     |
+| `reviews-panel.tsx`           | تصميم Booking                    |
+| `stay-checkout.tsx`           | وضع embedded                     |
+| `globals.css`                 | booking-bar + calendar + reviews |
 
 ## تحقق بعد النشر
 

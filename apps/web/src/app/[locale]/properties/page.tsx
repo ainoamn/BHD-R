@@ -2,10 +2,7 @@ import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { PropertiesBrowse } from '@/components/properties-browse';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
-import {
-  filtersFromSearchRecord,
-  type BrowseFilterState,
-} from '@/lib/properties-browse-filters';
+import { filtersFromSearchRecord, type BrowseFilterState } from '@/lib/properties-browse-filters';
 import { bilingualAlternates } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';

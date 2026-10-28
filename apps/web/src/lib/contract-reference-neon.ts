@@ -43,10 +43,7 @@ export async function allocateChildContractReference(
  * Renumber every non-void child so references are parent-02, parent-03, … by createdAt.
  * Updates payloadSnapshot.contract.reference when present.
  */
-export async function repairChildContractReferencesInTx(
-  tx: Tx,
-  orgId: string,
-): Promise<number> {
+export async function repairChildContractReferencesInTx(tx: Tx, orgId: string): Promise<number> {
   const parents = await tx
     .select({
       id: contracts.id,

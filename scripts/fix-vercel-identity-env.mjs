@@ -46,7 +46,18 @@ if (run('npx', ['--yes', 'vercel', 'link', '--yes', '--project', 'bhd-r-api']) !
 }
 
 const pullFile = path.join(root, '.env.vercel.check');
-if (run('npx', ['--yes', 'vercel', 'env', 'pull', pullFile, '--environment', 'production', '--yes']) !== 0) {
+if (
+  run('npx', [
+    '--yes',
+    'vercel',
+    'env',
+    'pull',
+    pullFile,
+    '--environment',
+    'production',
+    '--yes',
+  ]) !== 0
+) {
   throw new Error('env pull failed');
 }
 

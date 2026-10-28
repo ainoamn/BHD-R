@@ -1,7 +1,4 @@
-import {
-  PAYMENT_METHOD_IDS,
-  type PaymentMethodId,
-} from '@/lib/payment-gateways-catalog';
+import { PAYMENT_METHOD_IDS, type PaymentMethodId } from '@/lib/payment-gateways-catalog';
 
 export type PaymentProviderState = {
   id: string;

@@ -12,16 +12,16 @@
 
 ## تدفق
 
-1. Quote → Hold → Booking + payment intent (0.4.4/0.4.5)  
-2. Payment session → redirect مزوّد  
-3. Sandbox confirm → booking `confirmed`  
+1. Quote → Hold → Booking + payment intent (0.4.4/0.4.5)
+2. Payment session → redirect مزوّد
+3. Sandbox confirm → booking `confirmed`
 
 ## تحقق
 
-| فحص | نتيجة |
-| --- | --- |
-| العلم off → payment-sessions | 404 |
-| API/Web typecheck | قبل الدمج |
+| فحص                          | نتيجة     |
+| ---------------------------- | --------- |
+| العلم off → payment-sessions | 404       |
+| API/Web typecheck            | قبل الدمج |
 
 ## تفعيل
 

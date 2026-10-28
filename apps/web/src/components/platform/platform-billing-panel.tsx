@@ -114,12 +114,11 @@ export function PlatformBillingPanel({ locale }: { locale: 'ar' | 'en' }) {
               <tr key={plan.key}>
                 <td>{ar ? plan.nameAr : plan.nameEn}</td>
                 <td dir="ltr">
-                  {plan.price} / {plan.period === 'year' ? (ar ? 'سنة' : 'year') : ar ? 'شهر' : 'mo'}
+                  {plan.price} /{' '}
+                  {plan.period === 'year' ? (ar ? 'سنة' : 'year') : ar ? 'شهر' : 'mo'}
                 </td>
                 <td dir="ltr">{plan.organizations}</td>
-                <td dir="ltr">
-                  {formatMoney(plan.estimatedMonthlyMinor, 'OMR', locale)}
-                </td>
+                <td dir="ltr">{formatMoney(plan.estimatedMonthlyMinor, 'OMR', locale)}</td>
               </tr>
             ))}
           </tbody>

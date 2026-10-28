@@ -129,7 +129,9 @@ export function OpsThFilterHeader({
                   autoFocus
                   value={dateRange.from}
                   onChange={(event) =>
-                    onFilterChange(withOpsDateFilter(filter, columnKey, { from: event.target.value }))
+                    onFilterChange(
+                      withOpsDateFilter(filter, columnKey, { from: event.target.value }),
+                    )
                   }
                 />
               </label>

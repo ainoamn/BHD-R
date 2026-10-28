@@ -123,7 +123,12 @@ export function PropertiesMapPanel({
   if (!open) return null;
 
   return (
-    <div className="props-map-overlay" role="dialog" aria-modal="true" aria-label={ar ? 'الخريطة' : 'Map'}>
+    <div
+      className="props-map-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={ar ? 'الخريطة' : 'Map'}
+    >
       <div className="props-map-overlay__toolbar">
         <div>
           <strong>{ar ? 'اعرض على الخريطة' : 'Show on map'}</strong>
@@ -149,9 +154,7 @@ export function PropertiesMapPanel({
                 key={listing.id}
                 type="button"
                 className={
-                  selectedId === listing.id
-                    ? 'props-map-card is-active'
-                    : 'props-map-card'
+                  selectedId === listing.id ? 'props-map-card is-active' : 'props-map-card'
                 }
                 onClick={() => onSelect(listing)}
               >
@@ -160,9 +163,7 @@ export function PropertiesMapPanel({
                   {listing.governorate}
                   {listing.wilayat ? ` · ${listing.wilayat}` : ''}
                 </span>
-                {!hasPin ? (
-                  <em>{ar ? 'بدون موقع على الخريطة' : 'No map pin'}</em>
-                ) : null}
+                {!hasPin ? <em>{ar ? 'بدون موقع على الخريطة' : 'No map pin'}</em> : null}
               </button>
             );
           })}

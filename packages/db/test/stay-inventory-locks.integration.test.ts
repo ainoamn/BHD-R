@@ -48,73 +48,71 @@ function isExclusionViolation(error: unknown): boolean {
 }
 
 integration('stay_inventory_locks GiST exclusion', () => {
-  it(
-    'rejects a second overlapping active lock on the same unit',
-    async () => {
-      const { client, db } = createDatabase(runtimeDatabaseUrl!, { max: 5 });
-      const suffix = randomUUID().slice(0, 8);
-      let seeded: { orgId: string; unitId: string } | undefined;
-      try {
-        seeded = await db.transaction(async (transaction) => {
-          await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-          const [org] = await transaction
-            .insert(organizations)
-            .values({
-              type: 'company',
-              slug: `stay-lock-${suffix}`,
-              legalName: 'Stay Lock Co',
-              displayNameAr: 'اختبار',
-              displayNameEn: 'Stay Lock Co',
-            })
-            .returning();
-          const [owner] = await transaction
-            .insert(parties)
-            .values({ organizationId: org!.id, type: 'person', displayName: 'Owner Lock' })
-            .returning();
-          const [address] = await transaction
-            .insert(addresses)
-            .values({
-              organizationId: org!.id,
-              governorate: 'Muscat',
-              wilayat: 'Bawshar',
-              city: 'Muscat',
-            })
-            .returning();
-          const [property] = await transaction
-            .insert(properties)
-            .values({
-              organizationId: org!.id,
-              ownerPartyId: owner!.id,
-              addressId: address!.id,
-              kind: 'single_unit',
-              category: 'apartment',
-              nameAr: 'وحدة اختبار',
-              nameEn: 'Lock test',
-              defaultCurrency: 'OMR',
-              status: 'active',
-            })
-            .returning();
-          const [unit] = await transaction
-            .insert(units)
-            .values({
-              organizationId: org!.id,
-              propertyId: property!.id,
-              code: `U-${suffix}`,
-              nameAr: 'وحدة',
-              nameEn: 'Unit',
-              rentMinor: 50_000n,
-              currency: 'OMR',
-              minorUnit: 3,
-              status: 'active',
-              listingPurpose: 'rent',
-            })
-            .returning();
-          return { orgId: org!.id, unitId: unit!.id };
-        });
+  it('rejects a second overlapping active lock on the same unit', async () => {
+    const { client, db } = createDatabase(runtimeDatabaseUrl!, { max: 5 });
+    const suffix = randomUUID().slice(0, 8);
+    let seeded: { orgId: string; unitId: string } | undefined;
+    try {
+      seeded = await db.transaction(async (transaction) => {
+        await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+        const [org] = await transaction
+          .insert(organizations)
+          .values({
+            type: 'company',
+            slug: `stay-lock-${suffix}`,
+            legalName: 'Stay Lock Co',
+            displayNameAr: 'اختبار',
+            displayNameEn: 'Stay Lock Co',
+          })
+          .returning();
+        const [owner] = await transaction
+          .insert(parties)
+          .values({ organizationId: org!.id, type: 'person', displayName: 'Owner Lock' })
+          .returning();
+        const [address] = await transaction
+          .insert(addresses)
+          .values({
+            organizationId: org!.id,
+            governorate: 'Muscat',
+            wilayat: 'Bawshar',
+            city: 'Muscat',
+          })
+          .returning();
+        const [property] = await transaction
+          .insert(properties)
+          .values({
+            organizationId: org!.id,
+            ownerPartyId: owner!.id,
+            addressId: address!.id,
+            kind: 'single_unit',
+            category: 'apartment',
+            nameAr: 'وحدة اختبار',
+            nameEn: 'Lock test',
+            defaultCurrency: 'OMR',
+            status: 'active',
+          })
+          .returning();
+        const [unit] = await transaction
+          .insert(units)
+          .values({
+            organizationId: org!.id,
+            propertyId: property!.id,
+            code: `U-${suffix}`,
+            nameAr: 'وحدة',
+            nameEn: 'Unit',
+            rentMinor: 50_000n,
+            currency: 'OMR',
+            minorUnit: 3,
+            status: 'active',
+            listingPurpose: 'rent',
+          })
+          .returning();
+        return { orgId: org!.id, unitId: unit!.id };
+      });
 
-        await db.transaction(async (transaction) => {
-          await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-          await transaction.execute(sql`
+      await db.transaction(async (transaction) => {
+        await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+        await transaction.execute(sql`
             insert into stay_inventory_locks (
               organization_id, unit_id, stay_range, kind, status
             ) values (
@@ -125,13 +123,13 @@ integration('stay_inventory_locks GiST exclusion', () => {
               'active'
             )
           `);
-        });
+      });
 
-        let rejected = false;
-        try {
-          await db.transaction(async (transaction) => {
-            await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-            await transaction.execute(sql`
+      let rejected = false;
+      try {
+        await db.transaction(async (transaction) => {
+          await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+          await transaction.execute(sql`
               insert into stay_inventory_locks (
                 organization_id, unit_id, stay_range, kind, status
               ) values (
@@ -142,17 +140,17 @@ integration('stay_inventory_locks GiST exclusion', () => {
                 'active'
               )
             `);
-          });
-        } catch (error) {
-          rejected = isExclusionViolation(error);
-          if (!rejected) throw error;
-        }
-        expect(rejected).toBe(true);
+        });
+      } catch (error) {
+        rejected = isExclusionViolation(error);
+        if (!rejected) throw error;
+      }
+      expect(rejected).toBe(true);
 
-        // Adjacent (touching) ranges must be allowed: checkout day free for next guest.
-        await db.transaction(async (transaction) => {
-          await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-          await transaction.execute(sql`
+      // Adjacent (touching) ranges must be allowed: checkout day free for next guest.
+      await db.transaction(async (transaction) => {
+        await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+        await transaction.execute(sql`
             insert into stay_inventory_locks (
               organization_id, unit_id, stay_range, kind, status
             ) values (
@@ -163,30 +161,28 @@ integration('stay_inventory_locks GiST exclusion', () => {
               'active'
             )
           `);
-        });
-      } finally {
-        if (seeded) {
-          try {
-            await db.transaction(async (transaction) => {
-              await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
-              await transaction
-                .delete(stayInventoryLocks)
-                .where(eq(stayInventoryLocks.organizationId, seeded!.orgId));
-              await transaction.delete(units).where(eq(units.organizationId, seeded!.orgId));
-              await transaction
-                .delete(properties)
-                .where(eq(properties.organizationId, seeded!.orgId));
-              await transaction.delete(addresses).where(eq(addresses.organizationId, seeded!.orgId));
-              await transaction.delete(parties).where(eq(parties.organizationId, seeded!.orgId));
-              await transaction.delete(organizations).where(eq(organizations.id, seeded!.orgId));
-            });
-          } catch {
-            // best-effort cleanup
-          }
+      });
+    } finally {
+      if (seeded) {
+        try {
+          await db.transaction(async (transaction) => {
+            await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+            await transaction
+              .delete(stayInventoryLocks)
+              .where(eq(stayInventoryLocks.organizationId, seeded!.orgId));
+            await transaction.delete(units).where(eq(units.organizationId, seeded!.orgId));
+            await transaction
+              .delete(properties)
+              .where(eq(properties.organizationId, seeded!.orgId));
+            await transaction.delete(addresses).where(eq(addresses.organizationId, seeded!.orgId));
+            await transaction.delete(parties).where(eq(parties.organizationId, seeded!.orgId));
+            await transaction.delete(organizations).where(eq(organizations.id, seeded!.orgId));
+          });
+        } catch {
+          // best-effort cleanup
         }
-        await client.end();
       }
-    },
-    30_000,
-  );
+      await client.end();
+    }
+  }, 30_000);
 });

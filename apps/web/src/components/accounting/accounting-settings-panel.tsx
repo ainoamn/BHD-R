@@ -227,7 +227,9 @@ export function AccountingSettingsPanel({
       <fieldset className="accounting-settings__block" disabled={!canManage || busy}>
         <legend>{ar ? 'ضرائب أخرى' : 'Other taxes'}</legend>
         {settings.otherTaxes.length === 0 ? (
-          <p className="accounting-hub__muted">{ar ? 'لا ضرائب إضافية بعد.' : 'No extra taxes yet.'}</p>
+          <p className="accounting-hub__muted">
+            {ar ? 'لا ضرائب إضافية بعد.' : 'No extra taxes yet.'}
+          </p>
         ) : null}
         {settings.otherTaxes.map((tax, index) => (
           <div key={`${tax.code}-${index}`} className="accounting-hub__form-grid">
@@ -360,7 +362,10 @@ export function AccountingSettingsPanel({
           onClick={() =>
             setSettings((current) => ({
               ...current,
-              currencies: [...current.currencies, { code: 'GBP', rateToBase: '0.500', minorUnit: 2 }],
+              currencies: [
+                ...current.currencies,
+                { code: 'GBP', rateToBase: '0.500', minorUnit: 2 },
+              ],
             }))
           }
         >
@@ -369,7 +374,9 @@ export function AccountingSettingsPanel({
       </fieldset>
 
       <fieldset className="accounting-settings__block" disabled={!canManage || busy}>
-        <legend>{ar ? 'الحسابات البنكية لاستلام الإيجار' : 'Bank accounts for rent receipts'}</legend>
+        <legend>
+          {ar ? 'الحسابات البنكية لاستلام الإيجار' : 'Bank accounts for rent receipts'}
+        </legend>
         <p className="accounting-hub__muted">
           {ar
             ? 'أضف حسابات البنك واربطها بالعقارات — تظهر تلقائياً في عقود تلك العقارات دون اختيار يدوي (يمكن تغييرها لاحقاً).'
@@ -496,9 +503,7 @@ export function AccountingSettingsPanel({
                     className="input"
                     dir="ltr"
                     value={account.accountNumber}
-                    onChange={(event) =>
-                      updateBank(index, { accountNumber: event.target.value })
-                    }
+                    onChange={(event) => updateBank(index, { accountNumber: event.target.value })}
                   />
                 </label>
                 <label className="accounting-settings__field">
@@ -535,7 +540,9 @@ export function AccountingSettingsPanel({
                       }))
                     }
                   />
-                  {ar ? 'افتراضي لإيجار جديد (عقارات غير مربوطة)' : 'Default for new leases (unlinked properties)'}
+                  {ar
+                    ? 'افتراضي لإيجار جديد (عقارات غير مربوطة)'
+                    : 'Default for new leases (unlinked properties)'}
                 </label>
                 <label className="accounting-settings__check">
                   <input
@@ -548,7 +555,9 @@ export function AccountingSettingsPanel({
               </div>
 
               <div className="accounting-bank-card__properties">
-                <strong>{ar ? 'العقارات المرتبطة بهذا الحساب' : 'Properties linked to this account'}</strong>
+                <strong>
+                  {ar ? 'العقارات المرتبطة بهذا الحساب' : 'Properties linked to this account'}
+                </strong>
                 <p className="accounting-hub__muted">
                   {ar
                     ? 'عقود هذه العقارات تختار هذا الحساب تلقائياً. اتركها فارغة إن كان الحساب عاماً فقط.'
@@ -681,7 +690,9 @@ export function AccountingSettingsPanel({
         </button>
       ) : (
         <p className="accounting-hub__muted">
-          {ar ? 'العرض فقط — يلزم صلاحية إدارة المحاسبة للحفظ.' : 'Read-only — accounting manage required to save.'}
+          {ar
+            ? 'العرض فقط — يلزم صلاحية إدارة المحاسبة للحفظ.'
+            : 'Read-only — accounting manage required to save.'}
         </p>
       )}
     </div>

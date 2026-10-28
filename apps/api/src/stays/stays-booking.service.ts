@@ -1,10 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import {
-  ConflictException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import {
   outboxEvents,
@@ -177,8 +172,7 @@ export class StaysBookingService {
       checkInOn: input.checkInOn,
       checkOutOn: input.checkOutOn,
       baseNightlyMinor: selectedBase,
-      weekendNightlyMinor:
-        stayType === 'overnight_stay' ? ctx.weekendNightlyMinor : selectedBase,
+      weekendNightlyMinor: stayType === 'overnight_stay' ? ctx.weekendNightlyMinor : selectedBase,
       cleaningFeeMinor: ctx.cleaningFeeMinor,
       ...(useInventoryOverrides && Object.keys(nightRates).length
         ? { nightRateOverrides: nightRates }
@@ -685,10 +679,7 @@ export class StaysBookingService {
 
     return this.database.withinTenant(claims, async (transaction) => {
       const booking = await transaction.query.stayBookings.findFirst({
-        where: and(
-          eq(stayBookings.id, bookingId),
-          eq(stayBookings.organizationId, organizationId),
-        ),
+        where: and(eq(stayBookings.id, bookingId), eq(stayBookings.organizationId, organizationId)),
       });
       if (!booking) throw new NotFoundException('Stay booking not found');
       return this.toOpsProjection(booking);
@@ -701,10 +692,7 @@ export class StaysBookingService {
 
     return this.database.withinTenant(claims, async (transaction) => {
       const booking = await transaction.query.stayBookings.findFirst({
-        where: and(
-          eq(stayBookings.id, bookingId),
-          eq(stayBookings.organizationId, organizationId),
-        ),
+        where: and(eq(stayBookings.id, bookingId), eq(stayBookings.organizationId, organizationId)),
       });
       if (!booking) throw new NotFoundException('Stay booking not found');
 
@@ -792,10 +780,7 @@ export class StaysBookingService {
 
     return this.database.withinTenant(claims, async (transaction) => {
       const booking = await transaction.query.stayBookings.findFirst({
-        where: and(
-          eq(stayBookings.id, bookingId),
-          eq(stayBookings.organizationId, organizationId),
-        ),
+        where: and(eq(stayBookings.id, bookingId), eq(stayBookings.organizationId, organizationId)),
       });
       if (!booking) throw new NotFoundException('Stay booking not found');
 
@@ -808,7 +793,9 @@ export class StaysBookingService {
         input.toStatus,
       );
       if (!transition.ok) {
-        throw new ConflictException(transition.reason ?? `Illegal stay ${input.toStatus} transition`);
+        throw new ConflictException(
+          transition.reason ?? `Illegal stay ${input.toStatus} transition`,
+        );
       }
 
       const now = new Date();
@@ -1100,7 +1087,13 @@ export class StaysBookingService {
     checkOutOn: string,
   ): Promise<boolean> {
     return this.database.asPublic((transaction) =>
-      this.isRangeAvailableInTransaction(transaction, organizationId, unitId, checkInOn, checkOutOn),
+      this.isRangeAvailableInTransaction(
+        transaction,
+        organizationId,
+        unitId,
+        checkInOn,
+        checkOutOn,
+      ),
     );
   }
 

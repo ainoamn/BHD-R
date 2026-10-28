@@ -226,15 +226,17 @@ function stayTypeHint(
   ar: boolean,
   times?: { checkInTime: string; checkOutTime: string },
 ): string {
-  const clock =
-    times != null ? ` · ${times.checkInTime} → ${times.checkOutTime}` : '';
+  const clock = times != null ? ` · ${times.checkInTime} → ${times.checkOutTime}` : '';
   if (type === 'day_use') {
     return (ar ? 'فترة صباحية · نفس اليوم' : 'Morning slot · same day') + clock;
   }
   if (type === 'overnight_only') {
     return (ar ? 'فترة مسائية مع مبيت' : 'Evening slot with overnight') + clock;
   }
-  return (ar ? 'يوم كامل · من الصباح حتى صباح المغادرة' : 'Full day · morning until next-day checkout') + clock;
+  return (
+    (ar ? 'يوم كامل · من الصباح حتى صباح المغادرة' : 'Full day · morning until next-day checkout') +
+    clock
+  );
 }
 
 function stayTypeUnit(type: StayType, ar: boolean): string {
@@ -1041,7 +1043,10 @@ export function StayCheckout({
         .join(' ')}
       aria-labelledby="stays-checkout-title"
     >
-      <h2 id="stays-checkout-title" className={denseChrome ? 'stays-checkout__title--sr' : undefined}>
+      <h2
+        id="stays-checkout-title"
+        className={denseChrome ? 'stays-checkout__title--sr' : undefined}
+      >
         {ar ? 'إكمال الحجز' : 'Complete your booking'}
       </h2>
       {title && !denseChrome ? <p className="stays-checkout__property muted">{title}</p> : null}
@@ -1181,7 +1186,9 @@ export function StayCheckout({
           <div
             key={embedded ? 'all' : staySlide}
             className={
-              embedded ? undefined : `wizard-pane wizard-pane--${staySlideDir} stays-checkout__slide-pane`
+              embedded
+                ? undefined
+                : `wizard-pane wizard-pane--${staySlideDir} stays-checkout__slide-pane`
             }
           >
             {embedded || staySlide === 'type' ? (
@@ -1251,7 +1258,10 @@ export function StayCheckout({
                     </div>
                     <div>
                       <dt>{ar ? 'المغادرة' : 'Check-out'}</dt>
-                      <dd className="stays-checkout__chip stays-checkout__chip--check-out" dir="ltr">
+                      <dd
+                        className="stays-checkout__chip stays-checkout__chip--check-out"
+                        dir="ltr"
+                      >
                         {checkOutLabel}
                       </dd>
                     </div>

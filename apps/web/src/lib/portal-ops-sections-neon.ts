@@ -183,9 +183,8 @@ async function loadLeaseBookings(
 
 async function loadLeasing(tx: OpsTransaction, orgId: string): Promise<NeonSectionLoad> {
   try {
-    const { repairOpenStayLeasesAfterCheckoutInTx } = await import(
-      '@/lib/stay-contract-close-neon'
-    );
+    const { repairOpenStayLeasesAfterCheckoutInTx } =
+      await import('@/lib/stay-contract-close-neon');
     await repairOpenStayLeasesAfterCheckoutInTx(tx, orgId);
   } catch (error) {
     console.error('stay lease checkout repair (leasing)', error);

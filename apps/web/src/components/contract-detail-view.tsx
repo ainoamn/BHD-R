@@ -180,11 +180,7 @@ function SimpleContractView({
                   ? 'عقد إيجار أساسي'
                   : 'Initial lease contract'}{' '}
             · {contract.startsOn} —{' '}
-            {displayStayCheckoutOn(
-              contract.document?.stayType,
-              contract.startsOn,
-              contract.endsOn,
-            )}
+            {displayStayCheckoutOn(contract.document?.stayType, contract.startsOn, contract.endsOn)}
           </p>
         </div>
         <StatusBadge
@@ -303,9 +299,7 @@ function SimpleContractView({
                 locale={locale}
               />
             ) : null}
-            {portal !== 'tenant' &&
-            contract.kind === 'renewal' &&
-            contract.status === 'draft' ? (
+            {portal !== 'tenant' && contract.kind === 'renewal' && contract.status === 'draft' ? (
               <DeliverRenewalButton contractId={contract.id} locale={locale} />
             ) : null}
           </CardContent>

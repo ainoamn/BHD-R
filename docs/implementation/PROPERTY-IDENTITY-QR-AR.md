@@ -4,15 +4,15 @@
 
 Booking-style read-only layout (gallery · title · price summary · map · amenities · units · docs · ownership). Editing only via **تعديل العقار**.
 
-| Field | Source |
-| ----- | ------ |
-| Serial / property no. | `properties.serial_number` (e.g. `BHD-2026-PRP-R-0001`) |
-| Owner name | Current row in `property_ownership_interests` → `parties.displayName` |
-| Address & location | `addresses` (street · area · city · wilayat · governorate) |
-| Maps / coords | `addresses.location` (PostGIS) + `Google Maps:` line in `property_profiles.notes` |
-| Gallery | `unit_media` + `media_assets`; portal streams `/api/owner/media/:id` (Neon inline or R2) |
-| Amenities / profile | `property_amenities`, `property_profiles`, `utility_meters`, `property_documents` |
-| QR code | Client-generated (`qrcode`) → absolute URL of `/{locale}/{portal}/properties/{id}` |
+| Field                 | Source                                                                                   |
+| --------------------- | ---------------------------------------------------------------------------------------- |
+| Serial / property no. | `properties.serial_number` (e.g. `BHD-2026-PRP-R-0001`)                                  |
+| Owner name            | Current row in `property_ownership_interests` → `parties.displayName`                    |
+| Address & location    | `addresses` (street · area · city · wilayat · governorate)                               |
+| Maps / coords         | `addresses.location` (PostGIS) + `Google Maps:` line in `property_profiles.notes`        |
+| Gallery               | `unit_media` + `media_assets`; portal streams `/api/owner/media/:id` (Neon inline or R2) |
+| Amenities / profile   | `property_amenities`, `property_profiles`, `utility_meters`, `property_documents`        |
+| QR code               | Client-generated (`qrcode`) → absolute URL of `/{locale}/{portal}/properties/{id}`       |
 
 Scanning the QR or «عرض العقار» opens the **public** property page (`/[locale]/properties/:id`) — same Property 360 marketing layout (gallery, map, amenities, units, viewing form). Catalogue cards link to `/[locale]/units/:id`, which renders that same layout focused on the listed unit.
 
@@ -31,9 +31,9 @@ Columns: property no., name, owner, location, kind, units, status (Neon path pre
 
 **Next action (0.2.67+):** two buttons per row —
 
-| Button | Opens |
-| ------ | ----- |
-| عرض العقار | Public marketing page `/{locale}/properties/:id` (new tab) |
+| Button       | Opens                                                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| عرض العقار   | Public marketing page `/{locale}/properties/:id` (new tab)                                                                         |
 | إدارة العقار | **Ops hub** `/{locale}/owner/properties/:id` — stats/alerts + scoped actions (booking deposit is set in **Edit property → Units**) |
 
 Manage hub actions use `?propertyId=` on contracts / leasing / sales / bookings / maintenance / invoices.

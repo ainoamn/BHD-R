@@ -34,7 +34,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ summary, data: items });
   } catch (error) {
     console.error('[reviews] GET failed', error);
-    return NextResponse.json({ error: 'reviews_failed', summary: { avgRating: null, reviewCount: 0, verifiedCount: 0 }, data: [] }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: 'reviews_failed',
+        summary: { avgRating: null, reviewCount: 0, verifiedCount: 0 },
+        data: [],
+      },
+      { status: 500 },
+    );
   }
 }
 
@@ -91,6 +98,9 @@ export async function POST(request: Request) {
   } catch (error) {
     const message = error instanceof Error ? error.message : 'review_failed';
     const code = message === 'target_not_found' ? 'target_not_found' : 'review_failed';
-    return NextResponse.json({ error: { code } }, { status: code === 'target_not_found' ? 404 : 500 });
+    return NextResponse.json(
+      { error: { code } },
+      { status: code === 'target_not_found' ? 404 : 500 },
+    );
   }
 }

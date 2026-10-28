@@ -4,11 +4,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { clientSafeErrorCode } from '@/lib/client-safe-error';
 import { LAB_RESET_CATEGORIES } from '@/lib/lab-reset-shared';
 import { labResetCounts, labResetPurge } from '@/lib/lab-reset-neon';
-import {
-  guardErrorResponse,
-  requireLiveSession,
-  RouteGuardError,
-} from '@/lib/next-route-guard';
+import { guardErrorResponse, requireLiveSession, RouteGuardError } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, hashRateKey } from '@/lib/route-rate-limit';
 import { siteAdminAccess } from '@/lib/site-admin-neon';
 
@@ -31,15 +27,18 @@ function errorJson(error: unknown, fallback: string) {
   }
   const code = clientSafeErrorCode(error, fallback);
   const status =
-    code === 'forbidden' ? 403 : code === 'invalid_body' ? 400 : code === 'rate_limited' ? 429 : 500;
+    code === 'forbidden'
+      ? 403
+      : code === 'invalid_body'
+        ? 400
+        : code === 'rate_limited'
+          ? 429
+          : 500;
   return NextResponse.json({ error: { code } }, { status });
 }
 
 async function requireSiteLabReset(request: Request, requireCsrf = false) {
-  const claims = await requireLiveSession(
-    request,
-    requireCsrf ? { requireCsrf: true } : {},
-  );
+  const claims = await requireLiveSession(request, requireCsrf ? { requireCsrf: true } : {});
   if (!(await siteAdminAccess(claims))) {
     throw new RouteGuardError(403, 'forbidden');
   }

@@ -53,7 +53,12 @@ export async function POST(request: Request) {
     const followers = (body?.followers ?? [])
       .filter((row) => row.userId && row.duty)
       .map((row) => ({ userId: row.userId!, duty: row.duty! }));
-    if (!body?.kind || !body.sourceId || !body.title || (!body.assignedToUserId && !followers.length)) {
+    if (
+      !body?.kind ||
+      !body.sourceId ||
+      !body.title ||
+      (!body.assignedToUserId && !followers.length)
+    ) {
       return NextResponse.json({ error: { code: 'invalid_input' } }, { status: 400 });
     }
     const task = await createAccountingFollowTask(claims, {

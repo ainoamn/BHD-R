@@ -63,9 +63,10 @@ export function StayBookingDetailOps({
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
-  const [claimNotice, setClaimNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(
-    null,
-  );
+  const [claimNotice, setClaimNotice] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +83,9 @@ export function StayBookingDetailOps({
   const canNoShow = NO_SHOWABLE.has(currentStatus);
   const isReject = currentStatus === 'request_pending';
   const amountMinor =
-    typeof paidAmountMinor === 'string' && /^\d+$/.test(paidAmountMinor) && BigInt(paidAmountMinor) > 0n
+    typeof paidAmountMinor === 'string' &&
+    /^\d+$/.test(paidAmountMinor) &&
+    BigInt(paidAmountMinor) > 0n
       ? paidAmountMinor
       : null;
   const paid = paymentSucceeded === true && Boolean(amountMinor);
@@ -115,7 +118,9 @@ export function StayBookingDetailOps({
   function continueFromNote() {
     const trimmed = note.trim();
     if (trimmed.length < 3) {
-      setError(ar ? 'أدخل ملاحظة عن السبب (٣ أحرف على الأقل).' : 'Enter a reason (at least 3 characters).');
+      setError(
+        ar ? 'أدخل ملاحظة عن السبب (٣ أحرف على الأقل).' : 'Enter a reason (at least 3 characters).',
+      );
       return;
     }
     setError(null);
@@ -261,7 +266,11 @@ export function StayBookingDetailOps({
   return (
     <section className="stay-booking-ops" aria-label={ar ? 'مراجعة تشغيلية' : 'Ops review'}>
       {reschedule ? (
-        <div className="stay-booking-ops__change" role="region" aria-label={ar ? 'تعديل التواريخ' : 'Date change'}>
+        <div
+          className="stay-booking-ops__change"
+          role="region"
+          aria-label={ar ? 'تعديل التواريخ' : 'Date change'}
+        >
           <h2>
             {reschedule.status === 'awaiting_owner'
               ? ar
@@ -295,9 +304,7 @@ export function StayBookingDetailOps({
               </tr>
               <tr>
                 <th scope="row">{ar ? 'نوع الإقامة' : 'Stay type'}</th>
-                <td className="is-from">
-                  {stayType ? stayTypeLabel(stayType, ar) : '—'}
-                </td>
+                <td className="is-from">{stayType ? stayTypeLabel(stayType, ar) : '—'}</td>
                 <td className="is-to">{stayTypeLabel(reschedule.stayType, ar)}</td>
               </tr>
               {reschedule.extraDueMinor !== '0' ? (
@@ -305,7 +312,11 @@ export function StayBookingDetailOps({
                   <th scope="row">{ar ? 'فرق الدفع' : 'Top-up'}</th>
                   <td>—</td>
                   <td className="is-to" dir="ltr">
-                    {formatMoney(reschedule.extraDueMinor, moneyCurrency, locale === 'en' ? 'en' : 'ar')}
+                    {formatMoney(
+                      reschedule.extraDueMinor,
+                      moneyCurrency,
+                      locale === 'en' ? 'en' : 'ar',
+                    )}
                   </td>
                 </tr>
               ) : null}
@@ -518,7 +529,9 @@ export function StayBookingDetailOps({
                         required
                         disabled={busy || pending}
                         placeholder={
-                          ar ? 'مثال: تعارض في التواريخ / طلب الضيف…' : 'e.g. date conflict / guest request…'
+                          ar
+                            ? 'مثال: تعارض في التواريخ / طلب الضيف…'
+                            : 'e.g. date conflict / guest request…'
                         }
                       />
                     </label>

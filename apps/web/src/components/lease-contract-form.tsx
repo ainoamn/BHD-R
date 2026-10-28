@@ -132,8 +132,7 @@ function contactAsTenant(row: {
 function partyDocsOf(row: PartyApiRow): { civilId: string; crNumber: string } {
   const docs = row.identityDocuments ?? [];
   const civil = docs.find((doc) => doc.documentType === 'civil_id')?.number ?? '';
-  const cr =
-    docs.find((doc) => doc.documentType === 'commercial_registration')?.number ?? '';
+  const cr = docs.find((doc) => doc.documentType === 'commercial_registration')?.number ?? '';
   return {
     civilId: civil.startsWith('••••') ? '' : civil,
     crNumber: cr.startsWith('••••') ? '' : cr,
@@ -144,13 +143,7 @@ function matchesDirectoryQuery(row: DirectoryHit, needle: string): boolean {
   const q = needle.trim().toLowerCase();
   if (!q) return true;
   const digits = q.replace(/\D/g, '');
-  const hay = [
-    row.displayName,
-    row.email,
-    row.phone,
-    row.civilId,
-    row.crNumber,
-  ]
+  const hay = [row.displayName, row.email, row.phone, row.civilId, row.crNumber]
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
@@ -530,9 +523,7 @@ export function LeaseContractForm({
     civilId: '',
     commercialRegistration: '',
   });
-  const paidDepositMajor = paidDepositMinor
-    ? decimal(paidDepositMinor, digits)
-    : '';
+  const paidDepositMajor = paidDepositMinor ? decimal(paidDepositMinor, digits) : '';
   /** Booking arabon lock, or renewal: deposit was paid once and is returned at end of tenancy. */
   const depositLocked = Boolean(paidDepositMajor) || renewalMode;
   const [draft, setDraft] = useState<LeaseTermsDraft>(() => {
@@ -612,23 +603,19 @@ export function LeaseContractForm({
                 row.roles.includes('prospect') ||
                 row.id === bookingTenantSnapshot.current.partyId),
           )
-          .map(
-            (row): DirectoryHit => ({
-              id: row.id,
-              displayName: row.displayName,
-              type: row.type,
-              email: row.email,
-              phone: row.phone,
-              roles: row.roles,
-            }),
-          );
+          .map((row): DirectoryHit => ({
+            id: row.id,
+            displayName: row.displayName,
+            type: row.type,
+            email: row.email,
+            phone: row.phone,
+            roles: row.roles,
+          }));
         if (cancelled || !rows.length) return;
         setDirectory((current) => {
           const map = new Map(current.map((row) => [row.id, row]));
           for (const row of rows) map.set(row.id, row);
-          return [...map.values()].sort((a, b) =>
-            a.displayName.localeCompare(b.displayName, 'ar'),
-          );
+          return [...map.values()].sort((a, b) => a.displayName.localeCompare(b.displayName, 'ar'));
         });
       } catch {
         /* keep the booking tenant only */
@@ -725,9 +712,7 @@ export function LeaseContractForm({
 
   function bindBankAccount(id: string, accounts: LeaseBankAccountOption[] = activeBankAccounts) {
     const account = accounts.find((row) => row.id === id);
-    const payee = account
-      ? (account.accountHolderNameEn || account.accountHolderName).trim()
-      : '';
+    const payee = account ? (account.accountHolderNameEn || account.accountHolderName).trim() : '';
     setDraft((current) => ({
       ...current,
       rentBankAccountId: id,
@@ -901,20 +886,15 @@ export function LeaseContractForm({
         draft.electricityReading?.trim() || previousMeters.electricityReading || '',
       waterReading: draft.waterReading?.trim() || previousMeters.waterReading || '',
       electricityReadingPhoto:
-        draft.electricityReadingPhoto?.trim() ||
-        previousMeters.electricityReadingPhoto ||
-        '',
-      waterReadingPhoto:
-        draft.waterReadingPhoto?.trim() || previousMeters.waterReadingPhoto || '',
+        draft.electricityReadingPhoto?.trim() || previousMeters.electricityReadingPhoto || '',
+      waterReadingPhoto: draft.waterReadingPhoto?.trim() || previousMeters.waterReadingPhoto || '',
     };
   }, [draft, renewalMode, previousMeters]);
   const result = useMemo(
     () =>
       computeLeaseTerms(draftForCompute, currency, digits, {
         deferUntilHandover:
-          metersOptional &&
-          !draft.electricityReading?.trim() &&
-          !draft.waterReading?.trim()
+          metersOptional && !draft.electricityReading?.trim() && !draft.waterReading?.trim()
             ? [...deferUntilHandover, 'meters' as const]
             : deferUntilHandover,
       }),
@@ -1019,7 +999,10 @@ export function LeaseContractForm({
     }
     if (!file.type.startsWith('image/') || file.size > 1_200_000) {
       setLocalError(
-        t('ارفع صورة واضحة للعداد (حتى نحو 1 ميغابايت).', 'Upload a clear meter photo (up to ~1 MB).'),
+        t(
+          'ارفع صورة واضحة للعداد (حتى نحو 1 ميغابايت).',
+          'Upload a clear meter photo (up to ~1 MB).',
+        ),
       );
       return;
     }
@@ -1034,10 +1017,7 @@ export function LeaseContractForm({
   }
 
   const currentStepGaps = useMemo(
-    () =>
-      missingFields.filter((field) =>
-        (STEP_GAP_CODES[wizardStep] ?? []).includes(field.code),
-      ),
+    () => missingFields.filter((field) => (STEP_GAP_CODES[wizardStep] ?? []).includes(field.code)),
     [missingFields, wizardStep],
   );
 
@@ -1173,43 +1153,46 @@ export function LeaseContractForm({
     setSavingContact(true);
     setLocalError(null);
     try {
-      const result = await browserMutation<{ id?: string; party?: { id?: string } }>('/v1/parties', {
-        method: 'POST',
-        body: JSON.stringify({
-          type: newContact.type,
-          displayName: name,
-          email: newContact.email.trim() || undefined,
-          phone: newContact.phone.trim() || undefined,
-          roles: ['tenant'],
-          address: {
-            countryCode: 'OM',
-            governorate: 'مسقط',
-            wilayat: 'مسقط',
-            city: 'مسقط',
-            primary: true,
-          },
-          identityDocuments: [
-            ...(newContact.type === 'person' && newContact.civilId.trim()
-              ? [
-                  {
-                    documentType: 'civil_id' as const,
-                    number: newContact.civilId.trim(),
-                    issuingCountryCode: 'OM',
-                  },
-                ]
-              : []),
-            ...(newContact.type === 'company' && newContact.commercialRegistration.trim()
-              ? [
-                  {
-                    documentType: 'commercial_registration' as const,
-                    number: newContact.commercialRegistration.trim(),
-                    issuingCountryCode: 'OM',
-                  },
-                ]
-              : []),
-          ],
-        }),
-      });
+      const result = await browserMutation<{ id?: string; party?: { id?: string } }>(
+        '/v1/parties',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            type: newContact.type,
+            displayName: name,
+            email: newContact.email.trim() || undefined,
+            phone: newContact.phone.trim() || undefined,
+            roles: ['tenant'],
+            address: {
+              countryCode: 'OM',
+              governorate: 'مسقط',
+              wilayat: 'مسقط',
+              city: 'مسقط',
+              primary: true,
+            },
+            identityDocuments: [
+              ...(newContact.type === 'person' && newContact.civilId.trim()
+                ? [
+                    {
+                      documentType: 'civil_id' as const,
+                      number: newContact.civilId.trim(),
+                      issuingCountryCode: 'OM',
+                    },
+                  ]
+                : []),
+              ...(newContact.type === 'company' && newContact.commercialRegistration.trim()
+                ? [
+                    {
+                      documentType: 'commercial_registration' as const,
+                      number: newContact.commercialRegistration.trim(),
+                      issuingCountryCode: 'OM',
+                    },
+                  ]
+                : []),
+            ],
+          }),
+        },
+      );
       const id = result.id ?? result.party?.id;
       if (!id) throw new Error('missing_id');
       const created: PropertyRecordTenant = {
@@ -1243,7 +1226,10 @@ export function LeaseContractForm({
       });
     } catch {
       setLocalError(
-        t('تعذّر إضافة جهة الاتصال. تحقّق من الصلاحيات وأعد المحاولة.', 'Could not add the contact.'),
+        t(
+          'تعذّر إضافة جهة الاتصال. تحقّق من الصلاحيات وأعد المحاولة.',
+          'Could not add the contact.',
+        ),
       );
     } finally {
       setSavingContact(false);
@@ -1422,12 +1408,7 @@ export function LeaseContractForm({
           </p>
         ) : null}
         <div className="form-grid">
-          <Field
-            id="lcf-unit"
-            label={t('الوحدة', 'Unit')}
-            required
-            missing={gap('unit')}
-          >
+          <Field id="lcf-unit" label={t('الوحدة', 'Unit')} required missing={gap('unit')}>
             {renewalMode ? (
               <output id="lcf-unit" className="input lcf-output" dir="ltr">
                 {unit?.code || '—'}
@@ -1537,10 +1518,7 @@ export function LeaseContractForm({
                   onChange={(event) => set('municipalFormNo', event.target.value)}
                 />
               </Field>
-              <Field
-                id="lcf-mcontract"
-                label={t('رقم العقد البلدي', 'Municipal contract no.')}
-              >
+              <Field id="lcf-mcontract" label={t('رقم العقد البلدي', 'Municipal contract no.')}>
                 <input
                   id="lcf-mcontract"
                   className="input"
@@ -1701,7 +1679,12 @@ export function LeaseContractForm({
                     <option value="company">{t('شركة', 'Company')}</option>
                   </select>
                 </Field>
-                <Field id="lcf-new-name" label={t('الاسم', 'Name')} required missing={!newContact.displayName.trim()}>
+                <Field
+                  id="lcf-new-name"
+                  label={t('الاسم', 'Name')}
+                  required
+                  missing={!newContact.displayName.trim()}
+                >
                   <input
                     id="lcf-new-name"
                     className="input"
@@ -2000,9 +1983,7 @@ export function LeaseContractForm({
                   list={tenantFromDirectory ? undefined : 'lcf-sign-nationalities'}
                   value={tenant.signatoryNationality}
                   readOnly={tenantFromDirectory || renewalMode}
-                  onChange={(event) =>
-                    setTenantField('signatoryNationality', event.target.value)
-                  }
+                  onChange={(event) => setTenantField('signatoryNationality', event.target.value)}
                 />
                 {tenantFromDirectory ? null : (
                   <datalist id="lcf-sign-nationalities">
@@ -2017,12 +1998,7 @@ export function LeaseContractForm({
               </Field>
             </>
           )}
-          <Field
-            id="lcf-phone"
-            label={t('رقم الجوال', 'Mobile')}
-            required
-            missing={gap('phone')}
-          >
+          <Field id="lcf-phone" label={t('رقم الجوال', 'Mobile')} required missing={gap('phone')}>
             <input
               id="lcf-phone"
               className="input"
@@ -2094,8 +2070,7 @@ export function LeaseContractForm({
             <dd dir="ltr">{unit?.waterMeter || '—'}</dd>
           </div>
         </dl>
-        {renewalMode &&
-        (previousMeters?.electricityReading || previousMeters?.waterReading) ? (
+        {renewalMode && (previousMeters?.electricityReading || previousMeters?.waterReading) ? (
           <div className="lcf-previous-meters notice" role="status">
             <strong>{t('القراءات السابقة (محفوظة)', 'Previous readings (kept)')}</strong>
             <dl className="lcf-facts">
@@ -2199,7 +2174,10 @@ export function LeaseContractForm({
               renewalMode
                 ? t('قراءة ماء جديدة (اختياري)', 'New water reading (optional)')
                 : deferMeters
-                  ? t('قراءة عداد الماء (بعد التسليم — الإدارة)', 'Water reading (admin after handover)')
+                  ? t(
+                      'قراءة عداد الماء (بعد التسليم — الإدارة)',
+                      'Water reading (admin after handover)',
+                    )
                   : t('قراءة عداد الماء', 'Water meter reading')
             }
             required={!deferMeters && !metersOptional}
@@ -2259,7 +2237,11 @@ export function LeaseContractForm({
         ) : null}
       </Section>
 
-      <Section tone="rent" active={stepActive('rent')} title={t('💰 الإيجار والمدة', '💰 Rent & term')}>
+      <Section
+        tone="rent"
+        active={stepActive('rent')}
+        title={t('💰 الإيجار والمدة', '💰 Rent & term')}
+      >
         {renewalMode ? (
           <p className="muted lcf-help">
             {t(
@@ -2402,9 +2384,15 @@ export function LeaseContractForm({
             id="lcf-handover"
             label={
               renewalMode
-                ? t('تاريخ استلام الوحدة (من العقد السابق)', 'Unit handover (from previous contract)')
+                ? t(
+                    'تاريخ استلام الوحدة (من العقد السابق)',
+                    'Unit handover (from previous contract)',
+                  )
                 : deferHandover
-                  ? t('تاريخ استلام الوحدة (مؤجّل للتسليم)', 'Unit handover date (deferred to handover)')
+                  ? t(
+                      'تاريخ استلام الوحدة (مؤجّل للتسليم)',
+                      'Unit handover date (deferred to handover)',
+                    )
                   : t('تاريخ استلام الوحدة', 'Unit handover date')
             }
             required={!deferHandover}
@@ -2517,7 +2505,10 @@ export function LeaseContractForm({
                     )}`
                   : t('٠ يوم (الاستلام يوم البداية)', '0 days (handover on start date)')
                 : deferHandover
-                  ? t('تُحسب عند إدخال تاريخ الاستلام / التسليم', 'Computed when handover date is entered')
+                  ? t(
+                      'تُحسب عند إدخال تاريخ الاستلام / التسليم',
+                      'Computed when handover date is entered',
+                    )
                   : t('أدخل تاريخ الاستلام أولاً', 'Enter the handover date first')}
             </output>
           </Field>
@@ -2618,7 +2609,11 @@ export function LeaseContractForm({
         </div>
       </Section>
 
-      <Section tone="tax" active={stepActive('taxes')} title={t('🧾 الضرائب والرسوم', '🧾 Taxes & fees')}>
+      <Section
+        tone="tax"
+        active={stepActive('taxes')}
+        title={t('🧾 الضرائب والرسوم', '🧾 Taxes & fees')}
+      >
         {renewalMode ? (
           <p className="muted lcf-help">
             {t(
@@ -2710,10 +2705,7 @@ export function LeaseContractForm({
               onChange={(event) => set('municipalityFeeEnabled', event.target.checked)}
             />
             <span>
-              {t(
-                'إظهار رسوم البلدية 3% في العقد',
-                'Show municipality fee 3% on the contract',
-              )}
+              {t('إظهار رسوم البلدية 3% في العقد', 'Show municipality fee 3% on the contract')}
               {terms?.totals.municipalityFeeMinor ? (
                 <> · {money(terms.totals.municipalityFeeMinor)}</>
               ) : null}
@@ -2729,10 +2721,7 @@ export function LeaseContractForm({
                 className="select"
                 value={draft.municipalityFeePayer ?? 'owner'}
                 onChange={(event) =>
-                  set(
-                    'municipalityFeePayer',
-                    event.target.value === 'tenant' ? 'tenant' : 'owner',
-                  )
+                  set('municipalityFeePayer', event.target.value === 'tenant' ? 'tenant' : 'owner')
                 }
               >
                 <option value="owner">{t('المالك (افتراضي)', 'Owner (default)')}</option>
@@ -2992,7 +2981,10 @@ export function LeaseContractForm({
           {arabonReceiptHref ? (
             <div className="field">
               <span className="field__hint">
-                {t('إيصال العربون المعتمد (نفس مستند العميل)', 'Official arabon receipt (same as client)')}
+                {t(
+                  'إيصال العربون المعتمد (نفس مستند العميل)',
+                  'Official arabon receipt (same as client)',
+                )}
                 {arabonReceiptLabel ? ` · ${arabonReceiptLabel}` : ''}
               </span>
               <button
@@ -3136,7 +3128,13 @@ export function LeaseContractForm({
               onClick={() =>
                 set('depositItems', [
                   ...draft.depositItems,
-                  { method: 'cheque', amount: draft.deposit, reference: '', bankName: '', dueOn: '' },
+                  {
+                    method: 'cheque',
+                    amount: draft.deposit,
+                    reference: '',
+                    bankName: '',
+                    dueOn: '',
+                  },
                 ])
               }
             >
@@ -3204,8 +3202,7 @@ export function LeaseContractForm({
                   return (
                     <option key={account.id} value={account.id}>
                       {payee || (ar ? account.labelAr : account.labelEn || account.labelAr)}
-                      {forProperty ||
-                        (account.defaultForRent ? t(' · افتراضي', ' · default') : '')}
+                      {forProperty || (account.defaultForRent ? t(' · افتراضي', ' · default') : '')}
                     </option>
                   );
                 })}
@@ -3313,9 +3310,7 @@ export function LeaseContractForm({
                   <th>{t('الإيجار', 'Rent')}</th>
                   {vatWithRent ? <th>{t('الضريبة', 'VAT')}</th> : null}
                   {vatWithRent ? <th>{t('الإجمالي', 'Total')}</th> : null}
-                  {isCheque ? (
-                    <th>{t('رقم الشيك (المستأجر)', 'Cheque no. (tenant)')}</th>
-                  ) : null}
+                  {isCheque ? <th>{t('رقم الشيك (المستأجر)', 'Cheque no. (tenant)')}</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -3452,10 +3447,7 @@ export function LeaseContractForm({
                         dir="ltr"
                         maxLength={80}
                         readOnly={municipalAfterHandover}
-                        placeholder={t(
-                          'يعبّئه المستأجر مع المرفق',
-                          'Filled by tenant with upload',
-                        )}
+                        placeholder={t('يعبّئه المستأجر مع المرفق', 'Filled by tenant with upload')}
                         aria-label={t('رقم الشيك', 'Cheque no.')}
                         value={draft.vatChequeNumbers[index] ?? ''}
                         onChange={(event) => {

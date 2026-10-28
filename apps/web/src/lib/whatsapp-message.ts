@@ -45,10 +45,7 @@ function bold(value: string): string {
   return clean ? `*${clean}*` : '';
 }
 
-function bullets(
-  details: readonly WhatsAppDetail[] | undefined,
-  lang: 'ar' | 'en',
-): string[] {
+function bullets(details: readonly WhatsAppDetail[] | undefined, lang: 'ar' | 'en'): string[] {
   if (!details?.length) return [];
   return details
     .filter((item) => item.value.trim())
@@ -58,11 +55,7 @@ function bullets(
     });
 }
 
-function buildSide(
-  draft: WhatsAppDraft,
-  lang: 'ar' | 'en',
-  options: { seed: string },
-): string {
+function buildSide(draft: WhatsAppDraft, lang: 'ar' | 'en', options: { seed: string }): string {
   const visual = toneVisual(draft.tone);
   const greet = emailGreetingParts(draft.recipientName, options.seed);
   const wish = emailWishParts(draft.tone, options.seed);
@@ -71,9 +64,7 @@ function buildSide(
   const lines = lang === 'ar' ? draft.linesAr : draft.linesEn;
   const linkLabel = lang === 'ar' ? draft.linkLabelAr : draft.linkLabelEn;
   const brand =
-    lang === 'ar'
-      ? `${PRODUCT_NAME} · ${COMPANY_NAME_AR}`
-      : `${PRODUCT_NAME} · ${COMPANY_NAME_EN}`;
+    lang === 'ar' ? `${PRODUCT_NAME} · ${COMPANY_NAME_AR}` : `${PRODUCT_NAME} · ${COMPANY_NAME_EN}`;
   const badge = visual.badge.includes('·')
     ? lang === 'ar'
       ? visual.badge.split('·')[0]!.trim()
@@ -120,7 +111,10 @@ function buildSide(
       : 'This is an automated message from our platform; don’t worry — it doesn’t bite 🐾',
   );
 
-  return body.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return body
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /** Render AR + EN WhatsApp messages with rotating cheerful closings (stable per seed). */

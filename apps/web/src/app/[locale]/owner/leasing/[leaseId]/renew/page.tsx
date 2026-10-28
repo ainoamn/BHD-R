@@ -7,11 +7,7 @@ import { persistentPortalPage } from '@/lib/persistent-portal-page';
 import { readClaims } from '@/lib/portal-ops-data';
 import { requirePortal } from '@/lib/viewer';
 
-async function Page({
-  params,
-}: {
-  params: Promise<{ locale: string; leaseId: string }>;
-}) {
+async function Page({ params }: { params: Promise<{ locale: string; leaseId: string }> }) {
   const { locale: rawLocale, leaseId } = await params;
   const locale = rawLocale === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);

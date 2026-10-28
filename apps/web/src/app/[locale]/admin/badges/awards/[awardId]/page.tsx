@@ -23,7 +23,7 @@ export default async function SiteAdminBadgeAwardPage({
   });
   return (
     <div className="site-admin--wide">
-        <AwardCertificateRoute locale={locale} portal="admin" awardId={awardId} />
-      </div>
+      <AwardCertificateRoute locale={locale} portal="admin" awardId={awardId} />
+    </div>
   );
 }

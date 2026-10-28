@@ -28,16 +28,13 @@ export function ReservationActivityLog({
 }) {
   const ar = locale === 'ar';
   const events = buildReservationActivityLog(rows, ar);
-  const heading = title
-    ? ar
-      ? title.ar
-      : title.en
-    : ar
-      ? 'سجل المعاملة'
-      : 'Transaction log';
+  const heading = title ? (ar ? title.ar : title.en) : ar ? 'سجل المعاملة' : 'Transaction log';
 
   return (
-    <section className="stay-timeline reservation-activity-log" aria-labelledby="reservation-activity-title">
+    <section
+      className="stay-timeline reservation-activity-log"
+      aria-labelledby="reservation-activity-title"
+    >
       <h2 id="reservation-activity-title">{heading}</h2>
       <p className="muted reservation-activity-log__hint">
         {ar
@@ -46,9 +43,7 @@ export function ReservationActivityLog({
       </p>
       {events.length ? (
         <>
-          <h3 className="stay-timeline__log-title">
-            {ar ? 'الأحدث أولاً' : 'Newest first'}
-          </h3>
+          <h3 className="stay-timeline__log-title">{ar ? 'الأحدث أولاً' : 'Newest first'}</h3>
           <ol className="stay-timeline__log">
             {events.map((event) => (
               <li key={event.key} className="stay-timeline__event" data-tone={event.tone}>

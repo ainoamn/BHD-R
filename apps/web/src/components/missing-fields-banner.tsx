@@ -17,7 +17,9 @@ export function MissingFieldsBanner({
   if (!fields.length) {
     return (
       <p className="notice notice--success" role="status">
-        {ar ? 'اكتملت الحقول المطلوبة لهذا القسم.' : 'Required fields for this section are complete.'}
+        {ar
+          ? 'اكتملت الحقول المطلوبة لهذا القسم.'
+          : 'Required fields for this section are complete.'}
       </p>
     );
   }

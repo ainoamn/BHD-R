@@ -15,10 +15,7 @@ import {
   users,
   workflowEvents,
 } from '@bhd-r/db';
-import {
-  formatChildContractReference,
-  nextChildContractSequence,
-} from '@bhd-r/domain';
+import { formatChildContractReference, nextChildContractSequence } from '@bhd-r/domain';
 import { sanitizeRichText } from '@bhd-r/security';
 import {
   ELECTRONIC_RENEWAL_NOTICE,
@@ -27,10 +24,7 @@ import {
 } from '@/lib/electronic-renewal-notice';
 import { appLink, notifyInTx } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
-import {
-  buildRenewalTermsDraft,
-  type RenewalPreviousMeters,
-} from '@/lib/lease-terms-draft-from';
+import { buildRenewalTermsDraft, type RenewalPreviousMeters } from '@/lib/lease-terms-draft-from';
 import type { LeaseTermsDraft, PaymentFrequency, PaymentMethod } from '@/lib/lease-terms';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
@@ -88,13 +82,7 @@ export type CreateLeaseRenewalInput = {
     amount: { amountMinor: string; currency: string };
   }>;
   paymentMethod?: 'cheque' | 'cash' | 'bank_transfer' | undefined;
-  paymentFrequency?:
-    | 'monthly'
-    | 'bimonthly'
-    | 'quarterly'
-    | 'semiannual'
-    | 'annual'
-    | undefined;
+  paymentFrequency?: 'monthly' | 'bimonthly' | 'quarterly' | 'semiannual' | 'annual' | undefined;
   months?: number | undefined;
   cheques?: ReadonlyArray<{
     bankName: string;
@@ -252,7 +240,8 @@ export async function loadLeaseRenewalContext(
       0;
     const graceAmount =
       snapshotText((snapshot.graceAmount as { amountMinor?: unknown } | undefined)?.amountMinor) ??
-      (typeof snapshot.graceAmountMinor === 'string' || typeof snapshot.graceAmountMinor === 'number'
+      (typeof snapshot.graceAmountMinor === 'string' ||
+      typeof snapshot.graceAmountMinor === 'number'
         ? String(snapshot.graceAmountMinor)
         : null);
 
@@ -341,8 +330,7 @@ export async function loadLeaseRenewalContext(
       leaseTermsRaw: nestedTerms,
       fallbackAdjustments,
       fallbackPaymentMethod:
-        asPaymentMethod(snapshot.paymentMethod) ??
-        asPaymentMethod(leaseTermsNested?.paymentMethod),
+        asPaymentMethod(snapshot.paymentMethod) ?? asPaymentMethod(leaseTermsNested?.paymentMethod),
       fallbackPaymentFrequency:
         asPaymentFrequency(snapshot.paymentFrequency) ??
         asPaymentFrequency(leaseTermsNested?.paymentFrequency),
@@ -358,8 +346,7 @@ export async function loadLeaseRenewalContext(
           ? leaseTermsNested.contractType
           : '',
       fallbackChequeBankName:
-        snapshotText(leaseTermsNested?.chequeBankName) ??
-        snapshotText(snapshot.chequeBankName),
+        snapshotText(leaseTermsNested?.chequeBankName) ?? snapshotText(snapshot.chequeBankName),
       fallbackChequeAccountName:
         snapshotText(leaseTermsNested?.chequeAccountName) ??
         snapshotText(snapshot.chequeAccountName),
@@ -375,8 +362,7 @@ export async function loadLeaseRenewalContext(
         row.key.includes('addendum') ||
         row.key.includes('annex'),
     );
-    const defaultTemplateVersionId =
-      leaseTemplates[0]?.id ?? templateRows[0]?.id ?? '';
+    const defaultTemplateVersionId = leaseTemplates[0]?.id ?? templateRows[0]?.id ?? '';
 
     return {
       lease: {
@@ -801,7 +787,8 @@ export async function deliverDraftRenewalOnNeon(
         : undefined,
     );
     const reference =
-      contract.reference?.trim() || `CTR-${contract.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+      contract.reference?.trim() ||
+      `CTR-${contract.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
     const documentHash =
       contract.renderedPdfHash ||
       provisionalDocumentHash(['renewal-deliver', contract.id, reference, now.toISOString()]);
@@ -809,9 +796,7 @@ export async function deliverDraftRenewalOnNeon(
     const nextPayload = {
       ...snapshot,
       requirements,
-      renewalDocuments: Array.isArray(snapshot.renewalDocuments)
-        ? snapshot.renewalDocuments
-        : [],
+      renewalDocuments: Array.isArray(snapshot.renewalDocuments) ? snapshot.renewalDocuments : [],
       amount:
         snapshot.amount && typeof snapshot.amount === 'object'
           ? snapshot.amount
@@ -891,8 +876,7 @@ export async function deliverDraftRenewalOnNeon(
     const property = snapshot.property as { nameAr?: string } | undefined;
     const unit = snapshot.unit as { nameAr?: string; code?: string } | undefined;
     const rent = (snapshot.rent ?? snapshot.amount) as
-      | { amountMinor?: string; currency?: string }
-      | undefined;
+      { amountMinor?: string; currency?: string } | undefined;
     const startsOn = typeof snapshot.startsOn === 'string' ? snapshot.startsOn : '';
     const endsOn = typeof snapshot.endsOn === 'string' ? snapshot.endsOn : '';
     await notifyInTx(tx, {
@@ -1036,9 +1020,7 @@ export async function uploadRenewalDocumentOnNeon(
       contentType: sniffed.mime,
       objectKey,
       uploadedAt,
-      note: objectKey
-        ? null
-        : `inline:${input.bytes.toString('base64').slice(0, 12)}…`, // marker only; bytes stay in S3 when possible
+      note: objectKey ? null : `inline:${input.bytes.toString('base64').slice(0, 12)}…`, // marker only; bytes stay in S3 when possible
     };
 
     // When S3 is unavailable, keep a compact inline data URL (images/PDF ≤ 1.5MB).
@@ -1181,12 +1163,7 @@ export async function completeTenantRenewalPackageOnNeon(
           noticeVersion: ELECTRONIC_RENEWAL_NOTICE_VERSION,
           humanIntervention: false,
         },
-        signatureHash: signatureHash([
-          contract.id,
-          contract.ownerPartyId,
-          'system',
-          nowIso,
-        ]),
+        signatureHash: signatureHash([contract.id, contract.ownerPartyId, 'system', nowIso]),
         signedAt: now,
       });
     }
@@ -1243,8 +1220,7 @@ export async function completeTenantRenewalPackageOnNeon(
         ),
       });
       if (currentLease) {
-        const endsOn =
-          typeof snapshot.endsOn === 'string' ? snapshot.endsOn : currentLease.endsOn;
+        const endsOn = typeof snapshot.endsOn === 'string' ? snapshot.endsOn : currentLease.endsOn;
         const rent = snapshot.rent as { amountMinor?: string; currency?: string } | undefined;
         const rentMinor = rent?.amountMinor ?? currentLease.rentMinor.toString();
         await tx
@@ -1377,10 +1353,7 @@ export async function voidRenewalForDocumentMismatchOnNeon(
         updatedAt: now,
       })
       .where(
-        and(
-          eq(leases.organizationId, orgId),
-          eq(leases.renewalPendingContractId, contract.id),
-        ),
+        and(eq(leases.organizationId, orgId), eq(leases.renewalPendingContractId, contract.id)),
       );
 
     await tx.insert(workflowEvents).values({

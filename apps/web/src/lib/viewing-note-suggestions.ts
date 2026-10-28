@@ -14,7 +14,8 @@ export const VIEWING_NOTE_SUGGESTIONS: readonly ViewingNoteSuggestion[] = [
     id: 'south-gate',
     labelAr: 'البوابة الجنوبية',
     labelEn: 'South gate',
-    textAr: 'مرحباً! الدخول من البوابة الجنوبية. يُرجى الاتصال قبل 15 دقيقة من الوصول — نتمنى لك معاينة موفقة 🚪☕',
+    textAr:
+      'مرحباً! الدخول من البوابة الجنوبية. يُرجى الاتصال قبل 15 دقيقة من الوصول — نتمنى لك معاينة موفقة 🚪☕',
     textEn:
       'Welcome! Please enter via the south gate. Call 15 minutes before arrival — wishing you a great viewing 🚪☕',
   },
@@ -31,7 +32,8 @@ export const VIEWING_NOTE_SUGGESTIONS: readonly ViewingNoteSuggestion[] = [
     labelAr: 'زيارة هادئة',
     labelEn: 'Calm visit',
     textAr: 'الموعد جاهز. خذ وقتك في المعاينة؛ نحن هنا لأي سؤال. بالتوفيق 🗝️🌿',
-    textEn: 'Your slot is ready. Take your time viewing; we’re here for any question. Good luck 🗝️🌿',
+    textEn:
+      'Your slot is ready. Take your time viewing; we’re here for any question. Good luck 🗝️🌿',
   },
   {
     id: 'id-ready',
@@ -45,7 +47,8 @@ export const VIEWING_NOTE_SUGGESTIONS: readonly ViewingNoteSuggestion[] = [
     labelAr: 'مرونة الموعد',
     labelEn: 'Flexible timing',
     textAr: 'إن احتجت تغييراً بسيطاً في الموعد أخبرنا مسبقاً وسنرتّب لك. نراكم قريباً 📅😊',
-    textEn: 'If you need a small time change, tell us ahead and we’ll arrange it. See you soon 📅😊',
+    textEn:
+      'If you need a small time change, tell us ahead and we’ll arrange it. See you soon 📅😊',
   },
   {
     id: 'coffee',
@@ -84,7 +87,8 @@ export const GUEST_VIEWING_NOTE_SUGGESTIONS: readonly ViewingNoteSuggestion[] = 
     labelAr: 'تعذّر الحضور',
     labelEn: 'Cannot attend',
     textAr: 'أعتذر، لن أتمكن من الحضور في الموعد الحالي. أرجو إلغاءه أو اقتراح بديل.',
-    textEn: 'Sorry, I cannot make the current appointment. Please cancel it or suggest another time.',
+    textEn:
+      'Sorry, I cannot make the current appointment. Please cancel it or suggest another time.',
   },
   {
     id: 'thanks',

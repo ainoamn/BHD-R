@@ -57,8 +57,7 @@ export default async function LeaseBookingSignPage({
   const title = leaseContractTitle(booking.mode);
   const signature = booking.signature;
   const viewOnly =
-    query.view === '1' ||
-    (Array.isArray(query.view) ? query.view[0] === '1' : false);
+    query.view === '1' || (Array.isArray(query.view) ? query.view[0] === '1' : false);
   // After the booking agreement is signed, the journey lives on /book/confirmed.
   if (signature && !viewOnly) {
     redirect(leaseConfirmedPath(locale, booking.referenceCode));

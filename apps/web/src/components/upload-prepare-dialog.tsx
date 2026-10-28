@@ -237,7 +237,12 @@ export function UploadPrepareDialog({ file, ar, title, onCancel, onConfirm }: Pr
           ) : null}
 
           <footer className="upload-prepare__actions">
-            <button type="button" className="button button--quiet" onClick={onCancel} disabled={busy}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={onCancel}
+              disabled={busy}
+            >
               {ar ? 'إلغاء' : 'Cancel'}
             </button>
             <button

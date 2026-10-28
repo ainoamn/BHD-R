@@ -21,19 +21,19 @@
 
 ### الحكم المختصر حسب المجال
 
-| المجال | التقييم المستقل | الملاحظة |
-| --- | --- | --- |
-| البنية العامة | جيدة | Monorepo ووحدات واضحة وPostgreSQL مصدر حقيقة واحد في التصميم الأساسي |
-| اكتمال إدارة العقارات | جيد مع نواقص | إضافة فردي/متعدد، وحدات، ملكية، عدادات، صور، نشر وQR موجودة |
-| الحجز والتأجير | متوسط | النماذج والحالات موجودة، لكن مسار دفع الحجز المباشر مانع إطلاق |
-| العقود والتوقيع | جيد جزئياً | قوالب، PDF، تحديات توقيع وتجديد موجودة؛ أدلة E2E والسياسات التسلسلية غير مكتملة |
-| المالية والمحاسبة داخل Nest | جيدة | BigInt للوحدات الصغرى، ترقيم ذري، قيد مزدوج، قفل وتفرد للدفعات |
-| الصيانة والمهام | متوسط | الأساس موجود؛ عروض الأسعار والضمان وتوزيع التكلفة والأتمتة ما زالت رقيقة |
-| المحاماة | أولي/جزئي | قضايا وأحداث فقط؛ ليست بعد منظومة قانونية كاملة |
-| التشفير | جيد في الخوارزمية، متوسط في الإدارة | AES-256-GCM وإصدارات ودوران؛ لا يوجد KMS حقيقي ومهمات الدوران قد تتجاوز أخطاء فك التشفير |
-| عزل الشركات | جيد داخل Nest/RLS، غير مثبت لكل الإنتاج | RLS قوي، لكن دور قاعدة بيانات Next المباشر وصلاحياته يحتاجان إثباتاً فعلياً |
-| CI والاختبارات | غير صالح كبوابة إصدار الآن | Build وUnit ينجحان، لكن Lint/Format/E2E تفشل |
-| الجاهزية للإنتاج | **مرفوضة مؤقتاً** | يجب إغلاق P0 وإصلاح بوابات الإصدار أولاً |
+| المجال                      | التقييم المستقل                         | الملاحظة                                                                                 |
+| --------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------- |
+| البنية العامة               | جيدة                                    | Monorepo ووحدات واضحة وPostgreSQL مصدر حقيقة واحد في التصميم الأساسي                     |
+| اكتمال إدارة العقارات       | جيد مع نواقص                            | إضافة فردي/متعدد، وحدات، ملكية، عدادات، صور، نشر وQR موجودة                              |
+| الحجز والتأجير              | متوسط                                   | النماذج والحالات موجودة، لكن مسار دفع الحجز المباشر مانع إطلاق                           |
+| العقود والتوقيع             | جيد جزئياً                              | قوالب، PDF، تحديات توقيع وتجديد موجودة؛ أدلة E2E والسياسات التسلسلية غير مكتملة          |
+| المالية والمحاسبة داخل Nest | جيدة                                    | BigInt للوحدات الصغرى، ترقيم ذري، قيد مزدوج، قفل وتفرد للدفعات                           |
+| الصيانة والمهام             | متوسط                                   | الأساس موجود؛ عروض الأسعار والضمان وتوزيع التكلفة والأتمتة ما زالت رقيقة                 |
+| المحاماة                    | أولي/جزئي                               | قضايا وأحداث فقط؛ ليست بعد منظومة قانونية كاملة                                          |
+| التشفير                     | جيد في الخوارزمية، متوسط في الإدارة     | AES-256-GCM وإصدارات ودوران؛ لا يوجد KMS حقيقي ومهمات الدوران قد تتجاوز أخطاء فك التشفير |
+| عزل الشركات                 | جيد داخل Nest/RLS، غير مثبت لكل الإنتاج | RLS قوي، لكن دور قاعدة بيانات Next المباشر وصلاحياته يحتاجان إثباتاً فعلياً              |
+| CI والاختبارات              | غير صالح كبوابة إصدار الآن              | Build وUnit ينجحان، لكن Lint/Format/E2E تفشل                                             |
+| الجاهزية للإنتاج            | **مرفوضة مؤقتاً**                       | يجب إغلاق P0 وإصلاح بوابات الإصدار أولاً                                                 |
 
 ---
 
@@ -66,17 +66,17 @@
 
 ### 3.1 المكونات الرئيسية
 
-| المكوّن | التقنية | المسؤولية |
-| --- | --- | --- |
-| الويب | Next.js 16.3 + React 19 + TypeScript | الموقع العام والبوابات العربية/الإنجليزية وBFF/Route Handlers |
-| الـ API | NestJS 11 + Express 5 + Zod | منطق الأعمال المركزي والصلاحيات والتدقيق والمعاملات |
-| قاعدة البيانات | PostgreSQL/PostGIS + Drizzle ORM | مصدر الحقيقة، العلاقات، القيود، التسلسل، RLS |
-| العامل الخلفي | Node/TypeScript + BullMQ/Redis | التقارير، PDF، الإشعارات، الوسائط، مهام التشفير |
-| التخزين | S3-compatible | الصور الأصلية والخاصة والمشتقات العامة والتقارير |
-| معالجة الملفات | ClamAV + Sharp + Chromium | الفحص، إعادة الترميز، العلامة المائية، PDF |
-| الهوية | BHD Identity/OIDC + PKCE | الدخول الموحد وإصدار جلسة BHD R |
-| الاختبارات | Vitest + Playwright | Unit/Integration/Browser؛ التغطية المتكاملة الحالية غير كافية |
-| النشر | Vercel + Render + Neon + Docker | الويب على Vercel وNest على Render وقاعدة Neon وفق الوثائق |
+| المكوّن        | التقنية                              | المسؤولية                                                     |
+| -------------- | ------------------------------------ | ------------------------------------------------------------- |
+| الويب          | Next.js 16.3 + React 19 + TypeScript | الموقع العام والبوابات العربية/الإنجليزية وBFF/Route Handlers |
+| الـ API        | NestJS 11 + Express 5 + Zod          | منطق الأعمال المركزي والصلاحيات والتدقيق والمعاملات           |
+| قاعدة البيانات | PostgreSQL/PostGIS + Drizzle ORM     | مصدر الحقيقة، العلاقات، القيود، التسلسل، RLS                  |
+| العامل الخلفي  | Node/TypeScript + BullMQ/Redis       | التقارير، PDF، الإشعارات، الوسائط، مهام التشفير               |
+| التخزين        | S3-compatible                        | الصور الأصلية والخاصة والمشتقات العامة والتقارير              |
+| معالجة الملفات | ClamAV + Sharp + Chromium            | الفحص، إعادة الترميز، العلامة المائية، PDF                    |
+| الهوية         | BHD Identity/OIDC + PKCE             | الدخول الموحد وإصدار جلسة BHD R                               |
+| الاختبارات     | Vitest + Playwright                  | Unit/Integration/Browser؛ التغطية المتكاملة الحالية غير كافية |
+| النشر          | Vercel + Render + Neon + Docker      | الويب على Vercel وNest على Render وقاعدة Neon وفق الوثائق     |
 
 ### 3.2 النموذج المعماري المقصود
 
@@ -241,24 +241,24 @@
 
 ## 6. طبقات الحماية الموجودة فعلياً
 
-| الطبقة | الموجود | الحكم |
-| --- | --- | --- |
-| كلمات المرور | scrypt بمعاملات قوية وsalt عشوائي | جيد |
-| OIDC | PKCE وstate وnonce والتحقق من أصل token endpoint | جيد جزئياً؛ JWKS غير مكتمل |
-| الجلسات | JWT + سجل جلسة + sessionVersion وإلغاء | جيد داخل Nest؛ Next المباشر يفحص JWT فقط |
-| الأدوار والصلاحيات | PermissionGuard وdecorators واختبار route policy | جيد لـ Nest فقط |
-| RLS | ENABLE + FORCE وسياسات شركة وأدوار API/worker/system | تصميم قوي؛ يلزم إثبات دور Next في الإنتاج |
-| CSRF | Double-submit HMAC مرتبط بالجلسة مع Origin/Fetch-Site | جيد لـ Nest؛ غير موجود على Next writes |
-| idempotency | Interceptor وجدول مفاتيح وقيود فريدة | جيد مركزياً؛ غير موحد على Next |
-| التشفير | AES-256-GCM، IV 12 بايت، AAD، envelope بإصدار | جيد خوارزمياً |
-| TOTP | تشفير، anti-replay، recovery codes أحادية الاستخدام | جيد مع ثغرة إعادة التسجيل |
-| API Keys | digest/pepper/scopes/expiry/revoke | جيد |
-| XSS والطباعة | sanitize-html وReact escaping وCSP | جيد عموماً، مع بقاء `style-src unsafe-inline` |
-| SSRF | HTTPS فقط، منع credentials/ports/private IP، DNS وallowlist | جيد عند حفظ بوابة الدفع؛ يجب فرضه أيضاً وقت الاتصال |
-| الملفات | مسار Nest/worker يفحص ويعيد الترميز ويضع watermark | جيد؛ مسار Next المباشر يتجاوزه |
-| السجلات | deep redaction واختبارات regression | جيد مركزياً؛ توجد logs خام في Next/worker |
-| الرؤوس | HSTS، nosniff، frame deny، permissions policy، CSP nonce | جيدة مع تحسينات مطلوبة |
-| الاعتماديات | Dependabot/CodeQL/Trivy/SBOM/audit في workflows | إعداد جيد، لكن بوابة CI نفسها غير خضراء |
+| الطبقة             | الموجود                                                     | الحكم                                               |
+| ------------------ | ----------------------------------------------------------- | --------------------------------------------------- |
+| كلمات المرور       | scrypt بمعاملات قوية وsalt عشوائي                           | جيد                                                 |
+| OIDC               | PKCE وstate وnonce والتحقق من أصل token endpoint            | جيد جزئياً؛ JWKS غير مكتمل                          |
+| الجلسات            | JWT + سجل جلسة + sessionVersion وإلغاء                      | جيد داخل Nest؛ Next المباشر يفحص JWT فقط            |
+| الأدوار والصلاحيات | PermissionGuard وdecorators واختبار route policy            | جيد لـ Nest فقط                                     |
+| RLS                | ENABLE + FORCE وسياسات شركة وأدوار API/worker/system        | تصميم قوي؛ يلزم إثبات دور Next في الإنتاج           |
+| CSRF               | Double-submit HMAC مرتبط بالجلسة مع Origin/Fetch-Site       | جيد لـ Nest؛ غير موجود على Next writes              |
+| idempotency        | Interceptor وجدول مفاتيح وقيود فريدة                        | جيد مركزياً؛ غير موحد على Next                      |
+| التشفير            | AES-256-GCM، IV 12 بايت، AAD، envelope بإصدار               | جيد خوارزمياً                                       |
+| TOTP               | تشفير، anti-replay، recovery codes أحادية الاستخدام         | جيد مع ثغرة إعادة التسجيل                           |
+| API Keys           | digest/pepper/scopes/expiry/revoke                          | جيد                                                 |
+| XSS والطباعة       | sanitize-html وReact escaping وCSP                          | جيد عموماً، مع بقاء `style-src unsafe-inline`       |
+| SSRF               | HTTPS فقط، منع credentials/ports/private IP، DNS وallowlist | جيد عند حفظ بوابة الدفع؛ يجب فرضه أيضاً وقت الاتصال |
+| الملفات            | مسار Nest/worker يفحص ويعيد الترميز ويضع watermark          | جيد؛ مسار Next المباشر يتجاوزه                      |
+| السجلات            | deep redaction واختبارات regression                         | جيد مركزياً؛ توجد logs خام في Next/worker           |
+| الرؤوس             | HSTS، nosniff، frame deny، permissions policy، CSP nonce    | جيدة مع تحسينات مطلوبة                              |
+| الاعتماديات        | Dependabot/CodeQL/Trivy/SBOM/audit في workflows             | إعداد جيد، لكن بوابة CI نفسها غير خضراء             |
 
 ---
 
@@ -502,23 +502,23 @@ CSP تستخدم nonce و`strict-dynamic` للسكربت، لكنها تسمح `
 
 ## 11. نتيجة الفحوص التي شُغلت فعلياً
 
-| الأمر | النتيجة | الملاحظة |
-| --- | --- | --- |
-| مطابقة Git مع origin | نجح | HEAD مطابق `1ef4a1b`؛ آخر commit بعد كود 0.2.78 وثائقي فقط |
-| `pnpm verify:source` | نجح | فحص regression للأسرار في المصدر نجح |
-| `pnpm audit --audit-level=high` | نجح | لا تنبيهات معروفة في قاعدة pnpm وقت الفحص؛ ليس ضماناً لعدم الثغرات |
-| `pnpm typecheck` | نجح | TypeScript بلا أخطاء |
-| `pnpm build` | نجح | 13/13 tasks، Next أنتج 50 صفحة/route group |
-| `pnpm test` | نجح جزئياً | 82 اختباراً ناجحاً، 3 integration skipped، وconfig/ui بلا اختبارات |
-| RLS integration محلي | لم ينفذ | skipped لغياب قاعدة اختبار مهيأة في هذه الجلسة |
-| Worker DB integration | لم ينفذ | اختباران skipped |
-| Drizzle check | نجح | metadata متسقة |
-| Docker Compose config | نجح | parsing فقط، لا يثبت تشغيل الخدمات |
-| `pnpm lint` | **فشل** | خطآن في `packages/authz/src/index.ts:687,691` |
-| `pnpm format:check` | **فشل** | 83 ملفاً غير مطابق، أحدها ملف محلي untracked |
-| `pnpm test:e2e` | **فشل** | API E2E يستورد Fastify غير المثبت؛ صفر اختبار API نفذ |
-| Playwright منفرداً | **فشل** | 3 passed، 31 failed، 2 skipped |
-| Gitleaks محلي | لم ينفذ | الأداة غير مثبتة؛ workflow الأمني يحتوي خطوة gitleaks |
+| الأمر                           | النتيجة    | الملاحظة                                                           |
+| ------------------------------- | ---------- | ------------------------------------------------------------------ |
+| مطابقة Git مع origin            | نجح        | HEAD مطابق `1ef4a1b`؛ آخر commit بعد كود 0.2.78 وثائقي فقط         |
+| `pnpm verify:source`            | نجح        | فحص regression للأسرار في المصدر نجح                               |
+| `pnpm audit --audit-level=high` | نجح        | لا تنبيهات معروفة في قاعدة pnpm وقت الفحص؛ ليس ضماناً لعدم الثغرات |
+| `pnpm typecheck`                | نجح        | TypeScript بلا أخطاء                                               |
+| `pnpm build`                    | نجح        | 13/13 tasks، Next أنتج 50 صفحة/route group                         |
+| `pnpm test`                     | نجح جزئياً | 82 اختباراً ناجحاً، 3 integration skipped، وconfig/ui بلا اختبارات |
+| RLS integration محلي            | لم ينفذ    | skipped لغياب قاعدة اختبار مهيأة في هذه الجلسة                     |
+| Worker DB integration           | لم ينفذ    | اختباران skipped                                                   |
+| Drizzle check                   | نجح        | metadata متسقة                                                     |
+| Docker Compose config           | نجح        | parsing فقط، لا يثبت تشغيل الخدمات                                 |
+| `pnpm lint`                     | **فشل**    | خطآن في `packages/authz/src/index.ts:687,691`                      |
+| `pnpm format:check`             | **فشل**    | 83 ملفاً غير مطابق، أحدها ملف محلي untracked                       |
+| `pnpm test:e2e`                 | **فشل**    | API E2E يستورد Fastify غير المثبت؛ صفر اختبار API نفذ              |
+| Playwright منفرداً              | **فشل**    | 3 passed، 31 failed، 2 skipped                                     |
+| Gitleaks محلي                   | لم ينفذ    | الأداة غير مثبتة؛ workflow الأمني يحتوي خطوة gitleaks              |
 
 ملاحظة: يوجد ملف محلي غير متتبع `scripts/set-database-url.mjs`، ولم يتم تعديله أو إدخاله في التقييم كمصدر معتمد. ويوجد ملف بيئة محلي مستثنى من Git؛ لم تُعرض قيمته أو أسراره.
 
@@ -528,15 +528,15 @@ CSP تستخدم nonce و`strict-dynamic` للسكربت، لكنها تسمح `
 
 وثيقة GAP تسجل F04/F12/F17/J06 كـ complete، لكن الكود الحالي يفرض إعادة تصنيفها:
 
-| البند | الوثيقة | التقييم بعد المراجعة |
-| --- | --- | --- |
-| الصلاحيات مركزية لكل API | complete | **partial/unsafe** بسبب Next direct routes |
-| لا ملفات Base64 في سجلات الأعمال | complete | **false** بسبب `dataBase64` fallback |
-| CSRF مكتمل | complete | **partial**؛ Nest فقط |
-| الدفع فقط عبر Webhook موقع | complete | **false/critical** بسبب booking complete sandbox |
-| TOTP مكتمل | complete | **partial** بسبب إعادة التسجيل بلا step-up |
-| دوران التشفير مكتمل | complete | **partial** لأن failed rows قد تُتجاوز |
-| Phase 0 complete | complete في STATUS | GAP نفسه يبقي quality/E2E/matrix غير منتهية، والفحوص الحالية تفشل |
+| البند                            | الوثيقة            | التقييم بعد المراجعة                                              |
+| -------------------------------- | ------------------ | ----------------------------------------------------------------- |
+| الصلاحيات مركزية لكل API         | complete           | **partial/unsafe** بسبب Next direct routes                        |
+| لا ملفات Base64 في سجلات الأعمال | complete           | **false** بسبب `dataBase64` fallback                              |
+| CSRF مكتمل                       | complete           | **partial**؛ Nest فقط                                             |
+| الدفع فقط عبر Webhook موقع       | complete           | **false/critical** بسبب booking complete sandbox                  |
+| TOTP مكتمل                       | complete           | **partial** بسبب إعادة التسجيل بلا step-up                        |
+| دوران التشفير مكتمل              | complete           | **partial** لأن failed rows قد تُتجاوز                            |
+| Phase 0 complete                 | complete في STATUS | GAP نفسه يبقي quality/E2E/matrix غير منتهية، والفحوص الحالية تفشل |
 
 يجب أن تصبح وثائق الحالة ناتجة آلياً عن release evidence ولا تُرفع إلى complete بناءً على وجود كود فقط.
 

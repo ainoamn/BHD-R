@@ -8,20 +8,20 @@
 
 ## Surfaces
 
-| Route | Phone (≤960) | Desktop (≥961) |
-| ----- | ------------ | -------------- |
-| `/ar/owner/properties` | Cards + 2×2 metrics; no table swipe | Full ops table |
-| `/ar/owner/properties/new` | Compact step track + dense fields | Full 7-step rail |
-| `/ar/owner/properties/:id` | Summary on top; stacked sections | Sticky summary column |
-| `/ar/owner/properties/:id/edit` | Same as new (compact wizard) | Same as new (full rail) |
+| Route                           | Phone (≤960)                        | Desktop (≥961)          |
+| ------------------------------- | ----------------------------------- | ----------------------- |
+| `/ar/owner/properties`          | Cards + 2×2 metrics; no table swipe | Full ops table          |
+| `/ar/owner/properties/new`      | Compact step track + dense fields   | Full 7-step rail        |
+| `/ar/owner/properties/:id`      | Summary on top; stacked sections    | Sticky summary column   |
+| `/ar/owner/properties/:id/edit` | Same as new (compact wizard)        | Same as new (full rail) |
 
 ## Chrome
 
-| Control | Phone | Desktop |
-| ------- | ----- | ------- |
-| Titles / user card | Hidden | Shown |
-| Apps grid | Hidden | Shown |
-| Lang + account avatar | Shown (scaled) | Shown |
+| Control               | Phone          | Desktop |
+| --------------------- | -------------- | ------- |
+| Titles / user card    | Hidden         | Shown   |
+| Apps grid             | Hidden         | Shown   |
+| Lang + account avatar | Shown (scaled) | Shown   |
 
 ## Manual checklist (after Vercel Ready)
 

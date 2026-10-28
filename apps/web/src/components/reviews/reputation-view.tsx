@@ -661,15 +661,10 @@ export function ReputationView({
       : true,
   );
   const [traveller, setTraveller] = useState<TravellerType | 'all'>('all');
-  const allReviews = useMemo(
-    () => sortReviewsNewestFirst(data?.reviews ?? []),
-    [data?.reviews],
-  );
+  const allReviews = useMemo(() => sortReviewsNewestFirst(data?.reviews ?? []), [data?.reviews]);
   const reviews = useMemo(
     () =>
-      traveller === 'all'
-        ? allReviews
-        : allReviews.filter((item) => item.traveller === traveller),
+      traveller === 'all' ? allReviews : allReviews.filter((item) => item.traveller === traveller),
     [allReviews, traveller],
   );
   const visible = showAllReviews ? reviews : reviews.slice(0, PREVIEW_LIMIT);
@@ -896,9 +891,7 @@ export function ReputationView({
               className="button button--quiet reputation__more"
               onClick={() => setAllOpen(true)}
             >
-              {ar
-                ? `فتح كل التقييمات (${reviews.length})`
-                : `Open all reviews (${reviews.length})`}
+              {ar ? `فتح كل التقييمات (${reviews.length})` : `Open all reviews (${reviews.length})`}
             </button>
           ) : null}
           {allOpen ? (
@@ -919,9 +912,7 @@ export function ReputationView({
                 >
                   <header>
                     <div>
-                      <h2 id="reputation-all-title">
-                        {ar ? title.ar : title.en}
-                      </h2>
+                      <h2 id="reputation-all-title">{ar ? title.ar : title.en}</h2>
                       <p className="muted">
                         {ar
                           ? `${reviews.length} تقييماً · الأحدث أولاً`

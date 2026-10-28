@@ -34,10 +34,7 @@ import {
 } from './renewal-term-panels';
 import { VoidRenewalDocsButton } from './void-renewal-docs-button';
 import { ELECTRONIC_RENEWAL_NOTICE } from '@/lib/electronic-renewal-notice';
-import {
-  DOCUMENT_ANTI_FORGERY,
-  shortSeal,
-} from '@/lib/document-authenticity';
+import { DOCUMENT_ANTI_FORGERY, shortSeal } from '@/lib/document-authenticity';
 import { DocumentAuthenticityStrip } from './document-authenticity-strip';
 import {
   BRAND_LOGO,
@@ -308,11 +305,7 @@ export function ContractDocumentView({
         ? `/${locale}${doc.stay.guestPageHref}`
         : null
       : `/${locale}/tenant/contracts/${contract.id}`;
-  const displayEndsOn = displayStayCheckoutOn(
-    doc.stayType,
-    contract.startsOn,
-    contract.endsOn,
-  );
+  const displayEndsOn = displayStayCheckoutOn(doc.stayType, contract.startsOn, contract.endsOn);
   const summary = ar
     ? `${ownerName} ← ${tenantName} · ${pick(propertyName)} (${unitName}) · من ${pick(day(contract.startsOn))} إلى ${pick(day(displayEndsOn))} · القيمة ${pick(money(doc.amount))}`
     : `${ownerName} → ${tenantName} · ${pick(propertyName)} (${unitName}) · ${pick(day(contract.startsOn))} – ${pick(day(displayEndsOn))} · ${pick(money(doc.amount))}`;
@@ -435,7 +428,11 @@ export function ContractDocumentView({
         parts={
           doc.annexes.length || bookingCopy || doc.addenda.length
             ? [
-                { id: DOCUMENT_ID, label: ar ? 'العقد الأصلي' : 'Original contract', available: true },
+                {
+                  id: DOCUMENT_ID,
+                  label: ar ? 'العقد الأصلي' : 'Original contract',
+                  available: true,
+                },
                 ...(bookingCopy
                   ? [
                       {
@@ -462,7 +459,10 @@ export function ContractDocumentView({
       />
 
       {doc.annexes.length || doc.booking || doc.addenda.length ? (
-        <nav className="contract-annex-bar" aria-label={ar ? 'محاضر العقد وملاحقه' : 'Contract records & addenda'}>
+        <nav
+          className="contract-annex-bar"
+          aria-label={ar ? 'محاضر العقد وملاحقه' : 'Contract records & addenda'}
+        >
           {doc.booking ? (
             <Link className="contract-annex-bar__item" href={bookingDocumentHref(doc.booking)}>
               <span className="contract-annex-bar__no">RSV</span>
@@ -512,9 +512,7 @@ export function ContractDocumentView({
               href={`/${locale}/${portal}/contracts/${addendum.id}`}
             >
               <span className="contract-annex-bar__no">M{index + 1}</span>
-              <span className="contract-annex-bar__title">
-                {addendumTitle(addendum.kind, ar)}
-              </span>
+              <span className="contract-annex-bar__title">{addendumTitle(addendum.kind, ar)}</span>
               <small dir="ltr">{addendum.reference}</small>
             </Link>
           ))}
@@ -656,11 +654,7 @@ export function ContractArticle({
     propertyName,
     status,
   } = documentFacts(contract, doc, ar);
-  const displayEndsOn = displayStayCheckoutOn(
-    doc.stayType,
-    contract.startsOn,
-    contract.endsOn,
-  );
+  const displayEndsOn = displayStayCheckoutOn(doc.stayType, contract.startsOn, contract.endsOn);
   const [titleAr, titleEn] = titlePair;
   const stay = doc.type === 'stay';
   const sale = doc.type === 'sale';
@@ -918,7 +912,9 @@ export function ContractArticle({
                     </thead>
                     <tbody>
                       <tr>
-                        <th scope="row">{bi(['تاريخ ووقت الإلغاء', 'Cancellation date & time'])}</th>
+                        <th scope="row">
+                          {bi(['تاريخ ووقت الإلغاء', 'Cancellation date & time'])}
+                        </th>
                         <td>{bi(dateTime(doc.terminationClose.cancelledAt))}</td>
                       </tr>
                       <tr>
@@ -927,7 +923,9 @@ export function ContractArticle({
                       </tr>
                       {doc.terminationClose.scheduledCheckOutAt ? (
                         <tr>
-                          <th scope="row">{bi(['موعد المغادرة المتفق عليه', 'Scheduled check-out'])}</th>
+                          <th scope="row">
+                            {bi(['موعد المغادرة المتفق عليه', 'Scheduled check-out'])}
+                          </th>
                           <td>{bi(dateTime(doc.terminationClose.scheduledCheckOutAt))}</td>
                         </tr>
                       ) : null}
@@ -940,10 +938,7 @@ export function ContractArticle({
                       <tr>
                         <th scope="row">{bi(['التأخير عن الموعد', 'Late return'])}</th>
                         <td>
-                          {bi([
-                            doc.terminationClose.lateLabelAr,
-                            doc.terminationClose.lateLabelEn,
-                          ])}
+                          {bi([doc.terminationClose.lateLabelAr, doc.terminationClose.lateLabelEn])}
                           {doc.terminationClose.lateMinutes > 0
                             ? bi([
                                 ' — يُترك قرار الخصم من التأمين أو المطالبة للمالك.',
@@ -1082,8 +1077,7 @@ export function ContractArticle({
                           money(
                             doc.rescheduleChange.difference.chargedTotalMinor
                               ? {
-                                  amountMinor:
-                                    doc.rescheduleChange.difference.chargedTotalMinor,
+                                  amountMinor: doc.rescheduleChange.difference.chargedTotalMinor,
                                   currency: doc.amount?.currency ?? 'OMR',
                                 }
                               : doc.rescheduleChange.next.amount,
@@ -1118,9 +1112,7 @@ export function ContractArticle({
                   {reservation
                     ? null
                     : row(['تاريخ البدء', 'Commencement'], bi(day(contract.startsOn)))}
-                  {reservation
-                    ? null
-                    : row(['تاريخ الانتهاء', 'Expiry'], bi(day(displayEndsOn)))}
+                  {reservation ? null : row(['تاريخ الانتهاء', 'Expiry'], bi(day(displayEndsOn)))}
                   {doc.checkInTime
                     ? row(
                         ['وقت الدخول', 'Check-in time'],
@@ -1456,10 +1448,12 @@ export function ContractArticle({
                             <bdi dir="ltr">{addendum.reference}</bdi>
                           </span>
                           <span className="contract-doc__annex-state">
-                            {bi(label(STATUS_LABELS, addendum.status) ?? [
-                              addendum.status,
-                              addendum.status,
-                            ])}
+                            {bi(
+                              label(STATUS_LABELS, addendum.status) ?? [
+                                addendum.status,
+                                addendum.status,
+                              ],
+                            )}
                           </span>
                         </li>
                       ))}

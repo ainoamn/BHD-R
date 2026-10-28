@@ -39,6 +39,7 @@
 ثم في Vercel → **Settings** → **Environment Variables**:
 
 ### 1) أضف `API_INTERNAL_ORIGIN`
+
 1. اضغط **Add New**.
 2. **Key:** `API_INTERNAL_ORIGIN`
 3. **Value:** الصق رابط Nest بالكامل **بدون** شرطة في النهاية  
@@ -47,6 +48,7 @@
 5. احفظ **Save**.
 
 ### 2) أضف `API_ORIGIN`
+
 1. **Add New** مرة أخرى.
 2. **Key:** `API_ORIGIN`
 3. **Value:** **نفس** قيمة `API_INTERNAL_ORIGIN` حرفياً.
@@ -54,17 +56,19 @@
 5. **Save**.
 
 ### 3) (موصى به) تأكيد عناوين الموقع
+
 إن لم تكن موجودة، أضف لـ Production + Preview:
 
-| Key | Value |
-|-----|--------|
-| `PUBLIC_WEB_ORIGIN` | `https://r.bhd-om.com` |
+| Key                      | Value                  |
+| ------------------------ | ---------------------- |
+| `PUBLIC_WEB_ORIGIN`      | `https://r.bhd-om.com` |
 | `NEXT_PUBLIC_API_ORIGIN` | `https://r.bhd-om.com` |
-| `PUBLIC_API_ORIGIN` | `https://r.bhd-om.com` |
+| `PUBLIC_API_ORIGIN`      | `https://r.bhd-om.com` |
 
 (`NEXT_PUBLIC_SITE_URL` موجود مسبقاً — لا حاجة لتكراره إن كان `https://r.bhd-om.com`).
 
 ### 4) أعد النشر
+
 1. الشريط الجانبي: **Deployments**.
 2. افتح أحدث نشر **Ready** على الفرع `main`.
 3. القائمة `⋯` → **Redeploy**.
@@ -72,6 +76,7 @@
 5. انتظر حتى يصبح الحالة **Ready**.
 
 ### 5) تحقق سريع
+
 1. افتح `https://r.bhd-om.com` وسجّل الدخول.
 2. جرّب صفحة مالك/مستأجر أو حجوزات — يجب أن تُحمَّل بيانات `/v1` بدل فراغ دائم.
 3. من المتصفح أو curl: `https://YOUR-NEST-HOST/health/ready` يجب أن يرجع نجاحاً.
@@ -114,12 +119,12 @@
 
 هذه الرسالة تعني أن **واجهة Next على Vercel تعمل**، لكن طلبات `/v1/*` لا تصل إلى خادم Nest.
 
-| السبب الشائع | ماذا تفعل |
-|--------------|-----------|
-| Nest لم يُنشَر بعد | أنشئ خدمة Docker من `Dockerfile.api` / `render.yaml` على Render |
-| `API_INTERNAL_ORIGIN=http://localhost:4000` | احذفها أو استبدلها برابط Nest **HTTPS** العام |
-| Nest نائم/معطل على Render | افتح الخدمة → Logs → تأكد أن `/health/ready` يرجع 200 |
-| نسيت Redeploy بعد تغيير المتغيرات | Deployments → Redeploy Production |
+| السبب الشائع                                | ماذا تفعل                                                       |
+| ------------------------------------------- | --------------------------------------------------------------- |
+| Nest لم يُنشَر بعد                          | أنشئ خدمة Docker من `Dockerfile.api` / `render.yaml` على Render |
+| `API_INTERNAL_ORIGIN=http://localhost:4000` | احذفها أو استبدلها برابط Nest **HTTPS** العام                   |
+| Nest نائم/معطل على Render                   | افتح الخدمة → Logs → تأكد أن `/health/ready` يرجع 200           |
+| نسيت Redeploy بعد تغيير المتغيرات           | Deployments → Redeploy Production                               |
 
 **تحقق سريع:** في المتصفح افتح  
 `https://YOUR-NEST-HOST/health/ready`  

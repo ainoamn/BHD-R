@@ -24,15 +24,15 @@
 
 ## STRIDE — إضافات Stays
 
-| الفئة | سيناريو | التخفيف (إلزامي في المراحل اللاحقة) |
-| ----- | ------- | ------------------------------------- |
-| Spoofing | جلسة ضيف مسروقة تفتح قسيمة/تعليمات وصول | cookies آمنة، صلاحية `guest` منفصلة، تقليل الحقول العامة |
-| Tampering | تغيير مبلغ Quote بعد الدفع | Quote immutable؛ مطابقة مبلغ/عملة في webhook؛ Decimal |
-| Tampering | تداخل حجزين لنفس الوحدة | `daterange` + GiST exclusion + معاملة قفل |
-| Repudiation | إنكار موافقة شروط أو إلغاء | audit append-only؛ Idempotency-Key؛ سجل حالات |
-| Information disclosure | رقم وحدة / مالك / إحداثيات دقيقة قبل التأكيد | إسقاط عام محدود؛ 404 عبر المؤسسات |
-| Denial of service | بحث تواريخ واسع أو Hold spam | rate limits؛ انتهاء Hold؛ تنظيف holds قبل الفحص |
-| Elevation of privilege | مستأجر طويل → إدارة تقويم يومي | صلاحيات `stay.*` مركزية؛ Flag + RLS |
+| الفئة                  | سيناريو                                      | التخفيف (إلزامي في المراحل اللاحقة)                      |
+| ---------------------- | -------------------------------------------- | -------------------------------------------------------- |
+| Spoofing               | جلسة ضيف مسروقة تفتح قسيمة/تعليمات وصول      | cookies آمنة، صلاحية `guest` منفصلة، تقليل الحقول العامة |
+| Tampering              | تغيير مبلغ Quote بعد الدفع                   | Quote immutable؛ مطابقة مبلغ/عملة في webhook؛ Decimal    |
+| Tampering              | تداخل حجزين لنفس الوحدة                      | `daterange` + GiST exclusion + معاملة قفل                |
+| Repudiation            | إنكار موافقة شروط أو إلغاء                   | audit append-only؛ Idempotency-Key؛ سجل حالات            |
+| Information disclosure | رقم وحدة / مالك / إحداثيات دقيقة قبل التأكيد | إسقاط عام محدود؛ 404 عبر المؤسسات                        |
+| Denial of service      | بحث تواريخ واسع أو Hold spam                 | rate limits؛ انتهاء Hold؛ تنظيف holds قبل الفحص          |
+| Elevation of privilege | مستأجر طويل → إدارة تقويم يومي               | صلاحيات `stay.*` مركزية؛ Flag + RLS                      |
 
 ## مسارات إساءة ذات أولوية
 

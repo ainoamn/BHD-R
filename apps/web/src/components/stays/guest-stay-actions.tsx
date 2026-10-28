@@ -296,7 +296,7 @@ export function GuestStayActions({
     ? false
     : Boolean(
         (booking.canPay && booking.paymentIntentId) ||
-          booking.pendingReschedule?.paymentRedirectUrl,
+        booking.pendingReschedule?.paymentRedirectUrl,
       );
   const showCancel = Boolean(booking.canCancel);
   const pendingReschedule = booking.pendingReschedule ?? null;
@@ -306,10 +306,10 @@ export function GuestStayActions({
     : null;
   const showModifyDates = Boolean(
     booking.listingSlug &&
-      booking.unitId &&
-      !pendingReschedule &&
-      (booking.canReschedule ?? RESCHEDULABLE.has(booking.status)) &&
-      (!depositGate || withinArrivalHours(booking, DEPOSIT_GATE_RESCHEDULE_MS)),
+    booking.unitId &&
+    !pendingReschedule &&
+    (booking.canReschedule ?? RESCHEDULABLE.has(booking.status)) &&
+    (!depositGate || withinArrivalHours(booking, DEPOSIT_GATE_RESCHEDULE_MS)),
   );
   const showRebook = depositGate
     ? false
@@ -472,12 +472,7 @@ export function GuestStayActions({
                   <div>
                     <dt>{ar ? 'موعد الإقامة' : 'Stay'}</dt>
                     <dd>
-                      {formatStayRange(
-                        booking.checkInOn,
-                        booking.checkOutOn,
-                        booking.stayType,
-                        ar,
-                      )}
+                      {formatStayRange(booking.checkInOn, booking.checkOutOn, booking.stayType, ar)}
                     </dd>
                   </div>
                   {booking.totalMinor ? (
@@ -574,10 +569,7 @@ function RescheduleDialog({
   unitId: string;
   locale: string;
   onClose: () => void;
-  onDone: (
-    next: GuestStayActionBooking,
-    meta?: { awaitingOwnerApproval?: boolean },
-  ) => void;
+  onDone: (next: GuestStayActionBooking, meta?: { awaitingOwnerApproval?: boolean }) => void;
 }) {
   const ar = locale === 'ar';
   const currentType = normalizeStayType(booking.stayType);
@@ -633,14 +625,14 @@ function RescheduleDialog({
 
   const rangeReady = Boolean(
     mode &&
-      effectiveCheckIn &&
-      (halfDay || (effectiveCheckOut && effectiveCheckOut > effectiveCheckIn)),
+    effectiveCheckIn &&
+    (halfDay || (effectiveCheckOut && effectiveCheckOut > effectiveCheckIn)),
   );
   const selectionChanged = Boolean(
     mode &&
-      (effectiveCheckIn !== booking.checkInOn ||
-        effectiveCheckOut !== booking.checkOutOn ||
-        stayType !== currentType),
+    (effectiveCheckIn !== booking.checkInOn ||
+      effectiveCheckOut !== booking.checkOutOn ||
+      stayType !== currentType),
   );
 
   useEffect(() => {
@@ -784,8 +776,7 @@ function RescheduleDialog({
                 {formatStayRange(booking.checkInOn, booking.checkOutOn, currentType, ar)}
                 <small>
                   {' '}
-                  · {stayTypeLabel(currentType, ar ? 'ar' : 'en')} ·{' '}
-                  {periodSpanLabel(currentType)}
+                  · {stayTypeLabel(currentType, ar ? 'ar' : 'en')} · {periodSpanLabel(currentType)}
                 </small>
               </strong>
               {booking.totalMinor ? <em>{money(booking.totalMinor)}</em> : null}
@@ -913,7 +904,9 @@ function RescheduleDialog({
                 </p>
               ) : needsDates && !rangeReady ? (
                 <p className="muted">
-                  {ar ? 'اختر التواريخ الجديدة لعرض السعر.' : 'Pick the new dates to see the price.'}
+                  {ar
+                    ? 'اختر التواريخ الجديدة لعرض السعر.'
+                    : 'Pick the new dates to see the price.'}
                 </p>
               ) : needsPeriod && !selectionChanged ? (
                 <p className="muted">
@@ -929,12 +922,7 @@ function RescheduleDialog({
                     <div>
                       <dt>{ar ? 'بعد التعديل' : 'After change'}</dt>
                       <dd>
-                        {formatStayRange(
-                          quote.checkInOn,
-                          quote.checkOutOn,
-                          quote.stayType,
-                          ar,
-                        )}
+                        {formatStayRange(quote.checkInOn, quote.checkOutOn, quote.stayType, ar)}
                         <small>
                           {' '}
                           · {stayTypeLabel(quote.stayType, ar ? 'ar' : 'en')} ·{' '}

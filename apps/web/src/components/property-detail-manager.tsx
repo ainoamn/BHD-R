@@ -1400,7 +1400,10 @@ export function PropertyDetailManager({
         <aside className="property-360__summary" aria-label={ar ? 'ملخص السعر' : 'Price summary'}>
           <div className="property-360__summary-card">
             {stayBooking && stayBookHref ? (
-              <section className="stays-book-cta stays-book-cta--top" aria-labelledby="stays-book-cta-title">
+              <section
+                className="stays-book-cta stays-book-cta--top"
+                aria-labelledby="stays-book-cta-title"
+              >
                 <h2 id="stays-book-cta-title">{ar ? 'احجز هذه الإقامة' : 'Book this stay'}</h2>
                 <dl className="stays-checkout__summary stays-checkout__summary--inline">
                   <div>

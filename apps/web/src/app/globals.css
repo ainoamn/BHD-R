@@ -8949,7 +8949,10 @@ body:has(.stays-booking-receipt) #main-content {
   color: inherit;
   text-decoration: none;
   box-shadow: 0 8px 20px rgb(15 47 74 / 0.03);
-  transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 .tenant-home__chip:hover {
   border-color: rgb(26 90 138 / 0.28);
@@ -9890,7 +9893,9 @@ body:has(.stays-booking-receipt) #main-content {
   color: var(--tenant-ink, #0f2f4a);
   text-decoration: none;
   overflow: hidden;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 .tenant-alert__tone {
   position: absolute;
@@ -16600,8 +16605,8 @@ body:has(.guest-stay-detail) #main-content {
   .guest-stay-detail__hero {
     gap: 0.45rem;
     max-height: min(38dvh, 15.5rem);
-    padding: max(0.55rem, env(safe-area-inset-top)) max(0.85rem, env(safe-area-inset-right))
-      0.55rem max(0.85rem, env(safe-area-inset-left));
+    padding: max(0.55rem, env(safe-area-inset-top)) max(0.85rem, env(safe-area-inset-right)) 0.55rem
+      max(0.85rem, env(safe-area-inset-left));
   }
   .guest-stay-detail__hero-img {
     object-position: center 28%;
@@ -17485,9 +17490,7 @@ body:has(.guest-stay-detail) #main-content {
   padding: 1.35rem 1.4rem 1.25rem;
   border: 1px solid color-mix(in srgb, var(--oman-deep, #092d24) 18%, #d7e1db);
   border-radius: 1rem;
-  background:
-    linear-gradient(180deg, #fffdf8 0%, #ffffff 38%),
-    #fff;
+  background: linear-gradient(180deg, #fffdf8 0%, #ffffff 38%), #fff;
   box-shadow: 0 18px 40px rgb(9 45 36 / 0.07);
 }
 .stay-desk {
@@ -18302,9 +18305,7 @@ body:has(.guest-stay-detail) #main-content {
   padding: 1.25rem 1.35rem;
   border-radius: 1.15rem;
   border: 1px solid color-mix(in srgb, var(--vd-accent) 22%, #d7e2dc);
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--vd-soft) 85%, #fff), #fff 62%),
-    #fff;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--vd-soft) 85%, #fff), #fff 62%), #fff;
   box-shadow: 0 14px 36px rgb(9 45 36 / 0.05);
   border-inline-start: 5px solid var(--vd-accent);
 }
@@ -18464,8 +18465,7 @@ body:has(.guest-stay-detail) #main-content {
   padding: 1.15rem 1.2rem;
   border-radius: 1.1rem;
   border: 1px solid #b7e4ce;
-  background:
-    linear-gradient(160deg, #eaf8f1 0%, #fff 55%);
+  background: linear-gradient(160deg, #eaf8f1 0%, #fff 55%);
   box-shadow: 0 12px 30px rgb(8 115 76 / 0.06);
 }
 .vd__pass-head {
@@ -18581,7 +18581,7 @@ body:has(.guest-stay-detail) #main-content {
   padding: 0.55rem 0.7rem;
   border-radius: 0.65rem;
   background: #fff;
-  border: 1px solid #e8efeB;
+  border: 1px solid #e8efeb;
   white-space: pre-wrap;
   line-height: 1.5;
   color: #24352e;
@@ -18822,11 +18822,7 @@ body:has(.guest-stay-detail) #main-content {
   border-radius: 1.4rem;
   background:
     linear-gradient(180deg, rgba(7, 94, 84, 0.92), rgba(7, 94, 84, 0.92)),
-    repeating-linear-gradient(
-      -28deg,
-      transparent 0 10px,
-      rgba(255, 255, 255, 0.03) 10px 11px
-    ),
+    repeating-linear-gradient(-28deg, transparent 0 10px, rgba(255, 255, 255, 0.03) 10px 11px),
     #075e54;
   display: grid;
   gap: 0.55rem;
@@ -18870,9 +18866,7 @@ body:has(.guest-stay-detail) #main-content {
   width: 100%;
   max-width: none;
   margin: 0;
-  padding:
-    clamp(0.75rem, 2vw, 1.5rem)
-    clamp(0.75rem, 3vw, 1.75rem)
+  padding: clamp(0.75rem, 2vw, 1.5rem) clamp(0.75rem, 3vw, 1.75rem)
     calc(2.5rem + env(safe-area-inset-bottom, 0px));
   padding-inline: max(clamp(0.75rem, 3vw, 1.75rem), env(safe-area-inset-left, 0px))
     max(clamp(0.75rem, 3vw, 1.75rem), env(safe-area-inset-right, 0px));
@@ -19015,8 +19009,7 @@ body:has(.guest-stay-detail) #main-content {
 .vp__ticket-body {
   display: grid;
   gap: clamp(1rem, 2.5vw, 1.35rem);
-  padding: clamp(1.1rem, 3vw, 1.6rem) clamp(1.05rem, 3vw, 1.75rem)
-    clamp(1.25rem, 3vw, 1.75rem);
+  padding: clamp(1.1rem, 3vw, 1.6rem) clamp(1.05rem, 3vw, 1.75rem) clamp(1.25rem, 3vw, 1.75rem);
 }
 .vp__qr-well {
   display: grid;
@@ -23714,8 +23707,7 @@ button.lrw__step-body:focus-visible {
 }
 @media (max-width: 479px) {
   .guest-stay-detail.lease-journey .guest-stay-detail__panel-body {
-    padding-inline: max(0.7rem, env(safe-area-inset-right))
-      max(0.7rem, env(safe-area-inset-left));
+    padding-inline: max(0.7rem, env(safe-area-inset-right)) max(0.7rem, env(safe-area-inset-left));
   }
   .lease-cheques__shared,
   .lease-cheques__table-wrap {
@@ -24606,11 +24598,7 @@ button.lrw__step-body:focus-visible {
     object-position: center 32%;
   }
   .stays-book-shell__aside-scrim {
-    background: linear-gradient(
-      180deg,
-      rgba(5, 22, 18, 0.55) 0%,
-      rgba(5, 22, 18, 0.35) 100%
-    );
+    background: linear-gradient(180deg, rgba(5, 22, 18, 0.55) 0%, rgba(5, 22, 18, 0.35) 100%);
   }
   .stays-book-shell__panel,
   .stays-book-shell--wide-form .stays-book-shell__panel {
@@ -34811,14 +34799,38 @@ button.handover-shots__item {
   padding: 0.18rem 0.5rem;
   font-size: 0.72rem;
 }
-.task-status--draft { background: #e2e8f0; color: #475569; }
-.task-status--pending { background: #ede9fe; color: #5b21b6; }
-.task-status--approved { background: #dbeafe; color: #1d4ed8; }
-.task-status--in_progress { background: #d1fae5; color: #047857; }
-.task-status--on_hold { background: #ffedd5; color: #c2410c; }
-.task-status--completed { background: #ecfdf5; color: #065f46; }
-.task-status--cancelled { background: #f1f5f9; color: #64748b; }
-.task-status--rejected { background: #ffe4e6; color: #be123c; }
+.task-status--draft {
+  background: #e2e8f0;
+  color: #475569;
+}
+.task-status--pending {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+.task-status--approved {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.task-status--in_progress {
+  background: #d1fae5;
+  color: #047857;
+}
+.task-status--on_hold {
+  background: #ffedd5;
+  color: #c2410c;
+}
+.task-status--completed {
+  background: #ecfdf5;
+  color: #065f46;
+}
+.task-status--cancelled {
+  background: #f1f5f9;
+  color: #64748b;
+}
+.task-status--rejected {
+  background: #ffe4e6;
+  color: #be123c;
+}
 
 .task-status-dot {
   width: 0.55rem;
@@ -34827,23 +34839,47 @@ button.handover-shots__item {
   background: #94a3b8;
   flex: 0 0 auto;
 }
-.task-status-dot--draft { background: #64748b; }
-.task-status-dot--pending { background: #7c3aed; }
-.task-status-dot--approved { background: #2563eb; }
-.task-status-dot--in_progress { background: #059669; }
-.task-status-dot--on_hold { background: #ea580c; }
-.task-status-dot--completed { background: #047857; }
-.task-status-dot--cancelled { background: #94a3b8; }
-.task-status-dot--rejected { background: #e11d48; }
+.task-status-dot--draft {
+  background: #64748b;
+}
+.task-status-dot--pending {
+  background: #7c3aed;
+}
+.task-status-dot--approved {
+  background: #2563eb;
+}
+.task-status-dot--in_progress {
+  background: #059669;
+}
+.task-status-dot--on_hold {
+  background: #ea580c;
+}
+.task-status-dot--completed {
+  background: #047857;
+}
+.task-status-dot--cancelled {
+  background: #94a3b8;
+}
+.task-status-dot--rejected {
+  background: #e11d48;
+}
 
 .task-priority {
   font-weight: 750;
   font-size: 0.8rem;
 }
-.task-priority--urgent { color: #e11d48; }
-.task-priority--high { color: #ea580c; }
-.task-priority--normal { color: #475569; }
-.task-priority--low { color: #94a3b8; }
+.task-priority--urgent {
+  color: #e11d48;
+}
+.task-priority--high {
+  color: #ea580c;
+}
+.task-priority--normal {
+  color: #475569;
+}
+.task-priority--low {
+  color: #94a3b8;
+}
 
 .task-status-btn {
   appearance: none;
@@ -34857,13 +34893,31 @@ button.handover-shots__item {
   background: #f1f5f9;
   color: #0f172a;
 }
-.task-status-btn--approved { background: #dbeafe; color: #1d4ed8; }
-.task-status-btn--in_progress { background: #d1fae5; color: #047857; }
-.task-status-btn--on_hold { background: #ffedd5; color: #c2410c; }
-.task-status-btn--completed { background: #0f6b45; color: #fff; }
+.task-status-btn--approved {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.task-status-btn--in_progress {
+  background: #d1fae5;
+  color: #047857;
+}
+.task-status-btn--on_hold {
+  background: #ffedd5;
+  color: #c2410c;
+}
+.task-status-btn--completed {
+  background: #0f6b45;
+  color: #fff;
+}
 .task-status-btn--rejected,
-.task-status-btn--cancelled { background: #ffe4e6; color: #be123c; }
-.task-status-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.task-status-btn--cancelled {
+  background: #ffe4e6;
+  color: #be123c;
+}
+.task-status-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 
 .task-desk {
   display: grid;
@@ -35281,10 +35335,18 @@ button.handover-shots__item {
   margin-top: 0.15rem;
   background: #94a3b8;
 }
-.task-priority-flag--low { background: #94a3b8; }
-.task-priority-flag--normal { background: #3b82f6; }
-.task-priority-flag--high { background: #f59e0b; }
-.task-priority-flag--urgent { background: #e11d48; }
+.task-priority-flag--low {
+  background: #94a3b8;
+}
+.task-priority-flag--normal {
+  background: #3b82f6;
+}
+.task-priority-flag--high {
+  background: #f59e0b;
+}
+.task-priority-flag--urgent {
+  background: #e11d48;
+}
 
 .task-board__kanban {
   display: grid;
@@ -35319,7 +35381,9 @@ button.handover-shots__item {
   border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   padding: 0.65rem 0.7rem;
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease;
 }
 .task-board__card:hover {
   border-color: #cbd5e1;
@@ -35377,7 +35441,9 @@ button.handover-shots__item {
   background: linear-gradient(135deg, var(--bhd-teal), #0b7f7c);
   box-shadow: 0 8px 20px color-mix(in srgb, var(--bhd-teal) 28%, transparent);
   cursor: pointer;
-  transition: transform 140ms ease, box-shadow 140ms ease;
+  transition:
+    transform 140ms ease,
+    box-shadow 140ms ease;
 }
 .task-board__create span {
   font-size: 1.15rem;
@@ -35396,8 +35462,16 @@ button.handover-shots__item {
   border-radius: 1rem;
   border: 1px dashed #cbd5e1;
   background:
-    radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--bhd-teal) 12%, transparent), transparent 42%),
-    radial-gradient(circle at 88% 10%, color-mix(in srgb, #0f172a 6%, transparent), transparent 40%),
+    radial-gradient(
+      circle at 12% 20%,
+      color-mix(in srgb, var(--bhd-teal) 12%, transparent),
+      transparent 42%
+    ),
+    radial-gradient(
+      circle at 88% 10%,
+      color-mix(in srgb, #0f172a 6%, transparent),
+      transparent 40%
+    ),
     #f8fafc;
 }
 .task-board__hero-empty h3 {
@@ -35424,8 +35498,12 @@ button.handover-shots__item {
   animation: task-quick-fade 160ms ease;
 }
 @keyframes task-quick-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .task-quick__card {
   width: min(40rem, 100%);
@@ -35443,8 +35521,14 @@ button.handover-shots__item {
   animation: task-quick-rise 180ms ease;
 }
 @keyframes task-quick-rise {
-  from { opacity: 0; transform: translateY(10px) scale(0.98); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 .task-quick__head {
   display: flex;
@@ -35532,7 +35616,10 @@ button.handover-shots__item {
   font-size: 0.82rem;
   font-weight: 650;
   cursor: pointer;
-  transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease;
 }
 .task-quick__chips > button:hover,
 .task-quick__chips > button.is-on {
@@ -35563,15 +35650,11 @@ button.handover-shots__item {
 }
 .task-quick__mark--check {
   border-radius: 0.2rem;
-  background:
-    linear-gradient(135deg, transparent 45%, #fff 45% 55%, transparent 55%),
-    #0f766e;
+  background: linear-gradient(135deg, transparent 45%, #fff 45% 55%, transparent 55%), #0f766e;
 }
 .task-quick__mark--place {
   border-radius: 0.15rem 0.15rem 0.35rem 0.35rem;
-  background:
-    linear-gradient(180deg, #94a3b8 0 35%, transparent 35%),
-    #0f766e;
+  background: linear-gradient(180deg, #94a3b8 0 35%, transparent 35%), #0f766e;
 }
 .task-quick__panel {
   display: grid;
@@ -35699,7 +35782,9 @@ button.handover-shots__item {
   border-radius: 0.75rem;
   border: 1px solid #e2e8f0;
   background: #f8fafc;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease;
 }
 .task-desk__chain a:hover {
   border-color: color-mix(in srgb, var(--bhd-teal) 40%, #cbd5e1);
@@ -36046,7 +36131,9 @@ button.handover-shots__item {
 .task-board__cols,
 .task-board__row {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(7rem, 1fr) minmax(7.5rem, 1fr) minmax(3.5rem, 0.55fr) minmax(5rem, 0.7fr);
+  grid-template-columns:
+    minmax(0, 2.2fr) minmax(7rem, 1fr) minmax(7.5rem, 1fr) minmax(3.5rem, 0.55fr)
+    minmax(5rem, 0.7fr);
   gap: 0.55rem;
   align-items: center;
   padding: 0.55rem 0.75rem;
@@ -36320,7 +36407,9 @@ button.handover-shots__item {
   text-decoration: none;
   color: inherit;
   background: Canvas;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
 }
 .platform-admin-overview__tile:hover {
   border-color: #0f766e;
@@ -36661,7 +36750,9 @@ button.handover-shots__item {
 }
 
 /* Lease renewal full page */
-.lease-renewal__summary { margin-bottom: 1.25rem; }
+.lease-renewal__summary {
+  margin-bottom: 1.25rem;
+}
 .lease-renewal__consent {
   margin-block: 1rem 0;
   font-weight: 600;
@@ -36689,9 +36780,17 @@ button.handover-shots__item {
   margin: 0.15rem 0 0;
   font-weight: 600;
 }
-.lease-renewal__form { display: grid; gap: 1.15rem; }
-.lease-renewal__form .card { padding: 1rem 1.15rem; }
-.lease-renewal__form h2 { margin: 0 0 0.75rem; font-size: 1.05rem; }
+.lease-renewal__form {
+  display: grid;
+  gap: 1.15rem;
+}
+.lease-renewal__form .card {
+  padding: 1rem 1.15rem;
+}
+.lease-renewal__form h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+}
 .lease-renewal__cheque-row {
   margin-top: 0.75rem;
   padding-top: 0.75rem;

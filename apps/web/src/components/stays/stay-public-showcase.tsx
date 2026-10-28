@@ -29,7 +29,11 @@ function ShowcaseGalleryImage({
       <img
         src={src}
         alt={alt}
-        className={fill ? 'stay-showcase__gallery-img stay-showcase__gallery-img--fill' : 'stay-showcase__gallery-img'}
+        className={
+          fill
+            ? 'stay-showcase__gallery-img stay-showcase__gallery-img--fill'
+            : 'stay-showcase__gallery-img'
+        }
         sizes={sizes}
         loading={priority ? 'eager' : 'lazy'}
       />
@@ -66,11 +70,7 @@ export function StayPublicShowcase({
     detail.propertyNameAr ?? '',
     detail.propertyNameEn ?? '',
   );
-  const description = localizedName(
-    locale,
-    detail.descriptionAr ?? '',
-    detail.descriptionEn ?? '',
-  );
+  const description = localizedName(locale, detail.descriptionAr ?? '', detail.descriptionEn ?? '');
   const locationParts = [detail.city, detail.wilayat, detail.destination].filter(Boolean);
   const locationLine = locationParts.join(ar ? ' · ' : ', ');
   const images = (detail.imageUrls ?? [])
@@ -151,8 +151,7 @@ export function StayPublicShowcase({
           {locationLine ? <p className="stay-showcase__location">{locationLine}</p> : null}
           {priceLabel ? (
             <p className="stay-showcase__price">
-              {ar ? 'ابتداءً من' : 'From'}{' '}
-              <strong dir="ltr">{priceLabel}</strong>{' '}
+              {ar ? 'ابتداءً من' : 'From'} <strong dir="ltr">{priceLabel}</strong>{' '}
               {ar ? 'لليلة' : 'per night'}
             </p>
           ) : null}
@@ -190,9 +189,7 @@ export function StayPublicShowcase({
             {detail.areaSquareMeters != null ? (
               <div>
                 <dt>{ar ? 'المساحة' : 'Area'}</dt>
-                <dd dir="ltr">
-                  {detail.areaSquareMeters} m²
-                </dd>
+                <dd dir="ltr">{detail.areaSquareMeters} m²</dd>
               </div>
             ) : null}
             {detail.depositMinor && detail.currency ? (

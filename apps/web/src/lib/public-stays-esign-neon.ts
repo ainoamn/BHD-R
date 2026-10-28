@@ -117,7 +117,12 @@ export async function completeStayEsignOnNeon(
     await transaction
       .update(stayBookings)
       .set({ pricingSnapshotJson: snapshot, updatedAt: new Date() })
-      .where(and(eq(stayBookings.id, booking.id), eq(stayBookings.organizationId, booking.organizationId)));
+      .where(
+        and(
+          eq(stayBookings.id, booking.id),
+          eq(stayBookings.organizationId, booking.organizationId),
+        ),
+      );
 
     return {
       completed: true as const,

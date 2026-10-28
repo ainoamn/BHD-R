@@ -21,7 +21,11 @@ export function DocumentAuthenticityStrip({
   const sealShort = shortSeal(digitalSeal);
 
   return (
-    <aside className="notice notice--info document-authenticity" role="region" aria-label={ar ? 'التحقق من الوثيقة' : 'Document verification'}>
+    <aside
+      className="notice notice--info document-authenticity"
+      role="region"
+      aria-label={ar ? 'التحقق من الوثيقة' : 'Document verification'}
+    >
       <p className="ops-kicker" style={{ margin: 0 }}>
         BHD R · AUTHENTICITY
       </p>

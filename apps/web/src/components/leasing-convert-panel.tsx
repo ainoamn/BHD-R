@@ -3,10 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { browserNextMutation } from '@/lib/api';
-import {
-  LeaseContractForm,
-  type LeaseContractPayload,
-} from '@/components/lease-contract-form';
+import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 
 type OptionRow = {
@@ -98,7 +95,9 @@ export function LeasingConvertPanel({
   async function submit(payload: LeaseContractPayload) {
     const propertyId = propertyIdByUnit.get(payload.unitId);
     if (!propertyId) {
-      setError(ar ? 'تعذّر تحديد العقار للوحدة المختارة.' : 'Could not resolve property for the unit.');
+      setError(
+        ar ? 'تعذّر تحديد العقار للوحدة المختارة.' : 'Could not resolve property for the unit.',
+      );
       return;
     }
     setBusy(true);

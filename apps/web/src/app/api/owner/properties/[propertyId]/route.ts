@@ -93,7 +93,10 @@ export async function PATCH(
       organization_required: { ar: 'اختر مؤسسة أولاً', en: 'Organization required' },
       owner_not_found: { ar: 'المالك غير موجود في هذه المؤسسة', en: 'Owner not found' },
       property_not_found: { ar: 'العقار غير موجود', en: 'Property not found' },
-      property_archived: { ar: 'لا يمكن تعديل عقار مؤرشف', en: 'Archived properties cannot be edited' },
+      property_archived: {
+        ar: 'لا يمكن تعديل عقار مؤرشف',
+        en: 'Archived properties cannot be edited',
+      },
       duplicate_property: {
         ar: 'عقار بنفس الاسم والعنوان موجود مسبقاً — لا يُسمح بالتكرار',
         en: 'A property with the same name and address already exists',

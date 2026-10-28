@@ -4,10 +4,7 @@ import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import { contracts, invoiceLines, invoices, leases, parties, properties, units } from '@bhd-r/db';
 import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
-import {
-  channelFromMethod,
-  postingRentReceipt,
-} from '@/lib/accounting-posting';
+import { channelFromMethod, postingRentReceipt } from '@/lib/accounting-posting';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';

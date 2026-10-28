@@ -8,10 +8,7 @@ import { StayBookingTimelineSection } from '@/components/stays/stay-booking-time
 import type { PropertyLocation } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
 import type { StayBookingTimelineFacts } from '@/lib/stay-booking-timeline';
-import {
-  stayPaymentKindLabel,
-  stayPaymentMethodLabel,
-} from '@/lib/stay-booking-payment-labels';
+import { stayPaymentKindLabel, stayPaymentMethodLabel } from '@/lib/stay-booking-payment-labels';
 import type { StayBookingPaymentLine } from '@/lib/stay-booking-payments';
 import { stayBookingModeLabel, stayStatusLabel, stayTypeLabel } from '@/lib/ui-labels';
 
@@ -279,9 +276,7 @@ export function StayBookingContract({
   const amountLabel = formatMoney(booking.totalMinor, booking.currency, locale);
   const paidSumMinor =
     (booking.payments?.length ?? 0) > 0
-      ? booking.payments!
-          .reduce((sum, line) => sum + BigInt(line.amountMinor), 0n)
-          .toString()
+      ? booking.payments!.reduce((sum, line) => sum + BigInt(line.amountMinor), 0n).toString()
       : booking.paidAmountMinor;
   const paidAmountLabel =
     paidSumMinor && (booking.paidCurrency || booking.currency)
@@ -308,13 +303,7 @@ export function StayBookingContract({
     : null;
   const pending = booking.pendingReschedule ?? null;
   const nightsLabel = `${booking.nights} ${
-    ar
-      ? booking.nights === 1
-        ? 'ليلة'
-        : 'ليالٍ'
-      : booking.nights === 1
-        ? 'night'
-        : 'nights'
+    ar ? (booking.nights === 1 ? 'ليلة' : 'ليالٍ') : booking.nights === 1 ? 'night' : 'nights'
   }`;
   const guestsLabel = [
     typeof booking.adults === 'number'
@@ -475,7 +464,11 @@ export function StayBookingContract({
                     {amountLabel}
                   </td>
                   <td className="is-to" dir="ltr">
-                    {formatMoney(pending.quotedTotalMinor || pending.chargedTotalMinor, booking.currency, locale)}
+                    {formatMoney(
+                      pending.quotedTotalMinor || pending.chargedTotalMinor,
+                      booking.currency,
+                      locale,
+                    )}
                   </td>
                 </tr>
                 {pending.extraDueMinor !== '0' ? (
@@ -514,7 +507,11 @@ export function StayBookingContract({
           <span>{ar ? 'الضيوف' : 'Guests'}</span>
           <strong>{guestsLabel || '—'}</strong>
         </div>
-        <div className="stay-desk__kpi" role="listitem" data-tone={paid ? 'ok' : offline ? 'ok' : 'warn'}>
+        <div
+          className="stay-desk__kpi"
+          role="listitem"
+          data-tone={paid ? 'ok' : offline ? 'ok' : 'warn'}
+        >
           <Icon name="receipt" size={18} />
           <span>{ar ? 'الدفع' : 'Payment'}</span>
           <strong>{paymentStatusCopy(booking.paymentStatus, ar)}</strong>
@@ -738,7 +735,9 @@ export function StayBookingContract({
                   <bdi dir="ltr">{booking.contract.reference}</bdi>
                 </Link>
               ) : booking.esignSignaturePng ? (
-                <a href="#stay-esign">{ar ? 'عرض التوقيع والمستندات' : 'View signature & documents'}</a>
+                <a href="#stay-esign">
+                  {ar ? 'عرض التوقيع والمستندات' : 'View signature & documents'}
+                </a>
               ) : ar ? (
                 'لم يُصدَر بعد'
               ) : (

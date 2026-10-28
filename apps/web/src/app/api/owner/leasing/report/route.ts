@@ -83,7 +83,13 @@ export async function POST(request: Request) {
           ? error.message
           : 'request_failed';
     const status =
-      code === 'forbidden' ? 403 : code === 'invalid_body' ? 400 : code === 'db_unconfigured' ? 503 : 500;
+      code === 'forbidden'
+        ? 403
+        : code === 'invalid_body'
+          ? 400
+          : code === 'db_unconfigured'
+            ? 503
+            : 500;
     return NextResponse.json({ error: { code } }, { status });
   }
 }
@@ -101,8 +107,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const token = url.searchParams.get('token') ?? '';
   const formatParam = url.searchParams.get('format');
-  const format =
-    formatParam === 'csv' ? 'csv' : formatParam === 'pdf' ? 'pdf' : 'xlsx';
+  const format = formatParam === 'csv' ? 'csv' : formatParam === 'pdf' ? 'pdf' : 'xlsx';
   const orientation =
     url.searchParams.get('orientation') === 'landscape' ? 'landscape' : 'portrait';
   const snapshot = await loadLeasingOpsReport(token);

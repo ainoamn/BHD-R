@@ -94,10 +94,7 @@ type TranslateKey =
   | `policies-${StayPolicySectionKey}-en`
   | `policies-${StayPolicySectionKey}-ar`;
 
-const POLICY_DEFAULTS: Record<
-  StayPolicySectionKey,
-  { ar: string[]; en: string[] }
-> = {
+const POLICY_DEFAULTS: Record<StayPolicySectionKey, { ar: string[]; en: string[] }> = {
   general: { ar: DEFAULT_POLICIES_AR, en: DEFAULT_POLICIES_EN },
   cancellation: { ar: DEFAULT_CANCELLATION_AR, en: DEFAULT_CANCELLATION_EN },
   events: { ar: DEFAULT_EVENTS_AR, en: DEFAULT_EVENTS_EN },
@@ -161,9 +158,7 @@ function hydrateUnitPricingFromContext(
     },
   ) => {
     next[unitId] = {
-      nightlyRate: draft.baseNightlyMinor
-        ? majorFromMinor(draft.baseNightlyMinor, minorUnit)
-        : '',
+      nightlyRate: draft.baseNightlyMinor ? majorFromMinor(draft.baseNightlyMinor, minorUnit) : '',
       dayUseRate: draft.dayUseMinor ? majorFromMinor(draft.dayUseMinor, minorUnit) : '',
       overnightOnlyRate: draft.overnightOnlyMinor
         ? majorFromMinor(draft.overnightOnlyMinor, minorUnit)
@@ -215,13 +210,15 @@ function stayStatusLabel(
   locale: 'ar' | 'en',
 ): { label: string; tone: 'positive' | 'warning' | 'info' | 'danger' } | null {
   if (!status) return null;
-  const map: Record<string, { ar: string; en: string; tone: 'positive' | 'warning' | 'info' | 'danger' }> =
-    {
-      published: { ar: 'منشور', en: 'Published', tone: 'positive' },
-      ready: { ar: 'جاهز', en: 'Ready', tone: 'info' },
-      draft: { ar: 'مسودة', en: 'Draft', tone: 'warning' },
-      unpublished: { ar: 'غير منشور', en: 'Unpublished', tone: 'danger' },
-    };
+  const map: Record<
+    string,
+    { ar: string; en: string; tone: 'positive' | 'warning' | 'info' | 'danger' }
+  > = {
+    published: { ar: 'منشور', en: 'Published', tone: 'positive' },
+    ready: { ar: 'جاهز', en: 'Ready', tone: 'info' },
+    draft: { ar: 'مسودة', en: 'Draft', tone: 'warning' },
+    unpublished: { ar: 'غير منشور', en: 'Unpublished', tone: 'danger' },
+  };
   const entry = map[status];
   if (!entry) return { label: status, tone: 'info' };
   return { label: locale === 'ar' ? entry.ar : entry.en, tone: entry.tone };
@@ -346,7 +343,8 @@ const copy = {
       'Site bookings are instant: the guest pays right away and the booking confirms after payment.',
     allowViewing:
       'Allow guests to request an on-site viewing from the daily-stay page (you can turn this off later).',
-    policiesHint: 'One policy per line. Write in Arabic or English, then use automatic translation.',
+    policiesHint:
+      'One policy per line. Write in Arabic or English, then use automatic translation.',
     policiesAr: 'Policies (Arabic)',
     policiesEn: 'Policies (English)',
     useDefaultPolicies: 'Restore default policies',
@@ -359,7 +357,8 @@ const copy = {
     deposit: 'Security deposit',
     depositHint: 'Paid on arrival and refunded after checkout inspection.',
     pricingHint: 'Set prices per unit. Empty optional fields fall back to stay-with-overnight.',
-    pricingPerUnitHint: 'Each row is one unit — apartments and showrooms can have different prices.',
+    pricingPerUnitHint:
+      'Each row is one unit — apartments and showrooms can have different prices.',
     usesPropertyDescription: 'The existing property description is reused automatically.',
     previewTitle: 'Preview as guests will see it',
     previewHint: 'Review the public page below before publishing. Go back to edit anything.',
@@ -405,9 +404,7 @@ export function StaySetupWizard({
   const [context, setContext] = useState<StaySetupContext | null>(initialContext);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(
-    !initialContext && apiHint ? apiHint : null,
-  );
+  const [error, setError] = useState<string | null>(!initialContext && apiHint ? apiHint : null);
   const [notice, setNotice] = useState<string | null>(null);
 
   const [selectedUnitIds, setSelectedUnitIds] = useState<string[]>([]);
@@ -452,74 +449,71 @@ export function StaySetupWizard({
       .map((unit) => unit.profileId as string);
   }
 
-  const applyContext = useCallback(
-    (data: StaySetupContext) => {
-      setContext(data);
-      setUnitTypeNameAr(data.propertyNameAr);
-      setUnitTypeNameEn(data.propertyNameEn);
-      if (data.unitTypes[0]) {
-        setUnitTypeId(data.unitTypes[0].id);
-        setUnitTypeNameAr(data.unitTypes[0].nameAr);
-        setUnitTypeNameEn(data.unitTypes[0].nameEn);
-      }
-      if (data.listings[0]) {
-        setSlug(data.listings[0].slug);
-      } else if (data.units[0]) {
-        setSlug(slugify(`${data.propertyNameEn}-${data.units[0].code}`));
-      }
-      const unpublished = data.units.filter((unit) => unit.publishStatus !== 'published');
-      const withProfiles = data.units.filter((unit) => unit.profileId);
-      const preferred = unpublished.length ? unpublished : withProfiles;
-      if (preferred.length) {
-        setSelectedUnitIds(preferred.map((unit) => unit.id));
-        setProfileIds(
-          preferred.map((unit) => unit.profileId).filter((id): id is string => Boolean(id)),
-        );
-      } else if (data.units.length === 1) {
-        setSelectedUnitIds([data.units[0]!.id]);
-      }
+  const applyContext = useCallback((data: StaySetupContext) => {
+    setContext(data);
+    setUnitTypeNameAr(data.propertyNameAr);
+    setUnitTypeNameEn(data.propertyNameEn);
+    if (data.unitTypes[0]) {
+      setUnitTypeId(data.unitTypes[0].id);
+      setUnitTypeNameAr(data.unitTypes[0].nameAr);
+      setUnitTypeNameEn(data.unitTypes[0].nameEn);
+    }
+    if (data.listings[0]) {
+      setSlug(data.listings[0].slug);
+    } else if (data.units[0]) {
+      setSlug(slugify(`${data.propertyNameEn}-${data.units[0].code}`));
+    }
+    const unpublished = data.units.filter((unit) => unit.publishStatus !== 'published');
+    const withProfiles = data.units.filter((unit) => unit.profileId);
+    const preferred = unpublished.length ? unpublished : withProfiles;
+    if (preferred.length) {
+      setSelectedUnitIds(preferred.map((unit) => unit.id));
+      setProfileIds(
+        preferred.map((unit) => unit.profileId).filter((id): id is string => Boolean(id)),
+      );
+    } else if (data.units.length === 1) {
+      setSelectedUnitIds([data.units[0]!.id]);
+    }
 
-      const draft = data.profileDraft;
-      if (!draft) return;
-      const overnightGuests = draft.overnightMaxGuests ?? draft.maxGuests;
-      if (overnightGuests) setOvernightMaxGuests(String(overnightGuests));
-      if (draft.dayUseMaxGuests) setDayUseMaxGuests(String(draft.dayUseMaxGuests));
-      else if (overnightGuests) setDayUseMaxGuests(String(overnightGuests));
-      if (draft.minNights) setMinNights(String(draft.minNights));
-      if (draft.maxNights) setMaxNights(String(draft.maxNights));
-      if (typeof draft.instantBook === 'boolean') setInstantBook(draft.instantBook);
-      if (typeof draft.allowViewingRequests === 'boolean') {
-        setAllowViewingRequests(draft.allowViewingRequests);
-      }
-      if (draft.checkInFrom) setCheckInFrom(normalizeTime(draft.checkInFrom, '23:00'));
-      if (draft.dayUseCheckInFrom)
-        setDayUseCheckInFrom(normalizeTime(draft.dayUseCheckInFrom, '10:00'));
-      if (draft.dayUseCheckOutUntil)
-        setDayUseCheckOutUntil(normalizeTime(draft.dayUseCheckOutUntil, '22:00'));
-      if (draft.overnightCheckOutUntil)
-        setOvernightCheckOutUntil(normalizeTime(draft.overnightCheckOutUntil, '09:00'));
-      const structured = parseStayPoliciesJson(draft.policiesJson, {
-        policiesAr: draft.policiesAr ?? null,
-        policiesEn: draft.policiesEn ?? null,
-      });
-      setPoliciesAr(policySectionText(structured, 'general', 'ar'));
-      setPoliciesEn(policySectionText(structured, 'general', 'en'));
-      setCancellationPoliciesAr(policySectionText(structured, 'cancellation', 'ar'));
-      setCancellationPoliciesEn(policySectionText(structured, 'cancellation', 'en'));
-      setEventsPoliciesAr(policySectionText(structured, 'events', 'ar'));
-      setEventsPoliciesEn(policySectionText(structured, 'events', 'en'));
-      setPaymentPoliciesAr(policySectionText(structured, 'payment', 'ar'));
-      setPaymentPoliciesEn(policySectionText(structured, 'payment', 'en'));
-      const pricingMinorUnit =
-        data.defaultCurrency === 'OMR' ||
-        data.defaultCurrency === 'BHD' ||
-        data.defaultCurrency === 'KWD'
-          ? 3
-          : 2;
-      setUnitPricing(hydrateUnitPricingFromContext(data, pricingMinorUnit));
-    },
-    [],
-  );
+    const draft = data.profileDraft;
+    if (!draft) return;
+    const overnightGuests = draft.overnightMaxGuests ?? draft.maxGuests;
+    if (overnightGuests) setOvernightMaxGuests(String(overnightGuests));
+    if (draft.dayUseMaxGuests) setDayUseMaxGuests(String(draft.dayUseMaxGuests));
+    else if (overnightGuests) setDayUseMaxGuests(String(overnightGuests));
+    if (draft.minNights) setMinNights(String(draft.minNights));
+    if (draft.maxNights) setMaxNights(String(draft.maxNights));
+    if (typeof draft.instantBook === 'boolean') setInstantBook(draft.instantBook);
+    if (typeof draft.allowViewingRequests === 'boolean') {
+      setAllowViewingRequests(draft.allowViewingRequests);
+    }
+    if (draft.checkInFrom) setCheckInFrom(normalizeTime(draft.checkInFrom, '23:00'));
+    if (draft.dayUseCheckInFrom)
+      setDayUseCheckInFrom(normalizeTime(draft.dayUseCheckInFrom, '10:00'));
+    if (draft.dayUseCheckOutUntil)
+      setDayUseCheckOutUntil(normalizeTime(draft.dayUseCheckOutUntil, '22:00'));
+    if (draft.overnightCheckOutUntil)
+      setOvernightCheckOutUntil(normalizeTime(draft.overnightCheckOutUntil, '09:00'));
+    const structured = parseStayPoliciesJson(draft.policiesJson, {
+      policiesAr: draft.policiesAr ?? null,
+      policiesEn: draft.policiesEn ?? null,
+    });
+    setPoliciesAr(policySectionText(structured, 'general', 'ar'));
+    setPoliciesEn(policySectionText(structured, 'general', 'en'));
+    setCancellationPoliciesAr(policySectionText(structured, 'cancellation', 'ar'));
+    setCancellationPoliciesEn(policySectionText(structured, 'cancellation', 'en'));
+    setEventsPoliciesAr(policySectionText(structured, 'events', 'ar'));
+    setEventsPoliciesEn(policySectionText(structured, 'events', 'en'));
+    setPaymentPoliciesAr(policySectionText(structured, 'payment', 'ar'));
+    setPaymentPoliciesEn(policySectionText(structured, 'payment', 'en'));
+    const pricingMinorUnit =
+      data.defaultCurrency === 'OMR' ||
+      data.defaultCurrency === 'BHD' ||
+      data.defaultCurrency === 'KWD'
+        ? 3
+        : 2;
+    setUnitPricing(hydrateUnitPricingFromContext(data, pricingMinorUnit));
+  }, []);
 
   const loadContext = useCallback(async () => {
     if (!propertyId) return;
@@ -583,7 +577,9 @@ export function StaySetupWizard({
   );
 
   const primaryUnit =
-    selectedUnits[0] ?? context?.units.find((unit) => selectedUnitIds.includes(unit.id)) ?? context?.units[0];
+    selectedUnits[0] ??
+    context?.units.find((unit) => selectedUnitIds.includes(unit.id)) ??
+    context?.units[0];
   const primaryPricing = primaryUnit
     ? (unitPricing[primaryUnit.id] ?? emptyUnitPricing())
     : emptyUnitPricing();
@@ -651,18 +647,13 @@ export function StaySetupWizard({
       ? minorFromMajor(primaryPricing.depositAmount, minorUnit) || null
       : null;
     const primary = primaryUnit;
-    const cover =
-      primary?.coverImageUrl ??
-      propertySummary?.coverImageUrl ??
-      null;
+    const cover = primary?.coverImageUrl ?? propertySummary?.coverImageUrl ?? null;
     return {
       slug: slug.trim() || 'preview',
       titleAr: listingTitleAr || context.propertyNameAr,
       titleEn: listingTitleEn || context.propertyNameEn,
-      descriptionAr:
-        context.propertyDescriptionAr ?? propertySummary?.descriptionAr ?? null,
-      descriptionEn:
-        context.propertyDescriptionEn ?? propertySummary?.descriptionEn ?? null,
+      descriptionAr: context.propertyDescriptionAr ?? propertySummary?.descriptionAr ?? null,
+      descriptionEn: context.propertyDescriptionEn ?? propertySummary?.descriptionEn ?? null,
       destination: locationParts.at(-1) ?? null,
       wilayat: locationParts.at(-2) ?? null,
       city: locationParts.at(-3) ?? locationParts[0] ?? null,
@@ -935,7 +926,9 @@ export function StaySetupWizard({
         throw new Error(locale === 'ar' ? 'سعر بدون مبيت غير صالح' : 'Invalid day-use rate');
       }
       if (row.overnightOnlyRate.trim() && !overnightOnlyMinor) {
-        throw new Error(locale === 'ar' ? 'سعر المبيت فقط غير صالح' : 'Invalid overnight-only rate');
+        throw new Error(
+          locale === 'ar' ? 'سعر المبيت فقط غير صالح' : 'Invalid overnight-only rate',
+        );
       }
       const depositMinor = row.depositAmount.trim()
         ? minorFromMajor(row.depositAmount, minorUnit)
@@ -1003,13 +996,9 @@ export function StaySetupWizard({
     if (!autoSlug) throw new Error(locale === 'ar' ? 'الرابط مطلوب' : 'Slug is required');
     setSlug(autoSlug);
     const summaryAr =
-      context?.propertyDescriptionAr?.trim() ||
-      propertySummary?.descriptionAr?.trim() ||
-      undefined;
+      context?.propertyDescriptionAr?.trim() || propertySummary?.descriptionAr?.trim() || undefined;
     const summaryEn =
-      context?.propertyDescriptionEn?.trim() ||
-      propertySummary?.descriptionEn?.trim() ||
-      undefined;
+      context?.propertyDescriptionEn?.trim() || propertySummary?.descriptionEn?.trim() || undefined;
     const payload = {
       propertyId,
       unitTypeId: typeId,
@@ -1062,7 +1051,9 @@ export function StaySetupWizard({
       if (current === 'pricing') await savePricingStep();
       setStep((value) => Math.min(STEPS.length - 1, value + 1));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : t.saveError);
+      setError(
+        err instanceof ApiError ? err.message : err instanceof Error ? err.message : t.saveError,
+      );
     } finally {
       setBusy(false);
     }
@@ -1079,13 +1070,14 @@ export function StaySetupWizard({
       setNotice(t.published);
       if (publishedSlug) {
         const focusUnit =
-          selectedUnits.find((unit) => selectedUnitIds.includes(unit.id))?.id ??
-          selectedUnitIds[0];
+          selectedUnits.find((unit) => selectedUnitIds.includes(unit.id))?.id ?? selectedUnitIds[0];
         const qs = focusUnit ? `?unit=${encodeURIComponent(focusUnit)}` : '';
         router.push(`/stays/${encodeURIComponent(publishedSlug)}${qs}`);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : t.publishError);
+      setError(
+        err instanceof ApiError ? err.message : err instanceof Error ? err.message : t.publishError,
+      );
     } finally {
       setBusy(false);
     }
@@ -1589,9 +1581,7 @@ export function StaySetupWizard({
                     {selectedUnits.map((unit) => {
                       const row = unitPricing[unit.id] ?? emptyUnitPricing();
                       const unitLabel =
-                        locale === 'ar'
-                          ? unit.nameAr || unit.code
-                          : unit.nameEn || unit.code;
+                        locale === 'ar' ? unit.nameAr || unit.code : unit.nameEn || unit.code;
                       return (
                         <tr key={unit.id}>
                           <td dir="ltr">{unit.code}</td>

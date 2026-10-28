@@ -14,7 +14,9 @@ export const BOOKING_PURPOSE_TABS: Array<{
   { id: 'sale', ar: 'بيع', en: 'Sale' },
 ];
 
-export function resolveBookingPurpose(row: Record<string, unknown>): Exclude<BookingPurposeTab, 'all'> {
+export function resolveBookingPurpose(
+  row: Record<string, unknown>,
+): Exclude<BookingPurposeTab, 'all'> {
   if (String(row.recordKind ?? '') === 'stay_booking') return 'daily';
   const tagged = String(row.bookingPurpose ?? '').toLowerCase();
   if (tagged === 'daily' || tagged === 'monthly' || tagged === 'yearly' || tagged === 'sale') {
@@ -47,9 +49,7 @@ export function matchesBookingPurposeTab(
   return resolveBookingPurpose(row) === tab;
 }
 
-function readOpsPendingReschedule(
-  value: unknown,
-): OpsStayBooking['pendingReschedule'] {
+function readOpsPendingReschedule(value: unknown): OpsStayBooking['pendingReschedule'] {
   if (!value || typeof value !== 'object') return null;
   const row = value as Record<string, unknown>;
   const status =

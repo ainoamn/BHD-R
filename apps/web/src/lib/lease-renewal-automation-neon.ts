@@ -1,11 +1,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
-import {
-  hasPermission,
-  permissionsForRoles,
-  type SessionClaims,
-} from '@bhd-r/authz';
+import { hasPermission, permissionsForRoles, type SessionClaims } from '@bhd-r/authz';
 import { contracts, leases, stayPolicies, units } from '@bhd-r/db';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
@@ -19,10 +15,7 @@ import {
   type LeaseRenewalAutomationOverride,
   type LeaseRenewalAutomationPolicy,
 } from '@/lib/lease-renewal-automation';
-import {
-  createLeaseRenewalOnNeon,
-  type CreateLeaseRenewalInput,
-} from '@/lib/lease-renewal-neon';
+import { createLeaseRenewalOnNeon, type CreateLeaseRenewalInput } from '@/lib/lease-renewal-neon';
 import {
   computeLeaseTerms,
   contractPeriod,
@@ -31,11 +24,7 @@ import {
   type LeaseTermsDraft,
 } from '@/lib/lease-terms';
 import { buildRenewalTermsDraft } from '@/lib/lease-terms-draft-from';
-import {
-  applyMemberScope,
-  getDatabase,
-  type MemberScope,
-} from '@/lib/public-booking-neon';
+import { applyMemberScope, getDatabase, type MemberScope } from '@/lib/public-booking-neon';
 import { muscatToday } from '@/lib/tenant-charges-neon';
 
 const POLICY_KIND = 'other';
@@ -45,9 +34,7 @@ function fail(code: string): never {
   throw new Error(code);
 }
 
-async function readOrgPolicy(
-  organizationId: string,
-): Promise<LeaseRenewalAutomationPolicy> {
+async function readOrgPolicy(organizationId: string): Promise<LeaseRenewalAutomationPolicy> {
   return elevatedTx(async (tx) => {
     const row = await tx.query.stayPolicies.findFirst({
       where: and(
@@ -544,10 +531,7 @@ export async function proposeRenewalTermOnNeon(
     if (!contract.parentContractId) fail('renewal_not_deliverable');
 
     const parent = await tx.query.contracts.findFirst({
-      where: and(
-        eq(contracts.id, contract.parentContractId),
-        eq(contracts.organizationId, orgId),
-      ),
+      where: and(eq(contracts.id, contract.parentContractId), eq(contracts.organizationId, orgId)),
     });
     const lease = await tx.query.leases.findFirst({
       where: and(
@@ -569,18 +553,20 @@ export async function proposeRenewalTermOnNeon(
     if (proposedEndsOn <= startsOn) fail('renewal_date_invalid');
 
     const orgPolicy = sanitizeLeaseRenewalAutomation(
-      ((
-        await tx.query.stayPolicies.findFirst({
-          where: and(
-            eq(stayPolicies.organizationId, orgId),
-            eq(stayPolicies.kind, POLICY_KIND),
-            eq(stayPolicies.code, POLICY_CODE),
-            eq(stayPolicies.status, 'active'),
-          ),
-          orderBy: [desc(stayPolicies.version)],
-          columns: { rulesJson: true },
-        })
-      )?.rulesJson as { policy?: unknown } | undefined)?.policy,
+      (
+        (
+          await tx.query.stayPolicies.findFirst({
+            where: and(
+              eq(stayPolicies.organizationId, orgId),
+              eq(stayPolicies.kind, POLICY_KIND),
+              eq(stayPolicies.code, POLICY_CODE),
+              eq(stayPolicies.status, 'active'),
+            ),
+            orderBy: [desc(stayPolicies.version)],
+            columns: { rulesJson: true },
+          })
+        )?.rulesJson as { policy?: unknown } | undefined
+      )?.policy,
     );
     const parentSnap = (parent?.payloadSnapshot ?? {}) as Record<string, unknown>;
     const policy = resolveRenewalAutomation(
@@ -589,8 +575,7 @@ export async function proposeRenewalTermOnNeon(
     );
 
     const proposedMonths = Math.max(1, contractPeriod(startsOn, proposedEndsOn).months);
-    const currentEndsOn =
-      typeof snapshot.endsOn === 'string' ? snapshot.endsOn : proposedEndsOn;
+    const currentEndsOn = typeof snapshot.endsOn === 'string' ? snapshot.endsOn : proposedEndsOn;
     const offeredMonths = Math.max(
       1,
       typeof snapshot.months === 'number'
@@ -744,9 +729,7 @@ export async function decideRenewalTermProposalOnNeon(
     let appliedEndsOn = currentEndsOn;
     if (decision === 'approved') {
       const chosen =
-        endsOnOverride && /^\d{4}-\d{2}-\d{2}$/.test(endsOnOverride)
-          ? endsOnOverride
-          : raw.endsOn;
+        endsOnOverride && /^\d{4}-\d{2}-\d{2}$/.test(endsOnOverride) ? endsOnOverride : raw.endsOn;
       if (!startsOn || chosen <= startsOn) fail('renewal_date_invalid');
       appliedEndsOn = chosen;
     }
@@ -803,9 +786,7 @@ export async function decideRenewalTermProposalOnNeon(
               subject: modified
                 ? `✅ اعتمد المالك تاريخ تجديد معدّل — ${reference}`
                 : `✅ اعتُمدت مدة التجديد — ${reference}`,
-              title: modified
-                ? 'المالك اعتمد تاريخ نهاية معدّل'
-                : 'المالك اعتمد مدة التجديد',
+              title: modified ? 'المالك اعتمد تاريخ نهاية معدّل' : 'المالك اعتمد مدة التجديد',
               intro: modified
                 ? `اقترحتَ ${raw.endsOn} واعتمد المالك ${appliedEndsOn}${trimmedNote ? ` — ملاحظة: ${trimmedNote}` : ''}. أكمل المستندات والتوقيع.`
                 : `نهاية الملحق أصبحت ${appliedEndsOn}. أكمل المستندات والتوقيع.`,

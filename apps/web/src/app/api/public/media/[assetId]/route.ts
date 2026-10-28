@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { resolvePublicPropertyMediaDelivery } from '@/lib/load-public-property-neon';
-import {
-  assertRouteRateLimit,
-  clientIp,
-  hashRateKey,
-} from '@/lib/route-rate-limit';
+import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 20;
@@ -16,10 +12,7 @@ export const maxDuration = 20;
  * Inline Neon blobs still stream through this route.
  * Brand mark is CSS `.media-watermark` only (avoids double watermark with bake).
  */
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ assetId: string }> },
-) {
+export async function GET(request: Request, context: { params: Promise<{ assetId: string }> }) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }

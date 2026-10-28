@@ -21,10 +21,7 @@ const bodySchema = z
  * POST /api/owner/stays/bookings/:bookingId/cancel
  * Cancel or reject a stay: reason note required; when paid, refund vs keep.
  */
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ bookingId: string }> },
-) {
+export async function POST(request: Request, context: { params: Promise<{ bookingId: string }> }) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }

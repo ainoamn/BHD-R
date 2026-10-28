@@ -25,10 +25,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 import { scopedOwnerParty } from '@/lib/portal-access';
 import { loadOpsContextExtras } from '@/lib/portal-ops-context-extras';
-import {
-  aggregateOfferingChannels,
-  unitOfferingChannels,
-} from '@/lib/property-offering-channels';
+import { aggregateOfferingChannels, unitOfferingChannels } from '@/lib/property-offering-channels';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import type { PortalRole } from '@/lib/types';
 

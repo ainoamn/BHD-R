@@ -11,10 +11,7 @@ import {
   renderLeasingXlsx,
   type LeasingReportSheet,
 } from '@/lib/leasing-report-files';
-import {
-  renderLeasingPdf,
-  type LeasingPdfOrientation,
-} from '@/lib/leasing-report-pdf';
+import { renderLeasingPdf, type LeasingPdfOrientation } from '@/lib/leasing-report-pdf';
 import type { LeasingPrintRow } from '@/lib/leasing-ops-table';
 import { publicWebOrigin } from '@/lib/seo';
 
@@ -83,18 +80,18 @@ function sheetOf(snapshot: LeasingReportSnapshot): LeasingReportSheet {
   return {
     title: snapshot.title,
     columns: ar
-      ? ['العقد', 'المبنى', 'الوحدة', 'المالك', 'المستأجر', 'الحالة', 'البداية', 'النهاية', 'الإيجار']
-      : [
-          'Contract',
-          'Building',
-          'Unit',
-          'Owner',
-          'Tenant',
-          'Status',
-          'Starts',
-          'Ends',
-          'Rent',
-        ],
+      ? [
+          'العقد',
+          'المبنى',
+          'الوحدة',
+          'المالك',
+          'المستأجر',
+          'الحالة',
+          'البداية',
+          'النهاية',
+          'الإيجار',
+        ]
+      : ['Contract', 'Building', 'Unit', 'Owner', 'Tenant', 'Status', 'Starts', 'Ends', 'Rent'],
     rows: snapshot.rows.map((row) => [
       row.reference,
       row.property,
@@ -171,9 +168,7 @@ export async function issueLeasingOpsReport(
   };
 }
 
-export async function loadLeasingOpsReport(
-  token: string,
-): Promise<LeasingReportSnapshot | null> {
+export async function loadLeasingOpsReport(token: string): Promise<LeasingReportSnapshot | null> {
   if (!hasDatabaseUrl() || !TOKEN_RE.test(token)) return null;
   return elevatedTx(async (tx) => {
     const [match] = await tx

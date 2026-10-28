@@ -59,7 +59,11 @@ export async function GET(request: Request) {
     const propertyId = url.searchParams.get('propertyId') ?? undefined;
     const unitId = url.searchParams.get('unitId') ?? undefined;
     const uuid = /^[0-9a-f-]{36}$/i;
-    if ((partyId && uuid.test(partyId)) || (propertyId && uuid.test(propertyId)) || (unitId && uuid.test(unitId))) {
+    if (
+      (partyId && uuid.test(partyId)) ||
+      (propertyId && uuid.test(propertyId)) ||
+      (unitId && uuid.test(unitId))
+    ) {
       return legalJson({
         tasks: await listSubjectTasks(claims, {
           ...(partyId && uuid.test(partyId) ? { partyId } : {}),

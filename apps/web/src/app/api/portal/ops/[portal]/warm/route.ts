@@ -21,10 +21,7 @@ function sessionSecret(): Uint8Array {
  * GET /api/portal/ops/:portal/warm
  * Load every ops section once so client soft-nav paints from memory.
  */
-export async function GET(
-  _request: Request,
-  context: { params: Promise<{ portal: string }> },
-) {
+export async function GET(_request: Request, context: { params: Promise<{ portal: string }> }) {
   const { portal: portalRaw } = await context.params;
   if (!PORTALS.has(portalRaw as PortalRole)) {
     return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });

@@ -134,10 +134,7 @@ export class PortalsService {
 
       const ownedPropertyIds = ownerPartyId
         ? (
-            await transaction
-              .select({ id: properties.id })
-              .from(properties)
-              .where(propertyFilter)
+            await transaction.select({ id: properties.id }).from(properties).where(propertyFilter)
           ).map((row) => row.id)
         : null;
 
@@ -349,9 +346,7 @@ export class PortalsService {
         })
         .from(stayProfiles)
         .innerJoin(units, eq(units.id, stayProfiles.unitId))
-        .where(
-          and(eq(stayProfiles.organizationId, orgId), inArray(units.propertyId, propertyIds)),
-        );
+        .where(and(eq(stayProfiles.organizationId, orgId), inArray(units.propertyId, propertyIds)));
       const channelsByProperty = new Map<string, Array<'rent' | 'sale' | 'stay'>>();
       for (const id of propertyIds) channelsByProperty.set(id, []);
       for (const row of purposeRows) {
@@ -536,7 +531,10 @@ export class PortalsService {
           .innerJoin(units, eq(maintenanceTickets.unitId, units.id))
           .innerJoin(properties, eq(units.propertyId, properties.id))
           .where(
-            and(eq(maintenanceTickets.organizationId, orgId), eq(properties.ownerPartyId, ownerPartyId)),
+            and(
+              eq(maintenanceTickets.organizationId, orgId),
+              eq(properties.ownerPartyId, ownerPartyId),
+            ),
           );
       }
       return transaction
@@ -731,12 +729,7 @@ export class PortalsService {
           and(
             eq(units.organizationId, claims.organizationId!),
             eq(leases.tenantPartyId, tenantPartyId),
-            inArray(leases.status, [
-              'draft',
-              'active',
-              'cancel_requested',
-              'clearance_pending',
-            ]),
+            inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']),
           ),
         );
     });

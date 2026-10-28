@@ -25,8 +25,7 @@ function FieldFrame({
   children,
 }: FieldBase & { id: string; required?: boolean; children: ReactNode }) {
   const descriptionId = hint || error ? `${id}-description` : undefined;
-  const toneClass =
-    tone === 'ok' ? 'field--ok' : tone === 'missing' ? 'field--missing' : '';
+  const toneClass = tone === 'ok' ? 'field--ok' : tone === 'missing' ? 'field--missing' : '';
   return (
     <div className={`field ${toneClass}`.trim()}>
       <label htmlFor={id}>

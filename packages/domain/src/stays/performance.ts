@@ -55,9 +55,7 @@ function ratioToFixed(numerator: bigint, denominator: bigint, scale: number): st
   return `${whole.toString()}.${frac.toString().padStart(scale, '0')}`;
 }
 
-export function computeStayPerformanceMetrics(
-  input: StayPerformanceInput,
-): StayPerformanceMetrics {
+export function computeStayPerformanceMetrics(input: StayPerformanceInput): StayPerformanceMetrics {
   if (!Number.isInteger(input.availableRoomNights) || input.availableRoomNights < 0) {
     throw new RangeError('availableRoomNights must be a non-negative integer');
   }
@@ -79,10 +77,8 @@ export function computeStayPerformanceMetrics(
     occupancyPercent = ratioToFixed(occupied * 100n, available, 2);
   }
 
-  const adrMinor =
-    occupied > 0n ? divideRoundHalfUp(revenue, occupied).toString() : null;
-  const revparMinor =
-    available > 0n ? divideRoundHalfUp(revenue, available).toString() : null;
+  const adrMinor = occupied > 0n ? divideRoundHalfUp(revenue, occupied).toString() : null;
+  const revparMinor = available > 0n ? divideRoundHalfUp(revenue, available).toString() : null;
 
   return {
     availableRoomNights: input.availableRoomNights,

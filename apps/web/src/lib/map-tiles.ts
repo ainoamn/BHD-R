@@ -9,8 +9,7 @@ export const MAP_TILE_URL =
 /** Leaflet still accepts this; Esri URLs have no subdomain rotation. */
 export const MAP_TILE_SUBDOMAINS = 'abcd';
 
-export const MAP_TILE_ATTRIBUTION =
-  'Tiles &copy; Esri &mdash; Source: Esri, OpenStreetMap';
+export const MAP_TILE_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, OpenStreetMap';
 
 /** Static image URL for a single tile (no Leaflet). Esri order is z/y/x. */
 export function mapTileSrc(z: number, x: number, y: number): string {

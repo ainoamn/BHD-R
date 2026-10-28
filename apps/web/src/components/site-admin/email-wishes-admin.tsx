@@ -102,7 +102,11 @@ export function EmailWishesAdmin({ locale }: { locale: 'ar' | 'en' }) {
       setSparksText(linesToText(saved.sparks));
       setNamedText(linesToText(saved.greetingsNamed));
       setAnonText(linesToText(saved.greetingsAnon));
-      setNotice(ar ? 'تم الحفظ — ستظهر العبارات في الإيميلات التالية.' : 'Saved — next emails will use these lines.');
+      setNotice(
+        ar
+          ? 'تم الحفظ — ستظهر العبارات في الإيميلات التالية.'
+          : 'Saved — next emails will use these lines.',
+      );
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'failed');
     } finally {
@@ -147,11 +151,15 @@ export function EmailWishesAdmin({ locale }: { locale: 'ar' | 'en' }) {
 
       {data?.usingDefaults ? (
         <p className="notice" role="status">
-          {ar ? 'حالياً تُستخدم العبارات الافتراضية من النظام.' : 'Currently using built-in defaults.'}
+          {ar
+            ? 'حالياً تُستخدم العبارات الافتراضية من النظام.'
+            : 'Currently using built-in defaults.'}
         </p>
       ) : (
         <p className="notice" role="status">
-          {ar ? 'تُستخدم عبارات مخصّصة محفوظة في المنصة.' : 'Using custom phrases saved on the platform.'}
+          {ar
+            ? 'تُستخدم عبارات مخصّصة محفوظة في المنصة.'
+            : 'Using custom phrases saved on the platform.'}
         </p>
       )}
 
@@ -233,13 +241,28 @@ export function EmailWishesAdmin({ locale }: { locale: 'ar' | 'en' }) {
       ) : null}
 
       <div className="form-actions">
-        <button className="button button--quiet" type="button" disabled={busy} onClick={() => void load()}>
+        <button
+          className="button button--quiet"
+          type="button"
+          disabled={busy}
+          onClick={() => void load()}
+        >
           {ar ? 'تحديث' : 'Reload'}
         </button>
-        <button className="button button--quiet" type="button" disabled={busy} onClick={() => void reset()}>
+        <button
+          className="button button--quiet"
+          type="button"
+          disabled={busy}
+          onClick={() => void reset()}
+        >
           {ar ? 'إعادة الافتراضي' : 'Reset defaults'}
         </button>
-        <button className="button button--primary" type="button" disabled={busy} onClick={() => void save()}>
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={busy}
+          onClick={() => void save()}
+        >
           {busy ? (ar ? 'جارٍ…' : 'Working…') : ar ? 'حفظ' : 'Save'}
         </button>
       </div>

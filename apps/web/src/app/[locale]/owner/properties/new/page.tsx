@@ -23,11 +23,7 @@ async function Page({ params }: { params: Promise<{ locale: string }> }) {
     { id: partyId, displayName: viewer.displayName, type: 'person' },
   ]);
   return (
-    <PropertyWizard
-      ownerPartyId={partyId}
-      ownerPartyOptions={ownerPartyOptions}
-      portal="owner"
-    />
+    <PropertyWizard ownerPartyId={partyId} ownerPartyOptions={ownerPartyOptions} portal="owner" />
   );
 }
 

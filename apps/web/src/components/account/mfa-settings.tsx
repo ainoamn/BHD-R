@@ -45,9 +45,7 @@ export function MfaSettings({ locale }: { locale: Locale }) {
         {
           method: 'POST',
           body: JSON.stringify(
-            mfaEnabled && stepUpCode.trim()
-              ? { currentCode: stepUpCode.trim() }
-              : {},
+            mfaEnabled && stepUpCode.trim() ? { currentCode: stepUpCode.trim() } : {},
           ),
         },
       );
@@ -114,7 +112,9 @@ export function MfaSettings({ locale }: { locale: Locale }) {
 
   return (
     <section className="card account-mfa" aria-labelledby="mfa-title">
-      <h2 id="mfa-title">{ar ? 'المصادقة الثنائية (Authenticator)' : 'Two-factor authentication'}</h2>
+      <h2 id="mfa-title">
+        {ar ? 'المصادقة الثنائية (Authenticator)' : 'Two-factor authentication'}
+      </h2>
       <p className="muted">
         {ar
           ? 'بعد اسم المستخدم وكلمة المرور يُطلب رمز من تطبيق Google Authenticator أو Authy.'
@@ -137,9 +137,7 @@ export function MfaSettings({ locale }: { locale: Locale }) {
       {mfaEnabled ? (
         <label className="field">
           <span>
-            {ar
-              ? 'رمز حالي لإعادة الربط (اختياري)'
-              : 'Current code to re-enroll (optional)'}
+            {ar ? 'رمز حالي لإعادة الربط (اختياري)' : 'Current code to re-enroll (optional)'}
           </span>
           <input
             className="input"
@@ -154,7 +152,12 @@ export function MfaSettings({ locale }: { locale: Locale }) {
       ) : null}
 
       {!pending ? (
-        <button type="button" className="button button--primary" disabled={busy} onClick={() => void startEnroll()}>
+        <button
+          type="button"
+          className="button button--primary"
+          disabled={busy}
+          onClick={() => void startEnroll()}
+        >
           {busy
             ? ar
               ? 'جارٍ…'
@@ -171,7 +174,12 @@ export function MfaSettings({ locale }: { locale: Locale }) {
         <div className="account-mfa__enroll">
           {qrUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={qrUrl} alt={ar ? 'رمز QR للمصادقة' : 'Authenticator QR code'} width={180} height={180} />
+            <img
+              src={qrUrl}
+              alt={ar ? 'رمز QR للمصادقة' : 'Authenticator QR code'}
+              width={180}
+              height={180}
+            />
           ) : null}
           <p className="muted" dir="ltr">
             {ar ? 'أو أدخل المفتاح يدوياً:' : 'Or enter this key manually:'}{' '}

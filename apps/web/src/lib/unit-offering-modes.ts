@@ -28,9 +28,7 @@ export function hasLongTermCatalogueOffer(modes: OfferingMode[]): boolean {
 }
 
 /** Map offering modes onto legacy listingPurpose column. */
-export function listingPurposeFromOfferingModes(
-  modes: OfferingMode[],
-): 'rent' | 'sale' | 'both' {
+export function listingPurposeFromOfferingModes(modes: OfferingMode[]): 'rent' | 'sale' | 'both' {
   const sale = modes.includes('sale');
   const rent = modes.includes('monthly') || modes.includes('yearly') || modes.includes('daily');
   if (sale && rent) return 'both';

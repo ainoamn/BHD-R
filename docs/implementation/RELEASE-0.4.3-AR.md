@@ -13,11 +13,11 @@
 
 ## تحقق
 
-| فحص | نتيجة |
-| --- | --- |
-| العلم off → `/v1/public/stays/search` | 404 |
-| Domain tests | 19 passed |
-| API typecheck | ok |
+| فحص                                   | نتيجة     |
+| ------------------------------------- | --------- |
+| العلم off → `/v1/public/stays/search` | 404       |
+| Domain tests                          | 19 passed |
+| API typecheck                         | ok        |
 
 ## تفعيل
 

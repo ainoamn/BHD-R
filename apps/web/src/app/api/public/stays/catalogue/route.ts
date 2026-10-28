@@ -76,8 +76,7 @@ export async function GET(request: Request) {
     const hasPool =
       url.searchParams.get('hasPool') === '1' || url.searchParams.get('hasPool') === 'true';
     const hasParking =
-      url.searchParams.get('hasParking') === '1' ||
-      url.searchParams.get('hasParking') === 'true';
+      url.searchParams.get('hasParking') === '1' || url.searchParams.get('hasParking') === 'true';
 
     if (countryCode) search.countryCode = countryCode;
     if (governorate) search.governorate = governorate;

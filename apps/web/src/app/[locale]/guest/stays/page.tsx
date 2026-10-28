@@ -98,15 +98,15 @@ export default async function GuestStaysPage({
           canClaim={Boolean(viewer)}
         />
 
-        {viewer ? (
-          <GuestPendingStayReviews locale={locale} />
-        ) : null}
+        {viewer ? <GuestPendingStayReviews locale={locale} /> : null}
 
         <section className="guest-stays__list" aria-labelledby="guest-trips-title">
           <h2 id="guest-trips-title">{ar ? 'حجوزاتي' : 'My bookings'}</h2>
           {!viewer ? (
             <p className="muted">
-              {ar ? 'سجّل الدخول لعرض الحجوزات المرتبطة بحسابك.' : 'Sign in to see bookings linked to your account.'}
+              {ar
+                ? 'سجّل الدخول لعرض الحجوزات المرتبطة بحسابك.'
+                : 'Sign in to see bookings linked to your account.'}
             </p>
           ) : items.length ? (
             <div className="ops-panel data-table-wrap">

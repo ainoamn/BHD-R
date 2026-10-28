@@ -11,10 +11,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 /** GET /api/owner/media/:assetId — stream stored property media for the signed-in org. */
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ assetId: string }> },
-) {
+export async function GET(request: Request, context: { params: Promise<{ assetId: string }> }) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
@@ -51,10 +48,7 @@ export async function GET(
 }
 
 /** DELETE /api/owner/media/:assetId — Nest-first with Neon+S3 fallback. */
-export async function DELETE(
-  request: Request,
-  context: { params: Promise<{ assetId: string }> },
-) {
+export async function DELETE(request: Request, context: { params: Promise<{ assetId: string }> }) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }

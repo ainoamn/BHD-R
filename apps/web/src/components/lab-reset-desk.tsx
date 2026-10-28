@@ -67,9 +67,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
 
   const selectAllWithData = () => {
     if (!counts) return;
-    setSelected(
-      new Set(LAB_RESET_CATEGORIES.filter((category) => (counts[category] ?? 0) > 0)),
-    );
+    setSelected(new Set(LAB_RESET_CATEGORIES.filter((category) => (counts[category] ?? 0) > 0)));
   };
 
   const runPurge = async () => {
@@ -79,9 +77,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
     }
     if (confirm.trim().toUpperCase() !== LAB_RESET_CONFIRM) {
       setMessage(
-        ar
-          ? `اكتب ${LAB_RESET_CONFIRM} للتأكيد.`
-          : `Type ${LAB_RESET_CONFIRM} to confirm.`,
+        ar ? `اكتب ${LAB_RESET_CONFIRM} للتأكيد.` : `Type ${LAB_RESET_CONFIRM} to confirm.`,
       );
       return;
     }
@@ -138,9 +134,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
   return (
     <section className="lab-reset" dir={ar ? 'rtl' : 'ltr'}>
       <header className="lab-reset__head">
-        <p className="lab-reset__eyebrow">
-          {ar ? 'تجريب مؤقت' : 'Temporary testing'}
-        </p>
+        <p className="lab-reset__eyebrow">{ar ? 'تجريب مؤقت' : 'Temporary testing'}</p>
         <h1>{ar ? 'إعادة ضبط بيانات التجارب' : 'Reset experimental data'}</h1>
         <p className="lab-reset__lead">
           {ar
@@ -174,15 +168,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
               />
               <span>
                 <strong>{labResetLabel(category, locale)}</strong>
-                <em>
-                  {counts
-                    ? ar
-                      ? `${n} سجل`
-                      : `${n} rows`
-                    : ar
-                      ? '…'
-                      : '…'}
-                </em>
+                <em>{counts ? (ar ? `${n} سجل` : `${n} rows`) : ar ? '…' : '…'}</em>
               </span>
             </label>
           );
@@ -227,9 +213,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
       <button
         type="button"
         className="button button--primary lab-reset__danger"
-        disabled={
-          busy || !selected.size || confirm.trim().toUpperCase() !== LAB_RESET_CONFIRM
-        }
+        disabled={busy || !selected.size || confirm.trim().toUpperCase() !== LAB_RESET_CONFIRM}
         onClick={() => void runPurge()}
       >
         {busy

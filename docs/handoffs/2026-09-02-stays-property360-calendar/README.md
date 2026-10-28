@@ -3,7 +3,7 @@
 **تاريخ:** 2026-09-02  
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الفرع:** `main`  
-**آخر commit:** `05b8f73` — *Ship Property 360 stay pages, occupancy calendar, and refined stays search UX as 0.4.26.*  
+**آخر commit:** `05b8f73` — _Ship Property 360 stay pages, occupancy calendar, and refined stays search UX as 0.4.26._  
 **الإصدار:** 0.4.26  
 **معرّف محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
@@ -11,14 +11,14 @@
 
 ## ما أُنجز (0.4.25 → 0.4.26)
 
-| المجال | التفاصيل |
-| --- | --- |
+| المجال             | التفاصيل                                                                 |
+| ------------------ | ------------------------------------------------------------------------ |
 | **تفاصيل الإقامة** | `PropertyDetailManager` + `stayBooking` بدل `StayPublicShowcase` المنفصل |
-| **بحث `/stays`** | hero، شبكة `auto-fill`، بطاقات محسّنة، شريط بحث بهوية BHD |
-| **تقويم الضيف** | `StayAvailabilityCalendar` في خطوة الحجز الأولى |
-| **تقويم المالك** | `/owner/stays/calendar` — تبويبات وحدات + locks + iCal |
-| **API** | `calendar` عام + `inventory-days` للعمليات |
-| **بيانات** | اختيار وحدة بغرف نوم في SQL التفاصيل |
+| **بحث `/stays`**   | hero، شبكة `auto-fill`، بطاقات محسّنة، شريط بحث بهوية BHD                |
+| **تقويم الضيف**    | `StayAvailabilityCalendar` في خطوة الحجز الأولى                          |
+| **تقويم المالك**   | `/owner/stays/calendar` — تبويبات وحدات + locks + iCal                   |
+| **API**            | `calendar` عام + `inventory-days` للعمليات                               |
+| **بيانات**         | اختيار وحدة بغرف نوم في SQL التفاصيل                                     |
 
 ---
 
@@ -56,9 +56,9 @@ git pull origin main
 
 ## تسليم سابق
 
-| الوثيقة | المحتوى |
-| --- | --- |
-| [`../2026-09-01-stays-public-and-portfolio/`](../2026-09-01-stays-public-and-portfolio/) | 0.4.24 معالج + محفظة |
-| [`RELEASE-0.4.25-AR.md`](../../implementation/RELEASE-0.4.25-AR.md) | بحث Booking + حجز 4 خطوات |
+| الوثيقة                                                                                  | المحتوى                   |
+| ---------------------------------------------------------------------------------------- | ------------------------- |
+| [`../2026-09-01-stays-public-and-portfolio/`](../2026-09-01-stays-public-and-portfolio/) | 0.4.24 معالج + محفظة      |
+| [`RELEASE-0.4.25-AR.md`](../../implementation/RELEASE-0.4.25-AR.md)                      | بحث Booking + حجز 4 خطوات |
 
 **ملاحظة:** `scripts/set-database-url.mjs` محلي فقط — لا يُرفع.

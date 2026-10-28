@@ -5,7 +5,7 @@
 **المستودع:** https://github.com/ainoamn/BHD-R  
 **الإنتاج:** https://r.bhd-om.com  
 **الفرع:** `main`  
-**آخر commit عند الأرشفة:** `76456d7` — *feat(stays): show e-sign CTA on confirmation when contract unsigned (0.4.63)*  
+**آخر commit عند الأرشفة:** `76456d7` — _feat(stays): show e-sign CTA on confirmation when contract unsigned (0.4.63)_  
 **محادثة Cursor:** [d0d5551b-99f7-449e-92d1-5d812bcf527d](d0d5551b-99f7-449e-92d1-5d812bcf527d)
 
 > هذا المجلد أرشيف المحادثة + خطة الاستكمال للجهاز الثاني. الكود منشور على `main` والإنتاج محدّث إلى **0.4.63**.
@@ -24,26 +24,28 @@ git log -1 --oneline   # يفترض 76456d7 أو أحدث
 
 ثم اقرأ بالترتيب:
 
-1. [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) — ماذا بقي وما الحالة الحالية  
-2. [`conversation-readable.md`](./conversation-readable.md) — ملخص المحادثة مقروءاً  
+1. [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) — ماذا بقي وما الحالة الحالية
+2. [`conversation-readable.md`](./conversation-readable.md) — ملخص المحادثة مقروءاً
 3. عند الحاجة للتفاصيل الخام: [`conversation-transcript.jsonl`](./conversation-transcript.jsonl)
 
 ---
 
 ## ما شُحن في هذه الجولة
 
-| إصدار | Commit | الملخص |
-| --- | --- | --- |
-| 0.4.54–0.4.56 | (سلسلة سابقة في نفس المحادثة) | صفحة الحجز المنقسمة + شعار/نص تحفيزي |
-| 0.4.57–0.4.58 | | دفع sandbox: CTA إعادة حجز عند `dates_taken` + إصلاح TS |
-| 0.4.59 | `ba1095f` | مزامنة التقويم مع الأقفال؛ إسقاط حجوزات `payment_pending` المنتهية |
-| 0.4.60 | `31806ee` | عدم احتساب قفل الضيف نفسه كـ `dates_taken` |
-| 0.4.61 | `3e9a636` | رحلات الضيف: دفع / إلغاء / تعديل / احجز مجدداً |
-| 0.4.62 | `2e06aee` | تفعيل مسار التوقيع بعد الدفع + شاشة اعتماد بن حمود |
-| **0.4.63** | **`76456d7`** | زر **توقيع عقد الإقامة** في صفحة التأكيد للحجوزات غير الموقّعة |
+| إصدار         | Commit                        | الملخص                                                             |
+| ------------- | ----------------------------- | ------------------------------------------------------------------ |
+| 0.4.54–0.4.56 | (سلسلة سابقة في نفس المحادثة) | صفحة الحجز المنقسمة + شعار/نص تحفيزي                               |
+| 0.4.57–0.4.58 |                               | دفع sandbox: CTA إعادة حجز عند `dates_taken` + إصلاح TS            |
+| 0.4.59        | `ba1095f`                     | مزامنة التقويم مع الأقفال؛ إسقاط حجوزات `payment_pending` المنتهية |
+| 0.4.60        | `31806ee`                     | عدم احتساب قفل الضيف نفسه كـ `dates_taken`                         |
+| 0.4.61        | `3e9a636`                     | رحلات الضيف: دفع / إلغاء / تعديل / احجز مجدداً                     |
+| 0.4.62        | `2e06aee`                     | تفعيل مسار التوقيع بعد الدفع + شاشة اعتماد بن حمود                 |
+| **0.4.63**    | **`76456d7`**                 | زر **توقيع عقد الإقامة** في صفحة التأكيد للحجوزات غير الموقّعة     |
 
 ### سبب مشكلة التوقيع (مهم)
+
 على Vercel كان:
+
 - `STAY_ESIGN_REQUIRED=0`
 - `NEXT_PUBLIC_STAY_ESIGN_REQUIRED=0`
 
@@ -62,12 +64,12 @@ git log -1 --oneline   # يفترض 76456d7 أو أحدث
 
 ## ملفات المحادثة
 
-| الملف | الوصف |
-| --- | --- |
-| [`conversation-transcript.jsonl`](./conversation-transcript.jsonl) | JSONL خام كامل للمحادثة | (**أسرار منقّحة**)
-| [`conversation-readable.md`](./conversation-readable.md) | نص المستخدم/المساعد فقط |
-| [`MANIFEST.md`](./MANIFEST.md) | أحجام وهاش |
-| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md) | خطة الاستكمال |
+| الملف                                                              | الوصف                   |
+| ------------------------------------------------------------------ | ----------------------- |
+| [`conversation-transcript.jsonl`](./conversation-transcript.jsonl) | JSONL خام كامل للمحادثة | (**أسرار منقّحة**) |
+| [`conversation-readable.md`](./conversation-readable.md)           | نص المستخدم/المساعد فقط |
+| [`MANIFEST.md`](./MANIFEST.md)                                     | أحجام وهاش              |
+| [`CONTINUE-PLAN-AR.md`](./CONTINUE-PLAN-AR.md)                     | خطة الاستكمال           |
 
 ---
 
@@ -80,4 +82,3 @@ git log -1 --oneline   # يفترض 76456d7 أو أحدث
 - `scripts/set-database-url.mjs`
 
 لا تنسخ أسرار Vercel/Neon إلى المستودع.
-

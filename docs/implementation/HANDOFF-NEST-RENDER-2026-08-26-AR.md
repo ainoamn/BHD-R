@@ -9,11 +9,11 @@
 
 ## 1) أين نحن الآن (الحالة الحية)
 
-| مكوّن | عنوان | ملاحظة |
-| --- | --- | --- |
-| Nest API (Render Free Docker) | https://bhd-r.onrender.com | خدمة `BHD-R` / `srv-da6nrmm7bikc739638og` |
-| واجهة المالك (Vercel) | https://bhd-r-api-phi.vercel.app | Root = `apps/web` |
-| فرع Git | `main` ↔ `origin/main` | كل إصلاحات الجلسة على `main` مباشرة |
+| مكوّن                         | عنوان                            | ملاحظة                                    |
+| ----------------------------- | -------------------------------- | ----------------------------------------- |
+| Nest API (Render Free Docker) | https://bhd-r.onrender.com       | خدمة `BHD-R` / `srv-da6nrmm7bikc739638og` |
+| واجهة المالك (Vercel)         | https://bhd-r-api-phi.vercel.app | Root = `apps/web`                         |
+| فرع Git                       | `main` ↔ `origin/main`           | كل إصلاحات الجلسة على `main` مباشرة       |
 
 ### فحص سريع (يجب أن ينجح قبل أي عمل جديد)
 
@@ -63,17 +63,17 @@ Fastify على Render ظهر أنه يستمع دون معالجة HTTP بشكل
 // الصحيح في main.ts
 origin: (origin, callback) => {
   callback(null, resolveCorsOrigin(origin));
-}
+};
 ```
 
 **إعدادات Render المطلوبة**
 
-| إعداد | قيمة |
-| --- | --- |
-| Health Check Path | **`/healthz`** |
-| `PORT` | **`10000`** |
-| Dockerfile | `Dockerfile.api` |
-| Branch | `main` |
+| إعداد             | قيمة             |
+| ----------------- | ---------------- |
+| Health Check Path | **`/healthz`**   |
+| `PORT`            | **`10000`**      |
+| Dockerfile        | `Dockerfile.api` |
+| Branch            | `main`           |
 
 **Vercel (web)** يجب أن يحتوي على:
 
@@ -97,19 +97,19 @@ origin: (origin, callback) => {
 
 ## 4) سجل المشاكل والمحاولات (مرتّب زمنياً تقريباً)
 
-| # | المشكلة / العرض | المحاولة | النتيجة | الدرس |
-| ---: | --- | --- | --- | --- |
-| 1 | Nest نائم / cold start (Free) | `/api/warm` + cron كل 5 دقائق على `/healthz` | يخفّف النوم؛ لا يصلح علّق المسارات | Free tier يبقى هشاً |
-| 2 | `REDIS_URL` = رابط لوحة Upstash (HTTPS) | فرض `redis://` / `rediss://` في config | إصلاح إقلاع | لا تلصق رابط المتصفح |
-| 3 | Render: No open HTTP ports / `PORT=4000` vs 10000 | فرض أو مواءمة `PORT=10000` | ضرورية للمنصة | Dashboard `PORT=10000` |
-| 4 | `/health/ready` يعلّق على Neon Free | Health check → `/health/live` ثم لاحقاً `/healthz` | المنصة تبقى Live | جاهزية DB منفصلة عن port-scan |
-| 5 | Fastify `serverFactory` يقطع `/healthz` مبكراً | short-circuit للصحة فقط | **كسر** `/raw-ping` و`/v1` | لا تعترض الطلب قبل Fastify بالكامل |
-| 6 | early-bind نفس السيرفر لـ Fastify | ربط Node ثم Nest على نفس السوكِت | صحة ok؛ مسارات Nest معلّقة | لا يكفي |
-| 7 | بروكسي عام → Fastify على `127.0.0.1:PORT+1` (`acf8283`) | فصل الحافة عن Nest | `/healthz` ok؛ `/raw-ping` معلّق | Fastify TCP/HTTP مكسور عملياً |
-| 8 | `fastify.inject()` بدون `listen` (`fe8686a`) | حقن الطلبات من الحافة | Nest لم يصبح جاهزاً / `ready` علّق | inject ليس حلاً إنتاجياً هنا |
-| 9 | التحويل إلى Express (`a72e60e`…) | ExpressAdapter + بروكسي | `/raw-ping` Express يعمل؛ Nest controllers تعلّق | ليس Fastify وحده |
-| 10 | تعطيل الحراس مؤقتاً (`5df0402`) | تشخيص | ما زال `/health/live` يعلّق | ليس Guard |
-| 11 | **CORS sync على Express** (`06151d5`) | `origin(origin, cb)` | **`/health/live` و`/v1` يردّان** | **الجذر الحقيقي الأخير** |
+|   # | المشكلة / العرض                                         | المحاولة                                           | النتيجة                                          | الدرس                              |
+| --: | ------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------ | ---------------------------------- |
+|   1 | Nest نائم / cold start (Free)                           | `/api/warm` + cron كل 5 دقائق على `/healthz`       | يخفّف النوم؛ لا يصلح علّق المسارات               | Free tier يبقى هشاً                |
+|   2 | `REDIS_URL` = رابط لوحة Upstash (HTTPS)                 | فرض `redis://` / `rediss://` في config             | إصلاح إقلاع                                      | لا تلصق رابط المتصفح               |
+|   3 | Render: No open HTTP ports / `PORT=4000` vs 10000       | فرض أو مواءمة `PORT=10000`                         | ضرورية للمنصة                                    | Dashboard `PORT=10000`             |
+|   4 | `/health/ready` يعلّق على Neon Free                     | Health check → `/health/live` ثم لاحقاً `/healthz` | المنصة تبقى Live                                 | جاهزية DB منفصلة عن port-scan      |
+|   5 | Fastify `serverFactory` يقطع `/healthz` مبكراً          | short-circuit للصحة فقط                            | **كسر** `/raw-ping` و`/v1`                       | لا تعترض الطلب قبل Fastify بالكامل |
+|   6 | early-bind نفس السيرفر لـ Fastify                       | ربط Node ثم Nest على نفس السوكِت                   | صحة ok؛ مسارات Nest معلّقة                       | لا يكفي                            |
+|   7 | بروكسي عام → Fastify على `127.0.0.1:PORT+1` (`acf8283`) | فصل الحافة عن Nest                                 | `/healthz` ok؛ `/raw-ping` معلّق                 | Fastify TCP/HTTP مكسور عملياً      |
+|   8 | `fastify.inject()` بدون `listen` (`fe8686a`)            | حقن الطلبات من الحافة                              | Nest لم يصبح جاهزاً / `ready` علّق               | inject ليس حلاً إنتاجياً هنا       |
+|   9 | التحويل إلى Express (`a72e60e`…)                        | ExpressAdapter + بروكسي                            | `/raw-ping` Express يعمل؛ Nest controllers تعلّق | ليس Fastify وحده                   |
+|  10 | تعطيل الحراس مؤقتاً (`5df0402`)                         | تشخيص                                              | ما زال `/health/live` يعلّق                      | ليس Guard                          |
+|  11 | **CORS sync على Express** (`06151d5`)                   | `origin(origin, cb)`                               | **`/health/live` و`/v1` يردّان**                 | **الجذر الحقيقي الأخير**           |
 
 ### ما تغيّر في الكود (ملفات أساسية)
 
@@ -125,16 +125,16 @@ origin: (origin, callback) => {
 
 ### أ) مصفوفة الأعراض → السبب المحتمل
 
-| العرض | المعنى الأرجح | الخطوة التالية |
-| --- | --- | --- |
-| Render Unhealthy / Failed | إقلاع أو Health path خاطئ | Logs + Health=`/healthz` + `PORT=10000` |
-| `/healthz` لا يرد | الحاوية ميتة أو نامية جداً | Manual Deploy / Upgrade من Free |
-| `/healthz` ok و`nestReady:false` طويل | Nest لم يُكمل `listen` الداخلي | Logs: ابحث `bootstrap failed` / Redis / env |
-| `/healthz` ok و`/raw-ping` أبيض | الحافة لا تصل لـ Express أو Express لم يقلع | Logs: `Nest Express listening on 127.0.0.1` |
-| `/raw-ping` ok و`/health/live` يعلّق | **انحدار CORS أو middleware Nest** | راجع `enableCors` يجب أن يستدعي `callback` |
-| `/health/live` ok والحفظ يفشل بـ 401/403 | جلسة/CSRF وليست شبكة | CSRF cookie + BFF Origin |
-| الحفظ يفشل بعد ~25s برسالة المهلة | BFF لم يصل Nest أو Nest بطيء/نائم | warm ثم أعد؛ راقب Render Metrics |
-| قوائم تظهر وحفظ لا | متوقع: قراءة Neon احتياطية؛ الكتابة تحتاج Nest | أصلح Nest أولاً |
+| العرض                                    | المعنى الأرجح                                  | الخطوة التالية                              |
+| ---------------------------------------- | ---------------------------------------------- | ------------------------------------------- |
+| Render Unhealthy / Failed                | إقلاع أو Health path خاطئ                      | Logs + Health=`/healthz` + `PORT=10000`     |
+| `/healthz` لا يرد                        | الحاوية ميتة أو نامية جداً                     | Manual Deploy / Upgrade من Free             |
+| `/healthz` ok و`nestReady:false` طويل    | Nest لم يُكمل `listen` الداخلي                 | Logs: ابحث `bootstrap failed` / Redis / env |
+| `/healthz` ok و`/raw-ping` أبيض          | الحافة لا تصل لـ Express أو Express لم يقلع    | Logs: `Nest Express listening on 127.0.0.1` |
+| `/raw-ping` ok و`/health/live` يعلّق     | **انحدار CORS أو middleware Nest**             | راجع `enableCors` يجب أن يستدعي `callback`  |
+| `/health/live` ok والحفظ يفشل بـ 401/403 | جلسة/CSRF وليست شبكة                           | CSRF cookie + BFF Origin                    |
+| الحفظ يفشل بعد ~25s برسالة المهلة        | BFF لم يصل Nest أو Nest بطيء/نائم              | warm ثم أعد؛ راقب Render Metrics            |
+| قوائم تظهر وحفظ لا                       | متوقع: قراءة Neon احتياطية؛ الكتابة تحتاج Nest | أصلح Nest أولاً                             |
 
 ### ب) أوامر فحص سريعة (من أي جهاز)
 
@@ -166,26 +166,26 @@ BHD-R API internal /health/live → 200 ...
 
 ## 6) قائمة استكمال مقترحة (الجهاز الآخر)
 
-1. من البوابة: حفظ عقار تجريبي بعد «إعادة الاتصال بـ Nest» والتأكد من ظهوره في القائمة.  
-2. التحقق من رفع صورة العقار عبر `/v1/media/ingress/...` (rawBody معطّل حالياً على Nest — قد تحتاج مسار raw محدود للويب هوك/الرفع لاحقاً).  
-3. تأكيد Vercel Preview/Production على نفس `API_INTERNAL_ORIGIN`.  
-4. مراجعة أن Health Check في Render ما زال `/healthz`.  
-5. (اختياري) تبسيط الحافة لاحقاً إن ثبت أن Express `listen` مباشرة على `0.0.0.0:PORT` مستقر مع CORS الصحيح — اليوم الحافة+البروكسي هو المسار المعتمد.  
-6. تطبيق هجرات Neon إن لم تُطبَّق (`STATUS.md`).  
+1. من البوابة: حفظ عقار تجريبي بعد «إعادة الاتصال بـ Nest» والتأكد من ظهوره في القائمة.
+2. التحقق من رفع صورة العقار عبر `/v1/media/ingress/...` (rawBody معطّل حالياً على Nest — قد تحتاج مسار raw محدود للويب هوك/الرفع لاحقاً).
+3. تأكيد Vercel Preview/Production على نفس `API_INTERNAL_ORIGIN`.
+4. مراجعة أن Health Check في Render ما زال `/healthz`.
+5. (اختياري) تبسيط الحافة لاحقاً إن ثبت أن Express `listen` مباشرة على `0.0.0.0:PORT` مستقر مع CORS الصحيح — اليوم الحافة+البروكسي هو المسار المعتمد.
+6. تطبيق هجرات Neon إن لم تُطبَّق (`STATUS.md`).
 7. **لا ترفع** `scripts/set-database-url.mjs` إن وُجد محلياً (قد يحتوي أسراراً) — يبقى untracked عمداً.
 
 ---
 
 ## 7) روابط مرجعية داخل المستودع
 
-| وثيقة | محتوى |
-| --- | --- |
-| هذا الملف | تسليم الجلسة + سجل الأعطال |
-| [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md) | تشغيل Nest / Render / Vercel |
-| [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md) | خطوات Vercel بالعربي |
-| [`STATUS.md`](./STATUS.md) | حالة التنفيذ العامة |
-| [`../../CHANGELOG.md`](../../CHANGELOG.md) | 0.2.33 → 0.2.45 |
-| محادثة Cursor | [Nest Render hang session](d0d5551b-99f7-449e-92d1-5d812bcf527d) |
+| وثيقة                                          | محتوى                                                            |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
+| هذا الملف                                      | تسليم الجلسة + سجل الأعطال                                       |
+| [`NEST-API-HOSTING.md`](./NEST-API-HOSTING.md) | تشغيل Nest / Render / Vercel                                     |
+| [`VERCEL-MANUAL-AR.md`](./VERCEL-MANUAL-AR.md) | خطوات Vercel بالعربي                                             |
+| [`STATUS.md`](./STATUS.md)                     | حالة التنفيذ العامة                                              |
+| [`../../CHANGELOG.md`](../../CHANGELOG.md)     | 0.2.33 → 0.2.45                                                  |
+| محادثة Cursor                                  | [Nest Render hang session](d0d5551b-99f7-449e-92d1-5d812bcf527d) |
 
 ---
 

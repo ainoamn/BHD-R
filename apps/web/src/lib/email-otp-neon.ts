@@ -12,7 +12,9 @@ const TTL_MS = 15 * 60_000;
 const MAX_ATTEMPTS = 5;
 
 function emailHash(email: string): string {
-  return createHash('sha256').update(`email-otp\0${normalizeEmailInput(email)}`).digest('hex');
+  return createHash('sha256')
+    .update(`email-otp\0${normalizeEmailInput(email)}`)
+    .digest('hex');
 }
 
 function codeHash(email: string, code: string): string {
@@ -70,8 +72,7 @@ export async function sendEmailOtp(input: {
       aggregateId,
       dedupeKey: `email-otp-send:${aggregateId}:${expiresAt.toISOString()}`,
       tone: 'booking',
-      title:
-        input.locale === 'ar' ? 'رمز التحقق من بريدك' : 'Verify your email',
+      title: input.locale === 'ar' ? 'رمز التحقق من بريدك' : 'Verify your email',
       intro:
         input.locale === 'ar'
           ? `رمز التحقق الخاص بك هو ${code}. صالح لمدة 15 دقيقة.`

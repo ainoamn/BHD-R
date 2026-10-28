@@ -698,8 +698,7 @@ export function computeLeaseTerms(
     : 0;
   const municipalityFeePayer: MunicipalityFeePayer =
     draft.municipalityFeePayer === 'tenant' ? 'tenant' : 'owner';
-  const municipalityFeeOnTenantMinor =
-    municipalityFeePayer === 'tenant' ? municipalityFeeMinor : 0;
+  const municipalityFeeOnTenantMinor = municipalityFeePayer === 'tenant' ? municipalityFeeMinor : 0;
   const otherTaxName = text(draft.otherTaxName, 80);
   const otherTax =
     otherTaxName && otherTaxRate > 0 ? { name: otherTaxName, rateBasisPoints: otherTaxRate } : null;

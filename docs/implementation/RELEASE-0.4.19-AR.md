@@ -7,15 +7,15 @@
 
 ### Nest API — إعداد الإقامة
 
-| Method | Path | الصلاحية |
-| ------ | ---- | -------- |
-| GET | `/v1/stays/setup/context?propertyId=` | `stay.inventory.manage` |
-| POST | `/v1/stays/setup/unit-types` | `stay.inventory.manage` |
-| POST | `/v1/stays/setup/profiles` | `stay.inventory.manage` |
-| PATCH | `/v1/stays/setup/profiles/:id` | `stay.inventory.manage` |
-| POST | `/v1/stays/setup/profiles/:id/rate-plan` | `stay.rate.manage` |
-| POST | `/v1/stays/setup/listings` | `stay.inventory.manage` |
-| POST | `/v1/stays/setup/profiles/:id/publish` | `stay.inventory.manage` |
+| Method | Path                                     | الصلاحية                |
+| ------ | ---------------------------------------- | ----------------------- |
+| GET    | `/v1/stays/setup/context?propertyId=`    | `stay.inventory.manage` |
+| POST   | `/v1/stays/setup/unit-types`             | `stay.inventory.manage` |
+| POST   | `/v1/stays/setup/profiles`               | `stay.inventory.manage` |
+| PATCH  | `/v1/stays/setup/profiles/:id`           | `stay.inventory.manage` |
+| POST   | `/v1/stays/setup/profiles/:id/rate-plan` | `stay.rate.manage`      |
+| POST   | `/v1/stays/setup/listings`               | `stay.inventory.manage` |
+| POST   | `/v1/stays/setup/profiles/:id/publish`   | `stay.inventory.manage` |
 
 - إنشاء `stay_unit_types`، `stay_profiles`، `stay_rate_plans`، `stay_public_listings`.
 - النشر يفعّل الملف والإعلان ويُعيد بناء `stay_inventory_days` فوراً + حدث outbox للـ worker.
@@ -66,9 +66,9 @@ STAYS_PLATFORM_ENABLED=true
 
 ## تحقق
 
-| فحص | متوقع |
-| --- | ----- |
-| Flag off | `/ar/stays` → 404؛ لا تبويب يومي في الرئيسية |
-| Flag on + allowlist | `/v1/stays/inventory/health` → 200 للمالك |
-| بعد النشر | `GET /v1/public/stays/search` يعيد slug المنشور |
-| Regression | حفظ عقار + إيجار + بيع — بدون انكسار |
+| فحص                 | متوقع                                           |
+| ------------------- | ----------------------------------------------- |
+| Flag off            | `/ar/stays` → 404؛ لا تبويب يومي في الرئيسية    |
+| Flag on + allowlist | `/v1/stays/inventory/health` → 200 للمالك       |
+| بعد النشر           | `GET /v1/public/stays/search` يعيد slug المنشور |
+| Regression          | حفظ عقار + إيجار + بيع — بدون انكسار            |

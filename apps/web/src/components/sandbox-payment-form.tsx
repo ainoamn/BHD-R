@@ -170,8 +170,7 @@ export function SandboxPaymentForm({
 
   const cardDigits = digitsOnly(cardNumber);
   const brand = detectBrand(cardDigits);
-  const amountLabel =
-    amountMinor && currency ? formatMoney(amountMinor, currency, locale) : null;
+  const amountLabel = amountMinor && currency ? formatMoney(amountMinor, currency, locale) : null;
   const nameHint = 'ABDUL HAMID AL RAWAHI';
   const numberHint = DEMO_CARD_NUMBER;
 
@@ -200,9 +199,7 @@ export function SandboxPaymentForm({
     return next;
   }, [ar, brand, cardDigits, cardName, cvc, expiry]);
 
-  const numberPreview = cardDigits
-    ? formatCardNumber(cardDigits)
-    : numberHint;
+  const numberPreview = cardDigits ? formatCardNumber(cardDigits) : numberHint;
   const namePreview = cardName.trim() || nameHint;
 
   async function complete() {
@@ -224,19 +221,22 @@ export function SandboxPaymentForm({
             cardholderName: cardName.trim(),
           })
         : stayKind
-        ? await completeStaySandboxPayment(sessionReference, {
-            ...(returnPath ? { returnPath } : {}),
-            cardLast4: cardDigits.slice(-4),
-            cardBrand: brand,
-            cardholderName: cardName.trim(),
-          })
-        : await browserPublicMutation<{
-            completed: boolean;
-            returnPath: string | null;
-            kind?: string;
-          }>(`/v1/public/payment-sessions/${encodeURIComponent(sessionReference)}/sandbox-complete`, {
-            ...(returnPath ? { returnPath } : {}),
-          });
+          ? await completeStaySandboxPayment(sessionReference, {
+              ...(returnPath ? { returnPath } : {}),
+              cardLast4: cardDigits.slice(-4),
+              cardBrand: brand,
+              cardholderName: cardName.trim(),
+            })
+          : await browserPublicMutation<{
+              completed: boolean;
+              returnPath: string | null;
+              kind?: string;
+            }>(
+              `/v1/public/payment-sessions/${encodeURIComponent(sessionReference)}/sandbox-complete`,
+              {
+                ...(returnPath ? { returnPath } : {}),
+              },
+            );
       const target = result.returnPath ?? returnPath ?? null;
       if (
         target &&
@@ -279,11 +279,7 @@ export function SandboxPaymentForm({
     <div className="pay-gateway">
       <div className="pay-gateway__card-visual" aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          className="pay-gateway__card-landmark"
-          src="/brand/oman-landmark-mosque.jpg"
-          alt=""
-        />
+        <img className="pay-gateway__card-landmark" src="/brand/oman-landmark-mosque.jpg" alt="" />
         <div className="pay-gateway__card-scrim" />
         <span className="pay-gateway__card-brand-mark logo__product logo__product--on-dark">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -310,9 +306,7 @@ export function SandboxPaymentForm({
           <div className="pay-gateway__card-chip" />
           <p
             className={
-              cardDigits
-                ? 'pay-gateway__card-number'
-                : 'pay-gateway__card-number is-placeholder'
+              cardDigits ? 'pay-gateway__card-number' : 'pay-gateway__card-number is-placeholder'
             }
             dir="ltr"
           >
@@ -321,10 +315,7 @@ export function SandboxPaymentForm({
           <div className="pay-gateway__card-meta">
             <span className="pay-gateway__card-holder">
               <small>{ar ? 'حامل البطاقة' : 'CARDHOLDER'}</small>
-              <strong
-                className={cardName.trim() ? undefined : 'is-placeholder'}
-                dir="ltr"
-              >
+              <strong className={cardName.trim() ? undefined : 'is-placeholder'} dir="ltr">
                 {namePreview}
               </strong>
             </span>

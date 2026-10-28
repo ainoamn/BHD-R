@@ -46,10 +46,7 @@ async function staffPartyPhone(
   const rows = await tx
     .select({ partyId: memberships.partyId, phone: parties.phone })
     .from(memberships)
-    .leftJoin(
-      parties,
-      and(eq(parties.id, memberships.partyId), eq(parties.organizationId, orgId)),
-    )
+    .leftJoin(parties, and(eq(parties.id, memberships.partyId), eq(parties.organizationId, orgId)))
     .where(
       and(
         eq(memberships.organizationId, orgId),
@@ -159,7 +156,11 @@ export async function loadPropertyViewingContact(
           .limit(1);
         contactName = rows[0]?.name ?? null;
         contactEmail = rows[0]?.email ?? null;
-        const partyPhone = await staffPartyPhone(tx, claims.organizationId!, property.contactUserId);
+        const partyPhone = await staffPartyPhone(
+          tx,
+          claims.organizationId!,
+          property.contactUserId,
+        );
         contactPhone = partyPhone.phone;
       }
     }
@@ -188,9 +189,7 @@ export async function setPropertyViewingContact(
   if (!claims.organizationId) fail('forbidden');
   const ownerPartyId = ownerPartyScope(claims);
   const phone =
-    phoneInput == null || phoneInput.trim() === ''
-      ? null
-      : toInternationalPhone(phoneInput.trim());
+    phoneInput == null || phoneInput.trim() === '' ? null : toInternationalPhone(phoneInput.trim());
   if (phone && !isInternationalPhone(phone)) fail('viewing_contact_phone_invalid');
 
   await withinViewerTenant(claims, async (tx) => {
@@ -249,10 +248,7 @@ export async function setPropertyViewingContact(
               .select({ id: parties.id })
               .from(parties)
               .where(
-                and(
-                  eq(parties.organizationId, claims.organizationId!),
-                  eq(parties.email, email),
-                ),
+                and(eq(parties.organizationId, claims.organizationId!), eq(parties.email, email)),
               )
               .limit(1);
             partyId = byEmail?.id ?? null;
@@ -293,9 +289,7 @@ export async function setPropertyViewingContact(
         await tx
           .update(parties)
           .set({ phone, updatedAt: new Date() })
-          .where(
-            and(eq(parties.id, partyId), eq(parties.organizationId, claims.organizationId!)),
-          );
+          .where(and(eq(parties.id, partyId), eq(parties.organizationId, claims.organizationId!)));
       }
     }
 

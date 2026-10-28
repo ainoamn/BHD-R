@@ -12,18 +12,27 @@ export const dynamic = 'force-dynamic';
 const bodySchema = z
   .object({
     /** Safe display fields only — never accept full PAN / CVC. */
-    cardLast4: z.string().regex(/^\d{4}$/).optional(),
+    cardLast4: z
+      .string()
+      .regex(/^\d{4}$/)
+      .optional(),
     cardBrand: z.enum(['visa', 'mastercard', 'amex', 'other']).optional(),
     cardholderName: z.string().trim().min(2).max(80).optional(),
   })
   .strict();
 
-const FORBIDDEN_CARD_KEYS = ['cardnumber', 'pan', 'number', 'cvc', 'cvv', 'expiry', 'exp', 'fullpan'];
+const FORBIDDEN_CARD_KEYS = [
+  'cardnumber',
+  'pan',
+  'number',
+  'cvc',
+  'cvv',
+  'expiry',
+  'exp',
+  'fullpan',
+];
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ reference: string }> },
-) {
+export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!isPaymentSandboxPilotEnabled()) {
     return leaseBookingJson(
       {

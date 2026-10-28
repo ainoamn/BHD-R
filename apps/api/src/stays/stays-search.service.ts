@@ -236,7 +236,7 @@ export class StaysSearchService implements OnModuleDestroy {
       unit_id: string;
       cover_image_url: string | null;
     }>;
-    const next = rows.length > limit ? sliced[sliced.length - 1]?.unit_id ?? null : null;
+    const next = rows.length > limit ? (sliced[sliced.length - 1]?.unit_id ?? null) : null;
 
     const response: StaySearchResponse = {
       items: sliced.map((row) => ({

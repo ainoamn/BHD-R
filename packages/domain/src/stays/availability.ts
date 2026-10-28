@@ -51,9 +51,10 @@ export function formatDaterangeLiteral(range: StayDateRange): string {
  * Real exclusivity is enforced by PostgreSQL GiST EXCLUDE on stay_inventory_locks —
  * this helper only models first-writer-wins for unit tests without a DB.
  */
-export function simulateConcurrentLockWinner(
-  attempts: readonly StayDateRange[],
-): { winnerIndex: number; rejectedIndexes: number[] } {
+export function simulateConcurrentLockWinner(attempts: readonly StayDateRange[]): {
+  winnerIndex: number;
+  rejectedIndexes: number[];
+} {
   if (attempts.length === 0) throw new RangeError('At least one attempt is required');
   const accepted: StayDateRange[] = [];
   const rejectedIndexes: number[] = [];

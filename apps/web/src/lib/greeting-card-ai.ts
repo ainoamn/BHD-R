@@ -6,11 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { Resvg } from '@resvg/resvg-js';
 import sharp from 'sharp';
 import { aiChatJson, resolveAiEndpoint, type AiEndpoint } from '@/lib/ai-chat';
-import {
-  COMPANY_NAME_AR,
-  COMPANY_NAME_EN,
-  PRODUCT_NAME,
-} from '@/lib/email-template';
+import { COMPANY_NAME_AR, COMPANY_NAME_EN, PRODUCT_NAME } from '@/lib/email-template';
 import type { GreetingDesignVersion } from '@/lib/greeting-campaigns-shared';
 import { publicWebOrigin } from '@/lib/seo';
 
@@ -265,13 +261,19 @@ async function generateRasterViaChat(chat: AiEndpoint, prompt: string): Promise<
       const extracted = extractImageBuffer(json.choices?.[0]?.message);
       if (extracted) return extracted;
     } catch (error) {
-      console.error('greeting chat-image error', model, error instanceof Error ? error.message : error);
+      console.error(
+        'greeting chat-image error',
+        model,
+        error instanceof Error ? error.message : error,
+      );
     }
   }
   throw new Error('ai_failed');
 }
 
-function extractImageBuffer(message: { content?: unknown; images?: unknown } | undefined): Buffer | null {
+function extractImageBuffer(
+  message: { content?: unknown; images?: unknown } | undefined,
+): Buffer | null {
   if (!message) return null;
   const fromImages = readImageList(message.images);
   if (fromImages) return fromImages;

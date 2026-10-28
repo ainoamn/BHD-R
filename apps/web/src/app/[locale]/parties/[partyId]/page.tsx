@@ -76,13 +76,7 @@ export default async function PartyProfilePage({
           <p className="party-profile__eyebrow">{ar ? 'ملف عام' : 'Public profile'}</p>
           <h1>{party.displayName}</h1>
           <p>
-            {party.type === 'company'
-              ? ar
-                ? 'جهة / شركة'
-                : 'Company'
-              : ar
-                ? 'فرد'
-                : 'Person'}
+            {party.type === 'company' ? (ar ? 'جهة / شركة' : 'Company') : ar ? 'فرد' : 'Person'}
           </p>
         </header>
         <ReviewsPanel locale={locale} signedIn={Boolean(viewer)} targets={targets} />

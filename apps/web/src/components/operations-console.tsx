@@ -1057,9 +1057,7 @@ function displayCellValue(
         ? (row.channelCounts as Partial<Record<PropertyOfferingChannel, number>>)
         : null;
     const showCounts =
-      safeString(row.kind) === 'multi_unit' &&
-      Number(row.units ?? 0) > 1 &&
-      Boolean(counts);
+      safeString(row.kind) === 'multi_unit' && Number(row.units ?? 0) > 1 && Boolean(counts);
     const loc = locale === 'ar' ? 'ar' : 'en';
     return (
       <span className="ops-channel-badges">
@@ -1127,13 +1125,7 @@ function closeOpsActionMenu(_from?: EventTarget | null) {
   });
 }
 
-function OpsActionMenu({
-  ar,
-  children,
-}: {
-  ar: boolean;
-  children: ReactNode;
-}) {
+function OpsActionMenu({ ar, children }: { ar: boolean; children: ReactNode }) {
   const rootRef = useRef<HTMLDetailsElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -1285,13 +1277,7 @@ function LeasingNextActions({
           onRenew(row);
         }}
       >
-        {draft
-          ? ar
-            ? 'مسودة تجديد'
-            : 'Renewal draft'
-          : ar
-            ? 'تجديد'
-            : 'Renew'}
+        {draft ? (ar ? 'مسودة تجديد' : 'Renewal draft') : ar ? 'تجديد' : 'Renew'}
       </button>,
     );
     if (row.renewalPendingContractId) {
@@ -2766,8 +2752,7 @@ export function OperationsConsole({
   const ar = locale === 'ar';
   const today = useMemo(() => muscatToday(), []);
   const softPathname = useSoftPortalPathname();
-  const onContractsList =
-    section === 'contracts' && softPathname === `/${portal}/contracts`;
+  const onContractsList = section === 'contracts' && softPathname === `/${portal}/contracts`;
   const contractKind: ContractCategory | null = useMemo(() => {
     if (!onContractsList) return null;
     const kind = new URLSearchParams(search).get('kind');
@@ -2852,8 +2837,7 @@ export function OperationsConsole({
       section === 'bookings'
         ? ''
         : (definition.columns.find((column) => column.format === 'date')?.key ??
-          definition.columns.find((column) => opsColumnFilterKind(column.format) !== 'none')
-            ?.key ??
+          definition.columns.find((column) => opsColumnFilterKind(column.format) !== 'none')?.key ??
           '');
     setColumnFilter(emptyOpsColumnFilter(defaultSort));
     setColumnOpenFilter(null);
@@ -3888,13 +3872,7 @@ ${depositHtml}${
                 writeLeasingIntroCollapsed(next);
               }}
             >
-              {leasingIntroCollapsed
-                ? ar
-                  ? 'توسيع'
-                  : 'Expand'
-                : ar
-                  ? 'طي'
-                  : 'Collapse'}
+              {leasingIntroCollapsed ? (ar ? 'توسيع' : 'Expand') : ar ? 'طي' : 'Collapse'}
             </button>
           ) : null}
           {section === 'leasing' && leasingIntroCollapsed ? (
@@ -3939,7 +3917,8 @@ ${depositHtml}${
                             signal: AbortSignal.timeout(20_000),
                           });
                           if (!response.ok) throw new Error('archive_load_failed');
-                          const payload = (await response.json()) as DataRow[] | { items?: DataRow[] };
+                          const payload = (await response.json()) as
+                            DataRow[] | { items?: DataRow[] };
                           const rows = Array.isArray(payload)
                             ? payload
                             : Array.isArray(payload.items)
@@ -4403,9 +4382,7 @@ ${depositHtml}${
                   const count = records.filter(
                     (row) =>
                       safeString(
-                        section === 'contracts' || section === 'leasing'
-                          ? row.state
-                          : row.status,
+                        section === 'contracts' || section === 'leasing' ? row.state : row.status,
                       ) === stage.value,
                   ).length;
                   return (
@@ -4553,15 +4530,13 @@ ${depositHtml}${
       ) : null}
 
       {section === 'properties' && !listOverride ? (
-        <nav
-          className="purpose-tabs"
-          aria-label={ar ? 'فرز نوع العرض' : 'Offering type filter'}
-        >
+        <nav className="purpose-tabs" aria-label={ar ? 'فرز نوع العرض' : 'Offering type filter'}>
           {PROPERTY_OFFERING_FILTERS.map((filter) => {
             const count =
               filter === 'all'
-                ? sourceRecords.filter((row) => safeString(row.status) !== 'archived' || archiveMode)
-                    .length
+                ? sourceRecords.filter(
+                    (row) => safeString(row.status) !== 'archived' || archiveMode,
+                  ).length
                 : sourceRecords.filter(
                     (row) =>
                       (archiveMode
@@ -4621,10 +4596,7 @@ ${depositHtml}${
                 <span className="sr-only">{ar ? 'تصفية الحالة' : 'Filter status'}</span>
                 <select
                   value={
-                    statusFilter ||
-                    columnFilter.select.state ||
-                    columnFilter.select.status ||
-                    ''
+                    statusFilter || columnFilter.select.state || columnFilter.select.status || ''
                   }
                   onChange={(event) => {
                     const value = event.target.value;
@@ -4650,9 +4622,9 @@ ${depositHtml}${
                 </select>
               </label>
               <span className="ops-result-count">
-                {(section === 'contracts' || section === 'leasing'
+                {section === 'contracts' || section === 'leasing'
                   ? tableRows.length
-                  : filtered.length)}{' '}
+                  : filtered.length}{' '}
                 {ar ? 'نتيجة' : 'results'}
               </span>
               {columnsFilterActive || query || statusFilter || contractFilterActive ? (
@@ -4825,8 +4797,7 @@ ${depositHtml}${
                       {definition.columns.map((column) => {
                         const baseKind = opsColumnFilterKind(column.format);
                         let selectOptions:
-                          | Array<{ value: string; ar: string; en: string }>
-                          | undefined;
+                          Array<{ value: string; ar: string; en: string }> | undefined;
                         if (baseKind === 'select') {
                           if (column.key === 'status' || column.key === 'state') {
                             selectOptions = definition.flow;
@@ -4992,7 +4963,10 @@ ${depositHtml}${
                               ) : section === 'contracts' && column.key === 'reference' ? (
                                 <div className="tenant-contract-ref">
                                   <span className="tenant-table__ref-head">
-                                    <ContractKindChip kind={safeString(row.kind) || 'initial'} ar={ar} />
+                                    <ContractKindChip
+                                      kind={safeString(row.kind) || 'initial'}
+                                      ar={ar}
+                                    />
                                     <bdi>
                                       {displayCell(row, column, locale, context, definition.flow)}
                                     </bdi>
@@ -5056,7 +5030,9 @@ ${depositHtml}${
                                   onRenew={(target) => {
                                     const id = safeString(target.id);
                                     if (!id) return;
-                                    router.push(`/${portal}/leasing/${encodeURIComponent(id)}/renew`);
+                                    router.push(
+                                      `/${portal}/leasing/${encodeURIComponent(id)}/renew`,
+                                    );
                                   }}
                                 />
                               ) : section === 'team' ? (
@@ -5330,8 +5306,7 @@ ${depositHtml}${
                 {(section === 'bookings' || section === 'contracts' || section === 'leasing'
                   ? tableRows
                   : filtered
-                ).map(
-                  (row, index) => {
+                ).map((row, index) => {
                   const serial = safeString(row.serialNumber);
                   const contractAttachments =
                     section === 'contracts'
@@ -5465,7 +5440,8 @@ ${depositHtml}${
                                       >)
                                     : null;
                                 const count =
-                                  safeString(row.kind) === 'multi_unit' && Number(row.units ?? 0) > 1
+                                  safeString(row.kind) === 'multi_unit' &&
+                                  Number(row.units ?? 0) > 1
                                     ? counts?.[channel]
                                     : undefined;
                                 return (
@@ -5542,8 +5518,7 @@ ${depositHtml}${
                             {ar ? 'عرض العقد' : 'View contract'}
                           </Link>
                         </div>
-                      ) : section === 'bookings' &&
-                        safeString(row.recordKind) === 'viewing' ? (
+                      ) : section === 'bookings' && safeString(row.recordKind) === 'viewing' ? (
                         <div className="ops-action-group">
                           <Link
                             className="ops-action button button--quiet ops-action--primary"
@@ -5564,8 +5539,7 @@ ${depositHtml}${
                             {ar ? 'عقد الإقامة' : 'Stay contract'}
                           </Link>
                         </div>
-                      ) : section === 'bookings' &&
-                        safeString(row.recordKind) === 'reservation' ? (
+                      ) : section === 'bookings' && safeString(row.recordKind) === 'reservation' ? (
                         <div className="ops-action-group">
                           <Link
                             className="ops-action button button--quiet ops-action--primary"
@@ -6107,9 +6081,7 @@ ${depositHtml}${
                     }>
                   }
                   reservations={context.confirmedReservations ?? []}
-                  {...(prefillReservationId
-                    ? { prefillReservationId }
-                    : {})}
+                  {...(prefillReservationId ? { prefillReservationId } : {})}
                   onDone={() => {
                     closeCreate();
                     refreshWorkspace();

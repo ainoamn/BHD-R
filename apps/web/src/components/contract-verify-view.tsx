@@ -310,16 +310,10 @@ export function ContractVerifyView({
 
         <aside className="verify-card__note" role="note">
           <strong>
-            <Bi
-              value={[DOCUMENT_ANTI_FORGERY.titleAr, DOCUMENT_ANTI_FORGERY.titleEn]}
-              ar={ar}
-            />
+            <Bi value={[DOCUMENT_ANTI_FORGERY.titleAr, DOCUMENT_ANTI_FORGERY.titleEn]} ar={ar} />
           </strong>
           <p>
-            <Bi
-              value={[DOCUMENT_ANTI_FORGERY.bodyAr, DOCUMENT_ANTI_FORGERY.bodyEn]}
-              ar={ar}
-            />
+            <Bi value={[DOCUMENT_ANTI_FORGERY.bodyAr, DOCUMENT_ANTI_FORGERY.bodyEn]} ar={ar} />
           </p>
         </aside>
 

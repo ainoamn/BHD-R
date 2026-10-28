@@ -61,13 +61,7 @@ export function StayPolicySections({
                       }))
                     }
                   >
-                    {isOpen
-                      ? ar
-                        ? 'عرض أقل'
-                        : 'Show less'
-                      : ar
-                        ? 'عرض المزيد'
-                        : 'Show more'}
+                    {isOpen ? (ar ? 'عرض أقل' : 'Show less') : ar ? 'عرض المزيد' : 'Show more'}
                   </button>
                 ) : null}
               </>

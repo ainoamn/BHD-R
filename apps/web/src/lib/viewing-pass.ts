@@ -35,10 +35,7 @@ export function randomViewingUsername(): string {
 }
 
 /** Sealed token embedded in the guest QR; valid until `expiresAt` (unix seconds in payload). */
-export function issueViewingPassToken(
-  viewingId: string,
-  expiresAt: Date,
-): string {
+export function issueViewingPassToken(viewingId: string, expiresAt: Date): string {
   if (!UUID.test(viewingId)) throw new Error('invalid_viewing');
   const plain = Buffer.alloc(20);
   uuidBytes(viewingId).copy(plain, 0);

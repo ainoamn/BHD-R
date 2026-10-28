@@ -67,9 +67,7 @@ export async function POST(request: Request) {
   try {
     const body = parsed.data;
     const credentials =
-      'token' in body
-        ? { token: body.token }
-        : { username: body.username, pin: body.pin };
+      'token' in body ? { token: body.token } : { username: body.username, pin: body.pin };
     if (body.action === 'preview') {
       const result = await previewViewingVisit(claims, credentials);
       return NextResponse.json(result, { headers: { 'cache-control': 'no-store' } });

@@ -204,7 +204,9 @@ export function StayEsignWizard({
       (needBack && !idBack?.startsWith('data:image/')) ||
       (needSelfie && !selfie?.startsWith('data:image/'))
     ) {
-      setError(ar ? 'أكمل التوقيع وصور الهوية المطلوبة' : 'Complete the required signature and photos');
+      setError(
+        ar ? 'أكمل التوقيع وصور الهوية المطلوبة' : 'Complete the required signature and photos',
+      );
       return;
     }
     setBusy(true);
@@ -253,18 +255,15 @@ export function StayEsignWizard({
     }
   }
 
-  function reviewCard(
-    label: string,
-    src: string | null,
-    open: boolean,
-    editStep: CaptureStep,
-  ) {
+  function reviewCard(label: string, src: string | null, open: boolean, editStep: CaptureStep) {
     if (!src) return null;
     const code = STEP_CODE[editStep];
     const ownerLocked = locked.has(code);
     const fromConfirmed = staged.has(code);
     return (
-      <figure className={`esign-review-card${editStep === 'selfie' ? ' esign-review-card--portrait' : ''}`}>
+      <figure
+        className={`esign-review-card${editStep === 'selfie' ? ' esign-review-card--portrait' : ''}`}
+      >
         <figcaption>
           {label}
           {ownerLocked ? (
@@ -341,8 +340,7 @@ export function StayEsignWizard({
                           if (code === 'signature') return ar ? 'التوقيع' : 'Signature';
                           if (code === 'civil_id_copy')
                             return ar ? 'نسخة البطاقة' : 'Civil ID copy';
-                          if (code === 'passport_copy')
-                            return ar ? 'نسخة الجواز' : 'Passport copy';
+                          if (code === 'passport_copy') return ar ? 'نسخة الجواز' : 'Passport copy';
                           if (code === 'cr_copy') return ar ? 'السجل التجاري' : 'CR copy';
                           return code;
                         })
@@ -513,10 +511,30 @@ export function StayEsignWizard({
                 : 'Review attachments before completing e-sign.'}
             </p>
             <div className="esign-review-grid">
-              {reviewCard(ar ? 'التوقيع' : 'Signature', signatureDataUrl, captureOpen('sign'), 'sign')}
-              {reviewCard(ar ? 'البطاقة — أمام' : 'ID — front', idFront, captureOpen('id_front'), 'id_front')}
-              {reviewCard(ar ? 'البطاقة — خلف' : 'ID — back', idBack, captureOpen('id_back'), 'id_back')}
-              {reviewCard(ar ? 'الصورة الشخصية' : 'Portrait', selfie, captureOpen('selfie'), 'selfie')}
+              {reviewCard(
+                ar ? 'التوقيع' : 'Signature',
+                signatureDataUrl,
+                captureOpen('sign'),
+                'sign',
+              )}
+              {reviewCard(
+                ar ? 'البطاقة — أمام' : 'ID — front',
+                idFront,
+                captureOpen('id_front'),
+                'id_front',
+              )}
+              {reviewCard(
+                ar ? 'البطاقة — خلف' : 'ID — back',
+                idBack,
+                captureOpen('id_back'),
+                'id_back',
+              )}
+              {reviewCard(
+                ar ? 'الصورة الشخصية' : 'Portrait',
+                selfie,
+                captureOpen('selfie'),
+                'selfie',
+              )}
             </div>
           </section>
         ) : null}
@@ -568,7 +586,11 @@ export function StayEsignWizard({
 
       {step === 'review' ? (
         <footer className="stay-esign__dock">
-          <button type="button" className="button button--quiet" onClick={() => setStep(prevBefore('review'))}>
+          <button
+            type="button"
+            className="button button--quiet"
+            onClick={() => setStep(prevBefore('review'))}
+          >
             {ar ? 'رجوع' : 'Back'}
           </button>
           <button

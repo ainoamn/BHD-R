@@ -82,9 +82,7 @@ export function RejectStayNoteForm({
       ) : null}
 
       <div className="field">
-        <label htmlFor={id}>
-          {ar ? 'سبب الرفض (اختياري)' : 'Rejection reason (optional)'}
-        </label>
+        <label htmlFor={id}>{ar ? 'سبب الرفض (اختياري)' : 'Rejection reason (optional)'}</label>
         <textarea
           id={id}
           className="textarea"

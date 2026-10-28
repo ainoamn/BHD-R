@@ -7,12 +7,12 @@
 
 ## ما نُفّذ
 
-| بند | الإجراء |
-| --- | --- |
-| **P0-02** | توسيع `PATCH /v1/portfolio/properties/:id` لحزمة المعالج الكاملة (عنوان/مالك/ملف/مرافق/مستندات/عدادات/وحدات/إدراجات) |
-| **Idempotency** | `@Idempotent` على تحديث العقار في Nest |
-| **BFF** | `updatePropertyBundleNestOrNeon` — Nest-first مع Neon fallback |
-| **صلاحيات** | يتطلب `property.update` + `unit.update` |
+| بند             | الإجراء                                                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **P0-02**       | توسيع `PATCH /v1/portfolio/properties/:id` لحزمة المعالج الكاملة (عنوان/مالك/ملف/مرافق/مستندات/عدادات/وحدات/إدراجات) |
+| **Idempotency** | `@Idempotent` على تحديث العقار في Nest                                                                               |
+| **BFF**         | `updatePropertyBundleNestOrNeon` — Nest-first مع Neon fallback                                                       |
+| **صلاحيات**     | يتطلب `property.update` + `unit.update`                                                                              |
 
 بهذا تُغلق كتابة عقارات المالك عبر Nest-first (إنشاء + تحديث + عربون + وسائط). يبقى الحجز العام على Neon فقط.
 
@@ -24,8 +24,8 @@
 
 ## تحقق
 
-1. تعديل عقار من المعالج يعيد `via: nest` بعد نشر Nest.  
-2. قبل نشر Nest، يبقى `via: neon` (fallback).  
+1. تعديل عقار من المعالج يعيد `via: nest` بعد نشر Nest.
+2. قبل نشر Nest، يبقى `via: neon` (fallback).
 3. إعادة نفس `idempotency-key` لا تكرر التحديث بحمولة مختلفة (409).
 
 ## وثائق

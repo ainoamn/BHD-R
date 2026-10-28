@@ -252,7 +252,8 @@ async function loadReservationDepositLedgerRows(
   return rows.flatMap((row) => {
     if (!row.depositMinor || !row.paidAt) return [];
     const reference = row.referenceCode ?? row.id.slice(0, 8).toUpperCase();
-    const settled = row.status === 'converted' || row.status === 'cancelled' || row.status === 'expired';
+    const settled =
+      row.status === 'converted' || row.status === 'cancelled' || row.status === 'expired';
     return [
       {
         id: row.id,
@@ -279,9 +280,7 @@ async function loadReservationDepositLedgerRows(
         refundPaidMinor: null,
         refundDueMinor: null,
         refundDecisionNote:
-          row.mode === 'sale'
-            ? 'عربون حجز شراء من الموقع'
-            : 'عربون حجز إيجار من الموقع',
+          row.mode === 'sale' ? 'عربون حجز شراء من الموقع' : 'عربون حجز إيجار من الموقع',
       },
     ];
   });
@@ -361,10 +360,7 @@ async function loadBookingCancelRefundLedgerRows(
         retainedMinor: null,
         receivedOn: isoDay(row.checkInOn),
         checkOutOn: isoDay(row.checkOutOn),
-        settledOn:
-          refund.status === 'executed'
-            ? (refund.transfer?.at ?? refund.decidedAt)
-            : null,
+        settledOn: refund.status === 'executed' ? (refund.transfer?.at ?? refund.decidedAt) : null,
         refundReceiptNo: null,
         incomeReceiptNo: null,
         refundDecisionNote: refund.decisionNote,

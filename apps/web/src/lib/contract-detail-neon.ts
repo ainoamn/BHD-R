@@ -311,9 +311,8 @@ export async function loadContractDetailFromNeon(
     // Parent may still be open if check-out happened before auto-close existed.
     if (stayBookingId && !contract.parentContractId) {
       try {
-        const { closeStayContractAfterCheckoutInTx } = await import(
-          '@/lib/stay-contract-close-neon'
-        );
+        const { closeStayContractAfterCheckoutInTx } =
+          await import('@/lib/stay-contract-close-neon');
         const closed = await closeStayContractAfterCheckoutInTx(tx, {
           organizationId: orgId,
           bookingId: stayBookingId,
@@ -702,8 +701,7 @@ export async function loadContractDetailFromNeon(
       const automation = snapshot.renewalAutomation;
       const notice = snapshot.electronicNotice;
       const documentation = snapshot.electronicDocumentation as
-        | { docsPendingAdminReview?: boolean }
-        | undefined;
+        { docsPendingAdminReview?: boolean } | undefined;
       const out: Pick<
         ContractDetail,
         | 'renewalRequirements'
@@ -1027,9 +1025,7 @@ async function buildContractDocument(
       const term = record(snapshot.termination);
       const sync = record(snapshot.terminationSync);
       const lateObj = record(
-        term.lateReturn && typeof term.lateReturn === 'object'
-          ? term.lateReturn
-          : sync.lateReturn,
+        term.lateReturn && typeof term.lateReturn === 'object' ? term.lateReturn : sync.lateReturn,
       );
       const cancelledAt =
         text(term.cancelledAt) ?? text(sync.cancelledAt) ?? text(sync.at) ?? checkOutStamp?.at;
@@ -1044,8 +1040,7 @@ async function buildContractDocument(
       const lateMinutes = Number(lateObj.lateMinutes);
       return {
         cancelledAt,
-        effectiveOn:
-          text(term.effectiveOn) ?? text(sync.effectiveOn) ?? cancelledAt.slice(0, 10),
+        effectiveOn: text(term.effectiveOn) ?? text(sync.effectiveOn) ?? cancelledAt.slice(0, 10),
         recordedBy: text(term.recordedBy),
         scheduledCheckOutAt: text(lateObj.scheduledAt),
         actualCheckOutAt: text(lateObj.actualAt) ?? checkOutStamp?.at ?? cancelledAt,

@@ -103,10 +103,7 @@ async function staffContactPhone(
   const rows = await tx
     .select({ phone: parties.phone })
     .from(memberships)
-    .innerJoin(
-      parties,
-      and(eq(parties.id, memberships.partyId), eq(parties.organizationId, orgId)),
-    )
+    .innerJoin(parties, and(eq(parties.id, memberships.partyId), eq(parties.organizationId, orgId)))
     .where(
       and(
         eq(memberships.organizationId, orgId),
@@ -518,8 +515,7 @@ export async function notifyOwnersOfViewingRequest(input: {
             label: 'حجوزاتي · My bookings',
             url: appLink('/ar/tenant/reservations'),
           },
-          footnote:
-            'أُرسلت لأنك قدّمت طلب معاينة. · Sent because you submitted a viewing request.',
+          footnote: 'أُرسلت لأنك قدّمت طلب معاينة. · Sent because you submitted a viewing request.',
         }),
       });
     }
@@ -793,11 +789,7 @@ export async function respondToViewingRequest(
       if (!contactPhoneForSchedule) fail('viewing_contact_phone_required');
     }
 
-    const mergedNotes = note
-      ? row.notes
-        ? `${row.notes}\n\n—\n${note}`
-        : note
-      : row.notes;
+    const mergedNotes = note ? (row.notes ? `${row.notes}\n\n—\n${note}` : note) : row.notes;
 
     const pin = row.accessPin ?? randomViewingPin();
     const username =
@@ -806,9 +798,7 @@ export async function respondToViewingRequest(
           ? await allocateViewingUsername(tx, row.organizationId)
           : row.accessUsername!
         : (row.accessUsername ?? row.reference);
-    const passExpires = scheduledAt
-      ? new Date(scheduledAt.getTime() + 36 * 60 * 60 * 1000)
-      : null;
+    const passExpires = scheduledAt ? new Date(scheduledAt.getTime() + 36 * 60 * 60 * 1000) : null;
     const token =
       input.action === 'schedule' && scheduledAt && passExpires
         ? issueViewingPassToken(viewingId, passExpires)
@@ -1052,11 +1042,7 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
     if (!openPass) return null;
     // Upgrade legacy WEB-… usernames to a short gate code while the visit is still open.
     let accessUsername = row.accessUsername;
-    if (
-      row.status === 'scheduled' &&
-      !row.arrivedAt &&
-      needsShortViewingUsername(accessUsername)
-    ) {
+    if (row.status === 'scheduled' && !row.arrivedAt && needsShortViewingUsername(accessUsername)) {
       accessUsername = await allocateViewingUsername(tx, row.organizationId);
       await tx
         .update(viewingRequests)
@@ -1064,7 +1050,9 @@ export async function loadViewingGuestPass(token: string): Promise<ViewingGuestP
         .where(eq(viewingRequests.id, row.id));
     }
     const purpose =
-      row.listingPurpose === 'sale' || row.listingPurpose === 'both' || row.listingPurpose === 'rent'
+      row.listingPurpose === 'sale' ||
+      row.listingPurpose === 'both' ||
+      row.listingPurpose === 'rent'
         ? row.listingPurpose
         : 'rent';
     const contactPhone = row.viewingContactUserId
@@ -1254,9 +1242,7 @@ export async function checkInViewingVisit(
       };
     }
     const now = new Date();
-    const guardLine = noteText
-      ? `تعليق الحارس عند الوصول: ${noteText}`
-      : null;
+    const guardLine = noteText ? `تعليق الحارس عند الوصول: ${noteText}` : null;
     const merged = guardLine
       ? row.notes
         ? `${row.notes}\n\n—\n${guardLine}`
@@ -1416,10 +1402,7 @@ type GuestVisitRow = {
   viewingContactUserId: string | null;
 };
 
-async function loadGuestVisitForToken(
-  tx: Tx,
-  viewingId: string,
-): Promise<GuestVisitRow | null> {
+async function loadGuestVisitForToken(tx: Tx, viewingId: string): Promise<GuestVisitRow | null> {
   const rows = await tx
     .select({
       id: viewingRequests.id,
@@ -1569,7 +1552,8 @@ export async function cancelViewingGuestVisit(
       organizationId: row.organizationId,
       viewingId,
       actorUserId: null,
-      eventType: reason === 'not_attending' ? 'viewing.guest_not_attending' : 'viewing.guest_cancel',
+      eventType:
+        reason === 'not_attending' ? 'viewing.guest_not_attending' : 'viewing.guest_cancel',
       fromStatus: row.status,
       toStatus: nextStatus,
       note: noteText,
@@ -1727,8 +1711,7 @@ export async function tryAutoScheduleViewingRequest(viewingId: string): Promise<
     await respondToViewingRequest(actor, viewingId, {
       action: 'schedule',
       scheduledAt: new Date(facts.preferred_at).toISOString(),
-      note:
-        'موعد تلقائي حسب الوقت المفضّل للزائر وسياسة أتمتة المعاينة · Auto-scheduled from preferred time',
+      note: 'موعد تلقائي حسب الوقت المفضّل للزائر وسياسة أتمتة المعاينة · Auto-scheduled from preferred time',
     });
     return true;
   } catch (error) {

@@ -180,9 +180,8 @@ export async function createAccountingFollowTask(
     supervisor: 'المراقب',
     viewer: 'للاطلاع',
   };
-  const followers = (input.followers?.length
-    ? input.followers
-    : [{ userId: input.assignedToUserId, duty: 'lead' }]
+  const followers = (
+    input.followers?.length ? input.followers : [{ userId: input.assignedToUserId, duty: 'lead' }]
   )
     .map((row) => ({
       userId: row.userId.trim(),
@@ -252,7 +251,8 @@ export async function createAccountingFollowTask(
         .orderBy(desc(workTasks.createdAt))
         .limit(1);
       if (open[0]) {
-        if (relatedId) await ensureAccountingPlace(tx, orgId, claims.sub, open[0].id, kind, relatedId);
+        if (relatedId)
+          await ensureAccountingPlace(tx, orgId, claims.sub, open[0].id, kind, relatedId);
         return { id: open[0].id, reference: open[0].reference, existing: true };
       }
     }
@@ -349,7 +349,10 @@ export async function openDepositNotReceivedFollowTask(
 
   const byUser = new Map<string, { name: string; roles: Set<string> }>();
   for (const row of memberRows) {
-    const current = byUser.get(row.userId) ?? { name: row.name || row.userId.slice(0, 8), roles: new Set() };
+    const current = byUser.get(row.userId) ?? {
+      name: row.name || row.userId.slice(0, 8),
+      roles: new Set(),
+    };
     current.roles.add(row.roleKey);
     byUser.set(row.userId, current);
   }
@@ -462,10 +465,7 @@ export async function openDepositNotReceivedFollowTask(
       kind: 'deposit_not_received',
     },
   });
-  await tx
-    .update(workTasks)
-    .set({ updatedAt: new Date(), title })
-    .where(eq(workTasks.id, taskId));
+  await tx.update(workTasks).set({ updatedAt: new Date(), title }).where(eq(workTasks.id, taskId));
 
   return { id: taskId, reference: taskReference!, created };
 }

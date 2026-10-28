@@ -67,10 +67,7 @@ function bankIbanKeyring() {
   return buildFieldKeyring('bank-iban');
 }
 
-function encryptBankIbans(
-  orgId: string,
-  settings: AccountingSettings,
-): AccountingSettings {
+function encryptBankIbans(orgId: string, settings: AccountingSettings): AccountingSettings {
   const keyring = bankIbanKeyring();
   return {
     ...settings,
@@ -85,10 +82,7 @@ function encryptBankIbans(
   };
 }
 
-function decryptBankIbans(
-  orgId: string,
-  settings: AccountingSettings,
-): AccountingSettings {
+function decryptBankIbans(orgId: string, settings: AccountingSettings): AccountingSettings {
   const keyring = bankIbanKeyring();
   return {
     ...settings,
@@ -894,7 +888,13 @@ export async function reverseJournal(
         if (opts?.approvalId) {
           await assertApprovedJournalReverse(tx, claims, orgId, id, opts.approvalId);
         } else {
-          const approvalId = await createJournalReverseApproval(tx, orgId, claims.sub, entry, reason);
+          const approvalId = await createJournalReverseApproval(
+            tx,
+            orgId,
+            claims.sub,
+            entry,
+            reason,
+          );
           fail(`approval_required:${approvalId}`);
         }
       } else if (!canManageAccounting(claims)) {
@@ -1597,7 +1597,8 @@ export async function createExpenseGl(
     .replace(/[-:TZ.]/g, '')
     .slice(0, 14);
   const total =
-    BigInt(input.amountMinor) + BigInt(input.taxMinor && /^\d+$/.test(input.taxMinor) ? input.taxMinor : '0');
+    BigInt(input.amountMinor) +
+    BigInt(input.taxMinor && /^\d+$/.test(input.taxMinor) ? input.taxMinor : '0');
   return withinViewerTenant(claims, async (tx) => {
     const rows = await tx
       .insert(expenses)
@@ -1945,9 +1946,7 @@ export async function accountingDashboard(claims: SessionClaims) {
       tx
         .select({ value: sql<number>`count(*)::int` })
         .from(journalEntries)
-        .where(
-          and(eq(journalEntries.organizationId, orgId), eq(journalEntries.status, 'posted')),
-        ),
+        .where(and(eq(journalEntries.organizationId, orgId), eq(journalEntries.status, 'posted'))),
       tx
         .select({
           id: stayPaymentIntents.id,
@@ -2189,7 +2188,10 @@ export async function syncOperationalGl(claims: SessionClaims) {
 }
 
 /** Ensure the default chart exists and return code → account id for posting rules. */
-export async function ensureAccountCodeMap(tx: GlTx, organizationId: string): Promise<AccountCodeMap> {
+export async function ensureAccountCodeMap(
+  tx: GlTx,
+  organizationId: string,
+): Promise<AccountCodeMap> {
   await tx
     .insert(ledgerAccounts)
     .values(

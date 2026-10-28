@@ -329,7 +329,11 @@ export function AccountingJournalComposerModal({
               {ar ? 'مدين' : 'Debit'} {money(lineBalance.debit.toString(), 'OMR', ar)} ·{' '}
               {ar ? 'دائن' : 'Credit'} {money(lineBalance.credit.toString(), 'OMR', ar)}
             </span>
-            <button className="button button--primary" type="submit" disabled={busy || !accounts.length}>
+            <button
+              className="button button--primary"
+              type="submit"
+              disabled={busy || !accounts.length}
+            >
               {ar ? 'حفظ القيد' : 'Save entry'}
             </button>
           </div>

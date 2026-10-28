@@ -60,13 +60,9 @@ import {
 
 const sessionSecret = () => requireSessionSecretBytes();
 const apiPepper = () =>
-  createHash('sha256')
-    .update(`${requireSessionSecretString()}\0api-keys`)
-    .digest('base64url');
+  createHash('sha256').update(`${requireSessionSecretString()}\0api-keys`).digest('base64url');
 const totpRecoveryPepper = () =>
-  createHash('sha256')
-    .update(`${requireSessionSecretString()}\0totp-recovery`)
-    .digest('base64url');
+  createHash('sha256').update(`${requireSessionSecretString()}\0totp-recovery`).digest('base64url');
 const tokenHash = (token: string) => createHash('sha256').update(token).digest('hex');
 const LOGIN_LOCK_LIMIT = 8;
 const LOGIN_LOCK_WINDOW_SEC = 15 * 60;
@@ -310,7 +306,8 @@ export class AuthService {
             throw new UnauthorizedException({
               code: 'TOTP_REQUIRED',
               message: 'Enter the 6-digit code from Google Authenticator (or a recovery code).',
-              messageAr: 'أدخل الرمز المكوّن من 6 أرقام من Google Authenticator (أو رمز الاسترداد).',
+              messageAr:
+                'أدخل الرمز المكوّن من 6 أرقام من Google Authenticator (أو رمز الاسترداد).',
             });
           }
           const usedRecovery = await this.consumeRecoveryCode(

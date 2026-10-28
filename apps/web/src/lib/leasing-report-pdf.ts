@@ -105,9 +105,7 @@ function stamp(iso: string, ar: boolean): string {
 }
 
 function pageSizePt(orientation: LeasingPdfOrientation): { w: number; h: number } {
-  return orientation === 'landscape'
-    ? { w: A4_PT.h, h: A4_PT.w }
-    : { w: A4_PT.w, h: A4_PT.h };
+  return orientation === 'landscape' ? { w: A4_PT.h, h: A4_PT.w } : { w: A4_PT.w, h: A4_PT.h };
 }
 
 function columnLabels(ar: boolean): string[] {
@@ -233,9 +231,10 @@ function buildPageSvg(input: {
   const fontSize = orientation === 'landscape' ? 15 : 13;
   const headerFont = orientation === 'landscape' ? 13 : 12;
   const rowH = orientation === 'landscape' ? 28 : 30;
-  const maxChars = orientation === 'landscape'
-    ? [14, 18, 8, 18, 20, 10, 12, 12, 14]
-    : [12, 14, 7, 14, 16, 9, 11, 11, 12];
+  const maxChars =
+    orientation === 'landscape'
+      ? [14, 18, 8, 18, 20, 10, 12, 12, 14]
+      : [12, 14, 7, 14, 16, 9, 11, 11, 12];
 
   let x = margin;
   const colX: number[] = [];

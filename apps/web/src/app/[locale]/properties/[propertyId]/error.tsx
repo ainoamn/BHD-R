@@ -19,7 +19,11 @@ export default function PropertyError({
           <button type="button" className="button button--primary" onClick={() => reset()}>
             إعادة المحاولة · Reload
           </button>
-          <button type="button" className="button button--quiet" onClick={() => window.history.back()}>
+          <button
+            type="button"
+            className="button button--quiet"
+            onClick={() => window.history.back()}
+          >
             رجوع · Back
           </button>
           <a className="button button--quiet" href="/ar/properties">

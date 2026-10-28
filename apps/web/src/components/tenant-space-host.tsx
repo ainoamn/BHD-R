@@ -15,13 +15,7 @@ import {
  * One mounted host for all soft tenant section views. Data loads once into the
  * client cache; path changes only swap the visible view (no remount flash).
  */
-export function TenantSpaceHost({
-  locale,
-  active,
-}: {
-  locale: 'ar' | 'en';
-  active: boolean;
-}) {
+export function TenantSpaceHost({ locale, active }: { locale: 'ar' | 'en'; active: boolean }) {
   const pathname = useSoftPortalPathname();
   const view = tenantSoftViewFromPath(pathname) ?? 'overview';
   const [payload, setPayload] = useState<TenantSpacePayload | null>(() => getTenantSpaceCache());

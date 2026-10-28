@@ -153,9 +153,7 @@ export async function saveLeaseDocumentRules(
       organizationId,
       kind: POLICY_KIND,
       code,
-      nameAr: propertyId
-        ? 'مستندات الإيجار المطلوبة — عقار'
-        : 'مستندات الإيجار المطلوبة — المؤسسة',
+      nameAr: propertyId ? 'مستندات الإيجار المطلوبة — عقار' : 'مستندات الإيجار المطلوبة — المؤسسة',
       nameEn: propertyId
         ? 'Lease document requirements — property'
         : 'Lease document requirements — organization',

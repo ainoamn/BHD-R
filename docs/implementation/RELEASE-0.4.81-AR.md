@@ -9,14 +9,14 @@
 
 ## الإصلاح
 
-| طبقة | تغيير |
-| --- | --- |
-| `/properties` | `withTimeout` 8 ث + `force-dynamic` |
-| `/units/[id]` | `cache(getUnit)` + مهلات 6–8 ث |
-| `/portal` overview | مهلة Neon 3 ث |
-| كتالوج Neon | `statement_timeout=6s` + شفاء مرة/دقيقة كحد أقصى |
-| مجمّع DB | `max: 3` للـ viewer/overview/listings |
-| Prefetch تسويقي | تأخير `/properties` و`/portal` ووحدات التفاصيل |
+| طبقة               | تغيير                                            |
+| ------------------ | ------------------------------------------------ |
+| `/properties`      | `withTimeout` 8 ث + `force-dynamic`              |
+| `/units/[id]`      | `cache(getUnit)` + مهلات 6–8 ث                   |
+| `/portal` overview | مهلة Neon 3 ث                                    |
+| كتالوج Neon        | `statement_timeout=6s` + شفاء مرة/دقيقة كحد أقصى |
+| مجمّع DB           | `max: 3` للـ viewer/overview/listings            |
+| Prefetch تسويقي    | تأخير `/properties` و`/portal` ووحدات التفاصيل   |
 
 ## تحقق
 

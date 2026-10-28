@@ -13,11 +13,7 @@ import {
 } from '@nestjs/common';
 import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
-import {
-  createStayPaymentSessionSchema,
-  moneySchema,
-  recordPaymentSchema,
-} from '@bhd-r/contracts';
+import { createStayPaymentSessionSchema, moneySchema, recordPaymentSchema } from '@bhd-r/contracts';
 import { readStaysFlagsFromEnv } from '@bhd-r/config';
 import { Idempotent, Public, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';

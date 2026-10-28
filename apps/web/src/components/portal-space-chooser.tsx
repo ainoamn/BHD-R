@@ -2,10 +2,7 @@
 
 import { Logo } from '@bhd-r/ui';
 import { Link, useRouter } from '@/i18n/navigation';
-import {
-  managerPortalOf,
-  persistPortalSpacePref,
-} from '@/lib/portal-space-pref';
+import { managerPortalOf, persistPortalSpacePref } from '@/lib/portal-space-pref';
 import type { PortalRole } from '@/lib/types';
 
 /**

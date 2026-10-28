@@ -457,9 +457,7 @@ export function ReservationPartyForm({
                 required
                 maxLength={254}
                 value={person.email}
-                onChange={(event) =>
-                  setPerson({ email: event.target.value, emailVerified: false })
-                }
+                onChange={(event) => setPerson({ email: event.target.value, emailVerified: false })}
               />
             </div>
             <EmailOtpField
@@ -685,9 +683,7 @@ export function ReservationPartyForm({
                       id={`party-sig-nationality-${index}`}
                       className="select"
                       value={row.nationality || 'OM'}
-                      onChange={(event) =>
-                        setSignatory(index, { nationality: event.target.value })
-                      }
+                      onChange={(event) => setSignatory(index, { nationality: event.target.value })}
                     >
                       {countries.map((country) => (
                         <option key={country.code} value={country.code}>

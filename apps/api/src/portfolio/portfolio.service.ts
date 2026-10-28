@@ -747,7 +747,7 @@ export class PortfolioService {
           status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
           updatedAt: new Date(),
         };
-        const syncListing = async (unitRow: (typeof units.$inferSelect)) => {
+        const syncListing = async (unitRow: typeof units.$inferSelect) => {
           const existingListing = await transaction.query.listings.findFirst({
             where: and(
               eq(listings.unitId, unitRow.id),
@@ -1108,10 +1108,7 @@ export class PortfolioService {
           .select({ id: leases.id })
           .from(leases)
           .where(
-            and(
-              eq(leases.organizationId, claims.organizationId!),
-              inArray(leases.unitId, unitIds),
-            ),
+            and(eq(leases.organizationId, claims.organizationId!), inArray(leases.unitId, unitIds)),
           )
           .limit(1);
         if (leaseRow[0]) {
@@ -1172,18 +1169,13 @@ export class PortfolioService {
       if (unitIds.length) {
         await transaction
           .delete(units)
-          .where(
-            and(eq(units.organizationId, claims.organizationId!), inArray(units.id, unitIds)),
-          );
+          .where(and(eq(units.organizationId, claims.organizationId!), inArray(units.id, unitIds)));
       }
 
       await transaction
         .delete(properties)
         .where(
-          and(
-            eq(properties.id, propertyId),
-            eq(properties.organizationId, claims.organizationId!),
-          ),
+          and(eq(properties.id, propertyId), eq(properties.organizationId, claims.organizationId!)),
         );
 
       await transaction.insert(outboxEvents).values({
@@ -1266,7 +1258,17 @@ export class PortfolioService {
           transaction
             .select({ id: leases.id })
             .from(leases)
-            .where(and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending']))),
+            .where(
+              and(
+                eq(leases.unitId, units.id),
+                inArray(leases.status, [
+                  'draft',
+                  'active',
+                  'cancel_requested',
+                  'clearance_pending',
+                ]),
+              ),
+            ),
         ),
         notExists(
           transaction
@@ -1452,7 +1454,15 @@ export class PortfolioService {
                 .select({ id: leases.id })
                 .from(leases)
                 .where(
-                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending'])),
+                  and(
+                    eq(leases.unitId, units.id),
+                    inArray(leases.status, [
+                      'draft',
+                      'active',
+                      'cancel_requested',
+                      'clearance_pending',
+                    ]),
+                  ),
                 ),
             ),
             notExists(
@@ -1524,11 +1534,10 @@ export class PortfolioService {
           const inline =
             meta.storage === 'inline' ||
             (typeof image.key === 'string' && image.key.startsWith('inline/'));
-          const webOrigin = (
-            process.env.PUBLIC_WEB_ORIGIN ??
-            process.env.WEB_ORIGIN ??
-            ''
-          ).replace(/\/$/, '');
+          const webOrigin = (process.env.PUBLIC_WEB_ORIGIN ?? process.env.WEB_ORIGIN ?? '').replace(
+            /\/$/,
+            '',
+          );
           const url = inline
             ? webOrigin
               ? `${webOrigin}/api/public/media/${image.id}`
@@ -1605,7 +1614,15 @@ export class PortfolioService {
                 .select({ id: leases.id })
                 .from(leases)
                 .where(
-                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending'])),
+                  and(
+                    eq(leases.unitId, units.id),
+                    inArray(leases.status, [
+                      'draft',
+                      'active',
+                      'cancel_requested',
+                      'clearance_pending',
+                    ]),
+                  ),
                 ),
             ),
           ),
@@ -1800,11 +1817,7 @@ export class PortfolioService {
         .select({ id: holds.id })
         .from(holds)
         .where(
-          and(
-            eq(holds.unitId, input.unitId),
-            eq(holds.status, 'active'),
-            gt(holds.expiresAt, now),
-          ),
+          and(eq(holds.unitId, input.unitId), eq(holds.status, 'active'), gt(holds.expiresAt, now)),
         )
         .limit(1);
       const activeReservation = await transaction
@@ -2014,7 +2027,15 @@ export class PortfolioService {
                 .select({ id: leases.id })
                 .from(leases)
                 .where(
-                  and(eq(leases.unitId, units.id), inArray(leases.status, ['draft', 'active', 'cancel_requested', 'clearance_pending'])),
+                  and(
+                    eq(leases.unitId, units.id),
+                    inArray(leases.status, [
+                      'draft',
+                      'active',
+                      'cancel_requested',
+                      'clearance_pending',
+                    ]),
+                  ),
                 ),
             ),
             notExists(

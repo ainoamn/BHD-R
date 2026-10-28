@@ -521,140 +521,140 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
       reservationRows,
       viewingRows,
     ] = await Promise.all([
-        tx
-          .select({
-            id: contracts.id,
-            reference: contracts.reference,
-            kind: contracts.kind,
-            parentContractId: contracts.parentContractId,
-            status: contracts.status,
-            payload: contracts.payloadSnapshot,
-            createdAt: contracts.createdAt,
-          })
-          .from(contracts)
-          .where(
-            and(
-              eq(contracts.organizationId, org),
-              eq(contracts.tenantPartyId, party),
-              ne(contracts.status, 'draft'),
-            ),
-          )
-          .orderBy(desc(contracts.createdAt))
-          .limit(LIST_LIMIT),
-        tx
-          .select({ contractId: contractSignatures.contractId })
-          .from(contractSignatures)
-          .where(
-            and(
-              eq(contractSignatures.organizationId, org),
-              eq(contractSignatures.signerPartyId, party),
-              eq(contractSignatures.signerRole, 'tenant'),
-            ),
+      tx
+        .select({
+          id: contracts.id,
+          reference: contracts.reference,
+          kind: contracts.kind,
+          parentContractId: contracts.parentContractId,
+          status: contracts.status,
+          payload: contracts.payloadSnapshot,
+          createdAt: contracts.createdAt,
+        })
+        .from(contracts)
+        .where(
+          and(
+            eq(contracts.organizationId, org),
+            eq(contracts.tenantPartyId, party),
+            ne(contracts.status, 'draft'),
           ),
-        tx
-          .select({
-            id: leases.id,
-            contractId: leases.contractId,
-            status: leases.status,
-            startsOn: leases.startsOn,
-            endsOn: leases.endsOn,
-            rentMinor: leases.rentMinor,
-            currency: leases.currency,
-            unitCode: units.code,
-            unitAr: units.nameAr,
-            unitEn: units.nameEn,
-            sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
-            contractReference: contracts.reference,
-            leaseTerms: sql<unknown>`${contracts.payloadSnapshot}->'leaseTerms'`,
-            contractAmountMinor: sql<
-              string | null
-            >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
-          })
-          .from(leases)
-          .leftJoin(units, eq(units.id, leases.unitId))
-          .leftJoin(contracts, eq(contracts.id, leases.contractId))
-          .where(
-            and(
-              eq(leases.organizationId, org),
-              eq(leases.tenantPartyId, party),
-              ne(leases.status, 'draft'),
-            ),
-          )
-          .orderBy(desc(leases.startsOn))
-          .limit(LIST_LIMIT),
-        tx
-          .select({
-            id: invoices.id,
-            number: invoices.invoiceNumber,
-            status: invoices.status,
-            issuedOn: invoices.issuedOn,
-            dueOn: invoices.dueOn,
-            totalMinor: invoices.totalMinor,
-            paidMinor: invoices.paidMinor,
-            currency: invoices.currency,
-          })
-          .from(invoices)
-          .where(
-            and(
-              eq(invoices.organizationId, org),
-              eq(invoices.tenantPartyId, party),
-              ne(invoices.status, 'draft'),
-            ),
-          )
-          .orderBy(desc(invoices.dueOn))
-          .limit(LIST_LIMIT),
-        tx
-          .select({
-            id: payments.id,
-            invoiceNumber: invoices.invoiceNumber,
-            status: payments.status,
-            method: payments.method,
-            amountMinor: payments.amountMinor,
-            refundedMinor: payments.refundedMinor,
-            currency: payments.currency,
-            receivedAt: payments.receivedAt,
-          })
-          .from(payments)
-          .innerJoin(invoices, eq(invoices.id, payments.invoiceId))
-          .where(and(eq(payments.organizationId, org), eq(invoices.tenantPartyId, party)))
-          .orderBy(desc(payments.receivedAt))
-          .limit(LIST_LIMIT),
-        tx
-          .select({
-            id: reservations.id,
-            unitId: reservations.unitId,
-            status: reservations.status,
-            expiresAt: reservations.expiresAt,
-            currency: reservations.currency,
-            terms: reservations.termsSnapshot,
-          })
-          .from(reservations)
-          .where(and(eq(reservations.organizationId, org), eq(reservations.tenantPartyId, party)))
-          .orderBy(desc(reservations.createdAt))
-          .limit(LIST_LIMIT),
-        tx
-          .select({
-            id: viewingRequests.id,
-            reference: viewingRequests.reference,
-            status: viewingRequests.status,
-            scheduledAt: viewingRequests.scheduledAt,
-            preferredAt: viewingRequests.preferredAt,
-            createdAt: viewingRequests.createdAt,
-            unitCode: units.code,
-            unitAr: units.nameAr,
-            unitEn: units.nameEn,
-            propertyNameAr: properties.nameAr,
-            propertyNameEn: properties.nameEn,
-          })
-          .from(viewingRequests)
-          .innerJoin(units, eq(units.id, viewingRequests.unitId))
-          .innerJoin(properties, eq(properties.id, units.propertyId))
-          .where(
-            and(eq(viewingRequests.organizationId, org), eq(viewingRequests.prospectPartyId, party)),
-          )
-          .orderBy(desc(viewingRequests.createdAt))
-          .limit(LIST_LIMIT),
-      ]);
+        )
+        .orderBy(desc(contracts.createdAt))
+        .limit(LIST_LIMIT),
+      tx
+        .select({ contractId: contractSignatures.contractId })
+        .from(contractSignatures)
+        .where(
+          and(
+            eq(contractSignatures.organizationId, org),
+            eq(contractSignatures.signerPartyId, party),
+            eq(contractSignatures.signerRole, 'tenant'),
+          ),
+        ),
+      tx
+        .select({
+          id: leases.id,
+          contractId: leases.contractId,
+          status: leases.status,
+          startsOn: leases.startsOn,
+          endsOn: leases.endsOn,
+          rentMinor: leases.rentMinor,
+          currency: leases.currency,
+          unitCode: units.code,
+          unitAr: units.nameAr,
+          unitEn: units.nameEn,
+          sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
+          contractReference: contracts.reference,
+          leaseTerms: sql<unknown>`${contracts.payloadSnapshot}->'leaseTerms'`,
+          contractAmountMinor: sql<
+            string | null
+          >`${contracts.payloadSnapshot}->'amount'->>'amountMinor'`,
+        })
+        .from(leases)
+        .leftJoin(units, eq(units.id, leases.unitId))
+        .leftJoin(contracts, eq(contracts.id, leases.contractId))
+        .where(
+          and(
+            eq(leases.organizationId, org),
+            eq(leases.tenantPartyId, party),
+            ne(leases.status, 'draft'),
+          ),
+        )
+        .orderBy(desc(leases.startsOn))
+        .limit(LIST_LIMIT),
+      tx
+        .select({
+          id: invoices.id,
+          number: invoices.invoiceNumber,
+          status: invoices.status,
+          issuedOn: invoices.issuedOn,
+          dueOn: invoices.dueOn,
+          totalMinor: invoices.totalMinor,
+          paidMinor: invoices.paidMinor,
+          currency: invoices.currency,
+        })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.organizationId, org),
+            eq(invoices.tenantPartyId, party),
+            ne(invoices.status, 'draft'),
+          ),
+        )
+        .orderBy(desc(invoices.dueOn))
+        .limit(LIST_LIMIT),
+      tx
+        .select({
+          id: payments.id,
+          invoiceNumber: invoices.invoiceNumber,
+          status: payments.status,
+          method: payments.method,
+          amountMinor: payments.amountMinor,
+          refundedMinor: payments.refundedMinor,
+          currency: payments.currency,
+          receivedAt: payments.receivedAt,
+        })
+        .from(payments)
+        .innerJoin(invoices, eq(invoices.id, payments.invoiceId))
+        .where(and(eq(payments.organizationId, org), eq(invoices.tenantPartyId, party)))
+        .orderBy(desc(payments.receivedAt))
+        .limit(LIST_LIMIT),
+      tx
+        .select({
+          id: reservations.id,
+          unitId: reservations.unitId,
+          status: reservations.status,
+          expiresAt: reservations.expiresAt,
+          currency: reservations.currency,
+          terms: reservations.termsSnapshot,
+        })
+        .from(reservations)
+        .where(and(eq(reservations.organizationId, org), eq(reservations.tenantPartyId, party)))
+        .orderBy(desc(reservations.createdAt))
+        .limit(LIST_LIMIT),
+      tx
+        .select({
+          id: viewingRequests.id,
+          reference: viewingRequests.reference,
+          status: viewingRequests.status,
+          scheduledAt: viewingRequests.scheduledAt,
+          preferredAt: viewingRequests.preferredAt,
+          createdAt: viewingRequests.createdAt,
+          unitCode: units.code,
+          unitAr: units.nameAr,
+          unitEn: units.nameEn,
+          propertyNameAr: properties.nameAr,
+          propertyNameEn: properties.nameEn,
+        })
+        .from(viewingRequests)
+        .innerJoin(units, eq(units.id, viewingRequests.unitId))
+        .innerJoin(properties, eq(properties.id, units.propertyId))
+        .where(
+          and(eq(viewingRequests.organizationId, org), eq(viewingRequests.prospectPartyId, party)),
+        )
+        .orderBy(desc(viewingRequests.createdAt))
+        .limit(LIST_LIMIT),
+    ]);
 
     // Long-term leases keep cheque/installment statements; daily stay leases are included so
     // guests with an active stay contract can open maintenance/contact requests until checkout.
@@ -726,7 +726,7 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
           .map((row) => {
             const source = obj(obj(row.payload).source);
             return source.type === 'stay_booking'
-              ? str(source.stayBookingId) ?? str(source.bookingId)
+              ? (str(source.stayBookingId) ?? str(source.bookingId))
               : null;
           })
           .filter((id): id is string => Boolean(id)),
@@ -737,9 +737,7 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
       const stayStatusRows = await tx
         .select({ id: stayBookings.id, status: stayBookings.status })
         .from(stayBookings)
-        .where(
-          and(eq(stayBookings.organizationId, org), inArray(stayBookings.id, stayBookingIds)),
-        );
+        .where(and(eq(stayBookings.organizationId, org), inArray(stayBookings.id, stayBookingIds)));
       for (const row of stayStatusRows) stayStatusById.set(row.id, row.status);
     }
     const contractItems: TenancyContract[] = contractRows.map((row) => {
@@ -749,7 +747,7 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
       const source = obj(payload.source);
       const stayBookingId =
         source.type === 'stay_booking'
-          ? str(source.stayBookingId) ?? str(source.bookingId)
+          ? (str(source.stayBookingId) ?? str(source.bookingId))
           : null;
       return {
         id: row.id,

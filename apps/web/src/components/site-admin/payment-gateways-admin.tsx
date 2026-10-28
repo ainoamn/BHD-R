@@ -48,9 +48,7 @@ export function PaymentGatewaysAdmin({ locale }: { locale: 'ar' | 'en' }) {
         if (!live) return;
         setView(data);
         setMethods(data.methods);
-        setDrafts(
-          Object.fromEntries(data.providers.map((row) => [row.id, emptyDraft(row)])),
-        );
+        setDrafts(Object.fromEntries(data.providers.map((row) => [row.id, emptyDraft(row)])));
       })
       .catch(() => live && setFailed(true));
     return () => {

@@ -11,10 +11,7 @@ function json(body: unknown, init?: ResponseInit) {
 }
 
 /** GET — guest arrival QR for a paid stay (reference is the guest key). */
-export async function GET(
-  request: Request,
-  context: { params: Promise<{ reference: string }> },
-) {
+export async function GET(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!hasDatabaseUrl()) {
     return json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }

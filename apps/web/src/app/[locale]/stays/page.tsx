@@ -105,9 +105,7 @@ function parseMajorPrice(value: string | undefined): number | undefined {
   return Number.isFinite(n) && n >= 0 ? n : undefined;
 }
 
-async function loadStaysCatalogue(
-  query: URLSearchParams,
-): Promise<StayCatalogueListing[]> {
+async function loadStaysCatalogue(query: URLSearchParams): Promise<StayCatalogueListing[]> {
   const countryCode = query.get('countryCode') ?? 'OM';
   if (!hasDatabaseUrl()) {
     return loadSearchFallback(countryCode);
@@ -141,8 +139,7 @@ async function loadStaysCatalogue(
       .filter(Boolean);
     const q = query.get('q')?.trim();
     const hasPool = query.get('hasPool') === '1' || query.get('hasPool') === 'true';
-    const hasParking =
-      query.get('hasParking') === '1' || query.get('hasParking') === 'true';
+    const hasParking = query.get('hasParking') === '1' || query.get('hasParking') === 'true';
 
     if (countryCode) search.countryCode = countryCode;
     if (governorate) search.governorate = governorate;
@@ -160,7 +157,10 @@ async function loadStaysCatalogue(
     if (amenities.length) search.amenities = amenities;
     if (q) search.q = q;
 
-    const empty = { data: [] as StayCatalogueListing[], pagination: { nextCursor: null, hasMore: false } };
+    const empty = {
+      data: [] as StayCatalogueListing[],
+      pagination: { nextCursor: null, hasMore: false },
+    };
     const payload = await withTimeoutFallback(
       searchStaysCatalogueFromNeon(search),
       6_000,

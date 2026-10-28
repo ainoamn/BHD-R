@@ -23,11 +23,10 @@ export type IdentityMe = {
 };
 
 /** `fetch` against id.bhd-om.com with cookies (bhd_id / roster). */
-export async function identityFetch(
-  path: string,
-  init: RequestInit = {},
-): Promise<Response> {
-  const url = path.startsWith('http') ? path : `${IDENTITY_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
+export async function identityFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const url = path.startsWith('http')
+    ? path
+    : `${IDENTITY_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
   const headers = new Headers(init.headers);
   if (!headers.has('accept')) headers.set('accept', 'application/json');
   if (init.body && !headers.has('content-type')) {
@@ -74,9 +73,7 @@ export function applyAccountIsolation(returnPath?: string): void {
 export function addAccountUrl(returnPath?: string): string {
   const path =
     returnPath ||
-    (typeof window !== 'undefined'
-      ? `${window.location.pathname}${window.location.search}`
-      : '/');
+    (typeof window !== 'undefined' ? `${window.location.pathname}${window.location.search}` : '/');
   const safe = path.startsWith('/') && !path.startsWith('//') ? path : '/';
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://r.bhd-om.com';
   const start = new URL('/api/auth/bhd/start', origin);

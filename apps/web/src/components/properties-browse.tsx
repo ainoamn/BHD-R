@@ -89,7 +89,12 @@ function FilterCheckbox({
 }) {
   return (
     <label className={disabled && !checked ? 'props-check is-muted' : 'props-check'}>
-      <input type="checkbox" checked={checked} disabled={disabled && !checked} onChange={onChange} />
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled && !checked}
+        onChange={onChange}
+      />
       <span className="props-check__label">{label}</span>
       <span className="props-check__count">{count}</span>
     </label>
@@ -207,7 +212,8 @@ export function PropertiesBrowse({
     if (urlTimer.current) clearTimeout(urlTimer.current);
     urlTimer.current = setTimeout(() => {
       const qs = filtersToSearchParams(filters).toString();
-      const current = typeof window !== 'undefined' ? window.location.search.replace(/^\?/, '') : '';
+      const current =
+        typeof window !== 'undefined' ? window.location.search.replace(/^\?/, '') : '';
       if (qs === current) return;
       const fullPath = `/${locale}${pathname}${qs ? `?${qs}` : ''}`;
       startTransition(() => {
@@ -348,11 +354,7 @@ export function PropertiesBrowse({
 
   const sidebar = (
     <aside className="props-sidebar" aria-label={ar ? 'التصفية حسب' : 'Filter by'}>
-      <button
-        type="button"
-        className="props-map-btn"
-        onClick={() => setMapOpen(true)}
-      >
+      <button type="button" className="props-map-btn" onClick={() => setMapOpen(true)}>
         {ar ? 'اعرض على الخريطة' : 'Show on map'}
       </button>
 
@@ -390,10 +392,7 @@ export function PropertiesBrowse({
         </h3>
         <div className="props-hist" aria-hidden="true">
           {hist.buckets.map((count, index) => (
-            <span
-              key={index}
-              style={{ height: `${Math.max(8, (count / maxHist) * 100)}%` }}
-            />
+            <span key={index} style={{ height: `${Math.max(8, (count / maxHist) * 100)}%` }} />
           ))}
         </div>
         <div className="props-price-row">
@@ -420,8 +419,8 @@ export function PropertiesBrowse({
           />
         </div>
         <p className="props-price-hint">
-          {filters.priceMin || hist.min} {filters.currency} –{' '}
-          {filters.priceMax || `${hist.max}+`} {filters.currency}
+          {filters.priceMin || hist.min} {filters.currency} – {filters.priceMax || `${hist.max}+`}{' '}
+          {filters.currency}
         </p>
       </div>
 
@@ -461,21 +460,19 @@ export function PropertiesBrowse({
           <FilterCheckbox
             checked={filters.bedroomsMin >= 3}
             label={ar ? '3 غرف فأكثر' : '3+ bedrooms'}
-            count={facetUniverse(universe, filters, { bedrooms: true }).filter(
-              (item) => item.bedrooms >= 3,
-            ).length}
-            onChange={() =>
-              patch({ bedroomsMin: filters.bedroomsMin >= 3 ? 0 : 3 })
+            count={
+              facetUniverse(universe, filters, { bedrooms: true }).filter(
+                (item) => item.bedrooms >= 3,
+              ).length
             }
+            onChange={() => patch({ bedroomsMin: filters.bedroomsMin >= 3 ? 0 : 3 })}
           />
         </div>
       </div>
 
       <div className="props-sidebar__block">
         <h3>{ar ? 'المصفيات الذكية' : 'Smart filters'}</h3>
-        <p className="props-smart-hint">
-          {ar ? 'ما الذي تبحث عنه؟' : 'What are you looking for?'}
-        </p>
+        <p className="props-smart-hint">{ar ? 'ما الذي تبحث عنه؟' : 'What are you looking for?'}</p>
         <textarea
           className="props-smart-input"
           rows={3}
@@ -487,7 +484,11 @@ export function PropertiesBrowse({
               : 'e.g. I want a villa with a pool and parking in Muscat'
           }
         />
-        <button type="button" className="button button--secondary props-smart-apply" onClick={applySmart}>
+        <button
+          type="button"
+          className="button button--secondary props-smart-apply"
+          onClick={applySmart}
+        >
           {ar ? 'تطبيق' : 'Apply'}
         </button>
       </div>
@@ -675,7 +676,11 @@ export function PropertiesBrowse({
 
       <div className="props-searchbar sticky-search">
         <div className="container props-searchbar__inner">
-          <div className="purpose-tabs" role="tablist" aria-label={ar ? 'نوع العرض' : 'Listing purpose'}>
+          <div
+            className="purpose-tabs"
+            role="tablist"
+            aria-label={ar ? 'نوع العرض' : 'Listing purpose'}
+          >
             {(['', 'rent', 'sale'] as const).map((purpose) => (
               <button
                 key={purpose || 'all'}
@@ -701,11 +706,7 @@ export function PropertiesBrowse({
               </button>
             ))}
             {staysEnabled ? (
-              <Link
-                className="purpose-tabs__item purpose-tabs__item--link"
-                href="/stays"
-                prefetch
-              >
+              <Link className="purpose-tabs__item purpose-tabs__item--link" href="/stays" prefetch>
                 {ar ? 'إقامة يومية' : 'Daily stay'}
               </Link>
             ) : null}
@@ -750,7 +751,9 @@ export function PropertiesBrowse({
               className="button button--secondary props-filter-toggle"
               onClick={() => setDrawerOpen(true)}
             >
-              {ar ? `تصفية${activeFilterCount ? ` (${activeFilterCount})` : ''}` : `Filter${activeFilterCount ? ` (${activeFilterCount})` : ''}`}
+              {ar
+                ? `تصفية${activeFilterCount ? ` (${activeFilterCount})` : ''}`
+                : `Filter${activeFilterCount ? ` (${activeFilterCount})` : ''}`}
             </button>
           </div>
         </div>
@@ -811,8 +814,12 @@ export function PropertiesBrowse({
                     onChange={(event) => patch({ sort: event.target.value as BrowseSort })}
                   >
                     <option value="newest">{ar ? 'الأحدث' : 'Newest'}</option>
-                    <option value="price_asc">{ar ? 'السعر: من الأقل' : 'Price: low to high'}</option>
-                    <option value="price_desc">{ar ? 'السعر: من الأعلى' : 'Price: high to low'}</option>
+                    <option value="price_asc">
+                      {ar ? 'السعر: من الأقل' : 'Price: low to high'}
+                    </option>
+                    <option value="price_desc">
+                      {ar ? 'السعر: من الأعلى' : 'Price: high to low'}
+                    </option>
                     <option value="beds_desc">{ar ? 'غرف النوم' : 'Most bedrooms'}</option>
                   </select>
                 </label>
@@ -896,7 +903,12 @@ export function PropertiesBrowse({
       />
 
       {drawerOpen ? (
-        <div className="props-drawer" role="dialog" aria-modal="true" aria-label={ar ? 'التصفية' : 'Filters'}>
+        <div
+          className="props-drawer"
+          role="dialog"
+          aria-modal="true"
+          aria-label={ar ? 'التصفية' : 'Filters'}
+        >
           <button
             type="button"
             className="props-drawer__backdrop"
@@ -906,7 +918,11 @@ export function PropertiesBrowse({
           <div className="props-drawer__panel">
             <div className="props-drawer__head">
               <h2>{ar ? 'التصفية حسب' : 'Filter by'}</h2>
-              <button type="button" className="button button--secondary" onClick={() => setDrawerOpen(false)}>
+              <button
+                type="button"
+                className="button button--secondary"
+                onClick={() => setDrawerOpen(false)}
+              >
                 {ar ? 'تم' : 'Done'}
               </button>
             </div>
@@ -916,7 +932,11 @@ export function PropertiesBrowse({
       ) : null}
 
       <div className="props-mobile-bar">
-        <button type="button" className="button button--secondary" onClick={() => setDrawerOpen(true)}>
+        <button
+          type="button"
+          className="button button--secondary"
+          onClick={() => setDrawerOpen(true)}
+        >
           {ar ? `تصفية (${activeFilterCount})` : `Filters (${activeFilterCount})`}
         </button>
         <button type="button" className="button button--primary" onClick={() => setMapOpen(true)}>

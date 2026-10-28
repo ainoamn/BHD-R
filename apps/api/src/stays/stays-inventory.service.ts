@@ -273,10 +273,7 @@ export class StaysInventoryService {
         .select({ id: stayProfiles.id })
         .from(stayProfiles)
         .where(
-          and(
-            eq(stayProfiles.organizationId, organizationId),
-            eq(stayProfiles.unitId, unitId),
-          ),
+          and(eq(stayProfiles.organizationId, organizationId), eq(stayProfiles.unitId, unitId)),
         )
         .limit(1);
       if (!profile) throw new NotFoundException('Stay unit not found');
@@ -529,8 +526,7 @@ export class StaysInventoryService {
       ? rateResult
       : ((rateResult as { rows?: unknown[] }).rows ?? []);
     const rateRow = rateRows[0] as
-      | { currency: string | null; base_nightly_minor: string | null }
-      | undefined;
+      { currency: string | null; base_nightly_minor: string | null } | undefined;
     const defaultCurrency = options.currency ?? rateRow?.currency ?? null;
     const defaultRateMinor = rateRow?.base_nightly_minor ?? null;
 

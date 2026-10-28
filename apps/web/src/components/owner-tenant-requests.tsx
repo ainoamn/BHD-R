@@ -222,222 +222,226 @@ function OwnerRequestItem({
           ) : null}
           {open ? (
             <div className="tenant-request__act">
-          {request.emergency && request.emergency.verified === null ? (
-            <div className="tenant-request__verify">
-              <strong>
-                {ar ? 'طلب مستعجل — تحقّق من صحة الحالة' : 'Urgent request — verify the situation'}
-              </strong>
+              {request.emergency && request.emergency.verified === null ? (
+                <div className="tenant-request__verify">
+                  <strong>
+                    {ar
+                      ? 'طلب مستعجل — تحقّق من صحة الحالة'
+                      : 'Urgent request — verify the situation'}
+                  </strong>
+                  <div className="tenant-request__buttons">
+                    <button
+                      type="button"
+                      className="button button--primary button--tiny"
+                      disabled={busy !== null}
+                      onClick={() => void act('emergency_confirm')}
+                    >
+                      {ar ? 'تأكيد أنه مستعجل' : 'Confirm urgent'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--quiet button--tiny"
+                      disabled={busy !== null}
+                      onClick={() => void act('emergency_deny')}
+                    >
+                      {ar ? 'ليس مستعجلاً (اكتب السبب)' : 'Not urgent (write why)'}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {request.type === 'maintenance' && request.status === 'pending' && !request.charge ? (
+                <fieldset className="tenant-request__cost">
+                  <label className="tenant-request-form__check">
+                    <input
+                      type="checkbox"
+                      checked={charged}
+                      onChange={(event) => setCharged(event.target.checked)}
+                    />
+                    <span>
+                      {ar
+                        ? 'الصيانة على حساب المستأجر (تكلفة يدفعها)'
+                        : 'The tenant pays for this maintenance'}
+                    </span>
+                  </label>
+                  {charged ? (
+                    <div className="tenant-request__cost-fields">
+                      <label>
+                        <span>{ar ? `التكلفة (${currency})` : `Cost (${currency})`}</span>
+                        <input
+                          className="input"
+                          dir="ltr"
+                          inputMode="decimal"
+                          value={amount}
+                          onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))}
+                        />
+                      </label>
+                      <label>
+                        <span>{ar ? 'موعد السداد' : 'When to pay'}</span>
+                        <select
+                          className="input"
+                          value={payment}
+                          onChange={(event) => setPayment(event.target.value as ChargePayment)}
+                        >
+                          <option value="before_work">
+                            {ar ? 'قبل تنفيذ العمل' : 'Before the work'}
+                          </option>
+                          <option value="deferred">
+                            {ar ? 'تأجيل السداد إلى وقت لاحق' : 'Later (deferred)'}
+                          </option>
+                        </select>
+                      </label>
+                      {payment === 'deferred' ? (
+                        <label>
+                          <span>{ar ? 'يُسدد حتى' : 'Due by'}</span>
+                          <input
+                            className="input"
+                            type="date"
+                            dir="ltr"
+                            value={dueOn}
+                            onChange={(event) => setDueOn(event.target.value)}
+                          />
+                        </label>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </fieldset>
+              ) : null}
+              {request.type === 'cheque_postpone' && request.status === 'pending' ? (
+                <label className="tenant-request__date">
+                  <span>
+                    {ar ? 'تاريخ الشيك الجديد عند الموافقة' : 'New cheque date if approved'}
+                  </span>
+                  <input
+                    className="input"
+                    type="date"
+                    dir="ltr"
+                    value={date}
+                    onChange={(event) => setDate(event.target.value)}
+                  />
+                </label>
+              ) : null}
+              {request.type === 'maintenance' && request.status !== 'pending' ? (
+                <ClosureProofPanel
+                  requestId={request.id}
+                  media={request.media}
+                  locale={locale}
+                  onAdded={refresh}
+                />
+              ) : null}
+              <textarea
+                className="input"
+                rows={2}
+                maxLength={Math.min(1000, NOTE_TRANSLATE_MAX)}
+                placeholder={
+                  ar
+                    ? 'ملاحظة أو رد للمستأجر (مطلوب عند الرفض)…'
+                    : 'Note for the tenant (required to reject)…'
+                }
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+              />
+              <NoteTranslateBar
+                value={note}
+                onChange={setNote}
+                locale={locale}
+                max={Math.min(1000, NOTE_TRANSLATE_MAX)}
+                disabled={busy !== null}
+                service={OWNER_NOTE_SERVICE}
+              />
               <div className="tenant-request__buttons">
-                <button
-                  type="button"
-                  className="button button--primary button--tiny"
-                  disabled={busy !== null}
-                  onClick={() => void act('emergency_confirm')}
-                >
-                  {ar ? 'تأكيد أنه مستعجل' : 'Confirm urgent'}
-                </button>
+                {request.status === 'pending' ? (
+                  <button
+                    type="button"
+                    className="button button--primary button--tiny"
+                    disabled={busy !== null}
+                    onClick={() => void act('approve')}
+                  >
+                    {cheque
+                      ? request.type === 'cheque_postpone'
+                        ? ar
+                          ? 'موافقة وتأجيل الشيك'
+                          : 'Approve and move the cheque'
+                        : ar
+                          ? 'موافقة وإيقاف الشيك'
+                          : 'Approve and stop the cheque'
+                      : charged
+                        ? ar
+                          ? 'موافقة بتكلفة على المستأجر'
+                          : 'Approve at the tenant’s cost'
+                        : isTenantReport(request.type)
+                          ? ar
+                            ? 'تأكيد الاستلام والمتابعة'
+                            : 'Acknowledge and follow up'
+                          : ar
+                            ? 'موافقة'
+                            : 'Approve'}
+                  </button>
+                ) : null}
+                {!cheque && request.status !== 'in_progress' ? (
+                  <button
+                    type="button"
+                    className="button button--quiet button--tiny"
+                    disabled={busy !== null}
+                    onClick={() => void act('in_progress')}
+                  >
+                    {ar ? 'قيد التنفيذ' : 'In progress'}
+                  </button>
+                ) : null}
+                {!cheque && request.status !== 'pending' ? (
+                  <button
+                    type="button"
+                    className="button button--quiet button--tiny"
+                    disabled={busy !== null || proofMissing.length > 0}
+                    title={
+                      proofMissing.length
+                        ? ar
+                          ? 'أرفق صورة بعد الإصلاح وسيلفي من أنجز العمل أولاً'
+                          : 'Attach the after photo and the selfie first'
+                        : undefined
+                    }
+                    onClick={() => void act('complete')}
+                  >
+                    {proofMissing.length
+                      ? ar
+                        ? '🔒 تم الإنجاز (يلزم الإثبات)'
+                        : '🔒 Completed (proof needed)'
+                      : ar
+                        ? 'تم الإنجاز'
+                        : 'Completed'}
+                  </button>
+                ) : null}
+                {request.status !== 'on_hold' ? (
+                  <button
+                    type="button"
+                    className="button button--quiet button--tiny"
+                    disabled={busy !== null}
+                    onClick={() => void act('on_hold')}
+                  >
+                    {ar ? 'تعليق' : 'On hold'}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="button button--quiet button--tiny"
                   disabled={busy !== null}
-                  onClick={() => void act('emergency_deny')}
+                  onClick={() => void act('reply')}
                 >
-                  {ar ? 'ليس مستعجلاً (اكتب السبب)' : 'Not urgent (write why)'}
+                  {ar ? 'رد فقط' : 'Reply only'}
+                </button>
+                <button
+                  type="button"
+                  className="button button--danger button--tiny"
+                  disabled={busy !== null}
+                  onClick={() => void act('reject')}
+                >
+                  {ar ? 'رفض' : 'Reject'}
                 </button>
               </div>
-            </div>
-          ) : null}
-          {request.type === 'maintenance' && request.status === 'pending' && !request.charge ? (
-            <fieldset className="tenant-request__cost">
-              <label className="tenant-request-form__check">
-                <input
-                  type="checkbox"
-                  checked={charged}
-                  onChange={(event) => setCharged(event.target.checked)}
-                />
-                <span>
-                  {ar
-                    ? 'الصيانة على حساب المستأجر (تكلفة يدفعها)'
-                    : 'The tenant pays for this maintenance'}
-                </span>
-              </label>
-              {charged ? (
-                <div className="tenant-request__cost-fields">
-                  <label>
-                    <span>{ar ? `التكلفة (${currency})` : `Cost (${currency})`}</span>
-                    <input
-                      className="input"
-                      dir="ltr"
-                      inputMode="decimal"
-                      value={amount}
-                      onChange={(event) => setAmount(event.target.value.replace(/[^\d.]/g, ''))}
-                    />
-                  </label>
-                  <label>
-                    <span>{ar ? 'موعد السداد' : 'When to pay'}</span>
-                    <select
-                      className="input"
-                      value={payment}
-                      onChange={(event) => setPayment(event.target.value as ChargePayment)}
-                    >
-                      <option value="before_work">
-                        {ar ? 'قبل تنفيذ العمل' : 'Before the work'}
-                      </option>
-                      <option value="deferred">
-                        {ar ? 'تأجيل السداد إلى وقت لاحق' : 'Later (deferred)'}
-                      </option>
-                    </select>
-                  </label>
-                  {payment === 'deferred' ? (
-                    <label>
-                      <span>{ar ? 'يُسدد حتى' : 'Due by'}</span>
-                      <input
-                        className="input"
-                        type="date"
-                        dir="ltr"
-                        value={dueOn}
-                        onChange={(event) => setDueOn(event.target.value)}
-                      />
-                    </label>
-                  ) : null}
-                </div>
+              {error ? (
+                <p className="notice notice--error" role="alert">
+                  {error}
+                </p>
               ) : null}
-            </fieldset>
-          ) : null}
-          {request.type === 'cheque_postpone' && request.status === 'pending' ? (
-            <label className="tenant-request__date">
-              <span>{ar ? 'تاريخ الشيك الجديد عند الموافقة' : 'New cheque date if approved'}</span>
-              <input
-                className="input"
-                type="date"
-                dir="ltr"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-            </label>
-          ) : null}
-          {request.type === 'maintenance' && request.status !== 'pending' ? (
-            <ClosureProofPanel
-              requestId={request.id}
-              media={request.media}
-              locale={locale}
-              onAdded={refresh}
-            />
-          ) : null}
-          <textarea
-            className="input"
-            rows={2}
-            maxLength={Math.min(1000, NOTE_TRANSLATE_MAX)}
-            placeholder={
-              ar
-                ? 'ملاحظة أو رد للمستأجر (مطلوب عند الرفض)…'
-                : 'Note for the tenant (required to reject)…'
-            }
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-          />
-          <NoteTranslateBar
-            value={note}
-            onChange={setNote}
-            locale={locale}
-            max={Math.min(1000, NOTE_TRANSLATE_MAX)}
-            disabled={busy !== null}
-            service={OWNER_NOTE_SERVICE}
-          />
-          <div className="tenant-request__buttons">
-            {request.status === 'pending' ? (
-              <button
-                type="button"
-                className="button button--primary button--tiny"
-                disabled={busy !== null}
-                onClick={() => void act('approve')}
-              >
-                {cheque
-                  ? request.type === 'cheque_postpone'
-                    ? ar
-                      ? 'موافقة وتأجيل الشيك'
-                      : 'Approve and move the cheque'
-                    : ar
-                      ? 'موافقة وإيقاف الشيك'
-                      : 'Approve and stop the cheque'
-                  : charged
-                    ? ar
-                      ? 'موافقة بتكلفة على المستأجر'
-                      : 'Approve at the tenant’s cost'
-                    : isTenantReport(request.type)
-                      ? ar
-                        ? 'تأكيد الاستلام والمتابعة'
-                        : 'Acknowledge and follow up'
-                      : ar
-                        ? 'موافقة'
-                        : 'Approve'}
-              </button>
-            ) : null}
-            {!cheque && request.status !== 'in_progress' ? (
-              <button
-                type="button"
-                className="button button--quiet button--tiny"
-                disabled={busy !== null}
-                onClick={() => void act('in_progress')}
-              >
-                {ar ? 'قيد التنفيذ' : 'In progress'}
-              </button>
-            ) : null}
-            {!cheque && request.status !== 'pending' ? (
-              <button
-                type="button"
-                className="button button--quiet button--tiny"
-                disabled={busy !== null || proofMissing.length > 0}
-                title={
-                  proofMissing.length
-                    ? ar
-                      ? 'أرفق صورة بعد الإصلاح وسيلفي من أنجز العمل أولاً'
-                      : 'Attach the after photo and the selfie first'
-                    : undefined
-                }
-                onClick={() => void act('complete')}
-              >
-                {proofMissing.length
-                  ? ar
-                    ? '🔒 تم الإنجاز (يلزم الإثبات)'
-                    : '🔒 Completed (proof needed)'
-                  : ar
-                    ? 'تم الإنجاز'
-                    : 'Completed'}
-              </button>
-            ) : null}
-            {request.status !== 'on_hold' ? (
-              <button
-                type="button"
-                className="button button--quiet button--tiny"
-                disabled={busy !== null}
-                onClick={() => void act('on_hold')}
-              >
-                {ar ? 'تعليق' : 'On hold'}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="button button--quiet button--tiny"
-              disabled={busy !== null}
-              onClick={() => void act('reply')}
-            >
-              {ar ? 'رد فقط' : 'Reply only'}
-            </button>
-            <button
-              type="button"
-              className="button button--danger button--tiny"
-              disabled={busy !== null}
-              onClick={() => void act('reject')}
-            >
-              {ar ? 'رفض' : 'Reject'}
-            </button>
-          </div>
-          {error ? (
-            <p className="notice notice--error" role="alert">
-              {error}
-            </p>
-          ) : null}
             </div>
           ) : null}
         </div>

@@ -10,7 +10,11 @@ import {
 } from '@/lib/bhd/account-roster';
 import { hasDatabaseUrl, switchIdentityAccountSession } from '@/lib/bhd/identity-session';
 import { identitySettings, safeReturnTo } from '@/lib/bhd/oauth';
-import { ORGANIZATION_COOKIE, rememberedOrganization, setSessionCookies } from '@/lib/bhd/session-cookies';
+import {
+  ORGANIZATION_COOKIE,
+  rememberedOrganization,
+  setSessionCookies,
+} from '@/lib/bhd/session-cookies';
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
@@ -77,11 +81,10 @@ export async function POST(request: Request) {
       ...(preferredOrganizationId ? { preferredOrganizationId } : {}),
     });
 
-    const account: RosterAccount =
-      issued.rosterAccount || {
-        ...target,
-        sub: body.sub,
-      };
+    const account: RosterAccount = issued.rosterAccount || {
+      ...target,
+      sub: body.sub,
+    };
     const accounts = upsertRoster(roster, account);
 
     const response = NextResponse.json({

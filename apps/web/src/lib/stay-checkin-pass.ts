@@ -64,7 +64,9 @@ export function issueStayCheckinPass(bookingId: string, now: Date = new Date()):
   return {
     token,
     code: passCode(bookingId, window),
-    expiresAt: new Date((window + STAY_CHECKIN_PASS_WINDOWS) * STAY_CHECKIN_PASS_WINDOW_MS).toISOString(),
+    expiresAt: new Date(
+      (window + STAY_CHECKIN_PASS_WINDOWS) * STAY_CHECKIN_PASS_WINDOW_MS,
+    ).toISOString(),
     refreshAt: new Date((window + 1) * STAY_CHECKIN_PASS_WINDOW_MS).toISOString(),
   };
 }

@@ -231,7 +231,8 @@ export function UnitStaySettings({
         depositMinor: (checked.profile.depositMinor as string | null | undefined) ?? null,
         checkInFrom: (checked.profile.checkInFrom as string | null | undefined) ?? unit.checkInFrom,
         dayUseCheckInFrom:
-          (checked.profile.dayUseCheckInFrom as string | null | undefined) ?? unit.dayUseCheckInFrom,
+          (checked.profile.dayUseCheckInFrom as string | null | undefined) ??
+          unit.dayUseCheckInFrom,
         dayUseCheckOutUntil:
           (checked.profile.dayUseCheckOutUntil as string | null | undefined) ??
           unit.dayUseCheckOutUntil,

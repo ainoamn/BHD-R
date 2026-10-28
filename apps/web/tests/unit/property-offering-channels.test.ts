@@ -16,11 +16,7 @@ describe('property-offering-channels', () => {
   });
 
   it('builds ordered channels from unit purposes and stay flag', () => {
-    expect(offeringChannelsFromPurposes(['rent', 'sale'], true)).toEqual([
-      'stay',
-      'rent',
-      'sale',
-    ]);
+    expect(offeringChannelsFromPurposes(['rent', 'sale'], true)).toEqual(['stay', 'rent', 'sale']);
     expect(offeringChannelsFromPurposes(['both'], false)).toEqual(['rent', 'sale']);
     expect(offeringChannelsFromPurposes([], true)).toEqual(['stay']);
   });

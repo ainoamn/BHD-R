@@ -7,12 +7,12 @@
 
 ## ما نُفّذ
 
-| بند | الإجراء |
-| --- | --- |
-| **P0-01** | `POST /v1/webhooks/payments/:provider` يقبل `kind: reservation_deposit` + `checkoutSessionReference` |
-| **أثر** | تأكيد الحجز pending → confirmed، قيد يومية `reservation_deposit`، تحويل hold، outbox/workflow |
+| بند       | الإجراء                                                                                                                      |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **P0-01** | `POST /v1/webhooks/payments/:provider` يقبل `kind: reservation_deposit` + `checkoutSessionReference`                         |
+| **أثر**   | تأكيد الحجز pending → confirmed، قيد يومية `reservation_deposit`، تحويل hold، outbox/workflow                                |
 | **سلامة** | مسار الفاتورة (بلا `kind` أو `kind: invoice`) دون تغيير؛ مبلغ/عملة يجب أن تطابق العربون؛ أحداث webhook مكررة تبقى idempotent |
-| **Ops** | `scripts/simulate-reservation-deposit-webhook.mjs` للتوقيع والاختبار |
+| **Ops**   | `scripts/simulate-reservation-deposit-webhook.mjs` للتوقيع والاختبار                                                         |
 
 ### شكل الحمولة (حجز)
 
@@ -40,9 +40,9 @@
 
 ## تحقق
 
-1. فاتورة webhook القديمة ما زالت تعمل.  
-2. حمولة `reservation_deposit` ناقصة → 400.  
-3. جلسة `bk_…` صحيحة + مبلغ مطابق → confirmed + journal.  
+1. فاتورة webhook القديمة ما زالت تعمل.
+2. حمولة `reservation_deposit` ناقصة → 400.
+3. جلسة `bk_…` صحيحة + مبلغ مطابق → confirmed + journal.
 4. إعادة نفس `x-event-id` → `{ duplicate: true }`.
 
 ## وثائق

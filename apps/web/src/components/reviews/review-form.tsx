@@ -805,7 +805,12 @@ export function ReviewForm({
                 {ar ? 'لاحقاً' : 'Later'}
               </button>
             ) : null}
-            <button type="button" className="button button--primary" disabled={busy} onClick={goNext}>
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy}
+              onClick={goNext}
+            >
               {ar ? 'التالي' : 'Next'}
             </button>
           </>

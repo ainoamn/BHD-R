@@ -46,7 +46,12 @@ export type BrandedEmailInput = {
 
 type ToneStyle = { icon: string; accent: string; soft: string; badge: string; wishes: string[] };
 
-export function toneVisual(tone: EmailTone): { icon: string; accent: string; soft: string; badge: string } {
+export function toneVisual(tone: EmailTone): {
+  icon: string;
+  accent: string;
+  soft: string;
+  badge: string;
+} {
   const style = TONES[tone];
   return { icon: style.icon, accent: style.accent, soft: style.soft, badge: style.badge };
 }
@@ -514,7 +519,13 @@ export function renderBrandedEmail(
     `Warm regards from the ${PRODUCT_NAME} team — ${COMPANY_NAME_EN}`,
     origin,
     ...(input.footnote
-      ? ['', ...input.footnote.split(/\s*·\s*/).map((part) => part.trim()).filter(Boolean)]
+      ? [
+          '',
+          ...input.footnote
+            .split(/\s*·\s*/)
+            .map((part) => part.trim())
+            .filter(Boolean),
+        ]
       : []),
     '',
     'هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾',
@@ -616,8 +627,7 @@ export function renderBrandedEmail(
               .map((part) => part.trim())
               .filter(Boolean)
               .map(
-                (part) =>
-                  `<div style="margin-top:6px;word-break:break-word">${escape(part)}</div>`,
+                (part) => `<div style="margin-top:6px;word-break:break-word">${escape(part)}</div>`,
               )
               .join('')
           : ''

@@ -386,9 +386,7 @@ export async function cancelOwnerStayBookingOnNeon(
         subject: fromRequest
           ? `عن طلب حجزك ${booking.referenceCode} في ${booking.propertyNameAr}`
           : `إلغاء حجزك ${booking.referenceCode} في ${booking.propertyNameAr}`,
-        title: fromRequest
-          ? 'للأسف، التواريخ لم تناسب المضيف هذه المرة'
-          : 'تم إلغاء حجزك',
+        title: fromRequest ? 'للأسف، التواريخ لم تناسب المضيف هذه المرة' : 'تم إلغاء حجزك',
         intro: fromRequest
           ? `اعتذر المضيف عن قبول طلب حجزك في ${booking.propertyNameAr}.`
           : `أُلغي حجزك في ${booking.propertyNameAr}.`,
@@ -430,9 +428,7 @@ export async function cancelOwnerStayBookingOnNeon(
           lines: ['افتح صفحة الحسابات ← أمانات التأمين لتسجيل التحويل.'],
           cta: {
             label: 'فتح الحسابات',
-            url: appLink(
-              `/ar/owner/accounting?focus=${encodeURIComponent(booking.id)}#deposits`,
-            ),
+            url: appLink(`/ar/owner/accounting?focus=${encodeURIComponent(booking.id)}#deposits`),
           },
         }),
       });

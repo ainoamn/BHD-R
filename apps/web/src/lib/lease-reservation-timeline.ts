@@ -31,10 +31,7 @@ const DANGER = new Set([
   'reservation.document_rejected',
   'reservation.cheque_rejected',
 ]);
-const WARN = new Set([
-  'reservation.booking_docs_returned',
-  'reservation.auto_contract_skipped',
-]);
+const WARN = new Set(['reservation.booking_docs_returned', 'reservation.auto_contract_skipped']);
 const DONE = new Set([
   'reservation.deposit_paid',
   'reservation.deposit_confirmed',
@@ -62,7 +59,9 @@ function identityLabels(codes: unknown, ar: boolean): string | null {
   const labels = codes
     .filter((code): code is string => typeof code === 'string')
     .filter(isBookingIdentityDocCode)
-    .map((code) => (ar ? BOOKING_IDENTITY_DOC_LABELS[code].ar : BOOKING_IDENTITY_DOC_LABELS[code].en));
+    .map((code) =>
+      ar ? BOOKING_IDENTITY_DOC_LABELS[code].ar : BOOKING_IDENTITY_DOC_LABELS[code].en,
+    );
   return labels.length ? labels.join(ar ? '، ' : ', ') : null;
 }
 
@@ -134,7 +133,8 @@ function actorLabel(row: ReservationActivityRow, ar: boolean): string | null {
     return ar ? 'النظام' : 'System';
   }
   // Tenant / client actions often have an actor user without a staff display name in metadata.
-  if (row.eventType.includes('document_submitted') ||
+  if (
+    row.eventType.includes('document_submitted') ||
     row.eventType.includes('esign') ||
     row.eventType.includes('deposit_paid') ||
     row.eventType.includes('booking_doc_replaced') ||

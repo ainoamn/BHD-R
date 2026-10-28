@@ -21,7 +21,10 @@ const verifySchema = z
   .object({
     action: z.literal('verify'),
     email: z.string().trim().email().max(320),
-    code: z.string().trim().regex(/^\d{6}$/),
+    code: z
+      .string()
+      .trim()
+      .regex(/^\d{6}$/),
   })
   .strict();
 

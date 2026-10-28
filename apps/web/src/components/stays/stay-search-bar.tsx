@@ -86,8 +86,7 @@ export function StaySearchBar({
     const a = Number.parseInt(adults, 10) || 1;
     const c = Number.parseInt(children, 10) || 0;
     if (ar) {
-      const adultPart =
-        a === 1 ? 'شخص بالغ واحد' : a === 2 ? 'شخصان بالغان' : `${a} بالغين`;
+      const adultPart = a === 1 ? 'شخص بالغ واحد' : a === 2 ? 'شخصان بالغان' : `${a} بالغين`;
       const childPart = c === 0 ? 'بدون أطفال' : c === 1 ? 'طفل واحد' : `${c} أطفال`;
       return `${adultPart} · ${childPart}`;
     }

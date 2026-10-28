@@ -74,9 +74,7 @@ export function StayCheckinPass({
           { credentials: 'same-origin', cache: 'no-store' },
         );
         const body = (await response.json().catch(() => null)) as
-          | (PassBody & { qrSvg?: string })
-          | { error?: { code?: string } }
-          | null;
+          (PassBody & { qrSvg?: string }) | { error?: { code?: string } } | null;
         if (stopped) return;
         if (!response.ok || !body || !('state' in body)) {
           setFailed(true);
@@ -129,9 +127,7 @@ export function StayCheckinPass({
           setNotReady(false);
           setDepositUnpaid(null);
           setLoaded(true);
-          setPass((current) =>
-            current?.refreshAt === body.refreshAt ? current : (body as Pass),
-          );
+          setPass((current) => (current?.refreshAt === body.refreshAt ? current : (body as Pass)));
         }
       } catch {
         if (!stopped) {
@@ -150,7 +146,10 @@ export function StayCheckinPass({
 
   if (arrived) {
     return (
-      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
+      <section
+        className="guest-stay-detail__card handover-pass"
+        aria-labelledby="stay-checkin-title"
+      >
         <h2 id="stay-checkin-title">{ar ? 'تم تسجيل وصولك' : 'You are checked in'}</h2>
         <p className="notice notice--success" role="status">
           {ar
@@ -163,7 +162,10 @@ export function StayCheckinPass({
 
   if (expired) {
     return (
-      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
+      <section
+        className="guest-stay-detail__card handover-pass"
+        aria-labelledby="stay-checkin-title"
+      >
         <h2 id="stay-checkin-title">{ar ? 'أُلغي الحجز' : 'Booking cancelled'}</h2>
         <p className="notice notice--error" role="alert">
           {ar
@@ -175,11 +177,7 @@ export function StayCheckinPass({
   }
 
   if (depositUnpaid) {
-    const amount = formatMoney(
-      depositUnpaid.depositMinor,
-      depositUnpaid.currency,
-      locale,
-    );
+    const amount = formatMoney(depositUnpaid.depositMinor, depositUnpaid.currency, locale);
     return (
       <>
         <section
@@ -194,10 +192,7 @@ export function StayCheckinPass({
           </p>
         </section>
         <ModalPortal>
-          <div
-            className="ops-modal stay-deposit-gate-modal"
-            role="presentation"
-          >
+          <div className="ops-modal stay-deposit-gate-modal" role="presentation">
             <div
               className="ops-modal__card stay-deposit-gate-modal__card"
               role="alertdialog"
@@ -239,9 +234,7 @@ export function StayCheckinPass({
                         : 'Payment could not be opened right now. Reload in a moment.'}
                     </p>
                   )}
-                  {actionBooking ? (
-                    <GuestStayActions booking={actionBooking} depositGate />
-                  ) : null}
+                  {actionBooking ? <GuestStayActions booking={actionBooking} depositGate /> : null}
                 </div>
               </div>
             </div>
@@ -253,7 +246,10 @@ export function StayCheckinPass({
 
   if (tooEarly) {
     return (
-      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
+      <section
+        className="guest-stay-detail__card handover-pass"
+        aria-labelledby="stay-checkin-title"
+      >
         <h2 id="stay-checkin-title">{ar ? 'باركود تسجيل الوصول' : 'Check-in barcode'}</h2>
         <p className="notice" role="status">
           {ar
@@ -266,7 +262,10 @@ export function StayCheckinPass({
 
   if (notReady) {
     return (
-      <section className="guest-stay-detail__card handover-pass" aria-labelledby="stay-checkin-title">
+      <section
+        className="guest-stay-detail__card handover-pass"
+        aria-labelledby="stay-checkin-title"
+      >
         <h2 id="stay-checkin-title">{ar ? 'باركود تسجيل الوصول' : 'Check-in barcode'}</h2>
         <p className="muted" role="status">
           {ar

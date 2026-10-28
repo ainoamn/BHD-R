@@ -5,13 +5,13 @@
 
 ## Latest steps
 
-| Step | Status |
-|------|--------|
-| 16 Deposit confirm in bookings UI | **Wired** |
-| 17 Vacancy follow-up pipeline strip | **Wired** |
-| 18 Prefill lease from confirmed reservation URL | **Wired** |
-| 19 Pending-deposit accountant queue strip | **Wired** |
-| 11 Nest host | **Scaffolded** — `VERCEL-MANUAL-AR.md` |
+| Step                                            | Status                                 |
+| ----------------------------------------------- | -------------------------------------- |
+| 16 Deposit confirm in bookings UI               | **Wired**                              |
+| 17 Vacancy follow-up pipeline strip             | **Wired**                              |
+| 18 Prefill lease from confirmed reservation URL | **Wired**                              |
+| 19 Pending-deposit accountant queue strip       | **Wired**                              |
+| 11 Nest host                                    | **Scaffolded** — `VERCEL-MANUAL-AR.md` |
 
 ## Deploy note
 

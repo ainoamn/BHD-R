@@ -42,11 +42,7 @@ export function LeaseBookingReceipt({
   const titleEn = 'Payment receipt · Booking deposit';
   const title = ar ? titleAr : titleEn;
   const titleAlt = ar ? titleEn : titleAr;
-  const issuerName = issuer
-    ? ar
-      ? issuer.nameAr
-      : issuer.nameEn
-    : 'BHD R';
+  const issuerName = issuer ? (ar ? issuer.nameAr : issuer.nameEn) : 'BHD R';
   const amount = formatMoney(booking.depositMinor, booking.currency, locale);
   const paidOn = stampOf(booking.depositPaidAt, ar);
 

@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server';
 import { canReadAccounting } from '@/lib/accounting-gl-neon';
 import { accountingErrorResponse } from '@/lib/accounting-gl-http';
-import {
-  sendAccountingArtifact,
-  type AccountingSendKind,
-} from '@/lib/accounting-send-neon';
+import { sendAccountingArtifact, type AccountingSendKind } from '@/lib/accounting-send-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';
 

@@ -38,7 +38,9 @@ export default async function HandoverDeskPage({
   const initialReference =
     typeof refRaw === 'string' && /^[A-Za-z0-9-]{6,40}$/.test(refRaw.trim())
       ? refRaw.trim().toUpperCase()
-      : Array.isArray(refRaw) && typeof refRaw[0] === 'string' && /^[A-Za-z0-9-]{6,40}$/.test(refRaw[0].trim())
+      : Array.isArray(refRaw) &&
+          typeof refRaw[0] === 'string' &&
+          /^[A-Za-z0-9-]{6,40}$/.test(refRaw[0].trim())
         ? refRaw[0].trim().toUpperCase()
         : null;
 
@@ -66,11 +68,7 @@ export default async function HandoverDeskPage({
         </p>
       </header>
       {allowed ? (
-        <HandoverDesk
-          locale={locale}
-          initialToken={token}
-          initialReference={initialReference}
-        />
+        <HandoverDesk locale={locale} initialToken={token} initialReference={initialReference} />
       ) : (
         <p className="notice notice--error" role="alert">
           {ar

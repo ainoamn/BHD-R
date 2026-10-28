@@ -47,10 +47,7 @@ import {
   type TenancyDepositRefund,
 } from '@/lib/tenancy-shared';
 import { OPEN_TENANT_REQUEST } from '@/lib/tenant-requests-shared';
-import {
-  TENANT_SPACE_SECTIONS,
-  type TenantSpaceView,
-} from '@/lib/tenant-soft-nav';
+import { TENANT_SPACE_SECTIONS, type TenantSpaceView } from '@/lib/tenant-soft-nav';
 import { domainStatusLabel, stayStatusLabel } from '@/lib/ui-labels';
 
 export type { TenantSpaceView };
@@ -74,8 +71,7 @@ function period(
   stayType?: string | null,
 ): string {
   if (!from && !to) return '—';
-  const displayTo =
-    from && to && stayType ? displayStayCheckoutOn(stayType, from, to) : to;
+  const displayTo = from && to && stayType ? displayStayCheckoutOn(stayType, from, to) : to;
   if (from && displayTo && from.slice(0, 10) === displayTo.slice(0, 10)) {
     return formatDate(from, ar);
   }
@@ -116,7 +112,8 @@ function Status({ label, tone }: { label: string; tone?: StatusTone | undefined 
 
 function alertTone(kind: string, action: boolean): string {
   if (action || kind.includes('overdue') || kind === 'deposit_dispute') return 'danger';
-  if (kind.includes('sign') || kind.includes('payment') || kind.includes('pending')) return 'action';
+  if (kind.includes('sign') || kind.includes('payment') || kind.includes('pending'))
+    return 'action';
   if (kind.includes('scheduled') || kind.includes('expiring')) return 'warn';
   if (kind.includes('due')) return 'info';
   return 'quiet';
@@ -242,7 +239,10 @@ function tenantFinanceMoney(data: MyTenancy, locale: string) {
     const left = total - paid;
     row.paid += paid > total ? total : paid;
     if (left <= 0n) continue;
-    if (invoice.status === 'overdue' || (OPEN_INVOICE.has(invoice.status) && invoice.dueOn < today)) {
+    if (
+      invoice.status === 'overdue' ||
+      (OPEN_INVOICE.has(invoice.status) && invoice.dueOn < today)
+    ) {
       row.overdue += left;
     } else if (OPEN_INVOICE.has(invoice.status) && invoice.dueOn > soon) {
       row.deferred += left;
@@ -262,7 +262,10 @@ function tenantFinanceMoney(data: MyTenancy, locale: string) {
     addMinor(deferred, currency, row.deferred);
   }
   const zeroCurrency =
-    data.statements[0]?.currency ?? data.invoices[0]?.currency ?? data.payments[0]?.currency ?? null;
+    data.statements[0]?.currency ??
+    data.invoices[0]?.currency ??
+    data.payments[0]?.currency ??
+    null;
   const has = (map: Map<string, bigint>) => [...map.values()].some((value) => value !== 0n);
   return {
     paid: formatMoneyMap(paid, locale, zeroCurrency),
@@ -305,7 +308,10 @@ function tenantPaymentMoney(data: MyTenancy, locale: string) {
   }
 
   const zeroCurrency =
-    data.payments[0]?.currency ?? data.statements[0]?.currency ?? data.invoices[0]?.currency ?? null;
+    data.payments[0]?.currency ??
+    data.statements[0]?.currency ??
+    data.invoices[0]?.currency ??
+    null;
   const has = (map: Map<string, bigint>) => [...map.values()].some((value) => value !== 0n);
   return {
     rentPaid: formatMoneyMap(rentPaid, locale, zeroCurrency),
@@ -322,15 +328,7 @@ function takeRows<T>(rows: T[], limit?: number): T[] {
 }
 
 /** Title row + «استعراض» modal — keeps the home wide and light on every screen. */
-function PreviewList({
-  items,
-  ar,
-  empty,
-}: {
-  items: PreviewItem[];
-  ar: boolean;
-  empty: string;
-}) {
+function PreviewList({ items, ar, empty }: { items: PreviewItem[]; ar: boolean; empty: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = items.find((item) => item.id === openId) ?? null;
   if (!items.length) {
@@ -423,7 +421,9 @@ function PreviewList({
                     ))}
                   </dl>
                 ) : null}
-                {open.detail ? <div className="tenant-detail-modal__detail">{open.detail}</div> : null}
+                {open.detail ? (
+                  <div className="tenant-detail-modal__detail">{open.detail}</div>
+                ) : null}
                 {open.href ? (
                   <div className="tenant-detail-modal__footer">
                     <Link href={open.href} className="button button--primary">
@@ -440,7 +440,10 @@ function PreviewList({
   );
 }
 
-function contractLifecycleLabel(contract: TenancyContract, ar: boolean): {
+function contractLifecycleLabel(
+  contract: TenancyContract,
+  ar: boolean,
+): {
   label: string;
   tone: 'action' | 'good' | 'warn' | 'quiet' | 'info' | undefined;
 } {
@@ -763,79 +766,76 @@ function PaymentsTable({ ar, locale, data }: Ctx) {
     { key: 'action', label: '', kind: 'none' },
   ];
   const rows: TenantTableRow[] = data.payments.map((payment) => {
-        const hold = tenantPaymentHoldStatus(payment, ar);
-        const amount = BigInt(payment.amountMinor || '0');
-        const refundedRaw = BigInt(payment.refundedMinor || '0');
-        const refunded = refundedRaw > amount ? amount : refundedRaw;
-        const held = amount > refunded ? amount - refunded : 0n;
-        const method = payment.stayReference
-          ? stayPaymentMethodLabel(payment.method, ar)
-          : payment.method || '—';
-        return {
-          id: payment.id,
-          values: {
-            receivedAt: payment.receivedAt?.slice(0, 10) ?? '',
-            reference: payment.invoiceNumber ?? '',
-            landlord: tenancyLandlordName(payment.landlord, ar),
-            amount: money(
-              payment.stayKind === 'deposit' ? held.toString() : payment.amountMinor,
-              payment.currency,
-              locale,
-            ),
-            refunded: refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '',
-            method,
-            status: hold.label,
-            action: '',
-          },
-          cells: [
-            formatDate(payment.receivedAt, ar),
-            <span key="ref" className="tenant-table__ref">
-              <bdi>{payment.invoiceNumber}</bdi>
-              <small className="tenant-table__sub">
-                {tenantPaymentCategoryLabel(payment.stayKind, ar)}
-                {payment.stayKind ? ` · ${stayPaymentKindLabel(payment.stayKind, ar)}` : ''}
-              </small>
-            </span>,
-            tenancyLandlordName(payment.landlord, ar),
-            money(
-              payment.stayKind === 'deposit' ? held.toString() : payment.amountMinor,
-              payment.currency,
-              locale,
-            ),
-            refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '—',
-            method,
-            <Status key="hold" label={hold.label} tone={hold.tone} />,
-            <span key="docs" className="tenant-doc-links">
-              {payment.receiptHref ? (
-                <Link
-                  className="tenant-doc-link tenant-doc-link--receipt"
-                  href={payment.receiptHref}
-                >
-                  {ar ? 'إيصال القبض' : 'Receipt'}
-                </Link>
-              ) : null}
-              {payment.depositRefund?.transferReceiptHref ? (
-                <a
-                  className="tenant-doc-link tenant-doc-link--receipt"
-                  href={payment.depositRefund.transferReceiptHref}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  {ar ? 'إيصال التحويل' : 'Transfer slip'}
-                </a>
-              ) : null}
-              {payment.depositRefund?.refundDocHref ? (
-                <Link
-                  className="tenant-doc-link tenant-doc-link--receipt"
-                  href={payment.depositRefund.refundDocHref}
-                >
-                  {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
-                </Link>
-              ) : null}
-            </span>,
-          ],
-        };
-      });
+    const hold = tenantPaymentHoldStatus(payment, ar);
+    const amount = BigInt(payment.amountMinor || '0');
+    const refundedRaw = BigInt(payment.refundedMinor || '0');
+    const refunded = refundedRaw > amount ? amount : refundedRaw;
+    const held = amount > refunded ? amount - refunded : 0n;
+    const method = payment.stayReference
+      ? stayPaymentMethodLabel(payment.method, ar)
+      : payment.method || '—';
+    return {
+      id: payment.id,
+      values: {
+        receivedAt: payment.receivedAt?.slice(0, 10) ?? '',
+        reference: payment.invoiceNumber ?? '',
+        landlord: tenancyLandlordName(payment.landlord, ar),
+        amount: money(
+          payment.stayKind === 'deposit' ? held.toString() : payment.amountMinor,
+          payment.currency,
+          locale,
+        ),
+        refunded: refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '',
+        method,
+        status: hold.label,
+        action: '',
+      },
+      cells: [
+        formatDate(payment.receivedAt, ar),
+        <span key="ref" className="tenant-table__ref">
+          <bdi>{payment.invoiceNumber}</bdi>
+          <small className="tenant-table__sub">
+            {tenantPaymentCategoryLabel(payment.stayKind, ar)}
+            {payment.stayKind ? ` · ${stayPaymentKindLabel(payment.stayKind, ar)}` : ''}
+          </small>
+        </span>,
+        tenancyLandlordName(payment.landlord, ar),
+        money(
+          payment.stayKind === 'deposit' ? held.toString() : payment.amountMinor,
+          payment.currency,
+          locale,
+        ),
+        refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '—',
+        method,
+        <Status key="hold" label={hold.label} tone={hold.tone} />,
+        <span key="docs" className="tenant-doc-links">
+          {payment.receiptHref ? (
+            <Link className="tenant-doc-link tenant-doc-link--receipt" href={payment.receiptHref}>
+              {ar ? 'إيصال القبض' : 'Receipt'}
+            </Link>
+          ) : null}
+          {payment.depositRefund?.transferReceiptHref ? (
+            <a
+              className="tenant-doc-link tenant-doc-link--receipt"
+              href={payment.depositRefund.transferReceiptHref}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {ar ? 'إيصال التحويل' : 'Transfer slip'}
+            </a>
+          ) : null}
+          {payment.depositRefund?.refundDocHref ? (
+            <Link
+              className="tenant-doc-link tenant-doc-link--receipt"
+              href={payment.depositRefund.refundDocHref}
+            >
+              {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
+            </Link>
+          ) : null}
+        </span>,
+      ],
+    };
+  });
   return (
     <FilterableTenantTable
       columns={columns}
@@ -862,7 +862,7 @@ function BookingsTable({ ar, locale, data }: Ctx) {
       kind: item.eyebrow ?? '',
       title: item.title,
       summary: item.summary ?? '',
-      status: typeof item.status === 'string' ? item.status : item.eyebrow ?? '',
+      status: typeof item.status === 'string' ? item.status : (item.eyebrow ?? ''),
       action: '',
     },
     cells: [
@@ -930,11 +930,7 @@ function AlertsList({ ar, locale, data }: Ctx) {
         : '',
     ].filter(Boolean);
     const frame = alertContractFrame(alert, data);
-    const eyebrow = frame
-      ? contractKindChipLabel(frame.kind, ar)
-      : ar
-        ? 'تنبيه'
-        : 'Alert';
+    const eyebrow = frame ? contractKindChipLabel(frame.kind, ar) : ar ? 'تنبيه' : 'Alert';
     return {
       id: `alert:${alert.kind}:${alert.id}`,
       title: tenancyAlertLabel(alert.kind, ar),
@@ -1052,7 +1048,13 @@ function bookingPreviewItems(
       id: `reservation:${reservation.id}`,
       title: tenancyUnitLabel(reservation, ar),
       eyebrow:
-        reservation.mode === 'sale' ? (ar ? 'حجز شراء' : 'Purchase booking') : ar ? 'حجز إيجار' : 'Rent booking',
+        reservation.mode === 'sale'
+          ? ar
+            ? 'حجز شراء'
+            : 'Purchase booking'
+          : ar
+            ? 'حجز إيجار'
+            : 'Rent booking',
       summary: `${tenancyLandlordName(reservation.landlord, ar)} · ${formatDate(reservation.expiresAt, ar)}`,
       status: (
         <Status
@@ -1083,9 +1085,7 @@ function bookingPreviewItems(
         },
       ],
       href,
-      ...(href
-        ? { hrefLabel: ar ? 'فتح مراحل الحجز' : 'Open booking journey' }
-        : {}),
+      ...(href ? { hrefLabel: ar ? 'فتح مراحل الحجز' : 'Open booking journey' } : {}),
     } satisfies PreviewItem;
   });
   return [...viewings, ...stays, ...reservations];
@@ -1176,11 +1176,7 @@ function invoicePreviewItems(
           ? 'فاتورة'
           : 'Invoice',
       summary: `${tenancyLandlordName(invoice.landlord, ar)} · ${formatDate(invoice.dueOn, ar)}`,
-      amount: money(
-        showOutstanding ? outstanding : invoice.totalMinor,
-        invoice.currency,
-        locale,
-      ),
+      amount: money(showOutstanding ? outstanding : invoice.totalMinor, invoice.currency, locale),
       status: (
         <Status
           label={domainStatusLabel(invoice.status, ar)}
@@ -1208,9 +1204,7 @@ function invoicePreviewItems(
           value: money(outstanding, invoice.currency, locale),
         },
       ],
-      ...(href
-        ? { href, hrefLabel: ar ? 'إيصال القبض' : 'Receipt' }
-        : {}),
+      ...(href ? { href, hrefLabel: ar ? 'إيصال القبض' : 'Receipt' } : {}),
     } satisfies PreviewItem;
   });
 }
@@ -1219,13 +1213,7 @@ function leasePreviewItems(data: MyTenancy, ar: boolean, locale: string): Previe
   return data.leases.map((lease) => ({
     id: `lease:${lease.id}`,
     title: tenancyUnitLabel(lease, ar),
-    eyebrow: lease.fromStay
-      ? ar
-        ? 'إقامة يومية'
-        : 'Daily stay'
-      : ar
-        ? 'إيجار'
-        : 'Lease',
+    eyebrow: lease.fromStay ? (ar ? 'إقامة يومية' : 'Daily stay') : ar ? 'إيجار' : 'Lease',
     summary: `${tenancyLandlordName(lease.landlord, ar)} · ${period(lease.startsOn, lease.endsOn, ar)}`,
     status: (
       <Status
@@ -1305,8 +1293,7 @@ function paymentPreviewItems(data: MyTenancy, ar: boolean, locale: string): Prev
         },
         {
           label: ar ? 'المسترد' : 'Refunded',
-          value:
-            refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '—',
+          value: refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '—',
         },
         {
           label: ar ? 'الحالة' : 'Status',
@@ -1788,7 +1775,10 @@ export function TenantSpaceContent({
       </nav>
 
       {spotlightLease ? (
-        <section className="tenant-home__spotlight" aria-label={ar ? 'إيجارك الحالي' : 'Current lease'}>
+        <section
+          className="tenant-home__spotlight"
+          aria-label={ar ? 'إيجارك الحالي' : 'Current lease'}
+        >
           <div className="tenant-home__spotlight-copy">
             <p className="tenant-kicker">{ar ? 'إيجارك الحالي' : 'Current lease'}</p>
             <h2>{tenancyUnitLabel(spotlightLease, ar)}</h2>

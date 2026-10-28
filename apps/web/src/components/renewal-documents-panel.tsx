@@ -40,10 +40,13 @@ export function RenewalDocumentsPanel({
       const body = new FormData();
       body.set('code', code);
       body.set('file', file);
-      await browserNextMutation(`/api/tenant/contracts/${encodeURIComponent(contractId)}/renewal-documents`, {
-        method: 'POST',
-        body,
-      });
+      await browserNextMutation(
+        `/api/tenant/contracts/${encodeURIComponent(contractId)}/renewal-documents`,
+        {
+          method: 'POST',
+          body,
+        },
+      );
       setMessage(ar ? 'تم رفع المستند.' : 'Document uploaded.');
       router.refresh();
     } catch (caught) {

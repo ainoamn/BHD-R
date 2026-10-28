@@ -27,7 +27,7 @@
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/auth/bhd/start`    | 302 إلى `https://id.bhd-om.com/oauth/authorize` + كوكي `bhd_oauth_state`                                                                       |
 | `GET /api/auth/bhd/callback` | تبديل الكود على الخادم → إنشاء جلسة محلياً عبر `DATABASE_URL` (أو `POST {API}/v1/auth/identity/session`) → كوكي `bhd_r_session` / `bhd_r_csrf` |
-| `POST /api/auth/bhd/logout`  | زر «خروج» فقط: إبطال صف الجلسة + مسح الكوكي ثم `…/oauth/end-session` (‏`GET` باقٍ للتنقل من نفس الموقع فقط؛ أي طلب من موقع آخر لا يُخرج) |
+| `POST /api/auth/bhd/logout`  | زر «خروج» فقط: إبطال صف الجلسة + مسح الكوكي ثم `…/oauth/end-session` (‏`GET` باقٍ للتنقل من نفس الموقع فقط؛ أي طلب من موقع آخر لا يُخرج)       |
 | `GET /api/auth/admin-entry`  | → `start?returnTo=/platform` (أو `next` الآمن)                                                                                                 |
 
 المسارات القديمة `/v1/auth/oidc/start|callback` تحوّل إلى المسارات أعلاه.
@@ -60,11 +60,11 @@ https://console.neon.tech/app/projects/nameless-shadow-43571265?database=neondb
 
 ### مدة الجلسة (0.4.88)
 
-| البند | القيمة |
-| --- | --- |
+| البند                                                                              | القيمة                                      |
+| ---------------------------------------------------------------------------------- | ------------------------------------------- |
 | JWT `bhd_r_session` + صف `sessions.expires_at` + كوكي `bhd_r_session`/`bhd_r_csrf` | 400 يوم (`PRODUCT_SESSION_MAX_AGE_SECONDS`) |
-| مهلة خمول | لا يوجد |
-| انتهاء جلسة المنتج | تحويل صامت واحد إلى `/api/auth/bhd/start` |
+| مهلة خمول                                                                          | لا يوجد                                     |
+| انتهاء جلسة المنتج                                                                 | تحويل صامت واحد إلى `/api/auth/bhd/start`   |
 
 ## 1) سجّل عميل `bhd-r` في الهوية (`one-bhd`)
 

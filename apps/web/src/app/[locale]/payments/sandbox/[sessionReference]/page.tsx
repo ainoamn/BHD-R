@@ -29,9 +29,7 @@ export default async function SandboxPaymentPage({
   const query = await searchParams;
   const returnRaw = query.return;
   const returnPath =
-    typeof returnRaw === 'string' && returnRaw.startsWith(`/${locale}/`)
-      ? returnRaw
-      : undefined;
+    typeof returnRaw === 'string' && returnRaw.startsWith(`/${locale}/`) ? returnRaw : undefined;
   const ar = locale === 'ar';
   const stayKind = query.kind === 'stay';
   const leaseKind = query.kind === 'lease';
@@ -107,13 +105,7 @@ export default async function SandboxPaymentPage({
                     <dt>{ar ? 'عدد الأيام' : 'Nights'}</dt>
                     <dd>
                       {nights}{' '}
-                      {ar
-                        ? nights === 1
-                          ? 'ليلة'
-                          : 'ليالٍ'
-                        : nights === 1
-                          ? 'night'
-                          : 'nights'}
+                      {ar ? (nights === 1 ? 'ليلة' : 'ليالٍ') : nights === 1 ? 'night' : 'nights'}
                     </dd>
                   </div>
                 </dl>
@@ -158,12 +150,18 @@ export default async function SandboxPaymentPage({
                   <div>
                     <dt>{ar ? 'العقار' : 'Property'}</dt>
                     <dd>
-                      {localizedName(locale, leaseSession.propertyNameAr, leaseSession.propertyNameEn)}
+                      {localizedName(
+                        locale,
+                        leaseSession.propertyNameAr,
+                        leaseSession.propertyNameEn,
+                      )}
                     </dd>
                   </div>
                   <div>
                     <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
-                    <dd>{localizedName(locale, leaseSession.unitNameAr, leaseSession.unitNameEn)}</dd>
+                    <dd>
+                      {localizedName(locale, leaseSession.unitNameAr, leaseSession.unitNameEn)}
+                    </dd>
                   </div>
                 </dl>
               </div>

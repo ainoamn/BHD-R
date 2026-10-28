@@ -188,9 +188,7 @@ export async function loadGuestDepositSettlementDoc(
       refundReceiptNo: refunded !== '0' ? numbers.refund : numbers.refund,
       incomeReceiptNo: retained ? numbers.income : null,
       settledOn:
-        refund.status === 'executed'
-          ? (transfer?.at ?? refund.decidedAt)
-          : refund.decidedAt,
+        refund.status === 'executed' ? (transfer?.at ?? refund.decidedAt) : refund.decidedAt,
       refundStatus: refund.status,
       decisionNote: refund.decisionNote,
       decidedBy: refund.decidedBy,
@@ -220,4 +218,3 @@ export async function loadGuestDepositSettlementDoc(
     signature: letterhead?.signature ?? null,
   };
 }
-

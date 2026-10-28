@@ -22,9 +22,7 @@ export function resolvePublicGallery(
     unitIdsOrdered?: string[];
   },
 ): GalleryItem[] {
-  const ready = items
-    .filter((item) => item.url)
-    .sort((a, b) => a.position - b.position);
+  const ready = items.filter((item) => item.url).sort((a, b) => a.position - b.position);
   if (!ready.length) return [];
 
   const anchorId = options.unitIdsOrdered?.[0] ?? ready[0]?.unitId ?? null;
@@ -33,8 +31,7 @@ export function resolvePublicGallery(
 
   if (options.focusUnitId) {
     const unitOwn = ready.filter(
-      (item) =>
-        item.unitId === options.focusUnitId && item.galleryScope !== 'building',
+      (item) => item.unitId === options.focusUnitId && item.galleryScope !== 'building',
     );
     if (unitOwn.length) return unitOwn;
     if (buildingScoped.length) return buildingScoped;

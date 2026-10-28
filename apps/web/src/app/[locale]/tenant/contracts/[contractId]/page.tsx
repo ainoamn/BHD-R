@@ -23,11 +23,7 @@ export default async function Page({
 
   if (useWorkspace && contract) {
     return (
-      <TenantRenewalWorkspace
-        contract={contract}
-        locale={locale}
-        viewerName={viewer.displayName}
-      />
+      <TenantRenewalWorkspace contract={contract} locale={locale} viewerName={viewer.displayName} />
     );
   }
 

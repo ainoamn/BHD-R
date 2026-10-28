@@ -568,11 +568,7 @@ async function loadTeamView(claims: SessionClaims): Promise<TeamView> {
           tx,
           organizationId,
           new Set(members.map((member) => normalizeEmailInput(member.email))),
-          new Set(
-            staffEntries
-              .map((row) => row.partyId)
-              .filter((id): id is string => Boolean(id)),
-          ),
+          new Set(staffEntries.map((row) => row.partyId).filter((id): id is string => Boolean(id))),
         )
       : [];
     return {
@@ -766,7 +762,9 @@ async function accountFor(tx: Tx, email: string, displayName: string | undefined
   const [tainted] = await tx
     .select()
     .from(users)
-    .where(sql`lower(regexp_replace(${users.email}, '[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]', '', 'g')) = ${cleanEmail}`)
+    .where(
+      sql`lower(regexp_replace(${users.email}, '[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]', '', 'g')) = ${cleanEmail}`,
+    )
     .limit(1);
   if (tainted) {
     const healedName = cleanPersonName(
@@ -1149,7 +1147,10 @@ export async function resendTeamInvite(
     if (signedIn(first)) throw new Error('team_invite_not_needed');
     const cleanEmail = normalizeEmailInput(first.email);
     if (!validTeamEmail(cleanEmail)) throw new Error('team_email_invalid');
-    if (first.email !== cleanEmail || first.displayName !== cleanPersonName(first.displayName, cleanEmail.split('@')[0]!)) {
+    if (
+      first.email !== cleanEmail ||
+      first.displayName !== cleanPersonName(first.displayName, cleanEmail.split('@')[0]!)
+    ) {
       await tx
         .update(users)
         .set({

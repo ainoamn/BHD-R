@@ -71,7 +71,11 @@ const errorMap: Record<string, { ar: string; en: string; status: number }> = {
     en: 'Stay unit type not found',
     status: 404,
   },
-  stay_profile_not_found: { ar: 'ملف الإقامة غير موجود', en: 'Stay profile not found', status: 404 },
+  stay_profile_not_found: {
+    ar: 'ملف الإقامة غير موجود',
+    en: 'Stay profile not found',
+    status: 404,
+  },
   invalid_units_for_property: {
     ar: 'واحدة أو أكثر من الوحدات غير صالحة لهذا العقار',
     en: 'One or more units are invalid for this property',

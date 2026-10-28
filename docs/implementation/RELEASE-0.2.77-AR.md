@@ -26,12 +26,12 @@
 
 ## تحقق بعد النشر
 
-1. Vercel Deployment لأحدث `main` = Ready.  
-2. افتح https://r.bhd-om.com/api/public/catalogue?debug=1 — يجب `count >= 1` بدون `error`.  
-3. افتح https://r.bhd-om.com/ar/properties — تظهر الوحدة المنشورة (مثلاً عبد الحميد / U-01).  
+1. Vercel Deployment لأحدث `main` = Ready.
+2. افتح https://r.bhd-om.com/api/public/catalogue?debug=1 — يجب `count >= 1` بدون `error`.
+3. افتح https://r.bhd-om.com/ar/properties — تظهر الوحدة المنشورة (مثلاً عبد الحميد / U-01).
 4. من البطاقة: الانتقال لصفحة العرض + مشاركة/QR كما في 0.2.73–0.2.76.
 
 ## وثائق مرتبطة
 
-- [`CHANGELOG.md`](../../CHANGELOG.md)  
+- [`CHANGELOG.md`](../../CHANGELOG.md)
 - [`STATUS.md`](./STATUS.md)

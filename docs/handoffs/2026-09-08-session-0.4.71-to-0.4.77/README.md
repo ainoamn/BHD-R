@@ -28,15 +28,15 @@ pnpm --config.engine-strict=false --filter @bhd-r/web exec tsc --noEmit
 
 ## ماذا شُحن اليوم (ملخص زمني)
 
-| إصدار | Commit | الغرض |
-| --- | --- | --- |
+| إصدار  | Commit                            | الغرض                                                                                                                                                                                        |
+| ------ | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 0.4.71 | `870259b` + `ae5603f` + `ef31b54` | نبض عمليات العقار (حجوزات/عقود/مالية)، أوضاع التخصيص sale/monthly/yearly/daily، استبعاد daily-only من `/properties`، دمج مدفوعات الإقامة في المحاسبة، تصفية حجوزات الإقامة بـ `?propertyId=` |
-| 0.4.72 | `be86e03` | إصلاح بناء Vercel: فصل `unit-offering-modes` (client) عن `ensure-unit-offering-modes-column` (server-only) |
-| 0.4.73 | `9a26a35` | تسخين/prefetch تنقل البوابة (محاولة أولى) |
-| 0.4.74 | `556388d` | إصلاح مهلة بناء الصفحة الرئيسية (Neon hang أثناء SSG) |
-| 0.4.75 | `89835d9` | تنقل SPA: `PortalPage` / `persistentPortalPage`، prefetch متدرّج، History API للأقسام، soft save للعقار |
-| 0.4.76 | `842db0b` | محاسبة: مطابقة أعمدة صفوف الإقامة + احتياطي حجوزات مؤكدة |
-| 0.4.77 | `752e325` | محاسبة Neon-first + سقف Nest 1.2ث + race لـ healthz (إصلاح بطء دقيقتين) |
+| 0.4.72 | `be86e03`                         | إصلاح بناء Vercel: فصل `unit-offering-modes` (client) عن `ensure-unit-offering-modes-column` (server-only)                                                                                   |
+| 0.4.73 | `9a26a35`                         | تسخين/prefetch تنقل البوابة (محاولة أولى)                                                                                                                                                    |
+| 0.4.74 | `556388d`                         | إصلاح مهلة بناء الصفحة الرئيسية (Neon hang أثناء SSG)                                                                                                                                        |
+| 0.4.75 | `89835d9`                         | تنقل SPA: `PortalPage` / `persistentPortalPage`، prefetch متدرّج، History API للأقسام، soft save للعقار                                                                                      |
+| 0.4.76 | `842db0b`                         | محاسبة: مطابقة أعمدة صفوف الإقامة + احتياطي حجوزات مؤكدة                                                                                                                                     |
+| 0.4.77 | `752e325`                         | محاسبة Neon-first + سقف Nest 1.2ث + race لـ healthz (إصلاح بطء دقيقتين)                                                                                                                      |
 
 ملاحظات الإصدار: `docs/implementation/RELEASE-0.4.7{1..7}-AR.md`  
 الأداء العام للبوابة: `docs/implementation/PORTAL-PERF-AR.md`
@@ -46,6 +46,7 @@ pnpm --config.engine-strict=false --filter @bhd-r/web exec tsc --noEmit
 ## ملفات محورية للمتابعة
 
 ### تنقل البوابة (SPA)
+
 - `apps/web/src/components/portal-main-slot.tsx`
 - `apps/web/src/components/portal-page.tsx`
 - `apps/web/src/lib/persistent-portal-page.tsx`
@@ -54,12 +55,14 @@ pnpm --config.engine-strict=false --filter @bhd-r/web exec tsc --noEmit
 - `apps/web/tests/unit/portal-navigation.test.tsx`
 
 ### محاسبة / نبض العقار
+
 - `apps/web/src/lib/portal-ops-workspace.ts` — مسار accounting Neon-first
 - `apps/web/src/lib/portal-ops-data.ts` — `listStayAccountingRows` + fallback الحجوزات
 - `apps/web/src/lib/property-ops-pulse-neon.ts`
 - `apps/web/src/components/property-manage-hub.tsx`
 
 ### أوضاع التخصيص
+
 - `apps/web/src/lib/unit-offering-modes.ts` (بدون server-only)
 - `apps/web/src/lib/ensure-unit-offering-modes-column.ts` (server-only)
 - `apps/web/src/components/property-wizard.tsx`

@@ -50,9 +50,7 @@ export function PropertyViewingContactCard({
           { credentials: 'same-origin', cache: 'no-store' },
         );
         const body = (await response.json().catch(() => null)) as
-          | PropertyViewingContact
-          | { error?: { code?: string } }
-          | null;
+          PropertyViewingContact | { error?: { code?: string } } | null;
         if (stopped) return;
         if (!response.ok || !body || !('propertyId' in body)) {
           setError((body && 'error' in body && body.error?.code) || 'load_failed');
@@ -103,9 +101,7 @@ export function PropertyViewingContactCard({
         },
       );
       const body = (await response.json().catch(() => null)) as
-        | PropertyViewingContact
-        | { error?: { code?: string } }
-        | null;
+        PropertyViewingContact | { error?: { code?: string } } | null;
       if (!response.ok || !body || !('propertyId' in body)) {
         const code = (body && 'error' in body && body.error?.code) || 'update_failed';
         if (code === 'viewing_contact_phone_required') {
@@ -125,12 +121,12 @@ export function PropertyViewingContactCard({
         }
         if (code === 'forbidden') {
           throw new Error(
-            ar ? 'ليست لديك صلاحية تعديل مسؤول المعاينة.' : 'You cannot update the viewing contact.',
+            ar
+              ? 'ليست لديك صلاحية تعديل مسؤول المعاينة.'
+              : 'You cannot update the viewing contact.',
           );
         }
-        throw new Error(
-          ar ? 'تعذّر الحفظ. حاول مرة أخرى.' : 'Could not save. Please try again.',
-        );
+        throw new Error(ar ? 'تعذّر الحفظ. حاول مرة أخرى.' : 'Could not save. Please try again.');
       }
       setDetail(body);
       setSelected(body.contactUserId ?? '');
@@ -224,16 +220,15 @@ export function PropertyViewingContactCard({
             <p className="notice" role="status">
               {ar ? (
                 <>
-                  لإضافة حارس أو مسؤول آخر: افتح{' '}
-                  <Link href={teamHref}>الفريق</Link> → دعوة عضو → الدور{' '}
-                  <strong>حارس مبنى</strong> (أو مدير عقار / موظف إداري). بعد قبول الدعوة يظهر هنا.
+                  لإضافة حارس أو مسؤول آخر: افتح <Link href={teamHref}>الفريق</Link> → دعوة عضو →
+                  الدور <strong>حارس مبنى</strong> (أو مدير عقار / موظف إداري). بعد قبول الدعوة يظهر
+                  هنا.
                 </>
               ) : (
                 <>
-                  To add another guard or staff member: open{' '}
-                  <Link href={teamHref}>Team</Link> → invite → role{' '}
-                  <strong>Building guard</strong> (or property manager / admin staff). They appear
-                  here after accepting.
+                  To add another guard or staff member: open <Link href={teamHref}>Team</Link> →
+                  invite → role <strong>Building guard</strong> (or property manager / admin staff).
+                  They appear here after accepting.
                 </>
               )}
             </p>

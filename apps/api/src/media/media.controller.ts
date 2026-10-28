@@ -54,8 +54,7 @@ export class MediaController {
   @Put('ingress/:token')
   ingress(@Param('token') token: string, @Req() request: ApiRequest) {
     const body = request.body;
-    if (!Buffer.isBuffer(body))
-      throw new UnsupportedMediaTypeException('Expected raw upload body');
+    if (!Buffer.isBuffer(body)) throw new UnsupportedMediaTypeException('Expected raw upload body');
     const contentType =
       typeof request.headers['content-type'] === 'string'
         ? request.headers['content-type']

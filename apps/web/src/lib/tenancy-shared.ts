@@ -1,8 +1,5 @@
 /** Client-safe shapes and alert rules for the signed-in account's own rentals and bookings. */
-import {
-  contractKindLabel,
-  groupContractRowsByParent,
-} from '@/lib/contract-list-facets';
+import { contractKindLabel, groupContractRowsByParent } from '@/lib/contract-list-facets';
 import { installmentKeyOf, type LeaseStatement } from '@/lib/tenant-ledger';
 import type { TenantRequest } from '@/lib/tenant-requests-shared';
 

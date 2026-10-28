@@ -12,9 +12,9 @@
 
 ## الملفات
 
-| الملف | التغيير |
-|-------|---------|
-| `apps/web/src/app/globals.css` | h1/h2 أكبر، `:nth-of-type` للخلفيات المتناوبة |
+| الملف                                                       | التغيير                                        |
+| ----------------------------------------------------------- | ---------------------------------------------- |
+| `apps/web/src/app/globals.css`                              | h1/h2 أكبر، `:nth-of-type` للخلفيات المتناوبة  |
 | `apps/web/src/components/stays/stay-guest-info-section.tsx` | Fragment بأقسام `property-360__section` منفصلة |
 
 ## تحقق

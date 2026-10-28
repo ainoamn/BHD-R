@@ -25,24 +25,29 @@ pnpm --filter @bhd-r/authz --filter @bhd-r/db run build
 8. توثيق: `RELEASE-0.4.88-AR.md`، `STATUS.md`، `BHD-R-IDENTITY-SETUP.md`، `CHANGELOG.md`.
 
 ## ما كان متوافقاً أصلاً
+
 - `GET /api/auth/me` لا يكتب كوكي.
 - لا `router.refresh()` تلقائي عند عودة التبويب.
 - لا Google One Tap في المنتج.
 - الكوكي Host-only + HttpOnly + Secure + SameSite=Lax.
 
 ## دمج مع الجهاز الآخر
+
 سُحبت commits حتى 0.4.87 قبل الرفع. حُلّ تعارضان (`bhd-app-switcher.tsx`، `proxy.ts`) مع الإبقاء على تعديلات الجهاز الآخر (باراميتر `locale` في الخروج، أصول صور R2 في CSP).
 
 ## الفحوص
+
 - `tsc` للويب و API: ناجح.
 - `eslint` على الملفات المعدّلة: ناجح.
 - `vitest`: فشل اختباران في `next-write-route-policy.test.ts` **موجودان قبل هذا التغيير** (مسارات الإقامات العامة وCSRF)، لا علاقة لهما بالجلسة.
 
 ## النشر
+
 - رمز Vercel على هذا الجهاز كان منتهياً؛ النشر يتم بعد `vercel login`.
 - Nest على Render يُنشر من Git (إن كان مفعّلاً تلقائياً).
 
 ## اختبار القبول
+
 - [ ] ادخل ← أغلق التبويب ساعة ← افتح: ما زلت داخلاً بلا وميض ولا جوجل.
 - [ ] أغلق المتصفح وافتحه: داخل.
 - [ ] «خروج»: المرة التالية تُطلب الهوية.
@@ -50,4 +55,5 @@ pnpm --filter @bhd-r/authz --filter @bhd-r/db run build
 - [ ] الجلسات القديمة (8 ساعات) تمر بتحويل صامت واحد ثم تحصل على 400 يوم.
 
 ## مهام مفتوحة
+
 - إصلاح اختبارَي `next-write-route-policy` (سابقان لهذا العمل).

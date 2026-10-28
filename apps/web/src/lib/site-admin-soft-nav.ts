@@ -1,17 +1,13 @@
-import {
-  SITE_CONSOLE_SECTIONS,
-  type SiteConsoleSectionId,
-} from '@/lib/site-admin-shared';
+import { SITE_CONSOLE_SECTIONS, type SiteConsoleSectionId } from '@/lib/site-admin-shared';
 
 /** Soft-switchable console sections (kept mounted after first visit). */
 export const SITE_ADMIN_SOFT_SECTION_IDS = SITE_CONSOLE_SECTIONS.map(
   (section) => section.id,
 ) as SiteConsoleSectionId[];
 
-export function siteAdminSoftSectionFromPath(
-  pathname: string,
-): SiteConsoleSectionId | null {
-  const bare = (pathname.replace(/^\/(ar|en)(?=\/|$)/, '') || '/admin').replace(/\/$/, '') || '/admin';
+export function siteAdminSoftSectionFromPath(pathname: string): SiteConsoleSectionId | null {
+  const bare =
+    (pathname.replace(/^\/(ar|en)(?=\/|$)/, '') || '/admin').replace(/\/$/, '') || '/admin';
   if (bare === '/admin') return 'overview';
 
   const match = SITE_CONSOLE_SECTIONS.filter((section) => section.path !== '/admin')

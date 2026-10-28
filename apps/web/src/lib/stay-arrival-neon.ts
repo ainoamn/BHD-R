@@ -475,9 +475,7 @@ export async function recordStayStampOnNeon(
     let lateReturn: unknown = null;
     let terminationContractId: string | null = null;
     if (input.kind === 'check_out') {
-      const { closeStayContractAfterCheckoutInTx } = await import(
-        '@/lib/stay-contract-close-neon'
-      );
+      const { closeStayContractAfterCheckoutInTx } = await import('@/lib/stay-contract-close-neon');
       const close = await closeStayContractAfterCheckoutInTx(tx, {
         organizationId: orgId,
         bookingId: booking.id,

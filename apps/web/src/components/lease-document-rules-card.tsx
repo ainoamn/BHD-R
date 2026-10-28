@@ -37,10 +37,7 @@ export function LeaseDocumentRulesCard({
 }) {
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
-  const catalogue = useMemo(
-    () => REQUIREMENT_CATALOGUE.filter((item) => item.rent),
-    [],
-  );
+  const catalogue = useMemo(() => REQUIREMENT_CATALOGUE.filter((item) => item.rent), []);
   const [saved, setSaved] = useState<LeaseDocumentRules | null>(initialRules);
   const [draft, setDraft] = useState<LeaseDocumentRules>(initialRules ?? inherited.rules);
   const [busy, setBusy] = useState(false);

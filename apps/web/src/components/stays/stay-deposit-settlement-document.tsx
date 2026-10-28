@@ -203,9 +203,7 @@ export function StayDepositSettlementDocument({
               <div>
                 <dt>{ar ? 'الجهة' : 'Issuer'}</dt>
                 <dd>
-                  {ar
-                    ? `${issuerName} — عبر منصة BHD R`
-                    : `${issuerName} — via the BHD R platform`}
+                  {ar ? `${issuerName} — عبر منصة BHD R` : `${issuerName} — via the BHD R platform`}
                 </dd>
               </div>
               <div>
@@ -226,9 +224,7 @@ export function StayDepositSettlementDocument({
               </div>
             </dl>
             <p>
-              {ar
-                ? 'للتحقق امسح الباركود أو افتح الرابط:'
-                : 'To verify, scan the barcode or open:'}{' '}
+              {ar ? 'للتحقق امسح الباركود أو افتح الرابط:' : 'To verify, scan the barcode or open:'}{' '}
               <bdi dir="ltr" className="rent-doc__url">
                 {signature.verifyUrl}
               </bdi>

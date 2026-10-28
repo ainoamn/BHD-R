@@ -79,10 +79,7 @@ export function leaseOwnerLifecycleState(input: {
   return 'pending';
 }
 
-export function ownerLifecycleLabel(
-  state: OwnerLifecycleState,
-  locale: 'ar' | 'en',
-): string {
+export function ownerLifecycleLabel(state: OwnerLifecycleState, locale: 'ar' | 'en'): string {
   const hit = OWNER_LIFECYCLE_LABELS[state];
   return locale === 'ar' ? hit.ar : hit.en;
 }

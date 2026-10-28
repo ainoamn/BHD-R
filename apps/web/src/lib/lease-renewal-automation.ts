@@ -47,9 +47,7 @@ function clampInt(value: unknown, min: number, max: number, fallback: number): n
   return Math.min(max, Math.max(min, Math.round(n)));
 }
 
-export function sanitizeLeaseRenewalAutomation(
-  raw: unknown,
-): LeaseRenewalAutomationPolicy {
+export function sanitizeLeaseRenewalAutomation(raw: unknown): LeaseRenewalAutomationPolicy {
   const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
   const termRaw = row.termMonths;
   const termMonths =
@@ -70,9 +68,7 @@ export function sanitizeLeaseRenewalAutomation(
   };
 }
 
-export function sanitizeLeaseRenewalOverride(
-  raw: unknown,
-): LeaseRenewalAutomationOverride {
+export function sanitizeLeaseRenewalOverride(raw: unknown): LeaseRenewalAutomationOverride {
   if (!raw || typeof raw !== 'object') return {};
   const row = raw as Record<string, unknown>;
   const out: LeaseRenewalAutomationOverride = {};
@@ -101,8 +97,7 @@ export function resolveRenewalAutomation(
   if (!override) return org;
   return {
     enabled: typeof override.enabled === 'boolean' ? override.enabled : org.enabled,
-    leadDays:
-      typeof override.leadDays === 'number' ? override.leadDays : org.leadDays,
+    leadDays: typeof override.leadDays === 'number' ? override.leadDays : org.leadDays,
     termMonths:
       override.termMonths === null
         ? null
@@ -110,9 +105,7 @@ export function resolveRenewalAutomation(
           ? override.termMonths
           : org.termMonths,
     minTermMonths:
-      typeof override.minTermMonths === 'number'
-        ? override.minTermMonths
-        : org.minTermMonths,
+      typeof override.minTermMonths === 'number' ? override.minTermMonths : org.minTermMonths,
     autoApproveShorterTerm:
       typeof override.autoApproveShorterTerm === 'boolean'
         ? override.autoApproveShorterTerm
@@ -127,9 +120,7 @@ export function plusDays(iso: string, days: number): string {
 }
 
 export function daysBetween(from: string, to: string): number {
-  return Math.round(
-    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000,
-  );
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
 /** True when today is inside the auto-offer window (including overdue leases still active). */

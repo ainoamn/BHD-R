@@ -113,7 +113,12 @@ export function PlatformAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
       ) : null}
       <div className="platform-admin-overview__grid">
         {LINKS.map((item) => (
-          <Link key={item.href} href={item.href} className="platform-admin-overview__tile" prefetch={false}>
+          <Link
+            key={item.href}
+            href={item.href}
+            className="platform-admin-overview__tile"
+            prefetch={false}
+          >
             <strong>{ar ? item.ar : item.en}</strong>
             <span>{ar ? item.hintAr : item.hintEn}</span>
           </Link>

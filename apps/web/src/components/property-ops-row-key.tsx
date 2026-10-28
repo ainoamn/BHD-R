@@ -76,11 +76,7 @@ export function PropertyOpsRowKey({
             onClick={() => setLightbox(false)}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={cover}
-              alt={name || ''}
-              onClick={(event) => event.stopPropagation()}
-            />
+            <img src={cover} alt={name || ''} onClick={(event) => event.stopPropagation()} />
             <button
               type="button"
               className="ops-row-key-lightbox__close"

@@ -225,19 +225,12 @@ export async function POST(request: Request, context: { params: Promise<{ proper
         );
       case 'reject_reschedule':
         return NextResponse.json(
-          await rejectGuestRescheduleOnNeon(
-            claims,
-            propertyId,
-            body.bookingId,
-            body.note,
-          ),
+          await rejectGuestRescheduleOnNeon(claims, propertyId, body.bookingId, body.note),
         );
       case 'approve_contract':
         return NextResponse.json(await approveContractOnNeon(claims, propertyId, body.contractId));
       case 'waive_deposit':
-        return NextResponse.json(
-          await waiveStayDepositOnNeon(claims, body.bookingId, propertyId),
-        );
+        return NextResponse.json(await waiveStayDepositOnNeon(claims, body.bookingId, propertyId));
       case 'check_in':
       case 'check_out':
         return NextResponse.json(
@@ -249,9 +242,7 @@ export async function POST(request: Request, context: { params: Promise<{ proper
             important: body.important,
             recipient: body.recipient,
             photos: body.photos,
-            ...(body.action === 'check_in' && body.depositWaived
-              ? { depositWaived: true }
-              : {}),
+            ...(body.action === 'check_in' && body.depositWaived ? { depositWaived: true } : {}),
           }),
         );
       case 'create_lease':

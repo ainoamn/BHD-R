@@ -44,11 +44,7 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   try {
-    const result = await proposeRenewalTermOnNeon(
-      tenantClaims,
-      contractId,
-      parsed.data.endsOn,
-    );
+    const result = await proposeRenewalTermOnNeon(tenantClaims, contractId, parsed.data.endsOn);
     return NextResponse.json(result);
   } catch (error) {
     const code = clientSafeErrorCode(error, 'update_failed');

@@ -236,7 +236,11 @@ export class HisabyService {
         signal: AbortSignal.timeout(12_000),
       });
     } catch (error) {
-      await this.markSync(claims.organizationId!, 'failed', error instanceof Error ? error.message : 'fetch_failed');
+      await this.markSync(
+        claims.organizationId!,
+        'failed',
+        error instanceof Error ? error.message : 'fetch_failed',
+      );
       throw new ServiceUnavailableException('Could not reach Hisaby events endpoint');
     }
 
@@ -613,8 +617,7 @@ export class HisabyService {
           idempotencyPrefix: 'bhd-r:',
           glRole: 'operational',
           deepGl: 'hisaby',
-          note:
-            'BHD-R posts operational journals; Hisaby remains the deep GL. Money events (stay/lease/expense) are authoritative for Hisaby documents — journal.posted is informational to avoid double-post.',
+          note: 'BHD-R posts operational journals; Hisaby remains the deep GL. Money events (stay/lease/expense) are authoritative for Hisaby documents — journal.posted is informational to avoid double-post.',
         };
       }
 

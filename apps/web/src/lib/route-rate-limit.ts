@@ -102,9 +102,9 @@ export function clientIp(request: Request): string {
 }
 
 /** Fail-closed cron Authorization: Bearer <CRON_SECRET>. */
-export function assertCronAuthorized(request: Request):
-  | { ok: true }
-  | { ok: false; status: number; error: string } {
+export function assertCronAuthorized(
+  request: Request,
+): { ok: true } | { ok: false; status: number; error: string } {
   const secret = process.env.CRON_SECRET?.trim();
   if (!secret || secret.length < 16) {
     return { ok: false, status: 503, error: 'cron_unconfigured' };

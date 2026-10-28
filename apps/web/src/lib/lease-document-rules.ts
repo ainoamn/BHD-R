@@ -39,14 +39,8 @@ export const DOCUMENT_PROFILE_LABELS: Record<DocumentProfileKey, [string, string
   person_omani: ['مستأجر شخصي — عماني', 'Individual tenant — Omani'],
   person_expat: ['مستأجر شخصي — وافد', 'Individual tenant — expatriate'],
   company_base: ['مستأجر شركة — مستندات الشركة', 'Company tenant — company documents'],
-  company_signatory_omani: [
-    'مفوّض بالتوقيع — عماني',
-    'Authorized signatory — Omani',
-  ],
-  company_signatory_expat: [
-    'مفوّض بالتوقيع — وافد',
-    'Authorized signatory — expatriate',
-  ],
+  company_signatory_omani: ['مفوّض بالتوقيع — عماني', 'Authorized signatory — Omani'],
+  company_signatory_expat: ['مفوّض بالتوقيع — وافد', 'Authorized signatory — expatriate'],
 };
 
 const PROFILE_KEYS = Object.keys(DEFAULT_LEASE_DOCUMENT_RULES) as DocumentProfileKey[];
@@ -114,9 +108,7 @@ export function suggestLeaseDocuments(
   const codes = new Set<string>();
   if (context.entityType === 'company') {
     for (const code of rules.company_base) codes.add(code);
-    const signatoryOmani = isOmaniNationality(
-      context.signatoryNationality || context.nationality,
-    );
+    const signatoryOmani = isOmaniNationality(context.signatoryNationality || context.nationality);
     // Without a nationality yet, suggest both signatory tracks lightly via civil id + passport.
     if (!context.signatoryNationality?.trim() && !context.nationality?.trim()) {
       for (const code of rules.company_signatory_omani) codes.add(code);

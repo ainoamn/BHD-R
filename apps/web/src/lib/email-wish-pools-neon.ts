@@ -31,9 +31,7 @@ async function requireRoot(claims: SessionClaims): Promise<void> {
 
 function asStringArray(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null;
-  const lines = value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
-    .filter(Boolean);
+  const lines = value.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
   return lines.length ? lines : null;
 }
 

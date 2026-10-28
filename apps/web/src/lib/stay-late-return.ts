@@ -31,14 +31,9 @@ export function computeStayLateReturn(input: {
   actualAt: Date | string;
 }): StayLateReturn {
   const period = resolveStayPeriodTimes(input.stayType as StayPeriodType | null, input.profile);
-  const displayOutOn = displayStayCheckoutOn(
-    input.stayType,
-    input.checkInOn,
-    input.checkOutOn,
-  );
+  const displayOutOn = displayStayCheckoutOn(input.stayType, input.checkInOn, input.checkOutOn);
   const scheduled = muscatLocalDateTime(displayOutOn, period.checkOutTime);
-  const actual =
-    typeof input.actualAt === 'string' ? new Date(input.actualAt) : input.actualAt;
+  const actual = typeof input.actualAt === 'string' ? new Date(input.actualAt) : input.actualAt;
   const actualMs = actual.getTime();
   const scheduledMs = scheduled.getTime();
   const lateMinutes =

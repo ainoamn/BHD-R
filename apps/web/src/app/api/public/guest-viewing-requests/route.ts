@@ -69,26 +69,23 @@ export async function POST(request: Request) {
     if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
       const origin = configuredApiOrigin();
       if (origin) {
-        const response = await fetch(
-          `${origin}/v1/public/units/${body.unitId}/viewing-requests`,
-          {
-            method: 'POST',
-            headers: { accept: 'application/json', 'content-type': 'application/json' },
-            body: JSON.stringify({
-              submissionId: body.submissionId,
-              unitId: body.unitId,
-              displayName: body.displayName,
-              email: body.email,
-              phone: body.phone,
-              preferredAt: body.preferredAt,
-              notes: body.notes,
-              locale: body.locale,
-              consent: true,
-            }),
-            cache: 'no-store',
-            signal: AbortSignal.timeout(10_000),
-          },
-        );
+        const response = await fetch(`${origin}/v1/public/units/${body.unitId}/viewing-requests`, {
+          method: 'POST',
+          headers: { accept: 'application/json', 'content-type': 'application/json' },
+          body: JSON.stringify({
+            submissionId: body.submissionId,
+            unitId: body.unitId,
+            displayName: body.displayName,
+            email: body.email,
+            phone: body.phone,
+            preferredAt: body.preferredAt,
+            notes: body.notes,
+            locale: body.locale,
+            consent: true,
+          }),
+          cache: 'no-store',
+          signal: AbortSignal.timeout(10_000),
+        });
         if (response.ok) {
           const payload = (await response.json()) as {
             reference?: string;

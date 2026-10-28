@@ -3,7 +3,10 @@
 import { useEffect, useState, useTransition } from 'react';
 import { ApiError, browserNextMutation, humanizeBrowserError } from '@/lib/api';
 import { Link } from '@/i18n/navigation';
-import { GuestStayActions, type GuestStayActionBooking } from '@/components/stays/guest-stay-actions';
+import {
+  GuestStayActions,
+  type GuestStayActionBooking,
+} from '@/components/stays/guest-stay-actions';
 import { rememberStayTripAlert, stayStatusLabel } from '@/lib/stay-trip-alerts';
 import { formatMoney } from '@/lib/format';
 
@@ -49,9 +52,7 @@ export function GuestStayLookup({
         },
       );
       const payload = (await response.json().catch(() => null)) as
-        | GuestBooking
-        | { error?: { code?: string; messageAr?: string; message?: string } }
-        | null;
+        GuestBooking | { error?: { code?: string; messageAr?: string; message?: string } } | null;
       if (!response.ok) {
         const err = payload && 'error' in payload ? payload.error : null;
         throw new ApiError(

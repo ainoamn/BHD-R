@@ -103,9 +103,8 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
 
     // Daily stays left active after check-out were inflating the 60-day expiry alert.
     try {
-      const { repairOpenStayLeasesAfterCheckoutInTx } = await import(
-        '@/lib/stay-contract-close-neon'
-      );
+      const { repairOpenStayLeasesAfterCheckoutInTx } =
+        await import('@/lib/stay-contract-close-neon');
       await repairOpenStayLeasesAfterCheckoutInTx(transaction, orgId);
     } catch (error) {
       console.error('stay lease checkout repair', error);

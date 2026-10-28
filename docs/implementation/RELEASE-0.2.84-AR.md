@@ -7,12 +7,12 @@
 
 ## ما نُفّذ
 
-| بند | الإجراء |
-| --- | --- |
-| **P2-04** | `clientSafeErrorCode` — لا تُعاد رسائل DB/pgCode للمتصفح |
-| **CSRF** | Origin إلزامي للكتابات (أو Sec-Fetch-Site)؛ CSRF على complete؛ اختبار سياسة CSRF |
-| **Idempotency** | رؤوس `idempotency-key` لمعاينة/حجز (Nest submissionId + Neon مرجعية ثابتة) |
-| **P0-02 (جزئي)** | `PATCH /v1/portfolio/properties/:id/deposit` + Next Nest-first مع Neon fallback |
+| بند              | الإجراء                                                                          |
+| ---------------- | -------------------------------------------------------------------------------- |
+| **P2-04**        | `clientSafeErrorCode` — لا تُعاد رسائل DB/pgCode للمتصفح                         |
+| **CSRF**         | Origin إلزامي للكتابات (أو Sec-Fetch-Site)؛ CSRF على complete؛ اختبار سياسة CSRF |
+| **Idempotency**  | رؤوس `idempotency-key` لمعاينة/حجز (Nest submissionId + Neon مرجعية ثابتة)       |
+| **P0-02 (جزئي)** | `PATCH /v1/portfolio/properties/:id/deposit` + Next Nest-first مع Neon fallback  |
 
 ## المتبقي
 
@@ -24,9 +24,9 @@
 
 ## تحقق
 
-1. خطأ إنشاء عقار لا يعرض نص Postgres.  
-2. `/api/public/bookings/complete` يرفض بلا `x-csrf-token` عند تفعيل sandbox.  
-3. إعادة نفس `idempotency-key` للمعاينة يعيد نفس المرجع.  
+1. خطأ إنشاء عقار لا يعرض نص Postgres.
+2. `/api/public/bookings/complete` يرفض بلا `x-csrf-token` عند تفعيل sandbox.
+3. إعادة نفس `idempotency-key` للمعاينة يعيد نفس المرجع.
 4. عربون العقار يفضّل Nest عند جاهزيته (`via: nest`).
 
 ## وثائق

@@ -159,9 +159,7 @@ function StatementCard({
     >
       <div className="tenant-preview-row tenant-statement__preview">
         <div className="tenant-preview-row__copy">
-          <span className="tenant-preview-row__eyebrow">
-            {ar ? 'كشف حساب' : 'Statement'}
-          </span>
+          <span className="tenant-preview-row__eyebrow">{ar ? 'كشف حساب' : 'Statement'}</span>
           <strong className="tenant-preview-row__title" id={`statement-${item.leaseId}`}>
             {tenancyUnitLabel(item, ar)}
           </strong>
@@ -172,11 +170,7 @@ function StatementCard({
             {overdue ? money(statement.overdueMinor) : money(statement.remainingMinor)}
           </strong>
           <span className={`tenant-status${overdue ? ' tenant-status--action' : ''}`}>
-            {overdue
-              ? ar
-                ? 'متأخر'
-                : 'Overdue'
-              : domainStatusLabel(item.status, ar)}
+            {overdue ? (ar ? 'متأخر' : 'Overdue') : domainStatusLabel(item.status, ar)}
           </span>
           <button
             type="button"
@@ -191,258 +185,260 @@ function StatementCard({
 
       {open ? (
         <>
-      <dl className="tenant-statement__totals">
-        <div>
-          <dt>{ar ? 'قيمة العقد الكاملة' : 'Full contract value'}</dt>
-          <dd>{money(statement.contractTotalMinor)}</dd>
-        </div>
-        <div className="tenant-statement__total--good">
-          <dt>{ar ? 'دفعت' : 'Paid'}</dt>
-          <dd>{money(statement.paidMinor)}</dd>
-        </div>
-        <div className={overdue ? 'tenant-statement__total--bad' : undefined}>
-          <dt>{ar ? 'متأخر عليك' : 'Overdue'}</dt>
-          <dd>{money(statement.overdueMinor)}</dd>
-        </div>
-        <div>
-          <dt>{ar ? 'متبقٍ من قيمة العقد' : 'Remaining on the contract'}</dt>
-          <dd>{money(statement.remainingMinor)}</dd>
-        </div>
-        {statement.nextDue ? (
-          <div>
-            <dt>{ar ? 'الاستحقاق القادم' : 'Next due'}</dt>
-            <dd>
-              {money(statement.nextDue.amountMinor)}
-              <small>{day(statement.nextDue.dueOn, ar)}</small>
-            </dd>
+          <dl className="tenant-statement__totals">
+            <div>
+              <dt>{ar ? 'قيمة العقد الكاملة' : 'Full contract value'}</dt>
+              <dd>{money(statement.contractTotalMinor)}</dd>
+            </div>
+            <div className="tenant-statement__total--good">
+              <dt>{ar ? 'دفعت' : 'Paid'}</dt>
+              <dd>{money(statement.paidMinor)}</dd>
+            </div>
+            <div className={overdue ? 'tenant-statement__total--bad' : undefined}>
+              <dt>{ar ? 'متأخر عليك' : 'Overdue'}</dt>
+              <dd>{money(statement.overdueMinor)}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'متبقٍ من قيمة العقد' : 'Remaining on the contract'}</dt>
+              <dd>{money(statement.remainingMinor)}</dd>
+            </div>
+            {statement.nextDue ? (
+              <div>
+                <dt>{ar ? 'الاستحقاق القادم' : 'Next due'}</dt>
+                <dd>
+                  {money(statement.nextDue.amountMinor)}
+                  <small>{day(statement.nextDue.dueOn, ar)}</small>
+                </dd>
+              </div>
+            ) : null}
+          </dl>
+          <div
+            className="tenant-statement__bar"
+            role="img"
+            aria-label={
+              ar ? `مدفوع ${paidShare}% من قيمة العقد` : `${paidShare}% of the contract paid`
+            }
+          >
+            <span style={{ width: `${paidShare}%` }} />
           </div>
-        ) : null}
-      </dl>
-      <div
-        className="tenant-statement__bar"
-        role="img"
-        aria-label={ar ? `مدفوع ${paidShare}% من قيمة العقد` : `${paidShare}% of the contract paid`}
-      >
-        <span style={{ width: `${paidShare}%` }} />
-      </div>
 
-      <ArrearsPanel item={item} ar={ar} money={money} />
+          <ArrearsPanel item={item} ar={ar} money={money} />
 
-      {statement.lines.length ? (
-        <div className="data-table-wrap tenant-table-wrap">
-          <table className="data-table data-table--stack tenant-table tenant-statement__table">
-            <thead>
-              <tr>
-                <th>{ar ? 'البند' : 'Item'}</th>
-                <th>{ar ? 'تاريخ الاستحقاق' : 'Due'}</th>
-                <th>{ar ? 'المبلغ' : 'Amount'}</th>
-                <th>{ar ? 'المدفوع' : 'Paid'}</th>
-                <th>{ar ? 'الشيك' : 'Cheque'}</th>
-                <th>{ar ? 'الحالة' : 'Status'}</th>
-                <th>{ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {statement.lines.map((line) => (
-                <tr
-                  key={line.key}
-                  className={line.outsideTotal ? 'tenant-statement__aside' : undefined}
-                >
-                  <td data-label={ar ? 'البند' : 'Item'}>
-                    {ledgerLineLabel(line, ar)}
-                    {line.kind === 'rent' ? (
-                      <small className="tenant-table__sub">
-                        {ar ? 'عن شهر ' : 'For '}
-                        {rentMonthLabel(line, ar)}
-                      </small>
-                    ) : null}
-                    {line.periodFrom && line.periodTo ? (
-                      <small className="tenant-table__sub">
-                        {day(line.periodFrom, ar)} – {day(line.periodTo, ar)}
-                      </small>
-                    ) : null}
-                  </td>
-                  <td data-label={ar ? 'تاريخ الاستحقاق' : 'Due'}>
-                    {day(line.dueOn, ar)}
-                    {line.originalDueOn ? (
-                      <small className="tenant-table__sub">
-                        {ar
-                          ? `مؤجّل من ${day(line.originalDueOn, ar)}`
-                          : `Moved from ${day(line.originalDueOn, ar)}`}
-                      </small>
-                    ) : null}
-                  </td>
-                  <td data-label={ar ? 'المبلغ' : 'Amount'}>{money(line.amountMinor)}</td>
-                  <td data-label={ar ? 'المدفوع' : 'Paid'}>
-                    {line.paidMinor !== '0' ? money(line.paidMinor) : '—'}
-                  </td>
-                  <td data-label={ar ? 'الشيك' : 'Cheque'}>
-                    {line.chequeNumber ? (
-                      <>
-                        <bdi>{line.chequeNumber}</bdi>
-                        {line.bankName ? (
-                          <small className="tenant-table__sub">{line.bankName}</small>
-                        ) : null}
-                      </>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td data-label={ar ? 'الحالة' : 'Status'}>
-                    <span
-                      className={`tenant-status${TONE[line.status] ? ` tenant-status--${TONE[line.status]}` : ''}`}
+          {statement.lines.length ? (
+            <div className="data-table-wrap tenant-table-wrap">
+              <table className="data-table data-table--stack tenant-table tenant-statement__table">
+                <thead>
+                  <tr>
+                    <th>{ar ? 'البند' : 'Item'}</th>
+                    <th>{ar ? 'تاريخ الاستحقاق' : 'Due'}</th>
+                    <th>{ar ? 'المبلغ' : 'Amount'}</th>
+                    <th>{ar ? 'المدفوع' : 'Paid'}</th>
+                    <th>{ar ? 'الشيك' : 'Cheque'}</th>
+                    <th>{ar ? 'الحالة' : 'Status'}</th>
+                    <th>{ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {statement.lines.map((line) => (
+                    <tr
+                      key={line.key}
+                      className={line.outsideTotal ? 'tenant-statement__aside' : undefined}
                     >
-                      {ledgerStatusLabel(line.status, ar)}
-                    </span>
-                  </td>
-                  <td data-label={ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}>
-                    <RentDocLinks
-                      portal="tenant"
-                      leaseId={item.leaseId}
-                      subject={subjects.get(line.key)}
-                      ar={ar}
-                    />
-                  </td>
-                  <td>
-                    {chequeIsAdjustable(line) && requestLease ? (
-                      <span className="tenant-statement__row-actions">
-                        <TenantRequestLauncher
-                          locale={locale}
-                          leases={leases}
+                      <td data-label={ar ? 'البند' : 'Item'}>
+                        {ledgerLineLabel(line, ar)}
+                        {line.kind === 'rent' ? (
+                          <small className="tenant-table__sub">
+                            {ar ? 'عن شهر ' : 'For '}
+                            {rentMonthLabel(line, ar)}
+                          </small>
+                        ) : null}
+                        {line.periodFrom && line.periodTo ? (
+                          <small className="tenant-table__sub">
+                            {day(line.periodFrom, ar)} – {day(line.periodTo, ar)}
+                          </small>
+                        ) : null}
+                      </td>
+                      <td data-label={ar ? 'تاريخ الاستحقاق' : 'Due'}>
+                        {day(line.dueOn, ar)}
+                        {line.originalDueOn ? (
+                          <small className="tenant-table__sub">
+                            {ar
+                              ? `مؤجّل من ${day(line.originalDueOn, ar)}`
+                              : `Moved from ${day(line.originalDueOn, ar)}`}
+                          </small>
+                        ) : null}
+                      </td>
+                      <td data-label={ar ? 'المبلغ' : 'Amount'}>{money(line.amountMinor)}</td>
+                      <td data-label={ar ? 'المدفوع' : 'Paid'}>
+                        {line.paidMinor !== '0' ? money(line.paidMinor) : '—'}
+                      </td>
+                      <td data-label={ar ? 'الشيك' : 'Cheque'}>
+                        {line.chequeNumber ? (
+                          <>
+                            <bdi>{line.chequeNumber}</bdi>
+                            {line.bankName ? (
+                              <small className="tenant-table__sub">{line.bankName}</small>
+                            ) : null}
+                          </>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td data-label={ar ? 'الحالة' : 'Status'}>
+                        <span
+                          className={`tenant-status${TONE[line.status] ? ` tenant-status--${TONE[line.status]}` : ''}`}
+                        >
+                          {ledgerStatusLabel(line.status, ar)}
+                        </span>
+                      </td>
+                      <td data-label={ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}>
+                        <RentDocLinks
+                          portal="tenant"
                           leaseId={item.leaseId}
-                          type="cheque_postpone"
-                          chequeId={line.chequeId!}
-                          label={ar ? 'طلب تأجيل' : 'Postpone'}
+                          subject={subjects.get(line.key)}
+                          ar={ar}
                         />
-                        <TenantRequestLauncher
-                          locale={locale}
-                          leases={leases}
-                          leaseId={item.leaseId}
-                          type="cheque_stop"
-                          chequeId={line.chequeId!}
-                          label={ar ? 'طلب إيقاف' : 'Stop'}
-                        />
-                      </span>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <EmptyState
-          title={ar ? 'لا أقساط مسجلة على هذا العقد بعد' : 'No installments recorded yet'}
-        />
-      )}
+                      </td>
+                      <td>
+                        {chequeIsAdjustable(line) && requestLease ? (
+                          <span className="tenant-statement__row-actions">
+                            <TenantRequestLauncher
+                              locale={locale}
+                              leases={leases}
+                              leaseId={item.leaseId}
+                              type="cheque_postpone"
+                              chequeId={line.chequeId!}
+                              label={ar ? 'طلب تأجيل' : 'Postpone'}
+                            />
+                            <TenantRequestLauncher
+                              locale={locale}
+                              leases={leases}
+                              leaseId={item.leaseId}
+                              type="cheque_stop"
+                              chequeId={line.chequeId!}
+                              label={ar ? 'طلب إيقاف' : 'Stop'}
+                            />
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState
+              title={ar ? 'لا أقساط مسجلة على هذا العقد بعد' : 'No installments recorded yet'}
+            />
+          )}
 
-      {statement.otherInvoices.length ? (
-        <div className="tenant-statement__other">
-          <h3>
-            {ar ? 'فواتير ومبالغ أخرى على هذا العقد' : 'Other invoices on this lease'}
-            {statement.otherOutstandingMinor !== '0' ? (
-              <small>
-                {ar
-                  ? ` · المستحق منها ${money(statement.otherOutstandingMinor)}`
-                  : ` · ${money(statement.otherOutstandingMinor)} outstanding`}
-              </small>
-            ) : null}
-          </h3>
-          <ul>
-            {statement.otherInvoices.map((invoice) => {
-              const category = chargeCategoryOf(invoice.number);
-              return (
-                <li key={invoice.id}>
-                  {category ? <strong>{chargeLabel(category, ar)}</strong> : null}
-                  <bdi>{invoice.number}</bdi>
-                  <span>{day(invoice.dueOn, ar)}</span>
-                  <span>{money(invoice.totalMinor)}</span>
-                  <span className="tenant-status">{domainStatusLabel(invoice.status, ar)}</span>
-                  <RentDocLinks
-                    portal="tenant"
-                    leaseId={item.leaseId}
-                    subject={subjects.get(`charge-${invoice.id}`)}
-                    ar={ar}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
+          {statement.otherInvoices.length ? (
+            <div className="tenant-statement__other">
+              <h3>
+                {ar ? 'فواتير ومبالغ أخرى على هذا العقد' : 'Other invoices on this lease'}
+                {statement.otherOutstandingMinor !== '0' ? (
+                  <small>
+                    {ar
+                      ? ` · المستحق منها ${money(statement.otherOutstandingMinor)}`
+                      : ` · ${money(statement.otherOutstandingMinor)} outstanding`}
+                  </small>
+                ) : null}
+              </h3>
+              <ul>
+                {statement.otherInvoices.map((invoice) => {
+                  const category = chargeCategoryOf(invoice.number);
+                  return (
+                    <li key={invoice.id}>
+                      {category ? <strong>{chargeLabel(category, ar)}</strong> : null}
+                      <bdi>{invoice.number}</bdi>
+                      <span>{day(invoice.dueOn, ar)}</span>
+                      <span>{money(invoice.totalMinor)}</span>
+                      <span className="tenant-status">{domainStatusLabel(invoice.status, ar)}</span>
+                      <RentDocLinks
+                        portal="tenant"
+                        leaseId={item.leaseId}
+                        subject={subjects.get(`charge-${invoice.id}`)}
+                        ar={ar}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
 
-      {requestLease ? (
-        <footer className="tenant-statement__manage">
-          <strong>{ar ? 'إدارة العقد' : 'Manage the lease'}</strong>
-          <div>
-            <TenantRequestLauncher
-              locale={locale}
-              leases={leases}
-              leaseId={item.leaseId}
-              type="maintenance"
-              label={ar ? 'طلب صيانة' : 'Maintenance'}
-            />
-            <TenantRequestLauncher
-              locale={locale}
-              leases={leases}
-              leaseId={item.leaseId}
-              type="payment_arrangement"
-              label={ar ? 'ترتيب سداد' : 'Payment arrangement'}
-            />
-            <TenantRequestLauncher
-              locale={locale}
-              leases={leases}
-              leaseId={item.leaseId}
-              type="lease_renew"
-              label={ar ? 'طلب تجديد' : 'Renew'}
-            />
-            <TenantRequestLauncher
-              locale={locale}
-              leases={leases}
-              leaseId={item.leaseId}
-              type="contract_amend"
-              label={ar ? 'تعديل بند' : 'Amend'}
-            />
-            <TenantRequestLauncher
-              locale={locale}
-              leases={leases}
-              leaseId={item.leaseId}
-              type="lease_cancel"
-              label={ar ? 'طلب إلغاء العقد' : 'Cancel the lease'}
-            />
-            <TenantRequestLauncher
-              locale={locale}
-              leases={leases}
-              leaseId={item.leaseId}
-              type="other"
-              label={ar ? 'طلب آخر' : 'Other'}
-            />
-            <TenantRequestLauncher
-              locale={locale}
-              leases={leases}
-              leaseId={item.leaseId}
-              type="report_property"
-              label={ar ? 'بلاغ عن العقار' : 'Report about the property'}
-            />
-            <TenantRequestLauncher
-              locale={locale}
-              leases={leases}
-              leaseId={item.leaseId}
-              type="report_staff"
-              label={ar ? 'بلاغ عن موظف' : 'Report a staff member'}
-            />
-            {item.contractId ? (
-              <Link
-                className="button button--quiet button--tiny"
-                href={`/tenant/contracts/${item.contractId}`}
-              >
-                {ar ? 'عرض العقد' : 'View contract'}
-              </Link>
-            ) : null}
-          </div>
-        </footer>
-      ) : null}
+          {requestLease ? (
+            <footer className="tenant-statement__manage">
+              <strong>{ar ? 'إدارة العقد' : 'Manage the lease'}</strong>
+              <div>
+                <TenantRequestLauncher
+                  locale={locale}
+                  leases={leases}
+                  leaseId={item.leaseId}
+                  type="maintenance"
+                  label={ar ? 'طلب صيانة' : 'Maintenance'}
+                />
+                <TenantRequestLauncher
+                  locale={locale}
+                  leases={leases}
+                  leaseId={item.leaseId}
+                  type="payment_arrangement"
+                  label={ar ? 'ترتيب سداد' : 'Payment arrangement'}
+                />
+                <TenantRequestLauncher
+                  locale={locale}
+                  leases={leases}
+                  leaseId={item.leaseId}
+                  type="lease_renew"
+                  label={ar ? 'طلب تجديد' : 'Renew'}
+                />
+                <TenantRequestLauncher
+                  locale={locale}
+                  leases={leases}
+                  leaseId={item.leaseId}
+                  type="contract_amend"
+                  label={ar ? 'تعديل بند' : 'Amend'}
+                />
+                <TenantRequestLauncher
+                  locale={locale}
+                  leases={leases}
+                  leaseId={item.leaseId}
+                  type="lease_cancel"
+                  label={ar ? 'طلب إلغاء العقد' : 'Cancel the lease'}
+                />
+                <TenantRequestLauncher
+                  locale={locale}
+                  leases={leases}
+                  leaseId={item.leaseId}
+                  type="other"
+                  label={ar ? 'طلب آخر' : 'Other'}
+                />
+                <TenantRequestLauncher
+                  locale={locale}
+                  leases={leases}
+                  leaseId={item.leaseId}
+                  type="report_property"
+                  label={ar ? 'بلاغ عن العقار' : 'Report about the property'}
+                />
+                <TenantRequestLauncher
+                  locale={locale}
+                  leases={leases}
+                  leaseId={item.leaseId}
+                  type="report_staff"
+                  label={ar ? 'بلاغ عن موظف' : 'Report a staff member'}
+                />
+                {item.contractId ? (
+                  <Link
+                    className="button button--quiet button--tiny"
+                    href={`/tenant/contracts/${item.contractId}`}
+                  >
+                    {ar ? 'عرض العقد' : 'View contract'}
+                  </Link>
+                ) : null}
+              </div>
+            </footer>
+          ) : null}
         </>
       ) : null}
     </article>

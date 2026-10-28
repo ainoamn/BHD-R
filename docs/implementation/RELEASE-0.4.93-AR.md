@@ -6,25 +6,25 @@
 
 استُبدلت الشروط الافتراضية للإيجار الشهري / السنوي التي صيغت في 0.4.92 بنص **ملحق عقد الإيجار (مستند رقم 2-أ)** الذي زوّدنا به المالك، منسوخاً حرفياً بالعربية والإنجليزية، وبالترتيب نفسه:
 
-| # | العنوان | Heading | عدد البنود |
-| --- | --- | --- | --- |
-| أ | طريقة الاتصال الرسمية | Official Communication Method | 1 |
-| ب | وديعة الحجز غير قابلة للاسترداد | Non-Refundable Booking Deposit | 2 |
-| ج | مبلغ التأمين | Security Deposit | 3 |
-| د | شروط الدفع | Payment Terms | 6 |
-| هـ | المدفوعات المتأخرة | Late Payments | 3 |
-| و | فواتير المياه والكهرباء | Utility Bills | 3 |
-| ز | شروط الاقامة | Conditions of Stay | 11 |
-| ح | مخالفات الشروط | Violations of Conditions | 4 |
-| ط | بطاقات الوصول ووسائل الراحة في المبنى | Access Cards and Building Amenities | 1 |
-| ي | إجراءات قانونية | Legal Action | 1 |
-| ك | الصيانة والتصليح | Maintenance and Repairs | 1 |
-| ل | حق الدخول | Right of Entry | 1 |
-| م | تجديد الإيجار | Tenancy Renewal | 3 |
-| ن | إخلاء الوحدة | Vacating the Unit | 5 |
-| س | تسليم الوحدة | Handover of Unit | 5 |
-| ع | الرسوم والضرائب | Fees and Taxes | 1 |
-| ف | شرط الفصل | Severability Clause | 1 |
+| #   | العنوان                               | Heading                             | عدد البنود |
+| --- | ------------------------------------- | ----------------------------------- | ---------- |
+| أ   | طريقة الاتصال الرسمية                 | Official Communication Method       | 1          |
+| ب   | وديعة الحجز غير قابلة للاسترداد       | Non-Refundable Booking Deposit      | 2          |
+| ج   | مبلغ التأمين                          | Security Deposit                    | 3          |
+| د   | شروط الدفع                            | Payment Terms                       | 6          |
+| هـ  | المدفوعات المتأخرة                    | Late Payments                       | 3          |
+| و   | فواتير المياه والكهرباء               | Utility Bills                       | 3          |
+| ز   | شروط الاقامة                          | Conditions of Stay                  | 11         |
+| ح   | مخالفات الشروط                        | Violations of Conditions            | 4          |
+| ط   | بطاقات الوصول ووسائل الراحة في المبنى | Access Cards and Building Amenities | 1          |
+| ي   | إجراءات قانونية                       | Legal Action                        | 1          |
+| ك   | الصيانة والتصليح                      | Maintenance and Repairs             | 1          |
+| ل   | حق الدخول                             | Right of Entry                      | 1          |
+| م   | تجديد الإيجار                         | Tenancy Renewal                     | 3          |
+| ن   | إخلاء الوحدة                          | Vacating the Unit                   | 5          |
+| س   | تسليم الوحدة                          | Handover of Unit                    | 5          |
+| ع   | الرسوم والضرائب                       | Fees and Taxes                      | 1          |
+| ف   | شرط الفصل                             | Severability Clause                 | 1          |
 
 المجموع: **17 عنواناً و52 بنداً**. الترقيم في المنصة تلقائي: العناوين بالحروف والبنود بالأرقام تحت كل عنوان.
 

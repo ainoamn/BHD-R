@@ -7,12 +7,12 @@
 
 ## ما نُفّذ
 
-| بند | الإجراء |
-| --- | --- |
-| **P0-02 (جزئي)** | `DELETE /v1/media/:id` + Next Nest-first مع Neon+S3 fallback |
-| **Idempotency** | `@Idempotent` على `PATCH .../deposit` + مفاتيح Neon + تمرير `idempotency-key` |
-| **P2-04** | `clientSafeErrorCode` على مسارات المالك (عقار/وسائط) + بوابة اختبار CI |
-| **كتالوج** | حد معدّل 60/دقيقة؛ SELECT بعد heal تحت `app.public` وليس `platform_admin` |
+| بند              | الإجراء                                                                       |
+| ---------------- | ----------------------------------------------------------------------------- |
+| **P0-02 (جزئي)** | `DELETE /v1/media/:id` + Next Nest-first مع Neon+S3 fallback                  |
+| **Idempotency**  | `@Idempotent` على `PATCH .../deposit` + مفاتيح Neon + تمرير `idempotency-key` |
+| **P2-04**        | `clientSafeErrorCode` على مسارات المالك (عقار/وسائط) + بوابة اختبار CI        |
+| **كتالوج**       | حد معدّل 60/دقيقة؛ SELECT بعد heal تحت `app.public` وليس `platform_admin`     |
 
 ## المتبقي
 
@@ -25,9 +25,9 @@
 
 ## تحقق
 
-1. حذف صورة من المعالج يفضّل Nest عند جاهزيته (`via: nest`).  
-2. إعادة نفس `idempotency-key` لـ PATCH deposit تعيد نفس النتيجة.  
-3. خطأ رفع/إنشاء لا يعرض نص Postgres.  
+1. حذف صورة من المعالج يفضّل Nest عند جاهزيته (`via: nest`).
+2. إعادة نفس `idempotency-key` لـ PATCH deposit تعيد نفس النتيجة.
+3. خطأ رفع/إنشاء لا يعرض نص Postgres.
 4. `/api/public/catalogue` يعيد 429 عند تجاوز الحد.
 
 ## وثائق

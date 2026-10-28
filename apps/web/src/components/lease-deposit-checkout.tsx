@@ -394,10 +394,7 @@ export function LeaseDepositCheckout({
       {title && !denseChrome ? <p className="stays-checkout__property muted">{title}</p> : null}
 
       <ol
-        className={[
-          'stays-checkout__steps',
-          denseChrome ? 'stays-checkout__steps--quiet' : '',
-        ]
+        className={['stays-checkout__steps', denseChrome ? 'stays-checkout__steps--quiet' : '']
           .filter(Boolean)
           .join(' ')}
         aria-label={ar ? 'خطوات الحجز' : 'Booking steps'}

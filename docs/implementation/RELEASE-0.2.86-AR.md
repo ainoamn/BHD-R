@@ -7,13 +7,13 @@
 
 ## ما نُفّذ
 
-| بند | الإجراء |
-| --- | --- |
-| **P0-02 (جزئي)** | `POST /v1/portfolio/properties` Nest-first لإنشاء العقار |
-| **P0-02 / P0-03** | رفع الوسائط Nest-first: intent → ingress → complete (magic-bytes قبل Nest) |
-| **Abuse** | حدود معدّل على إنشاء/تحديث العقار ورفع الوسائط |
-| **Idempotency** | مفاتيح Neon لـ `PATCH /api/owner/properties/:id` (المعالج يرسل المفتاح مسبقاً) |
-| **P1-07** | مزامنة `CRON_SECRET` عبر `ensure-vercel-cron-secret.mjs` عند الحاجة |
+| بند               | الإجراء                                                                        |
+| ----------------- | ------------------------------------------------------------------------------ |
+| **P0-02 (جزئي)**  | `POST /v1/portfolio/properties` Nest-first لإنشاء العقار                       |
+| **P0-02 / P0-03** | رفع الوسائط Nest-first: intent → ingress → complete (magic-bytes قبل Nest)     |
+| **Abuse**         | حدود معدّل على إنشاء/تحديث العقار ورفع الوسائط                                 |
+| **Idempotency**   | مفاتيح Neon لـ `PATCH /api/owner/properties/:id` (المعالج يرسل المفتاح مسبقاً) |
+| **P1-07**         | مزامنة `CRON_SECRET` عبر `ensure-vercel-cron-secret.mjs` عند الحاجة            |
 
 ## المتبقي
 
@@ -24,9 +24,9 @@
 
 ## تحقق
 
-1. إنشاء عقار جديد يعيد `via: nest` عند جاهزية Nest.  
-2. رفع صورة من المعالج يعيد `via: nest` عند جاهزية Nest.  
-3. إعادة نفس `idempotency-key` لـ PATCH edit تعيد نفس الحمولة.  
+1. إنشاء عقار جديد يعيد `via: nest` عند جاهزية Nest.
+2. رفع صورة من المعالج يعيد `via: nest` عند جاهزية Nest.
+3. إعادة نفس `idempotency-key` لـ PATCH edit تعيد نفس الحمولة.
 4. Cron warmup/expire-locks لا يعيدان `cron_unconfigured` بعد ضبط السر.
 
 ## وثائق

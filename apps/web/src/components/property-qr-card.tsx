@@ -70,9 +70,7 @@ export function PropertyQrCard({
       </p>
       {showUrl ? (
         <p className="muted property-qr__url" dir="ltr">
-          {typeof window !== 'undefined'
-            ? new URL(path, window.location.origin).toString()
-            : path}
+          {typeof window !== 'undefined' ? new URL(path, window.location.origin).toString() : path}
         </p>
       ) : null}
     </aside>

@@ -11,13 +11,16 @@
 ## تفاصيل
 
 ### إصلاح العرض
+
 - `fillInventoryCalendarDays` → الافتراضي `available` + سعر أساسي من خطة الأسعار.
 
 ### قاعدة البيانات
+
 - `stay_inventory_days.public_note`
 - `stay_inventory_days.manual_rate` (يحفظ السعر المخصّص عند إعادة بناء المخزون)
 
 ### واجهات
+
 - عام: سعر تحت رقم اليوم + أيقونة ملاحظة
 - مالك: `/owner/stays/calendar` — اضغط يوماً → سعر / ملاحظة / إغلاق
 - API: `POST /api/owner/stays/day-override` و `POST /v1/stays/units/:unitId/inventory-days`
