@@ -1,14 +1,18 @@
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   approvalRequests,
+  contractSignatures,
   contractTemplates,
   contracts,
   leases,
+  outboxEvents,
   parties,
   properties,
   units,
+  users,
   workflowEvents,
 } from '@bhd-r/db';
 import {
@@ -16,6 +20,8 @@ import {
   nextChildContractSequence,
 } from '@bhd-r/domain';
 import { sanitizeRichText } from '@bhd-r/security';
+import { appLink, notifyInTx } from '@/lib/email-notify';
+import { formatMoney } from '@/lib/format';
 import {
   buildRenewalTermsDraft,
   type RenewalPreviousMeters,
@@ -27,6 +33,41 @@ import { withinViewerTenant } from '@/lib/portal-ops-data';
 function fail(code: string): never {
   throw new Error(code);
 }
+
+function signatureHash(parts: string[]): string {
+  return createHash('sha256').update(parts.join('|')).digest('hex');
+}
+
+function provisionalDocumentHash(parts: string[]): string {
+  return createHash('sha256').update(parts.join('|')).digest('hex');
+}
+
+function arDate(iso: string): string {
+  const [y, m, d] = iso.split('-');
+  if (!y || !m || !d) return iso;
+  return `${d}/${m}/${y}`;
+}
+
+const DEFAULT_RENEWAL_REQUIREMENTS: RenewalRequirement[] = [
+  { code: 'civil_id', labelAr: 'البطاقة الشخصية', labelEn: 'Civil ID card' },
+  { code: 'salary_certificate', labelAr: 'شهادة راتب', labelEn: 'Salary certificate' },
+  { code: 'bank_statement', labelAr: 'كشف حساب بنكي', labelEn: 'Bank statement' },
+];
+
+export type RenewalRequirement = {
+  code: string;
+  labelAr: string;
+  labelEn: string;
+};
+
+export type RenewalDocumentUpload = {
+  code: string;
+  fileName: string;
+  contentType: string;
+  objectKey: string | null;
+  uploadedAt: string;
+  note: string | null;
+};
 
 export type CreateLeaseRenewalInput = {
   templateVersionId: string;
@@ -60,6 +101,8 @@ export type CreateLeaseRenewalInput = {
   chequeAccountName?: string | null | undefined;
   chequeBankName?: string | null | undefined;
   rentBankAccountId?: string | null | undefined;
+  /** Documents the tenant must attach before / with e-sign. */
+  requirements?: RenewalRequirement[] | undefined;
 };
 
 export type LeaseRenewalTenantSeed = {
@@ -491,12 +534,21 @@ export async function createLeaseRenewalOnNeon(
       amount: row.amount,
     }));
     const chequeInputs = input.cheques ?? [];
+    const ownerSignsNow = hasPermission(claims, 'contract.sign');
+    const now = new Date();
+    const requirements = normalizeRenewalRequirements(input.requirements);
+    const [viewer] = await tx
+      .select({ displayName: users.displayName, email: users.email })
+      .from(users)
+      .where(eq(users.id, claims.sub))
+      .limit(1);
 
     const payload = {
       contract: {
         reference: contractReference,
         kind: 'renewal' as const,
         parentReference,
+        type: 'lease' as const,
       },
       owner: { id: owner.id, displayName: owner.displayName },
       tenant: { id: tenant.id, displayName: tenant.displayName },
@@ -506,6 +558,7 @@ export async function createLeaseRenewalOnNeon(
       endsOn: input.endsOn,
       billingDay: lease.billingDay,
       rent: { amountMinor: rentMinor, currency: lease.currency },
+      amount: { amountMinor: rentMinor, currency: lease.currency },
       previous: { endsOn: lease.endsOn, rentMinor: lease.rentMinor.toString() },
       graceDays,
       graceAsDiscount,
@@ -519,12 +572,29 @@ export async function createLeaseRenewalOnNeon(
       chequeBankName: input.chequeBankName ?? null,
       rentBankAccountId: input.rentBankAccountId ?? null,
       cheques: chequeInputs,
+      requirements,
+      renewalDocuments: [] as RenewalDocumentUpload[],
+      approval: {
+        mode: ownerSignsNow ? 'awaiting_counterparty' : 'awaiting_manager',
+        byUserId: claims.sub,
+        byName: viewer?.displayName ?? null,
+        at: now.toISOString(),
+      },
       ...(input.leaseTerms && typeof input.leaseTerms === 'object'
         ? { leaseTerms: input.leaseTerms }
         : {}),
     };
 
     try {
+      const documentHash = provisionalDocumentHash([
+        'renewal',
+        orgId,
+        contractReference,
+        startsOn,
+        input.endsOn,
+        rentMinor,
+        JSON.stringify(requirements.map((row) => row.code)),
+      ]);
       const contractRows = await tx
         .insert(contracts)
         .values({
@@ -536,10 +606,14 @@ export async function createLeaseRenewalOnNeon(
           unitId: lease.unitId,
           ownerPartyId: lease.ownerPartyId,
           tenantPartyId: lease.tenantPartyId,
+          status: ownerSignsNow ? 'partially_signed' : 'draft',
+          sentAt: ownerSignsNow ? now : null,
+          renderedPdfHash: ownerSignsNow ? documentHash : null,
           payloadSnapshot: payload,
         })
         .returning({ id: contracts.id, reference: contracts.reference });
       const contract = contractRows[0]!;
+
       await tx.insert(approvalRequests).values({
         organizationId: orgId,
         reference: `APR-${contractReference}`,
@@ -548,13 +622,87 @@ export async function createLeaseRenewalOnNeon(
         resourceType: 'contract',
         resourceId: contract.id,
         requestedByUserId: claims.sub,
+        status: ownerSignsNow ? 'approved' : 'pending',
+        decidedAt: ownerSignsNow ? now : null,
+        decisionNote: ownerSignsNow
+          ? `Delivered to tenant by ${viewer?.displayName ?? claims.sub}`
+          : null,
       });
+
+      if (ownerSignsNow) {
+        await tx
+          .insert(contractSignatures)
+          .values({
+            organizationId: orgId,
+            contractId: contract.id,
+            signerPartyId: lease.ownerPartyId,
+            signerRole: 'owner',
+            method: 'system_on_approval',
+            evidence: {
+              signedByUserId: claims.sub,
+              signedByName: viewer?.displayName ?? null,
+              signedByEmail: viewer?.email ?? null,
+              signedByRoles: claims.roles,
+              onBehalfOf: 'owner',
+              source: 'lease_renewal_create',
+            },
+            signatureHash: signatureHash([
+              contract.id,
+              lease.ownerPartyId,
+              claims.sub,
+              now.toISOString(),
+            ]),
+            signedAt: now,
+          })
+          .onConflictDoNothing();
+
+        await tx.insert(outboxEvents).values({
+          organizationId: orgId,
+          topic: 'contract.signature-requested',
+          aggregateType: 'contract',
+          aggregateId: contract.id,
+          payload: { tenantPartyId: lease.tenantPartyId, contractId: contract.id },
+        });
+
+        const details = [
+          { label: 'رقم الملحق', value: contractReference },
+          { label: 'العقار', value: `${property.nameAr} — ${unit.nameAr || unit.code}` },
+          { label: 'بداية التجديد', value: arDate(startsOn) },
+          { label: 'نهاية التجديد', value: arDate(input.endsOn) },
+          {
+            label: 'الإيجار الشهري',
+            value: formatMoney(rentMinor, lease.currency, 'ar'),
+          },
+        ];
+        const contractLink = appLink(`/ar/tenant/contracts/${contract.id}`);
+        await notifyInTx(tx, {
+          orgId,
+          aggregateType: 'contract',
+          aggregateId: contract.id,
+          audience: { parties: [lease.tenantPartyId] },
+          content: () => ({
+            tone: 'contract',
+            subject: `✍️ ملحق التجديد ${contractReference} بانتظار توقيعك`,
+            title: 'ملحق تجديد الإيجار جاهز لتوقيعك',
+            intro: `وقّع المالك ملحق التجديد، وبقي توقيعك ومرفق المستندات المطلوبة ليصبح سارياً.`,
+            details,
+            lines: [
+              requirements.length
+                ? `المستندات المطلوبة: ${requirements.map((row) => row.labelAr).join('، ')}.`
+                : 'راجع الملحق ثم وقّع إلكترونياً من حسابك.',
+              'افتح الملحق من حساب المستأجر، ارفع المستندات، ثم وقّع.',
+            ],
+            cta: { label: 'مراجعة الملحق وتوقيعه', url: contractLink },
+          }),
+        });
+      }
+
       await tx.insert(workflowEvents).values({
         organizationId: orgId,
         actorUserId: claims.sub,
         resourceType: 'lease',
         resourceId: lease.id,
-        eventType: 'lease.renewal_requested',
+        eventType: ownerSignsNow ? 'lease.renewal_sent_to_tenant' : 'lease.renewal_requested',
         fromStatus: lease.status,
         toStatus: lease.status,
         metadata: {
@@ -565,6 +713,8 @@ export async function createLeaseRenewalOnNeon(
           proposedRentMinor: rentMinor,
           currency: lease.currency,
           chequeCount: chequeInputs.length,
+          deliveredToTenant: ownerSignsNow,
+          requirementCount: requirements.length,
         },
       });
       return {
@@ -579,5 +729,329 @@ export async function createLeaseRenewalOnNeon(
       if (/unique|duplicate/i.test(message)) fail('renewal_duplicate');
       throw error;
     }
+  });
+}
+
+function normalizeRenewalRequirements(
+  input: RenewalRequirement[] | undefined,
+): RenewalRequirement[] {
+  const source = input?.length ? input : DEFAULT_RENEWAL_REQUIREMENTS;
+  const seen = new Set<string>();
+  const out: RenewalRequirement[] = [];
+  for (const row of source) {
+    const code = (row.code ?? '').trim().toLowerCase();
+    if (!/^[a-z0-9_]{2,40}$/.test(code) || seen.has(code)) continue;
+    seen.add(code);
+    const labelAr = (row.labelAr ?? '').trim().slice(0, 120) || code;
+    const labelEn = (row.labelEn ?? '').trim().slice(0, 120) || code;
+    out.push({ code, labelAr, labelEn });
+    if (out.length >= 20) break;
+  }
+  return out.length ? out : DEFAULT_RENEWAL_REQUIREMENTS;
+}
+
+/**
+ * Deliver an unfinished draft renewal to the tenant for e-sign + documents.
+ * Used to repair renewals created before auto-delivery shipped.
+ */
+export async function deliverDraftRenewalOnNeon(
+  claims: SessionClaims,
+  contractId: string,
+): Promise<{ contractId: string; status: string }> {
+  if (!hasPermission(claims, 'contract.sign')) fail('forbidden');
+  const orgId = claims.organizationId ?? fail('organization_required');
+
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${contractId}, 31))`);
+    const contract = await tx.query.contracts.findFirst({
+      where: and(
+        eq(contracts.id, contractId),
+        eq(contracts.organizationId, orgId),
+        eq(contracts.kind, 'renewal'),
+      ),
+    });
+    if (!contract) fail('contract_not_found');
+    if (contract.status === 'partially_signed' || contract.status === 'sent') {
+      return { contractId: contract.id, status: contract.status };
+    }
+    if (contract.status !== 'draft') fail('renewal_not_deliverable');
+
+    const now = new Date();
+    const [viewer] = await tx
+      .select({ displayName: users.displayName, email: users.email })
+      .from(users)
+      .where(eq(users.id, claims.sub))
+      .limit(1);
+    const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
+    const requirements = normalizeRenewalRequirements(
+      Array.isArray(snapshot.requirements)
+        ? (snapshot.requirements as RenewalRequirement[])
+        : undefined,
+    );
+    const reference =
+      contract.reference?.trim() || `CTR-${contract.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+    const documentHash =
+      contract.renderedPdfHash ||
+      provisionalDocumentHash(['renewal-deliver', contract.id, reference, now.toISOString()]);
+
+    const nextPayload = {
+      ...snapshot,
+      requirements,
+      renewalDocuments: Array.isArray(snapshot.renewalDocuments)
+        ? snapshot.renewalDocuments
+        : [],
+      amount:
+        snapshot.amount && typeof snapshot.amount === 'object'
+          ? snapshot.amount
+          : snapshot.rent && typeof snapshot.rent === 'object'
+            ? snapshot.rent
+            : snapshot.amount,
+      approval: {
+        mode: 'awaiting_counterparty',
+        byUserId: claims.sub,
+        byName: viewer?.displayName ?? null,
+        at: now.toISOString(),
+      },
+    };
+
+    await tx
+      .update(contracts)
+      .set({
+        status: 'partially_signed',
+        sentAt: now,
+        renderedPdfHash: documentHash,
+        payloadSnapshot: nextPayload,
+        updatedAt: now,
+      })
+      .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, orgId)));
+
+    await tx
+      .update(approvalRequests)
+      .set({
+        status: 'approved',
+        decidedAt: now,
+        decisionNote: `Delivered to tenant by ${viewer?.displayName ?? claims.sub}`,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(approvalRequests.organizationId, orgId),
+          eq(approvalRequests.resourceType, 'contract'),
+          eq(approvalRequests.resourceId, contract.id),
+          inArray(approvalRequests.status, ['pending', 'on_hold']),
+        ),
+      );
+
+    await tx
+      .insert(contractSignatures)
+      .values({
+        organizationId: orgId,
+        contractId: contract.id,
+        signerPartyId: contract.ownerPartyId,
+        signerRole: 'owner',
+        method: 'system_on_approval',
+        evidence: {
+          signedByUserId: claims.sub,
+          signedByName: viewer?.displayName ?? null,
+          signedByEmail: viewer?.email ?? null,
+          signedByRoles: claims.roles,
+          onBehalfOf: 'owner',
+          source: 'lease_renewal_deliver',
+        },
+        signatureHash: signatureHash([
+          contract.id,
+          contract.ownerPartyId,
+          claims.sub,
+          now.toISOString(),
+        ]),
+        signedAt: now,
+      })
+      .onConflictDoNothing();
+
+    await tx.insert(outboxEvents).values({
+      organizationId: orgId,
+      topic: 'contract.signature-requested',
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      payload: { tenantPartyId: contract.tenantPartyId, contractId: contract.id },
+    });
+
+    const property = snapshot.property as { nameAr?: string } | undefined;
+    const unit = snapshot.unit as { nameAr?: string; code?: string } | undefined;
+    const rent = (snapshot.rent ?? snapshot.amount) as
+      | { amountMinor?: string; currency?: string }
+      | undefined;
+    const startsOn = typeof snapshot.startsOn === 'string' ? snapshot.startsOn : '';
+    const endsOn = typeof snapshot.endsOn === 'string' ? snapshot.endsOn : '';
+    await notifyInTx(tx, {
+      orgId,
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      audience: { parties: [contract.tenantPartyId] },
+      content: () => ({
+        tone: 'contract',
+        subject: `✍️ ملحق التجديد ${reference} بانتظار توقيعك`,
+        title: 'ملحق تجديد الإيجار جاهز لتوقيعك',
+        intro: 'وقّع المالك ملحق التجديد، وبقي توقيعك ومرفق المستندات المطلوبة.',
+        details: [
+          { label: 'رقم الملحق', value: reference },
+          {
+            label: 'العقار',
+            value: `${property?.nameAr ?? '—'} — ${unit?.nameAr || unit?.code || '—'}`,
+          },
+          ...(startsOn ? [{ label: 'بداية التجديد', value: arDate(startsOn) }] : []),
+          ...(endsOn ? [{ label: 'نهاية التجديد', value: arDate(endsOn) }] : []),
+          ...(rent?.amountMinor && rent.currency
+            ? [
+                {
+                  label: 'الإيجار الشهري',
+                  value: formatMoney(rent.amountMinor, rent.currency, 'ar'),
+                },
+              ]
+            : []),
+        ],
+        lines: [
+          requirements.length
+            ? `المستندات المطلوبة: ${requirements.map((row) => row.labelAr).join('، ')}.`
+            : 'راجع الملحق ثم وقّع إلكترونياً.',
+        ],
+        cta: {
+          label: 'مراجعة الملحق وتوقيعه',
+          url: appLink(`/ar/tenant/contracts/${contract.id}`),
+        },
+      }),
+    });
+
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'contract',
+      resourceId: contract.id,
+      eventType: 'lease.renewal_sent_to_tenant',
+      fromStatus: 'draft',
+      toStatus: 'partially_signed',
+      metadata: { deliveredByRepair: true, requirementCount: requirements.length },
+    });
+
+    return { contractId: contract.id, status: 'partially_signed' };
+  });
+}
+
+function sniffRenewalDocument(bytes: Buffer): { mime: string; ext: string } | null {
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return { mime: 'image/jpeg', ext: 'jpg' };
+  }
+  if (
+    bytes.length >= 8 &&
+    bytes.readUInt32BE(0) === 0x89504e47 &&
+    bytes.readUInt32BE(4) === 0x0d0a1a0a
+  ) {
+    return { mime: 'image/png', ext: 'png' };
+  }
+  if (
+    bytes.length >= 12 &&
+    bytes.toString('ascii', 0, 4) === 'RIFF' &&
+    bytes.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return { mime: 'image/webp', ext: 'webp' };
+  }
+  if (bytes.length >= 5 && bytes.toString('ascii', 0, 5) === '%PDF-') {
+    return { mime: 'application/pdf', ext: 'pdf' };
+  }
+  return null;
+}
+
+/**
+ * Tenant uploads a required renewal document onto the addendum payload.
+ */
+export async function uploadRenewalDocumentOnNeon(
+  claims: SessionClaims,
+  contractId: string,
+  input: { code: string; fileName: string; bytes: Buffer },
+): Promise<{ code: string; uploadedAt: string }> {
+  const orgId = claims.organizationId ?? fail('organization_required');
+  const partyId = claims.partyId ?? fail('forbidden');
+  const code = input.code.trim().toLowerCase();
+  if (!/^[a-z0-9_]{2,40}$/.test(code)) fail('validation_failed');
+  const sniffed = sniffRenewalDocument(input.bytes);
+  if (!sniffed) fail('renewal_document_invalid');
+  if (input.bytes.byteLength < 32 || input.bytes.byteLength > 8 * 1024 * 1024) {
+    fail('renewal_document_invalid');
+  }
+
+  const { putPrivateObject, s3BucketsReady } = await import('@/lib/upload-property-media-neon');
+
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${contractId}, 47))`);
+    const contract = await tx.query.contracts.findFirst({
+      where: and(
+        eq(contracts.id, contractId),
+        eq(contracts.organizationId, orgId),
+        eq(contracts.tenantPartyId, partyId),
+        eq(contracts.kind, 'renewal'),
+      ),
+    });
+    if (!contract) fail('contract_not_found');
+    if (!['sent', 'partially_signed'].includes(contract.status)) fail('renewal_not_deliverable');
+
+    const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
+    const requirements = normalizeRenewalRequirements(
+      Array.isArray(snapshot.requirements)
+        ? (snapshot.requirements as RenewalRequirement[])
+        : undefined,
+    );
+    if (!requirements.some((row) => row.code === code)) fail('renewal_document_code');
+
+    let objectKey: string | null = null;
+    if (s3BucketsReady()) {
+      objectKey = `org/${orgId}/renewals/${contractId}/${code}-${Date.now()}.${sniffed.ext}`;
+      try {
+        await putPrivateObject(objectKey, input.bytes, sniffed.mime);
+      } catch (error) {
+        console.error(
+          'renewal document upload failed',
+          error instanceof Error ? error.message : '',
+        );
+        objectKey = null;
+      }
+    }
+
+    const uploadedAt = new Date().toISOString();
+    const fileName = input.fileName.trim().slice(0, 180) || `${code}.${sniffed.ext}`;
+    const entry: RenewalDocumentUpload = {
+      code,
+      fileName,
+      contentType: sniffed.mime,
+      objectKey,
+      uploadedAt,
+      note: objectKey
+        ? null
+        : `inline:${input.bytes.toString('base64').slice(0, 12)}…`, // marker only; bytes stay in S3 when possible
+    };
+
+    // When S3 is unavailable, keep a compact inline data URL (images/PDF ≤ 1.5MB).
+    const previous = Array.isArray(snapshot.renewalDocuments)
+      ? (snapshot.renewalDocuments as RenewalDocumentUpload[])
+      : [];
+    let stored = entry;
+    if (!objectKey && input.bytes.byteLength <= 1.5 * 1024 * 1024) {
+      stored = {
+        ...entry,
+        note: `data:${sniffed.mime};base64,${input.bytes.toString('base64')}`,
+      };
+    } else if (!objectKey) {
+      fail('renewal_document_storage');
+    }
+
+    const nextDocs = [...previous.filter((row) => row.code !== code), stored];
+    await tx
+      .update(contracts)
+      .set({
+        payloadSnapshot: { ...snapshot, requirements, renewalDocuments: nextDocs },
+        updatedAt: new Date(),
+      })
+      .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, orgId)));
+
+    return { code, uploadedAt };
   });
 }

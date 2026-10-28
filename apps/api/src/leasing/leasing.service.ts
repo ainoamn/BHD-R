@@ -745,11 +745,19 @@ export class LeasingService {
         // Inserting onto the active lease collides with org-unique cheque numbers
         // (e.g. reusing 2001) and rolls back the whole renewal create.
         cheques: input.cheques ?? [],
+        requirements: [],
+        renewalDocuments: [],
+        amount: { amountMinor: rentMinor, currency: lease.currency },
         ...(input.leaseTerms && typeof input.leaseTerms === 'object'
           ? { leaseTerms: input.leaseTerms }
           : {}),
       };
       const chequeInputs = input.cheques ?? [];
+      const ownerSignsNow = hasPermission(claims, 'contract.sign');
+      const now = new Date();
+      const documentHash = createHash('sha256')
+        .update(['renewal', claims.organizationId!, contractReference, startsOn, input.endsOn, rentMinor].join('|'))
+        .digest('hex');
       let contract;
       try {
         const contractRows = await transaction
@@ -763,7 +771,17 @@ export class LeasingService {
             unitId: lease.unitId,
             ownerPartyId: lease.ownerPartyId,
             tenantPartyId: lease.tenantPartyId,
-            payloadSnapshot: payload,
+            status: ownerSignsNow ? 'partially_signed' : 'draft',
+            sentAt: ownerSignsNow ? now : null,
+            renderedPdfHash: ownerSignsNow ? documentHash : null,
+            payloadSnapshot: {
+              ...payload,
+              approval: {
+                mode: ownerSignsNow ? 'awaiting_counterparty' : 'awaiting_manager',
+                byUserId: claims.sub,
+                at: now.toISOString(),
+              },
+            },
           })
           .returning();
         contract = contractRows[0]!;
@@ -775,13 +793,41 @@ export class LeasingService {
           resourceType: 'contract',
           resourceId: contract.id,
           requestedByUserId: claims.sub,
+          status: ownerSignsNow ? 'approved' : 'pending',
+          decidedAt: ownerSignsNow ? now : null,
+          decisionNote: ownerSignsNow ? 'Delivered to tenant on create' : null,
         });
+        if (ownerSignsNow) {
+          await transaction.insert(contractSignatures).values({
+            organizationId: claims.organizationId!,
+            contractId: contract.id,
+            signerPartyId: lease.ownerPartyId,
+            signerRole: 'owner',
+            method: 'system_on_approval',
+            evidence: {
+              signedByUserId: claims.sub,
+              onBehalfOf: 'owner',
+              source: 'lease_renewal_create',
+            },
+            signatureHash: createHash('sha256')
+              .update([contract.id, lease.ownerPartyId, claims.sub, now.toISOString()].join('|'))
+              .digest('hex'),
+            signedAt: now,
+          });
+          await transaction.insert(outboxEvents).values({
+            organizationId: claims.organizationId!,
+            topic: 'contract.signature-requested',
+            aggregateType: 'contract',
+            aggregateId: contract.id,
+            payload: { tenantPartyId: lease.tenantPartyId, contractId: contract.id },
+          });
+        }
         await transaction.insert(workflowEvents).values({
           organizationId: claims.organizationId!,
           actorUserId: claims.sub,
           resourceType: 'lease',
           resourceId: lease.id,
-          eventType: 'lease.renewal_requested',
+          eventType: ownerSignsNow ? 'lease.renewal_sent_to_tenant' : 'lease.renewal_requested',
           fromStatus: lease.status,
           toStatus: lease.status,
           metadata: {
@@ -792,6 +838,7 @@ export class LeasingService {
             proposedRentMinor: rentMinor,
             currency: lease.currency,
             chequeCount: chequeInputs.length,
+            deliveredToTenant: ownerSignsNow,
           },
         });
       } catch (error) {

@@ -25,6 +25,8 @@ import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import { stayTypeLabel } from '@/lib/ui-labels';
 import { ContractActions } from './contract-actions';
 import { ContractAnnexArticle } from './contract-annex-view';
+import { DeliverRenewalButton } from './deliver-renewal-button';
+import { RenewalDocumentsPanel } from './renewal-documents-panel';
 import {
   BRAND_LOGO,
   DocLetterhead,
@@ -529,8 +531,19 @@ export function ContractDocumentView({
               approvalStatus={contract.approval?.status ?? null}
               locale={locale}
             />
+            {contract.kind === 'renewal' && contract.status === 'draft' ? (
+              <DeliverRenewalButton contractId={contract.id} locale={locale} />
+            ) : null}
           </CardContent>
         </Card>
+      ) : null}
+
+      {portal === 'tenant' && contract.renewalRequirements?.length ? (
+        <RenewalDocumentsPanel
+          contractId={contract.id}
+          requirements={contract.renewalRequirements}
+          locale={locale}
+        />
       ) : null}
 
       {contract.canSign ? (

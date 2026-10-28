@@ -99,6 +99,15 @@ export interface ContractDetail {
     signatureHash: string;
     signedAt: string;
   }>;
+  /** Documents the tenant must attach on a renewal addendum. */
+  renewalRequirements?: Array<{
+    code: string;
+    labelAr: string;
+    labelEn: string;
+    uploaded: boolean;
+    fileName: string | null;
+    uploadedAt: string | null;
+  }>;
   /** Full document view; only the Neon reader fills it. */
   document?: ContractDocument;
   /** Copy of the signed booking agreement a website rent or purchase contract completes. */
@@ -634,7 +643,43 @@ export async function loadContractDetailFromNeon(
       signatureHash: signature.signatureHash,
       signedAt: signature.signedAt.toISOString(),
     })),
+    renewalRequirements: renewalRequirementsFromSnapshot(snapshot),
   };
+}
+
+function renewalRequirementsFromSnapshot(
+  snapshot: Record<string, unknown>,
+): ContractDetail['renewalRequirements'] {
+  if (!Array.isArray(snapshot.requirements) || !snapshot.requirements.length) return undefined;
+  const uploads = Array.isArray(snapshot.renewalDocuments)
+    ? (snapshot.renewalDocuments as Array<{
+        code?: string;
+        fileName?: string;
+        uploadedAt?: string;
+      }>)
+    : [];
+  const byCode = new Map(
+    uploads
+      .filter((row) => typeof row.code === 'string')
+      .map((row) => [row.code as string, row] as const),
+  );
+  return snapshot.requirements
+    .map((row) => {
+      if (!row || typeof row !== 'object') return null;
+      const item = row as { code?: string; labelAr?: string; labelEn?: string };
+      const code = typeof item.code === 'string' ? item.code : '';
+      if (!code) return null;
+      const uploaded = byCode.get(code);
+      return {
+        code,
+        labelAr: typeof item.labelAr === 'string' ? item.labelAr : code,
+        labelEn: typeof item.labelEn === 'string' ? item.labelEn : code,
+        uploaded: Boolean(uploaded),
+        fileName: uploaded?.fileName ?? null,
+        uploadedAt: uploaded?.uploadedAt ?? null,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => Boolean(row));
 }
 
 type Loaded = {

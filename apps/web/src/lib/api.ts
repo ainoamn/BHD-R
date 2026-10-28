@@ -326,12 +326,15 @@ export async function browserNextMutation<T>(path: string, init: RequestInit): P
   const run = async (csrfToken: string): Promise<T> => {
     let response: Response;
     try {
+      const isFormData =
+        typeof FormData !== 'undefined' && init.body instanceof FormData;
       response = await fetch(path, {
         ...init,
         credentials: 'same-origin',
         headers: {
           accept: 'application/json',
-          'content-type': 'application/json',
+          // Let the browser set multipart boundary for FormData uploads.
+          ...(isFormData ? {} : { 'content-type': 'application/json' }),
           'x-csrf-token': csrfToken,
           'idempotency-key': crypto.randomUUID(),
           ...init.headers,

@@ -56,6 +56,17 @@ const bodySchema = z
     chequeAccountName: z.string().trim().max(160).nullish(),
     chequeBankName: z.string().trim().max(160).nullish(),
     rentBankAccountId: z.string().trim().max(64).nullish(),
+    requirements: z
+      .array(
+        z.object({
+          code: z.string().trim().min(2).max(40),
+          labelAr: z.string().trim().min(1).max(120),
+          labelEn: z.string().trim().min(1).max(120),
+        }),
+      )
+      .max(20)
+      .optional()
+      .default([]),
   })
   .strip();
 

@@ -261,8 +261,16 @@ export function LeaseRenewalForm({
       if (payload.terms.notes?.trim()) {
         body.additionalTerms = payload.terms.notes.trim();
       }
+      if (requirements.length) {
+        body.requirements = requirements.map((row) => ({
+          code: row.code,
+          labelAr: row.labelAr,
+          labelEn: row.labelEn,
+        }));
+      }
 
       // Save on Vercel → Neon (no Nest/Render). Same-origin Next CSRF.
+      // Owner with sign permission delivers the addendum to the tenant immediately.
       await browserNextMutation(
         `/api/owner/leasing/${encodeURIComponent(context.lease.id)}/renewals`,
         {
@@ -457,8 +465,8 @@ export function LeaseRenewalForm({
         submitLabel={ar ? 'إنشاء ملحق التجديد' : 'Create renewal addendum'}
         footnote={
           ar
-            ? 'لن يتغير العقد الحالي حتى يُعتمد الملحق ويوقّعه المالك والمستأجر. الشيكات تُكتب بالاسم الظاهر من الحساب البنكي.'
-            : 'The current lease will not change until the addendum is approved and signed. Cheques use the bank-account payee name.'
+            ? 'بعد الإنشاء يُرسل الملحق فوراً إلى المستأجر للتوقيع ورفع المستندات المطلوبة. لن يتغير العقد الحالي حتى يكتمل توقيع الطرفين. الشيكات تُكتب بالاسم الظاهر من الحساب البنكي.'
+            : 'On create, the addendum is sent to the tenant immediately for e-sign and required documents. The current lease stays unchanged until both parties have signed. Cheques use the bank-account payee name.'
         }
         lead={
           <div className="form-grid lease-renewal__template">

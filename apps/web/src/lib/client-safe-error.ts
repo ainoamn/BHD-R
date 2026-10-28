@@ -55,6 +55,11 @@ const KNOWN_CODES = new Set([
   'renewal_currency_mismatch',
   'renewal_template_missing',
   'renewal_duplicate',
+  'renewal_not_deliverable',
+  'renewal_document_invalid',
+  'renewal_document_code',
+  'renewal_document_storage',
+  'deliver_failed',
   'invalid_dates',
   'invalid_amount',
   'invalid_schedule',
@@ -205,12 +210,16 @@ export function statusForSafeCode(code: string): number {
     case 'tenant_request_photos':
     case 'tenant_request_media':
     case 'tenant_charge_invalid':
+    case 'renewal_document_invalid':
+    case 'renewal_document_code':
+    case 'renewal_document_storage':
       return 400;
     case 'tenant_request_closed':
     case 'tenant_request_duplicate':
     case 'tenant_request_arrears':
     case 'tenant_request_proof':
     case 'tenant_charge_paid':
+    case 'renewal_not_deliverable':
       return 409;
     case 'legal_invalid':
     case 'legal_file_invalid':

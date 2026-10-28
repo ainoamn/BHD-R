@@ -15,6 +15,8 @@ import { withTimeoutFallback } from '@/lib/with-timeout';
 import type { PortalRole } from '@/lib/types';
 import { ContractActions } from './contract-actions';
 import { ContractDocumentView } from './contract-document-view';
+import { DeliverRenewalButton } from './deliver-renewal-button';
+import { RenewalDocumentsPanel } from './renewal-documents-panel';
 import { SignatureForm } from './signature-form';
 
 type Portal = Exclude<PortalRole, 'platform'>;
@@ -264,6 +266,11 @@ function SimpleContractView({
                 locale={locale}
               />
             ) : null}
+            {portal !== 'tenant' &&
+            contract.kind === 'renewal' &&
+            contract.status === 'draft' ? (
+              <DeliverRenewalButton contractId={contract.id} locale={locale} />
+            ) : null}
           </CardContent>
         </Card>
       </section>
@@ -288,6 +295,14 @@ function SimpleContractView({
           )}
         </CardContent>
       </Card>
+
+      {portal === 'tenant' && contract.renewalRequirements?.length ? (
+        <RenewalDocumentsPanel
+          contractId={contract.id}
+          requirements={contract.renewalRequirements}
+          locale={locale}
+        />
+      ) : null}
 
       {contract.canSign ? (
         <SignatureForm contractId={contract.id} expectedName={viewer.displayName} />
