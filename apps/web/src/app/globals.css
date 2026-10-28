@@ -9775,6 +9775,17 @@ body:has(.stays-booking-receipt) #main-content {
   background: var(--tenant-quiet-soft, #eef2f6);
   color: var(--tenant-quiet, #475569);
 }
+.tenant-table-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  margin: 0.65rem 0.75rem 0.35rem;
+}
+.tenant-requests-wrap {
+  display: grid;
+  gap: 0.75rem;
+}
 .tenant-table-wrap {
   width: 100%;
   min-width: 0;

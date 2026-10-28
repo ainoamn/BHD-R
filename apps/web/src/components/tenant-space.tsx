@@ -1,15 +1,13 @@
 'use client';
 
-import { EmptyState } from '@bhd-r/ui';
-import {
-  Children,
-  cloneElement,
-  isValidElement,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useState, type ReactNode } from 'react';
 import { formatMoney } from '@/lib/format';
 import { BadgeChips } from '@/components/badges/badge-chips';
+import {
+  FilterableTenantTable,
+  type TenantTableColumn,
+  type TenantTableRow,
+} from '@/components/filterable-tenant-table';
 import { ModalPortal } from '@/components/modal-portal';
 import { SoftPortalLink as Link } from '@/components/soft-portal-link';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
@@ -36,7 +34,6 @@ import {
   stayHref,
   tenancyAlertLabel,
   tenancyContractGroups,
-  tenancyContractKindLabel,
   tenancyLandlordName,
   tenancyUnitLabel,
   viewingHref,
@@ -104,37 +101,6 @@ function contractDisplayEndsOn(contract: TenancyContract): string | null {
 
 function money(amountMinor: string | null, currency: string | null, locale: string): string {
   return amountMinor && currency ? formatMoney(amountMinor, currency, locale) : '—';
-}
-
-/** Rows are `<tr>` of `<td>` in `head` order; each cell gets its header as `data-label` for phone cards. */
-function Table({ head, children }: { head: string[]; children: ReactNode }) {
-  const rows = Children.map(children, (row) =>
-    isValidElement<{ children?: ReactNode }>(row)
-      ? cloneElement(
-          row,
-          undefined,
-          Children.map(row.props.children, (cell, index) =>
-            isValidElement<{ 'data-label'?: string }>(cell) && head[index]
-              ? cloneElement(cell, { 'data-label': head[index] })
-              : cell,
-          ),
-        )
-      : row,
-  );
-  return (
-    <div className="data-table-wrap tenant-table-wrap">
-      <table className="data-table data-table--stack tenant-table">
-        <thead>
-          <tr>
-            {head.map((label) => (
-              <th key={label}>{label}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{rows}</tbody>
-      </table>
-    </div>
-  );
 }
 
 type StatusTone = 'action' | 'good' | 'danger' | 'warn' | 'info' | 'quiet';
@@ -511,134 +477,137 @@ function contractStatusCell(contract: TenancyContract, ar: boolean) {
 
 function ContractsTable({ ar, locale, data }: Ctx) {
   const groups = tenancyContractGroups(data.contracts);
-  if (!groups.length) return <EmptyState title={ar ? 'لا عقود بعد' : 'No contracts yet'} />;
+  const columns: TenantTableColumn[] = [
+    { key: 'reference', label: ar ? 'العقد' : 'Contract' },
+    { key: 'unit', label: ar ? 'الوحدة' : 'Unit' },
+    { key: 'landlord', label: ar ? 'المالك' : 'Landlord' },
+    { key: 'startsOn', label: ar ? 'البداية' : 'Starts', kind: 'date' },
+    { key: 'endsOn', label: ar ? 'النهاية' : 'Ends', kind: 'date' },
+    { key: 'status', label: ar ? 'الحالة' : 'Status', kind: 'text' },
+    { key: 'amount', label: ar ? 'القيمة' : 'Value' },
+    { key: 'action', label: '', kind: 'none' },
+  ];
+  const rows: TenantTableRow[] = groups.map(({ root: contract, attachments }) => {
+    const endsOn = contractDisplayEndsOn(contract);
+    const daily = Boolean(contract.stayReference || contract.stayType);
+    const status = contractLifecycleLabel(contract, ar);
+    return {
+      id: contract.id,
+      values: {
+        reference: contract.reference,
+        unit: tenancyUnitLabel(contract, ar),
+        landlord: tenancyLandlordName(contract.landlord, ar),
+        startsOn: contract.startsOn?.slice(0, 10) ?? '',
+        endsOn: endsOn?.slice(0, 10) ?? '',
+        status: status.label,
+        amount: money(contract.amountMinor, contract.currency, locale),
+        action: '',
+      },
+      cells: [
+        <span key="ref" className="tenant-table__ref">
+          <bdi>{contract.reference}</bdi>
+          {attachments.length ? (
+            <small className="tenant-table__sub">
+              {ar ? `${attachments.length} مرفق` : `${attachments.length} attached`}
+            </small>
+          ) : null}
+        </span>,
+        <span key="unit">
+          {tenancyUnitLabel(contract, ar)}
+          {contract.stayReference ? (
+            <small className="tenant-table__sub">
+              {ar ? 'إقامة يومية' : 'Daily stay'} · <bdi>{contract.stayReference}</bdi>
+            </small>
+          ) : null}
+        </span>,
+        tenancyLandlordName(contract.landlord, ar),
+        dayWithTime(contract.startsOn, daily ? contract.checkInTime : null, ar),
+        dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar),
+        contractStatusCell(contract, ar),
+        money(contract.amountMinor, contract.currency, locale),
+        <Link
+          key="open"
+          className="button button--quiet button--sm"
+          href={`/tenant/contracts/${contract.id}`}
+        >
+          {ar ? 'عرض' : 'View'}
+        </Link>,
+      ],
+    };
+  });
   return (
-    <ul className="tenant-contract-list">
-      {groups.map(({ root: contract, attachments }) => {
-        const endsOn = contractDisplayEndsOn(contract);
-        const daily = Boolean(contract.stayReference || contract.stayType);
-        return (
-          <li key={contract.id} className="tenant-contract-card">
-            <div className="tenant-contract-card__main">
-              <div className="tenant-contract-card__head">
-                <bdi className="tenant-contract-card__ref">{contract.reference}</bdi>
-                {contractStatusCell(contract, ar)}
-              </div>
-              <dl className="tenant-contract-card__meta">
-                <div>
-                  <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
-                  <dd>
-                    {tenancyUnitLabel(contract, ar)}
-                    {contract.stayReference ? (
-                      <small className="tenant-table__sub">
-                        {ar ? 'إقامة يومية' : 'Daily stay'} · <bdi>{contract.stayReference}</bdi>
-                      </small>
-                    ) : null}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'المالك' : 'Landlord'}</dt>
-                  <dd>{tenancyLandlordName(contract.landlord, ar)}</dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'تاريخ البدء' : 'Starts'}</dt>
-                  <dd>
-                    {dayWithTime(
-                      contract.startsOn,
-                      daily ? contract.checkInTime : null,
-                      ar,
-                    )}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'تاريخ الانتهاء' : 'Ends'}</dt>
-                  <dd>
-                    {dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar)}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'الحالة' : 'Status'}</dt>
-                  <dd>{contractLifecycleLabel(contract, ar).label}</dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'القيمة' : 'Value'}</dt>
-                  <dd>{money(contract.amountMinor, contract.currency, locale)}</dd>
-                </div>
-              </dl>
-              {attachments.length ? (
-                <details className="tenant-contract-attach">
-                  <summary>
-                    {ar ? `المرفقات (${attachments.length})` : `Attached (${attachments.length})`}
-                  </summary>
-                  <ul>
-                    {attachments.map((item) => (
-                      <li key={item.id}>
-                        <Link href={`/tenant/contracts/${item.id}`}>
-                          <bdi>{item.reference}</bdi>
-                        </Link>
-                        <span>
-                          {tenancyContractKindLabel(item.kind, ar)} ·{' '}
-                          {domainStatusLabel(item.status, ar)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              ) : null}
-            </div>
-            <Link className="button button--secondary" href={`/tenant/contracts/${contract.id}`}>
-              {ar ? 'عرض العقد' : 'View contract'}
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
+    <FilterableTenantTable
+      columns={columns}
+      rows={rows}
+      ar={ar}
+      empty={ar ? 'لا عقود بعد.' : 'No contracts yet.'}
+      defaultSortKey="startsOn"
+    />
   );
 }
 
 function LeasesTable({ ar, locale, data }: Ctx) {
-  if (!data.leases.length) return <EmptyState title={ar ? 'لا إيجارات' : 'No leases'} />;
+  const columns: TenantTableColumn[] = [
+    { key: 'unit', label: ar ? 'الوحدة' : 'Unit' },
+    { key: 'landlord', label: ar ? 'المالك' : 'Landlord' },
+    { key: 'type', label: ar ? 'النوع' : 'Type' },
+    { key: 'startsOn', label: ar ? 'البداية' : 'Starts', kind: 'date' },
+    { key: 'endsOn', label: ar ? 'النهاية' : 'Ends', kind: 'date' },
+    { key: 'rent', label: ar ? 'الإيجار' : 'Rent' },
+    { key: 'status', label: ar ? 'الحالة' : 'Status' },
+    { key: 'action', label: '', kind: 'none' },
+  ];
+  const rows: TenantTableRow[] = data.leases.map((lease) => ({
+    id: lease.id,
+    values: {
+      unit: tenancyUnitLabel(lease, ar),
+      landlord: tenancyLandlordName(lease.landlord, ar),
+      type: lease.fromStay ? (ar ? 'إقامة يومية' : 'Daily stay') : ar ? 'إيجار' : 'Lease',
+      startsOn: lease.startsOn?.slice(0, 10) ?? '',
+      endsOn: lease.endsOn?.slice(0, 10) ?? '',
+      rent: money(lease.rentMinor, lease.currency, locale),
+      status: domainStatusLabel(lease.status, ar),
+      action: '',
+    },
+    cells: [
+      tenancyUnitLabel(lease, ar),
+      tenancyLandlordName(lease.landlord, ar),
+      lease.fromStay ? (ar ? 'إقامة يومية' : 'Daily stay') : ar ? 'إيجار' : 'Lease',
+      formatDate(lease.startsOn, ar),
+      formatDate(lease.endsOn, ar),
+      money(lease.rentMinor, lease.currency, locale),
+      <Status
+        key="status"
+        label={domainStatusLabel(lease.status, ar)}
+        tone={
+          lease.status === 'active'
+            ? 'good'
+            : lease.status === 'cancel_requested' || lease.status === 'clearance_pending'
+              ? 'warn'
+              : lease.status === 'cancelled' || lease.status === 'terminated'
+                ? 'quiet'
+                : lease.status === 'ended'
+                  ? 'info'
+                  : undefined
+        }
+      />,
+      lease.contractId ? (
+        <Link key="open" className="ops-action" href={`/tenant/contracts/${lease.contractId}`}>
+          {ar ? 'العقد' : 'Contract'}
+        </Link>
+      ) : (
+        '—'
+      ),
+    ],
+  }));
   return (
-    <Table
-      head={
-        ar
-          ? ['الوحدة', 'المالك', 'النوع', 'المدة', 'الإيجار', 'الحالة', '']
-          : ['Unit', 'Landlord', 'Type', 'Term', 'Rent', 'Status', '']
-      }
-    >
-      {data.leases.map((lease) => (
-        <tr key={lease.id}>
-          <td>{tenancyUnitLabel(lease, ar)}</td>
-          <td>{tenancyLandlordName(lease.landlord, ar)}</td>
-          <td>{lease.fromStay ? (ar ? 'إقامة يومية' : 'Daily stay') : ar ? 'إيجار' : 'Lease'}</td>
-          <td>{period(lease.startsOn, lease.endsOn, ar)}</td>
-          <td>{money(lease.rentMinor, lease.currency, locale)}</td>
-          <td>
-            <Status
-              label={domainStatusLabel(lease.status, ar)}
-              tone={
-                lease.status === 'active'
-                  ? 'good'
-                  : lease.status === 'cancel_requested' || lease.status === 'clearance_pending'
-                    ? 'warn'
-                    : lease.status === 'cancelled' || lease.status === 'terminated'
-                      ? 'quiet'
-                      : lease.status === 'ended'
-                        ? 'info'
-                        : undefined
-              }
-            />
-          </td>
-          <td>
-            {lease.contractId ? (
-              <Link className="ops-action" href={`/tenant/contracts/${lease.contractId}`}>
-                {ar ? 'العقد' : 'Contract'}
-              </Link>
-            ) : null}
-          </td>
-        </tr>
-      ))}
-    </Table>
+    <FilterableTenantTable
+      columns={columns}
+      rows={rows}
+      ar={ar}
+      empty={ar ? 'لا إيجارات.' : 'No leases.'}
+      defaultSortKey="startsOn"
+    />
   );
 }
 
@@ -654,179 +623,252 @@ function depositRefundStatusCell(refund: TenancyDepositRefund | null | undefined
 }
 
 function InvoicesTable({ ar, locale, data, openOnly = false }: Ctx & { openOnly?: boolean }) {
-  const rows = openOnly
+  const source = openOnly
     ? data.invoices.filter((invoice) => OPEN_INVOICE.has(invoice.status))
     : data.invoices;
-  if (!rows.length) {
-    return (
-      <EmptyState
-        title={
-          openOnly ? (ar ? 'لا فواتير مستحقة' : 'Nothing due') : ar ? 'لا فواتير' : 'No invoices'
-        }
-      />
-    );
-  }
+  const columns: TenantTableColumn[] = [
+    { key: 'number', label: ar ? 'الفاتورة' : 'Invoice' },
+    { key: 'landlord', label: ar ? 'المالك' : 'Landlord' },
+    { key: 'issuedOn', label: ar ? 'الإصدار' : 'Issued', kind: 'date' },
+    { key: 'dueOn', label: ar ? 'الاستحقاق' : 'Due', kind: 'date' },
+    { key: 'total', label: ar ? 'الإجمالي' : 'Total' },
+    { key: 'outstanding', label: ar ? 'المتبقي' : 'Outstanding' },
+    { key: 'status', label: ar ? 'الحالة' : 'Status' },
+    { key: 'action', label: '', kind: 'none' },
+  ];
+  const rows: TenantTableRow[] = source.map((invoice) => {
+    const refundStatus = depositRefundStatusCell(invoice.depositRefund, ar);
+    const statusLabel = invoice.depositRefund
+      ? tenantDepositRefundStatusLabel(tenantDepositRefundPhase(invoice.depositRefund), ar)
+      : domainStatusLabel(invoice.status, ar);
+    return {
+      id: invoice.id,
+      values: {
+        number: invoice.number,
+        landlord: tenancyLandlordName(invoice.landlord, ar),
+        issuedOn: invoice.issuedOn?.slice(0, 10) ?? '',
+        dueOn: invoice.dueOn?.slice(0, 10) ?? '',
+        total: money(invoice.totalMinor, invoice.currency, locale),
+        outstanding: money(invoiceOutstandingMinor(invoice), invoice.currency, locale),
+        status: statusLabel,
+        action: '',
+      },
+      cells: [
+        <span key="num" className="tenant-table__ref">
+          <bdi>{invoice.number}</bdi>
+          {invoice.stayReference ? (
+            <small className="tenant-table__sub">{ar ? 'إقامة يومية' : 'Daily stay'}</small>
+          ) : null}
+        </span>,
+        tenancyLandlordName(invoice.landlord, ar),
+        formatDate(invoice.issuedOn, ar),
+        formatDate(invoice.dueOn, ar),
+        money(invoice.totalMinor, invoice.currency, locale),
+        money(invoiceOutstandingMinor(invoice), invoice.currency, locale),
+        refundStatus ?? (
+          <Status
+            key="status"
+            label={domainStatusLabel(invoice.status, ar)}
+            tone={
+              invoice.status === 'overdue' || invoice.status === 'partially_paid'
+                ? invoice.status === 'overdue'
+                  ? 'danger'
+                  : 'action'
+                : invoice.status === 'paid'
+                  ? 'good'
+                  : undefined
+            }
+          />
+        ),
+        <span key="docs" className="tenant-doc-links">
+          {invoice.receiptHref ? (
+            <Link className="tenant-doc-link tenant-doc-link--receipt" href={invoice.receiptHref}>
+              {ar ? 'إيصال القبض' : 'Receipt'}
+            </Link>
+          ) : OPEN_INVOICE.has(invoice.status) ? (
+            <span className="tenant-doc-link tenant-doc-link--invoice">
+              {ar ? 'الفاتورة' : 'Invoice'}
+            </span>
+          ) : null}
+          {invoice.depositRefund?.transferReceiptHref ? (
+            <a
+              className="tenant-doc-link tenant-doc-link--receipt"
+              href={invoice.depositRefund.transferReceiptHref}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {ar ? 'إيصال التحويل' : 'Transfer slip'}
+            </a>
+          ) : null}
+          {invoice.depositRefund?.refundDocHref ? (
+            <Link
+              className="tenant-doc-link tenant-doc-link--receipt"
+              href={invoice.depositRefund.refundDocHref}
+            >
+              {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
+            </Link>
+          ) : null}
+        </span>,
+      ],
+    };
+  });
   return (
-    <Table
-      head={
-        ar
-          ? ['الفاتورة', 'المالك', 'تاريخ الإصدار', 'الاستحقاق', 'الإجمالي', 'المتبقي', 'الحالة', '']
-          : ['Invoice', 'Landlord', 'Issued', 'Due', 'Total', 'Outstanding', 'Status', '']
+    <FilterableTenantTable
+      columns={columns}
+      rows={rows}
+      ar={ar}
+      empty={
+        openOnly ? (ar ? 'لا فواتير مستحقة.' : 'Nothing due.') : ar ? 'لا فواتير.' : 'No invoices.'
       }
-    >
-      {rows.map((invoice) => {
-        const refundStatus = depositRefundStatusCell(invoice.depositRefund, ar);
-        return (
-          <tr key={invoice.id}>
-            <td className="tenant-table__ref">
-              <bdi>{invoice.number}</bdi>
-              {invoice.stayReference ? (
-                <small className="tenant-table__sub">
-                  {ar ? 'إقامة يومية' : 'Daily stay'}
-                </small>
-              ) : null}
-            </td>
-            <td>{tenancyLandlordName(invoice.landlord, ar)}</td>
-            <td>{formatDate(invoice.issuedOn, ar)}</td>
-            <td>{formatDate(invoice.dueOn, ar)}</td>
-            <td>{money(invoice.totalMinor, invoice.currency, locale)}</td>
-            <td>{money(invoiceOutstandingMinor(invoice), invoice.currency, locale)}</td>
-            <td>
-              {refundStatus ?? (
-                <Status
-                  label={domainStatusLabel(invoice.status, ar)}
-                  tone={
-                    invoice.status === 'overdue' || invoice.status === 'partially_paid'
-                      ? invoice.status === 'overdue'
-                        ? 'danger'
-                        : 'action'
-                      : invoice.status === 'paid'
-                        ? 'good'
-                        : undefined
-                  }
-                />
-              )}
-            </td>
-            <td>
-              <span className="tenant-doc-links">
-                {invoice.receiptHref ? (
-                  <Link
-                    className="tenant-doc-link tenant-doc-link--receipt"
-                    href={invoice.receiptHref}
-                  >
-                    {ar ? 'إيصال القبض' : 'Receipt'}
-                  </Link>
-                ) : OPEN_INVOICE.has(invoice.status) ? (
-                  <span className="tenant-doc-link tenant-doc-link--invoice">
-                    {ar ? 'الفاتورة' : 'Invoice'}
-                  </span>
-                ) : null}
-                {invoice.depositRefund?.transferReceiptHref ? (
-                  <a
-                    className="tenant-doc-link tenant-doc-link--receipt"
-                    href={invoice.depositRefund.transferReceiptHref}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {ar ? 'إيصال التحويل' : 'Transfer slip'}
-                  </a>
-                ) : null}
-                {invoice.depositRefund?.refundDocHref ? (
-                  <Link
-                    className="tenant-doc-link tenant-doc-link--receipt"
-                    href={invoice.depositRefund.refundDocHref}
-                  >
-                    {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
-                  </Link>
-                ) : null}
-              </span>
-            </td>
-          </tr>
-        );
-      })}
-    </Table>
+      defaultSortKey="dueOn"
+    />
   );
 }
 
 function PaymentsTable({ ar, locale, data }: Ctx) {
-  if (!data.payments.length) return <EmptyState title={ar ? 'لا مدفوعات' : 'No payments'} />;
-  return (
-    <Table
-      head={
-        ar
-          ? ['التاريخ', 'المرجع', 'المالك', 'المبلغ', 'المسترد', 'الطريقة', 'الحالة', '']
-          : ['Date', 'Reference', 'Landlord', 'Amount', 'Refunded', 'Method', 'Status', '']
-      }
-    >
-      {data.payments.map((payment) => {
+  const columns: TenantTableColumn[] = [
+    { key: 'receivedAt', label: ar ? 'التاريخ' : 'Date', kind: 'date' },
+    { key: 'reference', label: ar ? 'المرجع' : 'Reference' },
+    { key: 'landlord', label: ar ? 'المالك' : 'Landlord' },
+    { key: 'amount', label: ar ? 'المبلغ' : 'Amount' },
+    { key: 'refunded', label: ar ? 'المسترد' : 'Refunded' },
+    { key: 'method', label: ar ? 'الطريقة' : 'Method' },
+    { key: 'status', label: ar ? 'الحالة' : 'Status' },
+    { key: 'action', label: '', kind: 'none' },
+  ];
+  const rows: TenantTableRow[] = data.payments.map((payment) => {
         const hold = tenantPaymentHoldStatus(payment, ar);
         const amount = BigInt(payment.amountMinor || '0');
         const refundedRaw = BigInt(payment.refundedMinor || '0');
         const refunded = refundedRaw > amount ? amount : refundedRaw;
         const held = amount > refunded ? amount - refunded : 0n;
-        return (
-          <tr key={payment.id}>
-            <td>{formatDate(payment.receivedAt, ar)}</td>
-            <td className="tenant-table__ref">
+        const method = payment.stayReference
+          ? stayPaymentMethodLabel(payment.method, ar)
+          : payment.method || '—';
+        return {
+          id: payment.id,
+          values: {
+            receivedAt: payment.receivedAt?.slice(0, 10) ?? '',
+            reference: payment.invoiceNumber ?? '',
+            landlord: tenancyLandlordName(payment.landlord, ar),
+            amount: money(
+              payment.stayKind === 'deposit' ? held.toString() : payment.amountMinor,
+              payment.currency,
+              locale,
+            ),
+            refunded: refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '',
+            method,
+            status: hold.label,
+            action: '',
+          },
+          cells: [
+            formatDate(payment.receivedAt, ar),
+            <span key="ref" className="tenant-table__ref">
               <bdi>{payment.invoiceNumber}</bdi>
               <small className="tenant-table__sub">
                 {tenantPaymentCategoryLabel(payment.stayKind, ar)}
                 {payment.stayKind ? ` · ${stayPaymentKindLabel(payment.stayKind, ar)}` : ''}
               </small>
-            </td>
-            <td>{tenancyLandlordName(payment.landlord, ar)}</td>
-            <td>
-              {money(
-                payment.stayKind === 'deposit' ? held.toString() : payment.amountMinor,
-                payment.currency,
-                locale,
-              )}
-            </td>
-            <td>
-              {refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '—'}
-            </td>
-            <td>
-              {payment.stayReference
-                ? stayPaymentMethodLabel(payment.method, ar)
-                : payment.method}
-            </td>
-            <td>
-              <Status label={hold.label} tone={hold.tone} />
-            </td>
-            <td>
-              <span className="tenant-doc-links">
-                {payment.receiptHref ? (
-                  <Link
-                    className="tenant-doc-link tenant-doc-link--receipt"
-                    href={payment.receiptHref}
-                  >
-                    {ar ? 'إيصال القبض' : 'Receipt'}
-                  </Link>
-                ) : null}
-                {payment.depositRefund?.transferReceiptHref ? (
-                  <a
-                    className="tenant-doc-link tenant-doc-link--receipt"
-                    href={payment.depositRefund.transferReceiptHref}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {ar ? 'إيصال التحويل' : 'Transfer slip'}
-                  </a>
-                ) : null}
-                {payment.depositRefund?.refundDocHref ? (
-                  <Link
-                    className="tenant-doc-link tenant-doc-link--receipt"
-                    href={payment.depositRefund.refundDocHref}
-                  >
-                    {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
-                  </Link>
-                ) : null}
-              </span>
-            </td>
-          </tr>
-        );
-      })}
-    </Table>
+            </span>,
+            tenancyLandlordName(payment.landlord, ar),
+            money(
+              payment.stayKind === 'deposit' ? held.toString() : payment.amountMinor,
+              payment.currency,
+              locale,
+            ),
+            refunded > 0n ? money(refunded.toString(), payment.currency, locale) : '—',
+            method,
+            <Status key="hold" label={hold.label} tone={hold.tone} />,
+            <span key="docs" className="tenant-doc-links">
+              {payment.receiptHref ? (
+                <Link
+                  className="tenant-doc-link tenant-doc-link--receipt"
+                  href={payment.receiptHref}
+                >
+                  {ar ? 'إيصال القبض' : 'Receipt'}
+                </Link>
+              ) : null}
+              {payment.depositRefund?.transferReceiptHref ? (
+                <a
+                  className="tenant-doc-link tenant-doc-link--receipt"
+                  href={payment.depositRefund.transferReceiptHref}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {ar ? 'إيصال التحويل' : 'Transfer slip'}
+                </a>
+              ) : null}
+              {payment.depositRefund?.refundDocHref ? (
+                <Link
+                  className="tenant-doc-link tenant-doc-link--receipt"
+                  href={payment.depositRefund.refundDocHref}
+                >
+                  {ar ? 'مستند عكس المعاملة' : 'Reverse document'}
+                </Link>
+              ) : null}
+            </span>,
+          ],
+        };
+      });
+  return (
+    <FilterableTenantTable
+      columns={columns}
+      rows={rows}
+      ar={ar}
+      empty={ar ? 'لا مدفوعات.' : 'No payments.'}
+      defaultSortKey="receivedAt"
+    />
+  );
+}
+
+function BookingsTable({ ar, locale, data }: Ctx) {
+  const items = bookingPreviewItems(data, ar, locale);
+  const columns: TenantTableColumn[] = [
+    { key: 'kind', label: ar ? 'النوع' : 'Type' },
+    { key: 'title', label: ar ? 'العنوان' : 'Title' },
+    { key: 'summary', label: ar ? 'التفاصيل' : 'Details' },
+    { key: 'status', label: ar ? 'الحالة' : 'Status' },
+    { key: 'action', label: '', kind: 'none' },
+  ];
+  const rows: TenantTableRow[] = items.map((item) => ({
+    id: item.id,
+    values: {
+      kind: item.eyebrow ?? '',
+      title: item.title,
+      summary: item.summary ?? '',
+      status: typeof item.status === 'string' ? item.status : item.eyebrow ?? '',
+      action: '',
+    },
+    cells: [
+      item.eyebrow ?? '—',
+      item.title,
+      item.summary ?? '—',
+      item.status ?? '—',
+      item.href ? (
+        <Link key="open" className="button button--quiet button--sm" href={item.href}>
+          {item.hrefLabel ?? (ar ? 'فتح' : 'Open')}
+        </Link>
+      ) : (
+        '—'
+      ),
+    ],
+  }));
+  // Fix status values from facts for search
+  for (let i = 0; i < items.length; i += 1) {
+    const statusFact = items[i]!.facts.find((fact) =>
+      ar ? fact.label === 'الحالة' : fact.label === 'Status',
+    );
+    if (statusFact && typeof statusFact.value === 'string') {
+      rows[i]!.values.status = statusFact.value;
+    }
+  }
+  return (
+    <FilterableTenantTable
+      columns={columns}
+      rows={rows}
+      ar={ar}
+      empty={ar ? 'لا حجوزات بعد.' : 'No bookings yet.'}
+    />
   );
 }
 
@@ -1354,21 +1396,9 @@ export function TenantSpaceContent({
           </div>
         </header>
         {notice}
-        {view === 'bookings' ? (
-          <PreviewList
-            items={bookingPreviewItems(data, ar, locale)}
-            ar={ar}
-            empty={ar ? 'لا حجوزات بعد.' : 'No bookings yet.'}
-          />
-        ) : null}
+        {view === 'bookings' ? <BookingsTable ar={ar} locale={locale} data={data} /> : null}
         {view === 'contracts' ? <ContractsTable ar={ar} locale={locale} data={data} /> : null}
-        {view === 'leases' ? (
-          <PreviewList
-            items={leasePreviewItems(data, ar, locale)}
-            ar={ar}
-            empty={ar ? 'لا إيجارات.' : 'No leases.'}
-          />
-        ) : null}
+        {view === 'leases' ? <LeasesTable ar={ar} locale={locale} data={data} /> : null}
         {view === 'invoices' || view === 'payments' ? (
           <>
             {(() => {
@@ -1509,18 +1539,10 @@ export function TenantSpaceContent({
               <TenantStatements statements={longTermStatements} ar={ar} locale={locale} />
             </Section>
             <Section title={ar ? 'كل الفواتير الصادرة لك' : 'All invoices issued to you'}>
-              <PreviewList
-                items={invoicePreviewItems(data, ar, locale)}
-                ar={ar}
-                empty={ar ? 'لا فواتير.' : 'No invoices.'}
-              />
+              <InvoicesTable ar={ar} locale={locale} data={data} />
             </Section>
             <Section title={ar ? 'المدفوعات المباشرة' : 'Direct payments'}>
-              <PreviewList
-                items={paymentPreviewItems(data, ar, locale)}
-                ar={ar}
-                empty={ar ? 'لا مدفوعات.' : 'No payments.'}
-              />
+              <PaymentsTable ar={ar} locale={locale} data={data} />
             </Section>
           </>
         ) : null}

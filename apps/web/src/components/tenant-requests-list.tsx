@@ -1,12 +1,20 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useTransition, type ReactNode } from 'react';
+import { useMemo, useState, useTransition, type ReactNode } from 'react';
 import { NoteTranslateBar, TENANT_NOTE_SERVICE } from '@/components/note-translate';
+import { OpsThFilterHeader } from '@/components/ops-th-filter-header';
 import { RequestMediaButton, RequestMediaGallery } from '@/components/request-media';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
+import {
+  emptyOpsColumnFilter,
+  matchesOpsColumnFilter,
+  opsColumnFilterActive,
+  sortOpsColumnRows,
+  type OpsColumnTableFilter,
+} from '@/lib/ops-column-table';
 import {
   OPEN_TENANT_REQUEST,
   emergencyScopeLabel,
@@ -399,6 +407,51 @@ export function TenantRequestsList({
   locale: 'ar' | 'en';
 }) {
   const ar = locale === 'ar';
+  const [filter, setFilter] = useState<OpsColumnTableFilter>(() =>
+    emptyOpsColumnFilter('createdAt'),
+  );
+  const [openKey, setOpenKey] = useState<string | null>(null);
+
+  const columns = useMemo(
+    () => [
+      { key: 'type', label: ar ? 'النوع' : 'Type', kind: 'text' as const },
+      { key: 'reference', label: ar ? 'المرجع' : 'Reference', kind: 'text' as const },
+      { key: 'unit', label: ar ? 'الوحدة' : 'Unit', kind: 'text' as const },
+      { key: 'createdAt', label: ar ? 'التاريخ' : 'Date', kind: 'date' as const },
+      { key: 'status', label: ar ? 'الحالة' : 'Status', kind: 'text' as const },
+    ],
+    [ar],
+  );
+
+  const visible = useMemo(() => {
+    const records = requests.map((request) => ({
+      id: request.id,
+      type: tenantRequestTypeLabel(request.type, ar),
+      reference: request.reference,
+      unit:
+        (ar ? request.unitAr || request.unitEn : request.unitEn || request.unitAr) ??
+        request.unitCode ??
+        '',
+      createdAt: request.createdAt.slice(0, 10),
+      status: tenantRequestStatusLabel(request.status, ar),
+      request,
+    }));
+    const columnDefs = columns.map((column) => ({
+      key: column.key,
+      format: column.kind === 'date' ? ('date' as const) : undefined,
+    }));
+    const matched = records.filter((row) =>
+      matchesOpsColumnFilter(row, filter, columnDefs, (item, key) => item[key as keyof typeof item]),
+    );
+    return sortOpsColumnRows(
+      matched,
+      filter,
+      ar ? 'ar' : 'en',
+      (item, key) => item[key as keyof typeof item],
+      (key) => (key === 'createdAt' ? 'date' : undefined),
+    );
+  }, [requests, filter, ar, columns]);
+
   if (!requests.length) {
     return (
       <p className="dash-alerts__empty">
@@ -408,11 +461,58 @@ export function TenantRequestsList({
       </p>
     );
   }
+
   return (
-    <ul className="tenant-requests">
-      {requests.map((request) => (
-        <TenantRequestItem key={request.id} request={request} locale={locale} />
-      ))}
-    </ul>
+    <div className="tenant-requests-wrap">
+      <div className="data-table-wrap tenant-table-wrap">
+        {opsColumnFilterActive(filter) ? (
+          <div className="tenant-table-filter-bar">
+            <button
+              type="button"
+              className="button button--quiet button--sm"
+              onClick={() => {
+                setFilter(emptyOpsColumnFilter('createdAt'));
+                setOpenKey(null);
+              }}
+            >
+              {ar ? 'مسح التصفية' : 'Clear filters'}
+            </button>
+            <span className="ops-result-count">
+              {visible.length} {ar ? 'نتيجة' : 'results'}
+            </span>
+          </div>
+        ) : null}
+        <table className="data-table tenant-table">
+          <thead>
+            <tr>
+              {columns.map((column) => (
+                <OpsThFilterHeader
+                  key={column.key}
+                  label={column.label}
+                  columnKey={column.key}
+                  kind={column.kind}
+                  ar={ar}
+                  filter={filter}
+                  openKey={openKey}
+                  onOpenKey={setOpenKey}
+                  onFilterChange={setFilter}
+                />
+              ))}
+            </tr>
+          </thead>
+        </table>
+      </div>
+      {visible.length ? (
+        <ul className="tenant-requests">
+          {visible.map((row) => (
+            <TenantRequestItem key={row.id} request={row.request} locale={locale} />
+          ))}
+        </ul>
+      ) : (
+        <p className="tenant-home__calm">
+          {ar ? 'لا نتائج مطابقة للتصفية.' : 'No rows match these filters.'}
+        </p>
+      )}
+    </div>
   );
 }
