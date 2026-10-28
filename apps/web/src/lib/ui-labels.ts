@@ -139,6 +139,9 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
   rented: { ar: 'مؤجر', en: 'Rented' },
   upcoming_lease: { ar: 'مؤجر — يبدأ لاحقاً', en: 'Rented — starts later' },
   lease_completed: { ar: 'انتهت مدة الإيجار', en: 'Lease term ended' },
+  listed: { ar: 'معروض للإعلان', en: 'Listed' },
+  unlisted: { ar: 'غير معروض', en: 'Unlisted' },
+  hidden: { ar: 'مخفي', en: 'Hidden' },
 };
 
 const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
@@ -196,6 +199,92 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
     en: 'Client signed the contract — booking converted',
   },
   'reservation.handed_over': { ar: 'تسليم العقار للعميل', en: 'Premises handed over' },
+  'reservation.handover_evidence': {
+    ar: 'إثبات تسليم العقار',
+    en: 'Handover evidence recorded',
+  },
+  'reservation.handover_selfie': {
+    ar: 'صورة سيلفي للتسليم',
+    en: 'Handover selfie',
+  },
+  'reservation.handover_selfie_taken': {
+    ar: 'التقاط سيلفي التسليم',
+    en: 'Handover selfie taken',
+  },
+  'reservation.handover_handler_selfie': {
+    ar: 'سيلفي المسلِّم',
+    en: 'Handover staff selfie',
+  },
+  'reservation.handover_handler_selfie_taken': {
+    ar: 'التقاط سيلفي المسلِّم',
+    en: 'Handover staff selfie taken',
+  },
+  'reservation.handover_defects': {
+    ar: 'ملاحظات عيوب عند التسليم',
+    en: 'Handover defects noted',
+  },
+  'reservation.handover_defects_reported': {
+    ar: 'إبلاغ بعيوب بعد التسليم',
+    en: 'Handover defects reported',
+  },
+  'reservation.contract_esign_evidence': {
+    ar: 'إثبات توقيع عقد الحجز',
+    en: 'Reservation contract e-sign evidence',
+  },
+  'reservation.documents_package_sent': {
+    ar: 'إرسال حزمة مستندات الحجز',
+    en: 'Reservation documents package sent',
+  },
+  'reservation.documents_auto_accepted': {
+    ar: 'قبول مستندات الحجز تلقائياً',
+    en: 'Reservation documents auto-accepted',
+  },
+  'reservation.document_file': {
+    ar: 'ملف مستند للحجز',
+    en: 'Reservation document file',
+  },
+  'reservation.document_verified': {
+    ar: 'التحقق من مستند الحجز',
+    en: 'Reservation document verified',
+  },
+  'reservation.cheque_submitted': {
+    ar: 'تقديم شيك للحجز',
+    en: 'Reservation cheque submitted',
+  },
+  'reservation.cheque_file': {
+    ar: 'ملف شيك للحجز',
+    en: 'Reservation cheque file',
+  },
+  'reservation.cheque_approved': {
+    ar: 'اعتماد شيك الحجز',
+    en: 'Reservation cheque approved',
+  },
+  'reservation.auto_contract_skipped': {
+    ar: 'تخطي إنشاء العقد التلقائي',
+    en: 'Auto contract creation skipped',
+  },
+  'reservation.restored': { ar: 'استعادة حجز', en: 'Reservation restored' },
+  'reservation.cancelled': { ar: 'إلغاء حجز', en: 'Reservation cancelled' },
+  'reservation.tenant_attested': {
+    ar: 'إقرار المستأجر على الحجز',
+    en: 'Tenant attested the reservation',
+  },
+  'leasing.report_issued': {
+    ar: 'إصدار تقرير تأجير',
+    en: 'Leasing report issued',
+  },
+  'unit.listing_kept': {
+    ar: 'الإبقاء على عرض الوحدة',
+    en: 'Unit listing kept',
+  },
+  'unit.listing_hidden': {
+    ar: 'إخفاء عرض الوحدة',
+    en: 'Unit listing hidden',
+  },
+  'stay.deposit_refund.receipt_confirmed': {
+    ar: 'تأكيد استلام تحويل استرداد التأمين',
+    en: 'Stay deposit refund receipt confirmed',
+  },
   'contract.awaiting_counterparty': {
     ar: 'عقد بانتظار توقيع الطرف الثاني',
     en: 'Contract awaiting the other party',
@@ -368,6 +457,7 @@ export function apiReachabilityLabel(online: boolean, locale: LocaleLike): strin
 function humanizeKey(key: string, locale: LocaleLike): string {
   const cleaned = key.replace(/[._]/g, ' ').trim();
   if (!cleaned) return key;
-  if (isAr(locale)) return cleaned;
+  // Never leave raw English snake/dot keys in Arabic UI — show a clear placeholder.
+  if (isAr(locale)) return `نشاط: ${cleaned}`;
   return cleaned.replace(/\b\w/g, (ch) => ch.toUpperCase());
 }
