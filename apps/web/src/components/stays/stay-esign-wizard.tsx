@@ -24,9 +24,25 @@ export type StayEsignDocsReturn = {
   note: string;
   rejected: string[];
   locked: string[];
-  /** Absolute or relative URL to a locked capture the tenant can view but not replace. */
-  lockedFileUrl: (code: 'signature' | 'id-front' | 'id-back' | 'selfie') => string;
+  /**
+   * Base path for locked file previews, e.g.
+   * `/api/public/bookings/deposits/RSV-…/files` (no trailing slash).
+   * Must be a plain string — functions cannot cross the RSC→client boundary.
+   */
+  filesBase: string;
 };
+
+function lockedPreviewHref(filesBase: string, code: string): string {
+  const file =
+    code === 'civil_id_copy'
+      ? 'party-civil-id'
+      : code === 'passport_copy'
+        ? 'party-passport'
+        : code === 'cr_copy'
+          ? 'party-cr'
+          : code;
+  return `${filesBase}/${file}`;
+}
 
 export function StayEsignWizard({
   locale,
@@ -78,12 +94,20 @@ export function StayEsignWizard({
   const [signedAtLabel, setSignedAtLabel] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!docsReturn) return;
+    if (!docsReturn?.filesBase) return;
     // Locked previews use file URLs; open captures start empty.
-    if (locked.has('signature')) setSignatureDataUrl(docsReturn.lockedFileUrl('signature'));
-    if (locked.has('id-front')) setIdFront(docsReturn.lockedFileUrl('id-front'));
-    if (locked.has('id-back')) setIdBack(docsReturn.lockedFileUrl('id-back'));
-    if (locked.has('selfie')) setSelfie(docsReturn.lockedFileUrl('selfie'));
+    if (locked.has('signature')) {
+      setSignatureDataUrl(lockedPreviewHref(docsReturn.filesBase, 'signature'));
+    }
+    if (locked.has('id-front')) {
+      setIdFront(lockedPreviewHref(docsReturn.filesBase, 'id-front'));
+    }
+    if (locked.has('id-back')) {
+      setIdBack(lockedPreviewHref(docsReturn.filesBase, 'id-back'));
+    }
+    if (locked.has('selfie')) {
+      setSelfie(lockedPreviewHref(docsReturn.filesBase, 'selfie'));
+    }
   }, [docsReturn, locked]);
 
   const goToConfirmed = useCallback(() => {
@@ -272,16 +296,36 @@ export function StayEsignWizard({
       <div className="stay-esign__body">
         {step === 'contract' ? (
           <section className="stay-esign__panel stay-esign__panel--scroll">
-            {docsReturn?.note ? (
-              <p className="notice notice--info stay-esign__return-note" role="status">
-                {ar ? 'ملاحظة المالك: ' : 'Owner note: '}
-                «{docsReturn.note}»
-                {docsReturn.rejected.length
-                  ? ar
-                    ? ' — أعد التقاط المستندات المطلوبة فقط؛ المعتمدة مقفلة.'
-                    : ' — Re-capture only the requested documents; approved ones stay locked.'
-                  : null}
-              </p>
+            {docsReturn ? (
+              <div className="notice notice--info stay-esign__return-note" role="status">
+                {docsReturn.note ? (
+                  <p>
+                    {ar ? 'ملاحظة المالك: ' : 'Owner note: '}«{docsReturn.note}»
+                  </p>
+                ) : null}
+                {docsReturn.rejected.length ? (
+                  <p>
+                    {ar ? 'أعد التقاط: ' : 'Re-capture: '}
+                    <strong>
+                      {docsReturn.rejected
+                        .map((code) => {
+                          if (code === 'id-front') return ar ? 'الهوية — أمام' : 'ID — front';
+                          if (code === 'id-back') return ar ? 'الهوية — خلف' : 'ID — back';
+                          if (code === 'selfie') return ar ? 'السيلفي' : 'Selfie';
+                          if (code === 'signature') return ar ? 'التوقيع' : 'Signature';
+                          if (code === 'civil_id_copy')
+                            return ar ? 'نسخة البطاقة' : 'Civil ID copy';
+                          if (code === 'passport_copy')
+                            return ar ? 'نسخة الجواز' : 'Passport copy';
+                          if (code === 'cr_copy') return ar ? 'السجل التجاري' : 'CR copy';
+                          return code;
+                        })
+                        .join(ar ? '، ' : ', ')}
+                    </strong>
+                    {ar ? ' — المعتمدة مقفلة.' : ' — approved ones stay locked.'}
+                  </p>
+                ) : null}
+              </div>
             ) : null}
             <p className="muted stay-esign__lede">
               {contractTitle

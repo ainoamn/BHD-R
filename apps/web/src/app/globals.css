@@ -23962,6 +23962,66 @@ button.lrw__step-body:focus-visible {
 .stay-esign__return-note {
   margin: 0 0 0.75rem;
 }
+.stay-esign__return-note p {
+  margin: 0 0 0.35rem;
+}
+.stay-esign__return-note p:last-child {
+  margin-bottom: 0;
+}
+.booking-docs-return {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.75rem 0 1rem;
+}
+.booking-docs-return__note {
+  margin: 0;
+  white-space: pre-wrap;
+}
+.booking-docs-return__list {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.booking-docs-return__item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.35rem 0.65rem;
+  align-items: center;
+  padding: 0.5rem 0.65rem;
+  border-radius: 0.55rem;
+  border: 1px solid #e1e8e4;
+  background: #fff;
+}
+.booking-docs-return__item--fix {
+  border-inline-start: 4px solid #c98a12;
+  background: #fffaf0;
+}
+.booking-docs-return__item--lock {
+  border-inline-start: 4px solid #1f6b45;
+  background: #f3faf6;
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+}
+.booking-docs-return__item img {
+  width: 3.2rem;
+  height: 2.4rem;
+  object-fit: cover;
+  border-radius: 0.35rem;
+  background: #eef2f0;
+}
+.booking-docs-return__item small {
+  grid-column: 1 / -1;
+  color: #7a5a20;
+  font-size: 0.78rem;
+}
+.booking-docs-return__locked {
+  display: grid;
+  gap: 0.45rem;
+}
+.booking-docs-return__locked > strong {
+  font-size: 0.88rem;
+}
 @media (max-width: 420px) {
   .esign-review-grid {
     grid-template-columns: 1fr;

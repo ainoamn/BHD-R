@@ -16,7 +16,9 @@ import { compressImageFile } from '@/lib/compress-image';
 import { formatMoney } from '@/lib/format';
 import { leaseScreens, type LeaseJourneyProps } from '@/lib/lease-journey-screens';
 import {
+  BOOKING_IDENTITY_DOC_LABELS,
   REQUIREMENT_FILE_MAX_CHARS,
+  isBookingIdentityDocCode,
   leaseJourneyStageLabels,
 } from '@/lib/lease-reservation-lifecycle';
 import { OMAN_BANKS } from '@/lib/stay-deposit-refund';
@@ -113,6 +115,13 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
       ) : null}
       <h2>{screen.headline}</h2>
       <p>{screen.body}</p>
+      {screen.action === 'sign_terms' && props.lifecycle.bookingDocsReturn ? (
+        <BookingDocsReturnNotice
+          ar={ar}
+          referenceCode={plate}
+          docsReturn={props.lifecycle.bookingDocsReturn}
+        />
+      ) : null}
       {(props.lifecycle.electronic || props.lifecycle.contractAuto) && !past ? (
         <ElectronicApprovalNotice {...props} />
       ) : null}
@@ -168,6 +177,88 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
         </Link>
       ) : null}
     </section>
+  );
+}
+
+/** Owner returned specific booking identity docs — list what must be fixed. */
+function BookingDocsReturnNotice({
+  ar,
+  referenceCode,
+  docsReturn,
+}: {
+  ar: boolean;
+  referenceCode: string;
+  docsReturn: NonNullable<LeaseJourneyProps['lifecycle']['bookingDocsReturn']>;
+}) {
+  const rejected = (docsReturn.rejected ?? []).filter(isBookingIdentityDocCode);
+  const locked = (docsReturn.locked ?? []).filter(isBookingIdentityDocCode);
+  const filesBase = `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files`;
+  const fileOf = (code: string) => {
+    if (code === 'civil_id_copy') return `${filesBase}/party-civil-id`;
+    if (code === 'passport_copy') return `${filesBase}/party-passport`;
+    if (code === 'cr_copy') return `${filesBase}/party-cr`;
+    return `${filesBase}/${code}`;
+  };
+
+  return (
+    <div className="notice notice--warning booking-docs-return" role="status">
+      <strong>
+        {ar
+          ? 'المستندات المطلوب تعديلها'
+          : 'Documents that must be fixed'}
+      </strong>
+      {docsReturn.note ? (
+        <p className="booking-docs-return__note">
+          {ar ? 'ملاحظة المالك: ' : 'Owner note: '}«{docsReturn.note}»
+        </p>
+      ) : null}
+      {rejected.length ? (
+        <ul className="booking-docs-return__list">
+          {rejected.map((code) => {
+            const labels = BOOKING_IDENTITY_DOC_LABELS[code];
+            return (
+              <li key={code} className="booking-docs-return__item booking-docs-return__item--fix">
+                <span>{ar ? labels.ar : labels.en}</span>
+                <small>{ar ? 'أعد الالتقاط / الرفع' : 'Re-capture / re-upload'}</small>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="muted">
+          {ar
+            ? 'أعد رفع المستندات المطلوبة ثم وقّع من جديد.'
+            : 'Re-upload the requested documents and sign again.'}
+        </p>
+      )}
+      {locked.length ? (
+        <div className="booking-docs-return__locked">
+          <strong>{ar ? 'معتمدة ومقفلة (لا تُغيَّر)' : 'Approved & locked (unchanged)'}</strong>
+          <ul className="booking-docs-return__list">
+            {locked.map((code) => {
+              const labels = BOOKING_IDENTITY_DOC_LABELS[code];
+              const isImage =
+                code === 'id-front' ||
+                code === 'id-back' ||
+                code === 'selfie' ||
+                code === 'signature' ||
+                code === 'civil_id_copy' ||
+                code === 'passport_copy' ||
+                code === 'cr_copy';
+              return (
+                <li key={code} className="booking-docs-return__item booking-docs-return__item--lock">
+                  {isImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={fileOf(code)} alt="" loading="lazy" />
+                  ) : null}
+                  <span>{ar ? labels.ar : labels.en}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

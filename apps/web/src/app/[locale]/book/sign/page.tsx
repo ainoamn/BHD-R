@@ -142,8 +142,7 @@ export default async function LeaseBookingSignPage({
                 note: booking.lifecycle.bookingDocsReturn.note,
                 rejected: booking.lifecycle.bookingDocsReturn.rejected ?? [],
                 locked: booking.lifecycle.bookingDocsReturn.locked ?? [],
-                lockedFileUrl: (code) =>
-                  `/api/public/bookings/deposits/${encodeURIComponent(booking.referenceCode)}/files/${code}`,
+                filesBase: `/api/public/bookings/deposits/${encodeURIComponent(booking.referenceCode)}/files`,
               }
             : null
         }
