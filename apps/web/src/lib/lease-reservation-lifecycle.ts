@@ -156,6 +156,11 @@ export type ReservationLifecycle = {
     contractAuto: boolean;
     deferUntilHandover: Array<'meters' | 'handoverOn'>;
     requireTenantAttestation: boolean;
+    /**
+     * When true, staff may complete handover while auto-accepted documents/cheques
+     * still await manual verification. Review remains required; default is blocked.
+     */
+    allowHandoverBeforeDocVerify?: boolean;
   };
   /** Tenant confirmed docs accuracy and cancel-if-invalid responsibility. */
   tenantAttestation?: { at: string; accepted: true };
@@ -295,7 +300,10 @@ export type ReservationChequeSubmission = {
   note?: string | null;
   reviewedAt?: string | null;
   reviewedByName?: string | null;
+  /** Accepted by the system on the owner's behalf; the team still has to verify it. */
   autoApproved?: boolean;
+  verifiedAt?: string | null;
+  verifiedByName?: string | null;
 };
 
 /** A stored handover photo without its bytes. */
@@ -533,6 +541,39 @@ export function documentsToVerify(lifecycle: ReservationLifecycle | null | undef
   );
 }
 
+/** Cheques the system accepted on the owner's behalf that the team has not verified yet. */
+export function chequesToVerify(lifecycle: ReservationLifecycle | null | undefined) {
+  if (lifecycle?.cancellation || lifecycle?.handover) return [];
+  return (lifecycle?.chequeSubmissions ?? []).filter(
+    (item) => item.autoApproved && item.status === 'approved' && !item.verifiedAt,
+  );
+}
+
+/** Any auto-accepted document or cheque still waiting for a human verify/reject decision. */
+export function packageNeedsManualVerification(
+  lifecycle: ReservationLifecycle | null | undefined,
+): boolean {
+  return documentsToVerify(lifecycle).length > 0 || chequesToVerify(lifecycle).length > 0;
+}
+
+/** Policy snapshot: may hand over keys before every auto-accepted file is verified. */
+export function allowHandoverBeforeDocVerify(
+  lifecycle: ReservationLifecycle | null | undefined,
+): boolean {
+  return Boolean(lifecycle?.autoFlow?.allowHandoverBeforeDocVerify);
+}
+
+/**
+ * Handover must wait until the owner (or delegate) verifies every auto-accepted
+ * document and cheque, unless the org policy explicitly allows early handover.
+ */
+export function handoverBlockedByUnverifiedDocs(
+  lifecycle: ReservationLifecycle | null | undefined,
+): boolean {
+  if (!packageNeedsManualVerification(lifecycle)) return false;
+  return !allowHandoverBeforeDocVerify(lifecycle);
+}
+
 /** Any step the system approved for the owner, which the customer is told about. */
 export function approvedElectronically(lifecycle: ReservationLifecycle | null | undefined) {
   return Boolean(
@@ -665,12 +706,26 @@ export function leaseJourneyStageLabels(sale: boolean, ar: boolean): string[] {
 export function leasePhaseLabel(
   phase: LeaseJourneyPhase,
   ar: boolean,
-  options?: { docsReturnOpen?: boolean },
+  options?: {
+    docsReturnOpen?: boolean;
+    docsNeedVerify?: boolean;
+    viewer?: 'owner' | 'tenant';
+  },
 ): string {
   if (options?.docsReturnOpen && phase === 'awaiting_terms_signature') {
     return ar
       ? 'بانتظار إعادة رفع المستندات وتوقيع العميل'
       : 'Awaiting client document re-upload & signature';
+  }
+  if (options?.docsNeedVerify && (phase === 'awaiting_handover' || phase === 'awaiting_tenant_signature')) {
+    if (options.viewer === 'tenant') {
+      return ar
+        ? 'عقد موقّع — بانتظار اعتماد المستندات'
+        : 'Signed — awaiting document verification';
+    }
+    return ar
+      ? 'عقد موقّع — مستندات بانتظار اعتمادك'
+      : 'Signed — documents need your verification';
   }
   const labels: Record<LeaseJourneyPhase, [string, string]> = {
     awaiting_payment: ['بانتظار دفع العربون', 'Awaiting deposit'],

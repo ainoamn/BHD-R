@@ -35,16 +35,20 @@ import { DEFAULT_LEASE_DOCUMENT_RULES, type LeaseDocumentRules } from '@/lib/lea
 import {
   BOOKING_IDENTITY_DOC_LABELS,
   bookingIdentityFileKind,
+  chequesToVerify,
   documentsPhase,
   documentsToVerify,
   bookingDocsReturnOpen,
+  handoverBlockedByUnverifiedDocs,
   leaseJourneyStageIndex,
   leaseJourneyStageLabels,
   leasePhaseLabel,
   listBookingIdentityDocs,
+  packageNeedsManualVerification,
   REQUIREMENT_CATALOGUE,
   type BookingIdentityDocCode,
   type LeaseJourneyPhase,
+  type ReservationChequeSubmission,
   type ReservationLifecycle,
   type ReservationRequirement,
 } from '@/lib/lease-reservation-lifecycle';
@@ -676,11 +680,17 @@ function VerificationPanel({
   busy,
   fileHref,
   onVerify,
+  onVerifyCheque,
 }: Props & {
   busy: boolean;
   fileHref: (file: string) => string;
   onVerify: (
     code: string,
+    decision: 'verified' | 'rejected' | 'cancel_booking',
+    note?: string,
+  ) => Promise<void>;
+  onVerifyCheque: (
+    key: string,
     decision: 'verified' | 'rejected' | 'cancel_booking',
     note?: string,
   ) => Promise<void>;
@@ -690,23 +700,34 @@ function VerificationPanel({
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [note, setNote] = useState('');
-  const pending = documentsToVerify(lifecycle);
+  const pendingDocs = documentsToVerify(lifecycle);
+  const pendingCheques = chequesToVerify(lifecycle);
+  const instructions = lifecycle.chequeInstructions ?? [];
+  const chequeLabel = (row: ReservationChequeSubmission) => {
+    const instruction = instructions.find((item) => item.key === row.key);
+    return instruction
+      ? ar
+        ? instruction.labelAr
+        : instruction.labelEn || instruction.labelAr
+      : row.key;
+  };
+  if (!pendingDocs.length && !pendingCheques.length) return null;
   return (
     <div className="lrw__card lrw__card--verify">
       <h3>
         {t(
-          'تحقّق من المستندات المعتمدة إلكترونياً',
-          'Verify the electronically accepted documents',
+          'تحقّق من المستندات والشيكات المعتمدة إلكترونياً',
+          'Verify the electronically accepted documents and cheques',
         )}
       </h3>
       <p>
         {t(
-          'قبل النظام هذه المستندات نيابةً عنك. أكّد السليم، أو ارفض مع طلب استبدال. إلغاء الحجز خيار منفصل للمخالفة الجسيمة فقط.',
-          'The system accepted these for you. Confirm a valid file, or reject and ask for a replacement. Cancelling the booking is a separate choice for a serious violation only.',
+          'قبل النظام هذه الملفات نيابةً عنك عند اكتمال الرفع. العقد قد يُعتمد ويُوقَّع، لكن التسليم لا يكتمل حتى تعتمدها يدوياً (ما لم تسمح سياسة الضبط بالتجاوز). أكّد السليم، أو ارفض مع طلب استبدال.',
+          'The system accepted these when the client finished uploading. The contract may already be approved and signed, but handover stays blocked until you verify them manually (unless policy allows a bypass). Confirm valid files, or reject and ask for a replacement.',
         )}
       </p>
       <ul className="lrw__docs-list">
-        {pending.map((item) => (
+        {pendingDocs.map((item) => (
           <li key={item.code} className="lrw__doc lrw__doc--approved">
             <div className="lrw__doc-main">
               <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
@@ -733,7 +754,7 @@ function VerificationPanel({
                 className="button button--quiet"
                 disabled={busy}
                 onClick={() => {
-                  setRejecting(item.code);
+                  setRejecting(`doc:${item.code}`);
                   setCancelling(null);
                   setNote('');
                 }}
@@ -745,7 +766,7 @@ function VerificationPanel({
                 className="button button--quiet"
                 disabled={busy}
                 onClick={() => {
-                  setCancelling(item.code);
+                  setCancelling(`doc:${item.code}`);
                   setRejecting(null);
                   setNote('');
                 }}
@@ -753,7 +774,7 @@ function VerificationPanel({
                 {t('مخالف — إلغاء الحجز', 'Invalid — cancel booking')}
               </button>
             </div>
-            {rejecting === item.code ? (
+            {rejecting === `doc:${item.code}` ? (
               <form
                 className="lrw__reject"
                 onSubmit={(event) => {
@@ -804,7 +825,7 @@ function VerificationPanel({
                 </button>
               </form>
             ) : null}
-            {cancelling === item.code ? (
+            {cancelling === `doc:${item.code}` ? (
               <form
                 className="lrw__reject"
                 onSubmit={(event) => {
@@ -841,6 +862,148 @@ function VerificationPanel({
                     'The booking is cancelled at once and any issued contract is voided. Use this only for a serious violation — for a clearer photo choose “Reject & request replacement”.',
                   )}
                 </p>
+                <button type="submit" className="button button--danger" disabled={busy}>
+                  {t('تأكيد المخالفة وإلغاء الحجز', 'Confirm and cancel the booking')}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => setCancelling(null)}
+                >
+                  {t('تراجع', 'Back')}
+                </button>
+              </form>
+            ) : null}
+          </li>
+        ))}
+        {pendingCheques.map((item) => (
+          <li key={item.key} className="lrw__doc lrw__doc--approved">
+            <div className="lrw__doc-main">
+              <strong>{chequeLabel(item)}</strong>
+              <span className="lrw__doc-status">
+                {t('قُبل إلكترونياً — بانتظار اعتمادك', 'Accepted electronically — needs your verify')}
+              </span>
+              <span className="muted" dir="ltr">
+                #{item.chequeNumber}
+                {item.bankName ? ` · ${item.bankName}` : ''}
+                {item.accountNumber ? ` · ${item.accountNumber}` : ''}
+              </span>
+            </div>
+            <div className="lrw__doc-actions">
+              {item.file ? (
+                <ViewFileButton
+                  href={fileHref(`cheque-${item.key}`)}
+                  label={chequeLabel(item)}
+                  ar={ar}
+                />
+              ) : null}
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={busy}
+                onClick={() => void onVerifyCheque(item.key, 'verified')}
+              >
+                {t('الشيك سليم', 'Cheque is valid')}
+              </button>
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={busy}
+                onClick={() => {
+                  setRejecting(`cheque:${item.key}`);
+                  setCancelling(null);
+                  setNote('');
+                }}
+              >
+                {t('رفض وطلب استبدال', 'Reject & request replacement')}
+              </button>
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={busy}
+                onClick={() => {
+                  setCancelling(`cheque:${item.key}`);
+                  setRejecting(null);
+                  setNote('');
+                }}
+              >
+                {t('مخالف — إلغاء الحجز', 'Invalid — cancel booking')}
+              </button>
+            </div>
+            {rejecting === `cheque:${item.key}` ? (
+              <form
+                className="lrw__reject"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!note.trim()) return;
+                  void onVerifyCheque(item.key, 'rejected', note.trim()).then(() =>
+                    setRejecting(null),
+                  );
+                }}
+              >
+                <label htmlFor={`verify-cheque-${item.key}`}>
+                  {t('سبب الرفض (يظهر للعميل)', 'Reason (shown to the client)')}
+                </label>
+                <textarea
+                  id={`verify-cheque-${item.key}`}
+                  className="textarea"
+                  rows={2}
+                  value={note}
+                  maxLength={BOOKING_NOTE_MAX}
+                  required
+                  onChange={(event) => setNote(event.target.value)}
+                />
+                <NoteTranslateBar
+                  value={note}
+                  onChange={setNote}
+                  locale={locale}
+                  max={BOOKING_NOTE_MAX}
+                  disabled={busy}
+                  service={OWNER_NOTE_SERVICE}
+                />
+                <button type="submit" className="button button--primary" disabled={busy}>
+                  {t('تأكيد الرفض وطلب الاستبدال', 'Confirm reject & ask for replacement')}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => setRejecting(null)}
+                >
+                  {t('تراجع', 'Back')}
+                </button>
+              </form>
+            ) : null}
+            {cancelling === `cheque:${item.key}` ? (
+              <form
+                className="lrw__reject"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!note.trim()) return;
+                  void onVerifyCheque(item.key, 'cancel_booking', note.trim()).then(() =>
+                    setCancelling(null),
+                  );
+                }}
+              >
+                <label htmlFor={`cancel-cheque-${item.key}`}>
+                  {t('سبب المخالفة (يظهر للعميل)', 'What is wrong (shown to the client)')}
+                </label>
+                <textarea
+                  id={`cancel-cheque-${item.key}`}
+                  className="textarea"
+                  rows={2}
+                  value={note}
+                  maxLength={BOOKING_NOTE_MAX}
+                  required
+                  onChange={(event) => setNote(event.target.value)}
+                />
+                <NoteTranslateBar
+                  value={note}
+                  onChange={setNote}
+                  locale={locale}
+                  max={BOOKING_NOTE_MAX}
+                  disabled={busy}
+                  service={OWNER_NOTE_SERVICE}
+                />
                 <button type="submit" className="button button--danger" disabled={busy}>
                   {t('تأكيد المخالفة وإلغاء الحجز', 'Confirm and cancel the booking')}
                 </button>
@@ -981,6 +1144,8 @@ export function LeaseReservationWorkflow(serverProps: Props) {
             <h2>
               {leasePhaseLabel(phase, ar, {
                 docsReturnOpen: bookingDocsReturnOpen(lifecycle),
+                docsNeedVerify: packageNeedsManualVerification(lifecycle),
+                viewer: 'owner',
               })}
             </h2>
           </div>
@@ -1097,7 +1262,9 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               onCancel={(note) => act({ action: 'cancel_reservation', note })}
             />
 
-            {canManage && phase !== 'closed' && documentsToVerify(lifecycle).length ? (
+            {canManage &&
+            phase !== 'closed' &&
+            packageNeedsManualVerification(lifecycle) ? (
               <VerificationPanel
                 {...props}
                 busy={busy}
@@ -1115,6 +1282,14 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                         decision,
                         ...(note ? { note } : {}),
                       })
+                }
+                onVerifyCheque={(key, decision, note) =>
+                  act({
+                    action: 'verify_cheque',
+                    key,
+                    decision,
+                    ...(note ? { note } : {}),
+                  })
                 }
               />
             ) : null}
@@ -1287,6 +1462,14 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 <h3>
                   {t('تسليم العقار بمسح رمز المستأجر', 'Hand over by scanning the tenant’s code')}
                 </h3>
+                {packageNeedsManualVerification(lifecycle) ? (
+                  <p className="notice notice--warning" role="status">
+                    {t(
+                      `العقد معتمد وموقّع من الطرفين، لكن ${documentsToVerify(lifecycle).length + chequesToVerify(lifecycle).length} من المستندات/الشيكات ما زالت بانتظار اعتمادك اليدوي أعلاه. لا يُعتبر العقد تاماً وصالحاً للتسليم حتى تعتمدها كلها${handoverBlockedByUnverifiedDocs(lifecycle) ? ' — التسليم مقفل حتى ذلك' : ' — سياسة الضبط تسمح بالتجاوز لكن المراجعة تبقى واجبة'}.`,
+                      `The contract is approved and signed by both parties, but ${documentsToVerify(lifecycle).length + chequesToVerify(lifecycle).length} document(s)/cheque(s) still need your manual verification above. The contract is not complete for handover until you verify them all${handoverBlockedByUnverifiedDocs(lifecycle) ? ' — handover stays locked until then' : ' — policy allows a bypass, but review remains required'}.`,
+                    )}
+                  </p>
+                ) : null}
                 <p>
                   {t(
                     'العقد موقّع من الطرفين. عند حضور المستأجر لاستلام المفاتيح يعرض رمز التسليم المشفّر من حسابه، فيمسحه المالك أو ممثله أو حارس المبنى، فيلتقط كل من المستلم والمسلِّم صورة سيلفي في اللحظة نفسها، ثم يوثّق المسلِّم حالة العقار. بمجرد تسجيل المحضر يصبح التسليم نافذاً؛ يطّلع عليه المستأجر ويحق له الاعتراض خلال 3 ساعات.',
@@ -1311,9 +1494,18 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                   </li>
                 </ol>
                 <div className="lrw__handover-actions">
-                  <a className="button button--primary" href={`/${locale}/handover`}>
-                    {t('فتح شاشة التسليم', 'Open the handover screen')}
-                  </a>
+                  {handoverBlockedByUnverifiedDocs(lifecycle) ? (
+                    <button type="button" className="button button--primary" disabled>
+                      {t(
+                        'التسليم مقفل حتى اعتماد المستندات',
+                        'Handover locked until documents are verified',
+                      )}
+                    </button>
+                  ) : (
+                    <a className="button button--primary" href={`/${locale}/handover`}>
+                      {t('فتح شاشة التسليم', 'Open the handover screen')}
+                    </a>
+                  )}
                   {contractHref ? (
                     <a className="button button--quiet" href={contractHref}>
                       {t('عرض العقد الموقّع', 'View signed contract')}

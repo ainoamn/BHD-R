@@ -32,6 +32,14 @@ const bodySchema = z.discriminatedUnion('action', [
     .strict(),
   z
     .object({
+      action: z.literal('verify_cheque'),
+      key: z.string().regex(/^(rent|vat|deposit)-\d{1,3}$/),
+      decision: z.enum(['verified', 'rejected', 'cancel_booking']),
+      note: z.string().max(500).optional(),
+    })
+    .strict(),
+  z
+    .object({
       action: z.literal('save_contract'),
       lease: z
         .object({ unitId: uuid, tenant: leaseTenantSchema, terms: leaseTermsSchema })

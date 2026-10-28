@@ -30,6 +30,7 @@ import {
   REQUIREMENT_FILE_TYPES,
   chequeStatusesOf,
   handoverAwaitingTenant,
+  handoverBlockedByUnverifiedDocs,
   handoverDefectsOpen,
   handoverDefectsUntilFrom,
   handoverHandlerSelfie,
@@ -255,6 +256,12 @@ export type ReservationOwnerAction =
       action: 'verify_document';
       code: string;
       /** rejected = ask for a replacement; cancel_booking = void the booking. */
+      decision: 'verified' | 'rejected' | 'cancel_booking';
+      note?: string | undefined;
+    }
+  | {
+      action: 'verify_cheque';
+      key: string;
       decision: 'verified' | 'rejected' | 'cancel_booking';
       note?: string | undefined;
     }
@@ -710,6 +717,23 @@ function ownerStepNotice(
           : `راجع المالك المستند وطلب استبداله${input.note ? `: «${input.note}»` : ''}. ارفع نسخة أوضح من صفحة الحجز.`,
       };
     }
+    case 'verify_cheque': {
+      if (input.decision === 'cancel_booking') {
+        return {
+          subject: '⛔ أُلغي حجزك بسبب الشيكات',
+          title: 'أُلغي الحجز',
+          line: `بعد المراجعة تبيّن أن أحد الشيكات يخالف الاشتراطات${input.note ? `: «${input.note}»` : ''}. أُلغي الحجز كما نُبّهت عند الاعتماد الإلكتروني.`,
+        };
+      }
+      const ok = input.decision === 'verified';
+      return {
+        subject: ok ? '🏦 اعتُمد أحد شيكاتك' : '🏦 أحد شيكاتك يحتاج تعديلاً',
+        title: ok ? 'شيكك مقبول، أحسنت!' : 'شيك يحتاج إعادة رفع',
+        line: ok
+          ? 'راجع المالك الشيك واعتمده.'
+          : `راجع المالك الشيك وطلب استبداله${input.note ? `: «${input.note}»` : ''}. ارفع نسخة أوضح من صفحة الحجز.`,
+      };
+    }
     case 'review_document': {
       const ok = input.decision === 'approved';
       return {
@@ -990,6 +1014,61 @@ async function ownerActionInTx(
         break;
       }
 
+      case 'verify_cheque': {
+        const submissions = row.lifecycle.chequeSubmissions ?? [];
+        const target = submissions.find((item) => item.key === input.key);
+        if (!target) fail('requirement_not_found');
+        if (!target.autoApproved || target.verifiedAt || row.lifecycle.handover) {
+          fail('reservation_not_ready');
+        }
+        if (input.decision === 'verified') {
+          const next = submissions.map((item) =>
+            item.key === input.key ? { ...item, verifiedAt: at, verifiedByName: byName } : item,
+          );
+          await saveLifecycle(tx, row, { ...row.lifecycle, chequeSubmissions: next });
+          await event('reservation.cheque_verified', { key: input.key });
+          break;
+        }
+        const note = input.note?.trim().slice(0, 500) || null;
+        if (!note) fail('invalid_body');
+        const next = submissions.map((item) =>
+          item.key === input.key
+            ? {
+                ...item,
+                status: 'rejected' as const,
+                note,
+                autoApproved: false,
+                verifiedAt: null,
+                verifiedByName: null,
+                reviewedAt: at,
+                reviewedByName: byName,
+              }
+            : item,
+        );
+        if (input.decision === 'cancel_booking') {
+          await cancelReservationInTx(
+            tx,
+            row,
+            { ...row.lifecycle, chequeSubmissions: next },
+            {
+              actorUserId: claims.sub,
+              byName,
+              reason: 'documents_invalid',
+              note,
+              code: input.key,
+            },
+          );
+          break;
+        }
+        await saveLifecycle(tx, row, {
+          ...row.lifecycle,
+          chequeSubmissions: next,
+          customerDocumentsSentAt: null,
+        });
+        await event('reservation.cheque_rejected', { key: input.key, replacement: true });
+        break;
+      }
+
       case 'approve': {
         if (row.lifecycle.approval) break;
         if (phase !== 'awaiting_owner_approval' || row.status !== 'confirmed') {
@@ -1143,6 +1222,7 @@ async function ownerActionInTx(
             contractAuto: approvalPolicy.contract === 'auto',
             deferUntilHandover,
             requireTenantAttestation: approvalPolicy.requireTenantAttestation,
+            allowHandoverBeforeDocVerify: approvalPolicy.allowHandoverBeforeDocVerify,
           },
           chequePayableTo: chequeSeed.payableTo,
           chequeBankName: chequeSeed.bankName,
@@ -1301,6 +1381,7 @@ async function ownerActionInTx(
       case 'record_handover': {
         if (row.lifecycle.handover) break;
         if (!row.lifecycle.tenantSignature) fail('reservation_not_ready');
+        if (handoverBlockedByUnverifiedDocs(row.lifecycle)) fail('documents_incomplete');
         const recipientName = input.recipientName.trim().slice(0, 120);
         if (!/^\d{4}-\d{2}-\d{2}$/.test(input.on) || recipientName.length < 2) {
           fail('handover_invalid');
@@ -2888,6 +2969,7 @@ export async function offerHandover(
     if (!row.lifecycle.tenantSignature || (existing && existing.status !== 'awaiting_tenant')) {
       fail('reservation_not_ready');
     }
+    if (handoverBlockedByUnverifiedDocs(row.lifecycle)) fail('documents_incomplete');
     const now = new Date();
     const at = now.toISOString();
     const handlerSelfie = handoverHandlerSelfie(row.lifecycle, now);

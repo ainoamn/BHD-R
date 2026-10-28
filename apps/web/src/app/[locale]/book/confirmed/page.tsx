@@ -147,7 +147,18 @@ export default async function LeaseBookingConfirmedPage({
                     : ar
                       ? 'انتهت المهلة'
                       : 'Expired'
-                  : leasePhaseLabel(booking.phase, ar)}
+                  : leasePhaseLabel(booking.phase, ar, {
+                      docsNeedVerify:
+                        booking.lifecycle.requirements.some(
+                          (item) =>
+                            item.autoApproved && item.status === 'approved' && !item.verified,
+                        ) ||
+                        booking.lifecycle.cheques.some(
+                          (item) =>
+                            item.autoApproved && item.status === 'approved' && !item.verified,
+                        ),
+                      viewer: 'tenant',
+                    })}
               </span>
               <span className="guest-stay-detail__ref" dir="ltr">
                 {booking.referenceCode}

@@ -40,6 +40,11 @@ export type ApprovalPolicy = {
    * before uploading docs/cheques or signing the lease.
    */
   requireTenantAttestation: boolean;
+  /**
+   * Long-term leases: allow premises handover while auto-accepted documents/cheques
+   * still await manual verification. Review remains required either way; default blocks handover.
+   */
+  allowHandoverBeforeDocVerify: boolean;
   /** Require the customer / tenant electronic signature on this contract type. */
   electronicSignature: boolean;
   /**
@@ -71,6 +76,7 @@ export const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = {
   reschedule: 'auto',
   deferUntilHandover: [],
   requireTenantAttestation: true,
+  allowHandoverBeforeDocVerify: false,
   electronicSignature: true,
   viewingAutoSchedule: false,
 };
@@ -84,6 +90,7 @@ export const DEFAULT_APPROVAL_POLICY_BY_KIND: Record<ContractApprovalKind, Appro
     reschedule: 'auto',
     deferUntilHandover: [],
     requireTenantAttestation: false,
+    allowHandoverBeforeDocVerify: false,
     electronicSignature: true,
     viewingAutoSchedule: false,
   },
@@ -94,6 +101,7 @@ export const DEFAULT_APPROVAL_POLICY_BY_KIND: Record<ContractApprovalKind, Appro
     reschedule: 'auto',
     deferUntilHandover: [],
     requireTenantAttestation: true,
+    allowHandoverBeforeDocVerify: false,
     electronicSignature: true,
     viewingAutoSchedule: false,
   },
@@ -104,6 +112,7 @@ export const DEFAULT_APPROVAL_POLICY_BY_KIND: Record<ContractApprovalKind, Appro
     reschedule: 'auto',
     deferUntilHandover: [],
     requireTenantAttestation: true,
+    allowHandoverBeforeDocVerify: false,
     electronicSignature: true,
     viewingAutoSchedule: false,
   },
@@ -117,6 +126,7 @@ export const FULL_AUTO_APPROVAL_POLICY: ApprovalPolicy = {
   reschedule: 'auto',
   deferUntilHandover: ['meters', 'handoverOn'],
   requireTenantAttestation: true,
+  allowHandoverBeforeDocVerify: false,
   electronicSignature: true,
   viewingAutoSchedule: true,
 };
@@ -153,6 +163,8 @@ export function sanitizeApprovalPolicy(
       kind === 'daily'
         ? source.requireTenantAttestation === true
         : source.requireTenantAttestation !== false,
+    allowHandoverBeforeDocVerify:
+      kind === 'rent' ? source.allowHandoverBeforeDocVerify === true : false,
     electronicSignature: source.electronicSignature !== false,
     viewingAutoSchedule: source.viewingAutoSchedule === true,
   };

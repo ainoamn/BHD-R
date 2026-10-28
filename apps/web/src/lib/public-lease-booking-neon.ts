@@ -851,6 +851,9 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
         chequeNumber: submitted?.chequeNumber ?? null,
         fileName: submitted?.file?.name ?? null,
         submittedAt: submitted?.file?.submittedAt ?? null,
+        autoApproved: Boolean(submitted?.autoApproved),
+        verified:
+          Boolean(submitted?.verifiedAt) && submitted?.status === 'approved',
       };
     }),
     contract: lifecycle.contract

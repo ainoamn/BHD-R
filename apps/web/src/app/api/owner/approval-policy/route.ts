@@ -34,6 +34,7 @@ const bodySchema = z
           .max(2)
           .default([]),
         requireTenantAttestation: z.boolean().default(true),
+        allowHandoverBeforeDocVerify: z.boolean().default(false),
         electronicSignature: z.boolean().default(true),
         viewingAutoSchedule: z.boolean().default(false),
       })

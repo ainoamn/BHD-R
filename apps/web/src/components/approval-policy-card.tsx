@@ -31,6 +31,7 @@ export type ApprovalPolicyKindState = {
 function policyEqual(a: ApprovalPolicy, b: ApprovalPolicy): boolean {
   if (APPROVAL_STEPS.some((step) => a[step] !== b[step])) return false;
   if (a.requireTenantAttestation !== b.requireTenantAttestation) return false;
+  if (a.allowHandoverBeforeDocVerify !== b.allowHandoverBeforeDocVerify) return false;
   if (a.electronicSignature !== b.electronicSignature) return false;
   if (a.viewingAutoSchedule !== b.viewingAutoSchedule) return false;
   const left = [...a.deferUntilHandover].sort().join(',');
@@ -304,6 +305,42 @@ function KindEditor({
                     'Require tenant confirmation before uploads or contract signature',
                   )}
                 </strong>
+              </span>
+            </label>
+          </fieldset>
+
+          <fieldset className="approval-policy__step">
+            <legend>
+              {t('التسليم ومراجعة المستندات', 'Handover and document review')}
+            </legend>
+            <label
+              className={`approval-policy__option${
+                draft.allowHandoverBeforeDocVerify ? ' approval-policy__option--on' : ''
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={draft.allowHandoverBeforeDocVerify}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    allowHandoverBeforeDocVerify: event.target.checked,
+                  }))
+                }
+              />
+              <span>
+                <strong>
+                  {t(
+                    'السماح بتسليم المفاتيح قبل اكتمال اعتماد المستندات يدوياً',
+                    'Allow key handover before manual document verification is finished',
+                  )}
+                </strong>
+                <small className="muted">
+                  {t(
+                    'مراجعة المستندات تبقى مطلوبة دائماً. إن تُركت معطّلة (الافتراضي) لا يكتمل التسليم حتى تعتمد كل المستندات والشيكات.',
+                    'Document review remains required either way. When off (default), handover cannot complete until every document and cheque is verified.',
+                  )}
+                </small>
               </span>
             </label>
           </fieldset>

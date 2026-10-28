@@ -10,7 +10,11 @@ import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 import { ReservationActivityLog } from '@/components/reservation-activity-log';
-import { bookingDocsReturnOpen, leasePhaseLabel } from '@/lib/lease-reservation-lifecycle';
+import {
+  bookingDocsReturnOpen,
+  leasePhaseLabel,
+  packageNeedsManualVerification,
+} from '@/lib/lease-reservation-lifecycle';
 import type { loadLeaseBookingForStaff } from '@/lib/public-lease-booking-neon';
 
 export type LeaseReservationStaffView = NonNullable<
@@ -105,7 +109,13 @@ export function LeaseReservationDetail({
       </article>
       <article>
         <span>{ar ? 'حالة المسار' : 'Journey status'}</span>
-        <strong>{leasePhaseLabel(booking.phase, ar, { docsReturnOpen })}</strong>
+        <strong>
+          {leasePhaseLabel(booking.phase, ar, {
+            docsReturnOpen,
+            docsNeedVerify: packageNeedsManualVerification(booking.ownerLifecycle),
+            viewer: 'owner',
+          })}
+        </strong>
         <small>{ar ? (sale ? 'حجز شراء' : 'حجز إيجار') : sale ? 'Purchase' : 'Rent'}</small>
       </article>
     </section>

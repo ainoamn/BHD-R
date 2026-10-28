@@ -182,12 +182,29 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         ),
         action: 'documents',
       };
+    } else if (
+      requirements.some((item) => item.autoApproved && item.status === 'approved' && !item.verified) ||
+      (lifecycle.cheques ?? []).some(
+        (item) => item.autoApproved && item.status === 'approved' && !item.verified,
+      )
+    ) {
+      documents = {
+        headline: t(
+          'مستنداتك بانتظار اعتماد المالك 🔍',
+          'Your documents await owner verification 🔍',
+        ),
+        body: t(
+          'العقد قد يُعتمد ويُوقَّع، لكن المستندات والشيكات ما زالت بانتظار اعتماد المالك يدوياً. تظهر أدناه المعتمدة والمتبقية. إن اتضح أن المستندات أو البيانات غير صحيحة يحق للمؤجر إلغاء العقد مع تحمل المستأجر كافة التكاليف والمسؤولية.',
+          'The contract may be approved and signed, but documents and cheques still need the owner’s manual verification. Approved and remaining items are listed below. If anything proves incorrect, the landlord may cancel and you bear all costs and responsibility.',
+        ),
+        action: 'documents',
+      };
     } else if (requirements.some((item) => item.autoApproved)) {
       documents = {
         headline: t('قُبلت مستنداتك إلكترونياً 👌', 'Documents accepted electronically 👌'),
         body: t(
-          'قبل النظام مستنداتك إلكترونياً فور اكتمالها، وسيتحقق الفريق منها. إن تبيّن أن أي مستند يخالف الاشتراطات أو غير ملائم يُلغى الحجز مباشرة.',
-          'The system accepted your documents as soon as they were complete, and the team will verify them. If any breaks the requirements or is unsuitable, the booking is cancelled at once.',
+          'قبل النظام مستنداتك إلكترونياً فور اكتمالها، وتحقق منها الفريق. أحسنت!',
+          'The system accepted your documents electronically and the team verified them. Well done!',
         ),
         action: 'documents',
       };
@@ -267,10 +284,21 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         }
       : {
           headline: t('اقتربت لحظة استلام المفاتيح 🔑', 'Almost time for the keys 🔑'),
-          body: t(
-            'العقد موقّع من الطرفين. عند الاستلام اعرض رمز التسليم الظاهر في هذه الصفحة على المالك أو ممثله أو حارس المبنى ليمسحه؛ يُسجَّل المحضر ويصبح نافذاً دون حاجة لموافقتك، ويحق لك الاعتراض لاحقاً.',
-            'The contract is signed by both parties. At handover, show the code on this page to be scanned; the record is filed and takes effect without a separate approval, and you may object afterwards.',
-          ),
+          body:
+            requirements.some(
+              (item) => item.autoApproved && item.status === 'approved' && !item.verified,
+            ) ||
+            (lifecycle.cheques ?? []).some(
+              (item) => item.autoApproved && item.status === 'approved' && !item.verified,
+            )
+              ? t(
+                  'العقد موقّع من الطرفين، لكن المستندات ما زالت بانتظار اعتماد المالك. لا يكتمل التسليم قبل ذلك (ما لم تسمح سياسة العقار بالتجاوز). راجع قائمة المستندات في مرحلة المستندات.',
+                  'The contract is signed by both parties, but documents still await owner verification. Handover cannot complete until then (unless the property policy allows a bypass). Check the documents stage list.',
+                )
+              : t(
+                  'العقد موقّع من الطرفين. عند الاستلام اعرض رمز التسليم الظاهر في هذه الصفحة على المالك أو ممثله أو حارس المبنى ليمسحه؛ يُسجَّل المحضر ويصبح نافذاً دون حاجة لموافقتك، ويحق لك الاعتراض لاحقاً.',
+                  'The contract is signed by both parties. At handover, show the code on this page to be scanned; the record is filed and takes effect without a separate approval, and you may object afterwards.',
+                ),
           guide: [
             t(
               'رمز التسليم خاص بك ويتجدد تلقائياً كل خمس دقائق؛ لا تشاركه قبل وصولك.',

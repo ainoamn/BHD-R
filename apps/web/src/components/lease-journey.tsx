@@ -165,7 +165,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
       ) : null}
       {screen.action === 'documents' && past ? (
         <>
-          <LeaseDocumentList {...props} />
+          <LeaseDocuments {...props} />
           <LeaseCheques {...props} readOnly />
         </>
       ) : null}
@@ -750,22 +750,34 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   if (!lifecycle.requirements.length) return null;
 
   const cheques = lifecycle.cheques ?? [];
-  const remainingDocs = lifecycle.requirements.filter((item) => item.status !== 'approved');
-  const remainingCheques = cheques.filter((item) => item.status !== 'approved');
+  const needsTeamVerify = (item: {
+    status: string;
+    autoApproved?: boolean;
+    verified?: boolean;
+  }) => item.autoApproved && item.status === 'approved' && !item.verified;
+  const remainingDocs = lifecycle.requirements.filter(
+    (item) => item.status !== 'approved' || needsTeamVerify(item),
+  );
+  const remainingCheques = cheques.filter(
+    (item) => item.status !== 'approved' || needsTeamVerify(item),
+  );
   const remaining = [
     ...remainingDocs.map((item) => ({
       key: `doc-${item.code}`,
       status: item.status,
       label: ar ? item.labelAr : item.labelEn || item.labelAr,
+      pendingVerify: needsTeamVerify(item),
     })),
     ...remainingCheques.map((item) => ({
       key: `cheque-${item.key}`,
       status: item.status,
       label: ar ? item.labelAr : item.labelEn || item.labelAr,
+      pendingVerify: needsTeamVerify(item),
     })),
   ];
   const totalItems = lifecycle.requirements.length + cheques.length;
-  const approvedCount = totalItems - remaining.length;
+  const fullyApprovedCount = totalItems - remaining.length;
+  const pendingVerifyCount = remaining.filter((item) => item.pendingVerify).length;
 
   return (
     <div className="lease-docs-wrap">
@@ -775,11 +787,11 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       <ul className="doc-status-legend" aria-label={ar ? 'مفتاح الحالات' : 'Status key'}>
         <li>
           <DocStatusMark status="approved" ar={ar} viewer="tenant" />
-          <span>{ar ? 'معتمدة' : 'Approved'}</span>
+          <span>{ar ? 'معتمدة من المالك' : 'Owner-approved'}</span>
         </li>
         <li>
           <DocStatusMark status="submitted" ar={ar} viewer="tenant" />
-          <span>{ar ? 'بانتظار الاعتماد' : 'Awaiting approval'}</span>
+          <span>{ar ? 'بانتظار الاعتماد / التحقق' : 'Awaiting approval / verify'}</span>
         </li>
         <li>
           <DocStatusMark status="pending" ar={ar} viewer="tenant" />
@@ -793,28 +805,51 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       {remaining.length ? (
         <div className="lease-docs-remaining" role="status">
           <strong>
-            {ar
-              ? `المتبقي للاعتماد: ${remaining.length}`
-              : `Still awaiting approval: ${remaining.length}`}
+            {pendingVerifyCount
+              ? ar
+                ? `بانتظار اعتماد المالك: ${remaining.length}`
+                : `Awaiting owner verification: ${remaining.length}`
+              : ar
+                ? `المتبقي للاعتماد: ${remaining.length}`
+                : `Still awaiting approval: ${remaining.length}`}
           </strong>
           <span className="muted">
             {ar
-              ? `${approvedCount} معتمدة من ${totalItems}`
-              : `${approvedCount} of ${totalItems} approved`}
+              ? `${fullyApprovedCount} معتمدة نهائياً من ${totalItems}`
+              : `${fullyApprovedCount} of ${totalItems} fully approved`}
           </span>
           <ul className="lease-docs-remaining__list">
             {remaining.map((item) => (
               <li key={item.key}>
-                <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
+                <DocStatusMark
+                  status={item.pendingVerify ? 'submitted' : item.status}
+                  ar={ar}
+                  viewer="tenant"
+                />
                 <span>{item.label}</span>
-                <small>{docStatusLabel(item.status, ar, 'tenant')}</small>
+                <small>
+                  {item.pendingVerify
+                    ? ar
+                      ? 'قُبل إلكترونياً — قيد تحقق الفريق'
+                      : 'Accepted electronically — team verifying'
+                    : docStatusLabel(item.status, ar, 'tenant')}
+                </small>
               </li>
             ))}
           </ul>
+          {pendingVerifyCount ? (
+            <p className="notice notice--info">
+              {ar
+                ? 'العقد قد يكون معتمداً وموقّعاً، لكن المستندات أعلاه ما زالت بانتظار اعتماد المالك يدوياً. إن اتضح أن المستندات أو البيانات غير صحيحة يحق للمؤجر إلغاء العقد مع تحمل المستأجر كافة التكاليف والمسؤولية.'
+                : 'The contract may already be approved and signed, but the files above still need the owner’s manual verification. If documents or details prove incorrect, the landlord may cancel and you bear all costs and responsibility.'}
+            </p>
+          ) : null}
         </div>
       ) : (
         <p className="notice notice--success" role="status">
-          {ar ? 'كل المستندات والشيكات معتمدة ✓' : 'Every document and cheque is approved ✓'}
+          {ar
+            ? 'كل المستندات والشيكات معتمدة من المالك ✓'
+            : 'Every document and cheque is owner-approved ✓'}
         </p>
       )}
       {error ? (
@@ -1185,8 +1220,20 @@ function LeaseCheques({
                   <td>
                     <strong>{ar ? item.labelAr : item.labelEn}</strong>
                     <span className="lease-cheques__status">
-                      <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
-                      {docStatusLabel(item.status, ar, 'tenant')}
+                      <DocStatusMark
+                        status={
+                          item.autoApproved && item.status === 'approved' && !item.verified
+                            ? 'submitted'
+                            : item.status
+                        }
+                        ar={ar}
+                        viewer="tenant"
+                      />
+                      {item.autoApproved && item.status === 'approved' && !item.verified
+                        ? ar
+                          ? 'قُبل إلكترونياً — قيد تحقق الفريق'
+                          : 'Accepted electronically — team verifying'
+                        : docStatusLabel(item.status, ar, 'tenant')}
                     </span>
                     {item.status === 'rejected' && item.note ? (
                       <small className="lease-cheques__note">
