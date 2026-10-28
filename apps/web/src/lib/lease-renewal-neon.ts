@@ -2,7 +2,10 @@ import 'server-only';
 import { and, desc, eq } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import { contractTemplates, contracts, leases, parties, properties, units } from '@bhd-r/db';
-import { buildRenewalTermsDraft } from '@/lib/lease-terms-draft-from';
+import {
+  buildRenewalTermsDraft,
+  type RenewalPreviousMeters,
+} from '@/lib/lease-terms-draft-from';
 import type { LeaseTermsDraft, PaymentFrequency, PaymentMethod } from '@/lib/lease-terms';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
@@ -54,6 +57,8 @@ export type LeaseRenewalContext = {
   initialTenant: LeaseRenewalTenantSeed;
   /** Prefill for LeaseContractForm — VAT, extras, payee, deposit from previous contract. */
   initialTerms: LeaseTermsDraft;
+  /** Prior meter readings kept on the renewal form while optional new ones can be added. */
+  previousMeters: RenewalPreviousMeters;
   defaultTemplateVersionId: string;
   /** Day after current endsOn — start of the renewed period. */
   renewalStartsOn: string;
@@ -226,7 +231,7 @@ export async function loadLeaseRenewalContext(
         ? (nestedTerms as Record<string, unknown>)
         : null;
 
-    const initialTerms = buildRenewalTermsDraft({
+    const { draft: initialTerms, previousMeters } = buildRenewalTermsDraft({
       currency: lease.currency,
       renewalStartsOn,
       months: 12,
@@ -308,6 +313,7 @@ export async function loadLeaseRenewalContext(
       tenant: tenantRecord,
       initialTenant,
       initialTerms,
+      previousMeters,
       defaultTemplateVersionId,
       renewalStartsOn,
       templates: templateRows.map((row) => ({

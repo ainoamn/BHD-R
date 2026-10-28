@@ -131,15 +131,59 @@ export type RenewalSeedInput = {
   fallbackRentBankAccountId?: string | null;
 };
 
+export type RenewalPreviousMeters = {
+  electricityReading?: string | undefined;
+  waterReading?: string | undefined;
+  electricityReadingPhoto?: string | undefined;
+  waterReadingPhoto?: string | undefined;
+};
+
+export type RenewalTermsSeed = {
+  draft: LeaseTermsDraft;
+  previousMeters: RenewalPreviousMeters;
+};
+
+function metersFromRaw(raw: unknown): RenewalPreviousMeters {
+  if (!raw || typeof raw !== 'object') return {};
+  if (isLeaseTerms(raw)) {
+    return {
+      electricityReading: raw.meters.electricityReading ?? undefined,
+      waterReading: raw.meters.waterReading ?? undefined,
+    };
+  }
+  if (isLeaseTermsDraft(raw)) {
+    return {
+      electricityReading: raw.electricityReading || undefined,
+      waterReading: raw.waterReading || undefined,
+      electricityReadingPhoto: raw.electricityReadingPhoto || undefined,
+      waterReadingPhoto: raw.waterReadingPhoto || undefined,
+    };
+  }
+  const row = raw as Record<string, unknown>;
+  const meters =
+    row.meters && typeof row.meters === 'object'
+      ? (row.meters as Record<string, unknown>)
+      : row;
+  const text = (value: unknown) =>
+    typeof value === 'string' && value.trim() ? value.trim() : undefined;
+  return {
+    electricityReading: text(meters.electricityReading),
+    waterReading: text(meters.waterReading),
+    electricityReadingPhoto: text(meters.electricityReadingPhoto),
+    waterReadingPhoto: text(meters.waterReadingPhoto),
+  };
+}
+
 /**
  * Build renewal form draft from the previous contract:
  * carry VAT, extras, deposit, payee — shift dates to the new period.
  */
-export function buildRenewalTermsDraft(input: RenewalSeedInput): LeaseTermsDraft {
+export function buildRenewalTermsDraft(input: RenewalSeedInput): RenewalTermsSeed {
   const digits = minorDigitsFor(input.currency);
   const months = input.months && input.months > 0 ? input.months : 12;
   const startsOn = input.renewalStartsOn;
   const endsOn = endDateForMonths(startsOn, months);
+  const previousMeters = metersFromRaw(input.leaseTermsRaw);
 
   let base: LeaseTermsDraft | null = null;
   if (isLeaseTerms(input.leaseTermsRaw)) {
@@ -159,23 +203,26 @@ export function buildRenewalTermsDraft(input: RenewalSeedInput): LeaseTermsDraft
       frequency: base.paymentFrequency,
     });
     return {
-      ...base,
-      startsOn,
-      endsOn,
-      handoverOn: startsOn,
-      municipalFormNo: '',
-      municipalContractNo: '',
-      schedule: schedule.map((row) => ({
-        dueOn: row.dueOn,
-        rent: money(row.rentMinor, digits),
-        chequeNumber: '',
-        bankName: base.chequeBankName ?? '',
-      })),
-      vatChequeNumbers: [],
-      electricityReading: '',
-      waterReading: '',
-      electricityReadingPhoto: '',
-      waterReadingPhoto: '',
+      previousMeters,
+      draft: {
+        ...base,
+        startsOn,
+        endsOn,
+        handoverOn: startsOn,
+        municipalFormNo: '',
+        municipalContractNo: '',
+        schedule: schedule.map((row) => ({
+          dueOn: row.dueOn,
+          rent: money(row.rentMinor, digits),
+          chequeNumber: '',
+          bankName: base.chequeBankName ?? '',
+        })),
+        vatChequeNumbers: [],
+        electricityReading: '',
+        waterReading: '',
+        electricityReadingPhoto: '',
+        waterReadingPhoto: '',
+      },
     };
   }
 
@@ -192,53 +239,56 @@ export function buildRenewalTermsDraft(input: RenewalSeedInput): LeaseTermsDraft
   });
 
   return {
-    contractType: input.fallbackContractType || 'residential',
-    usageType: input.fallbackContractType || 'residential',
-    municipalFormNo: '',
-    municipalContractNo: '',
-    rentCalcMode: 'full',
-    monthlyRent: rent,
-    rentAreaSqm: '',
-    rentPerSqm: '',
-    handoverOn: startsOn,
-    startsOn,
-    endsOn,
-    paymentDay,
-    paymentMethod,
-    paymentFrequency,
-    vatEnabled: Boolean(input.fallbackVatEnabled),
-    vatRate: DEFAULT_VAT_RATE_PERCENT,
-    vatMode: 'with_rent' as VatMode,
-    vatChequeCount: '1',
-    municipalityFeeEnabled: true,
-    municipalityFeePayer: 'owner',
-    registrationFee: '1',
-    otherTaxName: '',
-    otherTaxRate: '',
-    graceAsDiscount: true,
-    deposit: input.depositMinor ? money(Number(input.depositMinor), digits) : rent,
-    depositItems: [],
-    chequeBankName: input.fallbackChequeBankName ?? '',
-    chequeAccountName: input.fallbackChequeAccountName ?? '',
-    rentBankAccountId: input.fallbackRentBankAccountId ?? '',
-    schedule: schedule.map((row) => ({
-      dueOn: row.dueOn,
-      rent: money(row.rentMinor, digits),
-      chequeNumber: '',
-      bankName: input.fallbackChequeBankName ?? '',
-    })),
-    vatChequeNumbers: [],
-    adjustments: (input.fallbackAdjustments ?? []).map((row) => ({
-      kind: row.kind,
-      title: row.title,
-      amount: money(Number(row.amountMinor), digits),
-      recurrence: 'monthly' as const,
-      scope: 'contract_end' as const,
-      months: '',
-    })),
-    electricityReading: '',
-    waterReading: '',
-    notes: '',
+    previousMeters,
+    draft: {
+      contractType: input.fallbackContractType || 'residential',
+      usageType: input.fallbackContractType || 'residential',
+      municipalFormNo: '',
+      municipalContractNo: '',
+      rentCalcMode: 'full',
+      monthlyRent: rent,
+      rentAreaSqm: '',
+      rentPerSqm: '',
+      handoverOn: startsOn,
+      startsOn,
+      endsOn,
+      paymentDay,
+      paymentMethod,
+      paymentFrequency,
+      vatEnabled: Boolean(input.fallbackVatEnabled),
+      vatRate: DEFAULT_VAT_RATE_PERCENT,
+      vatMode: 'with_rent' as VatMode,
+      vatChequeCount: '1',
+      municipalityFeeEnabled: true,
+      municipalityFeePayer: 'owner',
+      registrationFee: '1',
+      otherTaxName: '',
+      otherTaxRate: '',
+      graceAsDiscount: true,
+      deposit: input.depositMinor ? money(Number(input.depositMinor), digits) : rent,
+      depositItems: [],
+      chequeBankName: input.fallbackChequeBankName ?? '',
+      chequeAccountName: input.fallbackChequeAccountName ?? '',
+      rentBankAccountId: input.fallbackRentBankAccountId ?? '',
+      schedule: schedule.map((row) => ({
+        dueOn: row.dueOn,
+        rent: money(row.rentMinor, digits),
+        chequeNumber: '',
+        bankName: input.fallbackChequeBankName ?? '',
+      })),
+      vatChequeNumbers: [],
+      adjustments: (input.fallbackAdjustments ?? []).map((row) => ({
+        kind: row.kind,
+        title: row.title,
+        amount: money(Number(row.amountMinor), digits),
+        recurrence: 'monthly' as const,
+        scope: 'contract_end' as const,
+        months: '',
+      })),
+      electricityReading: '',
+      waterReading: '',
+      notes: '',
+    },
   };
 }
 

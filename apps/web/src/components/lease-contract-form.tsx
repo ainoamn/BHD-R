@@ -396,6 +396,14 @@ export type LeaseBankAccountOption = {
   propertyIds?: string[];
 };
 
+/** Prior contract meter snapshot shown on renewals (kept; new readings are optional). */
+export type LeasePreviousMeters = {
+  electricityReading?: string | undefined;
+  waterReading?: string | undefined;
+  electricityReadingPhoto?: string | undefined;
+  waterReadingPhoto?: string | undefined;
+};
+
 export function LeaseContractForm({
   units,
   tenants,
@@ -416,6 +424,8 @@ export function LeaseContractForm({
   municipalAfterHandover = false,
   lockTenantName = false,
   lockStartsOn = false,
+  renewalMode = false,
+  previousMeters = null,
   tenantFromDirectory = false,
   paidDepositMinor = null,
   arabonReceiptHref = null,
@@ -458,6 +468,13 @@ export function LeaseContractForm({
   lockTenantName?: boolean | undefined;
   /** Renewal: start date is fixed to the day after the previous contract ends. */
   lockStartsOn?: boolean | undefined;
+  /**
+   * Renewal addendum: lock main/tenant/rent; keep previous meters; only term length/end editable
+   * for rent section; taxes/extras/deposit stay editable.
+   */
+  renewalMode?: boolean | undefined;
+  /** Prior meter readings/photos kept on screen while optional new ones can be added. */
+  previousMeters?: LeasePreviousMeters | null | undefined;
   /**
    * Booking flow: tenant is loaded from the reservation; change only via address book
    * (or add a new contact), not by typing fields.
@@ -869,10 +886,40 @@ export function LeaseContractForm({
   }, [defaultSchedule, digits]);
 
   const deferMeters = deferUntilHandover.includes('meters');
-  const deferHandover = deferUntilHandover.includes('handoverOn');
+  const deferHandover = deferUntilHandover.includes('handoverOn') || renewalMode;
+  const hasPreviousMeters = Boolean(
+    previousMeters?.electricityReading?.trim() && previousMeters?.waterReading?.trim(),
+  );
+  /** Renewal: new meter entry is optional when the previous contract already has readings. */
+  const metersOptional = renewalMode && hasPreviousMeters;
+  const draftForCompute = useMemo((): LeaseTermsDraft => {
+    if (!renewalMode || !previousMeters) return draft;
+    return {
+      ...draft,
+      electricityReading:
+        draft.electricityReading?.trim() || previousMeters.electricityReading || '',
+      waterReading: draft.waterReading?.trim() || previousMeters.waterReading || '',
+      electricityReadingPhoto:
+        draft.electricityReadingPhoto?.trim() ||
+        previousMeters.electricityReadingPhoto ||
+        '',
+      waterReadingPhoto:
+        draft.waterReadingPhoto?.trim() || previousMeters.waterReadingPhoto || '',
+    };
+  }, [draft, renewalMode, previousMeters]);
   const result = useMemo(
-    () => computeLeaseTerms(draft, currency, digits, { deferUntilHandover }),
-    [draft, currency, digits, deferUntilHandover],
+    () =>
+      computeLeaseTerms(draftForCompute, currency, digits, {
+        deferUntilHandover: [
+          ...deferUntilHandover,
+          ...(metersOptional &&
+          !draft.electricityReading?.trim() &&
+          !draft.waterReading?.trim()
+            ? (['meters'] as const)
+            : []),
+        ],
+      }),
+    [draftForCompute, currency, digits, deferUntilHandover, metersOptional, draft.electricityReading, draft.waterReading],
   );
   const terms = result.ok ? result.terms : null;
   const missingFields = useMemo(
@@ -880,12 +927,12 @@ export function LeaseContractForm({
       missingLeaseContractFields({
         unitId,
         tenant,
-        draft,
+        draft: draftForCompute,
         digits,
-        deferMeters,
+        deferMeters: deferMeters || metersOptional,
         deferHandover,
       }),
-    [unitId, tenant, draft, digits, deferMeters, deferHandover],
+    [unitId, tenant, draftForCompute, digits, deferMeters, metersOptional, deferHandover],
   );
   const missingCodes = useMemo(
     () => new Set(missingFields.map((field) => field.code)),
@@ -1265,7 +1312,7 @@ export function LeaseContractForm({
     onSubmit({
       unitId,
       tenant: partyId ? { ...rest, partyId } : rest,
-      terms: draft,
+      terms: draftForCompute,
     });
   }
 
@@ -1359,6 +1406,14 @@ export function LeaseContractForm({
         active={stepActive('main')}
         title={t('📝 بيانات العقد الرئيسية', '📝 Main contract data')}
       >
+        {renewalMode ? (
+          <p className="muted lcf-help">
+            {t(
+              'بيانات العقد الرئيسية من العقد السابق — للقراءة فقط.',
+              'Main contract data from the previous contract — read only.',
+            )}
+          </p>
+        ) : null}
         <div className="form-grid">
           <Field
             id="lcf-unit"
@@ -1366,19 +1421,25 @@ export function LeaseContractForm({
             required
             missing={gap('unit')}
           >
-            <select
-              id="lcf-unit"
-              className="select"
-              required
-              value={unitId}
-              onChange={(event) => changeUnit(event.target.value)}
-            >
-              {units.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.code}
-                </option>
-              ))}
-            </select>
+            {renewalMode ? (
+              <output id="lcf-unit" className="input lcf-output" dir="ltr">
+                {unit?.code || '—'}
+              </output>
+            ) : (
+              <select
+                id="lcf-unit"
+                className="select"
+                required
+                value={unitId}
+                onChange={(event) => changeUnit(event.target.value)}
+              >
+                {units.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.code}
+                  </option>
+                ))}
+              </select>
+            )}
           </Field>
           <Field
             id="lcf-type"
@@ -1386,24 +1447,34 @@ export function LeaseContractForm({
             required
             missing={gap('contract_type')}
           >
-            <select
-              id="lcf-type"
-              className="select"
-              required
-              value={draft.contractType}
-              onChange={(event) => {
-                const value = event.target.value as LeaseTermsDraft['contractType'];
-                setDraft((current) => ({
-                  ...current,
-                  contractType: value,
-                  usageType: current.usageType || value,
-                }));
-              }}
-            >
-              <option value="">{t('— اختر —', '— Choose —')}</option>
-              <option value="residential">{t('سكني', 'Residential')}</option>
-              <option value="commercial">{t('تجاري', 'Commercial')}</option>
-            </select>
+            {renewalMode ? (
+              <output id="lcf-type" className="input lcf-output">
+                {draft.contractType === 'commercial'
+                  ? t('تجاري', 'Commercial')
+                  : draft.contractType === 'residential'
+                    ? t('سكني', 'Residential')
+                    : '—'}
+              </output>
+            ) : (
+              <select
+                id="lcf-type"
+                className="select"
+                required
+                value={draft.contractType}
+                onChange={(event) => {
+                  const value = event.target.value as LeaseTermsDraft['contractType'];
+                  setDraft((current) => ({
+                    ...current,
+                    contractType: value,
+                    usageType: current.usageType || value,
+                  }));
+                }}
+              >
+                <option value="">{t('— اختر —', '— Choose —')}</option>
+                <option value="residential">{t('سكني', 'Residential')}</option>
+                <option value="commercial">{t('تجاري', 'Commercial')}</option>
+              </select>
+            )}
           </Field>
           <Field
             id="lcf-usage"
@@ -1411,26 +1482,41 @@ export function LeaseContractForm({
             required
             missing={gap('usage_type')}
           >
-            <select
-              id="lcf-usage"
-              className="select"
-              required
-              value={draft.usageType}
-              onChange={(event) =>
-                set('usageType', event.target.value as LeaseTermsDraft['usageType'])
-              }
-            >
-              <option value="">{t('— اختر —', '— Choose —')}</option>
-              <option value="residential">{t('سكني', 'Residential')}</option>
-              <option value="commercial">{t('تجاري', 'Commercial')}</option>
-            </select>
+            {renewalMode ? (
+              <output id="lcf-usage" className="input lcf-output">
+                {draft.usageType === 'commercial'
+                  ? t('تجاري', 'Commercial')
+                  : draft.usageType === 'residential'
+                    ? t('سكني', 'Residential')
+                    : '—'}
+              </output>
+            ) : (
+              <select
+                id="lcf-usage"
+                className="select"
+                required
+                value={draft.usageType}
+                onChange={(event) =>
+                  set('usageType', event.target.value as LeaseTermsDraft['usageType'])
+                }
+              >
+                <option value="">{t('— اختر —', '— Choose —')}</option>
+                <option value="residential">{t('سكني', 'Residential')}</option>
+                <option value="commercial">{t('تجاري', 'Commercial')}</option>
+              </select>
+            )}
           </Field>
-          {municipalAfterHandover ? (
+          {municipalAfterHandover || renewalMode ? (
             <p className="muted span-2">
-              {t(
-                'رقم استمارة العقد البلدي ورقم العقد البلدي يُدخلان بعد تسليم العقار من صفحة الحجز.',
-                'Municipal form and contract numbers are entered after handover on the booking page.',
-              )}
+              {renewalMode
+                ? t(
+                    'أرقام الاستمارة والعقد البلدي تُحدَّث لاحقاً عند الحاجة بعد اعتماد التجديد.',
+                    'Municipal form/contract numbers can be updated later after the renewal is approved.',
+                  )
+                : t(
+                    'رقم استمارة العقد البلدي ورقم العقد البلدي يُدخلان بعد تسليم العقار من صفحة الحجز.',
+                    'Municipal form and contract numbers are entered after handover on the booking page.',
+                  )}
             </p>
           ) : (
             <>
@@ -1463,8 +1549,16 @@ export function LeaseContractForm({
       </Section>
 
       <Section tone="tenant" active={stepActive('tenant')} title={t('👤 المستأجر', '👤 Tenant')}>
+        {renewalMode ? (
+          <p className="muted lcf-help">
+            {t(
+              'المستأجر من العقد السابق — لا يمكن تغييره في ملحق التجديد.',
+              'Tenant from the previous contract — cannot be changed on the renewal addendum.',
+            )}
+          </p>
+        ) : null}
         <div className="form-grid">
-          {tenantFromDirectory || directory.length ? (
+          {!renewalMode && (tenantFromDirectory || directory.length) ? (
             <Field
               id="lcf-book"
               label={
@@ -1575,7 +1669,7 @@ export function LeaseContractForm({
               </div>
             </Field>
           ) : null}
-          {tenantFromDirectory && addingContact ? (
+          {!renewalMode && tenantFromDirectory && addingContact ? (
             <div className="lcf-add-contact span-2">
               <p className="muted">
                 {t(
@@ -1683,7 +1777,7 @@ export function LeaseContractForm({
             </div>
           ) : null}
           <Field id="lcf-entity" label={t('نوع الجهة المستأجرة', 'Lessee type')}>
-            {tenantFromDirectory ? (
+            {tenantFromDirectory || renewalMode ? (
               <output id="lcf-entity" className="input lcf-output">
                 {tenant.entityType === 'company' ? t('شركة', 'Company') : t('شخص', 'Person')}
               </output>
@@ -1707,16 +1801,18 @@ export function LeaseContractForm({
             required
             missing={gap('tenant_name')}
             hint={
-              tenantFromDirectory || lockTenantName
-                ? t(
-                    'يُجلب من بيانات الحجز أو جهة الاتصال المختارة. للتغيير اختر من دفتر العناوين أو أضف جهة جديدة.',
-                    'Taken from the booking or the chosen contact. To change, pick from the address book or add a contact.',
-                  )
-                : undefined
+              renewalMode
+                ? t('ثابت من العقد السابق.', 'Fixed from the previous contract.')
+                : tenantFromDirectory || lockTenantName
+                  ? t(
+                      'يُجلب من بيانات الحجز أو جهة الاتصال المختارة. للتغيير اختر من دفتر العناوين أو أضف جهة جديدة.',
+                      'Taken from the booking or the chosen contact. To change, pick from the address book or add a contact.',
+                    )
+                  : undefined
             }
           >
             <div className="lcf-name-with-nationality">
-              {tenantFromDirectory || lockTenantName ? (
+              {tenantFromDirectory || lockTenantName || renewalMode ? (
                 <output id="lcf-name-ar" className="input lcf-output" aria-live="polite">
                   {tenant.nameAr || '—'}
                 </output>
@@ -1744,7 +1840,7 @@ export function LeaseContractForm({
               ) : null}
             </div>
           </Field>
-          {showExtra || !(lockTenantName || tenantFromDirectory) ? (
+          {showExtra || !(lockTenantName || tenantFromDirectory || renewalMode) ? (
             <Field id="lcf-name-en" label={t('اسم المستأجر بالإنجليزية', 'Tenant name (English)')}>
               <input
                 id="lcf-name-en"
@@ -1752,7 +1848,7 @@ export function LeaseContractForm({
                 dir="ltr"
                 maxLength={200}
                 value={tenant.nameEn}
-                readOnly={lockTenantName || tenantFromDirectory}
+                readOnly={lockTenantName || tenantFromDirectory || renewalMode}
                 onChange={(event) => setTenantField('nameEn', event.target.value)}
               />
             </Field>
@@ -1771,7 +1867,7 @@ export function LeaseContractForm({
                   dir="ltr"
                   maxLength={40}
                   value={tenant.civilId}
-                  readOnly={tenantFromDirectory}
+                  readOnly={tenantFromDirectory || renewalMode}
                   onChange={(event) => setTenantField('civilId', event.target.value)}
                 />
               </Field>
@@ -1782,7 +1878,7 @@ export function LeaseContractForm({
                   dir="ltr"
                   maxLength={40}
                   value={tenant.passport}
-                  readOnly={tenantFromDirectory}
+                  readOnly={tenantFromDirectory || renewalMode}
                   onChange={(event) => setTenantField('passport', event.target.value)}
                 />
               </Field>
@@ -1804,7 +1900,7 @@ export function LeaseContractForm({
                   maxLength={80}
                   list={tenantFromDirectory ? undefined : 'lcf-nationalities'}
                   value={tenant.nationality}
-                  readOnly={tenantFromDirectory}
+                  readOnly={tenantFromDirectory || renewalMode}
                   onChange={(event) => setTenantField('nationality', event.target.value)}
                 />
                 {tenantFromDirectory ? null : (
@@ -1833,7 +1929,7 @@ export function LeaseContractForm({
                   dir="ltr"
                   maxLength={40}
                   value={tenant.crNumber}
-                  readOnly={tenantFromDirectory}
+                  readOnly={tenantFromDirectory || renewalMode}
                   onChange={(event) => setTenantField('crNumber', event.target.value)}
                 />
               </Field>
@@ -1848,7 +1944,7 @@ export function LeaseContractForm({
                   className="input"
                   type="date"
                   value={tenant.crExpiry}
-                  readOnly={tenantFromDirectory}
+                  readOnly={tenantFromDirectory || renewalMode}
                   onChange={(event) => setTenantField('crExpiry', event.target.value)}
                 />
               </Field>
@@ -1863,7 +1959,7 @@ export function LeaseContractForm({
                   className="input"
                   maxLength={200}
                   value={tenant.signatoryName}
-                  readOnly={tenantFromDirectory}
+                  readOnly={tenantFromDirectory || renewalMode}
                   onChange={(event) => setTenantField('signatoryName', event.target.value)}
                 />
               </Field>
@@ -1874,7 +1970,7 @@ export function LeaseContractForm({
                   dir="ltr"
                   maxLength={40}
                   value={tenant.signatoryCivilId}
-                  readOnly={tenantFromDirectory}
+                  readOnly={tenantFromDirectory || renewalMode}
                   onChange={(event) => setTenantField('signatoryCivilId', event.target.value)}
                 />
               </Field>
@@ -1896,7 +1992,7 @@ export function LeaseContractForm({
                   maxLength={80}
                   list={tenantFromDirectory ? undefined : 'lcf-sign-nationalities'}
                   value={tenant.signatoryNationality}
-                  readOnly={tenantFromDirectory}
+                  readOnly={tenantFromDirectory || renewalMode}
                   onChange={(event) =>
                     setTenantField('signatoryNationality', event.target.value)
                   }
@@ -1927,7 +2023,7 @@ export function LeaseContractForm({
               dir="ltr"
               maxLength={40}
               value={tenant.phone}
-              readOnly={tenantFromDirectory}
+              readOnly={tenantFromDirectory || renewalMode}
               onChange={(event) => setTenantField('phone', event.target.value)}
             />
           </Field>
@@ -1939,7 +2035,7 @@ export function LeaseContractForm({
               dir="ltr"
               maxLength={320}
               value={tenant.email}
-              readOnly={tenantFromDirectory}
+              readOnly={tenantFromDirectory || renewalMode}
               onChange={(event) => setTenantField('email', event.target.value)}
             />
           </Field>
@@ -1991,18 +2087,60 @@ export function LeaseContractForm({
             <dd dir="ltr">{unit?.waterMeter || '—'}</dd>
           </div>
         </dl>
+        {renewalMode &&
+        (previousMeters?.electricityReading || previousMeters?.waterReading) ? (
+          <div className="lcf-previous-meters notice" role="status">
+            <strong>{t('القراءات السابقة (محفوظة)', 'Previous readings (kept)')}</strong>
+            <dl className="lcf-facts">
+              <div>
+                <dt>{t('كهرباء', 'Electricity')}</dt>
+                <dd dir="ltr">{previousMeters?.electricityReading || '—'}</dd>
+              </div>
+              <div>
+                <dt>{t('ماء', 'Water')}</dt>
+                <dd dir="ltr">{previousMeters?.waterReading || '—'}</dd>
+              </div>
+            </dl>
+            <div className="lcf-previous-meters__photos">
+              {previousMeters?.electricityReadingPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previousMeters.electricityReadingPhoto}
+                  alt={t('صورة عداد الكهرباء السابقة', 'Previous electricity meter photo')}
+                  className="lcf-meter-thumb"
+                />
+              ) : null}
+              {previousMeters?.waterReadingPhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={previousMeters.waterReadingPhoto}
+                  alt={t('صورة عداد الماء السابقة', 'Previous water meter photo')}
+                  className="lcf-meter-thumb"
+                />
+              ) : null}
+            </div>
+            <p className="muted">
+              {t(
+                'يمكنك إضافة قراءة ومرفق جديدين للتجديد؛ إن تركتها فارغة تُعتمد القراءات السابقة.',
+                'You may add a new reading and attachment for the renewal; if left blank, previous readings are kept.',
+              )}
+            </p>
+          </div>
+        ) : null}
         <div className="form-grid">
           <Field
             id="lcf-elec"
             label={
-              deferMeters
-                ? t(
-                    'قراءة عداد الكهرباء (بعد التسليم — الإدارة)',
-                    'Electricity reading (admin after handover)',
-                  )
-                : t('قراءة عداد الكهرباء', 'Electricity meter reading')
+              renewalMode
+                ? t('قراءة كهرباء جديدة (اختياري)', 'New electricity reading (optional)')
+                : deferMeters
+                  ? t(
+                      'قراءة عداد الكهرباء (بعد التسليم — الإدارة)',
+                      'Electricity reading (admin after handover)',
+                    )
+                  : t('قراءة عداد الكهرباء', 'Electricity meter reading')
             }
-            required={!deferMeters}
+            required={!deferMeters && !metersOptional}
             missing={gap('electricity')}
           >
             <input
@@ -2010,7 +2148,7 @@ export function LeaseContractForm({
               className="input"
               dir="ltr"
               inputMode="decimal"
-              required={!deferMeters}
+              required={!deferMeters && !metersOptional}
               disabled={deferMeters}
               maxLength={40}
               value={draft.electricityReading ?? ''}
@@ -2020,14 +2158,16 @@ export function LeaseContractForm({
           <Field
             id="lcf-elec-photo"
             label={
-              deferMeters
-                ? t(
-                    'صورة عداد الكهرباء (بعد التسليم — الإدارة)',
-                    'Electricity meter photo (admin after handover)',
-                  )
-                : t('صورة عداد الكهرباء', 'Electricity meter photo')
+              renewalMode
+                ? t('مرفق عداد الكهرباء الجديد (اختياري)', 'New electricity meter photo (optional)')
+                : deferMeters
+                  ? t(
+                      'صورة عداد الكهرباء (بعد التسليم — الإدارة)',
+                      'Electricity meter photo (admin after handover)',
+                    )
+                  : t('صورة عداد الكهرباء', 'Electricity meter photo')
             }
-            required={!deferMeters}
+            required={!deferMeters && !metersOptional}
             missing={gap('electricity_photo')}
           >
             <input
@@ -2036,7 +2176,7 @@ export function LeaseContractForm({
               type="file"
               accept="image/*"
               disabled={deferMeters}
-              required={!deferMeters && !draft.electricityReadingPhoto}
+              required={!deferMeters && !metersOptional && !draft.electricityReadingPhoto}
               onChange={(event) =>
                 void readMeterPhoto(event.target.files?.[0] ?? null, 'electricityReadingPhoto')
               }
@@ -2049,11 +2189,13 @@ export function LeaseContractForm({
           <Field
             id="lcf-water"
             label={
-              deferMeters
-                ? t('قراءة عداد الماء (بعد التسليم — الإدارة)', 'Water reading (admin after handover)')
-                : t('قراءة عداد الماء', 'Water meter reading')
+              renewalMode
+                ? t('قراءة ماء جديدة (اختياري)', 'New water reading (optional)')
+                : deferMeters
+                  ? t('قراءة عداد الماء (بعد التسليم — الإدارة)', 'Water reading (admin after handover)')
+                  : t('قراءة عداد الماء', 'Water meter reading')
             }
-            required={!deferMeters}
+            required={!deferMeters && !metersOptional}
             missing={gap('water')}
           >
             <input
@@ -2061,7 +2203,7 @@ export function LeaseContractForm({
               className="input"
               dir="ltr"
               inputMode="decimal"
-              required={!deferMeters}
+              required={!deferMeters && !metersOptional}
               disabled={deferMeters}
               maxLength={40}
               value={draft.waterReading ?? ''}
@@ -2071,14 +2213,16 @@ export function LeaseContractForm({
           <Field
             id="lcf-water-photo"
             label={
-              deferMeters
-                ? t(
-                    'صورة عداد الماء (بعد التسليم — الإدارة)',
-                    'Water meter photo (admin after handover)',
-                  )
-                : t('صورة عداد الماء', 'Water meter photo')
+              renewalMode
+                ? t('مرفق عداد الماء الجديد (اختياري)', 'New water meter photo (optional)')
+                : deferMeters
+                  ? t(
+                      'صورة عداد الماء (بعد التسليم — الإدارة)',
+                      'Water meter photo (admin after handover)',
+                    )
+                  : t('صورة عداد الماء', 'Water meter photo')
             }
-            required={!deferMeters}
+            required={!deferMeters && !metersOptional}
             missing={gap('water_photo')}
           >
             <input
@@ -2087,7 +2231,7 @@ export function LeaseContractForm({
               type="file"
               accept="image/*"
               disabled={deferMeters}
-              required={!deferMeters && !draft.waterReadingPhoto}
+              required={!deferMeters && !metersOptional && !draft.waterReadingPhoto}
               onChange={(event) =>
                 void readMeterPhoto(event.target.files?.[0] ?? null, 'waterReadingPhoto')
               }
@@ -2098,7 +2242,7 @@ export function LeaseContractForm({
             ) : null}
           </Field>
         </div>
-        {deferMeters ? (
+        {deferMeters && !renewalMode ? (
           <p className="muted lcf-help">
             {t(
               'قراءات وصوَر العدادات وبيانات العقد البلدي يُكملها المالك/الإدارة إلزامياً من صفحة الحجز بعد التسليم — ليست من شاشة التسليم.',
@@ -2109,19 +2253,35 @@ export function LeaseContractForm({
       </Section>
 
       <Section tone="rent" active={stepActive('rent')} title={t('💰 الإيجار والمدة', '💰 Rent & term')}>
+        {renewalMode ? (
+          <p className="muted lcf-help">
+            {t(
+              'الإيجار وطريقة احتسابه من العقد السابق (للقراءة فقط). عدّل مدة التجديد وتاريخ النهاية فقط.',
+              'Rent and calculation mode come from the previous contract (read only). Only edit the renewal term length and end date.',
+            )}
+          </p>
+        ) : null}
         <div className="form-grid">
           <Field id="lcf-calc" label={t('طريقة احتساب الإيجار', 'Rent calculation mode')}>
-            <select
-              id="lcf-calc"
-              className="select"
-              value={draft.rentCalcMode}
-              onChange={(event) =>
-                set('rentCalcMode', event.target.value as LeaseTermsDraft['rentCalcMode'])
-              }
-            >
-              <option value="full">{t('إيجار كامل', 'Full rent')}</option>
-              <option value="per_meter">{t('إيجار بالمتر', 'Per meter')}</option>
-            </select>
+            {renewalMode ? (
+              <output id="lcf-calc" className="input lcf-output">
+                {draft.rentCalcMode === 'per_meter'
+                  ? t('إيجار بالمتر', 'Per meter')
+                  : t('إيجار كامل', 'Full rent')}
+              </output>
+            ) : (
+              <select
+                id="lcf-calc"
+                className="select"
+                value={draft.rentCalcMode}
+                onChange={(event) =>
+                  set('rentCalcMode', event.target.value as LeaseTermsDraft['rentCalcMode'])
+                }
+              >
+                <option value="full">{t('إيجار كامل', 'Full rent')}</option>
+                <option value="per_meter">{t('إيجار بالمتر', 'Per meter')}</option>
+              </select>
+            )}
           </Field>
           {draft.rentCalcMode === 'per_meter' ? (
             <>
@@ -2131,16 +2291,22 @@ export function LeaseContractForm({
                 required
                 missing={gap('area')}
               >
-                <input
-                  id="lcf-area"
-                  className="input"
-                  dir="ltr"
-                  inputMode="decimal"
-                  required
-                  pattern="\d{1,7}(\.\d{1,2})?"
-                  value={draft.rentAreaSqm ?? ''}
-                  onChange={(event) => set('rentAreaSqm', event.target.value)}
-                />
+                {renewalMode ? (
+                  <output id="lcf-area" className="input lcf-output" dir="ltr">
+                    {draft.rentAreaSqm || '—'}
+                  </output>
+                ) : (
+                  <input
+                    id="lcf-area"
+                    className="input"
+                    dir="ltr"
+                    inputMode="decimal"
+                    required
+                    pattern="\d{1,7}(\.\d{1,2})?"
+                    value={draft.rentAreaSqm ?? ''}
+                    onChange={(event) => set('rentAreaSqm', event.target.value)}
+                  />
+                )}
               </Field>
               <Field
                 id="lcf-rate"
@@ -2148,16 +2314,22 @@ export function LeaseContractForm({
                 required
                 missing={gap('rent_sqm')}
               >
-                <input
-                  id="lcf-rate"
-                  className="input"
-                  dir="ltr"
-                  inputMode="decimal"
-                  required
-                  pattern={MONEY_PATTERN}
-                  value={draft.rentPerSqm ?? ''}
-                  onChange={(event) => set('rentPerSqm', event.target.value)}
-                />
+                {renewalMode ? (
+                  <output id="lcf-rate" className="input lcf-output" dir="ltr">
+                    {draft.rentPerSqm || '—'}
+                  </output>
+                ) : (
+                  <input
+                    id="lcf-rate"
+                    className="input"
+                    dir="ltr"
+                    inputMode="decimal"
+                    required
+                    pattern={MONEY_PATTERN}
+                    value={draft.rentPerSqm ?? ''}
+                    onChange={(event) => set('rentPerSqm', event.target.value)}
+                  />
+                )}
               </Field>
               <Field
                 id="lcf-rent-calc"
@@ -2175,19 +2347,32 @@ export function LeaseContractForm({
               required
               missing={gap('monthly_rent')}
             >
-              <input
-                id="lcf-rent"
-                className="input"
-                dir="ltr"
-                inputMode="decimal"
-                required
-                pattern={MONEY_PATTERN}
-                value={draft.monthlyRent}
-                onChange={(event) => set('monthlyRent', event.target.value)}
-              />
+              {renewalMode ? (
+                <output id="lcf-rent" className="input lcf-output" dir="ltr">
+                  {draft.monthlyRent || '—'}
+                </output>
+              ) : (
+                <input
+                  id="lcf-rent"
+                  className="input"
+                  dir="ltr"
+                  inputMode="decimal"
+                  required
+                  pattern={MONEY_PATTERN}
+                  value={draft.monthlyRent}
+                  onChange={(event) => set('monthlyRent', event.target.value)}
+                />
+              )}
             </Field>
           )}
-          <Field id="lcf-months" label={t('مدة العقد (شهور)', 'Contract period (months)')}>
+          <Field
+            id="lcf-months"
+            label={
+              renewalMode
+                ? t('مدة التجديد (شهور)', 'Renewal term (months)')
+                : t('مدة العقد (شهور)', 'Contract period (months)')
+            }
+          >
             <input
               id="lcf-months"
               className="input"
@@ -2209,33 +2394,46 @@ export function LeaseContractForm({
           <Field
             id="lcf-handover"
             label={
-              deferHandover
-                ? t('تاريخ استلام الوحدة (مؤجّل للتسليم)', 'Unit handover date (deferred to handover)')
-                : t('تاريخ استلام الوحدة', 'Unit handover date')
+              renewalMode
+                ? t('تاريخ استلام الوحدة (من العقد السابق)', 'Unit handover (from previous contract)')
+                : deferHandover
+                  ? t('تاريخ استلام الوحدة (مؤجّل للتسليم)', 'Unit handover date (deferred to handover)')
+                  : t('تاريخ استلام الوحدة', 'Unit handover date')
             }
             required={!deferHandover}
             missing={gap('handover')}
             hint={
-              deferHandover
+              renewalMode
                 ? t(
-                    'حسب ضبط الاعتماد: يُستكمل عند التسليم بعد توقيع المستأجر.',
-                    'Per approval settings: completed at handover after the tenant signs.',
+                    'للتجديد تُعتبر بداية الفترة الجديدة يوم الاستلام (بدون فترة سماح جديدة ما لم تُضبط لاحقاً).',
+                    'For renewal, the new period start is treated as handover (no new grace unless set later).',
                   )
-                : t(
-                    'إلزامي لحساب فترة السماح من الاستلام إلى البداية.',
-                    'Required to compute the grace period from handover to start.',
-                  )
+                : deferHandover
+                  ? t(
+                      'حسب ضبط الاعتماد: يُستكمل عند التسليم بعد توقيع المستأجر.',
+                      'Per approval settings: completed at handover after the tenant signs.',
+                    )
+                  : t(
+                      'إلزامي لحساب فترة السماح من الاستلام إلى البداية.',
+                      'Required to compute the grace period from handover to start.',
+                    )
             }
           >
-            <input
-              id="lcf-handover"
-              className="input"
-              type="date"
-              required={!deferHandover}
-              max={draft.startsOn}
-              value={draft.handoverOn ?? ''}
-              onChange={(event) => set('handoverOn', event.target.value)}
-            />
+            {renewalMode ? (
+              <output id="lcf-handover" className="input lcf-output" dir="ltr">
+                {draft.handoverOn || draft.startsOn || '—'}
+              </output>
+            ) : (
+              <input
+                id="lcf-handover"
+                className="input"
+                type="date"
+                required={!deferHandover}
+                max={draft.startsOn}
+                value={draft.handoverOn ?? ''}
+                onChange={(event) => set('handoverOn', event.target.value)}
+              />
+            )}
           </Field>
           <Field
             id="lcf-start"
@@ -2268,7 +2466,11 @@ export function LeaseContractForm({
           </Field>
           <Field
             id="lcf-end"
-            label={t('تاريخ النهاية', 'End date')}
+            label={
+              renewalMode
+                ? t('تاريخ نهاية التجديد', 'Renewal end date')
+                : t('تاريخ النهاية', 'End date')
+            }
             required
             missing={gap('ends')}
             hint={t(
@@ -2406,6 +2608,14 @@ export function LeaseContractForm({
       </Section>
 
       <Section tone="tax" active={stepActive('taxes')} title={t('🧾 الضرائب والرسوم', '🧾 Taxes & fees')}>
+        {renewalMode ? (
+          <p className="muted lcf-help">
+            {t(
+              'منسوخة من العقد السابق — يمكن تعديلها أو إضافة رسوم أخرى.',
+              'Copied from the previous contract — editable; you may add more fees.',
+            )}
+          </p>
+        ) : null}
         <div className="form-grid">
           <Field
             id="lcf-vat"
@@ -2567,6 +2777,14 @@ export function LeaseContractForm({
         active={stepActive('extras')}
         title={t('➕ مبالغ إضافية / خصومات', '➕ Extra charges & discounts')}
       >
+        {renewalMode ? (
+          <p className="muted lcf-help">
+            {t(
+              'البنود السابقة معبأة مسبقاً — عدّل أو احذف أو أضف بنوداً جديدة للتجديد.',
+              'Previous lines are prefilled — edit, remove, or add new ones for the renewal.',
+            )}
+          </p>
+        ) : null}
         <p className="muted lcf-help">
           {t(
             'حدّد هل المبلغ يُدفع مرة واحدة أو مع التجديد أو كل 3 أشهر أو شهرياً، وحتى نهاية العقد أو سنة أو مدة مخصصة.',
@@ -2713,6 +2931,14 @@ export function LeaseContractForm({
         active={stepActive('deposit')}
         title={t('🛡️ التأمين (الوديعة)', '🛡️ Insurance (deposit)')}
       >
+        {renewalMode ? (
+          <p className="muted lcf-help">
+            {t(
+              'مبلغ التأمين من العقد السابق — يمكن تعديله أو تحديث طريقة الدفع لبنود التأمين.',
+              'Deposit amount from the previous contract — editable, including deposit payment lines.',
+            )}
+          </p>
+        ) : null}
         <div className="form-grid">
           <Field
             id="lcf-deposit"

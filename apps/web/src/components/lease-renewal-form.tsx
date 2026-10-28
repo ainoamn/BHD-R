@@ -364,8 +364,9 @@ export function LeaseRenewalForm({
         propertyId={context.property.id}
         lockTenantName
         lockStartsOn
+        renewalMode
+        previousMeters={context.previousMeters}
         tenantFromDirectory
-        deferUntilHandover={['meters']}
         municipalAfterHandover
         initialTenant={context.initialTenant}
         initialTerms={terms}
