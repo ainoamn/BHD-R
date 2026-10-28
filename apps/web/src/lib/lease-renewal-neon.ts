@@ -20,6 +20,11 @@ import {
   nextChildContractSequence,
 } from '@bhd-r/domain';
 import { sanitizeRichText } from '@bhd-r/security';
+import {
+  ELECTRONIC_RENEWAL_NOTICE,
+  ELECTRONIC_RENEWAL_NOTICE_VERSION,
+  type ElectronicRenewalDocumentation,
+} from '@/lib/electronic-renewal-notice';
 import { appLink, notifyInTx } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import {
@@ -574,6 +579,13 @@ export async function createLeaseRenewalOnNeon(
       cheques: chequeInputs,
       requirements,
       renewalDocuments: [] as RenewalDocumentUpload[],
+      electronicNotice: {
+        version: ELECTRONIC_RENEWAL_NOTICE.version,
+        titleAr: ELECTRONIC_RENEWAL_NOTICE.titleAr,
+        titleEn: ELECTRONIC_RENEWAL_NOTICE.titleEn,
+        bodyAr: ELECTRONIC_RENEWAL_NOTICE.bodyAr,
+        bodyEn: ELECTRONIC_RENEWAL_NOTICE.bodyEn,
+      },
       approval: {
         mode: ownerSignsNow ? 'awaiting_counterparty' : 'awaiting_manager',
         byUserId: claims.sub,
@@ -1053,5 +1065,359 @@ export async function uploadRenewalDocumentOnNeon(
       .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, orgId)));
 
     return { code, uploadedAt };
+  });
+}
+
+/**
+ * Tenant completes the renewal package: required docs + consent → system records
+ * the e-signature, marks the addendum signed, queues clearance, and notifies both sides.
+ */
+export async function completeTenantRenewalPackageOnNeon(
+  claims: SessionClaims,
+  contractId: string,
+  input: { endsOn?: string | undefined; consentAccepted: boolean },
+): Promise<{ contractId: string; status: 'signed'; reference: string | null }> {
+  if (!input.consentAccepted) fail('renewal_consent_required');
+  const orgId = claims.organizationId ?? fail('organization_required');
+  const partyId = claims.partyId ?? fail('forbidden');
+
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${contractId}, 59))`);
+    const contract = await tx.query.contracts.findFirst({
+      where: and(
+        eq(contracts.id, contractId),
+        eq(contracts.organizationId, orgId),
+        eq(contracts.tenantPartyId, partyId),
+        eq(contracts.kind, 'renewal'),
+      ),
+    });
+    if (!contract) fail('contract_not_found');
+    if (!['sent', 'partially_signed'].includes(contract.status)) fail('renewal_not_deliverable');
+    if (contract.status === 'signed') {
+      return {
+        contractId: contract.id,
+        status: 'signed' as const,
+        reference: contract.reference,
+      };
+    }
+
+    const snapshot = { ...(contract.payloadSnapshot as Record<string, unknown>) };
+    const requirements = normalizeRenewalRequirements(
+      Array.isArray(snapshot.requirements)
+        ? (snapshot.requirements as RenewalRequirement[])
+        : undefined,
+    );
+    const uploads = Array.isArray(snapshot.renewalDocuments)
+      ? (snapshot.renewalDocuments as RenewalDocumentUpload[])
+      : [];
+    const uploadedCodes = new Set(uploads.map((row) => row.code));
+    const missing = requirements.filter((row) => !uploadedCodes.has(row.code));
+    if (missing.length) fail('renewal_documents_incomplete');
+
+    if (input.endsOn) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(input.endsOn)) fail('renewal_date_invalid');
+      const startsOn =
+        typeof snapshot.startsOn === 'string' ? snapshot.startsOn : input.endsOn;
+      if (input.endsOn <= startsOn) fail('renewal_date_invalid');
+      snapshot.endsOn = input.endsOn;
+      if (snapshot.leaseTerms && typeof snapshot.leaseTerms === 'object') {
+        snapshot.leaseTerms = {
+          ...(snapshot.leaseTerms as Record<string, unknown>),
+          endsOn: input.endsOn,
+        };
+      }
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const documentation: ElectronicRenewalDocumentation = {
+      noticeVersion: ELECTRONIC_RENEWAL_NOTICE_VERSION,
+      signedBySystem: true,
+      humanIntervention: false,
+      docsPendingAdminReview: true,
+      completedAt: nowIso,
+      tenantConsentAt: nowIso,
+    };
+    snapshot.electronicNotice = {
+      version: ELECTRONIC_RENEWAL_NOTICE.version,
+      titleAr: ELECTRONIC_RENEWAL_NOTICE.titleAr,
+      titleEn: ELECTRONIC_RENEWAL_NOTICE.titleEn,
+      bodyAr: ELECTRONIC_RENEWAL_NOTICE.bodyAr,
+      bodyEn: ELECTRONIC_RENEWAL_NOTICE.bodyEn,
+    };
+    snapshot.electronicDocumentation = documentation;
+    snapshot.approval = {
+      ...(typeof snapshot.approval === 'object' && snapshot.approval
+        ? (snapshot.approval as Record<string, unknown>)
+        : {}),
+      mode: 'electronic_system',
+      tenantCompletedAt: nowIso,
+      docsPendingAdminReview: true,
+    };
+
+    const documentHash =
+      contract.renderedPdfHash ||
+      provisionalDocumentHash([
+        'renewal-complete',
+        contract.id,
+        String(snapshot.endsOn ?? ''),
+        nowIso,
+      ]);
+
+    // Owner signature (system) if missing — automated path already may have one.
+    const existing = await tx
+      .select({ role: contractSignatures.signerRole, partyId: contractSignatures.signerPartyId })
+      .from(contractSignatures)
+      .where(eq(contractSignatures.contractId, contract.id));
+    const hasOwner = existing.some((row) => row.partyId === contract.ownerPartyId);
+    const hasTenant = existing.some((row) => row.partyId === contract.tenantPartyId);
+
+    if (!hasOwner) {
+      await tx.insert(contractSignatures).values({
+        organizationId: orgId,
+        contractId: contract.id,
+        signerPartyId: contract.ownerPartyId,
+        signerRole: 'owner',
+        method: 'system_on_approval',
+        evidence: {
+          onBehalfOf: 'owner',
+          source: 'electronic_renewal_package',
+          noticeVersion: ELECTRONIC_RENEWAL_NOTICE_VERSION,
+          humanIntervention: false,
+        },
+        signatureHash: signatureHash([
+          contract.id,
+          contract.ownerPartyId,
+          'system',
+          nowIso,
+        ]),
+        signedAt: now,
+      });
+    }
+
+    if (!hasTenant) {
+      await tx.insert(contractSignatures).values({
+        organizationId: orgId,
+        contractId: contract.id,
+        signerPartyId: partyId,
+        signerRole: 'tenant',
+        method: 'tenant_consent_electronic',
+        evidence: {
+          signedByUserId: claims.sub,
+          consentTextVersion: ELECTRONIC_RENEWAL_NOTICE_VERSION,
+          consentAr: ELECTRONIC_RENEWAL_NOTICE.consentAr,
+          consentEn: ELECTRONIC_RENEWAL_NOTICE.consentEn,
+          documentSha256: documentHash,
+          source: 'tenant_renewal_workspace',
+          humanIntervention: false,
+          signedBySystem: true,
+        },
+        signatureHash: signatureHash([
+          contract.id,
+          partyId,
+          claims.sub,
+          ELECTRONIC_RENEWAL_NOTICE_VERSION,
+          nowIso,
+        ]),
+        signedAt: now,
+      });
+    }
+
+    await tx
+      .update(contracts)
+      .set({
+        status: 'signed',
+        completedAt: now,
+        sentAt: contract.sentAt ?? now,
+        renderedPdfHash: documentHash,
+        payloadSnapshot: snapshot,
+        updatedAt: now,
+      })
+      .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, orgId)));
+
+    if (contract.parentContractId) {
+      await tx.execute(
+        sql`select pg_advisory_xact_lock(hashtextextended(${contract.parentContractId}, 23))`,
+      );
+      const currentLease = await tx.query.leases.findFirst({
+        where: and(
+          eq(leases.contractId, contract.parentContractId),
+          eq(leases.organizationId, orgId),
+          eq(leases.status, 'active'),
+        ),
+      });
+      if (currentLease) {
+        const endsOn =
+          typeof snapshot.endsOn === 'string' ? snapshot.endsOn : currentLease.endsOn;
+        const rent = snapshot.rent as { amountMinor?: string; currency?: string } | undefined;
+        const rentMinor = rent?.amountMinor ?? currentLease.rentMinor.toString();
+        await tx
+          .update(leases)
+          .set({
+            renewalPendingContractId: contract.id,
+            renewalPendingEndsOn: endsOn,
+            renewalPendingRentMinor: BigInt(rentMinor),
+            updatedAt: now,
+          })
+          .where(eq(leases.id, currentLease.id));
+        await tx.insert(workflowEvents).values({
+          organizationId: orgId,
+          actorUserId: claims.sub,
+          resourceType: 'lease',
+          resourceId: currentLease.id,
+          eventType: 'lease.renewal_pending_clearance',
+          fromStatus: currentLease.status,
+          toStatus: currentLease.status,
+          metadata: {
+            renewalContractId: contract.id,
+            electronic: true,
+            docsPendingAdminReview: true,
+            nextEndsOn: endsOn,
+            nextRentMinor: rentMinor,
+          },
+        });
+      }
+    }
+
+    await tx.insert(outboxEvents).values({
+      organizationId: orgId,
+      topic: 'contract.signed',
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      payload: {
+        completed: true,
+        kind: 'renewal',
+        electronic: true,
+        docsPendingAdminReview: true,
+      },
+    });
+
+    const reference =
+      contract.reference?.trim() ||
+      `CTR-${contract.id.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+    const link = appLink(`/ar/tenant/contracts/${contract.id}`);
+    await notifyInTx(tx, {
+      orgId,
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      audience: { parties: [contract.tenantPartyId] },
+      content: () => ({
+        tone: 'contract',
+        subject: `📜 ملحق التجديد ${reference} موثّق إلكترونياً`,
+        title: 'تم توثيق ملحق التجديد',
+        intro:
+          'اعتمد النظام الملحق إلكترونياً بعد استلام مستنداتك وتوقيعك. يمكنك فتح النسخة الموثّقة من حسابك. ستراجع الإدارة المستندات.',
+        lines: [ELECTRONIC_RENEWAL_NOTICE.bodyAr],
+        cta: { label: 'عرض الملحق الموثّق', url: link },
+      }),
+    });
+    await notifyInTx(tx, {
+      orgId,
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      audience: { parties: [contract.ownerPartyId] },
+      content: () => ({
+        tone: 'contract',
+        subject: `📎 ملحق تجديد موثّق — راجع المستندات · ${reference}`,
+        title: 'تجديد موثّق إلكترونياً — مراجعة المستندات',
+        intro:
+          'أكمل المستأجر الحزمة ووثّق النظام الملحق آلياً. راجع المرفقات؛ يمكنك إلغاء الملحق إن اختلفت المستندات.',
+        cta: {
+          label: 'فتح الملحق',
+          url: appLink(`/ar/owner/contracts/${contract.id}`),
+        },
+      }),
+    });
+
+    return { contractId: contract.id, status: 'signed' as const, reference: contract.reference };
+  });
+}
+
+/** Owner voids a signed renewal when attached documents do not match. */
+export async function voidRenewalForDocumentMismatchOnNeon(
+  claims: SessionClaims,
+  contractId: string,
+  note?: string | null,
+): Promise<{ contractId: string; status: 'void' }> {
+  const orgId = claims.organizationId ?? fail('organization_required');
+  if (!hasPermission(claims, 'lease.update') && !hasPermission(claims, 'contract.sign')) {
+    fail('forbidden');
+  }
+
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${contractId}, 61))`);
+    const contract = await tx.query.contracts.findFirst({
+      where: and(
+        eq(contracts.id, contractId),
+        eq(contracts.organizationId, orgId),
+        eq(contracts.kind, 'renewal'),
+      ),
+    });
+    if (!contract) fail('contract_not_found');
+    if (contract.status === 'void') return { contractId: contract.id, status: 'void' as const };
+    if (!['signed', 'partially_signed', 'sent'].includes(contract.status)) {
+      fail('renewal_not_deliverable');
+    }
+
+    const now = new Date();
+    const snapshot = {
+      ...(contract.payloadSnapshot as Record<string, unknown>),
+      voidReason: 'document_mismatch',
+      voidedAt: now.toISOString(),
+      voidNote: note?.trim().slice(0, 500) || null,
+      voidedByUserId: claims.sub,
+    };
+    await tx
+      .update(contracts)
+      .set({ status: 'void', payloadSnapshot: snapshot, updatedAt: now })
+      .where(eq(contracts.id, contract.id));
+
+    await tx
+      .update(leases)
+      .set({
+        renewalPendingContractId: null,
+        renewalPendingEndsOn: null,
+        renewalPendingRentMinor: null,
+        updatedAt: now,
+      })
+      .where(
+        and(
+          eq(leases.organizationId, orgId),
+          eq(leases.renewalPendingContractId, contract.id),
+        ),
+      );
+
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'contract',
+      resourceId: contract.id,
+      eventType: 'contract.voided_document_mismatch',
+      fromStatus: contract.status,
+      toStatus: 'void',
+      metadata: { note: note?.trim().slice(0, 200) || null },
+    });
+
+    const reference = contract.reference ?? contract.id.slice(0, 8).toUpperCase();
+    await notifyInTx(tx, {
+      orgId,
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      audience: { parties: [contract.tenantPartyId] },
+      content: () => ({
+        tone: 'contract',
+        subject: `⛔ أُلغي ملحق التجديد ${reference} لاختلاف المستندات`,
+        title: 'أُلغي ملحق التجديد',
+        intro: note?.trim()
+          ? `ألغت الإدارة الملحق بسبب اختلاف المستندات: ${note.trim()}. تتحمل المسؤولية الإدارية والقانونية وفق إقرار التوثيق الإلكتروني.`
+          : 'ألغت الإدارة الملحق بسبب اختلاف المستندات المرفقة. تتحمل المسؤولية الإدارية والقانونية وفق إقرار التوثيق الإلكتروني.',
+        cta: {
+          label: 'حساب المستأجر',
+          url: appLink('/ar/tenant'),
+        },
+      }),
+    });
+
+    return { contractId: contract.id, status: 'void' as const };
   });
 }

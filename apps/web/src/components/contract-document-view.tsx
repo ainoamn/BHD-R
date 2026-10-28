@@ -32,6 +32,8 @@ import {
   OwnerRenewalTermDecisionPanel,
   TenantRenewalTermPanel,
 } from './renewal-term-panels';
+import { VoidRenewalDocsButton } from './void-renewal-docs-button';
+import { ELECTRONIC_RENEWAL_NOTICE } from '@/lib/electronic-renewal-notice';
 import {
   BRAND_LOGO,
   DocLetterhead,
@@ -365,6 +367,26 @@ export function ContractDocumentView({
                 : 'Leasing'}
         </Link>
       </header>
+
+      {contract.kind === 'renewal' ? (
+        <div className="notice notice--info" role="note">
+          <strong>
+            {ar
+              ? (contract.electronicNotice?.titleAr ?? ELECTRONIC_RENEWAL_NOTICE.titleAr)
+              : (contract.electronicNotice?.titleEn ?? ELECTRONIC_RENEWAL_NOTICE.titleEn)}
+          </strong>
+          <p>
+            {ar
+              ? (contract.electronicNotice?.bodyAr ?? ELECTRONIC_RENEWAL_NOTICE.bodyAr)
+              : (contract.electronicNotice?.bodyEn ?? ELECTRONIC_RENEWAL_NOTICE.bodyEn)}
+          </p>
+          {portal !== 'tenant' &&
+          contract.status === 'signed' &&
+          contract.docsPendingAdminReview ? (
+            <VoidRenewalDocsButton contractId={contract.id} locale={locale} />
+          ) : null}
+        </div>
+      ) : null}
 
       <ContractDocumentToolbar
         ar={ar}

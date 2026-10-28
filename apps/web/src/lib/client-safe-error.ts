@@ -60,6 +60,8 @@ const KNOWN_CODES = new Set([
   'renewal_document_code',
   'renewal_document_storage',
   'renewal_term_too_short',
+  'renewal_consent_required',
+  'renewal_documents_incomplete',
   'deliver_failed',
   'invalid_dates',
   'invalid_amount',
@@ -215,6 +217,8 @@ export function statusForSafeCode(code: string): number {
     case 'renewal_document_code':
     case 'renewal_document_storage':
     case 'renewal_term_too_short':
+    case 'renewal_consent_required':
+    case 'renewal_documents_incomplete':
       return 400;
     case 'tenant_request_closed':
     case 'tenant_request_duplicate':

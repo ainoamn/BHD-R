@@ -122,6 +122,17 @@ export interface ContractDetail {
     | undefined;
   /** Per-contract override flag for automatic renewal (signed parent only). */
   renewalAutomationEnabled?: boolean | null | undefined;
+  /** Mandatory electronic documentation notice on renewals. */
+  electronicNotice?:
+    | {
+        version: string;
+        titleAr: string;
+        titleEn: string;
+        bodyAr: string;
+        bodyEn: string;
+      }
+    | undefined;
+  docsPendingAdminReview?: boolean | undefined;
   /** Full document view; only the Neon reader fills it. */
   document?: ContractDocument;
   /** Copy of the signed booking agreement a website rent or purchase contract completes. */
@@ -659,14 +670,26 @@ export async function loadContractDetailFromNeon(
     })),
     ...((): Pick<
       ContractDetail,
-      'renewalRequirements' | 'tenantTermProposal' | 'renewalAutomationEnabled'
+      | 'renewalRequirements'
+      | 'tenantTermProposal'
+      | 'renewalAutomationEnabled'
+      | 'electronicNotice'
+      | 'docsPendingAdminReview'
     > => {
       const renewalRequirements = renewalRequirementsFromSnapshot(snapshot);
       const proposal = snapshot.tenantTermProposal;
       const automation = snapshot.renewalAutomation;
+      const notice = snapshot.electronicNotice;
+      const documentation = snapshot.electronicDocumentation as
+        | { docsPendingAdminReview?: boolean }
+        | undefined;
       const out: Pick<
         ContractDetail,
-        'renewalRequirements' | 'tenantTermProposal' | 'renewalAutomationEnabled'
+        | 'renewalRequirements'
+        | 'tenantTermProposal'
+        | 'renewalAutomationEnabled'
+        | 'electronicNotice'
+        | 'docsPendingAdminReview'
       > = {};
       if (renewalRequirements?.length) out.renewalRequirements = renewalRequirements;
       if (proposal && typeof proposal === 'object') {
@@ -686,6 +709,24 @@ export async function loadContractDetailFromNeon(
         if (typeof enabled === 'boolean') out.renewalAutomationEnabled = enabled;
         else if (enabled === null) out.renewalAutomationEnabled = null;
       }
+      if (notice && typeof notice === 'object') {
+        const row = notice as Record<string, unknown>;
+        if (
+          typeof row.titleAr === 'string' &&
+          typeof row.bodyAr === 'string' &&
+          typeof row.titleEn === 'string' &&
+          typeof row.bodyEn === 'string'
+        ) {
+          out.electronicNotice = {
+            version: typeof row.version === 'string' ? row.version : '',
+            titleAr: row.titleAr,
+            titleEn: row.titleEn,
+            bodyAr: row.bodyAr,
+            bodyEn: row.bodyEn,
+          };
+        }
+      }
+      if (documentation?.docsPendingAdminReview) out.docsPendingAdminReview = true;
       return out;
     })(),
   };
