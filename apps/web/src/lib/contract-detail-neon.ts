@@ -59,6 +59,8 @@ import { loadLeaseBookingAgreementInTx } from '@/lib/public-lease-booking-neon';
 import { readStayTypeFromSnapshot } from '@/lib/stay-booking-dates';
 import type { ContractArticleHead } from '@/components/contract-document-view';
 import { contractDigitalSeal } from '@/lib/document-authenticity';
+import type { ReservationActivityRow } from '@/lib/lease-reservation-timeline';
+import { loadContractActivityRows } from '@/lib/workflow-activity-neon';
 
 type Tx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
 
@@ -144,6 +146,8 @@ export interface ContractDetail {
     doc: ContractDocument;
     signaturePng: string | null;
   } | null;
+  /** Owner / property-management transaction trail (not shown to tenants). */
+  activityLog?: ReservationActivityRow[] | undefined;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -576,15 +580,26 @@ export async function loadContractDetailFromNeon(
           ? resolveStayPeriodTimes(snapStayType as StayPeriodType | null, stayProfileRow)
           : null;
     const bookingSource = record(snapshot.source);
-    const booking =
-      bookingSource.type === 'lease_reservation' && text(bookingSource.reservationId)
-        ? await loadLeaseBookingAgreementInTx(tx, orgId, text(bookingSource.reservationId)!).catch(
-            (error: unknown) => {
-              console.error('contract booking copy failed', error);
-              return null;
-            },
-          )
-        : null;
+    const sourceReservationId =
+      bookingSource.type === 'lease_reservation' ? text(bookingSource.reservationId) : null;
+    const booking = sourceReservationId
+      ? await loadLeaseBookingAgreementInTx(tx, orgId, sourceReservationId).catch(
+          (error: unknown) => {
+            console.error('contract booking copy failed', error);
+            return null;
+          },
+        )
+      : null;
+    const activityLog =
+      portal === 'tenant'
+        ? []
+        : await loadContractActivityRows(tx, orgId, {
+            contractId: contract.id,
+            reservationId: sourceReservationId,
+          }).catch((error: unknown) => {
+            console.error('contract activity log failed', error);
+            return [] as ReservationActivityRow[];
+          });
     const builtIn = defaultTemplateCounterpart(template?.html);
     const templateAr =
       template?.language === 'ar' ? template.html : (templateSibling ?? builtIn?.ar ?? null);
@@ -618,6 +633,7 @@ export async function loadContractDetailFromNeon(
       stamps,
       refundRequestedAt: refund?.requestedAt || null,
       booking,
+      activityLog,
     };
   });
   if (!detail) return null;
@@ -635,6 +651,7 @@ export async function loadContractDetailFromNeon(
           signaturePng: detail.booking.signature?.png ?? null,
         }
       : null,
+    ...(detail.activityLog?.length ? { activityLog: detail.activityLog } : {}),
     id: contract.id,
     reference,
     kind: contract.kind as ContractDetail['kind'],

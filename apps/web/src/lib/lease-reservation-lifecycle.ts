@@ -658,7 +658,16 @@ export function leaseJourneyStageLabels(sale: boolean, ar: boolean): string[] {
 }
 
 /** Short owner-facing status for the bookings list and the reservation header. */
-export function leasePhaseLabel(phase: LeaseJourneyPhase, ar: boolean): string {
+export function leasePhaseLabel(
+  phase: LeaseJourneyPhase,
+  ar: boolean,
+  options?: { docsReturnOpen?: boolean },
+): string {
+  if (options?.docsReturnOpen && phase === 'awaiting_terms_signature') {
+    return ar
+      ? 'بانتظار إعادة رفع المستندات وتوقيع العميل'
+      : 'Awaiting client document re-upload & signature';
+  }
   const labels: Record<LeaseJourneyPhase, [string, string]> = {
     awaiting_payment: ['بانتظار دفع العربون', 'Awaiting deposit'],
     awaiting_terms_signature: ['بانتظار توقيع العميل', 'Awaiting client signature'],
@@ -674,4 +683,12 @@ export function leasePhaseLabel(phase: LeaseJourneyPhase, ar: boolean): string {
     closed: ['مغلق', 'Closed'],
   };
   return labels[phase][ar ? 0 : 1];
+}
+
+/** True while the owner returned booking docs and the client has not finished the fix + re-sign cycle. */
+export function bookingDocsReturnOpen(
+  lifecycle: Pick<ReservationLifecycle, 'bookingDocsReturn'> | null | undefined,
+): boolean {
+  const docs = lifecycle?.bookingDocsReturn;
+  return Boolean(docs && !docs.resolvedAt);
 }

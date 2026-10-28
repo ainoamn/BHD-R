@@ -17,6 +17,7 @@ import { ContractActions } from './contract-actions';
 import { ContractDocumentView } from './contract-document-view';
 import { DeliverRenewalButton } from './deliver-renewal-button';
 import { RenewalDocumentsPanel } from './renewal-documents-panel';
+import { ReservationActivityLog } from './reservation-activity-log';
 import {
   OwnerContractRenewalAutomationPanel,
   OwnerRenewalTermDecisionPanel,
@@ -90,15 +91,26 @@ export async function ContractDetailView({
         ),
     );
     return (
-      <ContractDocumentView
-        contract={contract}
-        doc={contract.document}
-        annexDocuments={annexes.filter((annex): annex is ContractAnnexDocument => Boolean(annex))}
-        portal={portal}
-        locale={currentLocale}
-        viewerName={viewer.displayName}
-        badges={badges}
-      />
+      <>
+        <ContractDocumentView
+          contract={contract}
+          doc={contract.document}
+          annexDocuments={annexes.filter((annex): annex is ContractAnnexDocument => Boolean(annex))}
+          portal={portal}
+          locale={currentLocale}
+          viewerName={viewer.displayName}
+          badges={badges}
+        />
+        {portal !== 'tenant' && (contract.activityLog?.length ?? 0) > 0 ? (
+          <div className="form-shell reservation-activity-log-wrap">
+            <ReservationActivityLog
+              rows={contract.activityLog ?? []}
+              locale={currentLocale}
+              title={{ ar: 'سجل المعاملة', en: 'Transaction log' }}
+            />
+          </div>
+        ) : null}
+      </>
     );
   }
   return (

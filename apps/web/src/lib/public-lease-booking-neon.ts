@@ -49,6 +49,7 @@ import {
   type ReservationParty,
 } from '@/lib/reservation-party';
 import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
+import { loadBookingActivityRows } from '@/lib/workflow-activity-neon';
 
 export const LEASE_BOOKING_FLOW = 'public_deposit_v1';
 export const LEASE_BOOKING_TERMS_VERSION = '2026-10';
@@ -1003,6 +1004,10 @@ export async function loadLeaseBookingForStaff(claims: SessionClaims, reservatio
     if (ownerPartyId && match.ownerPartyId !== ownerPartyId) return null;
     const agreement = await leaseBookingAgreementData(transaction, match);
     const lifecycle = lifecycleOf(match.snapshot);
+    const activityLog = await loadBookingActivityRows(transaction, match.organizationId, {
+      reservationId: match.id,
+      contractId: lifecycle.contract?.id ?? null,
+    });
     return {
       ...agreement,
       propertyId: match.propertyId,
@@ -1012,6 +1017,7 @@ export async function loadLeaseBookingForStaff(claims: SessionClaims, reservatio
       salesDealId: match.snapshot.salesDealId ?? null,
       convertedLeaseId: match.convertedLeaseId,
       ownerLifecycle: lifecycle,
+      activityLog,
       formUnit: {
         id: match.unitId,
         code: match.unitCode,

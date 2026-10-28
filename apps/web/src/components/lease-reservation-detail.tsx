@@ -9,7 +9,11 @@ import { ReservationPartyCard } from '@/components/reservation-party-card';
 import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
-import { leasePhaseLabel } from '@/lib/lease-reservation-lifecycle';
+import { ReservationActivityLog } from '@/components/reservation-activity-log';
+import {
+  bookingDocsReturnOpen,
+  leasePhaseLabel,
+} from '@/lib/lease-reservation-lifecycle';
 import type { loadLeaseBookingForStaff } from '@/lib/public-lease-booking-neon';
 
 export type LeaseReservationStaffView = NonNullable<
@@ -72,6 +76,7 @@ export function LeaseReservationDetail({
   const deposit = formatMoney(booking.depositMinor, booking.currency, locale);
   const price = sale ? booking.salePriceMinor : booking.rentMinor;
   const awaitingApproval = booking.phase === 'awaiting_owner_approval';
+  const docsReturnOpen = bookingDocsReturnOpen(booking.ownerLifecycle);
   const bookingsHref = `/${locale}/${portal}/properties/${encodeURIComponent(booking.propertyId)}?section=bookings&focus=${encodeURIComponent(booking.reservationId)}`;
 
   const bookingSummary = (
@@ -100,7 +105,7 @@ export function LeaseReservationDetail({
       </article>
       <article>
         <span>{ar ? 'حالة المسار' : 'Journey status'}</span>
-        <strong>{leasePhaseLabel(booking.phase, ar)}</strong>
+        <strong>{leasePhaseLabel(booking.phase, ar, { docsReturnOpen })}</strong>
         <small>{ar ? (sale ? 'حجز شراء' : 'حجز إيجار') : sale ? 'Purchase' : 'Rent'}</small>
       </article>
     </section>
@@ -225,6 +230,14 @@ export function LeaseReservationDetail({
         </Link>
       </header>
 
+      {docsReturnOpen ? (
+        <p className="notice notice--warning" role="status">
+          {ar
+            ? `أُرجعت مستندات الحجز للعميل للتعديل${booking.ownerLifecycle.bookingDocsReturn?.byName ? ` (بواسطة ${booking.ownerLifecycle.bookingDocsReturn.byName})` : ''}${booking.ownerLifecycle.bookingDocsReturn?.note ? ` — «${booking.ownerLifecycle.bookingDocsReturn.note}»` : ''}. بانتظار إعادة الرفع والتوقيع.`
+            : `Booking documents were returned for fixes${booking.ownerLifecycle.bookingDocsReturn?.byName ? ` (by ${booking.ownerLifecycle.bookingDocsReturn.byName})` : ''}${booking.ownerLifecycle.bookingDocsReturn?.note ? ` — “${booking.ownerLifecycle.bookingDocsReturn.note}”` : ''}. Waiting for re-upload and signature.`}
+        </p>
+      ) : null}
+
       {awaitingApproval ? (
         <p className="notice notice--info">
           {ar
@@ -258,6 +271,12 @@ export function LeaseReservationDetail({
         }}
         bookingSummary={bookingSummary}
         bookingDetails={bookingDetails}
+      />
+
+      <ReservationActivityLog
+        rows={booking.activityLog ?? []}
+        locale={locale}
+        title={{ ar: 'سجل المعاملة', en: 'Transaction log' }}
       />
     </div>
   );

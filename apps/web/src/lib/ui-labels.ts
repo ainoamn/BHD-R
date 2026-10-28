@@ -182,6 +182,30 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
     ar: 'إثبات هوية لتوقيع اتفاقية حجز',
     en: 'Reservation e-signature identity evidence',
   },
+  'reservation.payment_confirmed': {
+    ar: 'تأكيد استلام العربون',
+    en: 'Deposit receipt confirmed',
+  },
+  'reservation.booking_docs_returned': {
+    ar: 'إرجاع مستندات الحجز للعميل للتعديل',
+    en: 'Booking documents returned to the client for fixes',
+  },
+  'reservation.booking_doc_replaced': {
+    ar: 'استبدال مستند حجز من العميل',
+    en: 'Client replaced a booking document',
+  },
+  'reservation.requirements_added': {
+    ar: 'إضافة مستندات مطلوبة للحجز',
+    en: 'Required booking documents added',
+  },
+  'reservation.cheque_rejected': {
+    ar: 'رفض شيك الحجز',
+    en: 'Reservation cheque rejected',
+  },
+  'reservation.municipal_registration_saved': {
+    ar: 'حفظ تسجيل البلدية',
+    en: 'Municipal registration saved',
+  },
   'reservation.owner_approved': { ar: 'اعتماد المالك للحجز', en: 'Booking approved by owner' },
   'reservation.contract_prepared': {
     ar: 'تجهيز بيانات العقد والمستندات المطلوبة',

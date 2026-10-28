@@ -39,6 +39,7 @@ import {
   bookingIdentityFileKind,
   documentsPhase,
   documentsToVerify,
+  bookingDocsReturnOpen,
   leaseJourneyStageIndex,
   leaseJourneyStageLabels,
   leasePhaseLabel,
@@ -975,7 +976,11 @@ export function LeaseReservationWorkflow(serverProps: Props) {
         <header className="lrw__head">
           <div>
             <span className="ops-kicker">{t('مسار الحجز', 'Booking journey')}</span>
-            <h2>{leasePhaseLabel(phase, ar)}</h2>
+            <h2>
+              {leasePhaseLabel(phase, ar, {
+                docsReturnOpen: bookingDocsReturnOpen(lifecycle),
+              })}
+            </h2>
           </div>
           <p className="lrw__head-hint muted">
             {t(

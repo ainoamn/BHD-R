@@ -17346,6 +17346,13 @@ body:has(.guest-stay-detail) #main-content {
   font-size: 0.88rem;
   color: #7c3f06;
 }
+.reservation-activity-log-wrap {
+  margin-top: 1.25rem;
+}
+.reservation-activity-log__hint {
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.86rem;
+}
 .stay-timeline__log-title {
   margin: 0 0 0.45rem;
   font-size: 0.86rem;
