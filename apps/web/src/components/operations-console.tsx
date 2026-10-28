@@ -1424,6 +1424,7 @@ function Input({
   value,
   onChange,
   min,
+  max,
   step,
   placeholder,
   inputMode,
@@ -1437,6 +1438,7 @@ function Input({
   value?: string;
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
   min?: string;
+  max?: string;
   step?: string;
   placeholder?: string;
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
@@ -1454,6 +1456,7 @@ function Input({
         value={value}
         onChange={onChange}
         min={min}
+        max={max}
         step={step}
         placeholder={placeholder}
         inputMode={inputMode}
