@@ -11,6 +11,27 @@ services:
     plan: starter
     branch: main
     autoDeploy: true
+    # Skip redeploy when only the Next.js web app / docs / CI change — those ship on Vercel.
+    # Prevents false “Deploy failed” noise while a newer commit cancels an in-flight API build.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - apps/worker/**
+        - packages/**
+        - Dockerfile.api
+        - Dockerfile.worker
+        - Dockerfile.migrate
+        - package.json
+        - pnpm-lock.yaml
+        - pnpm-workspace.yaml
+        - turbo.json
+        - render.yaml
+      ignoredPaths:
+        - apps/web/**
+        - docs/**
+        - .github/**
+        - CHANGELOG.md
+        - README.md
     dockerfilePath: ./Dockerfile.api
     dockerContext: .
     # Edge liveness — process up + Nest proxy. Use /health/ready for DB readiness probes.
@@ -51,6 +72,8 @@ services:
       - key: BHD_R_SESSION_SECRET
         sync: false
       - key: CSRF_SECRET
+        sync: false
+      - key: PII_LOOKUP_PEPPER
         sync: false
       - key: PAYMENT_WEBHOOK_SECRET
         sync: false

@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.6 — 2026-10-28
+
+- **استقرار نشر Render API:** تقييد إعادة نشر `bhd-r-api` بمسارات API/الحزم فقط حتى لا تفشل عمليات نشر وهمية عند كل تغيير واجهة على Vercel؛ إضافة `PII_LOOKUP_PEPPER` إلى مخطط `render.yaml`؛ توضيح لوحات المنصة في README ومواءمة وثيقة الجلسات مع سقف 30 يوماً مع الإبطال عبر `session_version`.
+
 ## 0.8.135.5 — 2026-10-28
 
 - **صياغة راقية لقوالب الإشعارات:** تحديث 47 قالب معاينة في `/admin/notifications` (بريد وواتساب) بلغة مؤسسية أوضح؛ إيقاف العبارات التحفيزية والمزاح في الرسائل الحساسة (OTP، مالية، عقود، قانونية، تنبيهات)؛ وتحديث نص رمز التحقق الفعلي المرسل من النظام.

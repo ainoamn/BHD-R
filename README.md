@@ -68,9 +68,15 @@ pnpm dev
 
 ## التطبيقات
 
-- `apps/web`: الموقع العام واللوحات الأربع (المنصة، المالك، المطور، المستأجر).
+- `apps/web`: الموقع العام واللوحات الأربع:
+  - **المنصة** (`/admin`) — إدارة الموقع والجذر (قوالب الإشعارات، العبارات، الخطط…).
+  - **المالك** (`/owner`) — عقارات، حجوزات، عقود، تحصيل، فريق.
+  - **المطور** (`/developer`) — مشاريع ووحدات تحت التطوير.
+  - **المستأجر** (`/tenant`) — عقود وطلبات ومدفوعات للطرف المستأجر.
 - `apps/api`: الـ API المركزية، الدخول الموحد، الصلاحيات، والمعاملات.
 - `apps/worker`: الصور والعلامة المائية وPDF والإشعارات والمهام الخلفية.
+
+**الأمن (لا تكتفِ بـ README):** [`SECURITY.md`](./SECURITY.md) · [`docs/SECURITY_CONTROLS.md`](./docs/SECURITY_CONTROLS.md) · [`docs/SECURITY_CHECKLIST_MATRIX_AR.md`](./docs/SECURITY_CHECKLIST_MATRIX_AR.md) · [`docs/implementation/ENV-MANIFEST.md`](./docs/implementation/ENV-MANIFEST.md). كلمات المرور: scrypt؛ الحقول الحساسة: AES-256-GCM؛ عزل المؤسسات عبر org context + صلاحيات (مع RLS كدفاع ثانٍ).
 
 ## فحوص التسليم
 
