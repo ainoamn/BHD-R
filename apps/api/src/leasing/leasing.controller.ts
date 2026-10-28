@@ -92,7 +92,7 @@ const renewalSchema = z
     cheques: z
       .array(
         z.object({
-          bankName: z.string().trim().min(2).max(160),
+          bankName: z.string().trim().min(1).max(160),
           chequeNumber: z.string().trim().min(1).max(80),
           amount: z.object({
             amountMinor: z.string().regex(/^\d+$/),
@@ -105,10 +105,10 @@ const renewalSchema = z
       .optional()
       .default([]),
     /** Full computed lease terms (VAT, extras, deposit, payee) for the renewed period. */
-    leaseTerms: z.record(z.string(), z.unknown()).optional(),
-    chequeAccountName: z.string().trim().max(160).optional(),
-    chequeBankName: z.string().trim().max(160).optional(),
-    rentBankAccountId: z.string().trim().max(64).optional(),
+    leaseTerms: z.record(z.string(), z.unknown()).nullish(),
+    chequeAccountName: z.string().trim().max(160).nullish(),
+    chequeBankName: z.string().trim().max(160).nullish(),
+    rentBankAccountId: z.string().trim().max(64).nullish(),
   })
   .strict();
 const challengeSchema = z.discriminatedUnion('authenticationMethod', [

@@ -7,7 +7,7 @@ import {
   type LeaseBankAccountOption,
   type LeaseContractPayload,
 } from '@/components/lease-contract-form';
-import { browserMutation } from '@/lib/api';
+import { ApiError, browserMutation } from '@/lib/api';
 import type { AccountingSettings } from '@/lib/accounting-integrity';
 import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { formatMoney, toMinorUnits } from '@/lib/format';
@@ -164,9 +164,19 @@ export function LeaseRenewalForm({
         deferUntilHandover: ['meters'],
       });
       if (!computed.ok) {
-        throw new Error(
-          ar ? 'تحقّق من حقول العقد قبل الحفظ' : 'Check contract fields before saving',
-        );
+        const computeError =
+          computed.error === 'bank_account_required'
+            ? ar
+              ? 'اختر الحساب البنكي الذي تُكتب الشيكات باسمه قبل إنشاء الملحق.'
+              : 'Choose the bank account cheques are payable to before creating the addendum.'
+            : computed.error === 'invalid_schedule'
+              ? ar
+                ? 'جدول الدفع غير مكتمل — تحقق من التواريخ والمبالغ.'
+                : 'Payment schedule is incomplete — check dates and amounts.'
+              : ar
+                ? 'تحقّق من حقول العقد قبل الحفظ.'
+                : 'Check contract fields before saving.';
+        throw new Error(computeError);
       }
       const rentMinor =
         parseMoney(payload.terms.monthlyRent, digits) ??
@@ -180,50 +190,60 @@ export function LeaseRenewalForm({
           currency,
         },
       }));
+      const defaultBank =
+        (computed.terms.chequeBankName || payload.terms.chequeBankName || '').trim() ||
+        'Bank';
       const cheques =
         computed.terms.paymentMethod === 'cheque'
-          ? computed.terms.schedule.map((row, index) => ({
-              bankName:
-                row.bankName ||
-                computed.terms.chequeBankName ||
-                payload.terms.chequeBankName ||
-                '—',
-              chequeNumber: row.chequeNumber || String(index + 1),
-              amount: {
-                amountMinor: String(row.totalMinor),
-                currency,
-              },
-              dueOn: row.dueOn,
-            }))
+          ? computed.terms.schedule.map((row, index) => {
+              const bank = (row.bankName || defaultBank).trim();
+              return {
+                bankName: bank.length >= 2 ? bank : defaultBank.length >= 2 ? defaultBank : 'Bank',
+                chequeNumber: (row.chequeNumber || String(index + 1)).trim() || String(index + 1),
+                amount: {
+                  amountMinor: String(row.totalMinor),
+                  currency,
+                },
+                dueOn: row.dueOn,
+              };
+            })
           : [];
+
+      const body: Record<string, unknown> = {
+        templateVersionId,
+        endsOn: payload.terms.endsOn,
+        rent: { amountMinor: String(rentMinor), currency },
+        graceDays: computed.terms.graceDays,
+        graceAsDiscount: computed.terms.graceAsDiscount,
+        graceAmount: {
+          amountMinor: String(computed.terms.graceAmountMinor),
+          currency,
+        },
+        adjustments,
+        cheques,
+        paymentMethod: computed.terms.paymentMethod,
+        paymentFrequency: computed.terms.paymentFrequency,
+        months: period.months,
+        leaseTerms: computed.terms,
+      };
+      if (computed.terms.chequeAccountName) {
+        body.chequeAccountName = computed.terms.chequeAccountName;
+      }
+      if (computed.terms.chequeBankName) {
+        body.chequeBankName = computed.terms.chequeBankName;
+      }
+      if (computed.terms.rentBankAccountId) {
+        body.rentBankAccountId = computed.terms.rentBankAccountId;
+      }
+      if (payload.terms.notes?.trim()) {
+        body.additionalTerms = payload.terms.notes.trim();
+      }
 
       await browserMutation(
         `/v1/leasing/leases/${encodeURIComponent(context.lease.id)}/renewals`,
         {
           method: 'POST',
-          body: JSON.stringify({
-            templateVersionId,
-            endsOn: payload.terms.endsOn,
-            rent: { amountMinor: String(rentMinor), currency },
-            graceDays: computed.terms.graceDays,
-            graceAsDiscount: computed.terms.graceAsDiscount,
-            graceAmount: {
-              amountMinor: String(computed.terms.graceAmountMinor),
-              currency,
-            },
-            adjustments,
-            cheques,
-            paymentMethod: computed.terms.paymentMethod,
-            paymentFrequency: computed.terms.paymentFrequency,
-            months: period.months,
-            leaseTerms: computed.terms,
-            chequeAccountName: computed.terms.chequeAccountName,
-            chequeBankName: computed.terms.chequeBankName,
-            rentBankAccountId: computed.terms.rentBankAccountId,
-            ...(payload.terms.notes?.trim()
-              ? { additionalTerms: payload.terms.notes.trim() }
-              : {}),
-          }),
+          body: JSON.stringify(body),
         },
       );
       clearV2(context.lease.id);
@@ -231,7 +251,29 @@ export function LeaseRenewalForm({
       router.push(`/${portal}/leasing`);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'request_failed');
+      if (caught instanceof ApiError) {
+        const mapped =
+          /unfinished renewal|already exists/i.test(caught.message)
+            ? ar
+              ? 'يوجد ملحق تجديد غير مكتمل لهذا العقد — أكمله أو ألغِه أولاً.'
+              : 'An unfinished renewal already exists for this lease — finish or void it first.'
+            : /signed contract|original signed/i.test(caught.message)
+              ? ar
+                ? 'يلزم وجود عقد أصلي موقّع قبل إنشاء ملحق التجديد.'
+                : 'A signed original contract is required before creating a renewal.'
+              : /Only an active lease/i.test(caught.message)
+                ? ar
+                  ? 'يمكن تجديد العقود النشطة فقط.'
+                  : 'Only an active lease can be renewed.'
+                : caught.message === 'Request failed' || caught.code === 'api_error'
+                  ? ar
+                    ? 'تعذّر حفظ الملحق — تحقق من الحقول وأعد المحاولة.'
+                    : 'Could not save the addendum — check the fields and try again.'
+                  : caught.message;
+        setError(mapped);
+      } else {
+        setError(caught instanceof Error ? caught.message : 'request_failed');
+      }
     } finally {
       setBusy(false);
     }

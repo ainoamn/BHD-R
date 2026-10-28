@@ -609,10 +609,10 @@ export class LeasingService {
         amount: { amountMinor: string; currency: string };
         dueOn: string;
       }>;
-      leaseTerms?: Record<string, unknown> | undefined;
-      chequeAccountName?: string | undefined;
-      chequeBankName?: string | undefined;
-      rentBankAccountId?: string | undefined;
+      leaseTerms?: Record<string, unknown> | null | undefined;
+      chequeAccountName?: string | null | undefined;
+      chequeBankName?: string | null | undefined;
+      rentBankAccountId?: string | null | undefined;
     },
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
@@ -625,7 +625,7 @@ export class LeasingService {
       if (!lease || lease.status !== 'active' || !lease.contractId)
         throw new ConflictException('Only an active lease with a signed contract can be renewed');
       assertRenewalTerms(lease, { endsOn: input.endsOn, currency: input.rent?.currency });
-      const [parentContract, template, owner, tenant, unit] = await Promise.all([
+      const [signedParent, template, owner, tenant, unit] = await Promise.all([
         transaction.query.contracts.findFirst({
           where: and(
             eq(contracts.id, lease.contractId),
@@ -643,6 +643,16 @@ export class LeasingService {
         transaction.query.parties.findFirst({ where: eq(parties.id, lease.tenantPartyId) }),
         transaction.query.units.findFirst({ where: eq(units.id, lease.unitId) }),
       ]);
+      // Prefer signed; otherwise any non-void parent linked to the active lease (legacy rows).
+      const parentContract =
+        signedParent ??
+        (await transaction.query.contracts.findFirst({
+          where: and(
+            eq(contracts.id, lease.contractId),
+            eq(contracts.organizationId, claims.organizationId!),
+            ne(contracts.status, 'void'),
+          ),
+        }));
       if (!parentContract) throw new ConflictException('The original signed contract is required');
       if (!template) throw new NotFoundException('Contract template not found');
       if (!owner || !tenant || !unit)
@@ -731,7 +741,9 @@ export class LeasingService {
         chequeAccountName: input.chequeAccountName ?? null,
         chequeBankName: input.chequeBankName ?? null,
         rentBankAccountId: input.rentBankAccountId ?? null,
-        ...(input.leaseTerms ? { leaseTerms: input.leaseTerms } : {}),
+        ...(input.leaseTerms && typeof input.leaseTerms === 'object'
+          ? { leaseTerms: input.leaseTerms }
+          : {}),
       };
       const contractRows = await transaction
         .insert(contracts)

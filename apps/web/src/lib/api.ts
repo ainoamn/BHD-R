@@ -4,6 +4,7 @@ export class ApiError extends Error {
     public readonly code: string,
     message: string,
     public readonly requestId?: string,
+    public readonly details?: unknown,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -207,10 +208,31 @@ async function browserMutationOnce<T>(
   }
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as {
-      error?: { code?: string; message?: string | string[]; messageAr?: string; requestId?: string };
+      error?: {
+        code?: string;
+        message?: string | string[];
+        messageAr?: string;
+        requestId?: string;
+        details?: unknown;
+      };
     } | null;
     const rawMessage = payload?.error?.message;
     const messageEn = Array.isArray(rawMessage) ? rawMessage.join(', ') : rawMessage;
+    const detailIssues =
+      payload?.error?.details &&
+      typeof payload.error.details === 'object' &&
+      payload.error.details &&
+      'issues' in payload.error.details &&
+      Array.isArray((payload.error.details as { issues?: unknown }).issues)
+        ? (
+            (payload.error.details as { issues: Array<{ path?: string; message?: string }> })
+              .issues ?? []
+          )
+            .slice(0, 4)
+            .map((issue) => issue.path || issue.message)
+            .filter(Boolean)
+            .join(' · ')
+        : '';
     const csrfish =
       /csrf/i.test(`${payload?.error?.code ?? ''} ${messageEn ?? ''}`) ||
       payload?.error?.code === 'csrf_rejected';
@@ -220,10 +242,13 @@ async function browserMutationOnce<T>(
       payload?.error?.messageAr ??
         (csrfish
           ? 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة'
-          : messageEn && messageEn !== 'Request failed'
-            ? messageEn
-            : 'تعذر إكمال الطلب. أعد المحاولة أو تحقق من Nest.'),
+          : detailIssues
+            ? `تعذر التحقق من البيانات: ${detailIssues}`
+            : messageEn && messageEn !== 'Request failed'
+              ? messageEn
+              : 'تعذر إكمال الطلب. أعد المحاولة أو تحقق من Nest.'),
       payload?.error?.requestId,
+      payload?.error?.details,
     );
   }
   if (response.status === 204) return undefined as T;
