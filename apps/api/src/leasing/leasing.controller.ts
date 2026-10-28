@@ -83,6 +83,11 @@ const renewalSchema = z
       .optional(),
     /** Other amounts / fees / discounts for the renewed period. */
     adjustments: z.array(renewalAdjustmentSchema).max(40).optional().default([]),
+    paymentMethod: z.enum(['cheque', 'cash', 'bank_transfer']).optional(),
+    paymentFrequency: z
+      .enum(['monthly', 'bimonthly', 'quarterly', 'semiannual', 'annual'])
+      .optional(),
+    months: z.number().int().min(1).max(120).optional(),
     /** Cycle v1.1 R3: optional cheque schedule for the renewed period */
     cheques: z
       .array(

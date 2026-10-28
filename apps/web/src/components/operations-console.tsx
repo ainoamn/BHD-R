@@ -44,6 +44,7 @@ import { leaseOwnerLifecycleState } from '@/lib/owner-lifecycle-status';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
+import { hasRenewalDraft } from '@/lib/lease-renewal-draft';
 import { replaceSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
@@ -1270,6 +1271,7 @@ function LeasingNextActions({
   }
 
   if (status === 'active') {
+    const draft = hasRenewalDraft(safeString(row.id));
     items.push(
       <button
         key="renew"
@@ -1282,7 +1284,13 @@ function LeasingNextActions({
           onRenew(row);
         }}
       >
-        {ar ? 'تجديد' : 'Renew'}
+        {draft
+          ? ar
+            ? 'مسودة تجديد'
+            : 'Renewal draft'
+          : ar
+            ? 'تجديد'
+            : 'Renew'}
       </button>,
     );
     if (row.renewalPendingContractId) {
@@ -2873,7 +2881,6 @@ export function OperationsConsole({
     exportPath: string;
   } | null>(null);
   const [hisabyLinkNotice, setHisabyLinkNotice] = useState<string | null>(null);
-  const [renewingLease, setRenewingLease] = useState<DataRow | null>(null);
   const [prefillUnitId, setPrefillUnitId] = useState('');
   const [prefillReservationId, setPrefillReservationId] = useState('');
   const [prefillTenantId, setPrefillTenantId] = useState('');
@@ -3333,98 +3340,6 @@ export function OperationsConsole({
         method: 'PATCH',
         body: JSON.stringify(body),
       });
-      refreshWorkspace();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'request_failed');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function submitRenewal(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!renewingLease) return;
-    const leaseId = safeString(renewingLease.id);
-    const currency = safeString(renewingLease.currency) as CurrencyCode;
-    const form = new FormData(event.currentTarget);
-    const rent = text(form.get('rent'));
-    const rentMinor = rent
-      ? toMinorUnits(rent, currency)
-      : safeString(renewingLease.rentMinor) || '0';
-    const graceDays = Math.max(0, Math.min(90, Number(text(form.get('graceDays')) || '0') || 0));
-    const graceAsDiscount = form.get('graceAsDiscount') === 'on';
-    const graceAmountRaw = text(form.get('graceAmount'));
-    const graceAmountMinor = graceAmountRaw
-      ? toMinorUnits(graceAmountRaw, currency)
-      : graceDays > 0
-        ? String(Math.round((Number(rentMinor) / 30) * graceDays))
-        : '0';
-    const adjustments: Array<{
-      kind: 'add' | 'discount';
-      title: string;
-      amount: { amountMinor: string; currency: CurrencyCode };
-    }> = [];
-    const otherAmount = text(form.get('otherAmount'));
-    const otherFee = text(form.get('otherFee'));
-    const otherDiscount = text(form.get('otherDiscount'));
-    if (otherAmount) {
-      adjustments.push({
-        kind: 'add',
-        title: ar ? 'مبالغ أخرى' : 'Other amounts',
-        amount: { amountMinor: toMinorUnits(otherAmount, currency), currency },
-      });
-    }
-    if (otherFee) {
-      adjustments.push({
-        kind: 'add',
-        title: ar ? 'رسوم أخرى' : 'Other fees',
-        amount: { amountMinor: toMinorUnits(otherFee, currency), currency },
-      });
-    }
-    if (otherDiscount) {
-      adjustments.push({
-        kind: 'discount',
-        title: ar ? 'تخفيضات أخرى' : 'Other discounts',
-        amount: { amountMinor: toMinorUnits(otherDiscount, currency), currency },
-      });
-    }
-    const chequeBank = text(form.get('chequeBank'));
-    const chequeNumber = text(form.get('chequeNumber'));
-    const chequeAmount = text(form.get('chequeAmount'));
-    const chequeDueOn = text(form.get('chequeDueOn'));
-    const cheques =
-      chequeBank && chequeNumber && chequeAmount && chequeDueOn
-        ? [
-            {
-              bankName: chequeBank,
-              chequeNumber,
-              amount: { amountMinor: toMinorUnits(chequeAmount, currency), currency },
-              dueOn: chequeDueOn,
-            },
-          ]
-        : [];
-    setBusy(true);
-    setError(null);
-    try {
-      await browserMutation(`/v1/leasing/leases/${encodeURIComponent(leaseId)}/renewals`, {
-        method: 'POST',
-        body: JSON.stringify({
-          templateVersionId: text(form.get('templateVersionId')),
-          endsOn: text(form.get('endsOn')),
-          ...(rent ? { rent: { amountMinor: toMinorUnits(rent, currency), currency } } : {}),
-          graceDays,
-          graceAsDiscount,
-          ...(graceDays > 0 || graceAmountRaw
-            ? { graceAmount: { amountMinor: graceAmountMinor, currency } }
-            : {}),
-          ...(adjustments.length ? { adjustments } : {}),
-          ...(text(form.get('additionalTerms'))
-            ? { additionalTerms: text(form.get('additionalTerms')) }
-            : {}),
-          ...(cheques.length ? { cheques } : {}),
-        }),
-      });
-      setRenewingLease(null);
       refreshWorkspace();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'request_failed');
@@ -5132,8 +5047,9 @@ ${depositHtml}${
                                   busy={busy}
                                   onLifecycle={leaseLifecycle}
                                   onRenew={(target) => {
-                                    setError(null);
-                                    setRenewingLease(target);
+                                    const id = safeString(target.id);
+                                    if (!id) return;
+                                    router.push(`/${portal}/leasing/${encodeURIComponent(id)}/renew`);
                                   }}
                                 />
                               ) : section === 'team' ? (
@@ -5646,8 +5562,9 @@ ${depositHtml}${
                             busy={busy}
                             onLifecycle={leaseLifecycle}
                             onRenew={(target) => {
-                              setError(null);
-                              setRenewingLease(target);
+                              const id = safeString(target.id);
+                              if (!id) return;
+                              router.push(`/${portal}/leasing/${encodeURIComponent(id)}/renew`);
                             }}
                           />
                         </div>
@@ -5895,162 +5812,6 @@ ${depositHtml}${
                   </div>
                 </div>
               )}
-            </section>
-          </div>
-        </ModalPortal>
-      ) : null}
-
-      {renewingLease ? (
-        <ModalPortal onClose={() => setRenewingLease(null)}>
-          <div
-            className="ops-modal"
-            role="presentation"
-            onMouseDown={(event) => {
-              if (event.target === event.currentTarget) setRenewingLease(null);
-            }}
-          >
-            <section
-              className="ops-modal__card"
-              role="dialog"
-              aria-modal="true"
-              aria-labelledby="ops-renewal-title"
-            >
-              <header>
-                <div>
-                  <span className="ops-kicker">BHD R · CONTRACT CONTROL</span>
-                  <h2 id="ops-renewal-title">
-                    {ar ? 'إنشاء ملحق تجديد' : 'Create renewal addendum'}
-                  </h2>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRenewingLease(null)}
-                  aria-label={ar ? 'إغلاق' : 'Close'}
-                >
-                  ×
-                </button>
-              </header>
-              <p className="muted">
-                {ar
-                  ? 'لن يتغير العقد الحالي حتى يُعتمد الملحق ويوقعه المالك والمستأجر.'
-                  : 'The current lease will not change until the addendum is approved and signed by both owner and tenant.'}
-              </p>
-              <form onSubmit={(event) => void submitRenewal(event)}>
-                <div className="form-grid">
-                  <SelectOptions
-                    name="templateVersionId"
-                    label={ar ? 'قالب ملحق العقد' : 'Addendum template'}
-                    options={leaseContractTemplateOptions(context.contractTemplates, locale)}
-                    locale={locale}
-                    required
-                  />
-                  <Input
-                    name="endsOn"
-                    label={ar ? 'تاريخ النهاية الجديد' : 'New end date'}
-                    type="date"
-                    min={safeString(renewingLease.endsOn)}
-                    required
-                  />
-                  <Input
-                    name="rent"
-                    label={`${ar ? 'الإيجار الجديد (اختياري)' : 'New rent (optional)'} · ${safeString(renewingLease.currency)}`}
-                    type="number"
-                    min="0"
-                    step="0.001"
-                  />
-                  <Input
-                    name="graceDays"
-                    label={ar ? 'فترة السماح الجديدة (أيام)' : 'New grace period (days)'}
-                    type="number"
-                    min="0"
-                    max="90"
-                    defaultValue="0"
-                  />
-                  <Input
-                    name="graceAmount"
-                    label={`${ar ? 'مبلغ السماح (اختياري)' : 'Grace amount (optional)'} · ${safeString(renewingLease.currency)}`}
-                    type="number"
-                    min="0"
-                    step="0.001"
-                    placeholder={ar ? 'يُحسب تلقائياً من الإيجار' : 'Auto from rent if empty'}
-                  />
-                  <label className="checkbox-row span-2">
-                    <input type="checkbox" name="graceAsDiscount" defaultChecked />
-                    <span>
-                      {ar
-                        ? 'اعتبر أيام السماح خصماً / تخفيضاً من إجمالي ما يدفعه المستأجر'
-                        : 'Treat grace days as a discount on what the tenant pays'}
-                    </span>
-                  </label>
-                  <Input
-                    name="otherAmount"
-                    label={`${ar ? 'مبالغ أخرى' : 'Other amounts'} · ${safeString(renewingLease.currency)}`}
-                    type="number"
-                    min="0"
-                    step="0.001"
-                  />
-                  <Input
-                    name="otherFee"
-                    label={`${ar ? 'رسوم أخرى' : 'Other fees'} · ${safeString(renewingLease.currency)}`}
-                    type="number"
-                    min="0"
-                    step="0.001"
-                  />
-                  <Input
-                    name="otherDiscount"
-                    label={`${ar ? 'تخفيضات أخرى' : 'Other discounts'} · ${safeString(renewingLease.currency)}`}
-                    type="number"
-                    min="0"
-                    step="0.001"
-                  />
-                  <label className="field span-2">
-                    <span>{ar ? 'شروط إضافية' : 'Additional terms'}</span>
-                    <textarea className="textarea" name="additionalTerms" maxLength={10000} />
-                  </label>
-                  <p className="muted span-2" style={{ margin: 0 }}>
-                    {ar
-                      ? 'جدول شيكات الفترة الجديدة (اختياري — مطلوب قبل اعتماد المحاسب ما لم يستثنِ المدير)'
-                      : 'Renewal cheque schedule (optional — required before accountant confirm unless manager waives)'}
-                  </p>
-                  <Input name="chequeBank" label={ar ? 'بنك الشيك' : 'Cheque bank'} />
-                  <Input name="chequeNumber" label={ar ? 'رقم الشيك' : 'Cheque number'} />
-                  <Input
-                    name="chequeAmount"
-                    label={`${ar ? 'مبلغ الشيك' : 'Cheque amount'} · ${safeString(renewingLease.currency)}`}
-                    type="number"
-                    min="0"
-                    step="0.001"
-                  />
-                  <Input
-                    name="chequeDueOn"
-                    label={ar ? 'استحقاق الشيك' : 'Cheque due'}
-                    type="date"
-                  />
-                </div>
-                {error ? (
-                  <div className="notice notice--error" role="alert">
-                    {error}
-                  </div>
-                ) : null}
-                <div className="form-actions">
-                  <button
-                    className="button button--quiet"
-                    type="button"
-                    onClick={() => setRenewingLease(null)}
-                  >
-                    {ar ? 'إلغاء' : 'Cancel'}
-                  </button>
-                  <button className="button button--primary" type="submit" disabled={busy}>
-                    {busy
-                      ? ar
-                        ? 'جارٍ الحفظ…'
-                        : 'Saving…'
-                      : ar
-                        ? 'حفظ وإرسال للاعتماد'
-                        : 'Save & request approval'}
-                  </button>
-                </div>
-              </form>
             </section>
           </div>
         </ModalPortal>

@@ -594,6 +594,15 @@ export class LeasingService {
         title: string;
         amount: { amountMinor: string; currency: string };
       }>;
+      paymentMethod?: 'cheque' | 'cash' | 'bank_transfer' | undefined;
+      paymentFrequency?:
+        | 'monthly'
+        | 'bimonthly'
+        | 'quarterly'
+        | 'semiannual'
+        | 'annual'
+        | undefined;
+      months?: number | undefined;
       cheques?: ReadonlyArray<{
         bankName: string;
         chequeNumber: string;
@@ -711,6 +720,9 @@ export class LeasingService {
         graceAsDiscount,
         graceAmount: { amountMinor: graceAmountMinor, currency: lease.currency },
         adjustments,
+        paymentMethod: input.paymentMethod ?? null,
+        paymentFrequency: input.paymentFrequency ?? null,
+        months: input.months ?? null,
         additionalTerms: input.additionalTerms ? sanitizeRichText(input.additionalTerms) : null,
       };
       const contractRows = await transaction
