@@ -43,7 +43,7 @@ import {
 import { leaseOwnerLifecycleState } from '@/lib/owner-lifecycle-status';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
-import { replaceSoftPortalUrl } from '@/lib/soft-portal-nav';
+import { replaceSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
@@ -2751,21 +2751,29 @@ export function OperationsConsole({
   const search = useSearchParams().toString();
   const ar = locale === 'ar';
   const today = useMemo(() => muscatToday(), []);
+  const softPathname = useSoftPortalPathname();
+  const onContractsList =
+    section === 'contracts' && softPathname === `/${portal}/contracts`;
   const contractKind: ContractCategory | null = useMemo(() => {
-    if (section !== 'contracts') return null;
+    if (!onContractsList) return null;
     const kind = new URLSearchParams(search).get('kind');
     return isContractCategory(kind) ? kind : null;
-  }, [search, section]);
-  // Merged nav: rental/sale contract lists redirect to leasing/sales; only purchase stays here.
+  }, [search, onContractsList]);
+  // Merged nav: only while this contracts list is visible — never when a keep-alive
+  // contracts pane is hidden after soft-nav to leasing/sales/etc.
   useEffect(() => {
-    if (section !== 'contracts') return;
+    if (!active || !onContractsList) return;
     if (contractKind === 'purchase') return;
     const hub = opsHubPathForContractCategory(contractKind);
     replaceSoftPortalUrl(`/${portal}${hub}`);
-  }, [section, contractKind, portal]);
+  }, [active, onContractsList, contractKind, portal]);
   const definition = useMemo(
-    () => contractsDefinition(definitions[section], contractKind === 'purchase' ? 'purchase' : null),
-    [section, contractKind],
+    () =>
+      contractsDefinition(
+        definitions[section],
+        onContractsList && contractKind === 'purchase' ? 'purchase' : null,
+      ),
+    [section, onContractsList, contractKind],
   );
   // Contracts / leasing: same four owner-facing states (ساري / منتهي / ملغي / معلق).
   const records = useMemo((): DataRow[] => {
