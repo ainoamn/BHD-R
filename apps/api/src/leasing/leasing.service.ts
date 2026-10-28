@@ -586,6 +586,14 @@ export class LeasingService {
       endsOn: string;
       rent?: { amountMinor: string; currency: string } | undefined;
       additionalTerms?: string | undefined;
+      graceDays?: number | undefined;
+      graceAsDiscount?: boolean | undefined;
+      graceAmount?: { amountMinor: string; currency: string } | undefined;
+      adjustments?: ReadonlyArray<{
+        kind: 'add' | 'discount';
+        title: string;
+        amount: { amountMinor: string; currency: string };
+      }>;
       cheques?: ReadonlyArray<{
         bankName: string;
         chequeNumber: string;
@@ -672,6 +680,18 @@ export class LeasingService {
         ),
       );
       const rentMinor = input.rent?.amountMinor ?? lease.rentMinor.toString();
+      const graceDays = input.graceDays ?? 0;
+      const graceAsDiscount = input.graceAsDiscount ?? true;
+      const graceAmountMinor =
+        input.graceAmount?.amountMinor ??
+        (graceDays > 0
+          ? String(Math.round((Number(rentMinor) / 30) * graceDays))
+          : '0');
+      const adjustments = (input.adjustments ?? []).map((row) => ({
+        kind: row.kind,
+        title: row.title,
+        amount: row.amount,
+      }));
       const payload = {
         contract: {
           reference: contractReference,
@@ -687,6 +707,10 @@ export class LeasingService {
         billingDay: lease.billingDay,
         rent: { amountMinor: rentMinor, currency: lease.currency },
         previous: { endsOn: lease.endsOn, rentMinor: lease.rentMinor.toString() },
+        graceDays,
+        graceAsDiscount,
+        graceAmount: { amountMinor: graceAmountMinor, currency: lease.currency },
+        adjustments,
         additionalTerms: input.additionalTerms ? sanitizeRichText(input.additionalTerms) : null,
       };
       const contractRows = await transaction

@@ -43,10 +43,12 @@ import {
 import { leaseOwnerLifecycleState } from '@/lib/owner-lifecycle-status';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
+import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { replaceSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
+import { LeasingConvertPanel } from './leasing-convert-panel';
 import { ModalPortal } from './modal-portal';
 import { NestReconnectButton } from './nest-reconnect-button';
 import { PropertyOpsRowKey } from './property-ops-row-key';
@@ -1725,7 +1727,7 @@ function CreateFields({
           <SelectOptions
             name="templateVersionId"
             label={ar ? 'قالب العقد' : 'Contract template'}
-            options={context.contractTemplates ?? []}
+            options={leaseContractTemplateOptions(context.contractTemplates, locale)}
             locale={locale}
             required
           />
@@ -2958,8 +2960,21 @@ export function OperationsConsole({
       if (match?.tenantPartyId) setPrefillTenantId(match.tenantPartyId);
       if (match?.unitId && !unitId) setPrefillUnitId(match.unitId);
     }
+    // Convert from a confirmed booking → open the same full contract page as bookings.
+    if (section === 'leasing' && params.get('create') === '1' && reservationId) {
+      router.push(`/${portal}/bookings/${encodeURIComponent(reservationId)}`);
+      return;
+    }
     if (params.get('create') === '1') setShowCreate(true);
-  }, [active, search, section, context.confirmedReservations, context.reservations]);
+  }, [
+    active,
+    search,
+    section,
+    portal,
+    router,
+    context.confirmedReservations,
+    context.reservations,
+  ]);
 
   const vacantUnits = context.vacantUnits ?? [];
   const pendingDeposits = context.pendingDepositReservations ?? [];
@@ -3330,6 +3345,46 @@ export function OperationsConsole({
     const currency = safeString(renewingLease.currency) as CurrencyCode;
     const form = new FormData(event.currentTarget);
     const rent = text(form.get('rent'));
+    const rentMinor = rent
+      ? toMinorUnits(rent, currency)
+      : safeString(renewingLease.rentMinor) || '0';
+    const graceDays = Math.max(0, Math.min(90, Number(text(form.get('graceDays')) || '0') || 0));
+    const graceAsDiscount = form.get('graceAsDiscount') === 'on';
+    const graceAmountRaw = text(form.get('graceAmount'));
+    const graceAmountMinor = graceAmountRaw
+      ? toMinorUnits(graceAmountRaw, currency)
+      : graceDays > 0
+        ? String(Math.round((Number(rentMinor) / 30) * graceDays))
+        : '0';
+    const adjustments: Array<{
+      kind: 'add' | 'discount';
+      title: string;
+      amount: { amountMinor: string; currency: CurrencyCode };
+    }> = [];
+    const otherAmount = text(form.get('otherAmount'));
+    const otherFee = text(form.get('otherFee'));
+    const otherDiscount = text(form.get('otherDiscount'));
+    if (otherAmount) {
+      adjustments.push({
+        kind: 'add',
+        title: ar ? 'مبالغ أخرى' : 'Other amounts',
+        amount: { amountMinor: toMinorUnits(otherAmount, currency), currency },
+      });
+    }
+    if (otherFee) {
+      adjustments.push({
+        kind: 'add',
+        title: ar ? 'رسوم أخرى' : 'Other fees',
+        amount: { amountMinor: toMinorUnits(otherFee, currency), currency },
+      });
+    }
+    if (otherDiscount) {
+      adjustments.push({
+        kind: 'discount',
+        title: ar ? 'تخفيضات أخرى' : 'Other discounts',
+        amount: { amountMinor: toMinorUnits(otherDiscount, currency), currency },
+      });
+    }
     const chequeBank = text(form.get('chequeBank'));
     const chequeNumber = text(form.get('chequeNumber'));
     const chequeAmount = text(form.get('chequeAmount'));
@@ -3354,6 +3409,12 @@ export function OperationsConsole({
           templateVersionId: text(form.get('templateVersionId')),
           endsOn: text(form.get('endsOn')),
           ...(rent ? { rent: { amountMinor: toMinorUnits(rent, currency), currency } } : {}),
+          graceDays,
+          graceAsDiscount,
+          ...(graceDays > 0 || graceAmountRaw
+            ? { graceAmount: { amountMinor: graceAmountMinor, currency } }
+            : {}),
+          ...(adjustments.length ? { adjustments } : {}),
           ...(text(form.get('additionalTerms'))
             ? { additionalTerms: text(form.get('additionalTerms')) }
             : {}),
@@ -5158,11 +5219,11 @@ ${depositHtml}${
                                   ) : null}
                                   {safeString(row.status) === 'confirmed' ? (
                                     <Link
-                                      className="ops-action"
-                                      href={`/${portal}/leasing?create=1&reservationId=${encodeURIComponent(safeString(row.id))}&unitId=${encodeURIComponent(safeString(row.unitId))}&tenantId=${encodeURIComponent(safeString(row.tenantPartyId))}`}
+                                      className="ops-action ops-action--primary"
+                                      href={`/${portal}/bookings/${encodeURIComponent(safeString(row.id))}`}
                                       prefetch
                                     >
-                                      {ar ? 'تحويل لعقد قيد الإجراء' : 'Convert to lease'}
+                                      {ar ? 'تحويل لعقد إيجار' : 'Convert to lease'}
                                     </Link>
                                   ) : null}
                                   <Link
@@ -5876,7 +5937,7 @@ ${depositHtml}${
                   <SelectOptions
                     name="templateVersionId"
                     label={ar ? 'قالب ملحق العقد' : 'Addendum template'}
-                    options={context.contractTemplates ?? []}
+                    options={leaseContractTemplateOptions(context.contractTemplates, locale)}
                     locale={locale}
                     required
                   />
@@ -5890,6 +5951,51 @@ ${depositHtml}${
                   <Input
                     name="rent"
                     label={`${ar ? 'الإيجار الجديد (اختياري)' : 'New rent (optional)'} · ${safeString(renewingLease.currency)}`}
+                    type="number"
+                    min="0"
+                    step="0.001"
+                  />
+                  <Input
+                    name="graceDays"
+                    label={ar ? 'فترة السماح الجديدة (أيام)' : 'New grace period (days)'}
+                    type="number"
+                    min="0"
+                    max="90"
+                    defaultValue="0"
+                  />
+                  <Input
+                    name="graceAmount"
+                    label={`${ar ? 'مبلغ السماح (اختياري)' : 'Grace amount (optional)'} · ${safeString(renewingLease.currency)}`}
+                    type="number"
+                    min="0"
+                    step="0.001"
+                    placeholder={ar ? 'يُحسب تلقائياً من الإيجار' : 'Auto from rent if empty'}
+                  />
+                  <label className="checkbox-row span-2">
+                    <input type="checkbox" name="graceAsDiscount" defaultChecked />
+                    <span>
+                      {ar
+                        ? 'اعتبر أيام السماح خصماً / تخفيضاً من إجمالي ما يدفعه المستأجر'
+                        : 'Treat grace days as a discount on what the tenant pays'}
+                    </span>
+                  </label>
+                  <Input
+                    name="otherAmount"
+                    label={`${ar ? 'مبالغ أخرى' : 'Other amounts'} · ${safeString(renewingLease.currency)}`}
+                    type="number"
+                    min="0"
+                    step="0.001"
+                  />
+                  <Input
+                    name="otherFee"
+                    label={`${ar ? 'رسوم أخرى' : 'Other fees'} · ${safeString(renewingLease.currency)}`}
+                    type="number"
+                    min="0"
+                    step="0.001"
+                  />
+                  <Input
+                    name="otherDiscount"
+                    label={`${ar ? 'تخفيضات أخرى' : 'Other discounts'} · ${safeString(renewingLease.currency)}`}
                     type="number"
                     min="0"
                     step="0.001"
@@ -6198,6 +6304,33 @@ ${depositHtml}${
                     </button>
                   </div>
                 </div>
+              ) : section === 'leasing' ? (
+                <LeasingConvertPanel
+                  portal={portal}
+                  locale={locale}
+                  vacantUnits={[...(context.vacantUnits ?? []), ...(context.units ?? [])]}
+                  tenants={
+                    (context.tenants?.length ? context.tenants : context.parties) as Array<{
+                      id: string;
+                      displayName?: string;
+                      name?: string;
+                      nameAr?: string;
+                      nameEn?: string;
+                      type?: string;
+                      email?: string | null;
+                      phone?: string | null;
+                    }>
+                  }
+                  reservations={context.confirmedReservations ?? []}
+                  {...(prefillReservationId
+                    ? { prefillReservationId }
+                    : {})}
+                  onDone={() => {
+                    closeCreate();
+                    refreshWorkspace();
+                  }}
+                  onCancel={closeCreate}
+                />
               ) : (
                 <form onSubmit={(event) => void submitCreate(event)}>
                   <div className="form-grid">

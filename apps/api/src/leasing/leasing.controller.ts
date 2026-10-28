@@ -53,6 +53,14 @@ const leaseSchema = createLeaseSchema.extend({
   additionalTerms: z.string().max(10_000).optional(),
   reservationId: z.uuid().optional(),
 });
+const renewalAdjustmentSchema = z.object({
+  kind: z.enum(['add', 'discount']),
+  title: z.string().trim().min(1).max(160),
+  amount: z.object({
+    amountMinor: z.string().regex(/^\d+$/),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+  }),
+});
 const renewalSchema = z
   .object({
     templateVersionId: z.uuid(),
@@ -64,6 +72,17 @@ const renewalSchema = z
       })
       .optional(),
     additionalTerms: z.string().trim().max(10_000).optional(),
+    /** Free days between handover and renewed rent start (informational / discount). */
+    graceDays: z.number().int().min(0).max(90).optional().default(0),
+    graceAsDiscount: z.boolean().optional().default(true),
+    graceAmount: z
+      .object({
+        amountMinor: z.string().regex(/^\d+$/),
+        currency: z.string().regex(/^[A-Z]{3}$/),
+      })
+      .optional(),
+    /** Other amounts / fees / discounts for the renewed period. */
+    adjustments: z.array(renewalAdjustmentSchema).max(40).optional().default([]),
     /** Cycle v1.1 R3: optional cheque schedule for the renewed period */
     cheques: z
       .array(
