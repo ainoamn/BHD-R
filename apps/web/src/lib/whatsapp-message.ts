@@ -1,12 +1,13 @@
 /**
- * Cheerful bilingual WhatsApp copy — same tone icons, wishes, and sparks as branded email,
- * shaped for chat bubbles (short lines, bold titles, emoji anchors) so it reads well on phones.
+ * Bilingual WhatsApp copy — same tone icons as branded email, shaped for chat bubbles.
+ * Warm wishes stay off sensitive tones (OTP, finance, legal, contracts, alerts).
  */
 import {
   COMPANY_NAME_AR,
   COMPANY_NAME_EN,
   PRODUCT_NAME,
   emailGreetingParts,
+  emailToneUsesWarmClosing,
   emailWishParts,
   toneVisual,
   type EmailTone,
@@ -31,6 +32,8 @@ export type WhatsAppDraft = {
   linkLabelAr?: string | undefined;
   linkLabelEn?: string | undefined;
   link?: string | undefined;
+  /** Override warm wish footer; defaults from tone. */
+  warmClosing?: boolean | undefined;
 };
 
 export type WhatsAppRendered = {
@@ -58,7 +61,8 @@ function bullets(details: readonly WhatsAppDetail[] | undefined, lang: 'ar' | 'e
 function buildSide(draft: WhatsAppDraft, lang: 'ar' | 'en', options: { seed: string }): string {
   const visual = toneVisual(draft.tone);
   const greet = emailGreetingParts(draft.recipientName, options.seed);
-  const wish = emailWishParts(draft.tone, options.seed);
+  const warm = draft.warmClosing ?? emailToneUsesWarmClosing(draft.tone);
+  const wish = warm ? emailWishParts(draft.tone, options.seed) : null;
   const title = lang === 'ar' ? draft.titleAr : draft.titleEn;
   const intro = lang === 'ar' ? draft.introAr : draft.introEn;
   const lines = lang === 'ar' ? draft.linesAr : draft.linesEn;
@@ -98,17 +102,22 @@ function buildSide(draft: WhatsAppDraft, lang: 'ar' | 'en', options: { seed: str
     body.push(draft.link.trim());
   }
 
+  if (wish) {
+    body.push(
+      '',
+      lang === 'ar' ? wish.wishAr : wish.wishEn,
+      lang === 'ar' ? wish.sparkAr : wish.sparkEn,
+    );
+  }
+
   body.push(
     '',
-    `🌟 ${lang === 'ar' ? wish.wishAr : wish.wishEn}`,
-    `✨ ${lang === 'ar' ? wish.sparkAr : wish.sparkEn}`,
-    '',
     lang === 'ar'
-      ? `مع أطيب التحيات من فريق ${PRODUCT_NAME} — ${COMPANY_NAME_AR} 🏠🔑🌴`
-      : `Warm regards from the ${PRODUCT_NAME} team — ${COMPANY_NAME_EN} 🏠🔑🌴`,
+      ? `مع أطيب التحيات — فريق ${PRODUCT_NAME}`
+      : `Kind regards — the ${PRODUCT_NAME} team`,
     lang === 'ar'
-      ? 'هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾'
-      : 'This is an automated message from our platform; don’t worry — it doesn’t bite 🐾',
+      ? 'رسالة آلية من منصة BHD R.'
+      : 'Automated message from the BHD R platform.',
   );
 
   return body
@@ -117,7 +126,7 @@ function buildSide(draft: WhatsAppDraft, lang: 'ar' | 'en', options: { seed: str
     .trim();
 }
 
-/** Render AR + EN WhatsApp messages with rotating cheerful closings (stable per seed). */
+/** Render AR + EN WhatsApp messages (stable per seed). */
 export function renderWhatsAppMessage(
   draft: WhatsAppDraft,
   options: { seed: string },

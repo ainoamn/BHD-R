@@ -49,7 +49,28 @@ export type BrandedEmailInput = {
   footnote?: string | undefined;
   /** Absolute https URL of a hero image (e.g. greeting card); never a data: URL. */
   heroImageUrl?: string | undefined;
+  /**
+   * When true, append rotating wish/spark lines. Defaults from `emailToneUsesWarmClosing`.
+   * Keep false for OTP, money, contracts, legal, cancellations.
+   */
+  warmClosing?: boolean | undefined;
 };
+
+/** Friendly wish banner + light footer — only for non-sensitive notifications. */
+export function emailToneUsesWarmClosing(tone: EmailTone): boolean {
+  switch (tone) {
+    case 'team':
+    case 'booking':
+    case 'listing':
+    case 'reward':
+    case 'upgrade':
+    case 'vacancy':
+    case 'general':
+      return true;
+    default:
+      return false;
+  }
+}
 
 type ToneStyle = { icon: string; accent: string; soft: string; badge: string };
 
@@ -316,10 +337,13 @@ export function renderBrandedEmail(
   const tone = TONES[input.tone];
   const origin = options.origin.replace(/\/$/, '');
   const greeting = emailGreeting(input.recipientName, options.seed);
-  const wish = emailWish(input.tone, options.seed);
-  const wishHtml = escape(wish).replaceAll('\n', '<br>');
+  const warm = input.warmClosing ?? emailToneUsesWarmClosing(input.tone);
+  const wish = warm ? emailWish(input.tone, options.seed) : '';
+  const wishHtml = wish ? escape(wish).replaceAll('\n', '<br>') : '';
   const lines = (input.lines ?? []).filter((line) => line.trim());
   const details = (input.details ?? []).filter((item) => item.value.trim());
+  const autoNoteAr = 'هذه رسالة آلية من منصة BHD R.';
+  const autoNoteEn = 'This is an automated message from the BHD R platform.';
 
   const text = [
     greeting,
@@ -329,8 +353,7 @@ export function renderBrandedEmail(
     ...(lines.length ? ['', ...lines] : []),
     ...(details.length ? ['', ...details.map((item) => `• ${item.label}: ${item.value}`)] : []),
     ...(input.cta ? ['', `${input.cta.label}: ${input.cta.url}`] : []),
-    '',
-    wish,
+    ...(wish ? ['', wish] : []),
     '',
     `مع أطيب التحيات من فريق ${PRODUCT_NAME} — ${COMPANY_NAME_AR}`,
     `Warm regards from the ${PRODUCT_NAME} team — ${COMPANY_NAME_EN}`,
@@ -345,8 +368,8 @@ export function renderBrandedEmail(
         ]
       : []),
     '',
-    'هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾',
-    'This is an automated message from our platform; don’t worry — it doesn’t bite 🐾',
+    autoNoteAr,
+    autoNoteEn,
   ].join('\n');
 
   // Stacked label→value rows (no nowrap / no side-by-side) so Gmail/Outlook/phone never clip text.
@@ -430,11 +453,15 @@ export function renderBrandedEmail(
     </td></tr>`
         : ''
     }
-    <tr><td class="bhd-pad" style="background:#ffffff;padding:16px 16px 18px">
-      <div style="background:${tone.soft};border-radius:14px;padding:14px 14px;color:#24384d;font-size:13px;line-height:1.8;text-align:center;word-break:break-word;overflow-wrap:anywhere">🌟 ${wishHtml}</div>
-    </td></tr>
+    ${
+      wishHtml
+        ? `<tr><td class="bhd-pad" style="background:#ffffff;padding:16px 16px 8px">
+      <div style="background:${tone.soft};border-radius:14px;padding:14px 14px;color:#24384d;font-size:13px;line-height:1.8;text-align:center;word-break:break-word;overflow-wrap:anywhere">${wishHtml}</div>
+    </td></tr>`
+        : ''
+    }
     <tr><td class="bhd-pad" style="background:#f7fafb;border-top:1px solid #e3eaef;border-radius:0 0 18px 18px;padding:14px 16px;text-align:center;color:#6b7c8d;font-size:12px;line-height:1.75;word-break:break-word;overflow-wrap:anywhere">
-      <div style="font-size:18px;letter-spacing:6px">🏠 🔑 🌴</div>
+      ${warm ? `<div style="font-size:16px;letter-spacing:4px;margin-bottom:4px">🏠</div>` : ''}
       <div>مع أطيب التحيات من فريق <b style="color:#174b70">${PRODUCT_NAME}</b> — ${COMPANY_NAME_AR}</div>
       <div style="margin-top:2px;color:#8a99a8">Warm regards from the <b style="color:#174b70">${PRODUCT_NAME}</b> team — ${COMPANY_NAME_EN}</div>
       ${
@@ -449,8 +476,8 @@ export function renderBrandedEmail(
               .join('')
           : ''
       }
-      <div style="margin-top:8px">هذه رسالة آلية من منصتنا؛ لا تقلق، فهي لا تعضّ 🐾</div>
-      <div style="color:#8a99a8">This is an automated message from our platform; don’t worry — it doesn’t bite 🐾</div>
+      <div style="margin-top:8px">${autoNoteAr}</div>
+      <div style="color:#8a99a8">${autoNoteEn}</div>
       <div style="margin-top:6px"><a href="${escape(origin)}" style="color:#0b8f8a;word-break:break-all">${escape(origin.replace(/^https?:\/\//, ''))}</a></div>
     </td></tr>
   </table>

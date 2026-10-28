@@ -66,21 +66,30 @@ export async function sendEmailOtp(input: {
       recipient: email,
       subject:
         input.locale === 'ar'
-          ? `رمز التحقق من البريد — ${code}`
-          : `Email verification code — ${code}`,
+          ? 'رمز التحقق لبريدك الإلكتروني'
+          : 'Your email verification code',
       aggregateType: PURPOSE,
       aggregateId,
       dedupeKey: `email-otp-send:${aggregateId}:${expiresAt.toISOString()}`,
-      tone: 'booking',
-      title: input.locale === 'ar' ? 'رمز التحقق من بريدك' : 'Verify your email',
+      tone: 'alert',
+      warmClosing: false,
+      title: input.locale === 'ar' ? 'أكمل التحقق من بريدك' : 'Verify your email address',
       intro:
         input.locale === 'ar'
-          ? `رمز التحقق الخاص بك هو ${code}. صالح لمدة 15 دقيقة.`
-          : `Your verification code is ${code}. It expires in 15 minutes.`,
+          ? `رمز التحقق الخاص بك هو ${code}. ينتهي خلال 15 دقيقة. لا تشارك الرمز مع أي شخص؛ لن يطلب منك فريق BHD R إرساله عبر الهاتف أو واتساب.`
+          : `Your verification code is ${code}. It expires in 15 minutes. Never share this code; BHD R support will not ask you to send it by phone or WhatsApp.`,
       lines:
         input.locale === 'ar'
-          ? ['لا تشارك هذا الرمز مع أحد.', '— English —', 'Do not share this code with anyone.']
-          : ['Do not share this code with anyone.', '— العربية —', 'لا تشارك هذا الرمز مع أحد.'],
+          ? [
+              'إذا لم تطلب هذا الرمز، فتجاهل الرسالة وأمّن حسابك عند الحاجة.',
+              '— English —',
+              'If you did not request it, ignore this message and secure your account if needed.',
+            ]
+          : [
+              'If you did not request it, ignore this message and secure your account if needed.',
+              '— العربية —',
+              'إذا لم تطلب هذا الرمز، فتجاهل الرسالة وأمّن حسابك عند الحاجة.',
+            ],
       details: [
         { label: input.locale === 'ar' ? 'الرمز' : 'Code', value: code },
         {
@@ -88,6 +97,10 @@ export async function sendEmailOtp(input: {
           value: expiresAt.toISOString().slice(0, 16).replace('T', ' '),
         },
       ],
+      footnote:
+        input.locale === 'ar'
+          ? 'أدخل الرمز في صفحة التحقق على المنصة.'
+          : 'Enter the code on the verification page.',
     });
 
     await tx.insert(outboxEvents).values({
