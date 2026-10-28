@@ -24,11 +24,13 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 | `BHD_IDENTITY_CLIENT_SECRET` / `BHD_OAUTH_CLIENT_SECRET` | yes         |                                                                                                                                                                                                                                                                                           |
 | `BHD_IDENTITY_REDIRECT_URI` / `BHD_OAUTH_REDIRECT_URI`   | yes         |                                                                                                                                                                                                                                                                                           |
 | `BHD_IDENTITY_TOKEN_SECRET`                              | recommended | HS256 / identity verify                                                                                                                                                                                                                                                                   |
-| `BHD_R_SESSION_SECRET`                                   | yes         | ≥32 chars                                                                                                                                                                                                                                                                                 |
+| `BHD_R_SESSION_SECRET`                                   | yes         | ≥32 chars — session JWT signing only; never reuse for other purposes                                                                                                                                                                                                                      |
+| `BHD_R_OIDC_STATE_SECRET`                                | yes (prod)  | ≥32 chars — OIDC `state`/`nonce` HMAC; required in production (no fallback to session secret)                                                                                                                                                                                             |
+| `PII_LOOKUP_PEPPER`                                      | yes (prod)  | ≥32 chars — PII lookup fingerprints; required in production (no fallback to session secret)                                                                                                                                                                                               |
 | `CSRF_SECRET`                                            | yes         | ≥32 chars                                                                                                                                                                                                                                                                                 |
 | `PAYMENT_WEBHOOK_SECRET`                                 | yes         | HMAC for `POST /v1/webhooks/payments/:provider`. Payload kinds: invoice (default), `reservation_deposit` + `checkoutSessionReference`, or `stay_booking` + `paymentIntentId`. Simulators: `scripts/simulate-reservation-deposit-webhook.mjs`, `scripts/simulate-stay-booking-webhook.mjs` |
-| `FIELD_ENCRYPTION_KEY_V1`                                | yes         |                                                                                                                                                                                                                                                                                           |
-| `FIELD_ENCRYPTION_ACTIVE_VERSION`                        | yes         | `v1`                                                                                                                                                                                                                                                                                      |
+| `FIELD_ENCRYPTION_KEY_V1`                                | yes         | base64 32-byte key for AES-256-GCM field encryption                                                                                                                                                                                                                                       |
+| `FIELD_ENCRYPTION_ACTIVE_VERSION`                        | yes         | `v1` (or `v2` after a completed key rotation)                                                                                                                                                                                                                                             |
 | `PUBLIC_NEST_ORIGIN`                                     | recommended | media ingress / CSP                                                                                                                                                                                                                                                                       |
 | `MEDIA_UPLOAD_BASE_URL`                                  | optional    |                                                                                                                                                                                                                                                                                           |
 | `TRUST_PROXY_HOPS`                                       | recommended | `1` on Render                                                                                                                                                                                                                                                                             |
@@ -44,6 +46,21 @@ Blueprint: root `render.yaml` (keys as `sync: false` unless noted).
 | `GET /healthz`      | Edge liveness (process + Nest proxy). Render `healthCheckPath`. |
 | `GET /health/live`  | Nest process OK                                                 |
 | `GET /health/ready` | Nest + database `select 1`                                      |
+
+## Production secrets checklist (Render + Vercel)
+
+Generate each value independently (≥32 random bytes). Never commit real values. Production must refuse to boot if any required secret is missing or too short.
+
+| Secret | Where | Purpose |
+| ------ | ----- | ------- |
+| `BHD_R_SESSION_SECRET` | Render + Vercel | Product session JWT |
+| `BHD_R_OIDC_STATE_SECRET` | Vercel (web OIDC start/callback) | Login `state`/`nonce` HMAC |
+| `CSRF_SECRET` | Render + Vercel | CSRF double-submit |
+| `PII_LOOKUP_PEPPER` | Render (API) | PII lookup fingerprints |
+| `FIELD_ENCRYPTION_KEY_V1` | Render (+ Vercel if web decrypts) | AES-256-GCM field key |
+| `FIELD_ENCRYPTION_ACTIVE_VERSION` | same | Active key version (`v1`) |
+
+Key rotation: keep prior `FIELD_ENCRYPTION_KEY_V*` until every ciphertext is re-encrypted and verified; restore from encrypted backups before deleting old keys.
 
 ## Web (Vercel) extras
 

@@ -42,27 +42,56 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           queries: security-extended
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/analyze@v4
 
   filesystem-scan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      # Authoritative gate: table report fails the job on HIGH/CRITICAL fixed vulns.
+      # Secrets are covered by Gitleaks above — keep this scanner on lockfile vulns only.
+      - name: Trivy vulnerability gate
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
+          version: v0.76.1
           scan-type: fs
           scan-ref: .
+          scanners: vuln
+          format: table
+          output: trivy-gate.txt
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-dirs: 'node_modules,.git,docs/handoffs,coverage,playwright-report,test-results,.next,dist'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-gate-report
+          path: trivy-gate.txt
+          if-no-files-found: ignore
+          retention-days: 30
+      # SARIF is for GitHub Security tab only — never gate CI on SARIF generation quirks.
+      - name: Trivy SARIF for Security tab
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.76.1
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
           format: sarif
           output: trivy-results.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: '1'
-      - uses: github/codeql-action/upload-sarif@v3
+          limit-severities-for-sarif: true
+          exit-code: '0'
+          skip-dirs: 'node_modules,.git,docs/handoffs,coverage,playwright-report,test-results,.next,dist'
+      - uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-results.sarif

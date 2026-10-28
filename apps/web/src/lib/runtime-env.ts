@@ -43,14 +43,13 @@ export function requireSessionSecret(): Uint8Array {
 }
 
 export function requireOidcStateSecret(): string {
-  const value =
-    cleanSecret(process.env.BHD_R_OIDC_STATE_SECRET) ||
-    cleanSecret(process.env.BHD_R_SESSION_SECRET);
+  const value = cleanSecret(process.env.BHD_R_OIDC_STATE_SECRET);
   if (value.length >= 32) return value;
   if (isProductionRuntime()) {
+    // Never reuse BHD_R_SESSION_SECRET for OIDC state — keep signing purposes separate.
     throw new Error('BHD_R_OIDC_STATE_SECRET_required');
   }
-  return 'development-session-secret-at-least-32-characters';
+  return 'development-oidc-state-secret-at-least-32-chars';
 }
 
 export function requireCsrfSecret(): string {
