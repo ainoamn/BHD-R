@@ -59,6 +59,7 @@ export type SiteConsoleSectionId =
   | 'pages'
   | 'maintenance'
   | 'notifications'
+  | 'emailWishes'
   | 'greetings'
   | 'badges'
   | 'apiKeys'
@@ -148,6 +149,14 @@ export const SITE_CONSOLE_SECTIONS: Array<{
     scope: null,
     ar: 'قوالب الإشعارات',
     en: 'Notification templates',
+  },
+  {
+    id: 'emailWishes',
+    path: '/admin/email-wishes',
+    scope: null,
+    rootOnly: true,
+    ar: 'العبارات التحفيزية',
+    en: 'Motivational phrases',
   },
   {
     id: 'greetings',

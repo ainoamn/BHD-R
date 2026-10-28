@@ -41,6 +41,12 @@ export function appLink(path: string): string {
 export async function queueBrandedEmail(tx: OutboxWriter, job: BrandedEmailJob): Promise<boolean> {
   const recipient = emailableAddress(job.recipient);
   if (!recipient) return false;
+  try {
+    const { hydrateEmailWishPools } = await import('@/lib/email-wish-pools-neon');
+    await hydrateEmailWishPools();
+  } catch {
+    /* keep built-in wishes if settings are unavailable */
+  }
   const notificationId = randomUUID();
   const body = renderBrandedEmail(job, {
     origin: publicWebOrigin(),

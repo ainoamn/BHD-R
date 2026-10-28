@@ -80,8 +80,15 @@ const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintE
     href: '/admin/notifications',
     ar: 'قوالب الإشعارات',
     en: 'Notification templates',
-    hintAr: 'رسائل البريد والتنبيهات',
-    hintEn: 'Email and alert wording',
+    hintAr: 'معاينة كل قوالب البريد والواتساب التي يرسلها النظام',
+    hintEn: 'Preview every email/WhatsApp template the system sends',
+  },
+  {
+    href: '/admin/email-wishes',
+    ar: 'العبارات التحفيزية',
+    en: 'Motivational phrases',
+    hintAr: 'تعديل عبارات التحية والتحفيز في ذيل الإيميلات',
+    hintEn: 'Edit greeting and wish lines in email footers',
   },
   {
     href: '/admin/greetings',

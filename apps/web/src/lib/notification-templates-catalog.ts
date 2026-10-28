@@ -3,6 +3,7 @@
  * Every sample is bilingual (Arabic first, then English) so previews match the product rule.
  */
 import type { BrandedEmailInput, EmailTone } from '@/lib/email-template';
+import { EXTRA_NOTIFICATION_TEMPLATES } from '@/lib/notification-templates-catalog-extra';
 import type { WhatsAppDraft } from '@/lib/whatsapp-message';
 
 export type NotificationChannel = 'email' | 'whatsapp' | 'both';
@@ -494,6 +495,7 @@ export const NOTIFICATION_TEMPLATES: readonly NotificationTemplateSample[] = [
       footnoteEn: 'Sent because you were awarded a new badge.',
     }),
   },
+  ...EXTRA_NOTIFICATION_TEMPLATES,
 ];
 
 export function listNotificationTemplates(): NotificationTemplateMeta[] {

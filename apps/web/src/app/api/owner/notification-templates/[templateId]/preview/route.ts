@@ -31,6 +31,12 @@ export async function GET(
     return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
   }
   try {
+    try {
+      const { hydrateEmailWishPools } = await import('@/lib/email-wish-pools-neon');
+      await hydrateEmailWishPools();
+    } catch {
+      /* preview still works with built-in wishes */
+    }
     const origin = publicWebOrigin();
     const rotate = new URL(request.url).searchParams.get('rotate')?.trim() || '0';
     const seed = `preview:${template.id}:${rotate}`;

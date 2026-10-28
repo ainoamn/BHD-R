@@ -385,11 +385,66 @@ export function splitBilingualLine(line: string): { ar: string; en: string } {
   return { ar: left, en: right };
 }
 
+/** Optional admin overrides (platform_settings) — hydrated on the server before send/preview. */
+export type EmailWishPoolOverride = {
+  wishes?: Partial<Record<EmailTone, string[]>>;
+  sparks?: string[];
+  greetingsNamed?: string[];
+  greetingsAnon?: string[];
+};
+
+let wishPoolOverride: EmailWishPoolOverride | null = null;
+
+export function setEmailWishPoolOverride(next: EmailWishPoolOverride | null): void {
+  wishPoolOverride = next;
+}
+
+export function getEmailWishPoolOverride(): EmailWishPoolOverride | null {
+  return wishPoolOverride;
+}
+
+export function defaultWishLines(tone: EmailTone): readonly string[] {
+  return TONES[tone].wishes;
+}
+
+export function defaultSparkLines(): readonly string[] {
+  return SPARKS;
+}
+
+export function defaultGreetingNamedTemplates(): readonly string[] {
+  return GREETINGS_NAMED.map((fn) => fn('{name}'));
+}
+
+export function defaultGreetingAnonLines(): readonly string[] {
+  return GREETINGS_ANON;
+}
+
+function wishLines(tone: EmailTone): readonly string[] {
+  const custom = wishPoolOverride?.wishes?.[tone];
+  return custom?.length ? custom : TONES[tone].wishes;
+}
+
+function sparkLines(): readonly string[] {
+  const custom = wishPoolOverride?.sparks;
+  return custom?.length ? custom : SPARKS;
+}
+
+function greetingNamedTemplates(): readonly string[] {
+  const custom = wishPoolOverride?.greetingsNamed;
+  return custom?.length ? custom : GREETINGS_NAMED.map((fn) => fn('{name}'));
+}
+
+function greetingAnonLines(): readonly string[] {
+  const custom = wishPoolOverride?.greetingsAnon;
+  return custom?.length ? custom : GREETINGS_ANON;
+}
+
 /** Tone wish + rotating spark; stable for the same seed (retries), varied across messages. */
 export function emailWish(tone: EmailTone, seed: string): string {
-  const wishes = TONES[tone].wishes;
+  const wishes = wishLines(tone);
   const wish = wishes[seedIndex(seed, wishes.length)]!;
-  const spark = SPARKS[seedIndex(`${seed}:spark`, SPARKS.length)]!;
+  const sparks = sparkLines();
+  const spark = sparks[seedIndex(`${seed}:spark`, sparks.length)]!;
   return `${wish}\n${spark}`;
 }
 
@@ -398,19 +453,22 @@ export function emailWishParts(
   tone: EmailTone,
   seed: string,
 ): { wishAr: string; wishEn: string; sparkAr: string; sparkEn: string } {
-  const wishes = TONES[tone].wishes;
+  const wishes = wishLines(tone);
   const wish = splitBilingualLine(wishes[seedIndex(seed, wishes.length)]!);
-  const spark = splitBilingualLine(SPARKS[seedIndex(`${seed}:spark`, SPARKS.length)]!);
+  const sparks = sparkLines();
+  const spark = splitBilingualLine(sparks[seedIndex(`${seed}:spark`, sparks.length)]!);
   return { wishAr: wish.ar, wishEn: wish.en, sparkAr: spark.ar, sparkEn: spark.en };
 }
 
 export function emailGreeting(name: string | null | undefined, seed = 'greet'): string {
   const clean = name?.trim();
   if (clean) {
-    const greet = GREETINGS_NAMED[seedIndex(`${seed}:hi`, GREETINGS_NAMED.length)]!;
-    return greet(clean);
+    const templates = greetingNamedTemplates();
+    const greet = templates[seedIndex(`${seed}:hi`, templates.length)]!;
+    return greet.includes('{name}') ? greet.replaceAll('{name}', clean) : `${greet} ${clean}`;
   }
-  return GREETINGS_ANON[seedIndex(`${seed}:hi`, GREETINGS_ANON.length)]!;
+  const anon = greetingAnonLines();
+  return anon[seedIndex(`${seed}:hi`, anon.length)]!;
 }
 
 /** Greeting halves for channel-specific copy (WhatsApp AR / EN bubbles). */
@@ -423,8 +481,10 @@ export function emailGreetingParts(
 
 /** How many rotating lines a tone carries (studio / docs). */
 export function emailWishPoolSize(tone: EmailTone): number {
-  return TONES[tone].wishes.length * SPARKS.length;
+  return wishLines(tone).length * sparkLines().length;
 }
+
+export const EMAIL_TONES = Object.keys(TONES) as EmailTone[];
 
 /** Plain-text and HTML bodies for one branded email. `seed` keeps the wish stable on retries. */
 export function renderBrandedEmail(

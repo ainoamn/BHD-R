@@ -87,6 +87,12 @@ async function dispatchBatch(config: {
   key: string;
   from: string;
 }): Promise<DispatchSummary & { picked: number }> {
+  try {
+    const { hydrateEmailWishPools } = await import('@/lib/email-wish-pools-neon');
+    await hydrateEmailWishPools();
+  } catch {
+    /* keep built-in wishes if settings are unavailable */
+  }
   return elevatedTx(async (tx) => {
     const rows = rowsOf<{ id: string; payload: unknown }>(
       await tx.execute(sql`

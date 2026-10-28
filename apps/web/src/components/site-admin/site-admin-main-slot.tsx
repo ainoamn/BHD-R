@@ -63,6 +63,9 @@ const MaintenanceAdmin = dynamic(() =>
 const GreetingsAdmin = dynamic(() =>
   import('@/components/site-admin/greetings-admin').then((m) => m.GreetingsAdmin),
 );
+const EmailWishesAdmin = dynamic(() =>
+  import('@/components/site-admin/email-wishes-admin').then((m) => m.EmailWishesAdmin),
+);
 
 function Panel({
   id,
@@ -130,6 +133,12 @@ function renderSection(
       return (
         <div className="site-admin--wide">
           <NotificationTemplatesStudio locale={locale} />
+        </div>
+      );
+    case 'emailWishes':
+      return (
+        <div className="site-admin--wide">
+          <EmailWishesAdmin locale={locale} />
         </div>
       );
     case 'greetings':
