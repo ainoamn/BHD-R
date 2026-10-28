@@ -3,7 +3,9 @@ import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import {
   addresses,
+  countryPacks,
   createDatabase,
+  currencies,
   organizations,
   parties,
   properties,
@@ -58,6 +60,22 @@ integration('stay_inventory_locks GiST exclusion', () => {
     const suffix = randomUUID().slice(0, 8);
     let seeded: { orgId: string; unitId: string } | undefined;
     try {
+      await db
+        .insert(currencies)
+        .values({
+          code: 'OMR',
+          nameAr: 'ريال عماني',
+          nameEn: 'Omani Rial',
+          symbolAr: 'ر.ع.',
+          symbolEn: 'OMR',
+          minorUnit: 3,
+        })
+        .onConflictDoNothing();
+      await db
+        .insert(countryPacks)
+        .values({ countryCode: 'OM', nameAr: 'عمان', nameEn: 'Oman', defaultCurrency: 'OMR' })
+        .onConflictDoNothing();
+
       seeded = await db.transaction(async (transaction) => {
         await transaction.execute(sql`select set_config('app.platform_admin', 'true', true)`);
         const [org] = await transaction

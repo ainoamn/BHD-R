@@ -1681,7 +1681,7 @@ export class FinanceService {
       | undefined;
     if (!row) throw new NotFoundException('Booking checkout session not found');
 
-    const snapshot = (row.terms_snapshot ?? {}) as Record<string, unknown>;
+    const snapshot: Record<string, unknown> = row.terms_snapshot ?? {};
     const expectedDeposit =
       typeof snapshot.depositMinor === 'string' && /^\d+$/.test(snapshot.depositMinor)
         ? snapshot.depositMinor

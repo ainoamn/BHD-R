@@ -1,5 +1,4 @@
 import { lookup } from 'node:dns/promises';
-import { createHash } from 'node:crypto';
 import {
   BadRequestException,
   Injectable,
@@ -57,7 +56,14 @@ function hasPermission(claims: SessionClaims, permission: Permission): boolean {
 
 function serializeMoney(value: unknown): string | null {
   if (value === null || value === undefined) return null;
-  return String(value);
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint') {
+    return String(value);
+  }
+  if (typeof value === 'object' && value !== null && 'toString' in value) {
+    const text = (value as { toString: () => string }).toString();
+    if (typeof text === 'string' && text !== '[object Object]') return text;
+  }
+  return null;
 }
 
 export async function ensureHisabyLinksTable(transaction: DatabaseTransaction): Promise<void> {

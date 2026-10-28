@@ -13,6 +13,11 @@ import helmet from 'helmet';
 import { loadEnvironment } from '@bhd-r/config';
 import { AppModule } from './app.module.js';
 import { createInternalRequestId } from './common/request-id.js';
+import {
+  requireCsrfSecret,
+  requirePiiLookupPepper,
+  requireSessionSecretString,
+} from './common/runtime-secrets.js';
 import { resolveCorsOrigin } from './common/web-origins.js';
 
 function isEdgeHealthPath(url: string | undefined): boolean {
@@ -91,6 +96,10 @@ function proxyToNest(req: IncomingMessage, res: ServerResponse, nestPort: number
 
 async function bootstrap(): Promise<void> {
   const environment = loadEnvironment();
+  // Fail closed in production before accepting traffic (dev/test keep local fallbacks).
+  requireSessionSecretString();
+  requireCsrfSecret();
+  requirePiiLookupPepper();
   const trustedProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 1);
   const onRender =
     process.env.RENDER === 'true' ||

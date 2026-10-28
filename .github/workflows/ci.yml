@@ -125,7 +125,9 @@ jobs:
       BHD_IDENTITY_CLIENT_SECRET: ci-only-identity-secret
       BHD_IDENTITY_REDIRECT_URI: http://127.0.0.1:3000/v1/auth/oidc/callback
       BHD_R_SESSION_SECRET: ci-only-session-secret-at-least-32-bytes
+      BHD_R_OIDC_STATE_SECRET: ci-only-oidc-state-secret-at-least-32b
       CSRF_SECRET: ci-only-csrf-secret-at-least-32-bytes
+      PII_LOOKUP_PEPPER: ci-only-pii-lookup-pepper-at-least-32b
       FIELD_ENCRYPTION_KEY_V1: Y2ktb25seS0zMi1ieXRlLWZpZWxkLWtleS0wMQ==
       FIELD_ENCRYPTION_ACTIVE_VERSION: v1
       PAYMENT_WEBHOOK_SECRET: ci-only-webhook-secret

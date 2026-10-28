@@ -81,6 +81,15 @@ interface UpdateUnitInput {
   status?: 'active' | 'inactive' | undefined;
 }
 
+function omitGeoCoordinates<T extends { latitude?: unknown; longitude?: unknown }>(
+  address: T,
+): Omit<T, 'latitude' | 'longitude'> {
+  const copy = { ...address };
+  delete copy.latitude;
+  delete copy.longitude;
+  return copy;
+}
+
 function slugify(value: string): string {
   return value
     .normalize('NFKD')
@@ -165,7 +174,7 @@ export class PortfolioService {
       `);
       const seq = BigInt(String(sequence[0]!.allocated));
       const serialNumber = `BHD-${year}-${typeCode}-${seq.toString().padStart(4, '0')}`;
-      const { latitude: _lat, longitude: _lon, ...addressFields } = input.property.address;
+      const addressFields = omitGeoCoordinates(input.property.address);
       const addressRows = await transaction
         .insert(addresses)
         .values({
@@ -281,7 +290,7 @@ export class PortfolioService {
               minorUnit: currencyMinorUnits[unit.rent.currency],
               listingPurpose: unit.listingPurpose,
               publishWhenAvailable: publish,
-              status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
+              status: input.asDraft ? ('draft' as const) : ('active' as const),
             };
           }),
         )
@@ -539,7 +548,7 @@ export class PortfolioService {
 
       const lat = addr.latitude;
       const lon = addr.longitude;
-      const { latitude: _lat, longitude: _lon, ...addressFields } = addr;
+      const addressFields = omitGeoCoordinates(addr);
       await transaction
         .update(addresses)
         .set({
@@ -744,7 +753,7 @@ export class PortfolioService {
           minorUnit: currencyMinorUnits[unit.rent.currency],
           listingPurpose: unit.listingPurpose,
           publishWhenAvailable: publish,
-          status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
+          status: input.asDraft ? ('draft' as const) : ('active' as const),
           updatedAt: new Date(),
         };
         const syncListing = async (unitRow: typeof units.$inferSelect) => {
@@ -1799,7 +1808,7 @@ export class PortfolioService {
         )
         .limit(40);
       const existing = existingRows.find((row) => {
-        const snap = (row.termsSnapshot ?? {}) as Record<string, unknown>;
+        const snap: Record<string, unknown> = row.termsSnapshot ?? {};
         return snap.checkoutSessionReference === sessionReference;
       });
       if (existing) {

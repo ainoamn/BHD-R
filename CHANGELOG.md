@@ -2,9 +2,13 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.8 — 2026-10-28
+
+- **مراجعة أعمال 27–28 أكتوبر وإغلاق بوابات CI المتبقية:** إصلاح 21 خطأ ESLint في API؛ بذر عملة/حزمة الدولة قبل اختبار قفل المخزون؛ رفض إقلاع Nest في الإنتاج دون `PII_LOOKUP_PEPPER`؛ أسرار CI لـ Lighthouse وE2E؛ مواءمة ENV-MANIFEST (OIDC على Vercel فقط)؛ وتوسيع `buildFilter` في Render لملفات الجذر البنائية.
+
 ## 0.8.135.7 — 2026-10-28
 
-- **إصلاح بوابات CI بعد فحوص الجودة والأداء:** تنسيق Prettier للملفات المخالفة؛ استبعاد `tests/` من typecheck الخاص بـ Next حتى لا تكسر اختبارات الوحدة البناء/Lighthouse؛ بناء حزم `@bhd-r/api...` قبل اختبار Express؛ وتشغيل اختبار قفل المخزون عبر اتصال المُرحِّل لأن `is_platform_admin()` يتطلب عضوية `bhd_r_system` وليس علم الجلسة وحده.
+- **إصلاح بوابات CI بعد فحوص الجودة والأداء:** تنسيق Prettier للملفات المخالفة؛ بناء حزم `@bhd-r/api...` قبل اختبار Express؛ وتشغيل اختبار قفل المخزون عبر اتصال المُرحِّل لأن `is_platform_admin()` يتطلب عضوية `bhd_r_system` وليس علم الجلسة وحده.
 
 ## 0.8.135.6 — 2026-10-28
 

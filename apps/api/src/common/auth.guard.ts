@@ -5,7 +5,7 @@ import {
   type ExecutionContext,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import type { ApiRequest } from './api-http.js';
+import { readCookie, type ApiRequest } from './api-http.js';
 import { PUBLIC_ROUTE } from './decorators.js';
 import { AuthService } from '../auth/auth.service.js';
 
@@ -33,7 +33,7 @@ export class AuthenticationGuard implements CanActivate {
 
     const authorization = request.headers.authorization;
     const bearer = authorization?.startsWith('Bearer ') ? authorization.slice(7) : undefined;
-    const cookieToken = request.cookies?.bhd_r_session;
+    const cookieToken = readCookie(request, 'bhd_r_session');
     const token = bearer ?? cookieToken;
     if (!token) throw new UnauthorizedException('Authentication is required');
     request.auth = await this.authService.authenticateSession(token, bearer ? 'bearer' : 'session');

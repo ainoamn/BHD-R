@@ -490,7 +490,7 @@ export class StaysSearchService implements OnModuleDestroy {
       await this.redis.set(key, JSON.stringify(value), 'EX', SEARCH_TTL_SECONDS);
     } catch (error) {
       this.logger.debug(
-        `stays cache write skipped: ${error instanceof Error ? error.message : error}`,
+        `stays cache write skipped: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   }

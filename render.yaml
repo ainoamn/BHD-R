@@ -25,6 +25,9 @@ services:
         - pnpm-lock.yaml
         - pnpm-workspace.yaml
         - turbo.json
+        - tsconfig.base.json
+        - .npmrc
+        - .dockerignore
         - render.yaml
       ignoredPaths:
         - apps/web/**

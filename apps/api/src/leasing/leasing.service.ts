@@ -404,7 +404,7 @@ export class LeasingService {
       )
         throw new ConflictException('Lease currency mismatch');
       const graceDays = input.graceDays ?? 0;
-      const approvalChain = (input.approvalChain ?? 'accountant') as ApprovalChainKey;
+      const approvalChain: ApprovalChainKey = input.approvalChain ?? 'accountant';
       const stages = APPROVAL_CHAIN_STAGES[approvalChain];
       const otherCharges = input.otherCharges ?? [];
       const chequeInputs = input.cheques ?? [];

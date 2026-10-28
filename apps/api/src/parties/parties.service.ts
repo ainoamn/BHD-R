@@ -1,6 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, asc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
-import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
   addresses,

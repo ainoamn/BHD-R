@@ -10,7 +10,7 @@ import {
   Req,
   Res,
 } from '@nestjs/common';
-import type { ApiRequest, ApiResponse } from '../common/api-http.js';
+import { readCookie, type ApiRequest, type ApiResponse } from '../common/api-http.js';
 import { z } from 'zod';
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { PRODUCT_SESSION_MAX_AGE_SECONDS, permissionSchema } from '@bhd-r/authz';
@@ -322,7 +322,7 @@ export class AuthController {
     @Req() request: ApiRequest,
     @Res() reply: ApiResponse,
   ) {
-    const rawCookie = request.cookies?.bhd_r_oidc;
+    const rawCookie = readCookie(request, 'bhd_r_oidc');
     if (!rawCookie)
       return reply.status(400).json({
         error: {

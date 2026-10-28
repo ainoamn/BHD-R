@@ -788,10 +788,7 @@ export class StaysBookingService {
         return { id: booking.id, status: booking.status, duplicate: true as const };
       }
 
-      const transition = assertStayBookingTransition(
-        booking.status as StayBookingStatus,
-        input.toStatus,
-      );
+      const transition = assertStayBookingTransition(booking.status, input.toStatus);
       if (!transition.ok) {
         throw new ConflictException(
           transition.reason ?? `Illegal stay ${input.toStatus} transition`,

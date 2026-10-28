@@ -4,7 +4,7 @@ import {
   type CanActivate,
   type ExecutionContext,
 } from '@nestjs/common';
-import type { ApiRequest } from './api-http.js';
+import { readCookie, type ApiRequest } from './api-http.js';
 import { verifyCsrfToken } from '@bhd-r/security';
 import { requireCsrfSecret } from './runtime-secrets.js';
 import { isAllowedWebOrigin } from './web-origins.js';
@@ -36,7 +36,7 @@ export class CsrfGuard implements CanActivate {
     }
 
     const header = request.headers['x-csrf-token'];
-    const cookie = request.cookies?.bhd_r_csrf;
+    const cookie = readCookie(request, 'bhd_r_csrf');
     if (
       typeof header !== 'string' ||
       header !== cookie ||
