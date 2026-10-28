@@ -329,7 +329,11 @@ function PreviewList({
   const [openId, setOpenId] = useState<string | null>(null);
   const open = items.find((item) => item.id === openId) ?? null;
   if (!items.length) {
-    return <p className="tenant-home__calm">{empty}</p>;
+    return (
+      <div className="tenant-home__empty" role="status">
+        <p>{empty}</p>
+      </div>
+    );
   }
   return (
     <>
@@ -339,26 +343,35 @@ function PreviewList({
             key={item.id}
             className={`tenant-preview-row${item.tone ? ` tenant-preview-row--${item.tone}` : ''}`}
           >
-            <div className="tenant-preview-row__copy">
+            <div className="tenant-preview-row__main">
               {item.eyebrow ? (
                 <span className="tenant-preview-row__eyebrow">{item.eyebrow}</span>
               ) : null}
-              <strong className="tenant-preview-row__title">{item.title}</strong>
+              <div className="tenant-preview-row__headline">
+                <strong className="tenant-preview-row__title">{item.title}</strong>
+                {item.amount ? (
+                  <strong className="tenant-preview-row__amount" dir="ltr">
+                    {item.amount}
+                  </strong>
+                ) : null}
+              </div>
               {item.summary ? (
                 <span className="tenant-preview-row__summary">{item.summary}</span>
               ) : null}
             </div>
             <div className="tenant-preview-row__side">
-              {item.amount ? (
-                <strong className="tenant-preview-row__amount">{item.amount}</strong>
-              ) : null}
               {item.status}
+              {item.href ? (
+                <Link href={item.href} className="button button--quiet button--sm">
+                  {item.hrefLabel ?? (ar ? 'فتح' : 'Open')}
+                </Link>
+              ) : null}
               <button
                 type="button"
-                className="button button--quiet"
+                className="button button--quiet button--sm"
                 onClick={() => setOpenId(item.id)}
               >
-                {ar ? 'استعراض' : 'Review'}
+                {ar ? 'تفاصيل' : 'Details'}
               </button>
             </div>
           </li>
@@ -1052,7 +1065,8 @@ function contractPreviewItems(
           : ar
             ? 'عقد إيجار'
             : 'Lease contract',
-        summary: `${tenancyUnitLabel(contract, ar)} · ${dayWithTime(contract.startsOn, daily ? contract.checkInTime : null, ar)} → ${dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar)}`,
+        summary: `${tenancyUnitLabel(contract, ar)} · ${period(contract.startsOn, endsOn, ar, contract.stayType)}`,
+        amount: money(contract.amountMinor, contract.currency, locale),
         status: contractStatusCell(contract, ar),
         facts: [
           { label: ar ? 'الوحدة' : 'Unit', value: tenancyUnitLabel(contract, ar) },
@@ -1635,10 +1649,12 @@ export function TenantSpaceContent({
     },
   ];
   const alertCount = data.alerts.length;
+  const spotlightLease = liveLeases[0] ?? null;
 
   const bookingItems = bookingPreviewItems(data, ar, locale, 4);
   const contractItems = contractPreviewItems(data, ar, locale, 4);
   const invoiceItems = invoicePreviewItems(data, ar, locale, { openOnly: true, limit: 4 });
+  const leaseItems = takeRows(leasePreviewItems(data, ar, locale), 3);
 
   return (
     <div className="dash-shell tenant-space tenant-home">
@@ -1648,8 +1664,8 @@ export function TenantSpaceContent({
           <h1>{ar ? `أهلاً، ${displayName}` : `Hello, ${displayName}`}</h1>
           <p>
             {ar
-              ? 'عناوين واضحة، والتفاصيل بضغطة «استعراض».'
-              : 'Clear titles — open details with Review.'}
+              ? 'ملخص واضح لحجوزاتك وعقودك وفواتيرك — التفاصيل بضغطة.'
+              : 'A clear summary of bookings, contracts, and invoices — details one tap away.'}
           </p>
           <BadgeChips
             badges={badges}
@@ -1684,6 +1700,26 @@ export function TenantSpaceContent({
       </header>
       {notice}
 
+      {alertCount ? (
+        <section
+          className="tenant-home__panel tenant-home__panel--alerts has-items"
+          aria-label={ar ? 'يحتاج انتباهك' : 'Needs attention'}
+        >
+          <div className="tenant-section__head">
+            <div className="tenant-section__titles">
+              <h2>{ar ? 'يحتاج انتباهك' : 'Needs your attention'}</h2>
+              <p>
+                {ar
+                  ? 'الأهم أولاً — افتح التفاصيل عند الحاجة.'
+                  : 'Most urgent first — open details when you need them.'}
+              </p>
+            </div>
+            <span className="tenant-home__count">{alertCount}</span>
+          </div>
+          <AlertsList {...ctx} />
+        </section>
+      ) : null}
+
       <nav className="tenant-home__nav" aria-label={ar ? 'ملخص سريع' : 'Quick summary'}>
         {metrics.map((metric) => (
           <Link
@@ -1699,38 +1735,58 @@ export function TenantSpaceContent({
         ))}
       </nav>
 
-      <section
-        className={`tenant-home__panel${alertCount ? ' has-items' : ''}`}
-        aria-label={ar ? 'يحتاج انتباهك' : 'Needs attention'}
-      >
-        <div className="tenant-section__head">
-          <div className="tenant-section__titles">
-            <h2>{ar ? 'يحتاج انتباهك' : 'Needs your attention'}</h2>
+      {spotlightLease ? (
+        <section className="tenant-home__spotlight" aria-label={ar ? 'إيجارك الحالي' : 'Current lease'}>
+          <div className="tenant-home__spotlight-copy">
+            <p className="tenant-kicker">{ar ? 'إيجارك الحالي' : 'Current lease'}</p>
+            <h2>{tenancyUnitLabel(spotlightLease, ar)}</h2>
             <p>
-              {ar
-                ? 'الأهم أولاً — افتح التفاصيل عند الحاجة.'
-                : 'Most urgent first — open details when you need them.'}
+              {tenancyLandlordName(spotlightLease.landlord, ar)}
+              {' · '}
+              {period(spotlightLease.startsOn, spotlightLease.endsOn, ar)}
+            </p>
+            <p className="tenant-home__spotlight-rent" dir="ltr">
+              {money(spotlightLease.rentMinor, spotlightLease.currency, locale)}
+              {ar ? ' / شهرياً' : ' / month'}
             </p>
           </div>
-          {alertCount ? <span className="tenant-home__count">{alertCount}</span> : null}
-        </div>
-        <AlertsList {...ctx} />
-      </section>
+          <div className="tenant-home__spotlight-actions">
+            <Status label={ar ? 'ساري' : 'Active'} tone="good" />
+            {spotlightLease.contractId ? (
+              <Link
+                href={`/tenant/contracts/${spotlightLease.contractId}`}
+                className="button button--primary button--sm"
+              >
+                {ar ? 'عرض العقد' : 'View contract'}
+              </Link>
+            ) : null}
+            <Link href="/tenant/leases" className="button button--quiet button--sm">
+              {ar ? 'كل الإيجارات' : 'All leases'}
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
-      <Section
-        title={ar ? 'حجوزاتي' : 'My bookings'}
-        hint={ar ? 'معاينات وإقامات وحجوزات — عناوين فقط.' : 'Viewings, stays, and bookings as titles.'}
-        more={{ href: '/tenant/reservations', label: ar ? 'الكل' : 'All' }}
-      >
-        <PreviewList
-          items={bookingItems}
-          ar={ar}
-          empty={ar ? 'لا حجوزات بعد.' : 'No bookings yet.'}
-        />
-      </Section>
-
-      <div className="tenant-home__split">
+      <div className="tenant-home__board">
         <Section
+          className="tenant-home__card tenant-home__span"
+          title={ar ? 'حجوزاتي' : 'My bookings'}
+          hint={
+            ar
+              ? 'معاينات وإقامات وحجوزات الإيجار أو الشراء.'
+              : 'Viewings, stays, and rent or purchase bookings.'
+          }
+          more={{ href: '/tenant/reservations', label: ar ? 'الكل' : 'All' }}
+        >
+          <PreviewList
+            items={bookingItems}
+            ar={ar}
+            empty={ar ? 'لا حجوزات بعد.' : 'No bookings yet.'}
+          />
+        </Section>
+
+        <Section
+          className="tenant-home__card"
           title={ar ? 'عقودي' : 'My contracts'}
           more={{ href: '/tenant/contracts', label: ar ? 'الكل' : 'All' }}
         >
@@ -1740,7 +1796,9 @@ export function TenantSpaceContent({
             empty={ar ? 'لا عقود بعد.' : 'No contracts yet.'}
           />
         </Section>
+
         <Section
+          className="tenant-home__card"
           title={ar ? 'فواتير مستحقة' : 'Invoices due'}
           more={{ href: '/tenant/invoices', label: ar ? 'الكل' : 'All' }}
         >
@@ -1750,6 +1808,20 @@ export function TenantSpaceContent({
             empty={ar ? 'لا فواتير مستحقة.' : 'Nothing due.'}
           />
         </Section>
+
+        {leaseItems.length ? (
+          <Section
+            className="tenant-home__card tenant-home__span"
+            title={ar ? 'إيجاراتي' : 'My leases'}
+            more={{ href: '/tenant/leases', label: ar ? 'الكل' : 'All' }}
+          >
+            <PreviewList
+              items={leaseItems}
+              ar={ar}
+              empty={ar ? 'لا إيجارات بعد.' : 'No leases yet.'}
+            />
+          </Section>
+        ) : null}
       </div>
     </div>
   );
