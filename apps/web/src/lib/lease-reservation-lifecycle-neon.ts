@@ -70,6 +70,39 @@ import {
   normalizeLeaseReference,
   type LeaseBookingSnapshot,
 } from '@/lib/public-lease-booking-neon';
+import type { ReservationParty } from '@/lib/reservation-party';
+
+/** Drop attached ID / CR copies so the client must re-upload them with the re-sign. */
+function stripPartyDocumentCopies(party: ReservationParty | undefined): ReservationParty | undefined {
+  if (!party) return undefined;
+  if (party.entityType === 'person' && party.person) {
+    const { civilIdCopy: _c, passportCopy: _p, ...person } = party.person;
+    return { ...party, person, company: null };
+  }
+  if (party.entityType === 'company' && party.company) {
+    const { crCopy: _cr, ...companyRest } = party.company;
+    return {
+      ...party,
+      person: null,
+      company: {
+        ...companyRest,
+        signatories: companyRest.signatories.map((row) => {
+          const { civilIdCopy: _sc, passportCopy: _sp, ...rest } = row;
+          return rest;
+        }),
+      },
+    };
+  }
+  return party;
+}
+
+const BOOKING_RETURN_PHASES = new Set<LeaseJourneyPhase>([
+  'awaiting_owner_approval',
+  'awaiting_contract_draft',
+  'awaiting_documents',
+  'awaiting_documents_review',
+  'awaiting_contract_approval',
+]);
 
 /** A paid booking stays held this long after each owner step, so paperwork never races the expiry job. */
 const HOLD_EXTENSION_MS = 30 * 24 * 60 * 60 * 1000;
@@ -154,18 +187,31 @@ async function saveLifecycle(
     status?: 'converted' | 'cancelled' | 'confirmed';
     convertedLeaseId?: string | null;
     expiresAt?: Date;
+    /** Extra terms_snapshot fields (party updates, etc.). */
+    snapshot?: Partial<LeaseBookingSnapshot>;
+    /** Drop the booking e-signature so the client must sign again. */
+    clearEsign?: boolean;
   } = {},
 ) {
+  const nextSnapshot: LeaseBookingSnapshot = {
+    ...row.snapshot,
+    ...patch.snapshot,
+    lifecycle,
+  };
+  if (patch.clearEsign) {
+    delete (nextSnapshot as { esign?: unknown }).esign;
+  }
   await tx
     .update(reservations)
     .set({
-      termsSnapshot: { ...row.snapshot, lifecycle },
+      termsSnapshot: nextSnapshot,
       ...(patch.status ? { status: patch.status } : {}),
       ...(patch.convertedLeaseId !== undefined ? { convertedLeaseId: patch.convertedLeaseId } : {}),
       ...(patch.expiresAt ? { expiresAt: patch.expiresAt } : {}),
       updatedAt: new Date(),
     })
     .where(eq(reservations.id, row.id));
+  row.snapshot = nextSnapshot;
 }
 
 async function logEvent(
@@ -246,7 +292,9 @@ export type ReservationOwnerAction =
       electricityReadingPhoto: string;
       waterReadingPhoto: string;
     }
-  | { action: 'restore_reservation'; note: string };
+  | { action: 'restore_reservation'; note: string }
+  | { action: 'return_booking_docs'; note: string }
+  | { action: 'cancel_reservation'; note: string };
 
 function cleanRequirements(
   input: RequirementInput[],
@@ -688,6 +736,18 @@ function ownerStepNotice(
         title: 'حجزك عاد نشطاً',
         line: `استرجع المالك حجزك وأعاد فتحه${input.note ? `: «${input.note}»` : ''}. تابع صفحة الحجز لرفع أي مستند مطلوب.`,
       };
+    case 'return_booking_docs':
+      return {
+        subject: '📎 أعد المالك مستندات حجزك للتعديل',
+        title: 'مطلوب تعديل مستندات الحجز',
+        line: `راجع المالك مستندات الحجز وطلب تعديلها: «${input.note}». أعد رفع المستندات ووقّع اتفاقية الحجز من جديد من صفحة الحجز (العربون محفوظ).`,
+      };
+    case 'cancel_reservation':
+      return {
+        subject: '⛔ أُلغي حجزك',
+        title: 'أُلغي الحجز',
+        line: `أُلغي الحجز من قبل المالك${input.note ? `: «${input.note}»` : ''}.`,
+      };
     default:
       return null;
   }
@@ -928,9 +988,13 @@ async function ownerActionInTx(
         if (phase !== 'awaiting_owner_approval' || row.status !== 'confirmed') {
           fail('reservation_not_ready');
         }
+        const priorReturn = row.lifecycle.bookingDocsReturn;
         const lifecycle: ReservationLifecycle = {
           ...row.lifecycle,
           approval: { at, byUserId: claims.sub, byName },
+          ...(priorReturn && !priorReturn.resolvedAt
+            ? { bookingDocsReturn: { ...priorReturn, resolvedAt: at } }
+            : {}),
         };
         await saveLifecycle(tx, row, lifecycle, { expiresAt: extendedHold(row.expiresAt) });
         await event('reservation.owner_approved', {});
@@ -940,6 +1004,45 @@ async function ownerActionInTx(
           aggregateType: 'reservation',
           aggregateId: row.id,
           payload: { referenceCode: row.snapshot.referenceCode, mode: row.snapshot.mode },
+        });
+        break;
+      }
+
+      case 'return_booking_docs': {
+        if (!BOOKING_RETURN_PHASES.has(phase) || row.lifecycle.contract) {
+          fail('reservation_not_ready');
+        }
+        const note = input.note.trim().slice(0, 500);
+        if (note.length < 2) fail('invalid_body');
+        const strippedParty = stripPartyDocumentCopies(row.snapshot.party);
+        const nextLifecycle: ReservationLifecycle = {
+          bookingDocsReturn: { at, byName, note, resolvedAt: null },
+          ...(row.lifecycle.paymentReview ? { paymentReview: row.lifecycle.paymentReview } : {}),
+          ...(row.lifecycle.restoration ? { restoration: row.lifecycle.restoration } : {}),
+        };
+        await saveLifecycle(tx, row, nextLifecycle, {
+          expiresAt: extendedHold(row.expiresAt),
+          clearEsign: true,
+          ...(strippedParty ? { snapshot: { party: strippedParty } } : {}),
+        });
+        await event('reservation.booking_docs_returned', { note });
+        break;
+      }
+
+      case 'cancel_reservation': {
+        if (
+          (!BOOKING_RETURN_PHASES.has(phase) && phase !== 'awaiting_tenant_signature') ||
+          row.lifecycle.handover
+        ) {
+          fail('reservation_not_ready');
+        }
+        const note = input.note.trim().slice(0, 500);
+        if (note.length < 2) fail('invalid_body');
+        await cancelReservationInTx(tx, row, row.lifecycle, {
+          actorUserId: claims.sub,
+          byName,
+          reason: 'documents_invalid',
+          note,
         });
         break;
       }
@@ -1372,10 +1475,13 @@ export async function runReservationAutomation(
           },
         });
 
+      const docsReturnOpen =
+        Boolean(lifecycle.bookingDocsReturn) && !lifecycle.bookingDocsReturn?.resolvedAt;
       if (
         policy.booking === 'auto' &&
         row.status === 'confirmed' &&
-        phase() === 'awaiting_owner_approval'
+        phase() === 'awaiting_owner_approval' &&
+        !docsReturnOpen
       ) {
         lifecycle = {
           ...lifecycle,

@@ -164,6 +164,16 @@ export type ReservationLifecycle = {
    * Cleared if the owner rejects a file or asks for extra documents.
    */
   customerDocumentsSentAt?: string | null;
+  /**
+   * Owner returned the booking so the client re-uploads booking / identity documents
+   * and re-signs the booking agreement. While `resolvedAt` is null, auto-approval is skipped.
+   */
+  bookingDocsReturn?: {
+    at: string;
+    byName: string | null;
+    note: string;
+    resolvedAt?: string | null;
+  };
 };
 
 /** One cheque the tenant must prepare after the owner saves a cheque-payment contract. */

@@ -314,6 +314,171 @@ function RestoreCancelledBooking({
   );
 }
 
+const OWNER_BOOKING_ACTION_PHASES = new Set<LeaseJourneyPhase>([
+  'awaiting_owner_approval',
+  'awaiting_contract_draft',
+  'awaiting_documents',
+  'awaiting_documents_review',
+  'awaiting_contract_approval',
+  'awaiting_tenant_signature',
+]);
+
+/**
+ * Return the booking for document fixes, or cancel it — available before handover while
+ * the owner still controls the journey (including while preparing the contract).
+ */
+function OwnerBookingActionsCard({
+  locale,
+  phase,
+  canManage,
+  busy,
+  hasIssuedContract,
+  onReturnDocs,
+  onCancel,
+}: {
+  locale: 'ar' | 'en';
+  phase: LeaseJourneyPhase;
+  canManage: boolean;
+  busy: boolean;
+  hasIssuedContract: boolean;
+  onReturnDocs: (note: string) => Promise<void>;
+  onCancel: (note: string) => Promise<void>;
+}) {
+  const ar = locale === 'ar';
+  const t = (arText: string, enText: string) => (ar ? arText : enText);
+  const [mode, setMode] = useState<'return' | 'cancel' | null>(null);
+  const [note, setNote] = useState('');
+
+  if (!canManage || !OWNER_BOOKING_ACTION_PHASES.has(phase)) return null;
+  const canReturn = !hasIssuedContract && phase !== 'awaiting_tenant_signature';
+
+  return (
+    <div className="lrw__card lrw__card--action">
+      <h3>{t('إجراء على الحجز', 'Booking action')}</h3>
+      <p className="muted">
+        {t(
+          'إن كانت مستندات الحجز أو الهوية غير مطابقة للاشتراطات، أرجع الطلب للعميل ليعدّلها، أو ألغِ الحجز عند المخالفة الجسيمة.',
+          'If booking or identity documents break the rules, return the request so the client can fix them, or cancel the booking for a serious violation.',
+        )}
+      </p>
+      <div className="form-actions" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+        {canReturn ? (
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={busy}
+            onClick={() => {
+              setMode(mode === 'return' ? null : 'return');
+              setNote('');
+            }}
+          >
+            {t('طلب تعديل مستندات الحجز', 'Request booking document fixes')}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="button button--quiet"
+          disabled={busy}
+          onClick={() => {
+            setMode(mode === 'cancel' ? null : 'cancel');
+            setNote('');
+          }}
+        >
+          {t('إلغاء الحجز', 'Cancel booking')}
+        </button>
+      </div>
+      {mode ? (
+        <form
+          className="lrw__reject"
+          onSubmit={(event: FormEvent) => {
+            event.preventDefault();
+            if (note.trim().length < 2) return;
+            const text = note.trim();
+            void (mode === 'return' ? onReturnDocs(text) : onCancel(text)).then(() => {
+              setMode(null);
+              setNote('');
+            });
+          }}
+        >
+          <label htmlFor="owner-booking-action-note">
+            {mode === 'return'
+              ? t('ما المطلوب تعديله؟ (يظهر للعميل)', 'What must be fixed? (shown to the client)')
+              : t('سبب الإلغاء (يظهر للعميل)', 'Cancellation reason (shown to the client)')}
+          </label>
+          <textarea
+            id="owner-booking-action-note"
+            className="textarea"
+            rows={3}
+            maxLength={BOOKING_NOTE_MAX}
+            required
+            value={note}
+            disabled={busy}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder={
+              mode === 'return'
+                ? t(
+                    'مثال: صورة الهوية غير واضحة / السجل التجاري لا يطابق الاسم',
+                    'e.g. ID photo is unclear / CR does not match the name',
+                  )
+                : t(
+                    'مثال: المستندات مخالفة للاشتراطات ولا يمكن قبول الحجز',
+                    'e.g. Documents break the requirements and the booking cannot proceed',
+                  )
+            }
+          />
+          <NoteTranslateBar
+            value={note}
+            onChange={setNote}
+            locale={locale}
+            max={BOOKING_NOTE_MAX}
+            disabled={busy}
+            service={OWNER_NOTE_SERVICE}
+          />
+          {mode === 'return' ? (
+            <p className="notice notice--info">
+              {t(
+                'يُعاد فتح التوقيع ورفع مستندات الحجز للعميل (العربون يبقى محفوظاً). لن يُعتمد الحجز تلقائياً بعد التعديل حتى تراجعه أنت.',
+                'The client must re-upload booking documents and re-sign (deposit is kept). Auto-approval stays off until you review and approve.',
+              )}
+            </p>
+          ) : (
+            <p className="notice notice--danger">
+              {t(
+                'سيُلغى الحجز فوراً ويُلغى أي عقد مرتبط إن وُجد، ويُبلَّغ العميل.',
+                'The booking is cancelled at once; any linked contract is voided and the client is notified.',
+              )}
+            </p>
+          )}
+          <div className="form-actions">
+            <button
+              type="submit"
+              className={mode === 'cancel' ? 'button button--danger' : 'button button--primary'}
+              disabled={busy || note.trim().length < 2}
+            >
+              {busy
+                ? t('جارٍ التنفيذ…', 'Working…')
+                : mode === 'return'
+                  ? t('تأكيد الإرجاع للعميل', 'Confirm return to client')
+                  : t('تأكيد إلغاء الحجز', 'Confirm cancel booking')}
+            </button>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={busy}
+              onClick={() => {
+                setMode(null);
+                setNote('');
+              }}
+            >
+              {t('إلغاء', 'Cancel')}
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
 /** The channel reported the deposit paid; the owner confirms the money actually arrived. */
 function PaymentReviewCard({
   locale,
@@ -816,6 +981,16 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 onRestore={(note) => act({ action: 'restore_reservation', note })}
               />
             ) : null}
+
+            <OwnerBookingActionsCard
+              locale={locale}
+              phase={phase}
+              canManage={canManage}
+              busy={busy}
+              hasIssuedContract={Boolean(lifecycle.contract)}
+              onReturnDocs={(note) => act({ action: 'return_booking_docs', note })}
+              onCancel={(note) => act({ action: 'cancel_reservation', note })}
+            />
 
             {canManage && phase !== 'closed' && documentsToVerify(lifecycle).length ? (
               <VerificationPanel

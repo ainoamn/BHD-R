@@ -123,6 +123,18 @@ const bodySchema = z.discriminatedUnion('action', [
       note: z.string().trim().min(2).max(1000),
     })
     .strict(),
+  z
+    .object({
+      action: z.literal('return_booking_docs'),
+      note: z.string().trim().min(2).max(500),
+    })
+    .strict(),
+  z
+    .object({
+      action: z.literal('cancel_reservation'),
+      note: z.string().trim().min(2).max(500),
+    })
+    .strict(),
 ]);
 
 /**

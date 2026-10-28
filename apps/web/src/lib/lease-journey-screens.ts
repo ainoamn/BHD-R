@@ -48,16 +48,28 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
   const contractWord = sale ? t('عقد البيع', 'sale contract') : t('عقد الإيجار', 'lease');
   const requirements = lifecycle.requirements;
 
+  const docsReturn = lifecycle.bookingDocsReturn;
+  const docsReturnOpen = Boolean(docsReturn);
+
   const booking: LeaseJourneyScreen =
     phase === 'awaiting_terms_signature'
       ? {
-          headline: t('خطوة صغيرة تفصلك عن حجزك 🖊️', 'One small step to secure it 🖊️'),
-          body: t(
-            `استلمنا العربون ${deposit} بأمان. بقي أن توقّع اتفاقية الحجز إلكترونياً مع صورة هويتك — دقيقتان لا أكثر، ثم نرسل حجزك للمالك.`,
-            `We safely received your ${deposit} deposit. Just e-sign the booking agreement with your ID — two minutes — and we send it to the owner.`,
-          ),
+          headline: docsReturnOpen
+            ? t('أعد المالك مستندات حجزك للتعديل 📎', 'The owner asked you to fix booking documents 📎')
+            : t('خطوة صغيرة تفصلك عن حجزك 🖊️', 'One small step to secure it 🖊️'),
+          body: docsReturnOpen
+            ? t(
+                `العربون ${deposit} محفوظ. ملاحظة المالك: «${docsReturn?.note ?? ''}». ارفع المستندات الصحيحة ووقّع اتفاقية الحجز من جديد.`,
+                `Your ${deposit} deposit is kept. Owner note: “${docsReturn?.note ?? ''}”. Re-upload the correct documents and e-sign the booking agreement again.`,
+              )
+            : t(
+                `استلمنا العربون ${deposit} بأمان. بقي أن توقّع اتفاقية الحجز إلكترونياً مع صورة هويتك — دقيقتان لا أكثر، ثم نرسل حجزك للمالك.`,
+                `We safely received your ${deposit} deposit. Just e-sign the booking agreement with your ID — two minutes — and we send it to the owner.`,
+              ),
           scene: 'send',
-          sceneStatus: t('بانتظار توقيعك', 'Awaiting your signature'),
+          sceneStatus: docsReturnOpen
+            ? t('بانتظار تعديل المستندات والتوقيع', 'Awaiting document fixes & signature')
+            : t('بانتظار توقيعك', 'Awaiting your signature'),
           action: 'sign_terms',
         }
       : {

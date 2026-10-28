@@ -864,6 +864,14 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
           note: lifecycle.cancellation.note,
         }
       : null,
+    bookingDocsReturn:
+      lifecycle.bookingDocsReturn && !lifecycle.bookingDocsReturn.resolvedAt
+        ? {
+            at: lifecycle.bookingDocsReturn.at,
+            note: lifecycle.bookingDocsReturn.note,
+            byName: lifecycle.bookingDocsReturn.byName,
+          }
+        : null,
     tenantSignedAt: lifecycle.tenantSignature?.signedAt ?? null,
     handover: lifecycle.handover
       ? {
