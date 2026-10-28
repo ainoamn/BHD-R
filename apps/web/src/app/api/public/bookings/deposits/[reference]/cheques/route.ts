@@ -14,6 +14,7 @@ const bodySchema = z
     key: z.string().regex(/^(rent|vat|deposit)-\d{1,3}$/),
     bankName: z.string().trim().min(2).max(160),
     accountHolderName: z.string().trim().min(2).max(160),
+    accountNumber: z.string().trim().min(4).max(64),
     chequeNumber: z.string().trim().min(1).max(80),
     fileName: z.string().max(200),
     dataUrl: z.string().startsWith('data:').max(REQUIREMENT_FILE_MAX_CHARS),

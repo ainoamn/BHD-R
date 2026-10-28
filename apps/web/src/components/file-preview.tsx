@@ -1,9 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { ModalPortal } from './modal-portal';
 
-export type PreviewFile = { href: string; label: string };
+export type PreviewFile = {
+  href: string;
+  label: string;
+  /** Extra facts under the title (cheque number, amount, bank…). */
+  details?: ReactNode;
+  /** Approve / reject / custom actions in the header. */
+  actions?: ReactNode;
+};
 
 type Loaded = { url: string; mime: string };
 
@@ -68,8 +75,12 @@ export function FilePreviewDialog({
       >
         <div className="file-preview__panel">
           <header className="file-preview__bar">
-            <strong>{file.label}</strong>
+            <div className="file-preview__heading">
+              <strong>{file.label}</strong>
+              {file.details ? <div className="file-preview__details">{file.details}</div> : null}
+            </div>
             <div className="file-preview__actions">
+              {file.actions}
               {asImage || loaded ? (
                 <a
                   className="file-preview__button"

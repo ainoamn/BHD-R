@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, type ChangeEvent } from 'react';
 import { Link } from '@/i18n/navigation';
+import { DocFileThumb } from '@/components/doc-file-thumb';
 import { DocStatusMark, docStatusLabel } from '@/components/doc-status-mark';
 import { FilePreviewDialog, type PreviewFile } from '@/components/file-preview';
 import { EsignSignaturePad } from '@/components/stays/esign/esign-signature-pad';
@@ -794,16 +795,16 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
           <span>{ar ? 'معتمدة' : 'Approved'}</span>
         </li>
         <li>
+          <DocStatusMark status="submitted" ar={ar} viewer="tenant" />
+          <span>{ar ? 'بانتظار الاعتماد' : 'Awaiting approval'}</span>
+        </li>
+        <li>
           <DocStatusMark status="pending" ar={ar} viewer="tenant" />
-          <span>{ar ? 'لم تُفتح' : 'Not opened'}</span>
+          <span>{ar ? 'لم تُرفع' : 'Not uploaded'}</span>
         </li>
         <li>
           <DocStatusMark status="rejected" ar={ar} viewer="tenant" />
           <span>{ar ? 'مطلوب الاستبدال' : 'Replace'}</span>
-        </li>
-        <li>
-          <DocStatusMark status="rejected" ar={ar} viewer="tenant" hardReject />
-          <span>{ar ? 'مرفوضة' : 'Rejected'}</span>
         </li>
       </ul>
       {remaining.length ? (
@@ -866,18 +867,16 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
               </div>
               <div className="lease-docs__actions">
                 {fileHref ? (
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    onClick={() =>
+                  <DocFileThumb
+                    href={fileHref}
+                    label={ar ? item.labelAr : item.labelEn || item.labelAr}
+                    onOpen={() =>
                       setPreview({
                         href: fileHref,
                         label: ar ? item.labelAr : item.labelEn || item.labelAr,
                       })
                     }
-                  >
-                    {ar ? 'معاينة' : 'Preview'}
-                  </button>
+                  />
                 ) : null}
                 {canUpload ? (
                   <label className="button button--quiet lease-docs__upload">
@@ -959,9 +958,11 @@ function LeaseCheques({
   const seededShared = (() => {
     const withBank = cheques.find((item) => item.bankName?.trim());
     const withHolder = cheques.find((item) => item.accountHolderName?.trim());
+    const withAccount = cheques.find((item) => item.accountNumber?.trim());
     return {
       bankName: withBank?.bankName?.trim() ?? '',
       accountHolderName: withHolder?.accountHolderName?.trim() ?? '',
+      accountNumber: withAccount?.accountNumber?.trim() ?? '',
     };
   })();
   const [bankName, setBankName] = useState(seededShared.bankName);
@@ -971,6 +972,7 @@ function LeaseCheques({
       !(OMAN_BANKS as readonly string[]).includes(seededShared.bankName),
   );
   const [accountHolderName, setAccountHolderName] = useState(seededShared.accountHolderName);
+  const [accountNumber, setAccountNumber] = useState(seededShared.accountNumber);
   const bankSelectValue = bankOther
     ? BANK_OTHER
     : (OMAN_BANKS as readonly string[]).includes(bankName)
@@ -1010,11 +1012,15 @@ function LeaseCheques({
     const picked = event.target.files?.[0];
     event.target.value = '';
     if (!picked) return;
-    if (bankName.trim().length < 2 || accountHolderName.trim().length < 2) {
+    if (
+      bankName.trim().length < 2 ||
+      accountHolderName.trim().length < 2 ||
+      accountNumber.trim().replace(/\s+/g, '').length < 4
+    ) {
       setError(
         ar
-          ? 'أدخل البنك واسم صاحب الحساب مرة واحدة أعلى الجدول قبل رفع الصور.'
-          : 'Enter bank and account holder once above the table before uploading photos.',
+          ? 'أدخل البنك واسم صاحب الحساب ورقم الحساب مرة واحدة أعلى الجدول قبل رفع الصور.'
+          : 'Enter bank, account holder, and account number once above the table before uploading photos.',
       );
       return;
     }
@@ -1055,6 +1061,7 @@ function LeaseCheques({
             key,
             bankName: bankName.trim(),
             accountHolderName: accountHolderName.trim(),
+            accountNumber: accountNumber.trim().replace(/\s+/g, ''),
             chequeNumber: (numbers[key] ?? '').trim(),
             fileName: prepared.name.slice(0, 200),
             dataUrl,
@@ -1087,8 +1094,8 @@ function LeaseCheques({
       ) : null}
       <p className="muted">
         {ar
-          ? 'أدخل بنك الحساب واسم صاحبه مرة واحدة، ثم رقم أول شيك — يُملأ الباقي تلقائياً ويمكنك تعديله. المبلغ من النظام، والمرفق لصورة كل شيك.'
-          : 'Enter bank and account holder once, then the first cheque number — the rest fill automatically and stay editable. Amounts come from the system; attach each cheque photo in the last column.'}
+          ? 'أدخل بنك الحساب واسم صاحبه ورقم الحساب مرة واحدة، ثم رقم أول شيك — يُملأ الباقي تلقائياً ويمكنك تعديله. المبلغ من النظام، والمرفق لصورة كل شيك.'
+          : 'Enter bank, account holder, and account number once, then the first cheque number — the rest fill automatically and stay editable. Amounts come from the system; attach each cheque photo in the last column.'}
       </p>
       {error ? (
         <p className="notice notice--error" role="alert">
@@ -1148,10 +1155,25 @@ function LeaseCheques({
               placeholder={ar ? 'الاسم كما على دفتر الشيكات' : 'Name as on the cheque book'}
             />
           </label>
+          <label>
+            {ar ? 'رقم الحساب البنكي (مرة واحدة)' : 'Bank account number (once)'}
+            <input
+              className="input"
+              dir="ltr"
+              maxLength={64}
+              value={accountNumber}
+              disabled={busy !== null}
+              onChange={(event) => setAccountNumber(event.target.value)}
+              placeholder={ar ? 'كما على دفتر الشيكات' : 'As on the cheque book'}
+              autoComplete="off"
+            />
+          </label>
         </div>
-      ) : bankName || accountHolderName ? (
+      ) : bankName || accountHolderName || accountNumber ? (
         <p className="lease-cheques__shared-read muted">
-          {[bankName, accountHolderName].filter(Boolean).join(' · ')}
+          {[bankName, accountHolderName, accountNumber ? `Acc ${accountNumber}` : '']
+            .filter(Boolean)
+            .join(' · ')}
         </p>
       ) : null}
 
@@ -1221,22 +1243,20 @@ function LeaseCheques({
                     )}
                   </td>
                   <td className="lease-cheques__file">
-                    {canEdit ? (
-                      <div className="lease-docs__actions">
-                        {fileHref ? (
-                          <button
-                            type="button"
-                            className="button button--quiet"
-                            onClick={() =>
-                              setPreview({
-                                href: fileHref,
-                                label: ar ? item.labelAr : item.labelEn,
-                              })
-                            }
-                          >
-                            {ar ? 'معاينة' : 'Preview'}
-                          </button>
-                        ) : null}
+                    <div className="lease-docs__actions">
+                      {fileHref ? (
+                        <DocFileThumb
+                          href={fileHref}
+                          label={ar ? item.labelAr : item.labelEn}
+                          onOpen={() =>
+                            setPreview({
+                              href: fileHref,
+                              label: ar ? item.labelAr : item.labelEn,
+                            })
+                          }
+                        />
+                      ) : null}
+                      {canEdit ? (
                         <label className="button button--quiet lease-docs__upload">
                           {busy === item.key
                             ? ar
@@ -1257,23 +1277,9 @@ function LeaseCheques({
                             onChange={(event) => pick(item.key, event)}
                           />
                         </label>
-                      </div>
-                    ) : fileHref ? (
-                      <button
-                        type="button"
-                        className="button button--quiet"
-                        onClick={() =>
-                          setPreview({
-                            href: fileHref,
-                            label: ar ? item.labelAr : item.labelEn,
-                          })
-                        }
-                      >
-                        {ar ? 'معاينة' : 'Preview'}
-                      </button>
-                    ) : (
-                      '—'
-                    )}
+                      ) : null}
+                      {!canEdit && !fileHref ? '—' : null}
+                    </div>
                   </td>
                 </tr>
               );

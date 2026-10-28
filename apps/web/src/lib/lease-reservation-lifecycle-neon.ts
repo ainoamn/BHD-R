@@ -1825,6 +1825,7 @@ export async function submitReservationCheque(
     key: string;
     bankName: string;
     accountHolderName: string;
+    accountNumber: string;
     chequeNumber: string;
     fileName: string;
     dataUrl: string;
@@ -1840,8 +1841,14 @@ export async function submitReservationCheque(
   }
   const bankName = input.bankName.trim().slice(0, 160);
   const accountHolderName = input.accountHolderName.trim().slice(0, 160);
+  const accountNumber = input.accountNumber.trim().replace(/\s+/g, '').slice(0, 64);
   const chequeNumber = input.chequeNumber.trim().slice(0, 80);
-  if (bankName.length < 2 || accountHolderName.length < 2 || chequeNumber.length < 1) {
+  if (
+    bankName.length < 2 ||
+    accountHolderName.length < 2 ||
+    accountNumber.length < 4 ||
+    chequeNumber.length < 1
+  ) {
     leaseBookingFail('tenant_details_invalid');
   }
   const mime = parsed[1]!;
@@ -1879,6 +1886,7 @@ export async function submitReservationCheque(
           size,
           bankName,
           accountHolderName,
+          accountNumber,
           chequeNumber,
           dataUrl: input.dataUrl,
         },
@@ -1889,6 +1897,7 @@ export async function submitReservationCheque(
       key: input.key,
       bankName,
       accountHolderName,
+      accountNumber,
       chequeNumber,
       file: { eventId: stored!.id, name, mime, size, submittedAt },
       status: 'submitted',

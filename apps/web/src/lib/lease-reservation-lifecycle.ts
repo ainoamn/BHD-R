@@ -281,6 +281,8 @@ export type ReservationChequeSubmission = {
   key: string;
   bankName: string;
   accountHolderName: string;
+  /** Tenant bank account number (once for the cheque book; stored on each submission). */
+  accountNumber?: string;
   chequeNumber: string;
   file: {
     eventId: string;

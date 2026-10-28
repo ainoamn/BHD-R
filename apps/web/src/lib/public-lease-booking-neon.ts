@@ -847,6 +847,7 @@ function visibleLifecycle(lifecycle: ReservationLifecycle) {
         note: submitted?.note ?? null,
         bankName: submitted?.bankName ?? null,
         accountHolderName: submitted?.accountHolderName ?? null,
+        accountNumber: submitted?.accountNumber ?? null,
         chequeNumber: submitted?.chequeNumber ?? null,
         fileName: submitted?.file?.name ?? null,
         submittedAt: submitted?.file?.submittedAt ?? null,
