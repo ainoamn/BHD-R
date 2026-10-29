@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.14 — 2026-10-29
+
+- **اختبار قفل المخزون بعد ترحيل 0023:** التعرّف على `stay_inventory_locks_slot_conflict` (وقراءة `code` من كائن الخطأ) بدل الاعتماد على قيد GiST القديم؛ ومواءمة معالجة التعارض في Nest مع مسار الحجز العام.
+
 ## 0.8.135.13 — 2026-10-29
 
 - **ترحيلات CI الناقصة:** `migrate.ts` يطبّق كل ملفات `migrations/custom/*.sql` مرتبة بدل قائمة يدوية كانت تتخطى `0020`–`0023` و`0046`–`0051`؛ هذا يوفّر أعمدة مثل `stay_profiles.deposit_minor` و`stay_deposit_claims.reference_code` لقاعدة اختبار Playwright.

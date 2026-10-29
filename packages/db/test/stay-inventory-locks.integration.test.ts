@@ -25,28 +25,31 @@ const runtimeDatabaseUrl =
   process.env.TEST_DATABASE_URL;
 const integration = runtimeDatabaseUrl ? describe : describe.skip;
 
-function isExclusionViolation(error: unknown): boolean {
+function collectPgErrorParts(error: unknown): string[] {
   const parts: string[] = [];
   let current: unknown = error;
   for (let i = 0; i < 5 && current; i += 1) {
-    if (current instanceof Error) {
-      parts.push(current.message);
-      current = current.cause;
-      continue;
-    }
     if (typeof current === 'object' && current !== null) {
       const record = current as Record<string, unknown>;
       if (typeof record.message === 'string') parts.push(record.message);
       if (typeof record.code === 'string') parts.push(record.code);
+      if (typeof record.constraint === 'string') parts.push(record.constraint);
       if (typeof record.constraint_name === 'string') parts.push(record.constraint_name);
-      current = record.cause;
+      current = 'cause' in record ? record.cause : undefined;
       continue;
     }
     parts.push(String(current));
     break;
   }
-  const blob = parts.join(' | ').toLowerCase();
+  return parts;
+}
+
+function isExclusionViolation(error: unknown): boolean {
+  // Slot-aware trigger (0023) raises stay_inventory_locks_slot_conflict / 23P01;
+  // older GiST constraint name may still appear on DBs that never ran 0023.
+  const blob = collectPgErrorParts(error).join(' | ').toLowerCase();
   return (
+    blob.includes('stay_inventory_locks_slot_conflict') ||
     blob.includes('stay_inventory_locks_no_overlap_active') ||
     blob.includes('exclusion') ||
     blob.includes('23p01') ||

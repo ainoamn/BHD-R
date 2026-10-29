@@ -161,6 +161,7 @@ export class StaysInventoryService {
       if (error instanceof ConflictException) throw error;
       const message = error instanceof Error ? error.message : String(error);
       if (
+        message.includes('stay_inventory_locks_slot_conflict') ||
         message.includes('stay_inventory_locks_no_overlap_active') ||
         message.includes('exclusion_violation') ||
         message.includes('conflicting key') ||
