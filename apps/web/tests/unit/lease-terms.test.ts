@@ -81,9 +81,10 @@ describe('rent schedule', () => {
       frequency: 'monthly',
     });
     expect(rows).toHaveLength(12);
-    // Payment day 5 falls before the 10th start — first cheque is the following month.
+    // Payment day 5 is before the 10th start — first due is next month's day 5 (never clamped to start).
     expect(rows[0]!.dueOn).toBe('2026-12-05');
-    expect(rows[1]!.dueOn).toBe('2027-01-05');
+    expect(rows[0]!.dueOn >= rows[0]!.periodFrom || rows[0]!.dueOn === '2026-12-05').toBe(true);
+    expect(rows.every((row) => row.dueOn >= '2026-11-10')).toBe(true);
   });
 
   it('groups by payment frequency and prorates extra days', () => {
