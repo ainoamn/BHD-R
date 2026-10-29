@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.13 — 2026-10-29
+
+- **ترحيلات CI الناقصة:** `migrate.ts` يطبّق كل ملفات `migrations/custom/*.sql` مرتبة بدل قائمة يدوية كانت تتخطى `0020`–`0023` و`0046`–`0051`؛ هذا يوفّر أعمدة مثل `stay_profiles.deposit_minor` و`stay_deposit_claims.reference_code` لقاعدة اختبار Playwright.
+
 ## 0.8.135.12 — 2026-10-29
 
 - **إيقاف Auto-Deploy على Render API:** `autoDeploy: false` في `render.yaml` لوقف وابل Failed خلال &lt;2 ثانية؛ النشر يدويًا أو عبر Deploy Hook فقط، مع خطوات واضحة في `NEST-API-HOSTING.md`.

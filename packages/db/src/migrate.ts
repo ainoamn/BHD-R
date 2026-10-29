@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
@@ -9,54 +9,27 @@ if (!databaseUrl) throw new Error('MIGRATION_DATABASE_URL or DATABASE_URL is req
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 const migrationsRoot = resolve(currentDirectory, '../migrations');
+const customRoot = resolve(migrationsRoot, 'custom');
 const { client, db } = createDatabase(databaseUrl, { max: 1 });
 
+async function applyCustomSql(fileName: string) {
+  await client.unsafe(await readFile(resolve(customRoot, fileName), 'utf8'));
+}
+
 try {
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0000_extensions.sql'), 'utf8'),
-  );
+  // Extensions before Drizzle-generated DDL.
+  await applyCustomSql('0000_extensions.sql');
   await migrate(db, { migrationsFolder: resolve(migrationsRoot, 'generated') });
-  await client.unsafe(await readFile(resolve(migrationsRoot, 'custom/0001_rls.sql'), 'utf8'));
-  await client.unsafe(await readFile(resolve(migrationsRoot, 'custom/0015_stays_rls.sql'), 'utf8'));
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0016_stay_housekeeping_rls.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0024_hisaby_links.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0025_unit_offering_modes.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0026_portal_read_indexes.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0027_live_changes.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0028_booking_reviews.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0029_deposit_claims.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0030_organization_roles.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0031_badges_verification.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0042_stay_allow_viewing.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0043_viewing_visit_pass.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0044_property_viewing_contact.sql'), 'utf8'),
-  );
-  await client.unsafe(
-    await readFile(resolve(migrationsRoot, 'custom/0045_party_role_staff.sql'), 'utf8'),
-  );
+
+  // Every remaining custom/*.sql in lexical order so CI/Neon stay aligned with schema.
+  // New files under custom/ are applied automatically — do not maintain a manual allowlist.
+  const customFiles = (await readdir(customRoot))
+    .filter((name) => name.endsWith('.sql') && name !== '0000_extensions.sql')
+    .sort((a, b) => a.localeCompare(b, 'en'));
+  for (const fileName of customFiles) {
+    await applyCustomSql(fileName);
+  }
+
   if (process.env.APPLY_PRIVILEGED_ROLES === 'true') {
     await client.unsafe(
       await readFile(resolve(migrationsRoot, 'privileged/runtime_roles.sql'), 'utf8'),
