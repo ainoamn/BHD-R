@@ -17,6 +17,7 @@ import {
   addAccountUrl,
   applyAccountIsolation,
   identityMe,
+  paintPrivacyVeil,
   switchWindowAccount,
 } from '@/lib/identity/client';
 import { useBhdCatalog } from '@/lib/identity/use-bhd-catalog';
@@ -405,13 +406,17 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   const switchTo = async (sub: string) => {
     if (!sub || sub === currentSub || switchBusy) return;
     setSwitchBusy(sub);
+    paintPrivacyVeil();
     try {
       const switched = await switchWindowAccount(sub);
       if (!switched.ok) {
         setSwitchBusy(null);
         return;
       }
-      await applyAccountIsolation(switched.token, { force: true });
+      await applyAccountIsolation(switched.token, {
+        force: true,
+        sub: switched.userId || sub,
+      });
     } catch {
       setSwitchBusy(null);
     }

@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages, setRequestLocale } from 'next-intl/server';
 import { isAppLocale, localeConfig, locales } from '@bhd-r/i18n';
 import { BhdSilentSso } from '@/components/bhd-silent-sso';
+import { BhdPrivacyGate } from '@/components/bhd-privacy-gate';
 import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { SiteMaintenanceBanner } from '@/components/site-maintenance-banner';
@@ -115,6 +116,7 @@ export default async function LocaleLayout({
         <Script src={IDENTITY_SCRIPT_URL} strategy="afterInteractive" />
         <NextIntlClientProvider messages={messages}>
           <BhdSilentSso />
+          <BhdPrivacyGate />
           <NavigationProgress />
           <MarketingRoutePrefetch />
           <SiteMaintenanceBanner />

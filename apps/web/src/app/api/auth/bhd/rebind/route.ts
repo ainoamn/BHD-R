@@ -50,16 +50,48 @@ function requestOrigin(request: Request) {
   return url.origin;
 }
 
+function bindReturnPath(returnTo: string, sub: string) {
+  const safe = safeReturnTo(returnTo, '/ar/portal');
+  try {
+    const url = new URL(safe, 'https://bhd.local');
+    url.searchParams.set('au', sub);
+    url.searchParams.set('_bhd', String(Date.now()));
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return safe;
+  }
+}
+
+function wantsJson(request: Request) {
+  const accept = request.headers.get('accept') || '';
+  return accept.includes('application/json');
+}
+
 function redirectHome(origin: string, returnTo: string) {
   const response = NextResponse.redirect(new URL(returnTo, origin), 303);
-  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   response.headers.set('Pragma', 'no-cache');
+  return response;
+}
+
+function jsonOk(
+  payload: { ok: true; unchanged?: boolean; user: { id: string; email: string; name: string } },
+  applyCookies?: (response: NextResponse) => void,
+) {
+  const response = NextResponse.json(payload, {
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, private', Pragma: 'no-cache' },
+  });
+  response.cookies.delete(ORGANIZATION_COOKIE);
+  applyCookies?.(response);
   return response;
 }
 
 async function rebind(request: Request) {
   const origin = requestOrigin(request);
+  const json = wantsJson(request);
+
   if (!hasDatabaseUrl()) {
+    if (json) return NextResponse.json({ ok: false, error: 'api' }, { status: 503 });
     return NextResponse.redirect(new URL('/ar/login?bhd=api', origin), 303);
   }
 
@@ -67,12 +99,12 @@ async function rebind(request: Request) {
   let returnTo = '/ar/portal';
   const contentType = request.headers.get('content-type') || '';
   if (request.method === 'POST' && contentType.includes('application/json')) {
-    const json = (await request.json().catch(() => ({}))) as {
+    const body = (await request.json().catch(() => ({}))) as {
       token?: string;
       returnTo?: string;
     };
-    token = typeof json.token === 'string' ? json.token.trim() : '';
-    returnTo = safeReturnTo(json.returnTo, '/ar/portal');
+    token = typeof body.token === 'string' ? body.token.trim() : '';
+    returnTo = safeReturnTo(body.returnTo, '/ar/portal');
   } else if (request.method === 'POST') {
     const form = await request.formData().catch(() => null);
     token = String(form?.get('token') || '').trim();
@@ -84,6 +116,7 @@ async function rebind(request: Request) {
   const header = request.headers.get('authorization');
   if (!token && header?.toLowerCase().startsWith('bearer ')) token = header.slice(7).trim();
   if (!token || token.length < 20) {
+    if (json) return NextResponse.json({ ok: false, error: 'token' }, { status: 401 });
     return NextResponse.redirect(
       new URL(`/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`, origin),
       303,
@@ -113,10 +146,21 @@ async function rebind(request: Request) {
       try {
         const row = await db.query.users.findFirst({
           where: eq(users.id, previousUserId),
-          columns: { identitySubject: true },
+          columns: { identitySubject: true, email: true, name: true },
         });
         if (row?.identitySubject?.trim() === profile.sub) {
-          const response = redirectHome(origin, returnTo);
+          if (json) {
+            return jsonOk({
+              ok: true,
+              unchanged: true,
+              user: {
+                id: profile.sub,
+                email: profile.email,
+                name: row.name || profile.name,
+              },
+            });
+          }
+          const response = redirectHome(origin, bindReturnPath(returnTo, profile.sub));
           response.cookies.delete(ORGANIZATION_COOKIE);
           return response;
         }
@@ -133,11 +177,32 @@ async function rebind(request: Request) {
       ...(preferredOrganizationId ? { preferredOrganizationId } : {}),
     });
 
-    const response = redirectHome(origin, returnTo);
+    if (json) {
+      return jsonOk(
+        { ok: true, user: { id: profile.sub, email: profile.email, name: profile.name } },
+        (response) => setSessionCookies(response, issued),
+      );
+    }
+
+    const response = redirectHome(origin, bindReturnPath(returnTo, profile.sub));
     response.cookies.delete(ORGANIZATION_COOKIE);
     setSessionCookies(response, issued);
     return response;
   } catch {
+    if (json) {
+      const response = NextResponse.json({ ok: false, error: 'rebind' }, { status: 401 });
+      response.cookies.set({
+        name: 'bhd_r_session',
+        value: '',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 0,
+      });
+      response.cookies.delete(ORGANIZATION_COOKIE);
+      return response;
+    }
     const response = NextResponse.redirect(
       new URL(
         `/api/auth/bhd/logout?continue=${encodeURIComponent(`/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`)}`,
