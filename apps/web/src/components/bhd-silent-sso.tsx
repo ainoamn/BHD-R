@@ -22,11 +22,15 @@ export function BhdSilentSso() {
   useEffect(() => {
     const onRebound = () => {
       startTransition(() => {
-        try { router.refresh(); } catch { /* no-op */ }
+        try {
+          router.refresh();
+        } catch {
+          /* no-op */
+        }
       });
     };
-    window.addEventListener("bhd:account-rebound", onRebound);
-    return () => window.removeEventListener("bhd:account-rebound", onRebound);
+    window.addEventListener('bhd:account-rebound', onRebound);
+    return () => window.removeEventListener('bhd:account-rebound', onRebound);
   }, [router, startTransition]);
 
   useEffect(() => {
@@ -125,7 +129,9 @@ export function BhdSilentSso() {
       if (!document.hidden) void reconcile();
     };
     document.addEventListener('visibilitychange', onVis);
-    const onFocus = () => { void reconcile(); };
+    const onFocus = () => {
+      void reconcile();
+    };
     window.addEventListener('focus', onFocus);
     timer = window.setInterval(() => {
       if (!document.hidden && tabMayClaimProductCookie()) void reconcile();

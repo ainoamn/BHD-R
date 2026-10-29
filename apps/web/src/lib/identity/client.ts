@@ -106,15 +106,19 @@ export function scrubCacheBustFromUrl() {
 }
 /** Keep ?au= on the URL without navigation — stabilizes multi-tab binding. */
 export function ensureAuInUrl(sub?: string | null) {
-  if (typeof window === "undefined") return;
-  const au = (sub || readActiveAu() || "").trim();
+  if (typeof window === 'undefined') return;
+  const au = (sub || readActiveAu() || '').trim();
   if (!au) return;
   try {
     const url = new URL(window.location.href);
-    if (url.searchParams.get("au") === au) return;
-    url.searchParams.set("au", au);
-    url.searchParams.delete("_bhd");
-    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    if (url.searchParams.get('au') === au) return;
+    url.searchParams.set('au', au);
+    url.searchParams.delete('_bhd');
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${url.pathname}${url.search}${url.hash}`,
+    );
   } catch {
     /* ignore */
   }
@@ -344,7 +348,7 @@ export async function applyAccountIsolation(
       scrubCacheBustFromUrl();
       // Cookie fixed in-place — never hard-navigate (stops blink + tab wars).
       if (!result.unchanged) {
-        const guardKey = `bhd-sso:${result.userId || sub || "x"}`;
+        const guardKey = `bhd-sso:${result.userId || sub || 'x'}`;
         sessionStorage.setItem(guardKey, String(Date.now()));
         emitAccountRebound(result.userId || sub);
       }
