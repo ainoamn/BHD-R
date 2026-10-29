@@ -117,7 +117,11 @@ export function BhdPrivacyGate() {
         }
 
         const token = boundWindowToken() || (typeof body.token === 'string' ? body.token : '');
-        await applyAccountIsolation(token, { force: true, sub: targetAu || identityId, silent: true });
+        await applyAccountIsolation(token, {
+          force: true,
+          sub: targetAu || identityId,
+          silent: true,
+        });
       } catch {
         clearAccountRebindLock();
       }

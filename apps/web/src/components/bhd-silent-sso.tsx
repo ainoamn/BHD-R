@@ -67,7 +67,12 @@ export function BhdSilentSso() {
         const identityId = body.user.id;
         const targetAu = au || identityId;
 
-        if (local.authenticated && productSub && productSub === identityId && productSub === targetAu) {
+        if (
+          local.authenticated &&
+          productSub &&
+          productSub === identityId &&
+          productSub === targetAu
+        ) {
           clearAccountRebindLock();
           scrubCacheBustFromUrl();
           return;

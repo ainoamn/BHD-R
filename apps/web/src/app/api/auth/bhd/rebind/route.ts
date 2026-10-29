@@ -79,7 +79,10 @@ function jsonOk(
   applyCookies?: (response: NextResponse) => void,
 ) {
   const response = NextResponse.json(payload, {
-    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, private', Pragma: 'no-cache' },
+    headers: {
+      'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+      Pragma: 'no-cache',
+    },
   });
   response.cookies.delete(ORGANIZATION_COOKIE);
   applyCookies?.(response);
@@ -146,7 +149,7 @@ async function rebind(request: Request) {
       try {
         const row = await db.query.users.findFirst({
           where: eq(users.id, previousUserId),
-          columns: { identitySubject: true, email: true, name: true },
+          columns: { identitySubject: true, email: true, displayName: true },
         });
         if (row?.identitySubject?.trim() === profile.sub) {
           if (json) {
@@ -156,7 +159,7 @@ async function rebind(request: Request) {
               user: {
                 id: profile.sub,
                 email: profile.email,
-                name: row.name || profile.name,
+                name: row.displayName || profile.name,
               },
             });
           }

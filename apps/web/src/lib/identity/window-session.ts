@@ -15,7 +15,8 @@ function readTokenMap(): TokenMap {
     if (!parsed || typeof parsed !== 'object') return {};
     const out: TokenMap = {};
     for (const [key, value] of Object.entries(parsed as TokenMap)) {
-      if (typeof key === 'string' && key && typeof value === 'string' && value.length > 20) out[key] = value;
+      if (typeof key === 'string' && key && typeof value === 'string' && value.length > 20)
+        out[key] = value;
     }
     return out;
   } catch {

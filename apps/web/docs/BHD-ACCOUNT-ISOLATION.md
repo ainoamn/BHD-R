@@ -2,7 +2,7 @@
 
 > **الحالة:** إلزامي لكل منتج مرتبط بـ `https://id.bhd-om.com`.  
 > **تاريخ:** 29 أكتوبر 2026 — محاذاة مع BHD-HR-live.  
-> **لوحة الربط:** https://id.bhd-om.com/admin#connect  
+> **لوحة الربط:** https://id.bhd-om.com/admin#connect
 
 ---
 

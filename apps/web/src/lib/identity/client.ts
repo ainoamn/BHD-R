@@ -235,7 +235,11 @@ export async function silentRebind(
     };
     if (!response.ok || !body.ok) return { ok: false };
     if (body.user?.id) setActiveAu(body.user.id);
-    return { ok: true, unchanged: Boolean(body.unchanged), userId: body.user?.id };
+    return {
+      ok: true,
+      unchanged: Boolean(body.unchanged),
+      ...(body.user?.id ? { userId: body.user.id } : {}),
+    };
   } catch {
     return { ok: false };
   }
@@ -286,7 +290,11 @@ export async function applyAccountIsolation(
   }
 
   const windowToken =
-    token || (sub ? tokenForAccount(sub) : '') || boundWindowToken() || sessionStorage.getItem('bhd_window_token') || '';
+    token ||
+    (sub ? tokenForAccount(sub) : '') ||
+    boundWindowToken() ||
+    sessionStorage.getItem('bhd_window_token') ||
+    '';
 
   if (options?.silent) {
     const result = await silentRebind(windowToken, sub);
