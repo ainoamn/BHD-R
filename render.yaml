@@ -2,7 +2,7 @@
 # Docs: docs/implementation/NEST-API-HOSTING.md · ENV-MANIFEST.md
 # Apply in Render Dashboard → New → Blueprint → this repo
 # Liveness: /healthz (edge). Readiness (DB): /health/ready via Nest proxy.
-# Deploy: Auto-Deploy from `main` when connected; force via `node scripts/trigger-render-deploy.mjs`.
+# Deploy: Manual Deploy (autoDeploy false) or `RENDER_DEPLOY_HOOK_URL=… node scripts/trigger-render-deploy.mjs`.
 
 services:
   - type: web

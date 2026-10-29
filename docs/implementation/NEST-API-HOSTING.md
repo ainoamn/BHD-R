@@ -200,22 +200,17 @@ Dashboard project name **`bhd-r-api`** is the **Next.js** app (`apps/web` → `r
 
 ### «Failed» خلال أقل من ثانيتين = ليس فشل بناء
 
-إذا ظهرت عشرات عمليات **Deploy Failed** بمدة **0.6–1.5s** بينما الخدمة الحية ما زالت على التزام قديم (مثل `838ba37`):
+إذا ظهرت عشرات **Failed** بمدة **0.5–2s** بينما **Live** ما زال على التزام قديم (مثل `838ba37`): المدة القصيرة تعني أن Docker لم يبدأ. السبب: Auto-Deploy يلغي/يتخطى عند كل دفعة، أو Build Filters. افتح الصف الأحمر — إن رأيت `canceled`/`skipped` بلا سجلات بناء فهو ليس خطأ كود. الخطة Free تنام بعد الخمول.
 
-| الحقيقة                       | التفسير                                                                                                                |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| المدة &lt; ~2s                | لم يبدأ بناء Docker أصلًا                                                                                              |
-| السبب الشائع                  | **Auto-Deploy** يلغي النشر السابق عند كل دفعة جديدة على `main` (وابل إلغاء)، أو فلاتر البناء غير مفعّلة في لوحة الخدمة |
-| `render.yaml` → `buildFilter` | يُطبَّق فقط بعد **مزامنة Blueprint** أو ضبط **Build Filters** يدويًا في Settings → Build & Deploy                      |
-| الخطة Free                    | النوم بعد الخمول → تأخير أول طلب (رسالة «spin down»)؛ `/healthz` يعود بعد الإيقاظ                                      |
+`render.yaml` الآن: **`autoDeploy: false`** (نشر يدوي أو Deploy Hook فقط).
 
-**خطوات إصلاح تشغيلية (لوحة Render — إلزامية):**
+**خطوات إلزامية في لوحة Render:**
 
-1. Environment → أضف `PII_LOOKUP_PEPPER` (≥32 حرفًا عشوائيًا مستقلًا). الإقلاع يرفض الإنتاج بدونه منذ 0.8.135.8.
-2. Settings → Build & Deploy → فعّل **Build Filters** لمسارات API فقط (`apps/api/**`, `apps/worker/**`, `packages/**`, `Dockerfile.api`, `pnpm-lock.yaml`, `render.yaml`, …) وتجاهل `apps/web/**` و`.github/**` و`docs/**` — كما في `render.yaml`.
-3. أوقف وابل الإلغاء: لا تدفع عشرات الالتزامات المتتالية ثم تنتظر؛ أو عطّل Auto-Deploy مؤقتًا.
-4. **Manual Deploy** لـ `main` الحالي مرة واحدة وانتظر حتى تصبح الحالة **Live** (دقائق، لا ثوانٍ).
-5. تحقق: `https://bhd-r.onrender.com/healthz` → `"nestReady":true`، ثم `/health/ready`.
+1. Environment → عيّن `PII_LOOKUP_PEPPER` (≥32). بدونه يفشل الإقلاع بعد بناء ناجح.
+2. Settings → Build & Deploy → **Auto-Deploy Off**.
+3. Build Filters: راقب `apps/api/**`, `packages/**`, `Dockerfile.api`, `pnpm-lock.yaml`؛ تجاهل `apps/web/**`, `.github/**`, `docs/**`.
+4. **Manual Deploy** لـ `main` → انتظر **Live** (دقائق).
+5. `https://bhd-r.onrender.com/healthz` → `nestReady:true` ثم `/health/ready`.
 
 **Render build fail on `fb0a74d` (0.4.15):** `apps/web` engines pinned to `22.x` while `Dockerfile.api` uses Node 24 + repo `engine-strict=true` → install exit 1. Fixed in **0.4.16** (`>=22` + Docker install ignores engine-strict / minimum-release-age).
 
