@@ -72,7 +72,8 @@ async function safeRows(path: string): Promise<DataRow[]> {
 }
 
 function preferNestFixtures(): boolean {
-  return process.env.E2E_FORCE_NEST_FIXTURES === '1';
+  // Bracket access + trim: avoid build-time inlining of a missing env to undefined.
+  return String(process.env['E2E_FORCE_NEST_FIXTURES'] ?? '').trim() === '1';
 }
 
 async function probeNestHealthz(): Promise<boolean> {

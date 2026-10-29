@@ -164,6 +164,7 @@ jobs:
         run: pnpm --filter @bhd-r/api test:e2e
       - name: Build web for Playwright
         # `playwright.config.ts` runs `pnpm start`, which needs a production `.next`.
+        # Bake E2E_FORCE into the server bundle — Next may inline process.env at build.
         run: pnpm --filter @bhd-r/web... build
         env:
           BHD_R_SESSION_SECRET: ci-only-session-secret-at-least-32-bytes
@@ -174,6 +175,8 @@ jobs:
           NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
           NEXT_PUBLIC_API_ORIGIN: http://127.0.0.1:4000
           API_ORIGIN: http://127.0.0.1:4000
+          E2E_FORCE_NEST_FIXTURES: '1'
+          STAYS_PLATFORM_ENABLED: 'false'
       - name: Browser smoke (mock API · chromium only)
         run: pnpm --filter @bhd-r/web test:e2e
         # Honest gate: fixture-backed Playwright, not live Nest+DB journeys.

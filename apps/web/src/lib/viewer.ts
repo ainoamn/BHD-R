@@ -111,7 +111,7 @@ async function getViewerFromDatabase(): Promise<Viewer | null> {
 export const getViewer = cache(async (): Promise<Viewer | null> => {
   // Fixture e2e: mock Nest /v1/me (CI DB has no matching sessions row).
   // Still require a session cookie so anonymous public pages stay signed-out.
-  if (process.env.E2E_FORCE_NEST_FIXTURES === '1') {
+  if (String(process.env['E2E_FORCE_NEST_FIXTURES'] ?? '').trim() === '1') {
     const cookieStore = await cookies();
     if (!cookieStore.get('bhd_r_session')?.value) return null;
     const { ApiError, apiFetch } = await import('./server-api');
@@ -167,7 +167,7 @@ export const getShellViewer = cache(async (): Promise<Viewer | null> => {
 
   // Fixture e2e only (never set in production): trust verified JWT chrome even when
   // CI DATABASE_URL points at an empty migrated database.
-  if (process.env.E2E_FORCE_NEST_FIXTURES === '1') return stub;
+  if (String(process.env['E2E_FORCE_NEST_FIXTURES'] ?? '').trim() === '1') return stub;
 
   if (!hasDatabaseUrl()) return stub;
 
