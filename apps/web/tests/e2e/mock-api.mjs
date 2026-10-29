@@ -348,8 +348,16 @@ const rowsByPath = new Map([
 const server = createServer((request, response) => {
   response.setHeader('content-type', 'application/json; charset=utf-8');
   const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
-  if (path === '/health') {
-    response.end(JSON.stringify({ ok: true }));
+  // Next probes Nest with /healthz (Render platform); keep /health for older callers.
+  if (path === '/health' || path === '/healthz') {
+    response.end(
+      JSON.stringify({
+        status: 'ok',
+        service: 'bhd-r-api',
+        nestReady: true,
+        ok: true,
+      }),
+    );
     return;
   }
   if (path.startsWith('/v1/public/listings')) {

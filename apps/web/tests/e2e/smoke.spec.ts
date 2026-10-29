@@ -75,11 +75,12 @@ for (const locale of ['ar', 'en'] as const) {
     await page.goto(`/${locale}/login?bhd=discovery`);
     await expect(page.locator('.site-header')).toHaveCount(0);
     await expect(page.locator('.site-footer')).toHaveCount(0);
-    await expect(page.locator('.login-stage')).toBeVisible();
-    await expect(page.locator('.login-brand-panel')).toBeVisible();
+    await expect(page.locator('.login-screen')).toBeVisible();
+    await expect(page.locator('.login-card')).toBeVisible();
     await expect(
       page.getByRole('link', {
-        name: locale === 'ar' ? 'المتابعة عبر هوية BHD' : 'Continue with BHD Identity',
+        name:
+          locale === 'ar' ? 'إعادة المحاولة عبر id.bhd-om.com' : 'Retry via id.bhd-om.com',
       }),
     ).toHaveAttribute('href', new RegExp('^/api/auth/bhd/start\\?returnTo='));
   });
@@ -143,9 +144,13 @@ test('complete property intake has operations, documents, media and review stage
 }) => {
   await authenticatePortal(page);
   await page.goto('/ar/owner/properties/new');
-  await expect(page.locator('.steps li')).toHaveCount(6);
-  await expect(page.locator('.steps li').filter({ hasText: 'التشغيل والمرافق' })).toBeVisible();
-  await expect(page.locator('.steps li').filter({ hasText: 'الملكية والوثائق' })).toBeVisible();
+  await expect(page.locator('.wizard-progress__item')).toHaveCount(7);
+  await expect(
+    page.locator('.wizard-progress__item').filter({ hasText: 'التشغيل والمرافق' }),
+  ).toBeVisible();
+  await expect(
+    page.locator('.wizard-progress__item').filter({ hasText: 'الملكية والوثائق' }),
+  ).toBeVisible();
 });
 
 test('owner sidebar uses same-document navigation and reopens cached sections', async ({

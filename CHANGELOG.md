@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.15 — 2026-10-29
+
+- **إصلاح بوابة Playwright بعد اكتمال الترحيلات:** مواءمة محدّدات تسجيل الدخول ومعالج العقار مع الواجهة الحالية؛ إضافة `/healthz` لـ mock API؛ و`E2E_FORCE_NEST_FIXTURES` حتى لا تحجب قاعدة CI الفارغة صفوف الـ fixture عبر مسار Neon.
+
 ## 0.8.135.14 — 2026-10-29
 
 - **اختبار قفل المخزون بعد ترحيل 0023:** التعرّف على `stay_inventory_locks_slot_conflict` (وقراءة `code` من كائن الخطأ) بدل الاعتماد على قيد GiST القديم؛ ومواءمة معالجة التعارض في Nest مع مسار الحجز العام.

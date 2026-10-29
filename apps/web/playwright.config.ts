@@ -31,6 +31,8 @@ export default defineConfig({
               BHD_R_OIDC_STATE_SECRET: e2eSessionSecret,
               CSRF_SECRET: e2eSessionSecret,
               API_ORIGIN: 'http://127.0.0.1:4000',
+              // Prefer mock Nest fixture rows over empty Neon in CI e2e.
+              E2E_FORCE_NEST_FIXTURES: '1',
             },
           },
         ],

@@ -177,6 +177,8 @@ jobs:
       - name: Browser smoke (mock API · chromium only)
         run: pnpm --filter @bhd-r/web test:e2e
         # Honest gate: fixture-backed Playwright, not live Nest+DB journeys.
+        env:
+          E2E_FORCE_NEST_FIXTURES: '1'
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

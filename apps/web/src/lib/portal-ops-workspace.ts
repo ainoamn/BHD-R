@@ -219,6 +219,11 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
 }
 
 async function loadSection(portal: PortalRole, section: OperationsSection): Promise<SectionLoad> {
+  // Playwright CI: empty migrated DB would otherwise short-circuit Nest fixtures with [].
+  if (process.env.E2E_FORCE_NEST_FIXTURES === '1') {
+    return loadFromNest(portal, section);
+  }
+
   const fromDb = await loadOpsRecordsFromDb(portal, section);
   if (fromDb !== null) return { records: fromDb, source: 'db' };
   const fromNeon = await loadOpsSectionFromNeon(portal, section);
