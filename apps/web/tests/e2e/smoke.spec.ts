@@ -125,8 +125,8 @@ test('owner portal exposes specialized operational modules with real records', a
   const sections = [
     ['requests', 'مركز الطلبات وخدمة العملاء', 'REQ-2026-0142'],
     ['bookings', 'الحجوزات والمعاينات', 'VIEW-0041'],
-    ['sales', 'مبيعات العقارات', 'SALE-2026-008'],
-    ['accounting', 'المحاسبة والأستاذ العام', 'JV-2026-0038'],
+    ['sales', 'البيع وعقود البيع', 'SALE-2026-008'],
+    ['accounting', 'نظام المحاسبة', 'JV-2026-0038'],
     ['work-orders', 'أوامر العمل والموردون', 'WO-2026-0077'],
     ['legal', 'المحاماة والقضايا', 'LEG-2026-0014'],
   ] as const;
@@ -167,7 +167,30 @@ test('owner portal exposes specialized operational modules with real records', a
       ).toBe(true);
     }
 
+    // Legal board listOverride loads /api/portal/legal/cases (not ops rows).
+    if (section === 'legal') {
+      const legalCases = await page.request.get('/api/portal/legal/cases');
+      const legalBody = (await legalCases.json().catch(() => null)) as {
+        cases?: Array<{ reference?: string }>;
+        error?: { code?: string };
+      } | null;
+      expect(
+        legalCases.ok(),
+        `legal/cases ${legalCases.status()} ${JSON.stringify(legalBody)?.slice(0, 400)}`,
+      ).toBe(true);
+      expect(
+        (legalBody?.cases ?? []).some((row) => row.reference === reference),
+        `legal/cases missing ${reference} in ${JSON.stringify(legalBody?.cases)?.slice(0, 400)}`,
+      ).toBe(true);
+    }
+
     await page.goto(`/ar/owner/${section}`);
+    // Accounting hub replaced the ops console shell for /owner/accounting.
+    if (section === 'accounting') {
+      await expect(page.getByTestId('accounting-hub')).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
+      continue;
+    }
     await expect(page.locator('.ops-workspace')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
     // Force a client refetch after navigation (warm may race the first paint).

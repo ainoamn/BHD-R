@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.24 — 2026-10-29
+
+- **Playwright أقسام المالك:** عناوين البيع/المحاسبة تطابق الواجهة الحالية؛ fixture لـ `/api/portal/legal/cases` تحت `E2E_FORCE`؛ وقائمة الحجوزات عبر `property-records` كما في 0.8.135.23.
+
 ## 0.8.135.23 — 2026-10-29
 
 - **Playwright الحجوزات (CI #957–#958):** بناء الويب لـ e2e عبر `PLAYWRIGHT_WEB_BUILD` بدون `standalone` حتى تصل `E2E_FORCE` إلى `next start`؛ ومسار fixture لـ `/api/portal/property-records` لأن قائمة الحجوزات تستخدم `PropertySectionRecords` وليس صفوف ops.
