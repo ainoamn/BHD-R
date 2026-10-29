@@ -7,12 +7,28 @@ import {
   isIdentityOrigin,
   productStartPath,
   scrubCacheBustFromUrl,
+  SILENT_SSO_GUARD_MS,
+  tabMayClaimProductCookie,
 } from '@/lib/identity/client';
 import { loadBhdIdentity } from '@/lib/identity/bhd-browser';
 import { boundWindowToken, readActiveAu, setActiveAu } from '@/lib/identity/window-session';
-import { useEffect } from 'react';
+import { useEffect, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 
 export function BhdSilentSso() {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    const onRebound = () => {
+      startTransition(() => {
+        try { router.refresh(); } catch { /* no-op */ }
+      });
+    };
+    window.addEventListener("bhd:account-rebound", onRebound);
+    return () => window.removeEventListener("bhd:account-rebound", onRebound);
+  }, [router, startTransition]);
+
   useEffect(() => {
     const path = window.location.pathname;
     if (
@@ -56,6 +72,9 @@ export function BhdSilentSso() {
           return;
         }
 
+        // Background tabs must not steal the shared cookie.
+        if (!tabMayClaimProductCookie()) return;
+
         const identity = await loadBhdIdentity();
         if (cancelled || !identity) return;
         const { ok, body } = await identity.me();
@@ -80,7 +99,7 @@ export function BhdSilentSso() {
 
         const guardKey = `bhd-sso:${targetAu || identityId}`;
         const last = Number(sessionStorage.getItem(guardKey) || '0');
-        if (last && Date.now() - last < 12_000) return;
+        if (last && Date.now() - last < SILENT_SSO_GUARD_MS) return;
         sessionStorage.setItem(guardKey, String(Date.now()));
 
         if (!local.authenticated || !productSub) {
@@ -106,13 +125,16 @@ export function BhdSilentSso() {
       if (!document.hidden) void reconcile();
     };
     document.addEventListener('visibilitychange', onVis);
+    const onFocus = () => { void reconcile(); };
+    window.addEventListener('focus', onFocus);
     timer = window.setInterval(() => {
-      if (!document.hidden) void reconcile();
-    }, 20_000);
+      if (!document.hidden && tabMayClaimProductCookie()) void reconcile();
+    }, 60_000);
 
     return () => {
       cancelled = true;
       document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('focus', onFocus);
       window.clearInterval(timer);
     };
   }, []);
