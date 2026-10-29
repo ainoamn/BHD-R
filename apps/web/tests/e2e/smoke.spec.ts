@@ -50,6 +50,9 @@ for (const locale of ['ar', 'en'] as const) {
     await page.keyboard.press('Tab');
     await expect(page.locator('.skip-link')).toBeFocused();
 
+    // Apps launcher lives in the signed-in header chrome (BhdAppSwitcher).
+    await authenticatePortal(page);
+    await page.goto(`/${locale}`);
     const appsButton = page.getByRole('button', {
       name: locale === 'ar' ? 'تطبيقات BHD' : 'BHD apps',
     });
@@ -65,10 +68,9 @@ for (const locale of ['ar', 'en'] as const) {
     await expect(
       page.getByRole('dialog', { name: locale === 'ar' ? 'تطبيقات BHD' : 'BHD apps' }),
     ).toBeVisible();
-    await expect(page.getByRole('link', { name: 'R BHD R' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    const currentApp = page.locator('a.bhd-switcher-app.is-current');
+    await expect(currentApp).toContainText('BHD R');
+    await expect(currentApp).toHaveAttribute('aria-current', 'page');
   });
 
   test(`${locale} unified login uses the BHD gateway layout`, async ({ page }) => {

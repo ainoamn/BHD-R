@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.19 — 2026-10-29
+
+- **Playwright CI #941:** إيقاف توريث `DATABASE_URL` الفارغة إلى `pnpm start`؛ رجوع JWT/`/v1/me` تحت `E2E_FORCE_NEST_FIXTURES`؛ السماح بطلب معاينة Nest دون Neon؛ ومواءمة اختبار التطبيقات العامة مع رأس الجلسة الموقّعة.
+
 ## 0.8.135.18 — 2026-10-29
 
 - **Lighthouse CLS/JS + Playwright معاينة الزائر:** تحميل الخريطة/الجدول ديناميكيًا؛ تثبيت مساحة مصادقة الرأس؛ نسب أبعاد صفوف القائمة؛ نقل CSS البوابات خارج تخطيط التسويق؛ إظهار `PublicViewingForm` للزائر غير المسجّل؛ وتقوية `E2E_FORCE_NEST_FIXTURES` في حمولة ops.

@@ -37,7 +37,9 @@ const bodySchema = z
  * Anonymous listing form: Nest-first create, then optional auto-schedule from org policy.
  */
 export async function POST(request: Request) {
-  if (!hasDatabaseUrl()) {
+  const nestConfigured = isNestApiConfiguredForRuntime();
+  // Nest-only (Playwright mock) is enough; Neon is optional enrichment.
+  if (!hasDatabaseUrl() && !nestConfigured) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
 
@@ -66,7 +68,7 @@ export async function POST(request: Request) {
   try {
     let reference: string | null = null;
     let status = 'requested';
-    if (isNestApiConfiguredForRuntime() && (await probeNestReady())) {
+    if (nestConfigured && (await probeNestReady())) {
       const origin = configuredApiOrigin();
       if (origin) {
         const response = await fetch(`${origin}/v1/public/units/${body.unitId}/viewing-requests`, {
@@ -98,6 +100,10 @@ export async function POST(request: Request) {
     }
     if (!reference) {
       return NextResponse.json({ error: { code: 'request_failed' } }, { status: 502 });
+    }
+
+    if (!hasDatabaseUrl()) {
+      return NextResponse.json({ accepted: true, reference, status });
     }
 
     const target = await findViewingNotifyTarget(reference, body.unitId).catch(() => null);

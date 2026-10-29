@@ -110,7 +110,10 @@ async function getViewerFromDatabase(): Promise<Viewer | null> {
  */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
   if (hasDatabaseUrl()) {
-    return getViewerFromDatabase();
+    const fromDb = await getViewerFromDatabase();
+    if (fromDb) return fromDb;
+    // Production: fail closed. Playwright fixtures: fall through to mock /v1/me.
+    if (process.env.E2E_FORCE_NEST_FIXTURES !== '1') return null;
   }
 
   const { ApiError, apiFetch } = await import('./server-api');
@@ -159,7 +162,12 @@ export const getShellViewer = cache(async (): Promise<Viewer | null> => {
         setTimeout(() => resolve({ done: false }), 900);
       }),
     ]);
-    if (raced.done) return raced.viewer;
+    if (raced.done) {
+      if (raced.viewer) return raced.viewer;
+      // Playwright fixture mode: empty CI DB returns null fast — keep JWT chrome.
+      if (process.env.E2E_FORCE_NEST_FIXTURES === '1') return stub;
+      return null;
+    }
   } catch {
     /* fall through to JWT stub for chrome only */
   }
