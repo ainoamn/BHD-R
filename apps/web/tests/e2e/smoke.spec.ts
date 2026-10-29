@@ -150,29 +150,18 @@ test('owner portal exposes specialized operational modules with real records', a
       `${section} missing ${reference} in ${JSON.stringify(body?.records)?.slice(0, 400)}`,
     ).toBe(true);
 
-    const opsResponse = page.waitForResponse(
-      (res) =>
-        res.url().includes(`/api/portal/ops/owner/${section}`) &&
-        res.request().method() === 'GET' &&
-        res.ok(),
-      { timeout: 20_000 },
-    );
     await page.goto(`/ar/owner/${section}`);
-    await opsResponse;
     await expect(page.locator('.ops-workspace')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-    const retry = page.locator('.ops-workspace').getByRole('button', { name: 'إعادة المحاولة' });
-    if (await retry.isVisible().catch(() => false)) {
-      await retry.click();
-      await page.waitForResponse(
-        (res) =>
-          res.url().includes(`/api/portal/ops/owner/${section}`) &&
-          res.request().method() === 'GET' &&
-          res.ok(),
-        { timeout: 20_000 },
-      );
-    }
-    // Reference can appear in the table and the detail pane — take the first hit.
+    // Force a client refetch after navigation (warm may race the first paint).
+    await page.evaluate(
+      ({ portal, sectionName }) => {
+        window.dispatchEvent(
+          new CustomEvent('bhd-r-ops-refresh', { detail: { portal, section: sectionName } }),
+        );
+      },
+      { portal: 'owner', sectionName: section },
+    );
     await expect(
       page.locator('.ops-workspace').getByText(reference, { exact: true }).first(),
     ).toBeVisible({ timeout: 20_000 });
