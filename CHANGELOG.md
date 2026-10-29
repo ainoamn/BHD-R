@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.10 — 2026-10-29
+
+- **توضيح إخفاقات Render خلال &lt;2 ثانية:** ليست فشل بناء Docker بل إلغاء Auto-Deploy المتتابع أو غياب Build Filters؛ الإنتاج قد يبقى على صورة قديمة بينما تظهر عشرات Failed. توثيق خطوات Manual Deploy و`PII_LOOKUP_PEPPER` وفلاتر المسارات في `NEST-API-HOSTING.md`.
+
 ## 0.8.135.9 — 2026-10-29
 
 - **إغلاق بوابات الجودة بعد تدقيق 970465f3 / 4e696b1f:** ضبط ESLint للويب مع `@next/eslint-plugin-next` (مع الإبقاء على type-checked لـ Nest/الحزم)؛ بناء `.next` قبل Playwright؛ قائمة سماح Gitleaks لثوابت CI؛ وتحسين تباين/تسميات a11y وتقليل CLS في الصفحات العامة لفحص Lighthouse.

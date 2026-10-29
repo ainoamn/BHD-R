@@ -198,6 +198,25 @@ Dashboard project name **`bhd-r-api`** is the **Next.js** app (`apps/web` → `r
 
 **Nest Docker (Render)** is a separate service (`Dockerfile.api`). If its Events show Error while `/healthz` is ok, the **previous Live** image is still serving — click **Manual Deploy** of latest `main` after a green build.
 
+### «Failed» خلال أقل من ثانيتين = ليس فشل بناء
+
+إذا ظهرت عشرات عمليات **Deploy Failed** بمدة **0.6–1.5s** بينما الخدمة الحية ما زالت على التزام قديم (مثل `838ba37`):
+
+| الحقيقة | التفسير |
+| --- | --- |
+| المدة &lt; ~2s | لم يبدأ بناء Docker أصلًا |
+| السبب الشائع | **Auto-Deploy** يلغي النشر السابق عند كل دفعة جديدة على `main` (وابل إلغاء)، أو فلاتر البناء غير مفعّلة في لوحة الخدمة |
+| `render.yaml` → `buildFilter` | يُطبَّق فقط بعد **مزامنة Blueprint** أو ضبط **Build Filters** يدويًا في Settings → Build & Deploy |
+| الخطة Free | النوم بعد الخمول → تأخير أول طلب (رسالة «spin down»)؛ `/healthz` يعود بعد الإيقاظ |
+
+**خطوات إصلاح تشغيلية (لوحة Render — إلزامية):**
+
+1. Environment → أضف `PII_LOOKUP_PEPPER` (≥32 حرفًا عشوائيًا مستقلًا). الإقلاع يرفض الإنتاج بدونه منذ 0.8.135.8.
+2. Settings → Build & Deploy → فعّل **Build Filters** لمسارات API فقط (`apps/api/**`, `apps/worker/**`, `packages/**`, `Dockerfile.api`, `pnpm-lock.yaml`, `render.yaml`, …) وتجاهل `apps/web/**` و`.github/**` و`docs/**` — كما في `render.yaml`.
+3. أوقف وابل الإلغاء: لا تدفع عشرات الالتزامات المتتالية ثم تنتظر؛ أو عطّل Auto-Deploy مؤقتًا.
+4. **Manual Deploy** لـ `main` الحالي مرة واحدة وانتظر حتى تصبح الحالة **Live** (دقائق، لا ثوانٍ).
+5. تحقق: `https://bhd-r.onrender.com/healthz` → `"nestReady":true`، ثم `/health/ready`.
+
 **Render build fail on `fb0a74d` (0.4.15):** `apps/web` engines pinned to `22.x` while `Dockerfile.api` uses Node 24 + repo `engine-strict=true` → install exit 1. Fixed in **0.4.16** (`>=22` + Docker install ignores engine-strict / minimum-release-age).
 
 Arabic: [`RELEASE-0.4.14-AR.md`](./RELEASE-0.4.14-AR.md) (web fixes); stays webhook remains behind flags ([`RELEASE-0.4.1-AR.md`](./RELEASE-0.4.1-AR.md)).
