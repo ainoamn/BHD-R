@@ -32,10 +32,16 @@ function isPublicApiOrigin(origin: string): boolean {
   }
 }
 
+const skipStandalone =
+  Boolean(process.env.VERCEL) ||
+  process.env.PLAYWRIGHT_WEB_BUILD === '1' ||
+  process.env.E2E_FORCE_NEST_FIXTURES === '1';
+
 const config: NextConfig = {
   // Vercel injects an adapter that skips next-server.js.nft.json; standalone + that combo
   // fails on Next 16.3+. Keep standalone for Docker/self-host only.
-  ...(process.env.VERCEL ? {} : { output: 'standalone' as const }),
+  // Playwright CI uses `next start` and needs runtime env (E2E_FORCE) — skip standalone there.
+  ...(skipStandalone ? {} : { output: 'standalone' as const }),
   outputFileTracingRoot: monorepoRoot,
   // Keep Arabic greeting fonts + resvg native bits in serverless traces.
   outputFileTracingIncludes: {
