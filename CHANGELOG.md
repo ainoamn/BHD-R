@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.12 — 2026-10-29
+
+- **إيقاف Auto-Deploy على Render API:** `autoDeploy: false` في `render.yaml` لوقف وابل Failed خلال &lt;2 ثانية؛ النشر يدويًا أو عبر Deploy Hook فقط، مع خطوات واضحة في `NEST-API-HOSTING.md`.
+
 ## 0.8.135.11 — 2026-10-29
 
 - **إغلاق بناء الويب بعد 61b74423:** تنسيق Prettier لـ 26 ملفًا؛ تثبيت أنواع `OfferingMode[]` في معالج العقار؛ تضييق `status` إلى `draft|active` عند إدراج/تحديث الوحدات؛ وتطبيع `availabilityStatus` في تقويم الإقامات حتى يجتاز `tsc`/`next build`.

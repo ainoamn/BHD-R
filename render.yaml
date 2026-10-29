@@ -10,9 +10,11 @@ services:
     runtime: docker
     plan: starter
     branch: main
-    autoDeploy: true
-    # Skip redeploy when only the Next.js web app / docs / CI change — those ship on Vercel.
-    # Prevents false “Deploy failed” noise while a newer commit cancels an in-flight API build.
+    # Manual Deploy only — Auto-Deploy on every main push was producing a cascade of
+    # sub-2s “Failed” rows (cancelled/skipped) while Live stayed on an old SHA (e.g. 838ba37).
+    # Trigger via Dashboard → Manual Deploy, or RENDER_DEPLOY_HOOK_URL + scripts/trigger-render-deploy.mjs.
+    autoDeploy: false
+    # When Auto-Deploy is re-enabled, keep this filter so web/docs/CI commits do not wake Nest.
     buildFilter:
       paths:
         - apps/api/**
