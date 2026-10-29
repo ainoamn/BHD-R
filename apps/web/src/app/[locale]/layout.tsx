@@ -10,7 +10,9 @@ import { SiteHeader } from '@/components/site-header';
 import { SiteMaintenanceBanner } from '@/components/site-maintenance-banner';
 import { MarketingRoutePrefetch } from '@/components/marketing-route-prefetch';
 import { NavigationProgress } from '@/components/navigation-progress';
+import Script from 'next/script';
 import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { IDENTITY_SCRIPT_URL } from '@/lib/bhd/runtime';
 import '../globals.css';
 
 const publicWebOrigin =
@@ -110,6 +112,7 @@ export default async function LocaleLayout({
         <a className="skip-link" href="#main-content">
           {locale === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}
         </a>
+        <Script src={IDENTITY_SCRIPT_URL} strategy="afterInteractive" />
         <NextIntlClientProvider messages={messages}>
           <BhdSilentSso />
           <NavigationProgress />

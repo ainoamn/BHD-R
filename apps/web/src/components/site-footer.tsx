@@ -3,7 +3,8 @@
 import { Logo } from '@bhd-r/ui';
 import { useLocale } from 'next-intl';
 import { usePathname } from '@/i18n/navigation';
-import { BHD_APPS, launchUrlForApp, type BhdApp } from '@/lib/bhd/apps';
+import { launchUrlForApp, type BhdApp } from '@/lib/bhd/apps';
+import { useBhdCatalog } from '@/lib/identity/use-bhd-catalog';
 import { BhdAppIcon } from '@/components/bhd/bhd-app-icon';
 
 /** Same product order and labels as www.bhd-om.com footer (ONE-BHD SiteFooter). */
@@ -24,6 +25,7 @@ export function SiteFooter() {
   const pathname = usePathname();
   const locale = useLocale() as 'ar' | 'en';
   const ar = locale === 'ar';
+  const catalogApps = useBhdCatalog();
 
   if (
     /^\/(platform|owner|developer|tenant|admin|site-admin|login|forgot-password|reset-password|activate)(\/|$)/.test(
@@ -34,7 +36,7 @@ export function SiteFooter() {
   }
 
   const programmes = FOOTER_PROGRAMS.flatMap((item) => {
-    const app = BHD_APPS.find((candidate) => candidate.id === item.id && candidate.enabled);
+    const app = catalogApps.find((candidate) => candidate.id === item.id && candidate.enabled);
     return app ? [{ ...item, app }] : [];
   });
 

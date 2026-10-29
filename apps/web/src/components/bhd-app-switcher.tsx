@@ -11,14 +11,15 @@ import {
   type AuthProvider,
   type RosterAccount,
 } from '@/lib/bhd/account-roster-shared';
-import { BHD_APPS, hopOrigins, launchUrlForApp, type BhdApp } from '@/lib/bhd/apps';
+import { hopOrigins, launchUrlForApp, type BhdApp } from '@/lib/bhd/apps';
 import { BhdAppIcon } from '@/components/bhd/bhd-app-icon';
 import {
   addAccountUrl,
   applyAccountIsolation,
-  identityFetch,
   identityMe,
+  switchWindowAccount,
 } from '@/lib/identity/client';
+import { useBhdCatalog } from '@/lib/identity/use-bhd-catalog';
 import { roleLabel, type OrganizationChoice } from '@/lib/team-shared';
 import type { Viewer } from '@/lib/types';
 
@@ -276,7 +277,8 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   const accountId = useId();
   const router = useRouter();
   const ar = locale === 'ar';
-  const apps = BHD_APPS.filter((app) => app.enabled);
+  const catalogApps = useBhdCatalog();
+  const apps = catalogApps.filter((app) => app.enabled);
   const [origin, setOrigin] = useState('');
   const [siteAdmin, setSiteAdmin] = useState<boolean | null>(null);
   const [accounts, setAccounts] = useState<RosterAccount[]>([]);
@@ -286,16 +288,33 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
 
   useEffect(() => {
     setOrigin(window.location.origin);
-    hopOrigins().forEach((item) => hintHop(item));
-  }, []);
+    hopOrigins(catalogApps).forEach((item) => hintHop(item));
+  }, [catalogApps]);
 
   useEffect(() => {
     if (panel !== 'apps' || !origin) return;
-    BHD_APPS.forEach((app) => {
+    catalogApps.forEach((app) => {
       if (!app.enabled) return;
       hintHop(launchUrlForApp(app, origin));
     });
-  }, [panel, origin]);
+  }, [panel, origin, catalogApps]);
+
+  useEffect(() => {
+    let live = true;
+    void fetch('/api/auth/me', {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { accept: 'application/json' },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: { currentSub?: string | null } | null) => {
+        if (live && payload?.currentSub) setCurrentSub(payload.currentSub);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const current =
     (currentSub && accounts.find((item) => item.sub === currentSub)) || accounts[0] || null;
@@ -330,7 +349,6 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
         if (Array.isArray(payload.accounts)) {
           setAccounts(rosterFromIdentityAccounts(payload.accounts));
         }
-        if (payload.user?.id) setCurrentSub(payload.user.id);
       })
       .catch(() => undefined);
     return () => {
@@ -388,19 +406,12 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     if (!sub || sub === currentSub || switchBusy) return;
     setSwitchBusy(sub);
     try {
-      const response = await identityFetch('/api/auth/switch', {
-        method: 'POST',
-        body: JSON.stringify({ sub }),
-      });
-      if (!response.ok) {
+      const switched = await switchWindowAccount(sub);
+      if (!switched.ok) {
         setSwitchBusy(null);
         return;
       }
-      // Drop prior product session/data — start issues cookies for the new sub.
-      applyAccountIsolation(
-        `${window.location.pathname}${window.location.search}${window.location.hash}` ||
-          `/${locale}/portal`,
-      );
+      await applyAccountIsolation(switched.token, { force: true });
     } catch {
       setSwitchBusy(null);
     }

@@ -210,12 +210,10 @@ export function startUrlForApp(app: BhdApp): string | null {
   return app.startUrl;
 }
 
-export function hopOrigins(): string[] {
+export function hopOrigins(apps: BhdApp[] = BHD_APPS): string[] {
   return [
     ...new Set(
-      BHD_APPS.filter((app) => app.enabled && app.origin).map((app) =>
-        app.origin.replace(/\/$/, ''),
-      ),
+      apps.filter((app) => app.enabled && app.origin).map((app) => app.origin.replace(/\/$/, '')),
     ),
   ];
 }

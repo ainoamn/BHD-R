@@ -68,6 +68,7 @@ function csp(nonce: string): string {
     "'self'",
     'data:',
     'blob:',
+    identityOrigin,
     ...mediaImgOrigins(),
     'https://*.tile.openstreetmap.org',
     'https://tile.openstreetmap.org',
@@ -79,7 +80,7 @@ function csp(nonce: string): string {
   ].join(' ');
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' ${identityOrigin}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src ${img}`,
     "font-src 'self' data:",

@@ -12,7 +12,6 @@ import {
   type Database,
 } from '@bhd-r/db';
 import {
-  PRODUCT_SESSION_MAX_AGE_SECONDS,
   accessFromMemberships,
   customRoleIds,
   issueSessionToken,
@@ -23,6 +22,7 @@ import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
 import { requireCsrfSecret, requireSessionSecret } from '@/lib/runtime-env';
 import { createCsrfToken } from '@bhd-r/security';
 import { inferProviders, type RosterAccount } from '@/lib/bhd/account-roster-shared';
+import { identitySessionMaxAgeSecCached } from '@/lib/bhd/runtime';
 import { verifyBhdIdToken } from '@/lib/bhd/verify-id-token';
 
 export type IssuedSession = {
@@ -214,12 +214,13 @@ async function issueForUser(
     locale: user.locale === 'en' ? 'en' : 'ar',
     sessionVersion: user.sessionVersion,
   });
-  const token = await issueSessionToken(claims, sessionSecret(), PRODUCT_SESSION_MAX_AGE_SECONDS);
+  const maxAgeSec = identitySessionMaxAgeSecCached();
+  const token = await issueSessionToken(claims, sessionSecret(), maxAgeSec);
   await tx.insert(sessions).values({
     id: sid,
     userId: user.id,
     tokenIdHash: tokenHash(token),
-    expiresAt: new Date(Date.now() + PRODUCT_SESSION_MAX_AGE_SECONDS * 1000),
+    expiresAt: new Date(Date.now() + maxAgeSec * 1000),
   });
   const identitySub = user.identitySubject?.trim();
   return {
@@ -636,4 +637,39 @@ export function hasDatabaseUrl(): boolean {
       .replace(/\\n$/gi, '')
       .trim(),
   );
+}
+
+/** Rebind product session to identity profile from window Bearer (/api/auth/me). */
+export async function rebindProductSessionFromProfile(input: {
+  identitySubject: string;
+  email: string;
+  name?: string;
+  previousSessionId?: string;
+  previousUserId?: string;
+  preferredOrganizationId?: string;
+}): Promise<IssuedSession> {
+  return withSystem(async (tx) => {
+    const userId = await resolveIdentityUser(tx, {
+      subject: input.identitySubject,
+      email: input.email,
+      emailVerified: true,
+      name: input.name,
+    });
+    const issued = await issueForUser(tx, userId, {
+      ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
+    });
+    if (input.previousSessionId && input.previousUserId) {
+      await tx
+        .update(sessions)
+        .set({ revokedAt: new Date() })
+        .where(
+          and(
+            eq(sessions.id, input.previousSessionId),
+            eq(sessions.userId, input.previousUserId),
+            isNull(sessions.revokedAt),
+          ),
+        );
+    }
+    return issued;
+  });
 }

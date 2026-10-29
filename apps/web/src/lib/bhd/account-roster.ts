@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { NextResponse } from 'next/server';
-import { PRODUCT_SESSION_MAX_AGE_SECONDS } from '@bhd-r/authz';
+import { identitySessionMaxAgeSecCached } from '@/lib/bhd/runtime';
 import { asProviders, inferProviders, type RosterAccount } from '@/lib/bhd/account-roster-shared';
 import { secureCookies } from '@/lib/bhd/oauth';
 import { requireSessionSecret } from '@/lib/runtime-env';
@@ -109,7 +109,7 @@ export function setRosterCookie(response: NextResponse, accounts: RosterAccount[
     secure: secureCookies(),
     sameSite: 'lax',
     path: '/',
-    maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS,
+    maxAge: identitySessionMaxAgeSecCached(),
   });
 }
 

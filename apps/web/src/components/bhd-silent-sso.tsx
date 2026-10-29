@@ -1,30 +1,23 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { applyAccountIsolation, identityMe } from '@/lib/identity/client';
-
-type ProductMe = {
-  authenticated?: boolean;
-  /** Identity subject bound to the product session (compare with identity user.id). */
-  currentSub?: string | null;
-  id?: string;
-};
+import {
+  applyAccountIsolation,
+  clearAccountRebindLock,
+  isAccountRebindPending,
+  isIdentityOrigin,
+  productStartPath,
+} from '@/lib/identity/client';
+import { loadBhdIdentity } from '@/lib/identity/bhd-browser';
+import { useEffect } from 'react';
 
 /**
- * BHD-ACCOUNT-SWITCHER §3 — opening this site via URL (not the app grid) follows
- * the active identity account silently. No login screen, no add=1, no forced
- * logout of other roster accounts.
+ * When identity window ≠ product session: rebind via Bearer (never blind /start).
  */
 export function BhdSilentSso() {
-  const ran = useRef(false);
-
   useEffect(() => {
-    if (ran.current) return;
-    ran.current = true;
-
-    // Avoid interrupting OAuth / guest public pages / logout loops.
     const path = window.location.pathname;
     if (
+      isIdentityOrigin() ||
       path.includes('/api/auth/bhd/') ||
       path.includes('/login') ||
       path.includes('/auth/') ||
@@ -37,57 +30,52 @@ export function BhdSilentSso() {
       return;
     }
 
-    let cancelled = false;
-    void (async () => {
-      const identity = await identityMe();
-      if (cancelled || !identity?.user?.id) return;
+    if (isAccountRebindPending()) return;
 
-      let product: ProductMe | null = null;
+    let cancelled = false;
+
+    void loadBhdIdentity().then(async (identity) => {
+      if (cancelled || !identity) return;
       try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'same-origin',
+        const { ok, body } = await identity.me();
+        if (cancelled || !ok || !body.user?.id) {
+          clearAccountRebindLock();
+          return;
+        }
+
+        const localResponse = await fetch('/api/auth/me', {
           cache: 'no-store',
+          credentials: 'include',
           headers: { accept: 'application/json' },
         });
-        if (response.ok) {
-          product = (await response.json()) as ProductMe;
-        } else if (response.status === 401) {
-          product = { authenticated: false, currentSub: null };
+        const local = (await localResponse.json().catch(() => ({}))) as {
+          authenticated?: boolean;
+          currentSub?: string | null;
+        };
+        if (cancelled) return;
+
+        const productSub = local.currentSub || null;
+        if (local.authenticated && productSub === body.user.id) {
+          clearAccountRebindLock();
+          return;
         }
-      } catch {
-        return;
-      }
-      if (cancelled || !product) return;
 
-      const activeSub = identity.user.id;
-      const productSub = product.currentSub || null;
-      const guardKey = `bhd-silent-sso:${activeSub}`;
+        const guardKey = `bhd-sso:${body.user.id}`;
+        const last = Number(sessionStorage.getItem(guardKey) || '0');
+        if (last && Date.now() - last < 15_000) return;
+        sessionStorage.setItem(guardKey, String(Date.now()));
 
-      // Same active account already bound — nothing to do.
-      if (product.authenticated && productSub === activeSub) {
-        try {
-          sessionStorage.removeItem(guardKey);
-        } catch {
-          /* ignore */
+        if (!local.authenticated || !productSub) {
+          const here = `${window.location.pathname}${window.location.search || ''}` || '/ar/portal';
+          window.location.replace(identity.productStart(here) || productStartPath(here));
+          return;
         }
-        return;
-      }
 
-      // Product JWT exists but identity subject not resolved yet — wait; don't thrash.
-      if (product.authenticated && !productSub) return;
-
-      // Identity active + product missing or on another account → silent start.
-      try {
-        if (sessionStorage.getItem(guardKey) === '1') return;
-        sessionStorage.setItem(guardKey, '1');
+        await applyAccountIsolation(body.token, { force: true });
       } catch {
-        /* private mode — still attempt once */
+        clearAccountRebindLock();
       }
-
-      applyAccountIsolation(
-        `${window.location.pathname}${window.location.search}${window.location.hash}`,
-      );
-    })();
+    });
 
     return () => {
       cancelled = true;

@@ -1,5 +1,5 @@
 import type { NextResponse } from 'next/server';
-import { PRODUCT_SESSION_MAX_AGE_SECONDS } from '@bhd-r/authz';
+import { identitySessionMaxAgeSecCached } from '@/lib/bhd/runtime';
 import { secureCookies } from '@/lib/bhd/oauth';
 
 /** Organization last chosen on this device; sign-in lands there when still a member. */
@@ -22,7 +22,7 @@ export function setSessionCookies(
     secure: secureCookies(),
     sameSite: 'lax',
     path: '/',
-    maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS,
+    maxAge: identitySessionMaxAgeSecCached(),
   });
   response.cookies.set({
     name: 'bhd_r_csrf',
@@ -31,7 +31,7 @@ export function setSessionCookies(
     secure: secureCookies(),
     sameSite: 'strict',
     path: '/',
-    maxAge: PRODUCT_SESSION_MAX_AGE_SECONDS,
+    maxAge: identitySessionMaxAgeSecCached(),
   });
   if (!issued.claims.organizationId) return;
   response.cookies.set({
