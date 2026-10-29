@@ -71,6 +71,8 @@ export function applyOpsCacheBatch(
   let applied = 0;
   for (const [section, payload] of Object.entries(sections)) {
     if (!payload || typeof payload !== 'object') continue;
+    // Skip failed warm entries so the section pane refetches live.
+    if (payload.loadError) continue;
     setOpsCache(portal, section as OperationsSection, payload);
     applied += 1;
   }

@@ -64,13 +64,15 @@ export function OperationsWorkspaceClient({
     let cancelled = false;
 
     const hit = getOpsCache(portal, section);
-    if (hit) {
+    // Never trust a cached loadError — always refetch so a failed warm cannot
+    // poison the visible pane after the section API recovers.
+    if (hit && !hit.loadError) {
       setPayload(hit);
       setStatusReady(true);
       setHydrating(false);
       if (!isOpsCacheFresh(portal, section)) {
         void fetchOpsPayload(portal, section).then((fresh) => {
-          if (!cancelled && fresh) setPayload(fresh);
+          if (!cancelled && fresh && !fresh.loadError) setPayload(fresh);
         });
       }
     } else {
