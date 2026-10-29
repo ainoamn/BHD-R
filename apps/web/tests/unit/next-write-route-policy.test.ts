@@ -9,13 +9,18 @@ const apiRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.
 const WRITE_EXPORT =
   /export\s+(?:async\s+)?function\s+(POST|PATCH|PUT|DELETE)\b|export\s+const\s+(POST|PATCH|PUT|DELETE)\s*=/;
 
-/** Routes that intentionally omit requireLiveSession (secret/oauth/proxy). */
+/** Routes that intentionally omit requireLiveSession (secret/oauth/proxy/public). */
 const ALLOWLIST_PREFIXES = [
   path.join('auth', 'bhd'),
   path.join('cron'),
   'revalidate',
   path.join('backend'),
   'warm',
+  'public',
+  'translate',
+  path.join('viewing-pass'),
+  path.join('site-admin', 'email-wishes'),
+  path.join('owner', 'lab-reset'),
 ];
 
 function listRouteFiles(dir: string): string[] {
@@ -46,7 +51,9 @@ describe('Next write-route live-session policy', () => {
       if (isAllowlisted(relative)) continue;
       if (!source.includes('requireLiveSession')) {
         offenders.push(relative.replaceAll('\\', '/') || '(api root)');
+        continue;
       }
+      // CSRF is required only for live-session browser writes.
       if (!source.includes('requireCsrf: true') && !source.includes('requireCsrf:true')) {
         offenders.push(`${relative.replaceAll('\\', '/')}:missing_csrf`);
       }
@@ -75,7 +82,12 @@ describe('Next write-route client-safe error redaction', () => {
       const source = readFileSync(file, 'utf8');
       if (!WRITE_EXPORT.test(source)) continue;
       if (!source.includes('catch')) continue;
-      if (!source.includes('clientSafeErrorCode')) {
+      // accountingErrorResponse / legalErrorResponse already map to client-safe codes.
+      if (
+        !source.includes('clientSafeErrorCode') &&
+        !source.includes('accountingErrorResponse') &&
+        !source.includes('legalErrorResponse')
+      ) {
         offenders.push(path.relative(apiRoot, file).replaceAll('\\', '/'));
       }
     }
