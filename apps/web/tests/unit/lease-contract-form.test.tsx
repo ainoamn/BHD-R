@@ -1,28 +1,8 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+﻿import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { LeaseContractForm, type LeaseContractPayload } from '@/components/lease-contract-form';
 import type { PropertyRecordUnit } from '@/lib/property-records-neon';
-
-vi.mock('@/lib/api', () => ({
-  browserGet: vi.fn(async () => []),
-  browserMutation: vi.fn(async () => ({})),
-  browserNextMutation: vi.fn(async () => ({})),
-}));
-
-vi.mock('@/components/note-translate', () => ({
-  NoteTranslateBar: () => null,
-}));
-
-vi.mock('@/components/lease-requirements-picker', () => ({
-  LeaseRequirementsPicker: () => null,
-}));
-
-vi.mock('@/components/missing-fields-banner', () => ({
-  MissingFieldsBanner: () => null,
-}));
-
-const { LeaseContractForm } = await import('@/components/lease-contract-form');
-type LeaseContractPayload = import('@/components/lease-contract-form').LeaseContractPayload;
 
 const unit: PropertyRecordUnit = {
   id: 'faedb8bb-f2c8-4ec5-a37e-306d60b96213',

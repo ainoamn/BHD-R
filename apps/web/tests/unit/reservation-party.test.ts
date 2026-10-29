@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import {
   parseReservationParty,
   partyToLeaseTenant,
@@ -14,13 +14,6 @@ import {
 
 const TODAY = '2026-10-12';
 
-const stubDoc = {
-  name: 'id.pdf',
-  mime: 'application/pdf',
-  size: 1200,
-  dataUrl: 'data:application/pdf;base64,AA==',
-};
-
 function person(patch: Partial<NonNullable<ReservationParty['person']>> = {}): ReservationParty {
   return {
     contractType: 'residential',
@@ -32,13 +25,10 @@ function person(patch: Partial<NonNullable<ReservationParty['person']>> = {}): R
       nameEn: 'Mohammed Salim',
       nationality: 'OM',
       civilId: '12345678',
-      civilIdExpiresOn: '2030-01-01',
-      civilIdCopy: stubDoc,
       passport: '',
       phone: '+96891234567',
       altPhone: '+96899887766',
       email: 'm@example.com',
-      emailVerified: true,
       ...patch,
     },
     company: null,
@@ -59,14 +49,12 @@ function company(crExpiry: string, signingMode: 'single' | 'joint' = 'single'): 
       crIssuedOn: '2020-01-01',
       crExpiry,
       email: 'info@alnoor.om',
-      emailVerified: true,
       phone: '+96824000000',
       altPhone: '+96891000000',
       crAddress: 'مسقط، الخوير',
       activity: 'مكتب إداري',
       signingMode,
       signatories: [{ name: 'سالم', civilId: '1111', phone: '+96892000000' }],
-      crCopy: stubDoc,
     },
   };
 }
