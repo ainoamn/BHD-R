@@ -67,9 +67,7 @@ export function SecurityUnlockForm() {
         body: JSON.stringify({
           challengeId,
           emailOtp: String(form.get('emailOtp') || ''),
-          ...(whatsappNeeded
-            ? { whatsappOtp: String(form.get('whatsappOtp') || '') }
-            : {}),
+          ...(whatsappNeeded ? { whatsappOtp: String(form.get('whatsappOtp') || '') } : {}),
         }),
       });
       const payload = (await response.json()) as {
@@ -147,14 +145,18 @@ export function SecurityUnlockForm() {
                 id="unlock-txn"
                 name="lastTransaction"
                 label={
-                  ar
-                    ? 'آخر معاملة (مرجع حجز أو مبلغ)'
-                    : 'Last transaction (booking ref or amount)'
+                  ar ? 'آخر معاملة (مرجع حجز أو مبلغ)' : 'Last transaction (booking ref or amount)'
                 }
                 required
               />
               <Button type="submit" disabled={busy}>
-                {busy ? (ar ? 'جارٍ التحقق…' : 'Verifying…') : ar ? 'إرسال رموز التحقق' : 'Send OTPs'}
+                {busy
+                  ? ar
+                    ? 'جارٍ التحقق…'
+                    : 'Verifying…'
+                  : ar
+                    ? 'إرسال رموز التحقق'
+                    : 'Send OTPs'}
               </Button>
             </form>
           ) : null}
@@ -186,7 +188,13 @@ export function SecurityUnlockForm() {
                 </p>
               )}
               <Button type="submit" disabled={busy}>
-                {busy ? (ar ? 'جارٍ الفتح…' : 'Unlocking…') : ar ? 'تأكيد وفتح الحساب' : 'Confirm & unlock'}
+                {busy
+                  ? ar
+                    ? 'جارٍ الفتح…'
+                    : 'Unlocking…'
+                  : ar
+                    ? 'تأكيد وفتح الحساب'
+                    : 'Confirm & unlock'}
               </Button>
             </form>
           ) : null}

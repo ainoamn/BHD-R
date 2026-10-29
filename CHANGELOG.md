@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.1 — 2026-10-29
+
+- **CI تنسيق:** Prettier على ملفات لوحة الأمن والاستعادة والمستند حتى يمرّ `format:check`.
+
 ## 0.8.136.0 — 2026-10-29
 
 - **أمن الموقع (تحكم الموقع):** لوحة `/admin/security` للفحص والتهديدات، الجلسات حسب الدولة والحساب، محاولات الدخول مع IP، حجر IP تلقائي/يدوي، وقفل الحساب بعد تكرار فشل سرقة مع استعادة عبر `/security-unlock` (هوية + OTP بريد؛ واتساب جاهز للتفعيل). ترحيل `0052_platform_security_controls` ومستند `docs/security/ANTI-FRAUD-AND-INTRUSION-AR.md`.

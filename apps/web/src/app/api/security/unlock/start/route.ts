@@ -2,10 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
-import {
-  clientSecurityContext,
-  recordAuthAttempt,
-} from '@/lib/security-protection';
+import { clientSecurityContext, recordAuthAttempt } from '@/lib/security-protection';
 import { startSecurityUnlock } from '@/lib/security-recovery';
 
 export const runtime = 'nodejs';
@@ -54,7 +51,10 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(result);
   } catch (error) {
-    const code = error instanceof Error && 'code' in error ? String((error as { code: string }).code) : 'unlock_failed';
+    const code =
+      error instanceof Error && 'code' in error
+        ? String((error as { code: string }).code)
+        : 'unlock_failed';
     await recordAuthAttempt({
       outcome: 'failure',
       source: 'security_unlock',
@@ -63,7 +63,13 @@ export async function POST(request: Request) {
       reason: code.slice(0, 80),
     }).catch(() => undefined);
     const status =
-      code === 'not_locked' ? 404 : code === 'rate_limited' ? 429 : code === 'invalid_email' ? 400 : 400;
+      code === 'not_locked'
+        ? 404
+        : code === 'rate_limited'
+          ? 429
+          : code === 'invalid_email'
+            ? 400
+            : 400;
     return NextResponse.json({ error: { code } }, { status });
   }
 }

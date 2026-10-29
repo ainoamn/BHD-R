@@ -120,7 +120,12 @@ export function PlatformSecurityPanel({ locale }: { locale: 'ar' | 'en' }) {
           <h1>{ar ? 'الأمن والتدقيق' : 'Security & audit'}</h1>
           <p>{ar ? data.noteAr : data.noteEn}</p>
         </div>
-        <button type="button" className="platform-admin__ghost-btn" disabled={busy} onClick={() => void load()}>
+        <button
+          type="button"
+          className="platform-admin__ghost-btn"
+          disabled={busy}
+          onClick={() => void load()}
+        >
           {ar ? 'تحديث' : 'Refresh'}
         </button>
       </header>
@@ -166,9 +171,7 @@ export function PlatformSecurityPanel({ locale }: { locale: 'ar' | 'en' }) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder={
-            ar
-              ? 'بحث في IP / الدولة / البريد / بصمة…'
-              : 'Search IP / country / email / hash…'
+            ar ? 'بحث في IP / الدولة / البريد / بصمة…' : 'Search IP / country / email / hash…'
           }
           dir="ltr"
         />
@@ -248,11 +251,14 @@ export function PlatformSecurityPanel({ locale }: { locale: 'ar' | 'en' }) {
                       <td dir="ltr">{row.ipHash ? `${row.ipHash.slice(0, 12)}…` : '—'}</td>
                       <td dir="ltr">
                         {row.createdAt
-                          ? new Date(row.createdAt).toLocaleString(ar ? 'ar-OM-u-nu-latn' : 'en-GB', {
-                              dateStyle: 'short',
-                              timeStyle: 'short',
-                              timeZone: 'Asia/Muscat',
-                            })
+                          ? new Date(row.createdAt).toLocaleString(
+                              ar ? 'ar-OM-u-nu-latn' : 'en-GB',
+                              {
+                                dateStyle: 'short',
+                                timeStyle: 'short',
+                                timeZone: 'Asia/Muscat',
+                              },
+                            )
                           : '—'}
                       </td>
                     </tr>

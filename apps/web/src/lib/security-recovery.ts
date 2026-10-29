@@ -1,11 +1,7 @@
 import 'server-only';
 import { createHmac, randomInt, randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
-import {
-  securityIdentityFingerprints,
-  securityRecoveryChallenges,
-  users,
-} from '@bhd-r/db';
+import { securityIdentityFingerprints, securityRecoveryChallenges, users } from '@bhd-r/db';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
 import { emailableAddress, queueBrandedEmail } from '@/lib/email-notify';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
@@ -15,10 +11,7 @@ import {
   hashSecurityValue,
   unlockUserAccount,
 } from '@/lib/security-protection';
-import {
-  normalizeCivilId,
-  normalizePhoneDigits,
-} from '@/lib/security-protection-rules';
+import { normalizeCivilId, normalizePhoneDigits } from '@/lib/security-protection-rules';
 
 const OTP_TTL_MS = 15 * 60_000;
 const CHALLENGE_TTL_MS = 60 * 60_000;
@@ -202,7 +195,8 @@ export async function startSecurityUnlock(input: {
   const emailHash = hashEmailForSecurity(email);
 
   if (fingerprints) {
-    if (fingerprints.civilIdHash && fingerprints.civilIdHash !== civilHash) fail('identity_mismatch');
+    if (fingerprints.civilIdHash && fingerprints.civilIdHash !== civilHash)
+      fail('identity_mismatch');
     if (fingerprints.dobHash && fingerprints.dobHash !== dobHash) fail('identity_mismatch');
     if (fingerprints.idExpiryHash && fingerprints.idExpiryHash !== expiryHash) {
       fail('identity_mismatch');

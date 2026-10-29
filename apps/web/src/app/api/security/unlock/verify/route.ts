@@ -10,7 +10,10 @@ export const dynamic = 'force-dynamic';
 const bodySchema = z.object({
   challengeId: z.string().uuid(),
   emailOtp: z.string().regex(/^\d{6}$/),
-  whatsappOtp: z.string().regex(/^\d{6}$/).optional(),
+  whatsappOtp: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
 });
 
 /** POST /api/security/unlock/verify — confirm OTPs and unlock. */

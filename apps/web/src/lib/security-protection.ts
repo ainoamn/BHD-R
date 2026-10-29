@@ -44,7 +44,9 @@ export function hashIpAddress(ip: string): string {
 export function hashUserAgent(ua: string | null | undefined): string | null {
   const trimmed = ua?.trim();
   if (!trimmed) return null;
-  return createHash('sha256').update(`ua\0${trimmed.slice(0, 512)}`).digest('hex');
+  return createHash('sha256')
+    .update(`ua\0${trimmed.slice(0, 512)}`)
+    .digest('hex');
 }
 
 export function hashEmailForSecurity(email: string): string {

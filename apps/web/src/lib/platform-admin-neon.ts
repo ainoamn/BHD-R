@@ -406,9 +406,8 @@ export async function loadPlatformSecurity(claims: SessionClaims): Promise<Platf
     await assertSiteConsole(claims);
   }
 
-  const { buildThreatFindings, SECURITY_THRESHOLDS } = await import(
-    '@/lib/security-protection-rules'
-  );
+  const { buildThreatFindings, SECURITY_THRESHOLDS } =
+    await import('@/lib/security-protection-rules');
 
   return elevatedTx(async (tx) => {
     const tablesReady = rowsOf<{ ok: boolean }>(
