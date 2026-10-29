@@ -69,12 +69,12 @@
 
 ## كيف يعمل الربط
 
-| الخطوة | ماذا يحدث |
-|---|---|
-| دخول | المستخدم يدخل على `id.bhd-om.com` → كوكي `bhd_id` + رمز النافذة |
-| فتح منتج | `/api/auth/bhd/start` → `/oauth/authorize` يرى الجلسة → كود → `callback` يفتح جلسة المنتج |
-| تبديل حساب | `POST /api/auth/switch` + Bearer → **`POST /api/auth/bhd/rebind`** بالرمز (مسار الخصوصية). احتياط: handoff→start فقط إن لم يوجد token |
-| بيانات الصفحة | تُمسَح فوراً ثم تُجلب من جلسة المنتج الجديدة فقط — انظر `BHD-ACCOUNT-ISOLATION.md` |
+| الخطوة        | ماذا يحدث                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| دخول          | المستخدم يدخل على `id.bhd-om.com` → كوكي `bhd_id` + رمز النافذة                                                                       |
+| فتح منتج      | `/api/auth/bhd/start` → `/oauth/authorize` يرى الجلسة → كود → `callback` يفتح جلسة المنتج                                             |
+| تبديل حساب    | `POST /api/auth/switch` + Bearer → **`POST /api/auth/bhd/rebind`** بالرمز (مسار الخصوصية). احتياط: handoff→start فقط إن لم يوجد token |
+| بيانات الصفحة | تُمسَح فوراً ثم تُجلب من جلسة المنتج الجديدة فقط — انظر `BHD-ACCOUNT-ISOLATION.md`                                                    |
 
 ## كيف يُعزل المستخدمون
 
@@ -87,7 +87,7 @@
 ```js
 const { apps } = await BhdIdentity.catalog();
 // أو
-window.addEventListener("bhd-catalog", (e) => render(e.detail));
+window.addEventListener('bhd-catalog', (e) => render(e.detail));
 ```
 
 التحكم من: `https://id.bhd-om.com/admin#apps` (المسمّى، الرابط، الشعار، الترتيب، الإظهار).
