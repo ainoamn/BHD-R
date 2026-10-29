@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import Image from 'next/image';
 import { EmptyState } from '@bhd-r/ui';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
@@ -59,16 +60,49 @@ const homeCopy = {
   },
 } as const;
 
+type HomeCopy = (typeof homeCopy)[keyof typeof homeCopy];
+
 export const dynamic = 'force-dynamic';
 export const maxDuration = 20;
 
-export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const { assertPublicSitePage } = await import('@/lib/site-page-gate');
-  await assertPublicSitePage('home');
-  const t = await getTranslations();
-  const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
+function HomeBodySkeleton({ locale }: { locale: string }) {
+  return (
+    <div className="section" aria-busy="true">
+      <div className="container">
+        <div className="route-skeleton">
+          <div className="route-skeleton__line route-skeleton__line--lg" />
+          <div className="route-skeleton__line" />
+          <div className="route-skeleton__grid">
+            <div className="route-skeleton__card" />
+            <div className="route-skeleton__card" />
+            <div className="route-skeleton__card" />
+          </div>
+          <p className="muted route-skeleton__label">
+            {locale === 'ar' ? 'جاري تحميل المحتوى…' : 'Loading content…'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function HomeDeferredBody({
+  locale,
+  copy,
+  featuredTitle,
+  featuredHint,
+  availableNow,
+  viewAll,
+  noResults,
+}: {
+  locale: string;
+  copy: HomeCopy;
+  featuredTitle: string;
+  featuredHint: string;
+  availableNow: string;
+  viewAll: string;
+  noResults: string;
+}) {
   const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
   const emptyShowcase: BadgeShowcase = { awards: [], activeCount: 0, holderCount: 0 };
   const database = hasDatabaseUrl();
@@ -107,67 +141,23 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
 
   return (
     <>
-      <section className="home-hero">
-        <Image
-          className="home-hero__image"
-          src="/images/oman/fort-bg.webp"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-        />
-        <div className="home-hero__veil" aria-hidden="true" />
-        <div className="container home-hero__inner">
-          <div className="home-hero__copy">
-            <span className="home-hero__note">{copy.heroNote}</span>
-            <h1>{t('Home.title')}</h1>
-            <p>{copy.subtitle}</p>
-            <div className="home-hero__actions">
-              <Link href="/properties" className="button button--gold button--small">
-                {t('Home.cta')}
-              </Link>
-              {signedIn ? (
-                <Link href="/portal" className="button button--glass button--small">
-                  {locale === 'ar' ? 'مساحتي' : 'Workspace'}
-                </Link>
-              ) : (
-                <a href={signInHref} className="button button--glass button--small">
-                  {t('Nav.login')}
-                </a>
-              )}
-            </div>
-          </div>
-          {stats.length ? (
-            <ul
-              className="home-hero__stats"
-              aria-label={locale === 'ar' ? 'أرقام حية' : 'Live numbers'}
-            >
-              {stats.map((stat) => (
-                <li key={stat.key}>
-                  <strong>
-                    {stat.value.toLocaleString(locale === 'ar' ? 'ar-OM-u-nu-latn' : 'en')}
-                  </strong>
-                  <span>{stat.label}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <div className="hero-search home-hero__search">
-            {isStaysPublicSurfaceEnabled() ? (
-              <div className="hero-search__booking-wrap">
-                <HomeSearchTabs
-                  locale={locale}
-                  rentSearch={<PropertySearch locale={locale} defaults={{ purpose: 'rent' }} />}
-                  saleSearch={<PropertySearch locale={locale} defaults={{ purpose: 'sale' }} />}
-                  staySearch={<StaySearch locale={locale} variant="hero" />}
-                />
-              </div>
-            ) : (
-              <PropertySearch locale={locale} />
-            )}
-          </div>
+      {stats.length ? (
+        <div className="container home-deferred-stats">
+          <ul
+            className="home-hero__stats home-hero__stats--below"
+            aria-label={locale === 'ar' ? 'أرقام حية' : 'Live numbers'}
+          >
+            {stats.map((stat) => (
+              <li key={stat.key}>
+                <strong>
+                  {stat.value.toLocaleString(locale === 'ar' ? 'ar-OM-u-nu-latn' : 'en')}
+                </strong>
+                <span>{stat.label}</span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </section>
+      ) : null}
 
       <HomeLeaderboardsSection data={leaders} locale={locale} />
 
@@ -175,12 +165,12 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         <div className="container">
           <header className="home-head">
             <div>
-              <span className="home-head__kicker">{t('Home.availableNow')}</span>
-              <h2 id="featured-title">{t('Home.featured')}</h2>
-              <p>{t('Home.featuredHint')}</p>
+              <span className="home-head__kicker">{availableNow}</span>
+              <h2 id="featured-title">{featuredTitle}</h2>
+              <p>{featuredHint}</p>
             </div>
             <Link className="home-head__link" href="/properties">
-              {t('Common.viewAll')}
+              {viewAll}
             </Link>
           </header>
           {listings.data.length ? (
@@ -190,7 +180,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
               ))}
             </div>
           ) : (
-            <EmptyState title={t('Common.noResults')} description={t('Home.featuredHint')} />
+            <EmptyState title={noResults} description={featuredHint} />
           )}
         </div>
       </section>
@@ -234,6 +224,75 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
           </div>
         </div>
       </section>
+    </>
+  );
+}
+
+export default async function HomePage({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const { assertPublicSitePage } = await import('@/lib/site-page-gate');
+  await assertPublicSitePage('home');
+  const t = await getTranslations();
+  const copy = homeCopy[locale === 'en' ? 'en' : 'ar'];
+  const workspaceHref = `/${locale}/portal`;
+  const signInHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(workspaceHref)}`;
+
+  return (
+    <>
+      <link rel="preload" as="image" href="/images/oman/fort-bg.webp" fetchPriority="high" />
+      <section className="home-hero">
+        <Image
+          className="home-hero__image"
+          src="/images/oman/fort-bg.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+        />
+        <div className="home-hero__veil" aria-hidden="true" />
+        <div className="container home-hero__inner">
+          <div className="home-hero__copy">
+            <span className="home-hero__note">{copy.heroNote}</span>
+            <h1>{t('Home.title')}</h1>
+            <p>{copy.subtitle}</p>
+            <div className="home-hero__actions">
+              <Link href="/properties" className="button button--gold button--small">
+                {t('Home.cta')}
+              </Link>
+              <a href={signInHref} className="button button--glass button--small">
+                {t('Nav.login')}
+              </a>
+            </div>
+          </div>
+          <div className="hero-search home-hero__search">
+            {isStaysPublicSurfaceEnabled() ? (
+              <div className="hero-search__booking-wrap">
+                <HomeSearchTabs
+                  locale={locale}
+                  rentSearch={<PropertySearch locale={locale} defaults={{ purpose: 'rent' }} />}
+                  saleSearch={<PropertySearch locale={locale} defaults={{ purpose: 'sale' }} />}
+                  staySearch={<StaySearch locale={locale} variant="hero" />}
+                />
+              </div>
+            ) : (
+              <PropertySearch locale={locale} />
+            )}
+          </div>
+        </div>
+      </section>
+
+      <Suspense fallback={<HomeBodySkeleton locale={locale} />}>
+        <HomeDeferredBody
+          locale={locale}
+          copy={copy}
+          featuredTitle={t('Home.featured')}
+          featuredHint={t('Home.featuredHint')}
+          availableNow={t('Home.availableNow')}
+          viewAll={t('Common.viewAll')}
+          noResults={t('Common.noResults')}
+        />
+      </Suspense>
     </>
   );
 }

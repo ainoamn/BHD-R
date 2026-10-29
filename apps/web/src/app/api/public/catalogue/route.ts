@@ -38,10 +38,12 @@ export async function GET(request: Request) {
   }
 
   if (!hasDatabaseUrl()) {
-    return NextResponse.json(
-      { data: [], pagination: { nextCursor: null, hasMore: false }, error: 'db_unconfigured' },
-      { status: 503 },
-    );
+    // 200 + empty: LHCI/local without DATABASE_URL must not 503-retry into CLS.
+    return NextResponse.json({
+      data: [],
+      pagination: { nextCursor: null, hasMore: false },
+      error: 'db_unconfigured',
+    });
   }
 
   try {

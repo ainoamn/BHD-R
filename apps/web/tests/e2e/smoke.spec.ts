@@ -79,8 +79,7 @@ for (const locale of ['ar', 'en'] as const) {
     await expect(page.locator('.login-card')).toBeVisible();
     await expect(
       page.getByRole('link', {
-        name:
-          locale === 'ar' ? 'إعادة المحاولة عبر id.bhd-om.com' : 'Retry via id.bhd-om.com',
+        name: locale === 'ar' ? 'إعادة المحاولة عبر id.bhd-om.com' : 'Retry via id.bhd-om.com',
       }),
     ).toHaveAttribute('href', new RegExp('^/api/auth/bhd/start\\?returnTo='));
   });

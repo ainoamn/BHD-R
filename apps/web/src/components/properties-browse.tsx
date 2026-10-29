@@ -107,6 +107,7 @@ export function PropertiesBrowse({
   hint,
   initialFilters,
   initialListings,
+  skipCatalogueFetch = false,
   staysEnabled = false,
 }: {
   locale: string;
@@ -114,6 +115,8 @@ export function PropertiesBrowse({
   hint: string;
   initialFilters: BrowseFilterState;
   initialListings: CatalogueListing[];
+  /** When true (no DATABASE_URL), paint empty results immediately — no skeleton/retry CLS. */
+  skipCatalogueFetch?: boolean;
   staysEnabled?: boolean;
 }) {
   const ar = locale === 'ar';
@@ -128,7 +131,9 @@ export function PropertiesBrowse({
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [smartDraft, setSmartDraft] = useState('');
   const [recent, setRecent] = useState<RecentFilterChip[]>([]);
-  const [loadingUniverse, setLoadingUniverse] = useState(initialListings.length === 0);
+  const [loadingUniverse, setLoadingUniverse] = useState(
+    !skipCatalogueFetch && initialListings.length === 0,
+  );
   const [, startTransition] = useTransition();
   const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -158,6 +163,10 @@ export function PropertiesBrowse({
   }
 
   useEffect(() => {
+    if (skipCatalogueFetch) {
+      setLoadingUniverse(false);
+      return;
+    }
     let cancelled = false;
     const controller = new AbortController();
 
@@ -172,7 +181,19 @@ export function PropertiesBrowse({
           headers: { accept: 'application/json' },
           cache: 'no-store',
         });
-        if (!res.ok) throw new Error(`catalogue_${res.status}`);
+        if (!res.ok) {
+          // Terminal client/server config errors — do not retry into layout thrash.
+          if (
+            res.status === 401 ||
+            res.status === 403 ||
+            res.status === 404 ||
+            res.status === 503
+          ) {
+            if (!cancelled) setLoadingUniverse(false);
+            return;
+          }
+          throw new Error(`catalogue_${res.status}`);
+        }
         const payload = (await res.json()) as {
           data?: CatalogueListing[];
           error?: string;
@@ -183,7 +204,12 @@ export function PropertiesBrowse({
           setLoadingUniverse(false);
           return;
         }
-        if (attempt < 2 && (payload.error || !payload.data?.length)) {
+        // Empty catalogue is a valid final state (incl. db_unconfigured).
+        if (payload.error === 'db_unconfigured' || payload.error === 'rate_limited') {
+          setLoadingUniverse(false);
+          return;
+        }
+        if (attempt < 2 && payload.error) {
           await new Promise((resolve) => window.setTimeout(resolve, 600));
           if (!cancelled) await loadCatalogue(attempt + 1);
           return;
@@ -206,7 +232,7 @@ export function PropertiesBrowse({
     };
     // Refresh universe when country changes only — other filters are client-side.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.countryCode]);
+  }, [filters.countryCode, skipCatalogueFetch]);
 
   useEffect(() => {
     if (urlTimer.current) clearTimeout(urlTimer.current);

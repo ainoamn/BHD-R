@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { PropertiesBrowse } from '@/components/properties-browse';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
 import { filtersFromSearchRecord, type BrowseFilterState } from '@/lib/properties-browse-filters';
 import { bilingualAlternates } from '@/lib/seo';
@@ -66,6 +67,8 @@ export default async function PropertiesPage({
           : 'Properties for sale'
         : t('Nav.available');
 
+  const database = hasDatabaseUrl();
+
   return (
     <PropertiesBrowse
       locale={locale}
@@ -73,6 +76,7 @@ export default async function PropertiesPage({
       hint={t('Home.featuredHint')}
       initialFilters={initialFilters}
       initialListings={[]}
+      skipCatalogueFetch={!database}
       staysEnabled={isStaysPublicSurfaceEnabled()}
     />
   );

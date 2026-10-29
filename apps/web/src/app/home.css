@@ -4,7 +4,8 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  min-height: min(28rem, 70svh);
+  /* Fixed rem height — svh changes as mobile chrome shows/hides and inflates CLS. */
+  min-height: 28rem;
   color: #fff;
   background: var(--oman-deep);
 }

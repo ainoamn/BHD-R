@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.17 — 2026-10-29
+
+- **Prettier + CLS للصفحات العامة:** إصلاح تنسيق smoke/RELEASE؛ هيكل رئيسي يبثّ الـ hero فورًا عبر Suspense؛ هيكل `/properties` بارتفاع محجوز؛ كتالوج بلا إعادة محاولة عند غياب DB؛ وتقليل أوزان الخطوط.
+
 ## 0.8.135.16 — 2026-10-29
 
 - **توثيق إغلاق 0.8.135:** ملاحظات Render/`PII_LOOKUP_PEPPER`، ترحيلات `custom/*` التلقائية، وبوابة Playwright في `RELEASE-0.8.135-AR.md` و`LOCAL_DEVELOPMENT.md` و`NEST-API-HOSTING.md`.
