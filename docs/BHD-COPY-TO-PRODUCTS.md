@@ -4,18 +4,18 @@
 
 **المصدر الحي:** [ainoamn/ONE-BHD](https://github.com/ainoamn/ONE-BHD) — `BHD-Complete-Brand-and-Portal-v1.1.0/docs/`
 
-| انسخ الملف | إلى |
-|---|---|
-| `docs/BHD-SESSION-POLICY.md` | سياسة الجلسة 40 يوماً ثم دخول جديد + نوافذ متعددة |
-| `docs/BHD-SECURITY-PROTECTION.md` | الاحتيال، حظر IP، قفل الحساب، `/recover` |
-| `docs/BHD-APP-SWITCHER.md` | المشغّل + الموارد البشرية |
-| `docs/BHD-ACCOUNT-SWITCHER.md` | بطاقة الحساب |
-| `docs/BHD-PRODUCT-SSO-ADMIN.md` | SSO صامت + أدمن محلي |
-| `docs/BHD-UNIFIED-LOGIN-AND-APPS.md` | الدليل المرجعي |
-| `docs/BHD-IDENTITY-RUNTIME.md` | **الربط الحي:** API + `bhd-identity.js` بدل نسخ الجلسة في كل موقع |
-| `docs/BHD-CURSOR-PRODUCT-WIRE.md` | أمر جاهز للصقه في كورسر على مستودع المنتج |
-| `app/lib/bhd/apps.ts` | احتياطي إن لم يُقرأ الكتالوج من الهوية بعد |
-| أيقونات `BhdAppIcon` إن تغيّرت العلامات | نفس المسار في المنتج |
+| انسخ الملف                              | إلى                                                               |
+| --------------------------------------- | ----------------------------------------------------------------- |
+| `docs/BHD-SESSION-POLICY.md`            | سياسة الجلسة 40 يوماً ثم دخول جديد + نوافذ متعددة                 |
+| `docs/BHD-SECURITY-PROTECTION.md`       | الاحتيال، حظر IP، قفل الحساب، `/recover`                          |
+| `docs/BHD-APP-SWITCHER.md`              | المشغّل + الموارد البشرية                                         |
+| `docs/BHD-ACCOUNT-SWITCHER.md`          | بطاقة الحساب                                                      |
+| `docs/BHD-PRODUCT-SSO-ADMIN.md`         | SSO صامت + أدمن محلي                                              |
+| `docs/BHD-UNIFIED-LOGIN-AND-APPS.md`    | الدليل المرجعي                                                    |
+| `docs/BHD-IDENTITY-RUNTIME.md`          | **الربط الحي:** API + `bhd-identity.js` بدل نسخ الجلسة في كل موقع |
+| `docs/BHD-CURSOR-PRODUCT-WIRE.md`       | أمر جاهز للصقه في كورسر على مستودع المنتج                         |
+| `app/lib/bhd/apps.ts`                   | احتياطي إن لم يُقرأ الكتالوج من الهوية بعد                        |
+| أيقونات `BhdAppIcon` إن تغيّرت العلامات | نفس المسار في المنتج                                              |
 
 الهوية: `https://id.bhd-om.com` — الإدارة: [`https://id.bhd-om.com/admin#connect`](https://id.bhd-om.com/admin#connect) (تفاصيل الربط الحي) ثم [`#clients`](https://id.bhd-om.com/admin#clients) لتسجيل OAuth.
 
@@ -46,12 +46,12 @@
 
 للحماية: بعد **40 يوماً** من إصدار الجلسة ينتهي JWT والكوكي ويُطلب الدخول على الهوية. الخمول لا يُسقط الجلسة قبل ذلك. «خروج» يمسحها فوراً.
 
-| البند | القيمة |
-|---|---|
-| JWT `exp` وكوكي `bhd_id` / `bhd_portal` / `bhd_id_roster` | 40 يوماً (`expires` + `maxAge`) بتاريخ مطلق |
-| Access token OIDC | 10 دقائق (يُجدَّد بالـ refresh طالما الجلسة لم تنتهِ) |
-| Refresh | 40 يوماً — لا يمدّد بعد انتهاء الجلسة |
-| خمول | لا يُسقط الجلسة قبل الـ 40 يوماً |
+| البند                                                     | القيمة                                                |
+| --------------------------------------------------------- | ----------------------------------------------------- |
+| JWT `exp` وكوكي `bhd_id` / `bhd_portal` / `bhd_id_roster` | 40 يوماً (`expires` + `maxAge`) بتاريخ مطلق           |
+| Access token OIDC                                         | 10 دقائق (يُجدَّد بالـ refresh طالما الجلسة لم تنتهِ) |
+| Refresh                                                   | 40 يوماً — لا يمدّد بعد انتهاء الجلسة                 |
+| خمول                                                      | لا يُسقط الجلسة قبل الـ 40 يوماً                      |
 
 المنتجات تأخذ `maxAgeSec` من `/api/bhd/runtime`. ممنوع تجديد الكوكي في `GET /api/auth/me`.
 

@@ -41,12 +41,14 @@ POST /api/auth/switch مع Bearer
 ## القاعدة (هوية + منتجات)
 
 ### على الهوية
+
 1. `/api/auth/switch` **يجب** أن يكتب `bhd_id` دائماً (حتى مع Bearer).
 2. بعد التبديل: إعادة تحميل صلبة لصفحة الحساب (`?_bhd=`).
 3. `/api/auth/me` يعيد `token` للحساب النشط في كل رد.
 
 ### على المنتجات
-1. **بعد التبديل:** `POST /api/auth/bhd/rebind` بالـ Bearer. 
+
+1. **بعد التبديل:** `POST /api/auth/bhd/rebind` بالـ Bearer.
 2. **ممنوع** بعد التبديل: فتح `/api/auth/bhd/start` دون handoff/rebind.
 3. امسح كوكي نطاق المنشأة مع إعادة الجلسة.
 4. `?_bhd=<timestamp>` على `returnTo`.
