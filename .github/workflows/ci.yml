@@ -15,7 +15,8 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    # format+lint+typecheck+coverage+build regularly exceeds 25m on ubuntu-24.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
