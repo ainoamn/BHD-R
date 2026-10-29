@@ -1,6 +1,6 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { hasPermission, permissionsForRoles, type SessionClaims } from '@bhd-r/authz';
 import { contracts, leases, stayPolicies, units } from '@bhd-r/db';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';

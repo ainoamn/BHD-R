@@ -1,5 +1,5 @@
 import 'server-only';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';

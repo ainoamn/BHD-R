@@ -1126,7 +1126,7 @@ export async function completeTenantRenewalPackageOnNeon(
     snapshot.electronicDocumentation = documentation;
     snapshot.approval = {
       ...(typeof snapshot.approval === 'object' && snapshot.approval
-        ? (snapshot.approval as Record<string, unknown>)
+        ? (snapshot.approval)
         : {}),
       mode: 'electronic_system',
       tenantCompletedAt: nowIso,

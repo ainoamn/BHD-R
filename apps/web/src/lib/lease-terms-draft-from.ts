@@ -12,7 +12,6 @@ import {
   type LeaseTermsDraft,
   type PaymentFrequency,
   type PaymentMethod,
-  type VatMode,
 } from '@/lib/lease-terms';
 
 function money(minor: number, digits: number): string {
@@ -249,7 +248,7 @@ export function buildRenewalTermsDraft(input: RenewalSeedInput): RenewalTermsSee
       paymentFrequency,
       vatEnabled: Boolean(input.fallbackVatEnabled),
       vatRate: DEFAULT_VAT_RATE_PERCENT,
-      vatMode: 'with_rent' as VatMode,
+      vatMode: 'with_rent',
       vatChequeCount: '1',
       municipalityFeeEnabled: true,
       municipalityFeePayer: 'owner',

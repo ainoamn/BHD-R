@@ -776,7 +776,7 @@ export async function importAccountingCheques(
         continue;
       }
       let tenantPartyId = row.tenantPartyId?.trim() || '';
-      let leaseId = row.leaseId?.trim() || undefined;
+      const leaseId = row.leaseId?.trim() || undefined;
       if (leaseId) {
         if (!UUID.test(leaseId)) {
           errors.push(`row_${index + 1}:bad_lease`);

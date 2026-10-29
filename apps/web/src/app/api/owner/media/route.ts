@@ -60,14 +60,17 @@ async function readUploadPayload(request: Request): Promise<UploadPayload> {
 
   const form = await request.formData();
   const file = form.get('file');
-  const unitId = String(form.get('unitId') ?? '');
-  const purposeRaw = String(form.get('purpose') ?? 'property_image');
+  const formText = (key: string, fallback = '') => {
+    const value = form.get(key);
+    return typeof value === 'string' ? value : fallback;
+  };
+  const unitId = formText('unitId');
+  const purposeRaw = formText('purpose', 'property_image');
   const purpose =
     purposeRaw === 'attachment' ? ('attachment' as const) : ('property_image' as const);
-  const position = Number(form.get('position') ?? 0);
-  const scopeRaw = String(form.get('galleryScope') ?? '');
-  const galleryScope =
-    scopeRaw === 'building' || scopeRaw === 'unit' ? (scopeRaw as 'building' | 'unit') : undefined;
+  const position = Number(formText('position', '0'));
+  const scopeRaw = formText('galleryScope');
+  const galleryScope = scopeRaw === 'building' || scopeRaw === 'unit' ? scopeRaw : undefined;
   if (!(file instanceof Blob) || !unitId) throw new Error('validation_failed');
   const bytes = Buffer.from(await file.arrayBuffer());
   if (bytes.byteLength < 1 || bytes.byteLength > 12 * 1024 * 1024) {

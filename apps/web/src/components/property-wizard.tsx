@@ -361,8 +361,7 @@ export function PropertyWizard({
       builtUpArea: p?.builtUpAreaSquareMeters ?? '',
       yearBuilt: p?.yearBuilt != null ? String(p.yearBuilt) : '',
       parkingSpaces: p?.parkingSpaces != null ? String(p.parkingSpaces) : '',
-      furnishing: (p?.furnishing ?? 'unfurnished') as
-        'unfurnished' | 'semi_furnished' | 'furnished',
+      furnishing: (p?.furnishing ?? 'unfurnished'),
       managementStartedOn: p?.managementStartedOn ?? '',
       managementFee: majorFromMinor(
         p?.managementFeeMinor,
@@ -2196,7 +2195,7 @@ export function PropertyWizard({
                                                 : row.offeringModes.filter((item) => item !== mode);
                                               const modes = (
                                                 nextModes.length ? nextModes : ['monthly']
-                                              ) as OfferingMode[];
+                                              );
                                               return {
                                                 ...row,
                                                 offeringModes: modes,
@@ -2553,7 +2552,7 @@ export function PropertyWizard({
                                               : row.offeringModes.filter((item) => item !== mode);
                                             const modes = (
                                               nextModes.length ? nextModes : ['monthly']
-                                            ) as OfferingMode[];
+                                            );
                                             return {
                                               ...row,
                                               offeringModes: modes,

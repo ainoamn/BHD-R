@@ -1,0 +1,23 @@
+# Allow CI fixture / documentation placeholders — not production secrets.
+title = "BHD-R"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures and documented CI-only placeholder secrets"
+paths = [
+  '''(.*[/\\])?\.github[/\\]workflows[/\\].*''',
+  '''(.*[/\\])?apps[/\\]web[/\\]tests[/\\].*''',
+  '''(.*[/\\])?apps[/\\]api[/\\]test[/\\].*''',
+  '''(.*[/\\])?packages[/\\].*[/\\]test[/\\].*''',
+  '''(.*[/\\])?docs[/\\].*''',
+  '''(.*[/\\])?\.env\.example$''',
+]
+regexes = [
+  '''ci-only-[a-z0-9-]{8,}''',
+  '''development-[a-z0-9-]{8,}''',
+  '''e2e-session-secret-is-local-and-at-least-32-characters''',
+  '''oidc-state-secret-that-is-long-enough-0123''',
+  '''session-secret-that-is-long-enough-0123456789''',
+]

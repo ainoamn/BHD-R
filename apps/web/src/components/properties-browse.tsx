@@ -53,7 +53,7 @@ function Stepper({
         <button
           type="button"
           className="props-stepper__btn"
-          aria-label="-"
+          aria-label={`${label}: decrease`}
           disabled={value <= 0}
           onClick={() => onChange(Math.max(0, value - 1))}
         >
@@ -63,7 +63,7 @@ function Stepper({
         <button
           type="button"
           className="props-stepper__btn"
-          aria-label="+"
+          aria-label={`${label}: increase`}
           disabled={value >= 10}
           onClick={() => onChange(Math.min(10, value + 1))}
         >
@@ -478,6 +478,7 @@ export function PropertiesBrowse({
           rows={3}
           value={smartDraft}
           onChange={(event) => setSmartDraft(event.target.value)}
+          aria-label={ar ? 'مصفيات ذكية' : 'Smart filters'}
           placeholder={
             ar
               ? 'مثال: أريد فيلا بمسبح وموقف سيارات في مسقط'
@@ -499,6 +500,7 @@ export function PropertiesBrowse({
           className="input"
           value={filters.q}
           onChange={(event) => patch({ q: event.target.value })}
+          aria-label={ar ? 'ابحث عن أماكن إقامة' : 'Search places'}
           placeholder={ar ? 'اسم العقار أو المنطقة…' : 'Property or area name…'}
         />
       </div>
@@ -678,7 +680,7 @@ export function PropertiesBrowse({
         <div className="container props-searchbar__inner">
           <div
             className="purpose-tabs"
-            role="tablist"
+            role="group"
             aria-label={ar ? 'نوع العرض' : 'Listing purpose'}
           >
             {(['', 'rent', 'sale'] as const).map((purpose) => (

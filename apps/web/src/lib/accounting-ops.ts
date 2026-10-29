@@ -35,10 +35,10 @@ export function parseChequeImportCsv(text: string): ChequeImportRow[] {
       if (amountMinor === '0') continue;
     } else continue;
     rows.push({
-      chequeNumber: chequeNumber!,
+      chequeNumber: chequeNumber,
       bankName: bankName || '—',
       amountMinor,
-      dueOn: dueOn!,
+      dueOn: dueOn,
       ...(leaseId && UUID.test(leaseId) ? { leaseId } : {}),
     });
   }

@@ -717,7 +717,7 @@ export function StaySetupWizard({
     () =>
       [
         {
-          key: 'general' as StayPolicySectionKey,
+          key: 'general',
           title: t.sectionGeneralPolicies,
           ar: policiesAr,
           en: policiesEn,
@@ -725,7 +725,7 @@ export function StaySetupWizard({
           setEn: setPoliciesEn,
         },
         {
-          key: 'cancellation' as StayPolicySectionKey,
+          key: 'cancellation',
           title: t.sectionCancellationPolicies,
           ar: cancellationPoliciesAr,
           en: cancellationPoliciesEn,
@@ -733,7 +733,7 @@ export function StaySetupWizard({
           setEn: setCancellationPoliciesEn,
         },
         {
-          key: 'events' as StayPolicySectionKey,
+          key: 'events',
           title: t.sectionEventsPolicies,
           ar: eventsPoliciesAr,
           en: eventsPoliciesEn,
@@ -741,7 +741,7 @@ export function StaySetupWizard({
           setEn: setEventsPoliciesEn,
         },
         {
-          key: 'payment' as StayPolicySectionKey,
+          key: 'payment',
           title: t.sectionPaymentPolicies,
           ar: paymentPoliciesAr,
           en: paymentPoliciesEn,

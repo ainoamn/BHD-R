@@ -168,7 +168,7 @@ export function StayGateDesk({
             if (!payload || !('ok' in payload) || !payload.ok) {
               throw new Error('checkin_failed');
             }
-            setResult(payload as CheckInResult);
+            setResult(payload);
             setPending(null);
             setPreview(null);
             onCheckedIn?.();
@@ -215,7 +215,7 @@ export function StayGateDesk({
         if (!payload || !('ok' in payload) || !payload.ok || 'preview' in payload) {
           throw new Error('checkin_failed');
         }
-        setResult(payload as CheckInResult);
+        setResult(payload);
         setPending(null);
         setPreview(null);
         setDepositPrompt(null);

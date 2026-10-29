@@ -35,7 +35,7 @@ export function SiteHeader() {
         if (!response.ok) return null;
         const payload = (await response.json()) as Viewer & { authenticated?: boolean };
         if (payload.authenticated === false || !payload.id) return null;
-        return payload as Viewer;
+        return payload;
       })
       .then((viewer) => {
         if (!cancelled) setAuth(viewer ? { status: 'signed-in', viewer } : { status: 'anonymous' });

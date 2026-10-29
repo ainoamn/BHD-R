@@ -728,23 +728,6 @@ function requirementStatus(
   return REQUIREMENT_STATUS[item.status]?.[ar ? 0 : 1];
 }
 
-function LeaseDocumentList({ lifecycle, locale }: LeaseJourneyProps) {
-  const ar = locale === 'ar';
-  return (
-    <ul className="lease-docs lease-docs--checklist">
-      {lifecycle.requirements.map((item) => (
-        <li key={item.code} className={`lease-docs__item lease-docs__item--${item.status}`}>
-          <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
-          <div className="lease-docs__text">
-            <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-            <span>{docStatusLabel(item.status, ar, 'tenant')}</span>
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps) {
   const ar = locale === 'ar';
   const router = useRouter();
@@ -1036,13 +1019,13 @@ function LeaseCheques({
   const [bankOther, setBankOther] = useState(
     () =>
       Boolean(seededShared.bankName) &&
-      !(OMAN_BANKS as readonly string[]).includes(seededShared.bankName),
+      !(OMAN_BANKS).includes(seededShared.bankName),
   );
   const [accountHolderName, setAccountHolderName] = useState(seededShared.accountHolderName);
   const [accountNumber, setAccountNumber] = useState(seededShared.accountNumber);
   const bankSelectValue = bankOther
     ? BANK_OTHER
-    : (OMAN_BANKS as readonly string[]).includes(bankName)
+    : (OMAN_BANKS).includes(bankName)
       ? bankName
       : '';
   const [numbers, setNumbers] = useState<Record<string, string>>(() => {
@@ -1182,7 +1165,7 @@ function LeaseCheques({
                 const value = event.target.value;
                 if (value === BANK_OTHER) {
                   setBankOther(true);
-                  if ((OMAN_BANKS as readonly string[]).includes(bankName)) setBankName('');
+                  if ((OMAN_BANKS).includes(bankName)) setBankName('');
                   return;
                 }
                 setBankOther(false);

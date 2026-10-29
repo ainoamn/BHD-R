@@ -70,7 +70,7 @@ export function accountingPrintBackHref(
   from?: string | null,
 ): string {
   const raw = (from ?? '').trim().slice(0, 512);
-  let href =
+  const href =
     raw.startsWith('/owner/accounting') &&
     !raw.startsWith('//') &&
     !/^[a-z][a-z0-9+.-]*:/i.test(raw)

@@ -807,7 +807,7 @@ export async function respondToViewingRequest(
     await tx
       .update(viewingRequests)
       .set({
-        status: nextStatus as typeof row.status,
+        status: nextStatus,
         ...(scheduledAt ? { scheduledAt } : {}),
         ...(mergedNotes !== row.notes ? { notes: mergedNotes } : {}),
         ...(input.action === 'schedule' && row.viewingContactUserId

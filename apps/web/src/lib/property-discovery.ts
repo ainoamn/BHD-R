@@ -112,7 +112,7 @@ export async function loadPropertyDiscoveryRails(
 
   return {
     similar: similarRes.data.slice(0, 8) as CatalogueListing[],
-    recommended: recommended.slice(0, 8) as CatalogueListing[],
-    topRated: topRatedFinal as CatalogueListing[],
+    recommended: recommended.slice(0, 8),
+    topRated: topRatedFinal,
   };
 }

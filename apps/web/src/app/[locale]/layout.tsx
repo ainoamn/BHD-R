@@ -26,13 +26,15 @@ const publicWebOrigin =
 const arabicFont = IBM_Plex_Sans_Arabic({
   subsets: ['arabic'],
   weight: ['400', '500', '600', '700'],
-  display: 'swap',
+  display: 'optional',
+  adjustFontFallback: true,
   variable: '--font-arabic',
 });
 const latinFont = IBM_Plex_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
-  display: 'swap',
+  display: 'optional',
+  adjustFontFallback: true,
   variable: '--font-latin',
 });
 

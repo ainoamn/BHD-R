@@ -7745,7 +7745,7 @@ body:has(.stays-booking-receipt) #main-content {
   gap: 12px;
   min-height: 64px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.37);
+  color: rgba(255, 255, 255, 0.78);
   font-size: 11px;
   padding-bottom: 8px;
 }
@@ -11281,14 +11281,14 @@ body:has(.stays-booking-receipt) #main-content {
 .section-kicker {
   display: block;
   margin-bottom: 0.65rem;
-  color: var(--bhd-teal);
+  color: #0b5f5c;
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 .section-kicker--gold {
-  color: #e8c989;
+  color: #7a5a28;
 }
 .text-link {
   display: inline-flex;
@@ -13633,7 +13633,7 @@ button.ops-row-key {
   opacity: 0.45;
 }
 .props-check__count {
-  color: #6b7c74;
+  color: #3d4a44;
   font-variant-numeric: tabular-nums;
   font-size: 0.82rem;
 }
@@ -13985,7 +13985,7 @@ button.ops-row-key {
 }
 .listing-row__type {
   margin: 0 0 0.2rem;
-  color: #6b7c74;
+  color: #3d4a44;
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: none;
@@ -24882,9 +24882,12 @@ button.lrw__step-body:focus-visible {
   margin-top: 0.5rem;
 }
 .route-skeleton__card {
-  min-height: 5.5rem;
+  min-height: 11rem;
   border-radius: 0.85rem;
   background: #e8efe9;
+}
+.props-results {
+  min-height: 28rem;
 }
 .route-skeleton__label {
   margin: 0.25rem 0 0;

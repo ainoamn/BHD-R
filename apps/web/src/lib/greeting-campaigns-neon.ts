@@ -370,7 +370,7 @@ export async function createGreetingCampaign(
   claims: SessionClaims,
   input: CreateGreetingInput,
 ): Promise<{ campaign: GreetingCampaign; estimate: GreetingAudienceEstimate }> {
-  await elevatedTx(async (tx) => {
+  await elevatedTx(async (_tx) => {
     await requireRoot(claims);
   });
 
@@ -464,7 +464,7 @@ export async function updateGreetingCampaign(
     if (previous.status === 'sent' || previous.status === 'sending') fail('greeting_locked');
 
     let designs = previous.designs;
-    let currentDesignId = previous.currentDesignId;
+    const currentDesignId = previous.currentDesignId;
     if (input.design && previous.currentDesignId) {
       designs = previous.designs.map((row) => {
         if (row.id !== previous.currentDesignId) return row;

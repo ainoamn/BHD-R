@@ -162,6 +162,18 @@ jobs:
         run: pnpm --filter @bhd-r/api... build
       - name: API Express boundary e2e
         run: pnpm --filter @bhd-r/api test:e2e
+      - name: Build web for Playwright
+        # `playwright.config.ts` runs `pnpm start`, which needs a production `.next`.
+        run: pnpm --filter @bhd-r/web... build
+        env:
+          BHD_R_SESSION_SECRET: ci-only-session-secret-at-least-32-bytes
+          BHD_R_OIDC_STATE_SECRET: ci-only-oidc-state-secret-at-least-32b
+          CSRF_SECRET: ci-only-csrf-secret-at-least-32-bytes
+          FIELD_ENCRYPTION_KEY_V1: Y2ktb25seS0zMi1ieXRlLWZpZWxkLWtleS0wMQ==
+          FIELD_ENCRYPTION_ACTIVE_VERSION: v1
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
+          NEXT_PUBLIC_API_ORIGIN: http://127.0.0.1:4000
+          API_ORIGIN: http://127.0.0.1:4000
       - name: Browser smoke (mock API · chromium only)
         run: pnpm --filter @bhd-r/web test:e2e
         # Honest gate: fixture-backed Playwright, not live Nest+DB journeys.

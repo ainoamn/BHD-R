@@ -52,7 +52,7 @@ export type LoadedPropertyProfile = {
  * Load property profile without crashing when migration 0017 is not applied yet.
  * Safe SELECT + optional flag read.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+ 
 export async function loadPropertyProfileRow(
   transaction: any,
   propertyId: string,

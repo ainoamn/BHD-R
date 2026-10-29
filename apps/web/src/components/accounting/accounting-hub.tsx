@@ -215,17 +215,6 @@ function money(minor: string | null | undefined, currency = 'OMR', ar = true) {
   return negative ? `−${formatted}` : formatted;
 }
 
-function toMinor(value: string): string {
-  const normalized = value.replace(',', '.').trim();
-  if (!normalized) return '0';
-  const parts = normalized.split('.');
-  const whole = parts[0] ?? '0';
-  const frac = parts[1] ?? '';
-  if (!/^\d+$/.test(whole) || (frac && !/^\d+$/.test(frac))) return '0';
-  const padded = `${frac}000`.slice(0, 3);
-  return `${BigInt(whole) * 1000n + BigInt(padded)}`.replace(/^0+(?=\d)/, '') || '0';
-}
-
 function todayIso() {
   return new Date().toISOString().slice(0, 10);
 }

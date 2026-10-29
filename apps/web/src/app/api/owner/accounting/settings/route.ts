@@ -30,7 +30,7 @@ export async function PUT(request: Request) {
   }
   try {
     const claims = await requireLiveSession(request);
-    const body = await request.json().catch(() => null);
+    const body: unknown = await request.json().catch(() => null);
     return NextResponse.json({ settings: await setAccountingSettings(claims, body) });
   } catch (error) {
     return accountingErrorResponse(error, 'PUT /api/owner/accounting/settings');

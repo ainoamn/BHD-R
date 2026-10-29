@@ -118,7 +118,7 @@ export async function loadPublicUnitFromNeon(unitId: string): Promise<PublicUnit
       unitNameEn: row.unitNameEn,
       descriptionAr: row.descriptionAr,
       descriptionEn: row.descriptionEn,
-      category: row.category as PublicUnitDetail['category'],
+      category: row.category,
       governorate: row.governorate,
       wilayat: row.wilayat,
       city: row.city,

@@ -11,7 +11,6 @@ import {
   stayPaymentIntents,
   stayRefunds,
   workflowEvents,
-  type Database,
 } from '@bhd-r/db';
 import { assertStayBookingTransition } from '@bhd-r/domain';
 import { appLink, notifyInTx } from '@/lib/email-notify';
@@ -23,8 +22,6 @@ import {
   lockBooking,
   recordDepositEvent,
 } from '@/lib/stay-deposit-refund-neon';
-
-type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
 const CANCELABLE = new Set([
   'request_pending',

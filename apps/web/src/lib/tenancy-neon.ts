@@ -1142,7 +1142,7 @@ async function loadStayFinance(links: TenancyLink[]): Promise<{
         continue;
       }
       // Booking / top-up: apply cancel refund so «المدفوع للإيجار» drops after return.
-      let left = bookingCancelLeft.get(bookingId) ?? 0n;
+      const left = bookingCancelLeft.get(bookingId) ?? 0n;
       if (left <= 0n) continue;
       const amount = BigInt(payment.amountMinor || '0');
       const applied = left < amount ? left : amount;

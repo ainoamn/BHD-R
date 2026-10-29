@@ -509,16 +509,6 @@ export function StayCheckout({
 
   const stayNights = isSameCalendarDayStay(stayType) ? 0 : nightsBetween(checkInOn, checkOutOn);
 
-  function changeCheckIn(next: string) {
-    setCheckInOn(next);
-    if (!isIsoDate(next)) return;
-    if (isSameCalendarDayStay(stayType)) {
-      setCheckOutOn(next);
-      return;
-    }
-    if (!(checkOutOn > next)) setCheckOutOn(addUtcDays(next, Math.max(1, stayNights)));
-  }
-
   function changeNights(delta: number) {
     if (!isIsoDate(checkInOn)) return;
     const next = Math.min(MAX_STAY_NIGHTS, Math.max(1, stayNights + delta));

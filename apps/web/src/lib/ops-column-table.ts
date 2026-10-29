@@ -31,7 +31,7 @@ export function emptyOpsColumnFilter(defaultSortKey = ''): OpsColumnTableFilter 
   };
 }
 
-export function opsColumnFilterKind(format?: string | undefined): OpsColumnFilterKind {
+export function opsColumnFilterKind(format?: string  ): OpsColumnFilterKind {
   if (format === 'thumb' || format === 'channels' || format === 'scopes') return 'none';
   if (format === 'date') return 'date';
   if (

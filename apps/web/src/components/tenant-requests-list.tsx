@@ -445,14 +445,14 @@ export function TenantRequestsList({
         row,
         filter,
         columnDefs,
-        (item, key) => item[key as keyof typeof item],
+        (item, key) => item[key],
       ),
     );
     return sortOpsColumnRows(
       matched,
       filter,
       ar ? 'ar' : 'en',
-      (item, key) => item[key as keyof typeof item],
+      (item, key) => item[key],
       (key) => (key === 'createdAt' ? 'date' : undefined),
     );
   }, [requests, filter, ar, columns]);

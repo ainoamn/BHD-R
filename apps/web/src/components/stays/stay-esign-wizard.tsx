@@ -165,7 +165,7 @@ export function StayEsignWizard({
   const progressIndex = useMemo(() => {
     if (step === 'contract') return 0;
     if (step === 'review' || step === 'done') return activeCaptureOrder.length + 1;
-    const idx = activeCaptureOrder.indexOf(step as CaptureStep);
+    const idx = activeCaptureOrder.indexOf(step);
     return idx < 0 ? 1 : idx + 1;
   }, [activeCaptureOrder, step]);
   const progressTotal = Math.max(2, activeCaptureOrder.length + 2);

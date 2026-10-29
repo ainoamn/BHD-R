@@ -33,6 +33,7 @@ export async function PropertySearch({
       method="get"
       className={compact ? 'filters-bar' : 'search-card'}
       role="search"
+      aria-label={locale === 'ar' ? 'بحث عن عقار' : 'Property search'}
     >
       {defaults.purpose === 'rent' || defaults.purpose === 'sale' ? (
         <input type="hidden" name="purpose" value={defaults.purpose} />

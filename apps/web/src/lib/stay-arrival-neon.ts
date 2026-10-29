@@ -402,7 +402,7 @@ export async function recordStayStampOnNeon(
           .limit(1);
         const snapshot =
           snapRow?.pricingSnapshotJson && typeof snapRow.pricingSnapshotJson === 'object'
-            ? { ...(snapRow.pricingSnapshotJson as Record<string, unknown>) }
+            ? { ...(snapRow.pricingSnapshotJson) }
             : {};
         const waive = {
           at: now.toISOString(),

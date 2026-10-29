@@ -184,7 +184,7 @@ export function applyStayDaySlots<
       if (day.availabilityStatus === 'booked' || day.availabilityStatus === 'hold') {
         return {
           ...base,
-          availabilityStatus: 'available' as T['availabilityStatus'],
+          availabilityStatus: 'available',
         };
       }
       return base;
@@ -197,7 +197,7 @@ export function applyStayDaySlots<
         return {
           ...base,
           slots,
-          availabilityStatus: 'available' as T['availabilityStatus'],
+          availabilityStatus: 'available',
         };
       }
       return { ...base, slots };

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import type { StayPublicDetail } from '@bhd-r/contracts';
-import { resolveStayPoliciesFromDetail, type StayPolicySectionKey } from '@bhd-r/contracts';
+import { resolveStayPoliciesFromDetail } from '@bhd-r/contracts';
 
 const COLLAPSE_AFTER = 8;
 
@@ -57,7 +57,7 @@ export function StayPolicySections({
                     onClick={() =>
                       setExpanded((current) => ({
                         ...current,
-                        [section.key]: !current[section.key as StayPolicySectionKey],
+                        [section.key]: !current[section.key],
                       }))
                     }
                   >

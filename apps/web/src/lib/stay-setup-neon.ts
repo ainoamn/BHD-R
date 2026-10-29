@@ -697,7 +697,7 @@ export async function updateStayProfileOnNeon(
           : {}),
         ...(policiesJson !== undefined
           ? {
-              policiesJson: policiesJson as typeof stayProfiles.$inferInsert.policiesJson,
+              policiesJson: policiesJson,
             }
           : {}),
         updatedAt: new Date(),

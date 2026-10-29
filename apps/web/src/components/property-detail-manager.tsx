@@ -29,8 +29,8 @@ import {
 } from '@/components/stays/stay-availability-calendar';
 import { googleMapsEmbedSrc } from '@/lib/parse-google-maps-url';
 import { listingPurposeCaption, occupancyLabel } from '@/lib/listing-purpose-display';
-import type { UnitOccupancy } from '@/lib/listing-purpose-display';
 import { resolvePublicGallery } from '@/lib/gallery-scope';
+import type { PropertyOpsPulse } from '@/lib/property-ops-pulse-neon';
 import { generateUnitListingDescriptions } from '@/lib/property-listing-copy';
 import {
   assignUnitSerials,
@@ -216,7 +216,7 @@ export function PropertyDetailManager({
   /** Platform stays flag — quiet setup link only. */
   staysEnabled?: boolean;
   /** Live bookings/contracts/finance for owner/developer manage hub. */
-  opsPulse?: import('@/lib/property-ops-pulse-neon').PropertyOpsPulse | null;
+  opsPulse?: PropertyOpsPulse | null;
   /** What the viewer's team role opens in the manage hub (everything when omitted). */
   hubAccess?: PropertyHubAccess;
   /** Daily-stay booking replaces rent/sale CTAs in the public sidebar. */
@@ -1048,7 +1048,7 @@ export function PropertyDetailManager({
                 {property.units.map((unit) => {
                   const kind = inferUnitKind(unit);
                   const serial = unitSerials.get(unit.id);
-                  const occupancy = (unit.occupancy ?? 'available') as UnitOccupancy;
+                  const occupancy = (unit.occupancy ?? 'available');
                   const unitTitle =
                     property.kind === 'multi_unit'
                       ? `${unitKindLabel(kind, locale)} ${unit.code}`.trim()

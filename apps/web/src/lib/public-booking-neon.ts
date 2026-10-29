@@ -516,7 +516,7 @@ export async function createPublicBookingCheckout(
         )
         .limit(40);
       const existing = existingRows.find((row) => {
-        const snap = (row.termsSnapshot ?? {}) as Record<string, unknown>;
+        const snap = (row.termsSnapshot ?? {});
         return snap.checkoutSessionReference === sessionReference;
       });
       if (existing) {
@@ -645,7 +645,7 @@ export async function updatePropertyDepositOnNeon(
       .update(units)
       .set({
         depositMinor: BigInt(body.amountMinor),
-        ...(body.currency ? { currency: body.currency as typeof units.$inferSelect.currency } : {}),
+        ...(body.currency ? { currency: body.currency } : {}),
         updatedAt: new Date(),
       })
       .where(
@@ -704,7 +704,7 @@ export async function completePublicBookingPayment(
 
       return (
         rows.find((row) => {
-          const snap = (row.termsSnapshot ?? {}) as Record<string, unknown>;
+          const snap = (row.termsSnapshot ?? {});
           return snap.checkoutSessionReference === sessionReference;
         }) ?? null
       );
@@ -725,7 +725,7 @@ export async function completePublicBookingPayment(
         status: 'confirmed',
         updatedAt: new Date(),
         termsSnapshot: {
-          ...((match.termsSnapshot ?? {}) as Record<string, unknown>),
+          ...((match.termsSnapshot ?? {})),
           publicDepositPaidAt: new Date().toISOString(),
           awaitingPublicDepositPayment: false,
         },

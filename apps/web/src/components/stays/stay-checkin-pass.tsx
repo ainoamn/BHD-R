@@ -127,7 +127,7 @@ export function StayCheckinPass({
           setNotReady(false);
           setDepositUnpaid(null);
           setLoaded(true);
-          setPass((current) => (current?.refreshAt === body.refreshAt ? current : (body as Pass)));
+          setPass((current) => (current?.refreshAt === body.refreshAt ? current : (body)));
         }
       } catch {
         if (!stopped) {

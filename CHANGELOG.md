@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.9 — 2026-10-29
+
+- **إغلاق بوابات الجودة بعد تدقيق 970465f3 / 4e696b1f:** ضبط ESLint للويب مع `@next/eslint-plugin-next` (مع الإبقاء على type-checked لـ Nest/الحزم)؛ بناء `.next` قبل Playwright؛ قائمة سماح Gitleaks لثوابت CI؛ وتحسين تباين/تسميات a11y وتقليل CLS في الصفحات العامة لفحص Lighthouse.
+
 ## 0.8.135.8 — 2026-10-28
 
 - **مراجعة أعمال 27–28 أكتوبر وإغلاق بوابات CI المتبقية:** إصلاح 21 خطأ ESLint في API؛ بذر عملة/حزمة الدولة قبل اختبار قفل المخزون؛ رفض إقلاع Nest في الإنتاج دون `PII_LOOKUP_PEPPER`؛ أسرار CI لـ Lighthouse وE2E؛ مواءمة ENV-MANIFEST (OIDC على Vercel فقط)؛ وتوسيع `buildFilter` في Render لملفات الجذر البنائية.

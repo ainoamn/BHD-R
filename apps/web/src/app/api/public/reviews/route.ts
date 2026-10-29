@@ -7,7 +7,6 @@ import {
   getReviewSummary,
   listPublishedReviews,
   upsertReview,
-  type ReviewTargetType,
 } from '@/lib/reviews';
 
 export const runtime = 'nodejs';
@@ -86,7 +85,7 @@ export async function POST(request: Request) {
 
   try {
     const review = await upsertReview({
-      targetType: body.targetType as ReviewTargetType,
+      targetType: body.targetType,
       targetId: body.targetId,
       authorUserId: claims.sub,
       authorPartyId: claims.partyId ?? null,

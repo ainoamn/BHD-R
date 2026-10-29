@@ -4,6 +4,7 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  min-height: min(28rem, 70svh);
   color: #fff;
   background: var(--oman-deep);
 }
@@ -132,7 +133,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: var(--bhd-teal);
+  color: #0b5f5c;
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -315,7 +316,7 @@
   text-align: center;
 }
 .home-board__score small {
-  color: #a8791f;
+  color: #7a5a18;
   font-size: 0.68rem;
   font-weight: 700;
 }

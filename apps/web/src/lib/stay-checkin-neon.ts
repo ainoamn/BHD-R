@@ -381,7 +381,7 @@ export async function confirmStayGate(
   return withinViewerTenant(claims, async (tx) => {
     const opened = await resolveStayKey(tx, key);
     await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${opened.id}, 31))`);
-    let facts = (await loadStayById(tx, opened.id)) ?? fail('booking_not_found');
+    const facts = (await loadStayById(tx, opened.id)) ?? fail('booking_not_found');
     await assertPropertyAccess(tx, claims, facts, propertyId);
     const now = new Date();
     const window = enforceCheckinWindow(facts, now);
@@ -443,7 +443,7 @@ export async function confirmStayGate(
         .limit(1);
       const snapshot =
         bookingRow?.pricingSnapshotJson && typeof bookingRow.pricingSnapshotJson === 'object'
-          ? { ...(bookingRow.pricingSnapshotJson as Record<string, unknown>) }
+          ? { ...(bookingRow.pricingSnapshotJson) }
           : {};
       const waive = {
         at: now.toISOString(),
@@ -583,7 +583,7 @@ export async function expireStayNoShowsOnNeon(): Promise<{ marked: number }> {
       };
       const { closesAt } = stayArrivalWindow(facts);
       if (now.getTime() < closesAt.getTime()) continue;
-      await markNoShowInTx(tx as Tx, facts, now);
+      await markNoShowInTx(tx, facts, now);
       marked += 1;
     }
     return { marked };

@@ -310,7 +310,7 @@ async function loadTimelineFacts(
     history: history.map((entry) => {
       const meta =
         entry.metadataJson && typeof entry.metadataJson === 'object'
-          ? (entry.metadataJson as Record<string, unknown>)
+          ? (entry.metadataJson)
           : null;
       const note = typeof meta?.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
       return {
@@ -639,7 +639,7 @@ export async function getOwnerStayBookingContractOnNeon(
     for (const entry of paymentHistory) {
       const meta =
         entry.metadataJson && typeof entry.metadataJson === 'object'
-          ? (entry.metadataJson as Record<string, unknown>)
+          ? (entry.metadataJson)
           : null;
       if (!meta) continue;
       if (!cardLast4 && typeof meta.cardLast4 === 'string' && /^\d{4}$/.test(meta.cardLast4)) {
@@ -1363,7 +1363,7 @@ export async function getOwnerStayInventoryDaysOnNeon(
       return {
         ...day,
         availabilityStatus:
-          fromLock as StayInventoryCalendarResponse['days'][number]['availabilityStatus'],
+          fromLock,
       };
     });
 

@@ -301,7 +301,7 @@ export async function createPropertyBundleOnNeon(
             minorUnit: currencyMinorUnits[unit.rent.currency],
             listingPurpose: offering.listingPurpose,
             publishWhenAvailable: input.asDraft ? false : offering.publishWhenAvailable,
-            status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
+            status: (input.asDraft ? 'draft' : 'active'),
           };
         }),
       )
@@ -692,7 +692,7 @@ export async function updatePropertyBundleOnNeon(
         minorUnit: currencyMinorUnits[unit.rent.currency],
         listingPurpose: offering.listingPurpose,
         publishWhenAvailable: publish,
-        status: (input.asDraft ? 'draft' : 'active') as 'draft' | 'active',
+        status: (input.asDraft ? 'draft' : 'active'),
         updatedAt: new Date(),
       };
       if (unit.id) {

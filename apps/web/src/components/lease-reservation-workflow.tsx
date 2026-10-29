@@ -2724,7 +2724,6 @@ function RequirementsReview({
       ? submittedCheques.map((item) => ({ kind: 'cheque' as const, key: item.key }))
       : []),
   ];
-  const submitted = submittedDocs;
   const approvedCount = requirements.filter((item) => item.status === 'approved').length;
   const existingCodes = new Set(requirements.map((item) => item.code));
   const catalogue = REQUIREMENT_CATALOGUE.filter(
@@ -3393,10 +3392,10 @@ function ClientRequest({
 }
 
 function ContractDraftEditor({
-  reservationId,
+  reservationId: _reservationId,
   referenceCode,
   locale,
-  portal,
+  portal: _portal,
   mode,
   lifecycle,
   propertyId,
