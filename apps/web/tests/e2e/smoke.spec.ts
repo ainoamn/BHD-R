@@ -131,6 +131,25 @@ test('owner portal exposes specialized operational modules with real records', a
     ['legal', 'المحاماة والقضايا', 'LEG-2026-0014'],
   ] as const;
   for (const [section, heading, reference] of sections) {
+    const api = await page.request.get(`/api/portal/ops/owner/${section}`);
+    const body = (await api.json().catch(() => null)) as {
+      loadError?: boolean;
+      records?: Array<{ reference?: string }>;
+      error?: { code?: string };
+    } | null;
+    expect(
+      api.ok(),
+      `${section} ops API ${api.status()} ${JSON.stringify(body)?.slice(0, 400)}`,
+    ).toBe(true);
+    expect(
+      body?.loadError,
+      `${section} loadError ${JSON.stringify(body)?.slice(0, 400)}`,
+    ).toBeFalsy();
+    expect(
+      (body?.records ?? []).some((row) => row.reference === reference),
+      `${section} missing ${reference} in ${JSON.stringify(body?.records)?.slice(0, 400)}`,
+    ).toBe(true);
+
     await page.goto(`/ar/owner/${section}`);
     await expect(page.locator('.ops-workspace')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
