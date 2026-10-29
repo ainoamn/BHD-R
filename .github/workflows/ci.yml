@@ -163,10 +163,12 @@ jobs:
       - name: API Express boundary e2e
         run: pnpm --filter @bhd-r/api test:e2e
       - name: Build web for Playwright
-        # `playwright.config.ts` runs `pnpm start`, which needs a production `.next`.
-        # Bake E2E_FORCE into the server bundle — Next may inline process.env at build.
+        # `playwright.config.ts` runs `pnpm start` (next start). next.config uses
+        # `output: 'standalone'` unless VERCEL is set — standalone + next start drops
+        # runtime env (E2E_FORCE), so bookings warm races fail closed with loadError.
         run: pnpm --filter @bhd-r/web... build
         env:
+          VERCEL: '1'
           BHD_R_SESSION_SECRET: ci-only-session-secret-at-least-32-bytes
           BHD_R_OIDC_STATE_SECRET: ci-only-oidc-state-secret-at-least-32b
           CSRF_SECRET: ci-only-csrf-secret-at-least-32-bytes

@@ -24,6 +24,8 @@ function webServerEnv(): Record<string, string> {
     env[key] = '';
   }
   env.NODE_ENV = 'production';
+  // Match CI e2e build: non-standalone next start must see fixture flags at runtime.
+  env.VERCEL = '1';
   env.BHD_R_SESSION_SECRET = e2eSessionSecret;
   env.BHD_R_OIDC_STATE_SECRET = e2eSessionSecret;
   env.CSRF_SECRET = e2eSessionSecret;
