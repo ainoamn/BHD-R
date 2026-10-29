@@ -49,10 +49,33 @@ export async function GET(
   }
 
   const locale = claims.locale === 'en' ? 'en' : 'ar';
-  const payload = await loadOperationsWorkspacePayload(portal, sectionRaw, claims, locale);
-  return NextResponse.json(payload, {
-    headers: {
-      'Cache-Control': 'private, no-store',
-    },
-  });
+  try {
+    const payload = await loadOperationsWorkspacePayload(portal, sectionRaw, claims, locale);
+    return NextResponse.json(payload, {
+      headers: {
+        'Cache-Control': 'private, no-store',
+      },
+    });
+  } catch (error) {
+    console.error('[portal/ops] load failed', portal, sectionRaw, error);
+    return NextResponse.json(
+      {
+        records: [],
+        summary: {},
+        secondary: [],
+        context: {},
+        apiOnline: false,
+        nestConfigured: true,
+        recordsEmpty: false,
+        apiUnauthorized: false,
+        dataFromDb: false,
+        loadError: true,
+        locale,
+      },
+      {
+        status: 200,
+        headers: { 'Cache-Control': 'private, no-store' },
+      },
+    );
+  }
 }

@@ -287,7 +287,18 @@ test('owner sidebar preserves a property draft without document reloads', async 
     await expect(page).toHaveURL(href);
     await expect(page.locator('.portal-persisted-panel:not([hidden])')).toHaveCount(1);
   }
-  await page.locator('.portal-nav a[href="/en/owner/properties"]').click();
+  const propertiesToggle = page.locator('.portal-nav').getByRole('button', {
+    name: 'Properties',
+    exact: true,
+  });
+  if (await propertiesToggle.getAttribute('aria-expanded').then((v) => v !== 'true')) {
+    await propertiesToggle.click();
+  }
+  await page
+    .locator('.portal-nav')
+    .getByRole('link', { name: 'View properties', exact: true })
+    .click();
+  await expect(page).toHaveURL('/en/owner/properties');
   await page
     .locator('.portal-persisted-panel:not([hidden]) a[href="/en/owner/properties/new"]')
     .first()

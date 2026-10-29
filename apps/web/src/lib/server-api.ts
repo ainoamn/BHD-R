@@ -1,8 +1,16 @@
 import 'server-only';
 import { cookies, headers } from 'next/headers';
+import { cache } from 'react';
 import { ApiError } from './api';
 
 export { ApiError };
+
+/** One cookies()/headers() read per request — parallel apiFetch must not race Next's dynamic APIs. */
+const requestCookieHeader = cache(async () => (await cookies()).toString());
+const requestIdHeader = cache(async () => {
+  const requestHeaders = await headers();
+  return requestHeaders.get('x-request-id') ?? crypto.randomUUID();
+});
 
 const DEFAULT_DEV_API = 'http://localhost:4000';
 /**
@@ -93,17 +101,19 @@ function mergeSignal(init?: RequestInit): AbortSignal {
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!path.startsWith('/')) throw new Error('API path must be absolute');
-  const cookieStore = await cookies();
-  const requestHeaders = await headers();
-  const origin = await resolveApiOrigin();
+  const [cookieHeader, requestId, origin] = await Promise.all([
+    requestCookieHeader(),
+    requestIdHeader(),
+    resolveApiOrigin(),
+  ]);
   let response: Response;
   try {
     response = await fetch(`${origin}${path}`, {
       ...init,
       headers: {
         accept: 'application/json',
-        cookie: cookieStore.toString(),
-        'x-request-id': requestHeaders.get('x-request-id') ?? crypto.randomUUID(),
+        cookie: cookieHeader,
+        'x-request-id': requestId,
         ...init.headers,
       },
       cache: init.cache ?? 'no-store',
