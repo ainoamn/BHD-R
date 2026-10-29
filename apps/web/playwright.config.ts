@@ -12,12 +12,17 @@ function webServerEnv(): Record<string, string> {
   }
   // Job-level CI sets NODE_ENV=test and DATABASE_URL to an empty migrated DB.
   // next start must be production; portal chrome must not fail-close on missing users.
-  delete env.DATABASE_URL;
-  delete env.SYSTEM_DATABASE_URL;
-  delete env.MIGRATION_DATABASE_URL;
-  delete env.TEST_DATABASE_URL;
-  delete env.TEST_MIGRATION_DATABASE_URL;
-  delete env.WORKER_DATABASE_URL;
+  // Blank (don't only delete) so a merge with process.env cannot revive the CI URL.
+  for (const key of [
+    'DATABASE_URL',
+    'SYSTEM_DATABASE_URL',
+    'MIGRATION_DATABASE_URL',
+    'TEST_DATABASE_URL',
+    'TEST_MIGRATION_DATABASE_URL',
+    'WORKER_DATABASE_URL',
+  ] as const) {
+    env[key] = '';
+  }
   env.NODE_ENV = 'production';
   env.BHD_R_SESSION_SECRET = e2eSessionSecret;
   env.BHD_R_OIDC_STATE_SECRET = e2eSessionSecret;

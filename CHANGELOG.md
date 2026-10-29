@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.22 — 2026-10-29
+
+- **Playwright بعد إصلاح البوابة (CI #945):** mock `/v1/me` و`getViewer` يتطلبان كوكي الجلسة حتى يظهر نموذج معاينة الزائر؛ بوابة `/stays` في `layout` تعيد 404 قبل هيكل التحميل؛ ومواءمة اختبارات الشريط الجانبي والمراجع المكررة مع DOM الحالي.
+
 ## 0.8.135.21 — 2026-10-29
 
 - **Playwright جلسة البوابة:** تحت `E2E_FORCE_NEST_FIXTURES=1` فقط، `getShellViewer` يثق بـ JWT بعد التحقق و`getViewer` يستخدم mock `/v1/me` حتى لو بقيت `DATABASE_URL` لقاعدة CI الفارغة.

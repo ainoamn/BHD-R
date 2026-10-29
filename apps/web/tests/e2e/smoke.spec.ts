@@ -134,7 +134,10 @@ test('owner portal exposes specialized operational modules with real records', a
     await page.goto(`/ar/owner/${section}`);
     await expect(page.locator('.ops-workspace')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-    await expect(page.getByText(reference, { exact: true })).toBeVisible({ timeout: 20_000 });
+    // Reference appears in the table cell and the detail pane — assert the cell.
+    await expect(
+      page.locator('.ops-workspace').getByRole('cell', { name: reference, exact: true }),
+    ).toBeVisible({ timeout: 20_000 });
   }
   await page.goto('/ar/owner/reports');
   await expect(page.getByRole('button', { name: 'تنزيل آمن' })).toBeVisible();
@@ -179,7 +182,18 @@ test('owner sidebar uses same-document navigation and reopens cached sections', 
     ),
   ).toBe('alive');
 
-  await page.getByRole('link', { name: 'العقارات', exact: true }).click();
+  // Properties is a collapsible nav group — open the view link, not the toggle button.
+  const propertiesToggle = page.locator('.portal-nav').getByRole('button', {
+    name: 'العقارات',
+    exact: true,
+  });
+  if (await propertiesToggle.getAttribute('aria-expanded').then((v) => v !== 'true')) {
+    await propertiesToggle.click();
+  }
+  await page
+    .locator('.portal-nav')
+    .getByRole('link', { name: 'عرض العقارات', exact: true })
+    .click();
   await expect(page.getByRole('heading', { level: 1, name: 'المحفظة العقارية' })).toBeVisible({
     timeout: 1_500,
   });
@@ -235,12 +249,15 @@ test('owner sidebar preserves a property draft without document reloads', async 
     .evaluateAll((links) =>
       links
         .map((link) => link.getAttribute('href')!)
-        .filter((href) => /^\/en\/owner\/[^/]+$/.test(href) && !href.endsWith('/stays')),
+        .filter(
+          (href) =>
+            /^\/en\/owner\/[^/?]+$/.test(href) && !href.endsWith('/stays') && !href.includes('?'),
+        ),
     );
   expect(hrefs.length).toBeGreaterThan(12);
   for (const href of hrefs) {
     await page.locator(`.portal-nav a[href="${href}"]`).click();
-    await expect(page).toHaveURL(new RegExp(`${href}$`));
+    await expect(page).toHaveURL(href);
     await expect(page.locator('.portal-persisted-panel:not([hidden])')).toHaveCount(1);
   }
   await page.locator('.portal-nav a[href="/en/owner/properties"]').click();

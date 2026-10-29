@@ -382,6 +382,14 @@ const server = createServer((request, response) => {
     return;
   }
   if (path === '/v1/me') {
+    const cookie = request.headers.cookie ?? '';
+    if (!/(?:^|;\s*)bhd_r_session=/.test(cookie)) {
+      response.statusCode = 401;
+      response.end(
+        JSON.stringify({ error: { code: 'unauthorized', message: 'Sign in required' } }),
+      );
+      return;
+    }
     response.end(JSON.stringify(viewer));
     return;
   }

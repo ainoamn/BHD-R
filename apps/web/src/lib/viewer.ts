@@ -109,8 +109,11 @@ async function getViewerFromDatabase(): Promise<Viewer | null> {
  * a revoked or expired session must fail closed.
  */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
-  // Fixture e2e: always use mock Nest /v1/me (CI DB has no matching sessions row).
+  // Fixture e2e: mock Nest /v1/me (CI DB has no matching sessions row).
+  // Still require a session cookie so anonymous public pages stay signed-out.
   if (process.env.E2E_FORCE_NEST_FIXTURES === '1') {
+    const cookieStore = await cookies();
+    if (!cookieStore.get('bhd_r_session')?.value) return null;
     const { ApiError, apiFetch } = await import('./server-api');
     try {
       const user = await apiFetch<Omit<Viewer, 'portals'> & { portals?: PortalRole[] }>('/v1/me');
