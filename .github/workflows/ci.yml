@@ -177,12 +177,11 @@ jobs:
       - name: Browser smoke (mock API · chromium only)
         run: pnpm --filter @bhd-r/web test:e2e
         # Honest gate: fixture-backed Playwright, not live Nest+DB journeys.
-        # Clear DB URLs so Next does not inherit the empty CI Postgres (portal auth).
+        # Job NODE_ENV=test / DATABASE_URL must not leak into `next start`
+        # (playwright.config.ts also deletes DB URLs and forces production).
         env:
+          NODE_ENV: production
           E2E_FORCE_NEST_FIXTURES: '1'
-          DATABASE_URL: ''
-          SYSTEM_DATABASE_URL: ''
-          MIGRATION_DATABASE_URL: ''
           STAYS_PLATFORM_ENABLED: 'false'
       - uses: actions/upload-artifact@v4
         if: failure()

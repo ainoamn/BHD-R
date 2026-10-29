@@ -3,6 +3,31 @@ import { defineConfig, devices } from '@playwright/test';
 const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
 const e2eSessionSecret = 'e2e-session-secret-is-local-and-at-least-32-characters';
 
+/** Next production server for fixture e2e — strip CI DB URLs and force production mode. */
+function webServerEnv(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value === undefined) continue;
+    env[key] = value;
+  }
+  // Job-level CI sets NODE_ENV=test and DATABASE_URL to an empty migrated DB.
+  // next start must be production; portal chrome must not fail-close on missing users.
+  delete env.DATABASE_URL;
+  delete env.SYSTEM_DATABASE_URL;
+  delete env.MIGRATION_DATABASE_URL;
+  delete env.TEST_DATABASE_URL;
+  delete env.TEST_MIGRATION_DATABASE_URL;
+  delete env.WORKER_DATABASE_URL;
+  env.NODE_ENV = 'production';
+  env.BHD_R_SESSION_SECRET = e2eSessionSecret;
+  env.BHD_R_OIDC_STATE_SECRET = e2eSessionSecret;
+  env.CSRF_SECRET = e2eSessionSecret;
+  env.API_ORIGIN = 'http://127.0.0.1:4000';
+  env.STAYS_PLATFORM_ENABLED = 'false';
+  env.E2E_FORCE_NEST_FIXTURES = '1';
+  return env;
+}
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -25,23 +50,7 @@ export default defineConfig({
             url: 'http://127.0.0.1:3000/ar',
             reuseExistingServer: !process.env.CI,
             timeout: 120_000,
-            env: {
-              ...process.env,
-              BHD_R_SESSION_SECRET: e2eSessionSecret,
-              BHD_R_OIDC_STATE_SECRET: e2eSessionSecret,
-              CSRF_SECRET: e2eSessionSecret,
-              API_ORIGIN: 'http://127.0.0.1:4000',
-              // CI job DATABASE_URL is migrated-but-empty. Keep it off so portal
-              // chrome uses the JWT stub + mock /v1/me instead of fail-closing.
-              DATABASE_URL: '',
-              SYSTEM_DATABASE_URL: '',
-              MIGRATION_DATABASE_URL: '',
-              TEST_DATABASE_URL: '',
-              TEST_MIGRATION_DATABASE_URL: '',
-              STAYS_PLATFORM_ENABLED: 'false',
-              // Prefer mock Nest fixture rows over empty Neon in CI e2e.
-              E2E_FORCE_NEST_FIXTURES: '1',
-            },
+            env: webServerEnv(),
           },
         ],
       }),
