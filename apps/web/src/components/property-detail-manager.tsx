@@ -13,6 +13,7 @@ import { formatListingLocation } from '@/lib/listing-card-copy';
 import { PropertyQrCard } from '@/components/property-qr-card';
 import { ListingEngagementBar } from '@/components/listing-engagement-bar';
 import { PublicListingActions } from '@/components/public-listing-actions';
+import { PublicViewingForm } from '@/components/public-viewing-form';
 import { PropertyManageHub, type PropertyHubAccess } from '@/components/property-manage-hub';
 import { PropertyReviewScore } from '@/components/property-review-score';
 import { ReputationView } from '@/components/reviews/reputation-view';
@@ -1740,36 +1741,41 @@ export function PropertyDetailManager({
               </div>
             ) : primaryUnit ? (
               <div className="property-360__viewing">
-                <PublicListingActions
-                  unitId={primaryUnit.id}
-                  locale={locale}
-                  signedIn={signedIn}
-                  depositMinor={primaryUnit.depositMinor}
-                  saleDepositMinor={primaryUnit.saleDepositMinor ?? null}
-                  currency={primaryUnit.currency}
-                  taken={
-                    primaryUnit.occupancy === 'sold'
-                      ? 'sold'
-                      : primaryUnit.occupancy === 'leased' && primaryUnit.listingPurpose === 'rent'
-                        ? 'leased'
-                        : null
-                  }
-                  listingPurpose={
-                    primaryUnit.occupancy === 'leased' && primaryUnit.listingPurpose === 'both'
-                      ? 'sale'
-                      : primaryUnit.listingPurpose
-                  }
-                  rentMinor={primaryUnit.rentMinor}
-                  salePriceMinor={primaryUnit.salePriceMinor}
-                  canBook={primaryUnit.listingEnabled !== false}
-                  sharePath={propertyPath}
-                  shareTitle={headline}
-                  shareDescription={
-                    ar
-                      ? property.descriptionAr || property.descriptionEn
-                      : property.descriptionEn || property.descriptionAr
-                  }
-                />
+                {isPublic && !signedIn ? (
+                  <PublicViewingForm unitId={primaryUnit.id} locale={locale} />
+                ) : (
+                  <PublicListingActions
+                    unitId={primaryUnit.id}
+                    locale={locale}
+                    signedIn={signedIn}
+                    depositMinor={primaryUnit.depositMinor}
+                    saleDepositMinor={primaryUnit.saleDepositMinor ?? null}
+                    currency={primaryUnit.currency}
+                    taken={
+                      primaryUnit.occupancy === 'sold'
+                        ? 'sold'
+                        : primaryUnit.occupancy === 'leased' &&
+                            primaryUnit.listingPurpose === 'rent'
+                          ? 'leased'
+                          : null
+                    }
+                    listingPurpose={
+                      primaryUnit.occupancy === 'leased' && primaryUnit.listingPurpose === 'both'
+                        ? 'sale'
+                        : primaryUnit.listingPurpose
+                    }
+                    rentMinor={primaryUnit.rentMinor}
+                    salePriceMinor={primaryUnit.salePriceMinor}
+                    canBook={primaryUnit.listingEnabled !== false}
+                    sharePath={propertyPath}
+                    shareTitle={headline}
+                    shareDescription={
+                      ar
+                        ? property.descriptionAr || property.descriptionEn
+                        : property.descriptionEn || property.descriptionAr
+                    }
+                  />
+                )}
               </div>
             ) : null}
           </div>

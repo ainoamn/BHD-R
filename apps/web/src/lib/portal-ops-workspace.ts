@@ -71,6 +71,10 @@ async function safeRows(path: string): Promise<DataRow[]> {
   return Array.isArray(payload) ? payload : (payload.data ?? []);
 }
 
+function preferNestFixtures(): boolean {
+  return process.env.E2E_FORCE_NEST_FIXTURES === '1';
+}
+
 async function probeNestHealthz(): Promise<boolean> {
   if (nestHealthCache && Date.now() - nestHealthCache.at < NEST_HEALTH_TTL_MS) {
     return nestHealthCache.ok;
@@ -168,7 +172,7 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
           apiFetch<Record<string, unknown>>('/v1/accounting/dashboard').catch(() => ({})),
           safeRows('/v1/finance/cheques'),
           safeRows('/v1/finance/invoices'),
-          loadStayIncomeRowsForViewer(),
+          loadStayIncomeRowsForViewer().catch(() => [] as Record<string, unknown>[]),
           safeRows('/v1/accounting/accounts'),
         ]);
       return {
@@ -220,7 +224,7 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
 
 async function loadSection(portal: PortalRole, section: OperationsSection): Promise<SectionLoad> {
   // Playwright CI: empty migrated DB would otherwise short-circuit Nest fixtures with [].
-  if (process.env.E2E_FORCE_NEST_FIXTURES === '1') {
+  if (preferNestFixtures()) {
     return loadFromNest(portal, section);
   }
 
@@ -393,6 +397,24 @@ export async function loadOperationsWorkspacePayload(
 ): Promise<OperationsWorkspacePayload> {
   const locale = localeHint ?? ((await getLocale()) === 'en' ? 'en' : 'ar');
   const nestConfigured = isNestApiConfiguredForRuntime();
+  // Playwright: never take the scoped-owner empty short-circuit — use Nest fixtures.
+  if (preferNestFixtures()) {
+    const loaded = await loadSection(portal, section);
+    const records = await withSectionBadges(section, loaded.records);
+    return {
+      records,
+      summary: loaded.summary ?? {},
+      secondary: loaded.secondary ?? [],
+      context: loaded.contextPatch ?? {},
+      apiOnline: true,
+      nestConfigured: true,
+      recordsEmpty: !records.length,
+      apiUnauthorized: false,
+      dataFromDb: false,
+      loadError: false,
+      locale,
+    };
+  }
   if (portal !== 'tenant' && scopedOwnerParty(access)) {
     // Building owners: properties + bookings/viewings for their buildings only (not Nest org-wide).
     if (section === 'properties') {

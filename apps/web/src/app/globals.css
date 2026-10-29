@@ -8493,11 +8493,27 @@ body:has(.stays-booking-receipt) #main-content {
   color: var(--bhd-navy) !important;
 }
 .header-auth-slot {
-  min-width: 10.5rem;
+  display: inline-grid;
+  grid-template-columns: 2.55rem minmax(9.5rem, auto);
+  align-items: center;
+  justify-items: end;
+  gap: 0.45rem;
+  min-width: 13.5rem;
+  min-height: 2.75rem;
+}
+.header-auth-slot__cta {
   display: inline-flex;
   align-items: center;
   justify-content: flex-end;
   gap: 0.45rem;
+  min-width: 9.5rem;
+  min-height: 2.75rem;
+}
+.header-stay-alerts__bell--placeholder {
+  display: inline-block;
+  width: 2.55rem;
+  height: 2.55rem;
+  visibility: hidden;
 }
 .header-auth-loading {
   width: 7.6rem;
@@ -13965,7 +13981,9 @@ button.ops-row-key {
 }
 .listing-row__media {
   position: relative;
-  min-height: 11rem;
+  aspect-ratio: 4 / 3;
+  min-height: 0;
+  overflow: hidden;
   background: linear-gradient(135deg, var(--maroon-900), var(--maroon-700));
 }
 .listing-row__media img {
@@ -13975,7 +13993,7 @@ button.ops-row-key {
   display: grid;
   place-content: center;
   height: 100%;
-  min-height: 11rem;
+  min-height: 100%;
 }
 .listing-row__body {
   display: grid;
@@ -14149,8 +14167,8 @@ button.ops-row-key {
     align-items: stretch;
   }
   .listing-row__media {
-    min-height: 100%;
-    aspect-ratio: auto;
+    aspect-ratio: 4 / 3;
+    min-height: 11rem;
     overflow: hidden;
   }
   .listing-row__placeholder {

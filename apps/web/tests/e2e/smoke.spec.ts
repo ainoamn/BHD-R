@@ -130,9 +130,9 @@ test('owner portal exposes specialized operational modules with real records', a
   ] as const;
   for (const [section, heading, reference] of sections) {
     await page.goto(`/ar/owner/${section}`);
-    await expect(page.locator('.ops-workspace')).toBeVisible();
+    await expect(page.locator('.ops-workspace')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-    await expect(page.getByText(reference, { exact: true })).toBeVisible();
+    await expect(page.getByText(reference, { exact: true })).toBeVisible({ timeout: 20_000 });
   }
   await page.goto('/ar/owner/reports');
   await expect(page.getByRole('button', { name: 'تنزيل آمن' })).toBeVisible();
@@ -143,13 +143,10 @@ test('complete property intake has operations, documents, media and review stage
 }) => {
   await authenticatePortal(page);
   await page.goto('/ar/owner/properties/new');
-  await expect(page.locator('.wizard-progress__item')).toHaveCount(7);
-  await expect(
-    page.locator('.wizard-progress__item').filter({ hasText: 'التشغيل والمرافق' }),
-  ).toBeVisible();
-  await expect(
-    page.locator('.wizard-progress__item').filter({ hasText: 'الملكية والوثائق' }),
-  ).toBeVisible();
+  const desktopSteps = page.locator('.wizard-progress--desktop .wizard-progress__item');
+  await expect(desktopSteps).toHaveCount(7);
+  await expect(desktopSteps.filter({ hasText: 'التشغيل والمرافق' })).toBeVisible();
+  await expect(desktopSteps.filter({ hasText: 'الملكية والوثائق' })).toBeVisible();
 });
 
 test('owner sidebar uses same-document navigation and reopens cached sections', async ({

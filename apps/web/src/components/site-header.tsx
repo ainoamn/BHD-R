@@ -1,12 +1,17 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Logo } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { Link, usePathname } from '@/i18n/navigation';
-import { BhdAppSwitcher } from '@/components/bhd-app-switcher';
 import { HeaderStayAlerts } from '@/components/header-stay-alerts';
 import type { Viewer } from '@/lib/types';
+
+const BhdAppSwitcher = dynamic(
+  () => import('@/components/bhd-app-switcher').then((mod) => mod.BhdAppSwitcher),
+  { ssr: false },
+);
 
 type AuthState =
   { status: 'loading' } | { status: 'anonymous' } | { status: 'signed-in'; viewer: Viewer };
@@ -63,6 +68,7 @@ export function SiteHeader() {
 
   if (hidden) return null;
   const signInHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(`/${locale}/portal`)}`;
+  const authBusy = auth.status === 'loading';
 
   return (
     <header className="site-header">
@@ -111,22 +117,39 @@ export function SiteHeader() {
           >
             {t('Nav.language')}
           </Link>
-          <span className="header-auth-slot">
-            <HeaderStayAlerts locale={locale} signedIn={auth.status === 'signed-in'} />
-            {auth.status === 'loading' ? (
-              <span className="header-auth-loading" aria-hidden="true" />
-            ) : auth.status === 'signed-in' ? (
-              <>
-                <Link href="/portal" className="header-portal-link" onClick={() => setOpen(false)}>
-                  {locale === 'ar' ? 'مساحتي' : 'Workspace'}
-                </Link>
-                <BhdAppSwitcher viewer={auth.viewer} locale={locale} />
-              </>
-            ) : (
-              <a href={signInHref} className="button button--secondary">
-                {t('Nav.login')}
-              </a>
-            )}
+          <span className="header-auth-slot" data-auth={auth.status}>
+            <span className="header-auth-slot__alerts">
+              {auth.status === 'signed-in' ? (
+                <HeaderStayAlerts locale={locale} signedIn />
+              ) : (
+                <span
+                  className="header-stay-alerts__bell header-stay-alerts__bell--placeholder"
+                  aria-hidden="true"
+                />
+              )}
+            </span>
+            <span className="header-auth-slot__cta">
+              {auth.status === 'signed-in' ? (
+                <>
+                  <Link
+                    href="/portal"
+                    className="header-portal-link"
+                    onClick={() => setOpen(false)}
+                  >
+                    {locale === 'ar' ? 'مساحتي' : 'Workspace'}
+                  </Link>
+                  <BhdAppSwitcher viewer={auth.viewer} locale={locale} />
+                </>
+              ) : (
+                <a
+                  href={signInHref}
+                  className="button button--secondary"
+                  aria-busy={authBusy || undefined}
+                >
+                  {t('Nav.login')}
+                </a>
+              )}
+            </span>
           </span>
         </nav>
       </div>

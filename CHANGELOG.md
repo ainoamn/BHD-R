@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.18 — 2026-10-29
+
+- **Lighthouse CLS/JS + Playwright معاينة الزائر:** تحميل الخريطة/الجدول ديناميكيًا؛ تثبيت مساحة مصادقة الرأس؛ نسب أبعاد صفوف القائمة؛ نقل CSS البوابات خارج تخطيط التسويق؛ إظهار `PublicViewingForm` للزائر غير المسجّل؛ وتقوية `E2E_FORCE_NEST_FIXTURES` في حمولة ops.
+
 ## 0.8.135.17 — 2026-10-29
 
 - **Prettier + CLS للصفحات العامة:** إصلاح تنسيق smoke/RELEASE؛ هيكل رئيسي يبثّ الـ hero فورًا عبر Suspense؛ هيكل `/properties` بارتفاع محجوز؛ كتالوج بلا إعادة محاولة عند غياب DB؛ وتقليل أوزان الخطوط.

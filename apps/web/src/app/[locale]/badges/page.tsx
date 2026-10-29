@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
+import '../../badges-verification.css';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { BadgeEmblem } from '@/components/badges/badge-emblem';
 import { BadgeShowcaseSection } from '@/components/badges/badge-showcase';

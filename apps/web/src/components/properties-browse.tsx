@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { supportedCurrencyCodes } from '@bhd-r/contracts';
 import { countryPacks } from '@bhd-r/country-packs';
@@ -26,8 +27,21 @@ import {
 } from '@/lib/properties-browse-filters';
 import { ListingCatalogueCard } from '@/components/listing-catalogue-card';
 import { ListingResultRow } from '@/components/listing-result-row';
-import { ListingsTable } from '@/components/listings-table';
-import { PropertiesMapPanel } from '@/components/properties-map-panel';
+
+const ListingsTable = dynamic(
+  () => import('@/components/listings-table').then((mod) => mod.ListingsTable),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="props-table-shell" aria-busy="true" style={{ minHeight: '12rem' }} />
+    ),
+  },
+);
+
+const PropertiesMapPanel = dynamic(
+  () => import('@/components/properties-map-panel').then((mod) => mod.PropertiesMapPanel),
+  { ssr: false },
+);
 
 type BrowseViewMode = 'list' | 'grid' | 'table';
 const VIEW_STORAGE_KEY = 'bhd-r-props-view';
@@ -126,7 +140,14 @@ export function PropertiesBrowse({
   const [universe, setUniverse] = useState<CatalogueListing[]>(initialListings);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mapOpen, setMapOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<BrowseViewMode>('list');
+  const [viewMode, setViewMode] = useState<BrowseViewMode>(() => {
+    if (typeof window === 'undefined') return 'list';
+    try {
+      return parseViewMode(window.localStorage.getItem(VIEW_STORAGE_KEY));
+    } catch {
+      return 'list';
+    }
+  });
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
   const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
   const [smartDraft, setSmartDraft] = useState('');
@@ -140,11 +161,6 @@ export function PropertiesBrowse({
 
   useEffect(() => {
     setRecent(loadRecentFilters());
-    try {
-      setViewMode(parseViewMode(window.localStorage.getItem(VIEW_STORAGE_KEY)));
-    } catch {
-      /* ignore */
-    }
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       if (params.get('map') === '1' || window.location.hash === '#map_opened') {
@@ -915,20 +931,22 @@ export function PropertiesBrowse({
         </div>
       </section>
 
-      <PropertiesMapPanel
-        open={mapOpen}
-        locale={locale}
-        listings={results}
-        selectedId={selectedListingId}
-        onSelect={(listing) => {
-          setSelectedListingId(listing.id);
-          document.getElementById(`listing-${listing.id}`)?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          });
-        }}
-        onClose={() => setMapOpen(false)}
-      />
+      {mapOpen ? (
+        <PropertiesMapPanel
+          open
+          locale={locale}
+          listings={results}
+          selectedId={selectedListingId}
+          onSelect={(listing) => {
+            setSelectedListingId(listing.id);
+            document.getElementById(`listing-${listing.id}`)?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+          }}
+          onClose={() => setMapOpen(false)}
+        />
+      ) : null}
 
       {drawerOpen ? (
         <div

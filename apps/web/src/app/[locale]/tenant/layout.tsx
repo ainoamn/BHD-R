@@ -1,6 +1,10 @@
 import type { Metadata } from 'next';
 import { PortalShell } from '@/components/portal-shell';
 import { privatePortalRobots } from '@/lib/seo';
+import '../../portal-adaptive.css';
+import '../../badges-verification.css';
+import '../../tenant-account.css';
+import '../../rent-documents.css';
 
 export const metadata: Metadata = {
   robots: privatePortalRobots,

@@ -3,6 +3,9 @@ import { setRequestLocale } from 'next-intl/server';
 import { SiteAdminChrome } from '@/components/site-admin/site-admin-chrome';
 import { privatePortalRobots } from '@/lib/seo';
 import { requireSiteAdminPage } from '@/lib/site-admin-page';
+import '../../site-admin.css';
+import '../../portal-adaptive.css';
+import '../../badges-verification.css';
 
 export const dynamic = 'force-dynamic';
 
