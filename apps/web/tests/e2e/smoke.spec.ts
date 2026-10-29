@@ -150,6 +150,23 @@ test('owner portal exposes specialized operational modules with real records', a
       `${section} missing ${reference} in ${JSON.stringify(body?.records)?.slice(0, 400)}`,
     ).toBe(true);
 
+    // Bookings list is PropertySectionRecords (listOverride), not ops smoke rows.
+    if (section === 'bookings') {
+      const propertyRecords = await page.request.get('/api/portal/property-records/all/bookings');
+      const propertyBody = (await propertyRecords.json().catch(() => null)) as {
+        rows?: Array<{ reference?: string }>;
+        error?: { code?: string };
+      } | null;
+      expect(
+        propertyRecords.ok(),
+        `property-records ${propertyRecords.status()} ${JSON.stringify(propertyBody)?.slice(0, 400)}`,
+      ).toBe(true);
+      expect(
+        (propertyBody?.rows ?? []).some((row) => row.reference === reference),
+        `property-records missing ${reference} in ${JSON.stringify(propertyBody?.rows)?.slice(0, 400)}`,
+      ).toBe(true);
+    }
+
     await page.goto(`/ar/owner/${section}`);
     await expect(page.locator('.ops-workspace')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();

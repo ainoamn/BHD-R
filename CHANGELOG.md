@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.23 — 2026-10-29
+
+- **Playwright الحجوزات (CI #957–#958):** بناء الويب لـ e2e عبر `PLAYWRIGHT_WEB_BUILD` بدون `standalone` حتى تصل `E2E_FORCE` إلى `next start`؛ ومسار fixture لـ `/api/portal/property-records` لأن قائمة الحجوزات تستخدم `PropertySectionRecords` وليس صفوف ops.
+
 ## 0.8.135.22 — 2026-10-29
 
 - **Playwright بعد إصلاح البوابة (CI #945–#948):** جلسة mock مشروطة بالكوكي؛ بوابة `/stays` في `layout`؛ `apiFetch` يقرأ الكوكي مرة واحدة لكل طلب حتى لا تكسر الاستدعاءات المتوازية قسم الحجوزات؛ شارات بدون DB؛ ومواءمة اختبارات الشريط الجانبي/`stays`.

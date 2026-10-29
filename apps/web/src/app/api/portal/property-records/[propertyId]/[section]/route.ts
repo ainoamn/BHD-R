@@ -17,6 +17,57 @@ export const maxDuration = 20;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function preferNestFixtures(): boolean {
+  return String(process.env['E2E_FORCE_NEST_FIXTURES'] ?? '').trim() === '1';
+}
+
+/** Playwright CI blanks DATABASE_URL; bookings list uses this route, not ops smoke rows. */
+function e2ePropertyRecords(section: string) {
+  if (section !== 'bookings') {
+    return { rows: [] as const, units: [] as const, tenants: [] as const, badges: {} };
+  }
+  return {
+    rows: [
+      {
+        id: '00000000-0000-4000-8000-000000000041',
+        kind: 'viewing',
+        reference: 'VIEW-0041',
+        propertyId: '00000000-0000-4000-8000-000000000011',
+        propertyName: 'عقار تجريبي',
+        unitCode: 'A-01',
+        party: 'زائر تجريبي',
+        partyId: null,
+        fromOn: '2026-08-26',
+        toOn: null,
+        amountMinor: null,
+        currency: null,
+        status: 'scheduled',
+        accessUsername: null,
+        sortOn: '2026-08-20',
+      },
+    ],
+    units: [] as const,
+    tenants: [] as const,
+    badges: {},
+  };
+}
+
+function e2eViewer() {
+  return {
+    canManageBookings: true,
+    canRecordStays: true,
+    canSignContracts: true,
+    canCreateLease: true,
+    canCreateSale: true,
+    canDecideRefunds: true,
+    canPayRefunds: true,
+    canReviewGuests: true,
+    canManageViewings: true,
+    canCheckInViewings: true,
+    canHandover: true,
+  };
+}
+
 /**
  * GET /api/portal/property-records/:propertyId/:section
  * Section records (bookings, contracts, leasing, sales, maintenance, invoices,
@@ -31,9 +82,6 @@ export async function GET(
   const allProperties = propertyId === 'all' && section === 'bookings';
   if ((!allProperties && !UUID.test(propertyId)) || !isPropertyRecordSection(section)) {
     return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
-  }
-  if (!hasDatabaseUrl()) {
-    return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
 
   const token = (await cookies()).get('bhd_r_session')?.value;
@@ -53,6 +101,18 @@ export async function GET(
     !holdsSectionPermission(claims, section)
   ) {
     return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
+  }
+
+  // Session still required above — never skip auth for fixtures.
+  if (preferNestFixtures()) {
+    return NextResponse.json(
+      { ...e2ePropertyRecords(section), viewer: e2eViewer() },
+      { headers: { 'Cache-Control': 'private, no-store' } },
+    );
+  }
+
+  if (!hasDatabaseUrl()) {
+    return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
 
   try {
