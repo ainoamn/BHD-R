@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.0 — 2026-10-29
+
+- **أمن الموقع (تحكم الموقع):** لوحة `/admin/security` للفحص والتهديدات، الجلسات حسب الدولة والحساب، محاولات الدخول مع IP، حجر IP تلقائي/يدوي، وقفل الحساب بعد تكرار فشل سرقة مع استعادة عبر `/security-unlock` (هوية + OTP بريد؛ واتساب جاهز للتفعيل). ترحيل `0052_platform_security_controls` ومستند `docs/security/ANTI-FRAUD-AND-INTRUSION-AR.md`.
+
 ## 0.8.135.24 — 2026-10-29
 
 - **Playwright أقسام المالك:** عناوين البيع/المحاسبة تطابق الواجهة الحالية؛ fixture لـ `/api/portal/legal/cases` تحت `E2E_FORCE`؛ وقائمة الحجوزات عبر `property-records` كما في 0.8.135.23.

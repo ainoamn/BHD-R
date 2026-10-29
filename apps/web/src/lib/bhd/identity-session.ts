@@ -161,13 +161,21 @@ async function chooseOrganization(
   return (newest(staff) ?? newest(active))!.organizationId;
 }
 
+export type SessionClientContext = {
+  ipHash?: string | null;
+  userAgentHash?: string | null;
+  countryCode?: string | null;
+};
+
 async function issueForUser(
   tx: Tx,
   userId: string,
   organization: { preferred?: string; strict?: boolean } = {},
+  client: SessionClientContext = {},
 ): Promise<IssuedSession> {
   const user = await tx.query.users.findFirst({ where: eq(users.id, userId) });
   if (!user) throw new Error('User missing after identity login');
+  if (user.securityLockedAt) throw new Error('account_security_locked');
   const allMemberships = await tx.query.memberships.findMany({
     where: and(eq(memberships.userId, userId), eq(memberships.status, 'active')),
   });
@@ -221,6 +229,9 @@ async function issueForUser(
     userId: user.id,
     tokenIdHash: tokenHash(token),
     expiresAt: new Date(Date.now() + maxAgeSec * 1000),
+    ...(client.ipHash ? { ipHash: client.ipHash } : {}),
+    ...(client.userAgentHash ? { userAgentHash: client.userAgentHash } : {}),
+    ...(client.countryCode ? { countryCode: client.countryCode } : {}),
   });
   const identitySub = user.identitySubject?.trim();
   return {
@@ -438,6 +449,7 @@ export async function issueIdentitySession(input: {
   jwksUri?: string;
   /** Organization remembered on this device (`bhd_r_org`). */
   preferredOrganizationId?: string;
+  client?: SessionClientContext;
 }): Promise<IssuedSession> {
   const cleanEnv = (value: string | undefined) =>
     value
@@ -472,9 +484,14 @@ export async function issueIdentitySession(input: {
     const userId = await resolveIdentityUser(tx, identity);
     // Signing in on another device must not end existing sessions (BHD-SESSION-POLICY).
     try {
-      const issued = await issueForUser(tx, userId, {
-        ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
-      });
+      const issued = await issueForUser(
+        tx,
+        userId,
+        {
+          ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
+        },
+        input.client ?? {},
+      );
       if (!issued.rosterAccount) return issued;
       const picture = identity.picture?.trim() || null;
       const providers = inferProviders({
@@ -581,12 +598,18 @@ export async function switchOrganizationSession(input: {
   userId: string;
   sessionId: string;
   organizationId: string;
+  client?: SessionClientContext;
 }): Promise<IssuedSession> {
   return withSystem(async (tx) => {
-    const issued = await issueForUser(tx, input.userId, {
-      preferred: input.organizationId,
-      strict: true,
-    });
+    const issued = await issueForUser(
+      tx,
+      input.userId,
+      {
+        preferred: input.organizationId,
+        strict: true,
+      },
+      input.client ?? {},
+    );
     await tx
       .update(sessions)
       .set({ revokedAt: new Date() })
@@ -604,16 +627,23 @@ export async function switchIdentityAccountSession(input: {
   previousSessionId?: string;
   previousUserId?: string;
   preferredOrganizationId?: string;
+  client?: SessionClientContext;
 }): Promise<IssuedSession> {
   return withSystem(async (tx) => {
     const user = await tx.query.users.findFirst({
       where: eq(users.identitySubject, input.identitySubject),
-      columns: { id: true, disabledAt: true },
+      columns: { id: true, disabledAt: true, securityLockedAt: true },
     });
     if (!user || user.disabledAt) throw new Error('identity_account_missing');
-    const issued = await issueForUser(tx, user.id, {
-      ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
-    });
+    if (user.securityLockedAt) throw new Error('account_security_locked');
+    const issued = await issueForUser(
+      tx,
+      user.id,
+      {
+        ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
+      },
+      input.client ?? {},
+    );
     if (input.previousSessionId && input.previousUserId) {
       await tx
         .update(sessions)
@@ -647,6 +677,7 @@ export async function rebindProductSessionFromProfile(input: {
   previousSessionId?: string;
   previousUserId?: string;
   preferredOrganizationId?: string;
+  client?: SessionClientContext;
 }): Promise<IssuedSession> {
   return withSystem(async (tx) => {
     const userId = await resolveIdentityUser(tx, {
@@ -655,9 +686,14 @@ export async function rebindProductSessionFromProfile(input: {
       emailVerified: true,
       ...(input.name !== undefined ? { name: input.name } : {}),
     });
-    const issued = await issueForUser(tx, userId, {
-      ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
-    });
+    const issued = await issueForUser(
+      tx,
+      userId,
+      {
+        ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),
+      },
+      input.client ?? {},
+    );
     if (input.previousSessionId && input.previousUserId) {
       await tx
         .update(sessions)

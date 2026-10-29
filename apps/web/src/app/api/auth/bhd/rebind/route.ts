@@ -10,6 +10,7 @@ import {
   setSessionCookies,
 } from '@/lib/bhd/session-cookies';
 import { requireLiveSession } from '@/lib/next-route-guard';
+import { clientSecurityContext } from '@/lib/security-protection';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -172,12 +173,18 @@ async function rebind(request: Request) {
       }
     }
 
+    const ctx = clientSecurityContext(request);
     const issued = await rebindProductSessionFromProfile({
       identitySubject: profile.sub,
       email: profile.email,
       name: profile.name,
       ...(previousSessionId && previousUserId ? { previousSessionId, previousUserId } : {}),
       ...(preferredOrganizationId ? { preferredOrganizationId } : {}),
+      client: {
+        ipHash: ctx.ipHash,
+        userAgentHash: ctx.userAgentHash,
+        countryCode: ctx.countryCode,
+      },
     });
 
     if (json) {

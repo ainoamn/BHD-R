@@ -36571,6 +36571,105 @@ button.handover-shots__item {
   background: #fef2f2;
   color: #991b1b;
 }
+.platform-admin__ghost-btn {
+  border: 1px solid color-mix(in srgb, CanvasText 18%, transparent);
+  background: transparent;
+  border-radius: 0.55rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+}
+.platform-admin-security__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0.5rem;
+}
+.platform-admin-security__tabs button {
+  border: 1px solid color-mix(in srgb, CanvasText 14%, transparent);
+  background: color-mix(in srgb, Canvas 92%, CanvasText);
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.88rem;
+}
+.platform-admin-security__tabs button.is-active {
+  background: #0b4f6c;
+  border-color: #0b4f6c;
+  color: #fff;
+}
+.platform-admin-security__search {
+  display: block;
+  margin: 0.5rem 0 0.85rem;
+}
+.platform-admin-security__search input {
+  width: min(100%, 28rem);
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+  font: inherit;
+}
+.platform-admin-security__msg {
+  margin: 0 0 0.75rem;
+  color: #0b6b4f;
+  font-weight: 600;
+}
+.platform-admin-security__threats {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+.platform-admin-security__threats li {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.65rem;
+  border: 1px solid color-mix(in srgb, CanvasText 12%, transparent);
+  background: color-mix(in srgb, Canvas 96%, CanvasText);
+}
+.platform-admin-security__threats li[data-severity='high'] {
+  border-color: #f1a0a0;
+  background: #fff5f5;
+}
+.platform-admin-security__threats li[data-severity='warn'] {
+  border-color: #e6c27a;
+  background: #fffaf0;
+}
+.platform-admin-security__threats code {
+  font-size: 0.78rem;
+  opacity: 0.75;
+}
+.platform-admin-security__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+.platform-admin-security__form input {
+  flex: 1 1 12rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid color-mix(in srgb, CanvasText 16%, transparent);
+  font: inherit;
+}
+.platform-admin-security__form button,
+.platform-admin-table button {
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: #0b4f6c;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+}
+.platform-admin-security__form button:disabled,
+.platform-admin-table button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 
 /* Site admin — scheduled AI greetings */
 .sa-greetings__grid {

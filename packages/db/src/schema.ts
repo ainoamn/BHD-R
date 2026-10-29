@@ -279,6 +279,8 @@ export const users = pgTable(
     totpLastAcceptedCounter: bigint('totp_last_accepted_counter', { mode: 'number' }),
     totpRecoveryDigests: jsonb('totp_recovery_digests').$type<string[]>().notNull().default([]),
     disabledAt: timestamp('disabled_at', { withTimezone: true }),
+    /** Set when repeated credential theft attempts lock the account pending recovery. */
+    securityLockedAt: timestamp('security_locked_at', { withTimezone: true }),
   },
   (table) => [
     uniqueIndex('users_username_unique').on(table.username),
@@ -338,6 +340,8 @@ export const sessions = pgTable(
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     ipHash: varchar('ip_hash', { length: 64 }),
     userAgentHash: varchar('user_agent_hash', { length: 64 }),
+    /** ISO 3166-1 alpha-2 from edge (e.g. CF-IPCountry); never a raw IP. */
+    countryCode: varchar('country_code', { length: 2 }),
   },
   (table) => [
     uniqueIndex('sessions_token_hash_unique').on(table.tokenIdHash),
@@ -2036,6 +2040,115 @@ export const auditLogs = pgTable(
     uniqueIndex('audit_request_action_unique').on(table.requestId, table.action, table.resourceId),
   ],
 );
+
+/** Failed/successful product or identity auth signals for brute-force and geo ops. */
+export const securityAuthAttempts = pgTable(
+  'security_auth_attempts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    outcome: varchar('outcome', { length: 24 }).notNull(),
+    source: varchar('source', { length: 40 }).notNull().default('product'),
+    ipAddress: varchar('ip_address', { length: 64 }),
+    ipHash: varchar('ip_hash', { length: 64 }).notNull(),
+    countryCode: varchar('country_code', { length: 2 }),
+    userAgentHash: varchar('user_agent_hash', { length: 64 }),
+    emailHash: varchar('email_hash', { length: 64 }),
+    userId: uuid('user_id').references(() => users.id),
+    identitySubject: varchar('identity_subject', { length: 200 }),
+    reason: varchar('reason', { length: 80 }),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (table) => [
+    index('security_auth_attempts_ip_time_idx').on(table.ipHash, table.createdAt),
+    index('security_auth_attempts_created_idx').on(table.createdAt),
+  ],
+);
+
+/** Temporary IP quarantine after repeated login abuse. */
+export const securityIpQuarantines = pgTable(
+  'security_ip_quarantines',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    ipAddress: varchar('ip_address', { length: 64 }),
+    ipHash: varchar('ip_hash', { length: 64 }).notNull(),
+    countryCode: varchar('country_code', { length: 2 }),
+    reason: varchar('reason', { length: 160 }).notNull(),
+    untilAt: timestamp('until_at', { withTimezone: true }).notNull(),
+    releasedAt: timestamp('released_at', { withTimezone: true }),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (table) => [index('security_ip_quarantines_ip_idx').on(table.ipHash, table.untilAt)],
+);
+
+/** Account locks pending owner recovery (civil ID + OTP). */
+export const securityAccountLocks = pgTable(
+  'security_account_locks',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    reason: varchar('reason', { length: 160 }).notNull(),
+    lockedAt: timestamp('locked_at', { withTimezone: true }).notNull().defaultNow(),
+    unlockedAt: timestamp('unlocked_at', { withTimezone: true }),
+    unlockedBy: varchar('unlocked_by', { length: 40 }),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (table) => [index('security_account_locks_user_idx').on(table.userId, table.lockedAt)],
+);
+
+/** Multi-factor recovery after a security lock. */
+export const securityRecoveryChallenges = pgTable(
+  'security_recovery_challenges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id),
+    lockId: uuid('lock_id').references(() => securityAccountLocks.id),
+    status: varchar('status', { length: 24 }).notNull().default('pending'),
+    emailHash: varchar('email_hash', { length: 64 }).notNull(),
+    civilIdHash: varchar('civil_id_hash', { length: 64 }).notNull(),
+    dobHash: varchar('dob_hash', { length: 64 }).notNull(),
+    idExpiryHash: varchar('id_expiry_hash', { length: 64 }).notNull(),
+    whatsappHash: varchar('whatsapp_hash', { length: 64 }).notNull(),
+    lastTxnHash: varchar('last_txn_hash', { length: 64 }).notNull(),
+    emailOtpHash: varchar('email_otp_hash', { length: 64 }),
+    whatsappOtpHash: varchar('whatsapp_otp_hash', { length: 64 }),
+    emailOtpExpiresAt: timestamp('email_otp_expires_at', { withTimezone: true }),
+    whatsappOtpExpiresAt: timestamp('whatsapp_otp_expires_at', { withTimezone: true }),
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    whatsappVerifiedAt: timestamp('whatsapp_verified_at', { withTimezone: true }),
+    whatsappChannel: varchar('whatsapp_channel', { length: 24 }).notNull().default('deferred'),
+    attempts: integer('attempts').notNull().default(0),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (table) => [index('security_recovery_challenges_user_idx').on(table.userId, table.createdAt)],
+);
+
+/** Hashed recovery identity facts for future lock challenges. */
+export const securityIdentityFingerprints = pgTable('security_identity_fingerprints', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  civilIdHash: varchar('civil_id_hash', { length: 64 }),
+  dobHash: varchar('dob_hash', { length: 64 }),
+  idExpiryHash: varchar('id_expiry_hash', { length: 64 }),
+  whatsappHash: varchar('whatsapp_hash', { length: 64 }),
+  emailHash: varchar('email_hash', { length: 64 }),
+});
 
 export const reportJobs = pgTable(
   'report_jobs',

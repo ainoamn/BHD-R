@@ -18,6 +18,7 @@ import {
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { clientSecurityContext } from '@/lib/security-protection';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -74,11 +75,17 @@ export async function POST(request: Request) {
     const preferredOrganizationId = rememberedOrganization(
       cookieStore.get(ORGANIZATION_COOKIE)?.value,
     );
+    const ctx = clientSecurityContext(request);
     const issued = await switchIdentityAccountSession({
       identitySubject: body.sub,
       previousSessionId: claims.sid,
       previousUserId: claims.sub,
       ...(preferredOrganizationId ? { preferredOrganizationId } : {}),
+      client: {
+        ipHash: ctx.ipHash,
+        userAgentHash: ctx.userAgentHash,
+        countryCode: ctx.countryCode,
+      },
     });
 
     const account: RosterAccount = issued.rosterAccount || {

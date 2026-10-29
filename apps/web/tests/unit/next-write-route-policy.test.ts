@@ -16,6 +16,8 @@ const ALLOWLIST_PREFIXES = [
   'revalidate',
   path.join('backend'),
   'warm',
+  path.join('security', 'unlock'),
+  path.join('internal', 'security'),
 ];
 
 function listRouteFiles(dir: string): string[] {

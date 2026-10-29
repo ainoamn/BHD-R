@@ -1292,7 +1292,8 @@ SEO: `robots.ts`, `sitemap.ts`, Open Graph (`public/og.png`).
 
 ## 9. الأمن — ماذا أُغلق في BHD R؟
 
-انظر المصفوفة الكاملة: [`SECURITY_CHECKLIST_MATRIX_AR.md`](./SECURITY_CHECKLIST_MATRIX_AR.md).
+انظر المصفوفة الكاملة: [`SECURITY_CHECKLIST_MATRIX_AR.md`](./SECURITY_CHECKLIST_MATRIX_AR.md).  
+إجراءات مكافحة الاحتيال والاختراق للمالك: [`security/ANTI-FRAUD-AND-INTRUSION-AR.md`](./security/ANTI-FRAUD-AND-INTRUSION-AR.md) (لوحة `/admin/security`).
 
 أبرز الضوابط المنفذة في المصدر:
 
@@ -1309,6 +1310,7 @@ SEO: `robots.ts`, `sitemap.ts`, Open Graph (`public/og.png`).
 - عزل مؤسسات بـ RLS واختبارات cross-tenant.
 - CSP/HSTS/nosniff والمرفقات المفحوصة (magic bytes + ClamAV).
 - CI أمني: Dependabot, audit, workflows أمنية.
+- حجر IP وقفل الحساب بعد تكرار فشل الدخول + استعادة هوية/OTP (`security_*` + `/security-unlock`).
 
 **ما يحتاج صلاحياتك الخارجية:** تدوير مفاتيح الإنتاج، DNS، Vercel/Neon/Redis/S3/Sentry/البريد، اعتماد قانوني، اختبار اختراق إنتاجي مفوّض.
 

@@ -18,12 +18,19 @@ import {
   setRosterCookie,
   upsertRoster,
 } from '@/lib/bhd/account-roster';
+import {
+  assertClientAllowedToAuthenticate,
+  clientSecurityContext,
+  recordAuthAttempt,
+} from '@/lib/security-protection';
 
 export const runtime = 'nodejs';
 
 function classifySessionError(error: unknown): { code: string } {
   const message = error instanceof Error ? error.message : String(error);
   console.error('[bhd callback] session detail', message.slice(0, 200));
+  if (/account_security_locked/i.test(message)) return { code: 'security_locked' };
+  if (/ip_quarantined/i.test(message)) return { code: 'ip_quarantined' };
   if (/identity_email_unverified/.test(message)) return { code: 'email_unverified' };
   if (/identity_email_taken/.test(message)) return { code: 'email_taken' };
   if (/Identity account cannot sign in|identity_account_missing|disabled/i.test(message)) {
@@ -155,9 +162,20 @@ export async function GET(request: Request) {
   }
 
   let issued: IssuedSession;
+  const ctx = clientSecurityContext(request);
   try {
     if (!hasDatabaseUrl()) {
       return clearAndRedirect('/ar/login?bhd=api');
+    }
+    const allowed = await assertClientAllowedToAuthenticate(ctx);
+    if (!allowed.ok) {
+      await recordAuthAttempt({
+        outcome: 'quarantined',
+        source: 'oauth_callback',
+        ctx,
+        reason: 'ip_quarantined',
+      });
+      return clearAndRedirect('/ar/login?bhd=ip_quarantined');
     }
     const preferredOrganizationId = rememberedOrganization(
       cookieStore.get(ORGANIZATION_COOKIE)?.value,
@@ -168,10 +186,28 @@ export async function GET(request: Request) {
       accessToken: tokens.access_token,
       ...(discovery.jwks_uri ? { jwksUri: discovery.jwks_uri } : {}),
       ...(preferredOrganizationId ? { preferredOrganizationId } : {}),
+      client: {
+        ipHash: ctx.ipHash,
+        userAgentHash: ctx.userAgentHash,
+        countryCode: ctx.countryCode,
+      },
+    });
+    await recordAuthAttempt({
+      outcome: 'success',
+      source: 'oauth_callback',
+      ctx,
+      userId: issued.claims.sub,
+      reason: 'session_issued',
     });
   } catch (error) {
     const classified = classifySessionError(error);
     console.error('[bhd callback] session', classified.code);
+    await recordAuthAttempt({
+      outcome: classified.code === 'security_locked' ? 'locked' : 'failure',
+      source: 'oauth_callback',
+      ctx,
+      reason: classified.code,
+    }).catch(() => undefined);
     // Correlation code only — no exception detail in the URL (P1-03).
     return clearAndRedirect(`/ar/login?bhd=${classified.code}`);
   }
