@@ -400,7 +400,10 @@ export async function loadOperationsWorkspacePayload(
   // Playwright: never take the scoped-owner empty short-circuit — use Nest fixtures.
   if (preferNestFixtures()) {
     const loaded = await loadSection(portal, section);
-    const records = await withSectionBadges(section, loaded.records);
+    // Skip Neon badge enrichment in fixture mode — no DB required for smoke rows.
+    const records = hasDatabaseUrl()
+      ? await withSectionBadges(section, loaded.records)
+      : loaded.records;
     return {
       records,
       summary: loaded.summary ?? {},

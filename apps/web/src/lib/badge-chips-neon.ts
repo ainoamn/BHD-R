@@ -7,6 +7,7 @@ import {
   type BadgeChip,
   type BadgeSubject,
 } from '@/lib/badges-shared';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { elevatedTx, isMissingTable, rowsOf } from '@/lib/elevated-db';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 
@@ -49,6 +50,7 @@ export async function activeBadgeChips(
   );
   const result: BadgeChipMap = new Map();
   if (!ids.length || (organizationId && !UUID.test(organizationId))) return result;
+  if (!hasDatabaseUrl()) return result;
   try {
     const rows = await elevatedTx(async (tx) =>
       rowsOf<ChipRow>(

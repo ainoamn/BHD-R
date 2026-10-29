@@ -10,9 +10,9 @@ function webServerEnv(): Record<string, string> {
     if (value === undefined) continue;
     env[key] = value;
   }
-  // Job-level CI sets NODE_ENV=test and DATABASE_URL to an empty migrated DB.
-  // next start must be production; portal chrome must not fail-close on missing users.
-  // Blank (don't only delete) so a merge with process.env cannot revive the CI URL.
+  // Job-level CI sets NODE_ENV=test and DATABASE_URL to a migrated (empty) DB.
+  // Playwright merges webServer.env with process.env, so delete is not enough —
+  // blank the URLs so hasDatabaseUrl() is false for next start.
   for (const key of [
     'DATABASE_URL',
     'SYSTEM_DATABASE_URL',

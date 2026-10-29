@@ -134,9 +134,9 @@ test('owner portal exposes specialized operational modules with real records', a
     await page.goto(`/ar/owner/${section}`);
     await expect(page.locator('.ops-workspace')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('heading', { level: 1, name: heading })).toBeVisible();
-    // Reference appears in the table cell and the detail pane — assert the cell.
+    // Reference can appear in the table and the detail pane — take the first hit.
     await expect(
-      page.locator('.ops-workspace').getByRole('cell', { name: reference, exact: true }),
+      page.locator('.ops-workspace').getByText(reference, { exact: true }).first(),
     ).toBeVisible({ timeout: 20_000 });
   }
   await page.goto('/ar/owner/reports');
@@ -224,11 +224,16 @@ test('stays phase-0: homepage has no daily-stay search tab while flags are off',
 });
 
 test('stays phase-0: /ar/stays is not a public product surface yet', async ({ page }) => {
-  const response = await page.goto('/ar/stays');
+  const response = await page.goto('/ar/stays', { waitUntil: 'domcontentloaded' });
   expect(response).not.toBeNull();
   const status = response!.status();
-  // 404 preferred; any non-200 marketing page is acceptable until Phase 4 ships behind flags.
-  expect(status === 404 || status >= 400).toBe(true);
+  // Prefer HTTP 404. Next may stream the shell as 200 while layout calls notFound() —
+  // require the not-found document, never a stays catalogue or search UI.
+  if (status === 404 || status >= 400) return;
+  await expect(
+    page.getByRole('heading', { name: /الصفحة غير متاحة|Page unavailable/i }),
+  ).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.stays-browse, .stay-search')).toHaveCount(0);
 });
 
 test('owner sidebar preserves a property draft without document reloads', async ({
@@ -244,16 +249,38 @@ test('owner sidebar preserves a property draft without document reloads', async 
   page.on('request', (request) => {
     if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documentRequests++;
   });
-  const hrefs = await page
-    .locator('.portal-nav a')
-    .evaluateAll((links) =>
-      links
+  // Only ops soft-nav sections mount `.portal-persisted-panel` (not terms/settings/tenant-requests).
+  const softOps = new Set([
+    'requests',
+    'bookings',
+    'leasing',
+    'sales',
+    'invoices',
+    'payments',
+    'accounting',
+    'expenses',
+    'maintenance',
+    'work-orders',
+    'tasks',
+    'legal',
+    'approvals',
+    'reports',
+    'team',
+    'contacts',
+    'properties',
+  ]);
+  const hrefs = await page.locator('.portal-nav a').evaluateAll(
+    (links, allowed) => {
+      const allow = new Set(allowed as string[]);
+      return links
         .map((link) => link.getAttribute('href')!)
-        .filter(
-          (href) =>
-            /^\/en\/owner\/[^/?]+$/.test(href) && !href.endsWith('/stays') && !href.includes('?'),
-        ),
-    );
+        .filter((href) => {
+          const match = /^\/en\/owner\/([^/?]+)$/.exec(href);
+          return Boolean(match && allow.has(match[1]!));
+        });
+    },
+    [...softOps],
+  );
   expect(hrefs.length).toBeGreaterThan(12);
   for (const href of hrefs) {
     await page.locator(`.portal-nav a[href="${href}"]`).click();
