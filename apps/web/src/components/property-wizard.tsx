@@ -361,7 +361,7 @@ export function PropertyWizard({
       builtUpArea: p?.builtUpAreaSquareMeters ?? '',
       yearBuilt: p?.yearBuilt != null ? String(p.yearBuilt) : '',
       parkingSpaces: p?.parkingSpaces != null ? String(p.parkingSpaces) : '',
-      furnishing: (p?.furnishing ?? 'unfurnished'),
+      furnishing: p?.furnishing ?? 'unfurnished',
       managementStartedOn: p?.managementStartedOn ?? '',
       managementFee: majorFromMinor(
         p?.managementFeeMinor,
@@ -2193,9 +2193,9 @@ export function PropertyWizard({
                                               const nextModes = event.target.checked
                                                 ? [...row.offeringModes, mode]
                                                 : row.offeringModes.filter((item) => item !== mode);
-                                              const modes = (
-                                                nextModes.length ? nextModes : ['monthly']
-                                              );
+                                              const modes: OfferingMode[] = nextModes.length
+                                                ? nextModes
+                                                : ['monthly'];
                                               return {
                                                 ...row,
                                                 offeringModes: modes,
@@ -2550,9 +2550,9 @@ export function PropertyWizard({
                                             const nextModes = event.target.checked
                                               ? [...row.offeringModes, mode]
                                               : row.offeringModes.filter((item) => item !== mode);
-                                            const modes = (
-                                              nextModes.length ? nextModes : ['monthly']
-                                            );
+                                            const modes: OfferingMode[] = nextModes.length
+                                              ? nextModes
+                                              : ['monthly'];
                                             return {
                                               ...row,
                                               offeringModes: modes,

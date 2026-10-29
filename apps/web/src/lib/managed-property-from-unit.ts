@@ -7,7 +7,7 @@ import { toPublicMediaSrc } from '@/lib/public-media-url';
  * Prefer this over notFound() so published units still render.
  */
 export function managedPropertyFromPublicUnit(unit: PublicUnitDetail): ManagedProperty {
-  const currency = (unit.rent?.currency ?? unit.salePrice?.currency ?? 'OMR');
+  const currency = unit.rent?.currency ?? unit.salePrice?.currency ?? 'OMR';
   const gallery = (unit.images ?? []).map((image, index) => ({
     id: image.id,
     url: toPublicMediaSrc(image.url) ?? image.url,

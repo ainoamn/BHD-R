@@ -1048,7 +1048,7 @@ export function PropertyDetailManager({
                 {property.units.map((unit) => {
                   const kind = inferUnitKind(unit);
                   const serial = unitSerials.get(unit.id);
-                  const occupancy = (unit.occupancy ?? 'available');
+                  const occupancy = unit.occupancy ?? 'available';
                   const unitTitle =
                     property.kind === 'multi_unit'
                       ? `${unitKindLabel(kind, locale)} ${unit.code}`.trim()

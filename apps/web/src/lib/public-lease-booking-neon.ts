@@ -1238,8 +1238,9 @@ export async function completeLeaseEsign(
       ),
     );
     const priorEvidenceId = docsReturn?.evidenceEventId ?? null;
-    const prior: Partial<Record<'signaturePng' | 'idFrontPng' | 'idBackPng' | 'selfiePng', string>> =
-      {};
+    const prior: Partial<
+      Record<'signaturePng' | 'idFrontPng' | 'idBackPng' | 'selfiePng', string>
+    > = {};
     if (lockedEsign.size && priorEvidenceId) {
       const [row] = await withElevatedRead(transaction, async () =>
         transaction

@@ -443,7 +443,7 @@ export async function confirmStayGate(
         .limit(1);
       const snapshot =
         bookingRow?.pricingSnapshotJson && typeof bookingRow.pricingSnapshotJson === 'object'
-          ? { ...(bookingRow.pricingSnapshotJson) }
+          ? { ...bookingRow.pricingSnapshotJson }
           : {};
       const waive = {
         at: now.toISOString(),

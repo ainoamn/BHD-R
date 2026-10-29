@@ -1,9 +1,7 @@
 import { SITE_CONSOLE_SECTIONS, type SiteConsoleSectionId } from '@/lib/site-admin-shared';
 
 /** Soft-switchable console sections (kept mounted after first visit). */
-export const SITE_ADMIN_SOFT_SECTION_IDS = SITE_CONSOLE_SECTIONS.map(
-  (section) => section.id,
-);
+export const SITE_ADMIN_SOFT_SECTION_IDS = SITE_CONSOLE_SECTIONS.map((section) => section.id);
 
 export function siteAdminSoftSectionFromPath(pathname: string): SiteConsoleSectionId | null {
   const bare =

@@ -1125,7 +1125,7 @@ export async function approveGuestRescheduleOnNeon(
     if (!booking) fail('booking_not_found');
     const snapshot =
       booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
-        ? (booking.pricingSnapshotJson)
+        ? booking.pricingSnapshotJson
         : null;
     const pending =
       snapshot?.pendingReschedule && typeof snapshot.pendingReschedule === 'object'
@@ -1234,7 +1234,7 @@ export async function rejectGuestRescheduleOnNeon(
     if (!booking) fail('booking_not_found');
     const snapshot =
       booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
-        ? (booking.pricingSnapshotJson)
+        ? booking.pricingSnapshotJson
         : null;
     const pending =
       snapshot?.pendingReschedule && typeof snapshot.pendingReschedule === 'object'

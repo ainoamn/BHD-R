@@ -1017,17 +1017,11 @@ function LeaseCheques({
   })();
   const [bankName, setBankName] = useState(seededShared.bankName);
   const [bankOther, setBankOther] = useState(
-    () =>
-      Boolean(seededShared.bankName) &&
-      !(OMAN_BANKS).includes(seededShared.bankName),
+    () => Boolean(seededShared.bankName) && !OMAN_BANKS.includes(seededShared.bankName),
   );
   const [accountHolderName, setAccountHolderName] = useState(seededShared.accountHolderName);
   const [accountNumber, setAccountNumber] = useState(seededShared.accountNumber);
-  const bankSelectValue = bankOther
-    ? BANK_OTHER
-    : (OMAN_BANKS).includes(bankName)
-      ? bankName
-      : '';
+  const bankSelectValue = bankOther ? BANK_OTHER : OMAN_BANKS.includes(bankName) ? bankName : '';
   const [numbers, setNumbers] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     const seeded = cheques.map((item) => item.chequeNumber ?? item.suggestedChequeNumber ?? '');
@@ -1165,7 +1159,7 @@ function LeaseCheques({
                 const value = event.target.value;
                 if (value === BANK_OTHER) {
                   setBankOther(true);
-                  if ((OMAN_BANKS).includes(bankName)) setBankName('');
+                  if (OMAN_BANKS.includes(bankName)) setBankName('');
                   return;
                 }
                 setBankOther(false);

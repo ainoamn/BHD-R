@@ -43,7 +43,7 @@ export async function POST(request: Request, context: RouteContext) {
     body && typeof body === 'object' && !Array.isArray(body)
       ? {
           ...(body as Record<string, unknown>),
-          ...(!('unitId' in (body)) && unitFromQuery ? { unitId: unitFromQuery } : {}),
+          ...(!('unitId' in body) && unitFromQuery ? { unitId: unitFromQuery } : {}),
         }
       : body,
   );

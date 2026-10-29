@@ -516,7 +516,7 @@ export async function createPublicBookingCheckout(
         )
         .limit(40);
       const existing = existingRows.find((row) => {
-        const snap = (row.termsSnapshot ?? {});
+        const snap = row.termsSnapshot ?? {};
         return snap.checkoutSessionReference === sessionReference;
       });
       if (existing) {
@@ -704,7 +704,7 @@ export async function completePublicBookingPayment(
 
       return (
         rows.find((row) => {
-          const snap = (row.termsSnapshot ?? {});
+          const snap = row.termsSnapshot ?? {};
           return snap.checkoutSessionReference === sessionReference;
         }) ?? null
       );
@@ -725,7 +725,7 @@ export async function completePublicBookingPayment(
         status: 'confirmed',
         updatedAt: new Date(),
         termsSnapshot: {
-          ...((match.termsSnapshot ?? {})),
+          ...(match.termsSnapshot ?? {}),
           publicDepositPaidAt: new Date().toISOString(),
           awaitingPublicDepositPayment: false,
         },

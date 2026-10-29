@@ -97,7 +97,7 @@ const TOLD_ELSEWHERE = new Set(['checked_in', 'checked_out', 'deposit_refund']);
 function dateRange(
   from: string | undefined,
   to: string | undefined,
-  stayType?: string  ,
+  stayType?: string,
 ): string | null {
   if (!from) return null;
   const displayOut = to ? displayStayCheckoutOn(stayType, from, to) : from;
@@ -112,8 +112,8 @@ function stayLabel(value: string | undefined, ar: boolean): string | null {
 
 function withTimes(
   range: string | null,
-  checkInTime?: string  ,
-  checkOutTime?: string  ,
+  checkInTime?: string,
+  checkOutTime?: string,
 ): string | null {
   if (!range) return null;
   if (checkInTime && checkOutTime) return `${range} · ${checkInTime}–${checkOutTime}`;

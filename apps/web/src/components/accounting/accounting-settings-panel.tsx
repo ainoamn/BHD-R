@@ -383,7 +383,7 @@ export function AccountingSettingsPanel({
             : 'Add bank accounts and link them to properties — they auto-fill on those properties’ leases (still changeable later).'}
         </p>
         {(settings.bankAccounts ?? []).map((account, index) => {
-          const listed = (OMAN_BANKS).includes(account.bankName);
+          const listed = OMAN_BANKS.includes(account.bankName);
           const custom =
             customBankIds.has(account.id) || (Boolean(account.bankName.trim()) && !listed);
           const bankSelect = custom ? BANK_OTHER : account.bankName;

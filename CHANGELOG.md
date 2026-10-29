@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.11 — 2026-10-29
+
+- **إغلاق بناء الويب بعد 61b74423:** تنسيق Prettier لـ 26 ملفًا؛ تثبيت أنواع `OfferingMode[]` في معالج العقار؛ تضييق `status` إلى `draft|active` عند إدراج/تحديث الوحدات؛ وتطبيع `availabilityStatus` في تقويم الإقامات حتى يجتاز `tsc`/`next build`.
+
 ## 0.8.135.10 — 2026-10-29
 
 - **توضيح إخفاقات Render خلال &lt;2 ثانية:** ليست فشل بناء Docker بل إلغاء Auto-Deploy المتتابع أو غياب Build Filters؛ الإنتاج قد يبقى على صورة قديمة بينما تظهر عشرات Failed. توثيق خطوات Manual Deploy و`PII_LOOKUP_PEPPER` وفلاتر المسارات في `NEST-API-HOSTING.md`.

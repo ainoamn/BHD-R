@@ -190,7 +190,7 @@ export async function waiveStayDepositOnNeon(
       .limit(1);
     const snapshot =
       booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
-        ? { ...(booking.pricingSnapshotJson) }
+        ? { ...booking.pricingSnapshotJson }
         : {};
     const waive = {
       at: now.toISOString(),

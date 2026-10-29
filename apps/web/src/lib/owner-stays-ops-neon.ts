@@ -1,7 +1,7 @@
 import 'server-only';
 import { and, asc, desc, eq, gt, inArray, isNull, lt, ne, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
-import type { StayInventoryCalendarResponse } from '@bhd-r/contracts';
+import type { StayDayAvailabilityStatus, StayInventoryCalendarResponse } from '@bhd-r/contracts';
 import {
   contracts,
   createDatabase,
@@ -309,9 +309,7 @@ async function loadTimelineFacts(
   return {
     history: history.map((entry) => {
       const meta =
-        entry.metadataJson && typeof entry.metadataJson === 'object'
-          ? (entry.metadataJson)
-          : null;
+        entry.metadataJson && typeof entry.metadataJson === 'object' ? entry.metadataJson : null;
       const note = typeof meta?.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
       return {
         at: entry.at instanceof Date ? entry.at.toISOString() : String(entry.at),
@@ -638,9 +636,7 @@ export async function getOwnerStayBookingContractOnNeon(
     let esignSelfiePng: string | null = null;
     for (const entry of paymentHistory) {
       const meta =
-        entry.metadataJson && typeof entry.metadataJson === 'object'
-          ? (entry.metadataJson)
-          : null;
+        entry.metadataJson && typeof entry.metadataJson === 'object' ? entry.metadataJson : null;
       if (!meta) continue;
       if (!cardLast4 && typeof meta.cardLast4 === 'string' && /^\d{4}$/.test(meta.cardLast4)) {
         cardLast4 = meta.cardLast4;
@@ -1038,6 +1034,21 @@ function enumerateStayDates(fromOn: string, toOn: string): string[] {
   return days;
 }
 
+function asAvailabilityStatus(value: string): StayDayAvailabilityStatus {
+  switch (value) {
+    case 'available':
+    case 'blocked':
+    case 'booked':
+    case 'hold':
+    case 'maintenance':
+    case 'lease':
+    case 'unavailable':
+      return value;
+    default:
+      return 'unavailable';
+  }
+}
+
 function fillInventoryCalendarDays(
   mapped: Array<{
     stayDate: string;
@@ -1049,7 +1060,7 @@ function fillInventoryCalendarDays(
   fromOn: string,
   toOn: string,
   defaults: {
-    defaultAvailability: string;
+    defaultAvailability: StayDayAvailabilityStatus;
     defaultRateMinor: string | null;
     defaultCurrency: string | null;
   },
@@ -1059,8 +1070,9 @@ function fillInventoryCalendarDays(
     const existing = byDate.get(stayDate);
     return {
       stayDate,
-      availabilityStatus: (existing?.availabilityStatus ??
-        defaults.defaultAvailability) as StayInventoryCalendarResponse['days'][number]['availabilityStatus'],
+      availabilityStatus: asAvailabilityStatus(
+        existing?.availabilityStatus ?? defaults.defaultAvailability,
+      ),
       effectiveRateMinor: existing?.effectiveRateMinor ?? defaults.defaultRateMinor ?? null,
       currency: (existing?.currency ??
         defaults.defaultCurrency) as StayInventoryCalendarResponse['days'][number]['currency'],
@@ -1347,7 +1359,7 @@ export async function getOwnerStayInventoryDaysOnNeon(
         (item) => day.stayDate >= item.checkInOn && day.stayDate < item.checkOutOn,
       );
       if (!lock) return day;
-      const fromLock =
+      const fromLock: StayDayAvailabilityStatus | null =
         lock.kind === 'booking'
           ? 'booked'
           : lock.kind === 'hold'
@@ -1362,8 +1374,7 @@ export async function getOwnerStayInventoryDaysOnNeon(
       if (!fromLock) return day;
       return {
         ...day,
-        availabilityStatus:
-          fromLock,
+        availabilityStatus: fromLock,
       };
     });
 
@@ -1383,7 +1394,11 @@ export async function getOwnerStayInventoryDaysOnNeon(
       fromOn,
       toOn,
       currency: profile.currency as StayInventoryCalendarResponse['currency'],
-      days: applyStayDaySlots(daysWithLocks, slotsByDate, prices),
+      days: applyStayDaySlots(
+        daysWithLocks,
+        slotsByDate,
+        prices,
+      ) as StayInventoryCalendarResponse['days'],
       locks,
     };
   });

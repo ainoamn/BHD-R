@@ -2226,7 +2226,7 @@ function CreateFields({
                 type="button"
                 className="button button--quiet button--sm"
                 onClick={(event) => {
-                  const form = (event.currentTarget).form;
+                  const form = event.currentTarget.form;
                   if (!form) return;
                   const boxes = form.querySelectorAll<HTMLInputElement>('input[name="scopes"]');
                   for (const box of boxes) {

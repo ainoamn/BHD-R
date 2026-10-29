@@ -108,7 +108,7 @@ export async function completeStayEsignOnNeon(
     // Attach compact pointers on pricing snapshot (full images live in status history).
     const snapshot =
       booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
-        ? { ...(booking.pricingSnapshotJson) }
+        ? { ...booking.pricingSnapshotJson }
         : {};
     snapshot.esign = {
       signedAt: evidence.signedAt,

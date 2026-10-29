@@ -511,10 +511,7 @@ async function loadRescheduleRejection(
     )
     .limit(1);
   if (laterApply) return null;
-  const meta =
-    row.metadata && typeof row.metadata === 'object'
-      ? (row.metadata)
-      : null;
+  const meta = row.metadata && typeof row.metadata === 'object' ? row.metadata : null;
   const note = typeof meta?.note === 'string' && meta.note.trim() ? meta.note.trim() : null;
   return {
     note,
@@ -540,10 +537,7 @@ async function loadCancelOutcome(
     )
     .orderBy(desc(stayBookingStatusHistory.createdAt))
     .limit(1);
-  const meta =
-    row?.metadata && typeof row.metadata === 'object'
-      ? (row.metadata)
-      : null;
+  const meta = row?.metadata && typeof row.metadata === 'object' ? row.metadata : null;
   if (!meta) return null;
   const decision =
     meta.refundDecision === 'refund' || meta.refundDecision === 'keep' ? meta.refundDecision : null;
@@ -1945,7 +1939,7 @@ export async function applyStoredPendingRescheduleInTx(
 ): Promise<typeof stayBookings.$inferSelect | null> {
   const snapshot =
     booking.pricingSnapshotJson && typeof booking.pricingSnapshotJson === 'object'
-      ? (booking.pricingSnapshotJson)
+      ? booking.pricingSnapshotJson
       : null;
   const pending =
     snapshot?.pendingReschedule && typeof snapshot.pendingReschedule === 'object'
