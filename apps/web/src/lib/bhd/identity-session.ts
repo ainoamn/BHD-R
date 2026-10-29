@@ -653,7 +653,7 @@ export async function rebindProductSessionFromProfile(input: {
       subject: input.identitySubject,
       email: input.email,
       emailVerified: true,
-      name: input.name,
+      ...(input.name !== undefined ? { name: input.name } : {}),
     });
     const issued = await issueForUser(tx, userId, {
       ...(input.preferredOrganizationId ? { preferred: input.preferredOrganizationId } : {}),

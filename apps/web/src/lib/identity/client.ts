@@ -9,8 +9,7 @@ export function pageOrigin() {
 export function isIdentityOrigin(origin = pageOrigin()) {
   const here = origin.replace(/\/$/, '');
   return (
-    here === DEFAULT_IDENTITY_ISSUER ||
-    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(here)
+    here === DEFAULT_IDENTITY_ISSUER || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(here)
   );
 }
 
@@ -78,7 +77,10 @@ export function productStartPath(returnTo = '/ar/portal') {
 export function allowedBhdUrl(value: string) {
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(url.origin))
+    if (
+      url.protocol !== 'https:' &&
+      !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(url.origin)
+    )
       return '';
     if (url.origin === DEFAULT_IDENTITY_ISSUER) return url.toString();
     if (getCachedCatalogApps().some((app) => app.origin.replace(/\/$/, '') === url.origin))
@@ -102,8 +104,7 @@ export function addAccountUrl(returnPath?: string) {
       ? `${window.location.pathname}${window.location.search}`
       : '/ar/portal');
   const safe = path.startsWith('/') && !path.startsWith('//') ? path : '/ar/portal';
-  const origin =
-    typeof window !== 'undefined' ? window.location.origin : 'https://r.bhd-om.com';
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://r.bhd-om.com';
   const start = new URL('/api/auth/bhd/start', origin);
   start.searchParams.set('returnTo', safe);
   const login = new URL(`${DEFAULT_IDENTITY_ISSUER}/login`);
@@ -164,8 +165,8 @@ export async function switchWindowAccount(
   if (typeof body.token === 'string') captureWindowToken(body.token);
   return {
     ok: response.ok,
-    token: typeof body.token === 'string' ? body.token : undefined,
-    userId: body.user?.id,
+    ...(typeof body.token === 'string' ? { token: body.token } : {}),
+    ...(body.user?.id ? { userId: body.user.id } : {}),
   };
 }
 
@@ -189,7 +190,10 @@ export async function applyAccountIsolation(token?: string | null, options?: { f
   try {
     const response = await identityFetch('/api/auth/window-handoff', { method: 'POST' });
     const data = (await response.json().catch(() => ({}))) as { ticket?: string };
-    const start = new URL(productStartPath(cacheBustReturnPath(here)), window.location.origin).toString();
+    const start = new URL(
+      productStartPath(cacheBustReturnPath(here)),
+      window.location.origin,
+    ).toString();
     if (response.ok && data.ticket) {
       const handoff = new URL('/auth/handoff', DEFAULT_IDENTITY_ISSUER);
       handoff.searchParams.set('ticket', data.ticket);

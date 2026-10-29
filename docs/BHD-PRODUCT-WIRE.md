@@ -5,14 +5,14 @@
 
 ## ما طُبِّق (2026-10-29)
 
-| البند | التفاصيل |
-|--------|-----------|
+| البند       | التفاصيل                                                                                                                            |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | سكربت + CSP | `bhd-identity.js` في `apps/web/src/app/[locale]/layout.tsx`؛ CSP في `apps/web/src/proxy.ts` (script/connect/img لـ `id.bhd-om.com`) |
-| مدة الجلسة | `apps/web/src/lib/bhd/runtime.ts` ← `GET /api/bhd/runtime`؛ كوكي `bhd_r_session` / CSRF / roster |
-| rebind | `POST /api/auth/bhd/rebind` — Bearer النافذة → `rebindProductSessionFromProfile`؛ يمسح `bhd_r_org` |
-| عميل الهوية | `apps/web/src/lib/identity/client.ts` + `window-session.ts` — `switchWindowAccount` ثم `applyAccountIsolation` (rebind أولاً) |
-| كتالوج حي | `catalog.ts` + `useBhdCatalog` — الرأس (`bhd-app-switcher`) والفوتر (`site-footer`) |
-| Silent SSO | `bhd-silent-sso.tsx` — عدم تطابق → rebind بالـ Bearer (لا `/start` أعمى بعد تبديل النافذة) |
+| مدة الجلسة  | `apps/web/src/lib/bhd/runtime.ts` ← `GET /api/bhd/runtime`؛ كوكي `bhd_r_session` / CSRF / roster                                    |
+| rebind      | `POST /api/auth/bhd/rebind` — Bearer النافذة → `rebindProductSessionFromProfile`؛ يمسح `bhd_r_org`                                  |
+| عميل الهوية | `apps/web/src/lib/identity/client.ts` + `window-session.ts` — `switchWindowAccount` ثم `applyAccountIsolation` (rebind أولاً)       |
+| كتالوج حي   | `catalog.ts` + `useBhdCatalog` — الرأس (`bhd-app-switcher`) والفوتر (`site-footer`)                                                 |
+| Silent SSO  | `bhd-silent-sso.tsx` — عدم تطابق → rebind بالـ Bearer (لا `/start` أعمى بعد تبديل النافذة)                                          |
 
 ## تحقق
 

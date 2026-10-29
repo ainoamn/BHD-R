@@ -59,12 +59,14 @@ export function normalizeCatalogApps(raw: unknown): BhdApp[] {
     });
   }
   return apps.sort((a, b) => {
-    const ao = typeof (a as BhdApp & { sortOrder?: number }).sortOrder === 'number'
-      ? (a as BhdApp & { sortOrder?: number }).sortOrder!
-      : apps.indexOf(a);
-    const bo = typeof (b as BhdApp & { sortOrder?: number }).sortOrder === 'number'
-      ? (b as BhdApp & { sortOrder?: number }).sortOrder!
-      : apps.indexOf(b);
+    const ao =
+      typeof (a as BhdApp & { sortOrder?: number }).sortOrder === 'number'
+        ? (a as BhdApp & { sortOrder?: number }).sortOrder!
+        : apps.indexOf(a);
+    const bo =
+      typeof (b as BhdApp & { sortOrder?: number }).sortOrder === 'number'
+        ? (b as BhdApp & { sortOrder?: number }).sortOrder!
+        : apps.indexOf(b);
     return ao - bo;
   });
 }

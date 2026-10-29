@@ -2,10 +2,7 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { eq } from 'drizzle-orm';
 import { createDatabase, users } from '@bhd-r/db';
-import {
-  hasDatabaseUrl,
-  rebindProductSessionFromProfile,
-} from '@/lib/bhd/identity-session';
+import { hasDatabaseUrl, rebindProductSessionFromProfile } from '@/lib/bhd/identity-session';
 import { identitySettings, safeReturnTo } from '@/lib/bhd/oauth';
 import {
   ORGANIZATION_COOKIE,
@@ -41,9 +38,7 @@ async function profileFromWindowToken(token: string): Promise<IdentityProfile> {
     sub: user.id,
     email,
     name:
-      typeof user.name === 'string' && user.name.trim()
-        ? user.name.trim()
-        : email.split('@')[0]!,
+      typeof user.name === 'string' && user.name.trim() ? user.name.trim() : email.split('@')[0]!,
   };
 }
 
@@ -134,9 +129,7 @@ async function rebind(request: Request) {
       identitySubject: profile.sub,
       email: profile.email,
       name: profile.name,
-      ...(previousSessionId && previousUserId
-        ? { previousSessionId, previousUserId }
-        : {}),
+      ...(previousSessionId && previousUserId ? { previousSessionId, previousUserId } : {}),
       ...(preferredOrganizationId ? { preferredOrganizationId } : {}),
     });
 
