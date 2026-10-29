@@ -1,7 +1,10 @@
+import { cookies } from 'next/headers';
+import { verifySessionToken } from '@bhd-r/authz';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { listLegalCases } from '@/lib/legal-case-neon';
 import { legalErrorResponse, legalJson } from '@/lib/legal-case-route';
 import { requireLiveSession } from '@/lib/next-route-guard';
+import { requireSessionSecret } from '@/lib/runtime-env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,13 +43,30 @@ function e2eLegalCases() {
 /** GET /api/portal/legal/cases — every case for the legal team, a lawyer's own cases for them. */
 export async function GET(request: Request) {
   try {
+    // Fixture e2e: JWT cookie only — requireLiveSession needs DATABASE_URL for session rows.
+    if (preferNestFixtures()) {
+      const token = (await cookies()).get('bhd_r_session')?.value;
+      if (!token) return legalJson({ error: { code: 'unauthorized' } }, { status: 401 });
+      let claims: Awaited<ReturnType<typeof verifySessionToken>>;
+      try {
+        claims = await verifySessionToken(token, requireSessionSecret());
+      } catch {
+        return legalJson({ error: { code: 'unauthorized' } }, { status: 401 });
+      }
+      if (
+        !claims.permissions.includes('legal.read') &&
+        !claims.permissions.includes('legal.case.read')
+      ) {
+        return legalJson({ error: { code: 'forbidden' } }, { status: 403 });
+      }
+      return legalJson({ cases: e2eLegalCases() });
+    }
+
+    if (!hasDatabaseUrl())
+      return legalJson({ error: { code: 'db_unconfigured' } }, { status: 503 });
     const claims = await requireLiveSession(request, {
       anyPermission: ['legal.read', 'legal.case.read'],
     });
-    if (preferNestFixtures()) {
-      return legalJson({ cases: e2eLegalCases() });
-    }
-    if (!hasDatabaseUrl()) return legalJson({ error: { code: 'db_unconfigured' } }, { status: 503 });
     return legalJson({ cases: await listLegalCases(claims) });
   } catch (error) {
     return legalErrorResponse(error, 'load_failed');
