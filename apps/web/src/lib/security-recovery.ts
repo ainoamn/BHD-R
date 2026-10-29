@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHmac, randomInt, randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
-import { securityIdentityFingerprints, securityRecoveryChallenges, users } from '@bhd-r/db';
+import { securityIdentityFingerprints, securityRecoveryChallenges } from '@bhd-r/db';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
 import { emailableAddress, queueBrandedEmail } from '@/lib/email-notify';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';

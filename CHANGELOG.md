@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.2 — 2026-10-29
+
+- **CI lint:** إزالة استيراد `users` غير المستخدم من وحدات الحماية والاستعادة.
+
 ## 0.8.136.1 — 2026-10-29
 
 - **CI تنسيق:** Prettier على ملفات لوحة الأمن والاستعادة والمستند حتى يمرّ `format:check`.
