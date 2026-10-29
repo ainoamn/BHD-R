@@ -109,11 +109,20 @@ async function getViewerFromDatabase(): Promise<Viewer | null> {
  * a revoked or expired session must fail closed.
  */
 export const getViewer = cache(async (): Promise<Viewer | null> => {
+  // Fixture e2e: always use mock Nest /v1/me (CI DB has no matching sessions row).
+  if (process.env.E2E_FORCE_NEST_FIXTURES === '1') {
+    const { ApiError, apiFetch } = await import('./server-api');
+    try {
+      const user = await apiFetch<Omit<Viewer, 'portals'> & { portals?: PortalRole[] }>('/v1/me');
+      return { ...user, portals: portalsForRoles(user.roles) };
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return null;
+      throw error;
+    }
+  }
+
   if (hasDatabaseUrl()) {
-    const fromDb = await getViewerFromDatabase();
-    if (fromDb) return fromDb;
-    // Production: fail closed. Playwright fixtures: fall through to mock /v1/me.
-    if (process.env.E2E_FORCE_NEST_FIXTURES !== '1') return null;
+    return getViewerFromDatabase();
   }
 
   const { ApiError, apiFetch } = await import('./server-api');
@@ -153,6 +162,10 @@ export const getShellViewer = cache(async (): Promise<Viewer | null> => {
     portals: portalsForRoles(claims.roles),
   };
 
+  // Fixture e2e only (never set in production): trust verified JWT chrome even when
+  // CI DATABASE_URL points at an empty migrated database.
+  if (process.env.E2E_FORCE_NEST_FIXTURES === '1') return stub;
+
   if (!hasDatabaseUrl()) return stub;
 
   try {
@@ -162,12 +175,7 @@ export const getShellViewer = cache(async (): Promise<Viewer | null> => {
         setTimeout(() => resolve({ done: false }), 900);
       }),
     ]);
-    if (raced.done) {
-      if (raced.viewer) return raced.viewer;
-      // Playwright fixture mode: empty CI DB returns null fast — keep JWT chrome.
-      if (process.env.E2E_FORCE_NEST_FIXTURES === '1') return stub;
-      return null;
-    }
+    if (raced.done) return raced.viewer;
   } catch {
     /* fall through to JWT stub for chrome only */
   }

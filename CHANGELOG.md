@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.21 — 2026-10-29
+
+- **Playwright جلسة البوابة:** تحت `E2E_FORCE_NEST_FIXTURES=1` فقط، `getShellViewer` يثق بـ JWT بعد التحقق و`getViewer` يستخدم mock `/v1/me` حتى لو بقيت `DATABASE_URL` لقاعدة CI الفارغة.
+
 ## 0.8.135.20 — 2026-10-29
 
 - **Playwright CI #942:** حذف متغيرات قاعدة البيانات من بيئة `next start` وفرض `NODE_ENV=production`؛ مهمة e2e كانت تمرّر `NODE_ENV=test` من مستوى الـ job فيكسر اعتماد البوابة على الجلسة.
