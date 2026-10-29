@@ -25,3 +25,7 @@
 - `BHD-CURSOR-PRODUCT-WIRE.md` — أمر الربط الكامل
 - `BHD-ACCOUNT-ISOLATION.md` — عزل التبديل (rebind بالـ Bearer)
 - `BHD-IDENTITY-RUNTIME.md` — runtime + سكربت
+
+## تحديث §95 (29 أكتوبر 2026)
+
+إصلاح جذر العزل على الهوية: `POST /api/auth/switch` يكتب `bhd_id` دائماً. هذا المنتج يعتمد `rebind` محلياً بعد التبديل. التفاصيل: `BHD-ACCOUNT-ISOLATION.md`.
