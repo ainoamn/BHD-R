@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.135.16 — 2026-10-29
+
+- **توثيق إغلاق 0.8.135:** ملاحظات Render/`PII_LOOKUP_PEPPER`، ترحيلات `custom/*` التلقائية، وبوابة Playwright في `RELEASE-0.8.135-AR.md` و`LOCAL_DEVELOPMENT.md` و`NEST-API-HOSTING.md`.
+
 ## 0.8.135.15 — 2026-10-29
 
 - **إصلاح بوابة Playwright بعد اكتمال الترحيلات:** مواءمة محدّدات تسجيل الدخول ومعالج العقار مع الواجهة الحالية؛ إضافة `/healthz` لـ mock API؛ و`E2E_FORCE_NEST_FIXTURES` حتى لا تحجب قاعدة CI الفارغة صفوف الـ fixture عبر مسار Neon.

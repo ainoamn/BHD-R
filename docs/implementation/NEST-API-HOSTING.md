@@ -206,11 +206,13 @@ Dashboard project name **`bhd-r-api`** is the **Next.js** app (`apps/web` → `r
 
 **خطوات إلزامية في لوحة Render:**
 
-1. Environment → عيّن `PII_LOOKUP_PEPPER` (≥32). بدونه يفشل الإقلاع بعد بناء ناجح.
+1. Environment → عيّن `PII_LOOKUP_PEPPER` (≥32 بايت عشوائي، مثل مخرج `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"`). بدونه يفشل الإقلاع بعد بناء ناجح. لا تضع نص التعليمات كقيمة.
 2. Settings → Build & Deploy → **Auto-Deploy Off**.
 3. Build Filters: راقب `apps/api/**`, `packages/**`, `Dockerfile.api`, `pnpm-lock.yaml`؛ تجاهل `apps/web/**`, `.github/**`, `docs/**`.
-4. **Manual Deploy** لـ `main` → انتظر **Live** (دقائق).
+4. **Manual Deploy** لـ `main` → انتظر **Live** (دقائق). تغييرات الويب فقط تذهب إلى Vercel ولا تحتاج إعادة نشر Nest.
 5. `https://bhd-r.onrender.com/healthz` → `nestReady:true` ثم `/health/ready`.
+
+**حالة موثّقة 2026-10-29:** بعد ضبط الفلفل ونشر يدوي، الإنتاج يرد `nestReady: true` و`database: ok`. تفاصيل سلسلة CI: [`RELEASE-0.8.135-AR.md`](./RELEASE-0.8.135-AR.md).
 
 **Render build fail on `fb0a74d` (0.4.15):** `apps/web` engines pinned to `22.x` while `Dockerfile.api` uses Node 24 + repo `engine-strict=true` → install exit 1. Fixed in **0.4.16** (`>=22` + Docker install ignores engine-strict / minimum-release-age).
 

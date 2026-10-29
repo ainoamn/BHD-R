@@ -59,7 +59,9 @@ pnpm test:e2e
 pnpm build
 ```
 
-شغّل `pnpm check` قبل فتح Pull Request. عند تعديل المخطط: ولّد migration، راجعه يدوياً، طبقه على قاعدة فارغة ثم طبقه مرة ثانية لإثبات repeatability.
+شغّل `pnpm check` قبل فتح Pull Request. عند تعديل المخطط: أضف ملفًا تحت `packages/db/migrations/custom/` (أو generated عبر Drizzle)، راجعه يدوياً، ثم `pnpm db:migrate` على قاعدة فارغة ومرة ثانية لإثبات repeatability. المُرحِّل يطبّق كل `custom/*.sql` تلقائيًا — لا حاجة لقائمة يدوية في `migrate.ts`.
+
+لاختبار المتصفح محليًا بنفس بوابة CI: `pnpm --filter @bhd-r/web test:e2e` (يشغّل mock API + `E2E_FORCE_NEST_FIXTURES=1` حتى تظهر صفوف الـ fixture رغم قاعدة فارغة).
 
 ## اختبار الأدوار والعزل
 
