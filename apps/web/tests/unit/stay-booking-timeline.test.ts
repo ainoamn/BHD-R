@@ -146,7 +146,7 @@ describe('buildStayBookingTimeline', () => {
       }),
     );
     expect(current(timeline)).toBe('deposit');
-    expect(timeline.waiting.join(' ')).toContain('بانتظار تأكيد الضيف استلام المبلغ');
+    expect(timeline.waiting.join(' ')).toContain('تأكيد الاستلام اختياري');
     expect(timeline.events.some((event) => event.title.includes('••••2120'))).toBe(true);
   });
 

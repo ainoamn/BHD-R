@@ -92,7 +92,7 @@ describe('deposit refund', () => {
       '/owner/properties/p1?section=bookings&focus=b1',
     );
     expect(pendingApprovalHref('owner', item('refund_transfer'))).toBe(
-      '/owner/accounting?focus=b1#deposits',
+      '/owner/accounting?tab=deposits&focus=b1',
     );
   });
 

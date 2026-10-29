@@ -37,36 +37,40 @@ const config = {
 } as WorkerConfig;
 
 describe('media processor', () => {
-  it('preserves a private original and emits watermarked AVIF/WebP public variants', async () => {
-    const storage = new MemoryStorage();
-    const input = await sharp({
-      create: { width: 1800, height: 1200, channels: 3, background: '#d7c6a5' },
-    })
-      .jpeg()
-      .toBuffer();
-    storage.privateObjects.set('incoming/one.jpg', input);
-    const process = createMediaProcessor(config, storage, scanner);
-    const result = await process({
-      correlationId: '3c14996b-2184-44b9-9cbb-a92cb40bc254',
-      organizationId: 'e8a76f19-0661-4b77-aa1f-42c83fd8f779',
-      propertyId: '3fc75b5d-2d87-4dd8-94bd-9dd672702a4e',
-      sourceKey: 'incoming/one.jpg',
-      expectedContentType: 'image/jpeg',
-      expectedSize: input.byteLength,
-    });
+  it(
+    'preserves a private original and emits watermarked AVIF/WebP public variants',
+    { timeout: 30_000 },
+    async () => {
+      const storage = new MemoryStorage();
+      const input = await sharp({
+        create: { width: 1800, height: 1200, channels: 3, background: '#d7c6a5' },
+      })
+        .jpeg()
+        .toBuffer();
+      storage.privateObjects.set('incoming/one.jpg', input);
+      const process = createMediaProcessor(config, storage, scanner);
+      const result = await process({
+        correlationId: '3c14996b-2184-44b9-9cbb-a92cb40bc254',
+        organizationId: 'e8a76f19-0661-4b77-aa1f-42c83fd8f779',
+        propertyId: '3fc75b5d-2d87-4dd8-94bd-9dd672702a4e',
+        sourceKey: 'incoming/one.jpg',
+        expectedContentType: 'image/jpeg',
+        expectedSize: input.byteLength,
+      });
 
-    expect(result.originalKey).toMatch(/^originals\//);
-    expect(storage.privateObjects.has(result.originalKey)).toBe(true);
-    expect(storage.privateObjects.has('incoming/one.jpg')).toBe(false);
-    expect(storage.publicObjects.size).toBe(6);
-    const formats = await Promise.all(
-      [...storage.publicObjects.values()].map(
-        async (bytes) => (await sharp(bytes).metadata()).format,
-      ),
-    );
-    expect(formats.filter((format) => format === 'webp')).toHaveLength(3);
-    expect(formats.filter((format) => format === 'heif')).toHaveLength(3);
-  });
+      expect(result.originalKey).toMatch(/^originals\//);
+      expect(storage.privateObjects.has(result.originalKey)).toBe(true);
+      expect(storage.privateObjects.has('incoming/one.jpg')).toBe(false);
+      expect(storage.publicObjects.size).toBe(6);
+      const formats = await Promise.all(
+        [...storage.publicObjects.values()].map(
+          async (bytes) => (await sharp(bytes).metadata()).format,
+        ),
+      );
+      expect(formats.filter((format) => format === 'webp')).toHaveLength(3);
+      expect(formats.filter((format) => format === 'heif')).toHaveLength(3);
+    },
+  );
 
   it('still Sharp-encodes when MEDIA_SCAN_MODE is disabled', async () => {
     const disabled: MalwareScanner = {

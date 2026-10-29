@@ -18,9 +18,15 @@ function draft(overrides: Partial<LeaseTermsDraft> = {}): LeaseTermsDraft {
     monthlyRent: '300',
     startsOn: '2026-11-01',
     endsOn: '2027-10-31',
+    handoverOn: '2026-11-01',
+    electricityReading: '100',
+    waterReading: '50',
     paymentDay: '5',
     paymentMethod: 'cheque',
     paymentFrequency: 'monthly',
+    chequeBankName: 'Bank Muscat',
+    chequeAccountName: 'BHD R Owner',
+    rentBankAccountId: '00000000-0000-4000-8000-000000000099',
     vatEnabled: false,
     vatRate: '5',
     vatMode: 'with_rent',
@@ -75,8 +81,9 @@ describe('rent schedule', () => {
       frequency: 'monthly',
     });
     expect(rows).toHaveLength(12);
-    expect(rows[0]!.dueOn).toBe('2026-11-10');
-    expect(rows[1]!.dueOn).toBe('2026-12-05');
+    // Payment day 5 falls before the 10th start — first cheque is the following month.
+    expect(rows[0]!.dueOn).toBe('2026-12-05');
+    expect(rows[1]!.dueOn).toBe('2027-01-05');
   });
 
   it('groups by payment frequency and prorates extra days', () => {
@@ -101,7 +108,8 @@ describe('computeLeaseTerms', () => {
     expect(result.terms.totals.rentMinor).toBe(3_600_000);
     expect(result.terms.totals.municipalityFeeMinor).toBe(108_000);
     expect(result.terms.totals.registrationFeeMinor).toBe(1_000);
-    expect(result.terms.totals.grandTotalMinor).toBe(3_709_000);
+    // Municipality fee is tracked separately; grand total is rent + registration.
+    expect(result.terms.totals.grandTotalMinor).toBe(3_601_000);
     expect(result.terms.totals.depositMinor).toBe(300_000);
   });
 

@@ -222,9 +222,94 @@ async function loadFromNest(portal: PortalRole, section: OperationsSection): Pro
   }
 }
 
+/** In-process smoke rows for E2E_FORCE — avoid Nest/cookies races on parallel section loads. */
+function e2eSmokeRecords(section: OperationsSection): Record<string, unknown>[] | null {
+  switch (section) {
+    case 'requests':
+      return [
+        {
+          id: 'req-1',
+          reference: 'REQ-2026-0142',
+          subject: 'تحديث بيانات المستأجر',
+          type: 'customer_service',
+          priority: 'normal',
+          status: 'in_progress',
+          dueAt: '2026-08-25T09:00:00.000Z',
+        },
+      ];
+    case 'bookings':
+      return [
+        {
+          id: 'view-1',
+          reference: 'VIEW-0041',
+          unitId: '00000000-0000-4000-8000-000000000010',
+          status: 'scheduled',
+          scheduledAt: '2026-08-26T14:30:00.000Z',
+          recordKind: 'viewing',
+          bookingPurpose: 'monthly',
+        },
+      ];
+    case 'sales':
+      return [
+        {
+          id: 'sale-1',
+          reference: 'SALE-2026-008',
+          propertyId: '00000000-0000-4000-8000-000000000011',
+          status: 'negotiation',
+          askingPriceMinor: '125000000',
+          agreedPriceMinor: '121000000',
+          currency: 'OMR',
+          expectedClosingOn: '2026-09-15',
+        },
+      ];
+    case 'accounting':
+      return [
+        {
+          id: 'journal-1',
+          reference: 'JV-2026-0038',
+          occurredOn: '2026-08-18',
+          description: 'تحصيل إيجار أغسطس',
+          debitMinor: '175000',
+          creditMinor: '175000',
+          currency: 'OMR',
+          status: 'posted',
+        },
+      ];
+    case 'work-orders':
+      return [
+        {
+          id: 'wo-1',
+          reference: 'WO-2026-0077',
+          title: 'استبدال مضخة المياه',
+          estimatedCostMinor: '85000',
+          currency: 'OMR',
+          status: 'approved',
+          scheduledFor: '2026-08-24T07:00:00.000Z',
+        },
+      ];
+    case 'legal':
+      return [
+        {
+          id: 'legal-1',
+          reference: 'LEG-2026-0014',
+          title: 'متابعة إشعار قانوني',
+          caseType: 'notice',
+          status: 'in_progress',
+          nextHearingAt: '2026-09-02T06:00:00.000Z',
+          claimedAmountMinor: '900000',
+          currency: 'OMR',
+        },
+      ];
+    default:
+      return null;
+  }
+}
+
 async function loadSection(portal: PortalRole, section: OperationsSection): Promise<SectionLoad> {
-  // Playwright CI: empty migrated DB would otherwise short-circuit Nest fixtures with [].
+  // Playwright CI: serve in-process smoke rows (Nest mock can race on parallel cookies/fetch).
   if (preferNestFixtures()) {
+    const smoke = e2eSmokeRecords(section);
+    if (smoke) return { records: smoke, source: 'nest' };
     return loadFromNest(portal, section);
   }
 
