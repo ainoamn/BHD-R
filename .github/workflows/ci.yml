@@ -183,6 +183,11 @@ jobs:
           NODE_ENV: production
           E2E_FORCE_NEST_FIXTURES: '1'
           STAYS_PLATFORM_ENABLED: 'false'
+          # Playwright merges webServer env with the job env — blank so next start
+          # does not see the empty migrated CI database as configured.
+          DATABASE_URL: ''
+          SYSTEM_DATABASE_URL: ''
+          MIGRATION_DATABASE_URL: ''
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
