@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.5 — 2026-11-01
+
+- **`/ar/admin`:** صفحة 404 خاصة بتحكم الموقع بدل رسالة الكتالوج؛ عدم ابتلاع أخطاء `siteAdminAccess`؛ ودعم `SITE_ADMIN_EMAILS` كتمهيد إضافي لقائمة المسؤولين.
+
 ## 0.8.136.4 — 2026-11-01
 
 - **CI تنسيق:** Prettier على `ENV-MANIFEST.md` و`VITEST-SUITE-RESTORE-AR.md` و`ensure-vercel-cron-secret.mjs` بعد فشل `format:check` في CI #983.

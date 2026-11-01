@@ -80,12 +80,18 @@ async function audit(
 
 function contactEmails(value: unknown): string[] {
   const emails = (value as { emails?: unknown } | null)?.emails;
-  return Array.isArray(emails)
+  const fromSettings = Array.isArray(emails)
     ? emails
         .filter((item): item is string => typeof item === 'string')
         .map((item) => item.trim().toLowerCase())
         .filter(Boolean)
     : [];
+  /** Optional bootstrap: comma-separated SITE_ADMIN_EMAILS on the web runtime. */
+  const fromEnv = (process.env.SITE_ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set([...fromSettings, ...fromEnv])];
 }
 
 function readDelegates(value: unknown): AdminDelegate[] {
