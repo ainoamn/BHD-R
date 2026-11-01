@@ -2,7 +2,6 @@
 
 import {
   applyAccountIsolation,
-  clearAccountRebindLock,
   clearHostileProductCookie,
   ensureAuInUrl,
   isAccountRebindPending,
@@ -12,12 +11,18 @@ import {
   productStartPath,
   rememberProductCookieOwner,
   scrubCacheBustFromUrl,
+  signalPrivacyVeilReady,
   SILENT_SSO_GUARD_MS,
   tabMayClaimProductCookie,
   watchProductCookieOwner,
 } from '@/lib/identity/client';
 import { loadBhdIdentity } from '@/lib/identity/bhd-browser';
-import { boundWindowToken, readActiveAu, setActiveAu } from '@/lib/identity/window-session';
+import {
+  boundWindowToken,
+  readActiveAu,
+  setActiveAu,
+  tokenForAccount,
+} from '@/lib/identity/window-session';
 import { useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -33,31 +38,31 @@ async function productMe(): Promise<{ authenticated?: boolean; currentSub?: stri
   };
 }
 
-/** After silent rebind, wait until cookie matches this tab before lifting the veil. */
+/** After silent rebind, confirm cookie then release within the splash budget. */
 async function releaseVeilWhenAligned(expectedSub: string) {
   const au = expectedSub.trim();
   if (!au) {
-    clearAccountRebindLock();
+    signalPrivacyVeilReady();
     return;
   }
-  for (let i = 0; i < 8; i += 1) {
+  for (let i = 0; i < 5; i += 1) {
     try {
       const local = await productMe();
       if (local.currentSub && local.currentSub === au) {
         rememberProductCookieOwner(au);
         clearHostileProductCookie();
-        clearAccountRebindLock();
         ensureAuInUrl(au);
         scrubCacheBustFromUrl();
+        signalPrivacyVeilReady();
         return;
       }
     } catch {
       /* retry */
     }
-    await new Promise((resolve) => window.setTimeout(resolve, 120 + i * 80));
+    await new Promise((resolve) => window.setTimeout(resolve, 80 + i * 60));
   }
-  // Still mismatched — keep veil; next focus/reconcile will retry.
-  paintPrivacyVeil();
+  // Max splash timer in paintPrivacyVeil will lift regardless.
+  signalPrivacyVeilReady();
 }
 
 export function BhdSilentSso() {
@@ -106,6 +111,7 @@ export function BhdSilentSso() {
       path.includes('/verify/') ||
       /\/book\//.test(path)
     ) {
+      signalPrivacyVeilReady();
       return;
     }
 
@@ -118,20 +124,60 @@ export function BhdSilentSso() {
         const au = readActiveAu();
         if (au) setActiveAu(au);
 
-        const local = await productMe();
+        // Fast path: rebind with this tab's token while /me runs in parallel.
+        const cachedToken = (au && tokenForAccount(au)) || boundWindowToken();
+        const mePromise = productMe();
+
+        if (au && cachedToken && tabMayClaimProductCookie()) {
+          const localPeek = await Promise.race([
+            mePromise,
+            new Promise<{ authenticated?: boolean; currentSub?: string | null }>((resolve) =>
+              window.setTimeout(() => resolve({}), 280),
+            ),
+          ]);
+          if (cancelled) return;
+          if (localPeek.currentSub && localPeek.currentSub === au) {
+            rememberProductCookieOwner(au);
+            clearHostileProductCookie();
+            scrubCacheBustFromUrl();
+            ensureAuInUrl(au);
+            signalPrivacyVeilReady();
+            return;
+          }
+          if (!localPeek.currentSub || localPeek.currentSub !== au) {
+            if (localPeek.currentSub) markHostileProductCookie(localPeek.currentSub);
+            paintPrivacyVeil();
+            await applyAccountIsolation(cachedToken, {
+              force: true,
+              sub: au,
+              silent: true,
+            });
+            return;
+          }
+        }
+
+        const local = await mePromise;
         if (cancelled) return;
 
         const productSub = local.currentSub || null;
         if (local.authenticated && productSub && au && productSub === au) {
           rememberProductCookieOwner(au);
-          clearAccountRebindLock();
           clearHostileProductCookie();
           scrubCacheBustFromUrl();
           ensureAuInUrl(au);
+          signalPrivacyVeilReady();
           return;
         }
 
-        // Cookie is for another account — hide wrong paint immediately.
+        if (!au && productSub) {
+          setActiveAu(productSub);
+          rememberProductCookieOwner(productSub);
+          ensureAuInUrl(productSub);
+          scrubCacheBustFromUrl();
+          signalPrivacyVeilReady();
+          return;
+        }
+
         if (au && productSub && productSub !== au) {
           markHostileProductCookie(productSub);
           paintPrivacyVeil();
@@ -139,15 +185,12 @@ export function BhdSilentSso() {
 
         if (au) ensureAuInUrl(au);
 
-        // Background tabs must not steal the shared cookie (veil stays up).
         if (!tabMayClaimProductCookie()) return;
 
         const identity = await loadBhdIdentity();
         if (cancelled || !identity) return;
         const { ok, body } = await identity.me();
-        if (cancelled || !ok || !body.user?.id) {
-          return;
-        }
+        if (cancelled || !ok || !body.user?.id) return;
 
         const identityId = body.user.id;
         const targetAu = au || identityId;
@@ -159,14 +202,16 @@ export function BhdSilentSso() {
           productSub === targetAu
         ) {
           rememberProductCookieOwner(productSub);
-          clearAccountRebindLock();
           scrubCacheBustFromUrl();
+          signalPrivacyVeilReady();
           return;
         }
 
         const guardKey = `bhd-sso:${targetAu || identityId}`;
         const last = Number(sessionStorage.getItem(guardKey) || '0');
-        if (last && Date.now() - last < SILENT_SSO_GUARD_MS) return;
+        // Skip cooldown while splash is up — user just refreshed and expects a quick settle.
+        const splashOpen = document.documentElement.dataset.bhdSwitching === '1';
+        if (!splashOpen && last && Date.now() - last < SILENT_SSO_GUARD_MS) return;
         sessionStorage.setItem(guardKey, String(Date.now()));
 
         if (!local.authenticated || !productSub) {
@@ -176,14 +221,16 @@ export function BhdSilentSso() {
         }
 
         const token =
-          (au && identityId !== au ? boundWindowToken() : '') || boundWindowToken() || body.token;
+          (au && identityId !== au ? boundWindowToken() : '') ||
+          boundWindowToken() ||
+          (typeof body.token === 'string' ? body.token : '');
         await applyAccountIsolation(token, {
           force: true,
           sub: targetAu || identityId,
           silent: true,
         });
       } catch {
-        /* keep veil if already painted */
+        /* max splash timer still lifts */
       }
     }
 

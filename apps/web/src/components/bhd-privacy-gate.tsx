@@ -2,7 +2,6 @@
 
 import {
   applyAccountIsolation,
-  clearAccountRebindLock,
   ensureAuInUrl,
   isAccountRebindPending,
   isIdentityOrigin,
@@ -10,6 +9,7 @@ import {
   paintPrivacyVeil,
   rememberProductCookieOwner,
   scrubCacheBustFromUrl,
+  signalPrivacyVeilReady,
   tabMayClaimProductCookie,
 } from '@/lib/identity/client';
 import { loadBhdIdentity } from '@/lib/identity/bhd-browser';
@@ -18,6 +18,7 @@ import {
   captureAccountToken,
   readActiveAu,
   setActiveAu,
+  tokenForAccount,
 } from '@/lib/identity/window-session';
 import { useEffect, useState } from 'react';
 
@@ -58,7 +59,7 @@ export function BhdPrivacyGate() {
       path.includes('/verify/') ||
       /\/book\//.test(path)
     ) {
-      clearAccountRebindLock();
+      signalPrivacyVeilReady();
       return;
     }
 
@@ -73,22 +74,20 @@ export function BhdPrivacyGate() {
           ensureAuInUrl(au);
         }
 
-        // Aligned — keep this tab's au; never overwrite URL au with cookie sub.
         if (productSub && au && productSub === au) {
           rememberProductCookieOwner(au);
-          clearAccountRebindLock();
           scrubCacheBustFromUrl();
           ensureAuInUrl(au);
+          signalPrivacyVeilReady();
           return;
         }
 
-        // No tab binding yet — adopt cookie account as this tab's au.
         if (productSub && !au) {
           setActiveAu(productSub);
           rememberProductCookieOwner(productSub);
           ensureAuInUrl(productSub);
-          clearAccountRebindLock();
           scrubCacheBustFromUrl();
+          signalPrivacyVeilReady();
           return;
         }
 
@@ -100,29 +99,32 @@ export function BhdPrivacyGate() {
         if (isAccountRebindPending()) {
           if (productSub && au && productSub === au) {
             rememberProductCookieOwner(au);
-            clearAccountRebindLock();
             scrubCacheBustFromUrl();
+            signalPrivacyVeilReady();
           }
           return;
         }
 
-        // Cookie belongs to another account — only the focused tab may reclaim it.
         if (!tabMayClaimProductCookie()) return;
+
+        const cached = (au && tokenForAccount(au)) || boundWindowToken();
+        if (au && cached && productSub && productSub !== au) {
+          await applyAccountIsolation(cached, { force: true, sub: au, silent: true });
+          return;
+        }
 
         const identity = await loadBhdIdentity();
         if (cancelled || !identity) {
           if (productSub && au && productSub === au) {
-            clearAccountRebindLock();
             scrubCacheBustFromUrl();
+            signalPrivacyVeilReady();
           }
           return;
         }
 
         const { ok, body } = await identity.me();
         if (cancelled) return;
-        if (!ok || !body.user?.id) {
-          return;
-        }
+        if (!ok || !body.user?.id) return;
 
         const identityId = body.user.id;
         const identityEmail = (body.user.email || '').trim().toLowerCase();
@@ -139,9 +141,9 @@ export function BhdPrivacyGate() {
 
         if (matched) {
           rememberProductCookieOwner(targetAu);
-          clearAccountRebindLock();
           scrubCacheBustFromUrl();
           ensureAuInUrl(targetAu);
+          signalPrivacyVeilReady();
           return;
         }
 
@@ -153,7 +155,7 @@ export function BhdPrivacyGate() {
           silent: true,
         });
       } catch {
-        /* keep veil if already painted */
+        /* splash max timer still lifts */
       }
     }
 

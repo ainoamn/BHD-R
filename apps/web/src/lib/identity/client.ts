@@ -319,34 +319,122 @@ export async function productSessionMatchesTab(): Promise<boolean> {
 }
 
 const VEIL_MARK_SRC = '/brand/bhd-official-symbol.svg';
+/** Short branded splash — site loads behind; never hang on green forever. */
+export const VEIL_MIN_MS = 700;
+export const VEIL_MAX_MS = 1_800;
+const VEIL_FADE_MS = 320;
+
+let veilShownAt = 0;
+let veilReady = false;
+let veilMinTimer = 0;
+let veilMaxTimer = 0;
+let veilExitTimer = 0;
 
 function veilCaption() {
   try {
-    return document.documentElement.lang === 'en' ? 'Securing your account…' : 'جاري تأمين حسابك…';
+    return document.documentElement.lang === 'en'
+      ? 'Loading your workspace…'
+      : 'جاري تجهيز مساحتك…';
   } catch {
-    return 'جاري تأمين حسابك…';
+    return 'جاري تجهيز مساحتك…';
   }
 }
 
-/** Branded cover while cookie/?au= reconcile — never show another account’s SSR paint. */
+function veilMarkup() {
+  return `<div class="bhd-account-veil__panel"><div class="bhd-account-veil__stage"><span class="bhd-account-veil__glow" aria-hidden="true"></span><span class="bhd-account-veil__ring" aria-hidden="true"></span><div class="bhd-account-veil__mark"><img src="${VEIL_MARK_SRC}" alt="" width="168" height="52" decoding="async" fetchpriority="high" /></div></div><p class="bhd-account-veil__caption">${veilCaption()}</p><div class="bhd-account-veil__track" aria-hidden="true"><span class="bhd-account-veil__bar"></span></div></div>`;
+}
+
+function resetVeilBudget() {
+  veilShownAt = 0;
+  veilReady = false;
+  if (veilMinTimer) window.clearTimeout(veilMinTimer);
+  if (veilMaxTimer) window.clearTimeout(veilMaxTimer);
+  if (veilExitTimer) window.clearTimeout(veilExitTimer);
+  veilMinTimer = 0;
+  veilMaxTimer = 0;
+  veilExitTimer = 0;
+}
+
+function startVeilBudget() {
+  if (veilShownAt) return;
+  veilShownAt = Date.now();
+  veilReady = false;
+  if (veilMinTimer) window.clearTimeout(veilMinTimer);
+  if (veilMaxTimer) window.clearTimeout(veilMaxTimer);
+  veilMinTimer = window.setTimeout(() => {
+    veilMinTimer = 0;
+    if (veilReady) releasePrivacyVeil();
+  }, VEIL_MIN_MS);
+  // Hard cap so refresh never sticks on the splash.
+  veilMaxTimer = window.setTimeout(() => {
+    veilMaxTimer = 0;
+    veilReady = true;
+    releasePrivacyVeil();
+  }, VEIL_MAX_MS);
+}
+
+/** Branded cover while cookie/?au= reconcile — fixed ~0.7–1.8s budget. */
 export function paintPrivacyVeil(_message?: string) {
   if (typeof document === 'undefined') return;
   try {
     document.documentElement.dataset.bhdSwitching = '1';
+    document.documentElement.style.setProperty('--bhd-veil-ms', `${VEIL_MAX_MS}ms`);
     let veil = document.getElementById('bhd-privacy-veil');
     if (!veil) {
       veil = document.createElement('div');
       veil.id = 'bhd-privacy-veil';
       veil.className = 'bhd-account-veil';
       veil.setAttribute('aria-hidden', 'true');
-      veil.innerHTML = `<div class="bhd-account-veil__stage"><span class="bhd-account-veil__ring" aria-hidden="true"></span><div class="bhd-account-veil__mark"><img src="${VEIL_MARK_SRC}" alt="" width="168" height="52" decoding="async" /></div><p class="bhd-account-veil__caption">${veilCaption()}</p></div>`;
+      veil.innerHTML = veilMarkup();
       document.body.appendChild(veil);
-    } else if (!veil.querySelector('.bhd-account-veil__mark')) {
-      veil.className = 'bhd-account-veil';
-      veil.innerHTML = `<div class="bhd-account-veil__stage"><span class="bhd-account-veil__ring" aria-hidden="true"></span><div class="bhd-account-veil__mark"><img src="${VEIL_MARK_SRC}" alt="" width="168" height="52" decoding="async" /></div><p class="bhd-account-veil__caption">${veilCaption()}</p></div>`;
+    } else {
+      veil.classList.remove('is-exiting');
+      if (!veil.querySelector('.bhd-account-veil__panel')) {
+        veil.className = 'bhd-account-veil';
+        veil.innerHTML = veilMarkup();
+      }
     }
+    startVeilBudget();
   } catch {
     /* ignore */
+  }
+}
+
+/** Session aligned (or refresh done) — lift after the minimum splash, or immediately if past it. */
+export function signalPrivacyVeilReady() {
+  veilReady = true;
+  if (!veilShownAt) {
+    clearAccountRebindLock();
+    return;
+  }
+  const waited = Date.now() - veilShownAt;
+  if (waited >= VEIL_MIN_MS) releasePrivacyVeil();
+}
+
+/** Fade out the splash then unlock the page. */
+export function releasePrivacyVeil() {
+  if (typeof document === 'undefined') {
+    clearAccountRebindLock();
+    return;
+  }
+  try {
+    const veil = document.getElementById('bhd-privacy-veil');
+    if (!veil || veil.classList.contains('is-exiting')) {
+      clearAccountRebindLock();
+      resetVeilBudget();
+      return;
+    }
+    veil.classList.add('is-exiting');
+    document.documentElement.dataset.bhdSwitching = '0';
+    if (veilExitTimer) window.clearTimeout(veilExitTimer);
+    veilExitTimer = window.setTimeout(() => {
+      veilExitTimer = 0;
+      clearAccountRebindLock();
+      resetVeilBudget();
+    }, VEIL_FADE_MS);
+  } catch {
+    clearAccountRebindLock();
+    resetVeilBudget();
   }
 }
 
@@ -484,7 +572,7 @@ export async function applyAccountIsolation(
       } else {
         clearHostileProductCookie();
         if (result.userId || sub) rememberProductCookieOwner(result.userId || sub || '');
-        clearAccountRebindLock();
+        signalPrivacyVeilReady();
       }
       return;
     }
@@ -525,6 +613,7 @@ export function clearAccountRebindLock() {
   sessionStorage.removeItem(REBIND_LOCK);
   try {
     delete document.documentElement.dataset.bhdSwitching;
+    document.documentElement.removeAttribute('data-bhd-switching');
     document.getElementById('bhd-privacy-veil')?.remove();
   } catch {
     /* ignore */
