@@ -12,7 +12,6 @@ export default defineConfig({
     // Restore one-by-one per docs/implementation/VITEST-SUITE-RESTORE-AR.md then raise thresholds.
     exclude: [
       'tests/unit/lease-contract-form.test.tsx',
-      'tests/unit/next-write-route-policy.test.ts',
       'tests/unit/reservation-party.test.ts',
       'tests/unit/portal-navigation.test.tsx',
       'tests/unit/email-template.test.ts',

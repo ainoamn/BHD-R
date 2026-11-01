@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
   try {
-    const claims = await requireLiveSession(request);
+    const claims = await requireLiveSession(request, { requireCsrf: true });
     const body = (await request.json().catch(() => null)) as {
       kind?: string;
       sourceId?: string;

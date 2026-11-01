@@ -29,7 +29,7 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
   try {
-    const claims = await requireLiveSession(request);
+    const claims = await requireLiveSession(request, { requireCsrf: true });
     const body: unknown = await request.json().catch(() => null);
     return NextResponse.json({ settings: await setAccountingSettings(claims, body) });
   } catch (error) {

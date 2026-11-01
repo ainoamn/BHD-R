@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
   }
   try {
-    const claims = await requireLiveSession(request);
+    const claims = await requireLiveSession(request, { requireCsrf: true });
     if (!canPostAccounting(claims)) {
       return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
     }
