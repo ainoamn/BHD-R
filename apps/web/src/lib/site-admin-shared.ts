@@ -40,8 +40,8 @@ export const SCOPE_LABELS: Record<
   accounting: {
     ar: 'محاسبة المنصة',
     en: 'Platform accounting',
-    hintAr: 'دخل العملاء وصرفهم ودفاتر الموقع وتحليل الذكاء الاصطناعي',
-    hintEn: 'Client income/spend, site ledger, and AI analysis',
+    hintAr: 'حسابات العملاء وأموال المنصة (اشتراكات وإيصالات ومصروفات)',
+    hintEn: 'Client accounts and platform money (subscriptions, receipts, expenses)',
   },
   delegates: {
     ar: 'التفويض',
@@ -57,6 +57,7 @@ export const ADMIN_SECTIONS: { scope: AdminScope; path: string }[] = [
   { scope: 'plans', path: '/admin/plans' },
   { scope: 'users', path: '/admin/users' },
   { scope: 'accounting', path: '/admin/accounting' },
+  { scope: 'accounting', path: '/admin/finance' },
   { scope: 'delegates', path: '/admin/delegates' },
 ];
 
@@ -70,6 +71,7 @@ export type SiteConsoleSectionId =
   | 'security'
   | 'billing'
   | 'accounting'
+  | 'finance'
   | 'payments'
   | 'pages'
   | 'maintenance'
@@ -195,10 +197,20 @@ export const SITE_CONSOLE_SECTIONS: Array<{
     path: '/admin/accounting',
     scope: 'accounting',
     group: 'growth',
-    ar: 'محاسبة المنصة',
-    en: 'Platform accounting',
-    hintAr: 'دخل وصرف العملاء ودفاتر الموقع والتسويق',
-    hintEn: 'Client income/spend, site books, and marketing pulse',
+    ar: 'حسابات العملاء',
+    en: 'Client accounts',
+    hintAr: 'دخل وصرف كل منشأة ونبض التسويق بالذكاء الاصطناعي',
+    hintEn: 'Per-organization income/spend and AI marketing pulse',
+  },
+  {
+    id: 'finance',
+    path: '/admin/finance',
+    scope: 'accounting',
+    group: 'growth',
+    ar: 'أموال المنصة',
+    en: 'Platform finance',
+    hintAr: 'اشتراكات وإيصالات ودخل آخر ومصروفات الموقع بالتاريخ',
+    hintEn: 'Subscriptions, receipts, other income, and site expenses by date',
   },
   {
     id: 'users',

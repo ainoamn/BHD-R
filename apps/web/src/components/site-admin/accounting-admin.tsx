@@ -1,13 +1,11 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { browserNextMutation } from '@/lib/api';
-import {
-  PLATFORM_LEDGER_KINDS,
-  PLATFORM_LEDGER_KIND_LABELS,
-  type PlatformAccountingNarrative,
-  type PlatformAccountingView,
-  type PlatformLedgerKind,
+import type {
+  PlatformAccountingNarrative,
+  PlatformAccountingView,
 } from '@/lib/site-admin-shared';
 import {
   adminDate,
@@ -28,32 +26,16 @@ function omr(minor: number, ar: boolean): string {
   return ar ? `${value} ر.ع.` : `${value} OMR`;
 }
 
-function todayIso(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  const d = String(now.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-/** Platform accounting desk: client money pulse, accounts, site ledger, AI analysis. */
+/** Client-accounts desk: org money pulse and AI ranking (platform cash lives under /admin/finance). */
 export function AccountingAdmin({ locale }: { locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const [view, setView] = useState<PlatformAccountingView | null>(null);
   const [narrative, setNarrative] = useState<PlatformAccountingNarrative | null>(null);
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState<AdminNotice | null>(null);
-  const [busy, setBusy] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<'income' | 'expense' | 'net' | 'name'>('income');
-
-  const [kind, setKind] = useState<PlatformLedgerKind>('subscription_in');
-  const [category, setCategory] = useState(ar ? 'اشتراك' : 'Subscription');
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [occurredOn, setOccurredOn] = useState(todayIso());
-  const [reference, setReference] = useState('');
 
   const load = useCallback(() => {
     let live = true;
@@ -96,76 +78,6 @@ export function AccountingAdmin({ locale }: { locale: 'ar' | 'en' }) {
     });
   }, [view, query, sort, narrative]);
 
-  async function addEntry(event: React.FormEvent) {
-    event.preventDefault();
-    const amountOmr = Number(amount);
-    if (!description.trim() || !Number.isFinite(amountOmr) || amountOmr <= 0) {
-      setNotice({
-        tone: 'error',
-        text: ar ? 'أدخل وصفاً ومبلغاً صحيحاً.' : 'Enter a description and a valid amount.',
-      });
-      return;
-    }
-    setBusy(true);
-    try {
-      await browserNextMutation('/api/site-admin/accounting', {
-        method: 'POST',
-        body: JSON.stringify({
-          kind,
-          category: category.trim() || (ar ? 'عام' : 'General'),
-          description: description.trim(),
-          amountOmr,
-          occurredOn,
-          reference: reference.trim() || null,
-        }),
-      });
-      setDescription('');
-      setAmount('');
-      setReference('');
-      setNotice({
-        tone: 'success',
-        text: ar ? 'أُضيف القيد إلى دفتر الموقع.' : 'Ledger entry posted.',
-      });
-      load();
-    } catch (error) {
-      setNotice({
-        tone: 'error',
-        text: adminErrorText(error, ar, 'تعذّر حفظ القيد.', 'Could not save the entry.'),
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function voidEntry(entryId: string) {
-    if (
-      !window.confirm(
-        ar ? 'إلغاء هذا القيد؟' : 'Void this ledger entry?',
-      )
-    ) {
-      return;
-    }
-    setBusy(true);
-    try {
-      await browserNextMutation('/api/site-admin/accounting', {
-        method: 'POST',
-        body: JSON.stringify({ entryId, void: true }),
-      });
-      setNotice({
-        tone: 'success',
-        text: ar ? 'أُلغي القيد.' : 'Entry voided.',
-      });
-      load();
-    } catch (error) {
-      setNotice({
-        tone: 'error',
-        text: adminErrorText(error, ar, 'تعذّر الإلغاء.', 'Could not void.'),
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function runAi() {
     setAiBusy(true);
     try {
@@ -198,27 +110,32 @@ export function AccountingAdmin({ locale }: { locale: 'ar' | 'en' }) {
   return (
     <SiteAdminPage
       locale={locale}
-      title={ar ? 'محاسبة المنصة' : 'Platform accounting'}
+      title={ar ? 'حسابات العملاء' : 'Client accounts'}
       lead={
         ar
-          ? 'دخل وصرف حسابات العملاء، تحصيلات الاشتراك ومصروفات الموقع، ونبض المنصة للتسويق — مع تحليل وفرز بالذكاء الاصطناعي.'
-          : 'Client account income and spend, site subscription collections and expenses, and a marketing pulse — with AI analysis and ranking.'
+          ? 'دخل وصرف كل منشأة على المنصة ونبض التسويق — مع تحليل وفرز بالذكاء الاصطناعي. أموال اشتراكات الموقع في صفحة مستقلة.'
+          : 'Per-organization income and spend with a marketing pulse and AI ranking. Platform subscription cash lives on its own page.'
       }
       actions={
-        <button
-          type="button"
-          className="button button--primary"
-          disabled={aiBusy || !view}
-          onClick={() => void runAi()}
-        >
-          {aiBusy
-            ? ar
-              ? 'جارٍ التحليل…'
-              : 'Analyzing…'
-            : ar
-              ? 'تحليل بالذكاء الاصطناعي'
-              : 'Analyze with AI'}
-        </button>
+        <>
+          <Link className="button button--quiet" href={`/${locale}/admin/finance`}>
+            {ar ? 'أموال المنصة' : 'Platform finance'}
+          </Link>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={aiBusy || !view}
+            onClick={() => void runAi()}
+          >
+            {aiBusy
+              ? ar
+                ? 'جارٍ التحليل…'
+                : 'Analyzing…'
+              : ar
+                ? 'تحليل بالذكاء الاصطناعي'
+                : 'Analyze with AI'}
+          </button>
+        </>
       }
     >
       <SiteAdminBanner notice={notice} />
@@ -233,7 +150,7 @@ export function AccountingAdmin({ locale }: { locale: 'ar' | 'en' }) {
         <SiteAdminLoading locale={locale} />
       ) : (
         <>
-          <SiteAdminSurface title={ar ? 'نبض المنصة' : 'Platform pulse'}>
+          <SiteAdminSurface title={ar ? 'نبض العملاء' : 'Client pulse'}>
             <div className="sa-pulse-grid">
               <div className="sa-pulse-card sa-pulse-card--in">
                 <span>{ar ? 'إجمالي دخل العملاء' : 'Client income'}</span>
@@ -244,11 +161,11 @@ export function AccountingAdmin({ locale }: { locale: 'ar' | 'en' }) {
                 <strong>{omr(view.pulse.clientExpenseMinor, ar)}</strong>
               </div>
               <div className="sa-pulse-card">
-                <span>{ar ? 'تحصيلات الموقع' : 'Site collections'}</span>
+                <span>{ar ? 'تحصيلات الموقع (مرجع)' : 'Site collections (ref)'}</span>
                 <strong>{omr(view.pulse.siteIncomeMinor, ar)}</strong>
               </div>
               <div className="sa-pulse-card">
-                <span>{ar ? 'مصروفات الموقع' : 'Site expenses'}</span>
+                <span>{ar ? 'مصروفات الموقع (مرجع)' : 'Site expenses (ref)'}</span>
                 <strong>{omr(view.pulse.siteExpenseMinor, ar)}</strong>
               </div>
               <div className="sa-pulse-card">
@@ -274,8 +191,8 @@ export function AccountingAdmin({ locale }: { locale: 'ar' | 'en' }) {
             </div>
             <p className="muted sa-footnote">
               {ar
-                ? `آخر تحديث: ${adminDate(view.generatedAt, ar)} · دخل العملاء من إيجارات وإقامات ناجحة؛ الصرف من مصروفات المنشآت المسجّلة.`
-                : `Updated: ${adminDate(view.generatedAt, ar)} · Client income from succeeded rent/stay payments; spend from recorded org expenses.`}
+                ? `آخر تحديث: ${adminDate(view.generatedAt, ar)} · إدارة الإيصالات والاشتراكات المحصّلة من «أموال المنصة».`
+                : `Updated: ${adminDate(view.generatedAt, ar)} · Manage receipts and collected subscriptions in Platform finance.`}
             </p>
           </SiteAdminSurface>
 
@@ -385,152 +302,6 @@ export function AccountingAdmin({ locale }: { locale: 'ar' | 'en' }) {
               <p className="muted" style={{ margin: 0 }}>
                 {ar ? 'لا حسابات مطابقة.' : 'No matching accounts.'}
               </p>
-            )}
-          </SiteAdminSurface>
-
-          <SiteAdminSurface title={ar ? 'دفتر الموقع' : 'Site ledger'}>
-            {!view.ledgerReady ? (
-              <p className="muted" style={{ margin: 0 }}>
-                {ar
-                  ? 'جدول الدفتر قيد التجهيز بعد الترحيل. ستظهر القيود هنا تلقائياً.'
-                  : 'Ledger table is provisioning after migration. Entries will appear here automatically.'}
-              </p>
-            ) : (
-              <>
-                <form className="sa-ledger-form" onSubmit={(event) => void addEntry(event)}>
-                  <label>
-                    <span>{ar ? 'النوع' : 'Kind'}</span>
-                    <select
-                      className="sa-input"
-                      value={kind}
-                      onChange={(event) => setKind(event.target.value as PlatformLedgerKind)}
-                    >
-                      {PLATFORM_LEDGER_KINDS.map((item) => (
-                        <option key={item} value={item}>
-                          {ar
-                            ? PLATFORM_LEDGER_KIND_LABELS[item].ar
-                            : PLATFORM_LEDGER_KIND_LABELS[item].en}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    <span>{ar ? 'التصنيف' : 'Category'}</span>
-                    <input
-                      className="sa-input"
-                      value={category}
-                      onChange={(event) => setCategory(event.target.value)}
-                    />
-                  </label>
-                  <label className="sa-ledger-form__wide">
-                    <span>{ar ? 'الوصف' : 'Description'}</span>
-                    <input
-                      className="sa-input"
-                      value={description}
-                      onChange={(event) => setDescription(event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span>{ar ? 'المبلغ (ر.ع.)' : 'Amount (OMR)'}</span>
-                    <input
-                      className="sa-input"
-                      inputMode="decimal"
-                      value={amount}
-                      onChange={(event) => setAmount(event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span>{ar ? 'التاريخ' : 'Date'}</span>
-                    <input
-                      className="sa-input"
-                      type="date"
-                      value={occurredOn}
-                      onChange={(event) => setOccurredOn(event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label>
-                    <span>{ar ? 'مرجع' : 'Reference'}</span>
-                    <input
-                      className="sa-input"
-                      value={reference}
-                      onChange={(event) => setReference(event.target.value)}
-                    />
-                  </label>
-                  <button type="submit" className="button button--primary" disabled={busy}>
-                    {ar ? 'إضافة قيد' : 'Post entry'}
-                  </button>
-                </form>
-
-                {view.ledger.length ? (
-                  <div className="sa-table-wrap" style={{ marginTop: '1rem' }}>
-                    <table className="sa-table">
-                      <thead>
-                        <tr>
-                          <th>{ar ? 'التاريخ' : 'Date'}</th>
-                          <th>{ar ? 'النوع' : 'Kind'}</th>
-                          <th>{ar ? 'الوصف' : 'Description'}</th>
-                          <th>{ar ? 'المبلغ' : 'Amount'}</th>
-                          <th>{ar ? 'الحالة' : 'Status'}</th>
-                          <th aria-label={ar ? 'إجراء' : 'Action'} />
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {view.ledger.map((entry) => {
-                          const label = PLATFORM_LEDGER_KIND_LABELS[entry.kind];
-                          return (
-                            <tr
-                              key={entry.id}
-                              className={entry.status === 'void' ? 'is-off' : undefined}
-                            >
-                              <td>{adminDate(entry.occurredOn, ar)}</td>
-                              <td>
-                                <span className={`pmh-badge pmh-badge--${label.tone}`}>
-                                  {ar ? label.ar : label.en}
-                                </span>
-                                <small>{entry.category}</small>
-                              </td>
-                              <td>
-                                {entry.description}
-                                {entry.organizationNameAr ? (
-                                  <small>{entry.organizationNameAr}</small>
-                                ) : null}
-                                {entry.reference ? (
-                                  <small>
-                                    <bdi dir="ltr">{entry.reference}</bdi>
-                                  </small>
-                                ) : null}
-                              </td>
-                              <td>{omr(entry.amountMinor, ar)}</td>
-                              <td>{entry.status}</td>
-                              <td>
-                                {entry.status !== 'void' ? (
-                                  <button
-                                    type="button"
-                                    className="button button--quiet button--small"
-                                    disabled={busy}
-                                    onClick={() => void voidEntry(entry.id)}
-                                  >
-                                    {ar ? 'إلغاء' : 'Void'}
-                                  </button>
-                                ) : null}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <p className="muted" style={{ marginTop: '0.85rem' }}>
-                    {ar
-                      ? 'لا قيود بعد. سجّل تحصيلات الاشتراك ومصروفات الاستضافة والإعلان هنا.'
-                      : 'No entries yet. Record subscription collections and hosting/ads expenses here.'}
-                  </p>
-                )}
-              </>
             )}
           </SiteAdminSurface>
         </>

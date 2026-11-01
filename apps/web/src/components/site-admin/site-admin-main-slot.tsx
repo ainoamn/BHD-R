@@ -30,6 +30,9 @@ const PlansAdmin = dynamic(() =>
 const AccountingAdmin = dynamic(() =>
   import('@/components/site-admin/accounting-admin').then((m) => m.AccountingAdmin),
 );
+const FinanceAdmin = dynamic(() =>
+  import('@/components/site-admin/finance-admin').then((m) => m.FinanceAdmin),
+);
 const UsersAdmin = dynamic(() =>
   import('@/components/site-admin/users-admin').then((m) => m.UsersAdmin),
 );
@@ -122,6 +125,8 @@ function renderSection(
       return <PlansAdmin locale={locale} />;
     case 'accounting':
       return <AccountingAdmin locale={locale} />;
+    case 'finance':
+      return <FinanceAdmin locale={locale} />;
     case 'users':
       return <UsersAdmin locale={locale} />;
     case 'complaints':
