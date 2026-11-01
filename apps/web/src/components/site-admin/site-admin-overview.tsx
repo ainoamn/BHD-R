@@ -1,131 +1,23 @@
 ﻿'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import { pushSoftPortalUrl } from '@/lib/soft-portal-nav';
 import type { PlatformDiagnostics } from '@/lib/platform-admin-neon';
+import {
+  SITE_CONSOLE_NAV_GROUPS,
+  SITE_CONSOLE_SECTIONS,
+  type SiteConsoleNavGroup,
+} from '@/lib/site-admin-shared';
 
-const LINKS: Array<{ href: string; ar: string; en: string; hintAr: string; hintEn: string }> = [
-  {
-    href: '/admin/payments',
-    ar: 'بوابات الدفع',
-    en: 'Payment gateways',
-    hintAr: 'تفعيل البوابات وطرق الدفع وإدخال المفاتيح',
-    hintEn: 'Enable gateways and methods, enter keys',
-  },
-  {
-    href: '/admin/pages',
-    ar: 'صفحات الموقع',
-    en: 'Site pages',
-    hintAr: 'تفعيل أو إيقاف الصفحات العامة',
-    hintEn: 'Turn public pages on or off',
-  },
-  {
-    href: '/admin/maintenance',
-    ar: 'الصيانة والتنبيه',
-    en: 'Maintenance',
-    hintAr: 'وضع الصيانة ورسالة الزوار',
-    hintEn: 'Maintenance mode and visitor notice',
-  },
-  {
-    href: '/admin/diagnostics',
-    ar: 'تشخيص النظام',
-    en: 'Diagnostics',
-    hintAr: 'صحة القاعدة والهوية والطوابير والجلسات',
-    hintEn: 'Database, identity, queues, sessions',
-  },
-  {
-    href: '/admin/plans',
-    ar: 'الباقات والاشتراكات',
-    en: 'Plans & subscriptions',
-    hintAr: 'أسعار الباقات وحالة اشتراك كل منشأة',
-    hintEn: 'Plan prices and each organization’s subscription',
-  },
-  {
-    href: '/admin/billing',
-    ar: 'إحصائيات الاشتراك',
-    en: 'Billing stats',
-    hintAr: 'تقدير شهري وحالات السداد',
-    hintEn: 'Estimated MRR and payment statuses',
-  },
-  {
-    href: '/admin/users',
-    ar: 'المستخدمون',
-    en: 'Users',
-    hintAr: 'إيقاف الحسابات وإعادة تفعيلها',
-    hintEn: 'Suspend and restore accounts',
-  },
-  {
-    href: '/admin/security',
-    ar: 'الأمن والتدقيق',
-    en: 'Security',
-    hintAr: 'سجل التدقيق وبصمات IP والجلسات',
-    hintEn: 'Audit log, IP fingerprints, sessions',
-  },
-  {
-    href: '/admin/complaints',
-    ar: 'شكاوى التأمين',
-    en: 'Deposit complaints',
-    hintAr: 'تشغيل يومي لشكاوى الضيوف',
-    hintEn: 'Day-to-day guest deposit complaints',
-  },
-  {
-    href: '/admin/verification',
-    ar: 'توثيق الحسابات',
-    en: 'Verification',
-    hintAr: 'مراجعة طلبات التوثيق',
-    hintEn: 'Review verification requests',
-  },
-  {
-    href: '/admin/notifications',
-    ar: 'قوالب الإشعارات',
-    en: 'Notification templates',
-    hintAr: 'معاينة كل قوالب البريد والواتساب التي يرسلها النظام',
-    hintEn: 'Preview every email/WhatsApp template the system sends',
-  },
-  {
-    href: '/admin/email-wishes',
-    ar: 'العبارات التحفيزية',
-    en: 'Motivational phrases',
-    hintAr: 'تعديل عبارات التحية والتحفيز في ذيل الإيميلات',
-    hintEn: 'Edit greeting and wish lines in email footers',
-  },
-  {
-    href: '/admin/greetings',
-    ar: 'التهاني المجدولة',
-    en: 'Scheduled greetings',
-    hintAr: 'رفع صورة ونص، معاينة بريد/واتساب، إرسال وجدولة',
-    hintEn: 'Upload image & copy, email/WhatsApp preview, send or schedule',
-  },
-  {
-    href: '/admin/badges',
-    ar: 'الشارات',
-    en: 'Badges',
-    hintAr: 'كتالوج الشارات والاعتماد',
-    hintEn: 'Badge catalogue and approvals',
-  },
-  {
-    href: '/admin/api-keys',
-    ar: 'مفاتيح API',
-    en: 'API keys',
-    hintAr: 'وصول برمجي للمنشأة النشطة',
-    hintEn: 'Programmatic access for the active org',
-  },
-  {
-    href: '/admin/lab-reset',
-    ar: 'إعادة ضبط التجارب',
-    en: 'Lab reset',
-    hintAr: 'مسح بيانات التجريب مع الإبقاء على العقارات',
-    hintEn: 'Wipe test data while keeping properties',
-  },
-  {
-    href: '/admin/delegates',
-    ar: 'التفويض',
-    en: 'Delegation',
-    hintAr: 'مَن يدير الموقع نيابةً عنك',
-    hintEn: 'Who may manage the site for you',
-  },
-];
+const GROUP_ORDER = (
+  Object.entries(SITE_CONSOLE_NAV_GROUPS) as Array<
+    [SiteConsoleNavGroup, (typeof SITE_CONSOLE_NAV_GROUPS)[SiteConsoleNavGroup]]
+  >
+)
+  .sort((a, b) => a[1].order - b[1].order)
+  .map(([id]) => id)
+  .filter((id) => id !== 'home');
 
 /** Landing hub for site owners / site managers — never shown inside owner/tenant portals. */
 export function SiteAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
@@ -152,68 +44,97 @@ export function SiteAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
     };
   }, []);
 
+  const modules = useMemo(
+    () =>
+      GROUP_ORDER.map((group) => ({
+        group,
+        label: SITE_CONSOLE_NAV_GROUPS[group],
+        items: SITE_CONSOLE_SECTIONS.filter(
+          (section) => section.group === group && section.id !== 'overview',
+        ),
+      })).filter((entry) => entry.items.length > 0),
+    [],
+  );
+
   return (
-    <div className="platform-admin-overview site-admin--wide">
-      <header className="platform-admin__head">
-        <div>
-          <p className="platform-admin__kicker">
-            {ar ? 'تحكم الموقع والنظام' : 'Site & system control'}
+    <div className="sa-hub site-admin--wide">
+      <header className="sa-hub__hero">
+        <div className="sa-hub__hero-copy">
+          <p className="sa-hub__brand">
+            <span className="sa-hub__mark" aria-hidden="true" />
+            BHD R · {ar ? 'تحكم الموقع' : 'Site console'}
           </p>
           <h1>{ar ? 'لوحة مالك الموقع' : 'Site owner console'}</h1>
-          <p>
+          <p className="sa-hub__lead">
             {ar
-              ? 'هذه المساحة خاصة بمالك الموقع ومديريه فقط — منفصلة تماماً عن بوابات العملاء والملاك والمستأجرين.'
-              : 'This space is for the site owner and site managers only — completely separate from customer, owner, and tenant portals.'}
+              ? 'مساحة واحدة لإدارة التشغيل والأمن والاشتراكات والمحتوى — منفصلة عن بوابات العملاء والملاك والمستأجرين.'
+              : 'One space for operations, security, subscriptions, and content — separate from customer, owner, and tenant portals.'}
           </p>
         </div>
       </header>
 
       {pulse ? (
-        <div className="platform-admin__cards">
-          <article className="platform-admin__card">
+        <div className="sa-hub__pulse" aria-label={ar ? 'مؤشرات لحظية' : 'Live pulse'}>
+          <article className="sa-hub__stat">
             <span>{ar ? 'منشآت' : 'Orgs'}</span>
             <strong dir="ltr">{pulse.organizations}</strong>
           </article>
-          <article className="platform-admin__card">
+          <article className="sa-hub__stat">
             <span>{ar ? 'مستخدمون' : 'Users'}</span>
             <strong dir="ltr">{pulse.users}</strong>
           </article>
-          <article className="platform-admin__card">
-            <span>{ar ? 'جلسات' : 'Sessions'}</span>
+          <article className="sa-hub__stat">
+            <span>{ar ? 'جلسات نشطة' : 'Sessions'}</span>
             <strong dir="ltr">{pulse.activeSessions}</strong>
           </article>
-          <article className="platform-admin__card">
-            <span>{ar ? 'Outbox' : 'Outbox'}</span>
+          <article className="sa-hub__stat">
+            <span>{ar ? 'طابور البريد' : 'Outbox'}</span>
             <strong dir="ltr">{pulse.openOutbox}</strong>
           </article>
         </div>
-      ) : null}
+      ) : (
+        <div className="sa-hub__pulse sa-hub__pulse--loading" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+          <span />
+        </div>
+      )}
 
-      <div className="platform-admin-overview__grid">
-        {LINKS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="platform-admin-overview__tile"
-            prefetch={false}
-            data-no-progress=""
-            onClick={(event) => {
-              if (
-                !event.defaultPrevented &&
-                event.button === 0 &&
-                !event.metaKey &&
-                !event.ctrlKey &&
-                !event.shiftKey &&
-                !event.altKey
-              ) {
-                event.preventDefault();
-                pushSoftPortalUrl(event.currentTarget.href);
-              }
-            }}
-          >
-            <strong>{ar ? item.ar : item.en}</strong>
-            <span>{ar ? item.hintAr : item.hintEn}</span>
-          </Link>
+      <div className="sa-hub__modules">
+        {modules.map(({ group, label, items }) => (
+          <section key={group} className="sa-hub__module">
+            <header className="sa-hub__module-head">
+              <h2>{ar ? label.ar : label.en}</h2>
+            </header>
+            <div className="sa-hub__grid">
+              {items.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.path}
+                  className="sa-hub__tile"
+                  prefetch={false}
+                  data-no-progress=""
+                  onClick={(event) => {
+                    if (
+                      !event.defaultPrevented &&
+                      event.button === 0 &&
+                      !event.metaKey &&
+                      !event.ctrlKey &&
+                      !event.shiftKey &&
+                      !event.altKey
+                    ) {
+                      event.preventDefault();
+                      pushSoftPortalUrl(event.currentTarget.href);
+                    }
+                  }}
+                >
+                  <strong>{ar ? item.ar : item.en}</strong>
+                  <span>{ar ? item.hintAr : item.hintEn}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
         ))}
       </div>
     </div>

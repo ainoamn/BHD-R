@@ -66,133 +66,216 @@ export type SiteConsoleSectionId =
   | 'labReset'
   | AdminScope;
 
+export type SiteConsoleNavGroup = 'home' | 'ops' | 'growth' | 'service' | 'content' | 'tools';
+
+export const SITE_CONSOLE_NAV_GROUPS: Record<
+  SiteConsoleNavGroup,
+  { ar: string; en: string; order: number }
+> = {
+  home: { ar: 'الرئيسية', en: 'Home', order: 0 },
+  ops: { ar: 'التشغيل', en: 'Operations', order: 1 },
+  growth: { ar: 'النمو', en: 'Growth', order: 2 },
+  service: { ar: 'الخدمة', en: 'Service', order: 3 },
+  content: { ar: 'المحتوى', en: 'Content', order: 4 },
+  tools: { ar: 'الأدوات', en: 'Tools', order: 5 },
+};
+
 export const SITE_CONSOLE_SECTIONS: Array<{
   id: SiteConsoleSectionId;
   path: string;
   scope: AdminScope | null;
   /** Root-only sections (site owner / complaint-inbox emails). */
   rootOnly?: boolean;
+  group: SiteConsoleNavGroup;
   ar: string;
   en: string;
+  hintAr: string;
+  hintEn: string;
 }> = [
-  { id: 'overview', path: '/admin', scope: null, ar: 'نظرة عامة', en: 'Overview' },
+  {
+    id: 'overview',
+    path: '/admin',
+    scope: null,
+    group: 'home',
+    ar: 'نظرة عامة',
+    en: 'Overview',
+    hintAr: 'لوحة مالك الموقع ومؤشرات التشغيل',
+    hintEn: 'Site-owner hub and live pulse',
+  },
   {
     id: 'diagnostics',
     path: '/admin/diagnostics',
     scope: null,
+    group: 'ops',
     ar: 'تشخيص النظام',
     en: 'Diagnostics',
+    hintAr: 'صحة القاعدة والهوية والطوابير والجلسات',
+    hintEn: 'Database, identity, queues, sessions',
   },
   {
     id: 'security',
     path: '/admin/security',
     scope: null,
+    group: 'ops',
     ar: 'الأمن والتدقيق',
     en: 'Security',
+    hintAr: 'سجل التدقيق وبصمات IP والجلسات',
+    hintEn: 'Audit log, IP fingerprints, sessions',
   },
   {
     id: 'payments',
     path: '/admin/payments',
     scope: null,
     rootOnly: true,
+    group: 'ops',
     ar: 'بوابات الدفع',
     en: 'Payment gateways',
+    hintAr: 'تفعيل البوابات وطرق الدفع وإدخال المفاتيح',
+    hintEn: 'Enable gateways and methods, enter keys',
   },
   {
     id: 'pages',
     path: '/admin/pages',
     scope: null,
     rootOnly: true,
+    group: 'ops',
     ar: 'صفحات الموقع',
     en: 'Site pages',
+    hintAr: 'تفعيل أو إيقاف الصفحات العامة',
+    hintEn: 'Turn public pages on or off',
   },
   {
     id: 'maintenance',
     path: '/admin/maintenance',
     scope: null,
     rootOnly: true,
+    group: 'ops',
     ar: 'الصيانة والتنبيه',
     en: 'Maintenance',
+    hintAr: 'وضع الصيانة ورسالة الزوار',
+    hintEn: 'Maintenance mode and visitor notice',
   },
   {
     id: 'plans',
     path: '/admin/plans',
     scope: 'plans',
+    group: 'growth',
     ar: 'الاشتراكات',
     en: 'Subscriptions',
+    hintAr: 'أسعار الباقات وحالة اشتراك كل منشأة',
+    hintEn: 'Plan prices and each organization’s subscription',
   },
   {
     id: 'billing',
     path: '/admin/billing',
     scope: 'plans',
+    group: 'growth',
     ar: 'إحصائيات الاشتراك',
     en: 'Billing stats',
+    hintAr: 'تقدير شهري وحالات السداد',
+    hintEn: 'Estimated MRR and payment statuses',
   },
-  { id: 'users', path: '/admin/users', scope: 'users', ar: 'المستخدمون', en: 'Users' },
+  {
+    id: 'users',
+    path: '/admin/users',
+    scope: 'users',
+    group: 'growth',
+    ar: 'المستخدمون',
+    en: 'Users',
+    hintAr: 'إيقاف الحسابات وإعادة تفعيلها',
+    hintEn: 'Suspend and restore accounts',
+  },
   {
     id: 'complaints',
     path: '/admin/complaints',
     scope: 'complaints',
+    group: 'service',
     ar: 'شكاوى التأمين',
     en: 'Deposit complaints',
+    hintAr: 'تشغيل يومي لشكاوى الضيوف',
+    hintEn: 'Day-to-day guest deposit complaints',
   },
   {
     id: 'verification',
     path: '/admin/verification',
     scope: 'verification',
+    group: 'service',
     ar: 'توثيق الحسابات',
     en: 'Verification',
+    hintAr: 'مراجعة طلبات التوثيق',
+    hintEn: 'Review verification requests',
   },
   {
     id: 'notifications',
     path: '/admin/notifications',
     scope: null,
+    group: 'content',
     ar: 'قوالب الإشعارات',
     en: 'Notification templates',
+    hintAr: 'معاينة قوالب البريد والواتساب',
+    hintEn: 'Preview email and WhatsApp templates',
   },
   {
     id: 'emailWishes',
     path: '/admin/email-wishes',
     scope: null,
     rootOnly: true,
+    group: 'content',
     ar: 'العبارات التحفيزية',
     en: 'Motivational phrases',
+    hintAr: 'عبارات التحية والتحفيز في ذيل الإيميلات',
+    hintEn: 'Greeting and wish lines in email footers',
   },
   {
     id: 'greetings',
     path: '/admin/greetings',
     scope: null,
     rootOnly: true,
+    group: 'content',
     ar: 'التهاني المجدولة',
     en: 'Scheduled greetings',
+    hintAr: 'رفع صورة ونص، معاينة، إرسال وجدولة',
+    hintEn: 'Image & copy, preview, send or schedule',
   },
   {
     id: 'badges',
     path: '/admin/badges',
     scope: null,
+    group: 'content',
     ar: 'الشارات',
     en: 'Badges',
+    hintAr: 'كتالوج الشارات والاعتماد',
+    hintEn: 'Badge catalogue and approvals',
   },
   {
     id: 'apiKeys',
     path: '/admin/api-keys',
     scope: null,
+    group: 'tools',
     ar: 'مفاتيح API',
     en: 'API keys',
+    hintAr: 'وصول برمجي للمنشأة النشطة',
+    hintEn: 'Programmatic access for the active org',
   },
   {
     id: 'labReset',
     path: '/admin/lab-reset',
     scope: null,
+    group: 'tools',
     ar: 'إعادة ضبط التجارب',
     en: 'Lab reset',
+    hintAr: 'مسح بيانات التجريب مع الإبقاء على العقارات',
+    hintEn: 'Wipe test data while keeping properties',
   },
   {
     id: 'delegates',
     path: '/admin/delegates',
     scope: 'delegates',
+    group: 'tools',
     ar: 'التفويض',
     en: 'Delegation',
+    hintAr: 'مَن يدير الموقع نيابةً عنك',
+    hintEn: 'Who may manage the site for you',
   },
 ];
 
