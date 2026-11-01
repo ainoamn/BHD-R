@@ -26708,7 +26708,7 @@ button.lrw__step-body:focus-visible {
   }
   .portal-layout .portal-sidebar--collapsed .portal-nav__group + .portal-nav__group {
     padding-top: 0.6rem;
-    border-top: 1px solid var(--calm-line, rgb(255 255 255 / 0.1));
+    border-top: 1px solid rgb(255 255 255 / 0.12);
   }
   .portal-layout .portal-sidebar--collapsed :is(.portal-nav a, .portal-nav__toggle) {
     justify-content: center;
@@ -26720,8 +26720,8 @@ button.lrw__step-body:focus-visible {
     font-size: 1.05rem;
   }
   .portal-layout .portal-sidebar--collapsed .portal-nav__toggle[data-active] {
-    color: var(--calm-accent, #0b623c);
-    background: var(--calm-accent-soft, #e3f1ec);
+    color: #042f2e;
+    background: linear-gradient(135deg, #5eead4, #2dd4bf);
   }
 }
 @media (min-width: 961px) and (prefers-reduced-motion: reduce) {
