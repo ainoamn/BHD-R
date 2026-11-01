@@ -253,16 +253,29 @@ export function ReservationPartyForm({
     [minMonths],
   );
 
-  const setPerson = (patch: Partial<PartyForm['person']>) =>
-    onChange({ ...value, person: { ...person, ...patch } });
-  const setCompany = (patch: Partial<PartyForm['company']>) =>
-    onChange({ ...value, company: { ...company, ...patch } });
-  const setSignatory = (index: number, patch: Partial<SignatoryForm>) =>
-    setCompany({
-      signatories: company.signatories.map((row, at) =>
-        at === index ? { ...row, ...patch } : row,
-      ),
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  const setPerson = (patch: Partial<PartyForm['person']>) => {
+    const current = valueRef.current;
+    onChange({ ...current, person: { ...current.person, ...patch } });
+  };
+  const setCompany = (patch: Partial<PartyForm['company']>) => {
+    const current = valueRef.current;
+    onChange({ ...current, company: { ...current.company, ...patch } });
+  };
+  const setSignatory = (index: number, patch: Partial<SignatoryForm>) => {
+    const current = valueRef.current;
+    onChange({
+      ...current,
+      company: {
+        ...current.company,
+        signatories: current.company.signatories.map((row, at) =>
+          at === index ? { ...row, ...patch } : row,
+        ),
+      },
     });
+  };
 
   const [nationalityConfirmed, setNationalityConfirmed] = useState(
     () => filled(person.civilId, 4) || filled(person.nameAr) || filled(person.nameEn),
@@ -1101,7 +1114,7 @@ export function ReservationPartyForm({
         lastFocused.current = nextStep.focusId;
         focusStepField(nextStep.focusId);
       }
-    }, 220);
+    }, current.id.toLowerCase().includes('copy') ? 650 : 240);
     return () => window.clearTimeout(timer);
   }, [frontier, steps]);
 

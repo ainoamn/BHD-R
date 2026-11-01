@@ -1,10 +1,28 @@
 'use client';
 
+import { useState } from 'react';
+import { compressImageFile } from '@/lib/compress-image';
 import type { PartyDocAttach } from '@/lib/profile-completeness';
 
-const MAX_BYTES = 900_000;
+/** Source pick limit before compression (phone photos are often 2–8 MB). */
+const MAX_SOURCE_BYTES = 12_000_000;
+/** Final attachment size after compression — matches reservation party schema. */
+const MAX_ATTACH_BYTES = 1_100_000;
+const MAX_DATA_URL_CHARS = 1_500_000;
 
-/** File picker that stores a small attachment meta (+ optional data URL) on the party form. */
+function readDataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('read_failed'));
+    };
+    reader.onerror = () => reject(new Error('read_failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+/** File picker that stores a small attachment meta (+ data URL) on the party form. */
 export function PartyDocAttachField({
   id,
   label,
@@ -23,8 +41,68 @@ export function PartyDocAttachField({
   required?: boolean;
 }) {
   const ar = locale === 'ar';
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function attach(file: File | undefined, input: HTMLInputElement) {
+    setError(null);
+    if (!file) {
+      onChange(undefined);
+      return;
+    }
+    if (file.size > MAX_SOURCE_BYTES) {
+      setError(
+        ar
+          ? 'الملف أكبر من 12 ميغابايت. صوّر المستند من جديد بدقة أقل.'
+          : 'File is larger than 12 MB. Retake the document at a lower resolution.',
+      );
+      input.value = '';
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const prepared = file.type.startsWith('image/') ? await compressImageFile(file) : file;
+      if (prepared.size > MAX_ATTACH_BYTES) {
+        setError(
+          ar
+            ? 'الملف ما زال كبيراً بعد الضغط (الحد نحو 1 ميغابايت). استخدم صورة أوضح بحجم أصغر أو PDF أخف.'
+            : 'File is still too large after compression (~1 MB max). Use a smaller photo or PDF.',
+        );
+        onChange(undefined);
+        return;
+      }
+      const dataUrl = await readDataUrl(prepared);
+      if (dataUrl.length > MAX_DATA_URL_CHARS) {
+        setError(
+          ar
+            ? 'تعذّر إرفاق الملف لأنه كبير جداً بعد التحويل.'
+            : 'Could not attach the file — it is still too large after encoding.',
+        );
+        onChange(undefined);
+        return;
+      }
+      onChange({
+        name: file.name.slice(0, 200),
+        mime: prepared.type || file.type || 'application/octet-stream',
+        size: prepared.size,
+        dataUrl,
+      });
+    } catch {
+      setError(
+        ar
+          ? 'تعذّر قراءة الملف. جرّب صورة JPEG/PNG أو PDF.'
+          : 'Could not read the file. Try a JPEG/PNG photo or a PDF.',
+      );
+      onChange(undefined);
+    } finally {
+      setBusy(false);
+      input.value = '';
+    }
+  }
+
   return (
-    <div className="field">
+    <div className={`field party-doc-attach${error ? ' is-error' : ''}${value ? ' is-ready' : ''}`}>
       <label htmlFor={id}>
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
@@ -34,39 +112,33 @@ export function PartyDocAttachField({
         className="input"
         type="file"
         accept={accept}
+        disabled={busy}
         onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (!file) {
-            onChange(undefined);
-            return;
-          }
-          if (file.size > MAX_BYTES) {
-            onChange(undefined);
-            event.target.value = '';
-            return;
-          }
-          const reader = new FileReader();
-          reader.onload = () => {
-            const dataUrl = typeof reader.result === 'string' ? reader.result : undefined;
-            onChange({
-              name: file.name.slice(0, 200),
-              mime: file.type || 'application/octet-stream',
-              size: file.size,
-              ...(dataUrl && dataUrl.length < 1_500_000 ? { dataUrl } : {}),
-            });
-          };
-          reader.readAsDataURL(file);
+          const input = event.currentTarget;
+          void attach(input.files?.[0], input);
         }}
       />
+      {busy ? (
+        <p className="field__hint muted" role="status">
+          {ar ? 'جاري تجهيز المرفق…' : 'Preparing attachment…'}
+        </p>
+      ) : null}
+      {error ? (
+        <p className="field__hint party-doc-attach__error" role="alert">
+          {error}
+        </p>
+      ) : null}
       {value?.name ? (
-        <p className="field__hint muted" dir="ltr">
-          {value.name} · {Math.round(value.size / 1024)} KB
+        <p className="field__hint party-doc-attach__ok" dir="ltr">
+          ✓ {value.name} · {Math.max(1, Math.round(value.size / 1024))} KB
         </p>
-      ) : (
+      ) : !busy && !error ? (
         <p className="field__hint muted">
-          {ar ? 'صورة أو PDF — حتى حوالي 900 ك.ب.' : 'Image or PDF — up to ~900 KB.'}
+          {ar
+            ? 'صورة أو PDF — الصور الكبيرة تُضغط تلقائياً (حتى نحو 1 ميغابايت).'
+            : 'Image or PDF — large photos are compressed automatically (~1 MB).'}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }
