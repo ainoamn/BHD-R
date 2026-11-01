@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.3 — 2026-11-01
+
+- **تشغيل Scheduled pings:** سكربت `ensure-vercel-cron-secret.mjs --github` يزامن `CRON_SECRET` من Vercel إلى سر Actions دون طباعة القيمة؛ ومستند `docs/implementation/VITEST-SUITE-RESTORE-AR.md` لخطة إعادة الست مجموعات Vitest المستبعدة ورفع عتبات التغطية تدريجياً.
+
 ## 0.8.136.2 — 2026-10-29
 
 - **CI lint:** إزالة استيراد `users` غير المستخدم من وحدات الحماية والاستعادة.

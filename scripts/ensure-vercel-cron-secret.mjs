@@ -2,7 +2,10 @@
  * Ensure CRON_SECRET is set on Vercel (production + preview) for warmup/expire-locks.
  * Generates a random secret if missing. Does not print or commit the secret.
  *
- * Usage: node scripts/ensure-vercel-cron-secret.mjs
+ * Usage:
+ *   node scripts/ensure-vercel-cron-secret.mjs
+ *   node scripts/ensure-vercel-cron-secret.mjs --github
+ *     Also syncs the same value to the GitHub Actions repo secret (Scheduled pings).
  */
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
@@ -13,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 process.chdir(root);
+const syncGithub = process.argv.includes('--github');
 
 function run(command, args, opts = {}) {
   const result = spawnSync(command, args, {
@@ -81,6 +85,20 @@ try {
     }
     console.log(`CRON_SECRET set for ${environment}`);
   }
+  if (syncGithub) {
+    const gh = spawnSync('gh', ['secret', 'set', 'CRON_SECRET'], {
+      cwd: root,
+      encoding: 'utf8',
+      shell: true,
+      input: secret,
+    });
+    if (gh.stdout) process.stdout.write(gh.stdout);
+    if (gh.stderr) process.stderr.write(gh.stderr);
+    if ((gh.status ?? 1) !== 0) {
+      throw new Error('failed to set GitHub Actions secret CRON_SECRET');
+    }
+    console.log('CRON_SECRET synced to GitHub Actions (value not printed).');
+  }
 } finally {
   try {
     fs.unlinkSync(tmp);
@@ -95,3 +113,6 @@ try {
 }
 
 console.log('Done. Redeploy web so crons /api/cron/warmup-nest and /api/cron/expire-locks auth.');
+if (syncGithub) {
+  console.log('Re-run Actions workflow "Scheduled pings" (workflow_dispatch) to verify.');
+}

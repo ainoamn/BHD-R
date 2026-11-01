@@ -8,9 +8,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/unit/**/*.test.{ts,tsx}'],
-    // Hang / rule-drift suites that currently fail or never finish under jsdom in CI.
-    // Tracked for re-enable: lease form isolation, write-route CSRF, reservation docs,
-    // portal soft-nav after identity isolation, email HTML entity encode, proxy next mock.
+    // Hang / rule-drift suites excluded temporarily so CI quality finishes.
+    // Restore one-by-one per docs/implementation/VITEST-SUITE-RESTORE-AR.md then raise thresholds.
     exclude: [
       'tests/unit/lease-contract-form.test.tsx',
       'tests/unit/next-write-route-policy.test.ts',

@@ -66,7 +66,7 @@ Key rotation: keep prior `FIELD_ENCRYPTION_KEY_V*` until every ciphertext is re-
 
 | Key                               | Notes                                                                                                                                                                 |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CRON_SECRET`                     | ≥16; required for `/api/cron/warmup-nest` and `/api/cron/expire-locks` (fail-closed). Helper: `node scripts/ensure-vercel-cron-secret.mjs`                            |
+| `CRON_SECRET`                     | ≥16; required for `/api/cron/warmup-nest` and `/api/cron/expire-locks` (fail-closed). Helper: `node scripts/ensure-vercel-cron-secret.mjs` (add `--github` to sync the same value to Actions for Scheduled pings). |
 | `MEDIA_PUBLIC_PROMOTE_MODE`       | `magic_bytes_best_effort` (default) \| `await_worker`                                                                                                                 |
 | `MEDIA_SCAN_MODE` (worker)        | `required` \| `best-effort` \| `disabled` — use `best-effort` until ClamAV is live                                                                                    |
 | `ALLOW_BOOKING_SANDBOX`           | Optional `1` — legacy lease deposit sandbox; **stay** UI uses `isPaymentSandboxPilotEnabled` (see below)                                                              |
