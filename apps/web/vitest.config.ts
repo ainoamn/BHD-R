@@ -14,7 +14,6 @@ export default defineConfig({
       'tests/unit/lease-contract-form.test.tsx',
       'tests/unit/reservation-party.test.ts',
       'tests/unit/portal-navigation.test.tsx',
-      'tests/unit/email-template.test.ts',
       'tests/unit/proxy-canonical-host.test.ts',
     ],
     // Prevent open handles / hung workers from stalling CI quality for 40+ minutes.

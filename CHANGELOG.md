@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.7 — 2026-11-01
+
+- **Vitest استعادة #2:** إعادة `email-template`؛ مواءمة `wrapLegacyEmail` مع وسم الترحيب و`seed` في `renderBrandedEmail` حتى يُحقَن نص الرسالة بدل إسقاطه.
+
 ## 0.8.136.6 — 2026-11-01
 
 - **Vitest استعادة #1:** إعادة `next-write-route-policy`؛ CSRF على كتابة مسارات المحاسبة و`email-wishes`؛ allowlist للمسارات العامة/الترجمة؛ وقبول مخطّطات الخطأ الآمنة (`accountingErrorResponse` / `guardErrorResponse`).

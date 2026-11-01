@@ -507,6 +507,7 @@ export function wrapLegacyEmail(
         .split(/\n{2,}/)
         .map((block) => `<p style="margin:0 0 10px">${escape(block).replaceAll('\n', '<br>')}</p>`)
         .join('');
-  const greeting = `<p style="margin:0 0 10px;font-size:16px;font-weight:700;color:#10243a">${escape(emailGreeting(null))}</p>`;
+  // Must match the greeting markup from renderBrandedEmail (incl. seed + styles) or the body is dropped.
+  const greeting = `<p style="margin:0 0 10px;font-size:16px;font-weight:700;color:#10243a;word-break:break-word">${escape(emailGreeting(null, options.seed))}</p>`;
   return shell.replace(greeting, () => `<div style="text-align:right">${body}</div>`);
 }
