@@ -5,7 +5,12 @@ import {
   missingPersonFields,
   type PartyDocAttach,
 } from '@/lib/profile-completeness';
-import { countryName, isCountryCode, isInternationalPhone } from '@/lib/world-countries';
+import {
+  countryName,
+  isCountryCode,
+  isInternationalPhone,
+  isSamePhone,
+} from '@/lib/world-countries';
 
 /**
  * The tenant or buyer the customer fills in while booking. It is stored on the reservation
@@ -192,7 +197,7 @@ export function reservationPartyError(
     if (person.nationality !== 'OM' && person.passport.trim().length < 4) {
       return 'passport_required';
     }
-    if (person.phone === person.altPhone) return 'tenant_details_invalid';
+    if (isSamePhone(person.phone, person.altPhone)) return 'tenant_details_invalid';
     if (!person.emailVerified) return 'email_unverified';
     if (missingPersonFields(person).length) return 'documents_incomplete';
     return null;
@@ -206,7 +211,7 @@ export function reservationPartyError(
   if (company.crIssuedOn >= company.crExpiry || company.crIssuedOn > options.today) {
     return 'tenant_details_invalid';
   }
-  if (company.phone === company.altPhone) return 'tenant_details_invalid';
+  if (isSamePhone(company.phone, company.altPhone)) return 'tenant_details_invalid';
   if (company.signingMode === 'joint' && company.signatories.length < 2) {
     return 'tenant_details_invalid';
   }

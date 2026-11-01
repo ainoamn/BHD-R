@@ -26,7 +26,11 @@ import {
   reservationPartySchema,
   type ReservationParty,
 } from '@/lib/reservation-party';
-import { isInternationalPhone, sortedCountries } from '@/lib/world-countries';
+import {
+  isInternationalPhone,
+  isSamePhone,
+  sortedCountries,
+} from '@/lib/world-countries';
 
 type PartyStep = {
   id: string;
@@ -587,7 +591,7 @@ export function ReservationPartyForm({
           label: ar ? 'رقم هاتف بديل' : 'Alternate phone',
           done:
             isInternationalPhone(person.altPhone) &&
-            person.altPhone.trim() !== person.phone.trim(),
+            !isSamePhone(person.altPhone, person.phone),
           focusId: 'party-alt-phone',
           body: (
             <InternationalPhoneField
@@ -598,7 +602,16 @@ export function ReservationPartyForm({
               locale={locale}
               required
               hint={
-                ar ? 'رقم مختلف للتواصل عند الضرورة.' : 'A different number for urgent contact.'
+                ar
+                  ? 'رقم مختلف للتواصل عند الضرورة — 8 أو 9 أرقام محلية.'
+                  : 'A different number for urgent contact — 8 or 9 local digits.'
+              }
+              error={
+                isSamePhone(person.altPhone, person.phone)
+                  ? ar
+                    ? 'يجب أن يختلف عن رقم الجوال الأساسي.'
+                    : 'Must differ from the primary mobile number.'
+                  : null
               }
             />
           ),
@@ -813,7 +826,7 @@ export function ReservationPartyForm({
           label: ar ? 'هاتف بديل' : 'Alternate phone',
           done:
             isInternationalPhone(company.altPhone) &&
-            company.altPhone.trim() !== company.phone.trim(),
+            !isSamePhone(company.altPhone, company.phone),
           focusId: 'party-company-alt-phone',
           body: (
             <InternationalPhoneField
@@ -823,6 +836,18 @@ export function ReservationPartyForm({
               onChange={(altPhone) => setCompany({ altPhone })}
               locale={locale}
               required
+              hint={
+                ar
+                  ? 'رقم مختلف للتواصل عند الضرورة — 8 أو 9 أرقام محلية.'
+                  : 'A different number for urgent contact — 8 or 9 local digits.'
+              }
+              error={
+                isSamePhone(company.altPhone, company.phone)
+                  ? ar
+                    ? 'يجب أن يختلف عن هاتف الشركة الأساسي.'
+                    : 'Must differ from the company phone number.'
+                  : null
+              }
             />
           ),
         },

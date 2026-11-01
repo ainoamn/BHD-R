@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { compressImageFile } from '@/lib/compress-image';
 import type { PartyDocAttach } from '@/lib/profile-completeness';
 
@@ -41,10 +41,11 @@ export function PartyDocAttachField({
   required?: boolean;
 }) {
   const ar = locale === 'ar';
+  const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function attach(file: File | undefined, input: HTMLInputElement) {
+  async function attach(file: File | undefined) {
     setError(null);
     if (!file) {
       onChange(undefined);
@@ -56,7 +57,6 @@ export function PartyDocAttachField({
           ? 'الملف أكبر من 12 ميغابايت. صوّر المستند من جديد بدقة أقل.'
           : 'File is larger than 12 MB. Retake the document at a lower resolution.',
       );
-      input.value = '';
       return;
     }
 
@@ -97,32 +97,47 @@ export function PartyDocAttachField({
       onChange(undefined);
     } finally {
       setBusy(false);
-      input.value = '';
+      if (inputRef.current) inputRef.current.value = '';
     }
   }
 
   return (
     <div className={`field party-doc-attach${error ? ' is-error' : ''}${value ? ' is-ready' : ''}`}>
-      <label htmlFor={id}>
+      <span className="party-doc-attach__label" id={`${id}-label`}>
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
-      </label>
+      </span>
       <input
+        ref={inputRef}
         id={id}
-        className="input"
+        className="party-doc-attach__input"
         type="file"
         accept={accept}
         disabled={busy}
+        tabIndex={-1}
+        aria-labelledby={`${id}-label`}
         onChange={(event) => {
-          const input = event.currentTarget;
-          void attach(input.files?.[0], input);
+          void attach(event.currentTarget.files?.[0]);
         }}
       />
-      {busy ? (
-        <p className="field__hint muted" role="status">
-          {ar ? 'جاري تجهيز المرفق…' : 'Preparing attachment…'}
-        </p>
-      ) : null}
+      <button
+        type="button"
+        className="button button--secondary party-doc-attach__button"
+        disabled={busy}
+        onClick={() => inputRef.current?.click()}
+      >
+        {busy
+          ? ar
+            ? 'جاري التجهيز…'
+            : 'Preparing…'
+          : value?.name
+            ? ar
+              ? 'استبدال الملف'
+              : 'Replace file'
+            : ar
+              ? 'رفع الملف'
+              : 'Upload file'}
+      </button>
       {error ? (
         <p className="field__hint party-doc-attach__error" role="alert">
           {error}

@@ -113,7 +113,25 @@ export function toInternationalPhone(
   return `+${digits}`;
 }
 
-/** E.164: plus sign, 8–15 digits in total. */
+/** Digits only (for comparing two stored phone values). */
+export function phoneDigits(value: string): string {
+  return value.replace(/\D/g, '');
+}
+
+/**
+ * Usable contact phone: E.164 shape, then a local subscriber of 8–9 digits
+ * (Oman mobiles are 8; nearby countries often 8–9).
+ */
 export function isInternationalPhone(value: string): boolean {
-  return /^\+\d{8,15}$/.test(value.trim());
+  const trimmed = value.trim();
+  if (!/^\+\d{8,15}$/.test(trimmed)) return false;
+  const { local } = splitPhone(trimmed);
+  return local.length >= 8 && local.length <= 9;
+}
+
+/** True when both values resolve to the same E.164 digit string. */
+export function isSamePhone(a: string, b: string): boolean {
+  const left = phoneDigits(a);
+  const right = phoneDigits(b);
+  return Boolean(left && right && left === right);
 }
