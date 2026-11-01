@@ -1,8 +1,10 @@
 ﻿'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { browserNextMutation } from '@/lib/api';
 import type { AdminUser } from '@/lib/site-admin-shared';
+import { SUBSCRIPTION_LABELS } from '@/lib/site-admin-shared';
 import { roleLabel } from '@/lib/team-shared';
 import { adminDate, adminErrorText, adminGet, type AdminNotice } from './admin-fetch';
 import {
@@ -13,7 +15,17 @@ import {
   SiteAdminSurface,
 } from './site-admin-page';
 
-/** Every BHD R account: search, see where each works, suspend or restore. */
+function countryLabel(user: AdminUser, ar: boolean) {
+  if (ar) return user.countryNameAr || user.countryCode || '—';
+  return user.countryNameEn || user.countryCode || '—';
+}
+
+function planLabel(user: AdminUser, ar: boolean) {
+  if (!user.planKey) return ar ? 'بلا باقة' : 'No plan';
+  return (ar ? user.planNameAr : user.planNameEn) || user.planKey;
+}
+
+/** Every BHD R account: search, country/plan, open full dossier, suspend or restore. */
 export function UsersAdmin({ locale }: { locale: 'ar' | 'en' }) {
   const ar = locale === 'ar';
   const [users, setUsers] = useState<AdminUser[] | null>(null);
@@ -24,8 +36,8 @@ export function UsersAdmin({ locale }: { locale: 'ar' | 'en' }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const title = ar ? 'المستخدمون' : 'Users';
   const lead = ar
-    ? 'كل حسابات BHD R ومنشآتها وأدوارها. الإيقاف يخرج الشخص من كل الأجهزة ويمنع دخوله دون حذف أي بيانات.'
-    : 'Every BHD R account with its organizations and roles. Suspending signs the person out everywhere and blocks sign-in without deleting anything.';
+    ? 'كل حسابات BHD R مع الدولة والباقة وتاريخ انتهائها. اضغط الاسم لفتح الملف الكامل: العقارات والعقود والتقييمات والجلسات والمساحة المستخدمة.'
+    : 'Every BHD R account with country, plan, and expiry. Open a name for the full dossier: properties, contracts, reviews, sessions, and storage.';
 
   const load = useCallback((q: string) => {
     let live = true;
@@ -125,67 +137,99 @@ export function UsersAdmin({ locale }: { locale: 'ar' | 'en' }) {
               <thead>
                 <tr>
                   <th>{ar ? 'الحساب' : 'Account'}</th>
-                  <th>{ar ? 'المنشآت والأدوار' : 'Organizations & roles'}</th>
-                  <th>{ar ? 'منذ' : 'Since'}</th>
+                  <th>{ar ? 'الدولة' : 'Country'}</th>
+                  <th>{ar ? 'الباقة' : 'Plan'}</th>
+                  <th>{ar ? 'انتهاء الاشتراك' : 'Expires'}</th>
+                  <th>{ar ? 'المنشآت' : 'Organizations'}</th>
                   <th>{ar ? 'الحالة' : 'Status'}</th>
                   <th aria-label={ar ? 'إجراء' : 'Action'} />
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className={user.disabledAt ? 'is-off' : undefined}>
-                    <td>
-                      <strong>{user.displayName || '—'}</strong>
-                      {user.isSiteAdmin ? (
-                        <span className="pmh-badge pmh-badge--info sa-tag">
-                          {ar ? 'إدارة' : 'Admin'}
-                        </span>
-                      ) : null}
-                      <small>
-                        <bdi dir="ltr">{user.email ?? '—'}</bdi>
-                      </small>
-                    </td>
-                    <td>
-                      {user.organizations.length ? (
-                        <ul className="sa-orgs">
-                          {user.organizations.map((org, index) => (
-                            <li key={`${org.nameAr}-${index}`}>
-                              <bdi>{org.nameAr}</bdi> · {roleLabel(org.role, ar)}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span className="muted">{ar ? 'بلا منشأة' : 'No organization'}</span>
-                      )}
-                    </td>
-                    <td>{adminDate(user.createdAt, ar)}</td>
-                    <td>
-                      {user.disabledAt ? (
-                        <span className="pmh-badge pmh-badge--danger">
-                          {ar ? 'موقوف' : 'Suspended'}
-                        </span>
-                      ) : (
-                        <span className="pmh-badge pmh-badge--ready">{ar ? 'نشط' : 'Active'}</span>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="button button--quiet button--small"
-                        disabled={busyId === user.id}
-                        onClick={() => void setSuspended(user, !user.disabledAt)}
-                      >
-                        {user.disabledAt
-                          ? ar
-                            ? 'إعادة التفعيل'
-                            : 'Restore'
-                          : ar
-                            ? 'إيقاف'
-                            : 'Suspend'}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {users.map((user) => {
+                  const sub = user.subscriptionStatus
+                    ? SUBSCRIPTION_LABELS[user.subscriptionStatus]
+                    : null;
+                  return (
+                    <tr key={user.id} className={user.disabledAt ? 'is-off' : undefined}>
+                      <td>
+                        <Link
+                          className="sa-user-link"
+                          href={`/${locale}/admin/users/${encodeURIComponent(user.id)}`}
+                        >
+                          <strong>{user.displayName || '—'}</strong>
+                        </Link>
+                        {user.isSiteAdmin ? (
+                          <span className="pmh-badge pmh-badge--info sa-tag">
+                            {ar ? 'إدارة' : 'Admin'}
+                          </span>
+                        ) : null}
+                        <small>
+                          <bdi dir="ltr">{user.email ?? '—'}</bdi>
+                        </small>
+                      </td>
+                      <td>
+                        <span>{countryLabel(user, ar)}</span>
+                        {user.countryCode ? (
+                          <small>
+                            <bdi dir="ltr">{user.countryCode}</bdi>
+                          </small>
+                        ) : null}
+                      </td>
+                      <td>
+                        <strong>{planLabel(user, ar)}</strong>
+                        {sub ? (
+                          <small>
+                            <span className={`pmh-badge pmh-badge--${sub.tone}`}>
+                              {ar ? sub.ar : sub.en}
+                            </span>
+                          </small>
+                        ) : null}
+                      </td>
+                      <td>{adminDate(user.subscriptionEndsOn, ar)}</td>
+                      <td>
+                        {user.organizations.length ? (
+                          <ul className="sa-orgs">
+                            {user.organizations.map((org, index) => (
+                              <li key={`${org.nameAr}-${index}`}>
+                                <bdi>{org.nameAr}</bdi> · {roleLabel(org.role, ar)}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <span className="muted">{ar ? 'بلا منشأة' : 'No organization'}</span>
+                        )}
+                      </td>
+                      <td>
+                        {user.disabledAt ? (
+                          <span className="pmh-badge pmh-badge--danger">
+                            {ar ? 'موقوف' : 'Suspended'}
+                          </span>
+                        ) : (
+                          <span className="pmh-badge pmh-badge--ready">
+                            {ar ? 'نشط' : 'Active'}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="button button--quiet button--small"
+                          disabled={busyId === user.id}
+                          onClick={() => void setSuspended(user, !user.disabledAt)}
+                        >
+                          {user.disabledAt
+                            ? ar
+                              ? 'إعادة التفعيل'
+                              : 'Restore'
+                            : ar
+                              ? 'إيقاف'
+                              : 'Suspend'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

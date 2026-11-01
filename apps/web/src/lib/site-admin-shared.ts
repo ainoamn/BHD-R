@@ -469,6 +469,190 @@ export type AdminUser = {
   disabledAt: string | null;
   organizations: { nameAr: string; role: string }[];
   isSiteAdmin: boolean;
+  /** Best-known country: latest session, else primary org country. */
+  countryCode: string | null;
+  countryNameAr: string | null;
+  countryNameEn: string | null;
+  planKey: string | null;
+  planNameAr: string | null;
+  planNameEn: string | null;
+  subscriptionStatus: SubscriptionStatus | null;
+  subscriptionEndsOn: string | null;
+};
+
+export type AdminUserOrg = {
+  id: string;
+  nameAr: string;
+  nameEn: string | null;
+  role: string;
+  countryCode: string;
+  planKey: string;
+  planNameAr: string;
+  planNameEn: string;
+  subscriptionStatus: SubscriptionStatus;
+  subscriptionEndsOn: string | null;
+  storageUsedBytes: number;
+  storageLimitBytes: number;
+};
+
+export type AdminUserProperty = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  status: string;
+  kind: string;
+  organizationId: string;
+  organizationNameAr: string;
+  listingSlug: string | null;
+  units: number;
+};
+
+export type AdminUserLease = {
+  id: string;
+  status: string;
+  startsOn: string;
+  endsOn: string;
+  propertyId: string;
+  propertyNameAr: string;
+  propertyNameEn: string;
+  unitId: string;
+  unitNameAr: string;
+  ownerName: string;
+  contractId: string | null;
+  organizationId: string;
+};
+
+export type AdminUserContract = {
+  id: string;
+  reference: string | null;
+  kind: string;
+  status: string;
+  propertyId: string;
+  propertyNameAr: string;
+  unitId: string;
+  role: 'owner' | 'tenant';
+  counterpartyName: string;
+  completedAt: string | null;
+};
+
+export type AdminUserReview = {
+  id: string;
+  source: 'reviews' | 'stay' | 'booking';
+  direction: 'authored' | 'received';
+  score: number;
+  targetLabel: string;
+  status: string;
+  createdAt: string | null;
+  comment: string | null;
+};
+
+export type AdminUserSession = {
+  id: string;
+  countryCode: string | null;
+  ipHash: string | null;
+  deviceHash: string | null;
+  createdAt: string | null;
+  expiresAt: string | null;
+  revokedAt: string | null;
+  active: boolean;
+};
+
+export type AdminUserAuthAttempt = {
+  id: string;
+  at: string | null;
+  outcome: string;
+  ipAddress: string | null;
+  ipHash: string;
+  countryCode: string | null;
+  deviceHash: string | null;
+  reason: string | null;
+};
+
+export type AdminUserAudit = {
+  at: string | null;
+  action: string;
+  resourceType: string;
+  resourceId: string | null;
+};
+
+export type AdminUserDetail = {
+  id: string;
+  email: string | null;
+  username: string;
+  displayName: string;
+  locale: string;
+  createdAt: string | null;
+  disabledAt: string | null;
+  securityLockedAt: string | null;
+  isSiteAdmin: boolean;
+  phone: string | null;
+  partyEmail: string | null;
+  countryCode: string | null;
+  countryNameAr: string | null;
+  countryNameEn: string | null;
+  organizations: AdminUserOrg[];
+  propertiesOwned: AdminUserProperty[];
+  leasesAsTenant: AdminUserLease[];
+  contracts: AdminUserContract[];
+  reviews: AdminUserReview[];
+  storage: {
+    uploadedBytes: number;
+    byOrganization: Array<{ organizationId: string; nameAr: string; bytes: number }>;
+  };
+  sessions: AdminUserSession[];
+  authAttempts: AdminUserAuthAttempt[];
+  audit: AdminUserAudit[];
+};
+
+export type AdminPropertyInspect = {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  status: string;
+  kind: string;
+  category: string;
+  organizationId: string;
+  organizationNameAr: string;
+  ownerName: string;
+  countryCode: string | null;
+  listingSlug: string | null;
+  units: Array<{ id: string; nameAr: string; nameEn: string; status: string }>;
+  contracts: Array<{
+    id: string;
+    reference: string | null;
+    status: string;
+    kind: string;
+    tenantName: string;
+    ownerName: string;
+  }>;
+  leases: Array<{
+    id: string;
+    status: string;
+    startsOn: string;
+    endsOn: string;
+    tenantName: string;
+    contractId: string | null;
+  }>;
+};
+
+export type AdminContractInspect = {
+  id: string;
+  reference: string | null;
+  kind: string;
+  status: string;
+  organizationId: string;
+  organizationNameAr: string;
+  propertyId: string;
+  propertyNameAr: string;
+  propertyNameEn: string;
+  unitId: string;
+  unitNameAr: string;
+  ownerName: string;
+  tenantName: string;
+  sentAt: string | null;
+  completedAt: string | null;
+  hasPdf: boolean;
+  relatedUserIds: string[];
 };
 
 const ERRORS: Record<string, { status: number; ar: string; en: string }> = {
@@ -505,6 +689,8 @@ const ERRORS: Record<string, { status: number; ar: string; en: string }> = {
   },
   organization_not_found: { status: 404, ar: 'المنشأة غير موجودة.', en: 'Organization not found.' },
   user_not_found: { status: 404, ar: 'المستخدم غير موجود.', en: 'User not found.' },
+  property_not_found: { status: 404, ar: 'العقار غير موجود.', en: 'Property not found.' },
+  contract_not_found: { status: 404, ar: 'العقد غير موجود.', en: 'Contract not found.' },
   user_self: {
     status: 409,
     ar: 'لا يمكنك إيقاف حسابك أنت.',

@@ -145,7 +145,7 @@ async function accessFor(tx: ElevatedTx, claims: SessionClaims): Promise<SiteAdm
   return { root: false, scopes: ADMIN_SCOPES.filter((scope) => granted.has(scope)) };
 }
 
-async function requireScope(
+export async function requireScope(
   tx: ElevatedTx,
   claims: SessionClaims,
   scope: AdminScope,
@@ -518,6 +518,9 @@ export function listAdminUsers(claims: SessionClaims, query: string): Promise<Ad
   return elevatedTx(async (tx) => {
     await requireScope(tx, claims, 'users');
     const { all } = await adminEmails(tx);
+    const catalog = readCatalog(await readSetting(tx, PLANS_KEY));
+    const subscriptions = readSubscriptions(await readSetting(tx, SUBSCRIPTIONS_KEY));
+    const planByKey = new Map(catalog.map((plan) => [plan.key, plan]));
     const q = query.trim().slice(0, 80);
     const rows = rowsOf<{
       id: string;
@@ -525,14 +528,47 @@ export function listAdminUsers(claims: SessionClaims, query: string): Promise<Ad
       display_name: string;
       created_at: Date | string | null;
       disabled_at: Date | string | null;
-      orgs: { nameAr: string; role: string }[] | null;
+      orgs: { id: string; nameAr: string; role: string; countryCode: string; planKey: string }[] | null;
+      session_country: string | null;
+      country_name_ar: string | null;
+      country_name_en: string | null;
     }>(
       await tx.execute(sql`
         select u.id::text, u.email, u.display_name, u.created_at, u.disabled_at,
-          (select json_agg(json_build_object('nameAr', o.display_name_ar, 'role', m.role_key)
+          (select json_agg(json_build_object(
+              'id', o.id::text,
+              'nameAr', o.display_name_ar,
+              'role', m.role_key,
+              'countryCode', o.country_code,
+              'planKey', o.plan_key)
               order by m.created_at)
             from memberships m join organizations o on o.id = m.organization_id
-            where m.user_id = u.id and m.status = 'active') as orgs
+            where m.user_id = u.id and m.status = 'active') as orgs,
+          (select s.country_code from sessions s
+            where s.user_id = u.id and s.country_code is not null and s.country_code <> ''
+            order by s.created_at desc limit 1) as session_country,
+          (select cp.name_ar from country_packs cp
+            where cp.country_code = coalesce(
+              (select s.country_code from sessions s
+                where s.user_id = u.id and s.country_code is not null and s.country_code <> ''
+                order by s.created_at desc limit 1),
+              (select o.country_code from memberships m
+                join organizations o on o.id = m.organization_id
+                where m.user_id = u.id and m.status = 'active'
+                order by m.created_at limit 1)
+            )
+            limit 1) as country_name_ar,
+          (select cp.name_en from country_packs cp
+            where cp.country_code = coalesce(
+              (select s.country_code from sessions s
+                where s.user_id = u.id and s.country_code is not null and s.country_code <> ''
+                order by s.created_at desc limit 1),
+              (select o.country_code from memberships m
+                join organizations o on o.id = m.organization_id
+                where m.user_id = u.id and m.status = 'active'
+                order by m.created_at limit 1)
+            )
+            limit 1) as country_name_en
         from users u
         ${
           q
@@ -544,15 +580,32 @@ export function listAdminUsers(claims: SessionClaims, query: string): Promise<Ad
         limit 100
       `),
     );
-    return rows.map((row) => ({
-      id: row.id,
-      email: row.email,
-      displayName: row.display_name,
-      createdAt: isoOf(row.created_at),
-      disabledAt: isoOf(row.disabled_at),
-      organizations: row.orgs ?? [],
-      isSiteAdmin: Boolean(row.email && all.has(row.email.trim().toLowerCase())),
-    }));
+    return rows.map((row) => {
+      const orgs = row.orgs ?? [];
+      const primary = orgs[0] ?? null;
+      const planKey = primary?.planKey ?? null;
+      const plan = planKey ? planByKey.get(planKey) : null;
+      const subscription = primary ? subscriptions[primary.id] : null;
+      const countryCode =
+        row.session_country || primary?.countryCode || null;
+      return {
+        id: row.id,
+        email: row.email,
+        displayName: row.display_name,
+        createdAt: isoOf(row.created_at),
+        disabledAt: isoOf(row.disabled_at),
+        organizations: orgs.map((org) => ({ nameAr: org.nameAr, role: org.role })),
+        isSiteAdmin: Boolean(row.email && all.has(row.email.trim().toLowerCase())),
+        countryCode,
+        countryNameAr: row.country_name_ar,
+        countryNameEn: row.country_name_en,
+        planKey,
+        planNameAr: plan?.nameAr ?? null,
+        planNameEn: plan?.nameEn ?? null,
+        subscriptionStatus: subscription?.status ?? (primary ? 'active' : null),
+        subscriptionEndsOn: subscription?.endsOn ?? null,
+      };
+    });
   });
 }
 

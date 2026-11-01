@@ -40,3 +40,32 @@ export function adminDate(value: string | null, ar: boolean): string {
     timeZone: 'Asia/Muscat',
   }).format(date);
 }
+
+export function adminDateTime(value: string | null, ar: boolean): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(ar ? 'ar-OM-u-nu-latn' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Muscat',
+  }).format(date);
+}
+
+export function adminBytes(bytes: number, ar: boolean): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return ar ? '0 بايت' : '0 B';
+  const units = ar
+    ? ['بايت', 'ك.ب', 'م.ب', 'ج.ب', 'ت.ب']
+    : ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = bytes;
+  let index = 0;
+  while (value >= 1024 && index < units.length - 1) {
+    value /= 1024;
+    index += 1;
+  }
+  const formatted = value >= 10 || index === 0 ? value.toFixed(0) : value.toFixed(1);
+  return `${formatted} ${units[index]}`;
+}
