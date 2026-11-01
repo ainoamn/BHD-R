@@ -2150,6 +2150,38 @@ export const securityIdentityFingerprints = pgTable('security_identity_fingerpri
   emailHash: varchar('email_hash', { length: 64 }),
 });
 
+/** Site console P&L: SaaS cash collected and platform operating expenses. */
+export const platformLedgerEntries = pgTable(
+  'platform_ledger_entries',
+  {
+    ...identityColumns,
+    occurredOn: date('occurred_on').notNull(),
+    kind: varchar('kind', { length: 32 }).notNull(),
+    category: varchar('category', { length: 80 }).notNull(),
+    description: varchar('description', { length: 500 }).notNull(),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull().default('OMR'),
+    minorUnit: integer('minor_unit').notNull().default(3),
+    organizationId: uuid('organization_id').references(() => organizations.id),
+    reference: varchar('reference', { length: 120 }),
+    status: varchar('status', { length: 16 }).notNull().default('posted'),
+    createdByUserId: uuid('created_by_user_id').references(() => users.id),
+    metadata: jsonb('metadata').notNull().default({}),
+  },
+  (table) => [
+    index('platform_ledger_occurred_idx').on(table.occurredOn, table.createdAt),
+    index('platform_ledger_kind_status_idx').on(table.kind, table.status),
+    index('platform_ledger_org_idx').on(table.organizationId),
+    check(
+      'platform_ledger_kind_check',
+      sql`${table.kind} IN ('subscription_in', 'other_in', 'expense', 'adjustment')`,
+    ),
+    check('platform_ledger_status_check', sql`${table.status} IN ('draft', 'posted', 'void')`),
+    check('platform_ledger_amount_check', sql`${table.amountMinor} > 0`),
+    check('platform_ledger_minor_unit_check', sql`${table.minorUnit} between 0 and 6`),
+  ],
+);
+
 export const reportJobs = pgTable(
   'report_jobs',
   {

@@ -736,6 +736,78 @@ body:has(.site-admin-shell) #main-content {
   list-style: none;
 }
 
+/* Platform accounting */
+.sa-pulse-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr));
+  gap: 0.75rem;
+}
+.sa-pulse-card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  border-radius: 0.9rem;
+  background: linear-gradient(165deg, #f7fbfa, #eef5f3);
+}
+.sa-pulse-card span {
+  color: #55706a;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.sa-pulse-card strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.sa-pulse-card--in {
+  border-color: rgb(15 118 110 / 0.28);
+  background: linear-gradient(165deg, #edfaf7, #e2f4ef);
+}
+.sa-pulse-card--out {
+  border-color: rgb(180 83 9 / 0.25);
+  background: linear-gradient(165deg, #fff8f1, #f7efe6);
+}
+.sa-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+.sa-input--compact {
+  max-width: 12rem;
+}
+.sa-ai-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+}
+.sa-ai-columns h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+}
+.sa-ledger-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 0.65rem 0.75rem;
+  align-items: end;
+}
+.sa-ledger-form label {
+  display: grid;
+  gap: 0.25rem;
+}
+.sa-ledger-form label span {
+  color: #55706a;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.sa-ledger-form__wide {
+  grid-column: 1 / -1;
+}
+.sa-ledger-form .button {
+  justify-self: start;
+}
+
 /* Payment gateways */
 .sa-gateway-methods {
   margin-bottom: 1.25rem;

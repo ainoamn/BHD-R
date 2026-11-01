@@ -1,5 +1,12 @@
 ﻿/** What a delegated administrator may run on behalf of the site administration. */
-export const ADMIN_SCOPES = ['complaints', 'verification', 'plans', 'users', 'delegates'] as const;
+export const ADMIN_SCOPES = [
+  'complaints',
+  'verification',
+  'plans',
+  'users',
+  'accounting',
+  'delegates',
+] as const;
 export type AdminScope = (typeof ADMIN_SCOPES)[number];
 
 export const SCOPE_LABELS: Record<
@@ -30,6 +37,12 @@ export const SCOPE_LABELS: Record<
     hintAr: 'إيقاف الحسابات وإعادة تفعيلها',
     hintEn: 'Suspend and restore accounts',
   },
+  accounting: {
+    ar: 'محاسبة المنصة',
+    en: 'Platform accounting',
+    hintAr: 'دخل العملاء وصرفهم ودفاتر الموقع وتحليل الذكاء الاصطناعي',
+    hintEn: 'Client income/spend, site ledger, and AI analysis',
+  },
   delegates: {
     ar: 'التفويض',
     en: 'Delegation',
@@ -43,6 +56,7 @@ export const ADMIN_SECTIONS: { scope: AdminScope; path: string }[] = [
   { scope: 'verification', path: '/admin/verification' },
   { scope: 'plans', path: '/admin/plans' },
   { scope: 'users', path: '/admin/users' },
+  { scope: 'accounting', path: '/admin/accounting' },
   { scope: 'delegates', path: '/admin/delegates' },
 ];
 
@@ -55,6 +69,7 @@ export type SiteConsoleSectionId =
   | 'diagnostics'
   | 'security'
   | 'billing'
+  | 'accounting'
   | 'payments'
   | 'pages'
   | 'maintenance'
@@ -174,6 +189,16 @@ export const SITE_CONSOLE_SECTIONS: Array<{
     en: 'Billing stats',
     hintAr: 'تقدير شهري وحالات السداد',
     hintEn: 'Estimated MRR and payment statuses',
+  },
+  {
+    id: 'accounting',
+    path: '/admin/accounting',
+    scope: 'accounting',
+    group: 'growth',
+    ar: 'محاسبة المنصة',
+    en: 'Platform accounting',
+    hintAr: 'دخل وصرف العملاء ودفاتر الموقع والتسويق',
+    hintEn: 'Client income/spend, site books, and marketing pulse',
   },
   {
     id: 'users',
@@ -655,6 +680,84 @@ export type AdminContractInspect = {
   relatedUserIds: string[];
 };
 
+export const PLATFORM_LEDGER_KINDS = [
+  'subscription_in',
+  'other_in',
+  'expense',
+  'adjustment',
+] as const;
+export type PlatformLedgerKind = (typeof PLATFORM_LEDGER_KINDS)[number];
+
+export const PLATFORM_LEDGER_KIND_LABELS: Record<
+  PlatformLedgerKind,
+  { ar: string; en: string; tone: 'ready' | 'info' | 'danger' | 'warn' }
+> = {
+  subscription_in: { ar: 'تحصيل اشتراك', en: 'Subscription collected', tone: 'ready' },
+  other_in: { ar: 'دخل آخر', en: 'Other income', tone: 'info' },
+  expense: { ar: 'مصروف موقع', en: 'Site expense', tone: 'danger' },
+  adjustment: { ar: 'تسوية', en: 'Adjustment', tone: 'warn' },
+};
+
+export type PlatformLedgerEntry = {
+  id: string;
+  occurredOn: string;
+  kind: PlatformLedgerKind;
+  category: string;
+  description: string;
+  amountMinor: number;
+  currency: string;
+  organizationId: string | null;
+  organizationNameAr: string | null;
+  reference: string | null;
+  status: 'draft' | 'posted' | 'void';
+  createdAt: string | null;
+};
+
+export type PlatformAccountRow = {
+  organizationId: string;
+  nameAr: string;
+  nameEn: string | null;
+  planKey: string;
+  incomeMinor: number;
+  rentIncomeMinor: number;
+  stayIncomeMinor: number;
+  expenseMinor: number;
+  properties: number;
+  units: number;
+  members: number;
+};
+
+export type PlatformAccountingPulse = {
+  clientIncomeMinor: number;
+  clientExpenseMinor: number;
+  siteIncomeMinor: number;
+  siteExpenseMinor: number;
+  estimatedSubscriptionMonthlyMinor: number;
+  organizations: number;
+  users: number;
+  properties: number;
+  units: number;
+};
+
+export type PlatformAccountingView = {
+  generatedAt: string;
+  currency: 'OMR';
+  pulse: PlatformAccountingPulse;
+  accounts: PlatformAccountRow[];
+  ledger: PlatformLedgerEntry[];
+  ledgerReady: boolean;
+};
+
+export type PlatformAccountingNarrative = {
+  engine: 'ai' | 'rules';
+  summaryAr: string;
+  summaryEn: string;
+  highlights: Array<{ ar: string; en: string }>;
+  risks: Array<{ ar: string; en: string }>;
+  rankedOrganizationIds: string[];
+  marketingTips: Array<{ ar: string; en: string }>;
+};
+
 const ERRORS: Record<string, { status: number; ar: string; en: string }> = {
   forbidden: {
     status: 403,
@@ -733,13 +836,28 @@ const ERRORS: Record<string, { status: number; ar: string; en: string }> = {
   },
   ai_failed: {
     status: 502,
-    ar: 'تعذّر توليد التصميم بالذكاء الاصطناعي. أعد المحاولة.',
-    en: 'AI design failed. Please try again.',
+    ar: 'تعذّر التحليل بالذكاء الاصطناعي. أعد المحاولة.',
+    en: 'AI analysis failed. Please try again.',
   },
   ai_unconfigured: {
     status: 503,
     ar: 'خدمة الذكاء الاصطناعي غير مفعّلة على الخادم (AI_GATEWAY_API_KEY أو OPENAI_API_KEY).',
     en: 'AI is not configured on the server (AI_GATEWAY_API_KEY or OPENAI_API_KEY).',
+  },
+  ledger_invalid: {
+    status: 400,
+    ar: 'تحقق من نوع القيد والمبلغ والوصف والتاريخ.',
+    en: 'Check the entry kind, amount, description, and date.',
+  },
+  ledger_not_found: {
+    status: 404,
+    ar: 'القيد غير موجود.',
+    en: 'Ledger entry not found.',
+  },
+  accounting_unavailable: {
+    status: 503,
+    ar: 'جدول محاسبة المنصة غير جاهز بعد. انتظر اكتمال الترحيل ثم أعد المحاولة.',
+    en: 'Platform ledger table is not ready yet. Wait for migration, then retry.',
   },
   ai_image_failed: {
     status: 502,

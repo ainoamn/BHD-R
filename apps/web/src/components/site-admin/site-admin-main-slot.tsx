@@ -27,6 +27,9 @@ const PlatformBillingPanel = dynamic(() =>
 const PlansAdmin = dynamic(() =>
   import('@/components/site-admin/plans-admin').then((m) => m.PlansAdmin),
 );
+const AccountingAdmin = dynamic(() =>
+  import('@/components/site-admin/accounting-admin').then((m) => m.AccountingAdmin),
+);
 const UsersAdmin = dynamic(() =>
   import('@/components/site-admin/users-admin').then((m) => m.UsersAdmin),
 );
@@ -117,6 +120,8 @@ function renderSection(
       );
     case 'plans':
       return <PlansAdmin locale={locale} />;
+    case 'accounting':
+      return <AccountingAdmin locale={locale} />;
     case 'users':
       return <UsersAdmin locale={locale} />;
     case 'complaints':
