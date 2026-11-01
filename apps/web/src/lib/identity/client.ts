@@ -210,10 +210,31 @@ export function emitAccountRebound(userId?: string | null) {
 
 const PRODUCT_SESSION_CHANNEL = 'bhd-product-session';
 const HOSTILE_COOKIE_KEY = 'bhd_hostile_cookie_owner';
+/** Survives refresh so bootstrap can veil before wrong SSR paints. */
+export const PRODUCT_COOKIE_OWNER_LS = 'bhd_product_cookie_sub';
+
+export function rememberProductCookieOwner(sub: string) {
+  if (typeof window === 'undefined' || !sub) return;
+  try {
+    localStorage.setItem(PRODUCT_COOKIE_OWNER_LS, sub);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readRememberedProductCookieOwner(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    return localStorage.getItem(PRODUCT_COOKIE_OWNER_LS)?.trim() || '';
+  } catch {
+    return '';
+  }
+}
 
 /** Tell other tabs which account now owns the shared product cookie. */
 export function broadcastProductCookieOwner(sub: string) {
   if (typeof window === 'undefined' || !sub) return;
+  rememberProductCookieOwner(sub);
   try {
     const bc = new BroadcastChannel(PRODUCT_SESSION_CHANNEL);
     bc.postMessage({ type: 'cookie-owner', sub, at: Date.now() });
@@ -432,9 +453,10 @@ export async function applyAccountIsolation(
 
   if (options?.silent) {
     if (!tabMayClaimProductCookie()) return;
+    // Hide wrong SSR/cookie paint until this tab's ?au= is confirmed after refresh.
+    if (sub) paintPrivacyVeil();
     const result = await silentRebind(windowToken, sub);
     if (result.ok) {
-      clearAccountRebindLock();
       scrubCacheBustFromUrl();
       // Cookie fixed in-place — never hard-navigate (stops blink + tab wars).
       if (!result.unchanged) {
@@ -442,9 +464,13 @@ export async function applyAccountIsolation(
         sessionStorage.setItem(guardKey, String(Date.now()));
         clearHostileProductCookie();
         if (result.userId || sub) broadcastProductCookieOwner(result.userId || sub || '');
+        paintPrivacyVeil();
+        // Keep veil until SilentSso verifies me === au after router.refresh().
         emitAccountRebound(result.userId || sub);
       } else {
         clearHostileProductCookie();
+        if (result.userId || sub) rememberProductCookieOwner(result.userId || sub || '');
+        clearAccountRebindLock();
       }
       return;
     }

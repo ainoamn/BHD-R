@@ -8,7 +8,9 @@ import {
   isAccountRebindPending,
   isIdentityOrigin,
   markHostileProductCookie,
+  paintPrivacyVeil,
   productStartPath,
+  rememberProductCookieOwner,
   scrubCacheBustFromUrl,
   SILENT_SSO_GUARD_MS,
   tabMayClaimProductCookie,
@@ -19,25 +21,71 @@ import { boundWindowToken, readActiveAu, setActiveAu } from '@/lib/identity/wind
 import { useEffect, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
+async function productMe(): Promise<{ authenticated?: boolean; currentSub?: string | null }> {
+  const response = await fetch('/api/auth/me', {
+    cache: 'no-store',
+    credentials: 'include',
+    headers: { accept: 'application/json' },
+  });
+  return (await response.json().catch(() => ({}))) as {
+    authenticated?: boolean;
+    currentSub?: string | null;
+  };
+}
+
+/** After silent rebind, wait until cookie matches this tab before lifting the veil. */
+async function releaseVeilWhenAligned(expectedSub: string) {
+  const au = expectedSub.trim();
+  if (!au) {
+    clearAccountRebindLock();
+    return;
+  }
+  for (let i = 0; i < 8; i += 1) {
+    try {
+      const local = await productMe();
+      if (local.currentSub && local.currentSub === au) {
+        rememberProductCookieOwner(au);
+        clearHostileProductCookie();
+        clearAccountRebindLock();
+        ensureAuInUrl(au);
+        scrubCacheBustFromUrl();
+        return;
+      }
+    } catch {
+      /* retry */
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 120 + i * 80));
+  }
+  // Still mismatched — keep veil; next focus/reconcile will retry.
+  paintPrivacyVeil();
+}
+
 export function BhdSilentSso() {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
   useEffect(() => {
-    const onRebound = () => {
+    const onRebound = (event: Event) => {
+      const detail = (event as CustomEvent<{ userId?: string }>).detail;
+      const expected = (detail?.userId || readActiveAu() || '').trim();
       clearHostileProductCookie();
+      paintPrivacyVeil();
       startTransition(() => {
         try {
           router.refresh();
         } catch {
           /* no-op */
         }
+        void releaseVeilWhenAligned(expected);
       });
     };
     window.addEventListener('bhd:account-rebound', onRebound);
     const stopWatch = watchProductCookieOwner((ownerSub) => {
       const au = readActiveAu();
-      if (au && ownerSub !== au) markHostileProductCookie(ownerSub);
+      if (au && ownerSub !== au) {
+        markHostileProductCookie(ownerSub);
+        paintPrivacyVeil();
+      }
     });
     return () => {
       window.removeEventListener('bhd:account-rebound', onRebound);
@@ -70,35 +118,34 @@ export function BhdSilentSso() {
         const au = readActiveAu();
         if (au) setActiveAu(au);
 
-        const localResponse = await fetch('/api/auth/me', {
-          cache: 'no-store',
-          credentials: 'include',
-          headers: { accept: 'application/json' },
-        });
-        const local = (await localResponse.json().catch(() => ({}))) as {
-          authenticated?: boolean;
-          currentSub?: string | null;
-        };
+        const local = await productMe();
         if (cancelled) return;
 
         const productSub = local.currentSub || null;
         if (local.authenticated && productSub && au && productSub === au) {
+          rememberProductCookieOwner(au);
           clearAccountRebindLock();
           clearHostileProductCookie();
           scrubCacheBustFromUrl();
           ensureAuInUrl(au);
           return;
         }
+
+        // Cookie is for another account — hide wrong paint immediately.
+        if (au && productSub && productSub !== au) {
+          markHostileProductCookie(productSub);
+          paintPrivacyVeil();
+        }
+
         if (au) ensureAuInUrl(au);
 
-        // Background tabs must not steal the shared cookie.
+        // Background tabs must not steal the shared cookie (veil stays up).
         if (!tabMayClaimProductCookie()) return;
 
         const identity = await loadBhdIdentity();
         if (cancelled || !identity) return;
         const { ok, body } = await identity.me();
         if (cancelled || !ok || !body.user?.id) {
-          clearAccountRebindLock();
           return;
         }
 
@@ -111,6 +158,7 @@ export function BhdSilentSso() {
           productSub === identityId &&
           productSub === targetAu
         ) {
+          rememberProductCookieOwner(productSub);
           clearAccountRebindLock();
           scrubCacheBustFromUrl();
           return;
@@ -135,7 +183,7 @@ export function BhdSilentSso() {
           silent: true,
         });
       } catch {
-        clearAccountRebindLock();
+        /* keep veil if already painted */
       }
     }
 

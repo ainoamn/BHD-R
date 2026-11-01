@@ -47,6 +47,15 @@ html {
   scroll-behavior: smooth;
   background: var(--ivory-50);
 }
+/* Multi-account: hide SSR cookie paint until ?au= is rebound/confirmed. */
+html[data-bhd-switching='1']::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  background: var(--ink-900, #092d24);
+  pointer-events: none;
+}
 body {
   margin: 0;
   color: var(--ink-900);

@@ -6,6 +6,9 @@ import {
   ensureAuInUrl,
   isAccountRebindPending,
   isIdentityOrigin,
+  markHostileProductCookie,
+  paintPrivacyVeil,
+  rememberProductCookieOwner,
   scrubCacheBustFromUrl,
   tabMayClaimProductCookie,
 } from '@/lib/identity/client';
@@ -72,6 +75,7 @@ export function BhdPrivacyGate() {
 
         // Aligned — keep this tab's au; never overwrite URL au with cookie sub.
         if (productSub && au && productSub === au) {
+          rememberProductCookieOwner(au);
           clearAccountRebindLock();
           scrubCacheBustFromUrl();
           ensureAuInUrl(au);
@@ -81,14 +85,21 @@ export function BhdPrivacyGate() {
         // No tab binding yet — adopt cookie account as this tab's au.
         if (productSub && !au) {
           setActiveAu(productSub);
+          rememberProductCookieOwner(productSub);
           ensureAuInUrl(productSub);
           clearAccountRebindLock();
           scrubCacheBustFromUrl();
           return;
         }
 
+        if (au && productSub && productSub !== au) {
+          markHostileProductCookie(productSub);
+          paintPrivacyVeil();
+        }
+
         if (isAccountRebindPending()) {
           if (productSub && au && productSub === au) {
+            rememberProductCookieOwner(au);
             clearAccountRebindLock();
             scrubCacheBustFromUrl();
           }
@@ -100,7 +111,7 @@ export function BhdPrivacyGate() {
 
         const identity = await loadBhdIdentity();
         if (cancelled || !identity) {
-          if (productSub) {
+          if (productSub && au && productSub === au) {
             clearAccountRebindLock();
             scrubCacheBustFromUrl();
           }
@@ -110,8 +121,6 @@ export function BhdPrivacyGate() {
         const { ok, body } = await identity.me();
         if (cancelled) return;
         if (!ok || !body.user?.id) {
-          clearAccountRebindLock();
-          scrubCacheBustFromUrl();
           return;
         }
 
@@ -129,12 +138,14 @@ export function BhdPrivacyGate() {
           (!localEmail || !identityEmail || localEmail === identityEmail);
 
         if (matched) {
+          rememberProductCookieOwner(targetAu);
           clearAccountRebindLock();
           scrubCacheBustFromUrl();
           ensureAuInUrl(targetAu);
           return;
         }
 
+        paintPrivacyVeil();
         const token = boundWindowToken() || (typeof body.token === 'string' ? body.token : '');
         await applyAccountIsolation(token, {
           force: true,
@@ -142,7 +153,7 @@ export function BhdPrivacyGate() {
           silent: true,
         });
       } catch {
-        clearAccountRebindLock();
+        /* keep veil if already painted */
       }
     }
 

@@ -107,9 +107,13 @@ export default async function LocaleLayout({
     logo: `${publicWebOrigin}/og.png`,
     areaServed: 'OM',
   };
+  // Always veil when ?au= is present until /api/auth/me confirms cookie match (no wrong-account flash).
+  const accountVeilBootstrap = `(function(){try{if(new URL(location.href).searchParams.get('au')){document.documentElement.setAttribute('data-bhd-switching','1');}}catch(e){}})();`;
+
   return (
     <html lang={locale} dir={localeConfig[locale].dir}>
       <body className={`${arabicFont.variable} ${latinFont.variable}`}>
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: accountVeilBootstrap }} />
         <a className="skip-link" href="#main-content">
           {locale === 'ar' ? 'انتقل إلى المحتوى' : 'Skip to content'}
         </a>

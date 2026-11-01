@@ -11,7 +11,9 @@
 - ربط التبويب: `?au=<sub>` + خريطة `bhd_account_tokens` في `sessionStorage`.
 - انحراف خلفي: `POST /api/auth/bhd/rebind` مع `Accept: application/json` (silent).
 - تبديل صريح: غطاء فارغ + `X-BHD-Persist-Cookie: 1` + form rebind.
-- `BhdSilentSso`: فحص كل ~20ث — `silent: true` فقط.
+- `BhdSilentSso`: فحص عند التركيز — `silent: true` فقط؛ الغطاء يبقى حتى `currentSub === ?au=` بعد `router.refresh()`.
+- Bootstrap في `layout`: إن وُجد `?au=` يُفعَّل `data-bhd-switching` فوراً قبل رسم SSR الخاطئ (كوكي تبويب آخر).
+- `localStorage bhd_product_cookie_sub` يتزامن مع مالك الكوكي عبر التبويبات.
 
 ---
 
