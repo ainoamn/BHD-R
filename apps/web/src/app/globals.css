@@ -34357,6 +34357,12 @@ button.handover-shots__item {
   gap: 0.2rem;
   min-width: 0;
 }
+.contact-channels li.is-missing {
+  padding: 0.35rem 0.45rem;
+  border-radius: 0.65rem;
+  background: rgb(200 40 40 / 0.22);
+  box-shadow: inset 0 0 0 1px rgb(255 180 180 / 0.35);
+}
 .contact-channels span {
   color: rgb(247 250 248 / 0.62);
   font-size: 0.72rem;
@@ -34371,6 +34377,120 @@ button.handover-shots__item {
   font-weight: 650;
   overflow-wrap: anywhere;
   text-decoration: none;
+}
+.contact-channels__gap {
+  color: #ffd0d0 !important;
+  font-weight: 800 !important;
+}
+.contact-hero__gaps {
+  margin: 0;
+  width: fit-content;
+  padding: 0.18rem 0.7rem;
+  color: #fff1f0;
+  background: rgb(192 57 43 / 0.88);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+.contact-gaps {
+  margin: 0;
+  padding: 0.9rem 1rem;
+  color: #8a1f16;
+  background: #fdecea;
+  border: 1px solid #f0b4ad;
+  border-radius: 1rem;
+}
+.contact-gaps strong {
+  display: block;
+  margin-bottom: 0.45rem;
+  font-size: 0.92rem;
+}
+.contact-gaps ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.contact-gaps li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+.contact-gaps__tag {
+  padding: 0.08rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.contact-gaps__tag--party {
+  color: #8a1f16;
+  background: rgb(192 57 43 / 0.12);
+}
+.contact-gaps__tag--identity {
+  color: #08736f;
+  background: rgb(8 163 159 / 0.14);
+}
+.contact-fact.is-missing {
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.7rem;
+  background: #fdecea;
+  box-shadow: inset 0 0 0 1px #f0b4ad;
+}
+.contact-fact__mark,
+.contact-field-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-inline-start: 0.3rem;
+  color: #fff;
+  background: #c0392b;
+  border-radius: 50%;
+  font-style: normal;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  vertical-align: middle;
+}
+.contact-fact__empty {
+  color: #c0392b;
+  font-weight: 800;
+}
+.contact-sheet__lead--warn {
+  color: #8a1f16;
+  padding: 0.7rem 0.8rem;
+  background: #fdecea;
+  border: 1px solid #f0b4ad;
+  border-radius: 0.8rem;
+}
+.contact-identity__files li.is-missing {
+  color: #8a1f16;
+  background: #fdecea;
+  box-shadow: inset 0 0 0 1px #f0b4ad;
+}
+.contact-edit .field.is-missing span {
+  color: #c0392b;
+}
+.contact-edit .field.is-missing input,
+.contact-edit .field.is-missing select,
+.contact-edit .is-missing-wrap {
+  border-radius: 0.75rem;
+}
+.contact-edit .field.is-missing input,
+.contact-edit .field.is-missing select {
+  border-color: #c0392b;
+  background: #fdecea;
+  box-shadow: 0 0 0 3px rgb(192 57 43 / 0.12);
+}
+.contact-edit .is-missing-wrap {
+  grid-column: 1 / -1;
+  padding: 0.55rem;
+  background: #fff7f7;
+  border: 1px solid #f0b4ad;
 }
 .contact-hero__actions {
   display: flex;

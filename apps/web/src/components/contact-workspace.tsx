@@ -111,14 +111,43 @@ function Section({
   );
 }
 
-function Fact({ label, children }: { label: string; children: ReactNode }) {
+function blank(value: string | null | undefined): boolean {
+  return !value || !value.trim();
+}
+
+function Fact({
+  label,
+  children,
+  missing,
+  missingLabel,
+}: {
+  label: string;
+  children: ReactNode;
+  missing?: boolean;
+  missingLabel?: string;
+}) {
   return (
-    <div className="contact-fact">
-      <dt>{label}</dt>
-      <dd>{children ?? '—'}</dd>
+    <div className={`contact-fact${missing ? ' is-missing' : ''}`}>
+      <dt>
+        {label}
+        {missing ? (
+          <span className="contact-fact__mark" title={missingLabel || label}>
+            !
+          </span>
+        ) : null}
+      </dt>
+      <dd>
+        {missing && (children === '—' || children == null || children === '') ? (
+          <span className="contact-fact__empty">{missingLabel || '—'}</span>
+        ) : (
+          (children ?? '—')
+        )}
+      </dd>
     </div>
   );
 }
+
+type ProfileGap = { key: string; label: string; group: 'party' | 'identity' };
 
 function Sheet({
   title,
@@ -340,6 +369,60 @@ export function ContactWorkspace({
 
   const identity = party.identity;
   const englishName = party.nameEn || identity?.nameEn || null;
+  const missingText = ar ? 'ناقص' : 'Missing';
+
+  const gaps: ProfileGap[] = [];
+  const pushGap = (key: string, labelAr: string, labelEn: string, group: ProfileGap['group']) => {
+    gaps.push({ key, label: ar ? labelAr : labelEn, group });
+  };
+  if (blank(englishName)) pushGap('nameEn', 'الاسم بالإنجليزية', 'English name', 'party');
+  if (blank(party.phone)) pushGap('phone', 'الهاتف', 'Phone', 'party');
+  if (blank(party.email)) pushGap('email', 'البريد', 'Email', 'party');
+  if (blank(party.address?.governorate))
+    pushGap('governorate', 'المحافظة', 'Governorate', 'party');
+  if (blank(party.address?.wilayat)) pushGap('wilayat', 'الولاية', 'Wilayat', 'party');
+  if (blank(party.address?.city)) pushGap('city', 'المدينة', 'City', 'party');
+
+  if (!identity) {
+    pushGap('identity', 'بيانات حساب Identity', 'Identity account profile', 'identity');
+  } else if (identity.accountKind === 'company') {
+    if (blank(identity.companyNameAr))
+      pushGap('companyNameAr', 'اسم الشركة بالعربية', 'Company name (AR)', 'identity');
+    if (blank(identity.companyNameEn))
+      pushGap('companyNameEn', 'اسم الشركة بالإنجليزية', 'Company name (EN)', 'identity');
+    if (blank(identity.nameAr))
+      pushGap('idNameAr', 'اسم المفوض بالعربية', 'Authorized name (AR)', 'identity');
+    if (blank(identity.nameEn))
+      pushGap('idNameEn', 'اسم المفوض بالإنجليزية', 'Authorized name (EN)', 'identity');
+    if (blank(identity.crNumber))
+      pushGap('crNumber', 'السجل التجاري', 'Commercial register no.', 'identity');
+    if (blank(identity.phone)) pushGap('idPhone', 'هاتف Identity', 'Identity phone', 'identity');
+    if (!identity.files.commercialRegisterFile)
+      pushGap('crFile', 'مرفق السجل التجاري', 'Commercial register file', 'identity');
+    if (!identity.files.authorizationFile)
+      pushGap('authFile', 'مرفق التفويض', 'Authorization file', 'identity');
+  } else {
+    if (blank(identity.nameAr))
+      pushGap('idNameAr', 'الاسم بالعربية (Identity)', 'Identity name (AR)', 'identity');
+    if (blank(identity.nameEn))
+      pushGap('idNameEn', 'الاسم بالإنجليزية (Identity)', 'Identity name (EN)', 'identity');
+    if (blank(identity.phone)) pushGap('idPhone', 'هاتف Identity', 'Identity phone', 'identity');
+    if (blank(identity.nationality))
+      pushGap('nationality', 'الجنسية', 'Nationality', 'identity');
+    if (blank(identity.gender)) pushGap('gender', 'الجنس', 'Gender', 'identity');
+    if (blank(identity.birthDate))
+      pushGap('birthDate', 'تاريخ الميلاد', 'Birth date', 'identity');
+  }
+
+  const gapKeys = new Set(gaps.map((item) => item.key));
+  const formGaps = {
+    nameEn: blank(form.nameEn),
+    phone: blank(form.phone),
+    email: blank(form.email),
+    governorate: blank(form.governorate),
+    wilayat: blank(form.wilayat),
+    city: blank(form.city),
+  };
 
   return (
     <div className="contact-page">
@@ -372,6 +455,13 @@ export function ContactWorkspace({
               <VerifiedMark verified={party.mark?.verified} locale={locale} size={22} />
             </h1>
             {englishName ? <p className="contact-hero__en">{englishName}</p> : null}
+            {gaps.length ? (
+              <p className="contact-hero__gaps" role="status">
+                {ar
+                  ? `${gaps.length} ${gaps.length === 1 ? 'نقص' : 'نواقص'} في الملف`
+                  : `${gaps.length} missing ${gaps.length === 1 ? 'field' : 'fields'}`}
+              </p>
+            ) : null}
             {party.mark ? (
               <p className={`contact-hero__verify${party.mark.verified ? ' is-verified' : ''}`}>
                 {party.mark.verified
@@ -449,29 +539,39 @@ export function ContactWorkspace({
           </div>
         </div>
         <ul className="contact-channels">
-          <li>
+          <li className={blank(party.phone) ? 'is-missing' : undefined}>
             <span>{ar ? 'الهاتف' : 'Phone'}</span>
             {party.phone ? (
               <bdi>
                 <a href={`tel:${party.phone}`}>{party.phone}</a>
               </bdi>
             ) : (
-              '—'
+              <em className="contact-channels__gap">{missingText}</em>
             )}
           </li>
-          <li>
+          <li className={blank(party.email) ? 'is-missing' : undefined}>
             <span>{ar ? 'البريد' : 'Email'}</span>
             {party.email ? (
               <bdi>
                 <a href={`mailto:${party.email}`}>{party.email}</a>
               </bdi>
             ) : (
-              '—'
+              <em className="contact-channels__gap">{missingText}</em>
             )}
           </li>
-          <li>
+          <li
+            className={
+              blank(party.address?.governorate) ||
+              blank(party.address?.wilayat) ||
+              blank(party.address?.city)
+                ? 'is-missing'
+                : undefined
+            }
+          >
             <span>{ar ? 'العنوان' : 'Address'}</span>
-            <em>{addressLine || (ar ? 'غير مضاف' : 'Not added')}</em>
+            <em className={!addressLine ? 'contact-channels__gap' : undefined}>
+              {addressLine || missingText}
+            </em>
           </li>
           <li>
             <span>{ar ? 'أُضيف في' : 'Added'}</span>
@@ -491,6 +591,26 @@ export function ContactWorkspace({
         </p>
       ) : null}
 
+      {gaps.length ? (
+        <div className="contact-gaps" role="alert">
+          <strong>
+            {ar
+              ? `${gaps.length} نواقص في ملف الطرف — الحقول المعلّمة بالأحمر تحتاج تعبئة:`
+              : `${gaps.length} gaps in this profile — red fields need completing:`}
+          </strong>
+          <ul>
+            {gaps.map((item) => (
+              <li key={item.key}>
+                <span className={`contact-gaps__tag contact-gaps__tag--${item.group}`}>
+                  {item.group === 'identity' ? 'Identity' : ar ? 'دفتر العناوين' : 'Address book'}
+                </span>
+                {item.label}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {editing ? (
         <form className="contact-edit" onSubmit={(event) => void save(event)}>
           <header className="contact-edit__banner">
@@ -499,22 +619,24 @@ export function ContactWorkspace({
           </header>
           <fieldset>
             <legend>{ar ? 'البيانات الأساسية' : 'Basics'}</legend>
-            <BilingualNameField
-              idPrefix="contact-name"
-              labelAr={ar ? 'الاسم بالعربية' : 'Name (Arabic)'}
-              labelEn={ar ? 'الاسم بالإنجليزية' : 'Name (English)'}
-              valueAr={form.displayName}
-              valueEn={form.nameEn}
-              locale={locale}
-              kind={form.type === 'company' ? 'company' : 'person'}
-              onChange={(patch) =>
-                setForm((current) => ({
-                  ...current,
-                  ...(patch.nameAr !== undefined ? { displayName: patch.nameAr } : {}),
-                  ...(patch.nameEn !== undefined ? { nameEn: patch.nameEn } : {}),
-                }))
-              }
-            />
+            <div className={formGaps.nameEn ? 'is-missing-wrap' : undefined}>
+              <BilingualNameField
+                idPrefix="contact-name"
+                labelAr={ar ? 'الاسم بالعربية' : 'Name (Arabic)'}
+                labelEn={ar ? 'الاسم بالإنجليزية' : 'Name (English)'}
+                valueAr={form.displayName}
+                valueEn={form.nameEn}
+                locale={locale}
+                kind={form.type === 'company' ? 'company' : 'person'}
+                onChange={(patch) =>
+                  setForm((current) => ({
+                    ...current,
+                    ...(patch.nameAr !== undefined ? { displayName: patch.nameAr } : {}),
+                    ...(patch.nameEn !== undefined ? { nameEn: patch.nameEn } : {}),
+                  }))
+                }
+              />
+            </div>
             <label className="field">
               <span>{ar ? 'النوع' : 'Type'}</span>
               <select
@@ -525,8 +647,11 @@ export function ContactWorkspace({
                 <option value="company">{ar ? 'شركة' : 'Company'}</option>
               </select>
             </label>
-            <label className="field">
-              <span>{ar ? 'الهاتف' : 'Phone'}</span>
+            <label className={`field${formGaps.phone ? ' is-missing' : ''}`}>
+              <span>
+                {ar ? 'الهاتف' : 'Phone'}
+                {formGaps.phone ? <i className="contact-field-mark">!</i> : null}
+              </span>
               <input
                 type="tel"
                 dir="ltr"
@@ -535,8 +660,11 @@ export function ContactWorkspace({
                 onChange={(event) => set('phone', event.target.value)}
               />
             </label>
-            <label className="field">
-              <span>{ar ? 'البريد' : 'Email'}</span>
+            <label className={`field${formGaps.email ? ' is-missing' : ''}`}>
+              <span>
+                {ar ? 'البريد' : 'Email'}
+                {formGaps.email ? <i className="contact-field-mark">!</i> : null}
+              </span>
               <input
                 type="email"
                 dir="ltr"
@@ -591,16 +719,25 @@ export function ContactWorkspace({
                 ['buildingNumber', ar ? 'رقم المبنى' : 'Building no.', 50],
                 ['postalCode', ar ? 'الرمز البريدي' : 'Postal code', 24],
               ] as const
-            ).map(([key, label, max]) => (
-              <label key={key} className="field">
-                <span>{label}</span>
-                <input
-                  maxLength={max}
-                  value={form[key]}
-                  onChange={(event) => set(key, event.target.value)}
-                />
-              </label>
-            ))}
+            ).map(([key, label, max]) => {
+              const required =
+                key === 'governorate' || key === 'wilayat' || key === 'city'
+                  ? formGaps[key]
+                  : false;
+              return (
+                <label key={key} className={`field${required ? ' is-missing' : ''}`}>
+                  <span>
+                    {label}
+                    {required ? <i className="contact-field-mark">!</i> : null}
+                  </span>
+                  <input
+                    maxLength={max}
+                    value={form[key]}
+                    onChange={(event) => set(key, event.target.value)}
+                  />
+                </label>
+              );
+            })}
           </fieldset>
           <label className="field contact-edit__notes">
             <span>{ar ? 'ملاحظات داخلية' : 'Internal notes'}</span>
@@ -634,12 +771,22 @@ export function ContactWorkspace({
           >
             <dl className="contact-facts">
               <Fact label={ar ? 'الاسم بالعربية' : 'Name (AR)'}>{party.displayName}</Fact>
-              <Fact label={ar ? 'الاسم بالإنجليزية' : 'Name (EN)'}>{englishName || '—'}</Fact>
+              <Fact
+                label={ar ? 'الاسم بالإنجليزية' : 'Name (EN)'}
+                missing={gapKeys.has('nameEn')}
+                missingLabel={missingText}
+              >
+                {englishName || '—'}
+              </Fact>
               <Fact label={ar ? 'النوع' : 'Type'}>
                 {party.type === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Person'}
               </Fact>
               <Fact label={ar ? 'الحالة' : 'Status'}>{statusLabel(party.status, ar)}</Fact>
-              <Fact label={ar ? 'الهاتف' : 'Phone'}>
+              <Fact
+                label={ar ? 'الهاتف' : 'Phone'}
+                missing={gapKeys.has('phone')}
+                missingLabel={missingText}
+              >
                 {party.phone ? (
                   <bdi dir="ltr">
                     <a href={`tel:${party.phone}`}>{party.phone}</a>
@@ -648,7 +795,11 @@ export function ContactWorkspace({
                   '—'
                 )}
               </Fact>
-              <Fact label={ar ? 'البريد' : 'Email'}>
+              <Fact
+                label={ar ? 'البريد' : 'Email'}
+                missing={gapKeys.has('email')}
+                missingLabel={missingText}
+              >
                 {party.email ? (
                   <bdi dir="ltr">
                     <a href={`mailto:${party.email}`}>{party.email}</a>
@@ -667,11 +818,27 @@ export function ContactWorkspace({
             <div className="contact-sheet__block">
               <h3>{ar ? 'العنوان المحلي' : 'Local address'}</h3>
               <dl className="contact-facts contact-facts--tight">
-                <Fact label={ar ? 'المحافظة' : 'Governorate'}>
+                <Fact
+                  label={ar ? 'المحافظة' : 'Governorate'}
+                  missing={gapKeys.has('governorate')}
+                  missingLabel={missingText}
+                >
                   {party.address?.governorate || '—'}
                 </Fact>
-                <Fact label={ar ? 'الولاية' : 'Wilayat'}>{party.address?.wilayat || '—'}</Fact>
-                <Fact label={ar ? 'المدينة' : 'City'}>{party.address?.city || '—'}</Fact>
+                <Fact
+                  label={ar ? 'الولاية' : 'Wilayat'}
+                  missing={gapKeys.has('wilayat')}
+                  missingLabel={missingText}
+                >
+                  {party.address?.wilayat || '—'}
+                </Fact>
+                <Fact
+                  label={ar ? 'المدينة' : 'City'}
+                  missing={gapKeys.has('city')}
+                  missingLabel={missingText}
+                >
+                  {party.address?.city || '—'}
+                </Fact>
                 <Fact label={ar ? 'الحي' : 'Area'}>{party.address?.area || '—'}</Fact>
                 <Fact label={ar ? 'الشارع' : 'Street'}>{party.address?.street || '—'}</Fact>
                 <Fact label={ar ? 'رقم المبنى' : 'Building'}>
@@ -702,16 +869,59 @@ export function ContactWorkspace({
                   : 'Copied automatically on booking, purchase, or rent from the Identity account page.'}
               </p>
               <dl className="contact-facts">
-                <Fact label={ar ? 'الاسم بالعربي' : 'Name (AR)'}>{identity.nameAr || '—'}</Fact>
-                <Fact label={ar ? 'الاسم بالإنجليزي' : 'Name (EN)'}>{identity.nameEn || '—'}</Fact>
-                <Fact label={ar ? 'الهاتف' : 'Phone'}>
+                <Fact
+                  label={ar ? 'الاسم بالعربي' : 'Name (AR)'}
+                  missing={gapKeys.has('idNameAr')}
+                  missingLabel={missingText}
+                >
+                  {identity.nameAr || '—'}
+                </Fact>
+                <Fact
+                  label={ar ? 'الاسم بالإنجليزي' : 'Name (EN)'}
+                  missing={gapKeys.has('idNameEn')}
+                  missingLabel={missingText}
+                >
+                  {identity.nameEn || '—'}
+                </Fact>
+                <Fact
+                  label={ar ? 'الهاتف' : 'Phone'}
+                  missing={gapKeys.has('idPhone')}
+                  missingLabel={missingText}
+                >
                   <bdi dir="ltr">{identity.phone || '—'}</bdi>
                 </Fact>
                 <Fact label="WhatsApp">
                   <bdi dir="ltr">{identity.whatsapp || identity.phone2 || '—'}</bdi>
                 </Fact>
-                <Fact label={ar ? 'الجنسية' : 'Nationality'}>{identity.nationality || '—'}</Fact>
-                <Fact label={ar ? 'تاريخ الميلاد' : 'Birth date'}>{identity.birthDate || '—'}</Fact>
+                <Fact
+                  label={ar ? 'الجنسية' : 'Nationality'}
+                  missing={gapKeys.has('nationality')}
+                  missingLabel={missingText}
+                >
+                  {identity.nationality || '—'}
+                </Fact>
+                <Fact
+                  label={ar ? 'الجنس' : 'Gender'}
+                  missing={gapKeys.has('gender')}
+                  missingLabel={missingText}
+                >
+                  {identity.gender === 'male'
+                    ? ar
+                      ? 'ذكر'
+                      : 'Male'
+                    : identity.gender === 'female'
+                      ? ar
+                        ? 'أنثى'
+                        : 'Female'
+                      : identity.gender || '—'}
+                </Fact>
+                <Fact
+                  label={ar ? 'تاريخ الميلاد' : 'Birth date'}
+                  missing={gapKeys.has('birthDate')}
+                  missingLabel={missingText}
+                >
+                  {identity.birthDate || '—'}
+                </Fact>
                 <Fact label={ar ? 'الرقم المدني' : 'Civil ID'}>
                   <bdi dir="ltr">{identity.civilId || '—'}</bdi>
                 </Fact>
@@ -730,10 +940,18 @@ export function ContactWorkspace({
                 </Fact>
                 {identity.accountKind === 'company' ? (
                   <>
-                    <Fact label={ar ? 'الشركة' : 'Company'}>
+                    <Fact
+                      label={ar ? 'الشركة' : 'Company'}
+                      missing={gapKeys.has('companyNameAr') || gapKeys.has('companyNameEn')}
+                      missingLabel={missingText}
+                    >
                       {identity.companyNameAr || identity.companyNameEn || '—'}
                     </Fact>
-                    <Fact label={ar ? 'السجل التجاري' : 'CR'}>
+                    <Fact
+                      label={ar ? 'السجل التجاري' : 'CR'}
+                      missing={gapKeys.has('crNumber')}
+                      missingLabel={missingText}
+                    >
                       <bdi dir="ltr">{identity.crNumber || '—'}</bdi>
                     </Fact>
                   </>
@@ -743,26 +961,45 @@ export function ContactWorkspace({
                 {(
                   [
                     {
+                      key: 'civil',
                       label: ar ? 'البطاقة الشخصية' : 'Civil ID',
                       file: identity.files.civilIdFile,
+                      required: false,
                     },
                     {
+                      key: 'passport',
                       label: ar ? 'جواز السفر' : 'Passport',
                       file: identity.files.passportFile,
+                      required: false,
                     },
                     {
+                      key: 'crFile',
                       label: ar ? 'السجل التجاري' : 'Commercial register',
                       file: identity.files.commercialRegisterFile,
+                      required: gapKeys.has('crFile'),
                     },
                     {
+                      key: 'authFile',
                       label: ar ? 'خطاب التفويض' : 'Authorization',
                       file: identity.files.authorizationFile,
+                      required: gapKeys.has('authFile'),
                     },
                   ] as const
                 ).map((row) => (
-                  <li key={row.label} className={row.file ? 'is-ready' : undefined}>
-                    <span>{row.label}</span>
-                    <span>{row.file?.filename || (ar ? 'لا يوجد' : 'None')}</span>
+                  <li
+                    key={row.key}
+                    className={row.file ? 'is-ready' : row.required ? 'is-missing' : undefined}
+                  >
+                    <span>
+                      {row.label}
+                      {row.required && !row.file ? (
+                        <i className="contact-field-mark">!</i>
+                      ) : null}
+                    </span>
+                    <span>
+                      {row.file?.filename ||
+                        (row.required ? missingText : ar ? 'لا يوجد' : 'None')}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -773,10 +1010,10 @@ export function ContactWorkspace({
               eyebrow="BHD Identity"
               title={ar ? 'لا توجد بيانات هوية بعد' : 'No Identity profile yet'}
             >
-              <p className="contact-sheet__lead">
+              <p className="contact-sheet__lead contact-sheet__lead--warn">
                 {ar
-                  ? 'عند حجز أو شراء أو استئجار من حساب مسجّل تظهر هنا بيانات Identity كاملة تلقائياً.'
-                  : 'When this party books, buys, or rents while signed in, their full Identity profile appears here.'}
+                  ? 'ملف Identity ناقص. عند حجز أو شراء أو استئجار من حساب مسجّل تظهر هنا البيانات الكاملة تلقائياً.'
+                  : 'Identity profile is missing. When this party books, buys, or rents while signed in, their full profile appears here.'}
               </p>
             </Sheet>
           )}
