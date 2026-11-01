@@ -446,6 +446,120 @@ export function ContactWorkspace({
 
       <PartyBadgesPanel partyId={party.id} locale={locale} portal={portal} />
 
+      {party.identity ? (
+        <section className="contact-identity" aria-labelledby="contact-identity-title">
+          <h2 id="contact-identity-title">
+            {ar ? 'بيانات حساب BHD Identity' : 'BHD Identity account'}
+          </h2>
+          <p className="muted">
+            {ar
+              ? 'تُنسخ تلقائياً عند الحجز أو الشراء أو الاستئجار من صفحة الحساب على Identity.'
+              : 'Copied automatically on booking, purchase, or rent from the Identity account page.'}
+          </p>
+          <dl className="contact-hero__facts">
+            <div>
+              <dt>{ar ? 'الاسم بالعربي' : 'Name (AR)'}</dt>
+              <dd>{party.identity.nameAr || '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الاسم بالإنجليزي' : 'Name (EN)'}</dt>
+              <dd>{party.identity.nameEn || '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
+              <dd>
+                <bdi dir="ltr">{party.identity.phone || '—'}</bdi>
+              </dd>
+            </div>
+            <div>
+              <dt>WhatsApp</dt>
+              <dd>
+                <bdi dir="ltr">{party.identity.whatsapp || party.identity.phone2 || '—'}</bdi>
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الجنسية' : 'Nationality'}</dt>
+              <dd>{party.identity.nationality || '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'تاريخ الميلاد' : 'Birth date'}</dt>
+              <dd>{party.identity.birthDate || '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الرقم المدني' : 'Civil ID'}</dt>
+              <dd>
+                <bdi dir="ltr">{party.identity.civilId || '—'}</bdi>
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'انتهاء البطاقة' : 'Civil ID expiry'}</dt>
+              <dd>{party.identity.civilIdExpires || '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'جواز السفر' : 'Passport'}</dt>
+              <dd>
+                <bdi dir="ltr">{party.identity.passportNumber || '—'}</bdi>
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'انتهاء الجواز' : 'Passport expiry'}</dt>
+              <dd>{party.identity.passportExpires || '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'العنوان' : 'Address'}</dt>
+              <dd>{party.identity.address || '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'المدينة / الدولة' : 'City / country'}</dt>
+              <dd>
+                {[party.identity.city, party.identity.country].filter(Boolean).join(' · ') || '—'}
+              </dd>
+            </div>
+            {party.identity.accountKind === 'company' ? (
+              <>
+                <div>
+                  <dt>{ar ? 'الشركة' : 'Company'}</dt>
+                  <dd>{party.identity.companyNameAr || party.identity.companyNameEn || '—'}</dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'السجل التجاري' : 'CR'}</dt>
+                  <dd>
+                    <bdi dir="ltr">{party.identity.crNumber || '—'}</bdi>
+                  </dd>
+                </div>
+              </>
+            ) : null}
+          </dl>
+          <ul className="contact-identity__files">
+            {(
+              [
+                {
+                  label: ar ? 'البطاقة الشخصية' : 'Civil ID',
+                  file: party.identity.files.civilIdFile,
+                },
+                {
+                  label: ar ? 'جواز السفر' : 'Passport',
+                  file: party.identity.files.passportFile,
+                },
+                {
+                  label: ar ? 'السجل التجاري' : 'Commercial register',
+                  file: party.identity.files.commercialRegisterFile,
+                },
+                {
+                  label: ar ? 'خطاب التفويض' : 'Authorization',
+                  file: party.identity.files.authorizationFile,
+                },
+              ] as const
+            ).map((row) => (
+              <li key={row.label}>
+                <span>{row.label}</span>
+                <span className="muted">{row.file?.filename || (ar ? 'لا يوجد' : 'None')}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {message ? (
         <p
           className={`contact-message contact-message--${message.tone}`}

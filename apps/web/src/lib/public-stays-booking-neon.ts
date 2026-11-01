@@ -1193,6 +1193,15 @@ export async function createPublicStayBookingOnNeon(
       return null;
     })();
 
+    let guestPartyId: string | null = null;
+    if (bookedBy?.userId) {
+      const { ensureProspectParty } = await import('@/lib/public-booking-neon');
+      const party = await ensureProspectParty(transaction, hold.organizationId, {
+        sub: bookedBy.userId,
+      } as import('@bhd-r/authz').SessionClaims);
+      guestPartyId = party.id;
+    }
+
     const [booking] = await transaction
       .insert(stayBookings)
       .values({
@@ -1202,6 +1211,7 @@ export async function createPublicStayBookingOnNeon(
         unitId: quote.unitId,
         stayProfileId: quote.stayProfileId,
         userId: bookedBy?.userId ?? null,
+        guestPartyId,
         referenceCode,
         checkInOn: quote.checkInOn,
         checkOutOn: quote.checkOutOn,

@@ -5,6 +5,7 @@ import {
   CONTACT_ROLE_KEYS,
   type ContactAddress,
   type ContactDetail,
+  type ContactIdentityProfile,
   type ContactMoneyLine,
   type ContactSummary,
   type ContactUpdate,
@@ -23,6 +24,62 @@ const LIVE_LEASE = sql`('active', 'cancel_requested', 'clearance_pending')`;
 
 function rows<T>(result: unknown): T[] {
   return (Array.isArray(result) ? result : ((result as { rows?: unknown[] }).rows ?? [])) as T[];
+}
+
+function str(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function parseContactIdentity(raw: unknown): ContactIdentityProfile | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const row = raw as Record<string, unknown>;
+  if (typeof row.subject !== 'string' || !row.subject.trim()) return null;
+  const filesRaw =
+    row.files && typeof row.files === 'object' ? (row.files as Record<string, unknown>) : {};
+  const fileMeta = (value: unknown) => {
+    if (!value || typeof value !== 'object') return null;
+    const file = value as Record<string, unknown>;
+    if (typeof file.id !== 'string' || typeof file.filename !== 'string') return null;
+    return {
+      id: file.id,
+      filename: file.filename,
+      kind: typeof file.kind === 'string' ? file.kind : '',
+    };
+  };
+  return {
+    subject: row.subject.trim(),
+    nameAr: str(row.nameAr),
+    nameEn: str(row.nameEn),
+    phone: str(row.phone),
+    phone2: str(row.phone2),
+    whatsapp: str(row.whatsapp),
+    email: str(row.email),
+    gender: str(row.gender),
+    birthDate: str(row.birthDate),
+    nationality: str(row.nationality),
+    civilId: str(row.civilId),
+    civilIdExpires: str(row.civilIdExpires),
+    passportNumber: str(row.passportNumber),
+    passportExpires: str(row.passportExpires),
+    accountKind: row.accountKind === 'company' ? 'company' : 'person',
+    companyNameAr: str(row.companyNameAr),
+    companyNameEn: str(row.companyNameEn),
+    crNumber: str(row.crNumber),
+    crExpires: str(row.crExpires),
+    taxId: str(row.taxId),
+    address: str(row.address),
+    city: str(row.city),
+    hometown: str(row.hometown),
+    country: str(row.country),
+    zipCode: str(row.zipCode),
+    files: {
+      civilIdFile: fileMeta(filesRaw.civilIdFile),
+      passportFile: fileMeta(filesRaw.passportFile),
+      commercialRegisterFile: fileMeta(filesRaw.commercialRegisterFile),
+      authorizationFile: fileMeta(filesRaw.authorizationFile),
+    },
+    fetchedAt: str(row.fetchedAt) ?? new Date().toISOString(),
+  };
 }
 
 function iso(value: Date | string | null | undefined): string | null {
@@ -351,13 +408,15 @@ async function readContactRows(
       notes: string | null;
       name_en: string | null;
       source: string | null;
+      identity_json: unknown;
       created_at: Date | string;
       member: boolean;
     }>(
       await tx.execute(sql`
         select p.id, p.display_name, p.type, p.email, p.phone, p.status,
           p.metadata->>'notes' as notes, p.metadata->>'nameEn' as name_en,
-          p.metadata->>'source' as source, p.created_at,
+          p.metadata->>'source' as source, p.metadata->'identityAccount' as identity_json,
+          p.created_at,
           exists (select 1 from memberships m
             where m.organization_id = p.organization_id and m.party_id = p.id) as member
         from parties p
@@ -592,6 +651,8 @@ async function readContactRows(
 
     const money = await loadMoney(tx, orgId, partyId, ownedIds, claims);
 
+    const identity = parseContactIdentity(party.identity_json);
+
     return {
       party: {
         id: party.id,
@@ -617,6 +678,7 @@ async function readContactRows(
               postalCode: address.postal_code,
             }
           : null,
+        identity,
       },
       canEdit: hasPermission(claims, 'party.write') && !ownerPartyScope(claims),
       owned: owned.map((row) => ({

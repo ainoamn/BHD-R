@@ -192,10 +192,18 @@ export async function ensureProspectParty(
 ) {
   const user = await transaction.query.users.findFirst({
     where: eq(users.id, claims.sub),
-    columns: { id: true, email: true, displayName: true },
+    columns: { id: true, email: true, displayName: true, identitySubject: true },
   });
   if (!user?.email) throw new Error('unauthorized');
   const email = user.email.trim().toLowerCase();
+
+  // Mirror the booker's Identity account into the owner's address book.
+  const { loadIdentitySnapshotForSubject, partyFieldsFromIdentity } = await import(
+    '@/lib/party-identity-enrich'
+  );
+  const identity = await loadIdentitySnapshotForSubject(user.identitySubject).catch(() => null);
+  const fromIdentity = identity ? partyFieldsFromIdentity(identity) : null;
+
   const existing = await transaction.query.parties.findFirst({
     where: and(eq(parties.organizationId, organizationId), eq(parties.email, email)),
   });
@@ -206,25 +214,46 @@ export async function ensureProspectParty(
       !Array.isArray(existing.metadata)
         ? { ...(existing.metadata as Record<string, unknown>) }
         : {};
-    if (meta.userId !== user.id) {
-      await transaction
-        .update(parties)
-        .set({
-          metadata: { ...meta, source: meta.source ?? 'authenticated_public', userId: user.id },
-          updatedAt: new Date(),
-        })
-        .where(eq(parties.id, existing.id));
-    }
-    return existing;
+    const nextMeta = {
+      ...meta,
+      ...(fromIdentity?.metadataPatch ?? {}),
+      source: meta.source ?? 'authenticated_public',
+      userId: user.id,
+    };
+    const nextName = fromIdentity?.displayName || existing.displayName || user.displayName || email;
+    const nextPhone = fromIdentity?.phone || existing.phone;
+    const nextType = fromIdentity?.type || existing.type;
+    await transaction
+      .update(parties)
+      .set({
+        displayName: nextName,
+        phone: nextPhone,
+        type: nextType,
+        metadata: nextMeta,
+        updatedAt: new Date(),
+      })
+      .where(eq(parties.id, existing.id));
+    return {
+      ...existing,
+      displayName: nextName,
+      phone: nextPhone,
+      type: nextType,
+      metadata: nextMeta,
+    };
   }
   const inserted = await transaction
     .insert(parties)
     .values({
       organizationId,
-      type: 'person',
-      displayName: user.displayName || email,
+      type: fromIdentity?.type ?? 'person',
+      displayName: fromIdentity?.displayName || user.displayName || email,
       email,
-      metadata: { source: 'authenticated_public', userId: user.id },
+      phone: fromIdentity?.phone ?? null,
+      metadata: {
+        source: 'authenticated_public',
+        userId: user.id,
+        ...(fromIdentity?.metadataPatch ?? {}),
+      },
     })
     .returning();
   const party = inserted[0]!;

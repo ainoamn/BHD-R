@@ -96,6 +96,42 @@ export type ContactPlace = {
   unitCode: string | null;
 };
 
+/** Snapshot of the contact's BHD Identity account (mirrored on booking/rent/buy). */
+export type ContactIdentityProfile = {
+  subject: string;
+  nameAr: string | null;
+  nameEn: string | null;
+  phone: string | null;
+  phone2: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  gender: string | null;
+  birthDate: string | null;
+  nationality: string | null;
+  civilId: string | null;
+  civilIdExpires: string | null;
+  passportNumber: string | null;
+  passportExpires: string | null;
+  accountKind: 'person' | 'company';
+  companyNameAr: string | null;
+  companyNameEn: string | null;
+  crNumber: string | null;
+  crExpires: string | null;
+  taxId: string | null;
+  address: string | null;
+  city: string | null;
+  hometown: string | null;
+  country: string | null;
+  zipCode: string | null;
+  files: {
+    civilIdFile: { id: string; filename: string; kind: string } | null;
+    passportFile: { id: string; filename: string; kind: string } | null;
+    commercialRegisterFile: { id: string; filename: string; kind: string } | null;
+    authorizationFile: { id: string; filename: string; kind: string } | null;
+  };
+  fetchedAt: string;
+};
+
 export type ContactDetail = {
   party: {
     id: string;
@@ -112,6 +148,8 @@ export type ContactDetail = {
     createdAt: string;
     member: boolean;
     address: ContactAddress | null;
+    /** Full Identity account fields when mirrored from id.bhd-om.com. */
+    identity: ContactIdentityProfile | null;
     mark?: IdentityMark;
     badges?: BadgeChip[];
   };

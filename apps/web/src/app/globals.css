@@ -34284,6 +34284,34 @@ button.handover-shots__item {
   font-size: 0.74rem;
   font-weight: 700;
 }
+.contact-identity {
+  margin: 1rem 0 1.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+.contact-identity h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+.contact-identity > .muted {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+}
+.contact-identity__files {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+.contact-identity__files li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
 .contact-hero__facts dd {
   margin: 0;
   color: var(--oman-deep);
