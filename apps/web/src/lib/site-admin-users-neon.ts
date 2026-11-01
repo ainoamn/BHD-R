@@ -590,7 +590,7 @@ export async function getAdminUserDetail(
       sessions: sessions.map((row) => {
         const revoked = Boolean(row.revoked_at);
         const expired = row.expires_at ? new Date(row.expires_at).getTime() < Date.now() : true;
-        const kind =
+        const kind: 'phone' | 'tablet' | 'desktop' | 'unknown' | null =
           row.device_kind === 'phone' ||
           row.device_kind === 'tablet' ||
           row.device_kind === 'desktop' ||
