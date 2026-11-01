@@ -321,9 +321,9 @@ export async function productSessionMatchesTab(): Promise<boolean> {
 }
 
 const VEIL_MARK_SRC = '/brand/bhd-official-symbol.svg';
-/** Short branded splash — site loads behind; never hang on green forever. */
-export const VEIL_MIN_MS = 700;
-export const VEIL_MAX_MS = 1_800;
+/** Explicit account-switch splash only (not used on normal page loads). */
+export const VEIL_MIN_MS = 400;
+export const VEIL_MAX_MS = 900;
 const VEIL_FADE_MS = 320;
 
 let veilShownAt = 0;
@@ -564,8 +564,7 @@ export async function applyAccountIsolation(
 
   if (options?.silent) {
     if (!tabMayClaimProductCookie()) return;
-    // Boot/mismatch may splash; focus reclaim stays invisible.
-    if (sub && !quiet) paintPrivacyVeil();
+    // Never paint the branded veil here — it flickered on every page with ?au=.
     const result = await silentRebind(windowToken, sub);
     if (result.ok) {
       scrubCacheBustFromUrl();
@@ -575,14 +574,9 @@ export async function applyAccountIsolation(
         sessionStorage.setItem(guardKey, String(Date.now()));
         clearHostileProductCookie();
         if (result.userId || sub) broadcastProductCookieOwner(result.userId || sub || '');
-        if (quiet) {
-          // UI already shows this tab's ?au= — only the shared cookie moved.
-          signalPrivacyVeilReady();
-          emitAccountRebound(result.userId || sub, { refresh: false });
-        } else {
-          paintPrivacyVeil();
-          emitAccountRebound(result.userId || sub, { refresh: true });
-        }
+        signalPrivacyVeilReady();
+        // quiet = cookie only; otherwise caller may soft-refresh without a veil.
+        emitAccountRebound(result.userId || sub, { refresh: !quiet });
       } else {
         clearHostileProductCookie();
         if (result.userId || sub) rememberProductCookieOwner(result.userId || sub || '');
