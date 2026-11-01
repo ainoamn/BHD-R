@@ -17,6 +17,7 @@ import {
 import { pushSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { isTenantSoftBasePath } from '@/lib/tenant-soft-nav';
 import { warmTenantSpace } from '@/lib/tenant-space-client-cache';
+import { readActiveAu } from '@/lib/identity/window-session';
 import type { PortalRole, Viewer } from '@/lib/types';
 
 type NavItem = { path: string; label: string; mark: string; children?: NavItem[] };
@@ -581,7 +582,15 @@ export function PortalNav({
           <Link href="/" className="portal-sidebar__account" onClick={() => setOpen(false)}>
             {locale === 'ar' ? 'الصفحة الرئيسية (BHD R)' : 'BHD R public home'}
           </Link>
-          <a href="https://id.bhd-om.com/account" className="portal-sidebar__account">
+          <a
+            href={(() => {
+              const au = typeof window !== 'undefined' ? readActiveAu() : '';
+              return au
+                ? `https://id.bhd-om.com/auth/switch?sub=${encodeURIComponent(au)}&next=${encodeURIComponent(`/account?au=${encodeURIComponent(au)}`)}`
+                : 'https://id.bhd-om.com/account';
+            })()}
+            className="portal-sidebar__account"
+          >
             {locale === 'ar' ? 'إدارة حساب BHD' : 'Manage BHD account'}
           </a>
           {portal === 'platform' ? (

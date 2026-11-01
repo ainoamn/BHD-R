@@ -538,7 +538,14 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
         >
           <div className="bhd-switcher-account-now">
             <AccountRow user={activePerson} ar={ar} large />
-            <a className="bhd-switcher-manage" href="https://id.bhd-om.com/account">
+            <a
+              className="bhd-switcher-manage"
+              href={(() => {
+                const sub = (currentSub || readActiveAu() || '').trim();
+                if (!sub) return 'https://id.bhd-om.com/account';
+                return `https://id.bhd-om.com/auth/switch?sub=${encodeURIComponent(sub)}&next=${encodeURIComponent(`/account?au=${sub}`)}`;
+              })()}
+            >
               {ar ? 'إدارة الحساب' : 'Manage account'}
             </a>
             <Link
