@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.4 — 2026-11-01
+
+- **CI تنسيق:** Prettier على `ENV-MANIFEST.md` و`VITEST-SUITE-RESTORE-AR.md` و`ensure-vercel-cron-secret.mjs` بعد فشل `format:check` في CI #983.
+
 ## 0.8.136.3 — 2026-11-01
 
 - **تشغيل Scheduled pings:** سكربت `ensure-vercel-cron-secret.mjs --github` يزامن `CRON_SECRET` من Vercel إلى سر Actions دون طباعة القيمة؛ ومستند `docs/implementation/VITEST-SUITE-RESTORE-AR.md` لخطة إعادة الست مجموعات Vitest المستبعدة ورفع عتبات التغطية تدريجياً.

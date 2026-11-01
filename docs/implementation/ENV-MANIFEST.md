@@ -64,19 +64,19 @@ Key rotation: keep prior `FIELD_ENCRYPTION_KEY_V*` until every ciphertext is re-
 
 ## Web (Vercel) extras
 
-| Key                               | Notes                                                                                                                                                                 |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Key                               | Notes                                                                                                                                                                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `CRON_SECRET`                     | ≥16; required for `/api/cron/warmup-nest` and `/api/cron/expire-locks` (fail-closed). Helper: `node scripts/ensure-vercel-cron-secret.mjs` (add `--github` to sync the same value to Actions for Scheduled pings). |
-| `MEDIA_PUBLIC_PROMOTE_MODE`       | `magic_bytes_best_effort` (default) \| `await_worker`                                                                                                                 |
-| `MEDIA_SCAN_MODE` (worker)        | `required` \| `best-effort` \| `disabled` — use `best-effort` until ClamAV is live                                                                                    |
-| `ALLOW_BOOKING_SANDBOX`           | Optional `1` — legacy lease deposit sandbox; **stay** UI uses `isPaymentSandboxPilotEnabled` (see below)                                                              |
-| `PAYMENT_SANDBOX_ENABLED`         | Optional `true` — explicit sandbox payments (Render Nest fallback)                                                                                                    |
-| Stay sandbox page                 | `/payments/sandbox/*` opens when `PAYMENT_SANDBOX_ENABLED` **or** `ALLOW_BOOKING_SANDBOX=1` **or** `STAYS_PLATFORM_ENABLED` (same as session create)                  |
-| `DATABASE_URL`                    | Neon (owner writes / catalogue)                                                                                                                                       |
-| `API_INTERNAL_ORIGIN`             | Nest HTTPS URL for BFF (required on Vercel; no Host fallback)                                                                                                         |
-| `STAYS_PLATFORM_ENABLED`          | Default **off**. Set `true` on Vercel **and** Render for pilot; when on, **stay sandbox payments auto-enable** until a live PSP ships. Org allow-list on Render only. |
-| `STAY_ESIGN_REQUIRED`             | Default on. Set `0`/`false` to skip post-payment e-sign (signature + ID + selfie).                                                                                    |
-| `NEXT_PUBLIC_STAY_ESIGN_REQUIRED` | Mirror for client redirect after pay (`0` to skip).                                                                                                                   |
+| `MEDIA_PUBLIC_PROMOTE_MODE`       | `magic_bytes_best_effort` (default) \| `await_worker`                                                                                                                                                              |
+| `MEDIA_SCAN_MODE` (worker)        | `required` \| `best-effort` \| `disabled` — use `best-effort` until ClamAV is live                                                                                                                                 |
+| `ALLOW_BOOKING_SANDBOX`           | Optional `1` — legacy lease deposit sandbox; **stay** UI uses `isPaymentSandboxPilotEnabled` (see below)                                                                                                           |
+| `PAYMENT_SANDBOX_ENABLED`         | Optional `true` — explicit sandbox payments (Render Nest fallback)                                                                                                                                                 |
+| Stay sandbox page                 | `/payments/sandbox/*` opens when `PAYMENT_SANDBOX_ENABLED` **or** `ALLOW_BOOKING_SANDBOX=1` **or** `STAYS_PLATFORM_ENABLED` (same as session create)                                                               |
+| `DATABASE_URL`                    | Neon (owner writes / catalogue)                                                                                                                                                                                    |
+| `API_INTERNAL_ORIGIN`             | Nest HTTPS URL for BFF (required on Vercel; no Host fallback)                                                                                                                                                      |
+| `STAYS_PLATFORM_ENABLED`          | Default **off**. Set `true` on Vercel **and** Render for pilot; when on, **stay sandbox payments auto-enable** until a live PSP ships. Org allow-list on Render only.                                              |
+| `STAY_ESIGN_REQUIRED`             | Default on. Set `0`/`false` to skip post-payment e-sign (signature + ID + selfie).                                                                                                                                 |
+| `NEXT_PUBLIC_STAY_ESIGN_REQUIRED` | Mirror for client redirect after pay (`0` to skip).                                                                                                                                                                |
 
 ## Ops (local / CI — never commit secrets)
 
