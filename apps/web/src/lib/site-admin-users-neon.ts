@@ -499,6 +499,140 @@ export async function getAdminUserDetail(
       `),
     );
 
+    const managedOrgIds = memberships
+      .filter((row) =>
+        ['owner', 'manager', 'org_admin', 'admin'].includes(row.role) ||
+        row.role.startsWith('custom:'),
+      )
+      .map((row) => row.organization_id);
+
+    const ownedContacts = managedOrgIds.length
+      ? rowsOf<{
+          id: string;
+          display_name: string;
+          email: string | null;
+          phone: string | null;
+          type: string;
+          roles: string | null;
+          source: string | null;
+          organization_id: string;
+          organization_name: string;
+          linked_owner_name: string;
+          created_at: Date | string | null;
+        }>(
+          await tx.execute(sql`
+            select p.id::text, p.display_name, p.email, p.phone, p.type::text,
+              (
+                select string_agg(pr.role_key, ',' order by pr.role_key)
+                from party_roles pr
+                where pr.party_id = p.id and pr.organization_id = p.organization_id
+                  and pr.status = 'active'
+              ) as roles,
+              p.metadata->>'source' as source,
+              o.id::text as organization_id,
+              o.display_name_ar as organization_name,
+              coalesce(
+                (
+                  select op.display_name
+                  from properties prop
+                  join parties op on op.id = prop.owner_party_id
+                  where prop.organization_id = o.id
+                  order by prop.created_at
+                  limit 1
+                ),
+                o.display_name_ar
+              ) as linked_owner_name,
+              p.created_at
+            from parties p
+            join organizations o on o.id = p.organization_id
+            where p.organization_id in (${sql.join(
+              managedOrgIds.map((id) => sql`${id}::uuid`),
+              sql`, `,
+            )})
+              and p.status = 'active'
+              and (
+                p.metadata->>'source' in ('lease_booking_party', 'authenticated_public', 'booking_contact', 'stay_booking')
+                or exists (
+                  select 1 from party_roles pr
+                  where pr.party_id = p.id and pr.organization_id = p.organization_id
+                    and pr.role_key in ('tenant', 'prospect') and pr.status = 'active'
+                )
+              )
+            order by p.updated_at desc
+            limit 200
+          `),
+        )
+      : [];
+
+    const linkedAsContact =
+      user.email || user.party_email
+        ? rowsOf<{
+            id: string;
+            display_name: string;
+            email: string | null;
+            phone: string | null;
+            type: string;
+            roles: string | null;
+            source: string | null;
+            organization_id: string;
+            organization_name: string;
+            linked_owner_name: string;
+            created_at: Date | string | null;
+          }>(
+            await tx.execute(sql`
+              select p.id::text, p.display_name, p.email, p.phone, p.type::text,
+                (
+                  select string_agg(pr.role_key, ',' order by pr.role_key)
+                  from party_roles pr
+                  where pr.party_id = p.id and pr.organization_id = p.organization_id
+                    and pr.status = 'active'
+                ) as roles,
+                p.metadata->>'source' as source,
+                o.id::text as organization_id,
+                o.display_name_ar as organization_name,
+                coalesce(
+                  (
+                    select op.display_name
+                    from properties prop
+                    join parties op on op.id = prop.owner_party_id
+                    where prop.organization_id = o.id
+                    order by prop.created_at
+                    limit 1
+                  ),
+                  o.display_name_ar
+                ) as linked_owner_name,
+                p.created_at
+              from parties p
+              join organizations o on o.id = p.organization_id
+              where p.status = 'active'
+                and lower(p.email) = lower(${(user.email || user.party_email || '').trim()})
+                and (
+                  ${managedOrgIds.length ? sql`p.organization_id not in (${sql.join(managedOrgIds.map((id) => sql`${id}::uuid`), sql`, `)})` : sql`true`}
+                )
+              order by p.updated_at desc
+              limit 50
+            `),
+          )
+        : [];
+
+    const contactMap = new Map<string, (typeof ownedContacts)[number]>();
+    for (const row of [...ownedContacts, ...linkedAsContact]) {
+      contactMap.set(row.id, row);
+    }
+    const addressBookContacts = [...contactMap.values()].map((row) => ({
+      id: row.id,
+      displayName: row.display_name,
+      email: row.email,
+      phone: row.phone,
+      type: (row.type === 'company' ? 'company' : 'person') as 'person' | 'company',
+      roles: row.roles ? row.roles.split(',').filter(Boolean) : [],
+      source: row.source,
+      organizationId: row.organization_id,
+      organizationNameAr: row.organization_name,
+      linkedOwnerName: row.linked_owner_name,
+      createdAt: isoOf(row.created_at),
+    }));
+
     const uploadedBytes = storageByOrg.reduce((sum, row) => sum + num(row.bytes), 0);
     const primaryCountry = user.session_country || organizations[0]?.countryCode || null;
 
@@ -520,6 +654,7 @@ export async function getAdminUserDetail(
       identitySubject: user.identity_subject?.trim() || null,
       identityAccount: null as AdminIdentityAccount | null,
       organizations,
+      addressBookContacts,
       propertiesOwned: propertiesOwned.map((row) => ({
         id: row.id,
         nameAr: row.name_ar,

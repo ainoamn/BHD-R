@@ -865,8 +865,8 @@ export function ContactWorkspace({
             >
               <p className="contact-sheet__lead">
                 {ar
-                  ? 'تُنسخ تلقائياً عند الحجز أو الشراء أو الاستئجار من صفحة الحساب على Identity.'
-                  : 'Copied automatically on booking, purchase, or rent from the Identity account page.'}
+                  ? 'تُحفظ تلقائياً من بيانات العقد عند الحجز أو الشراء أو الاستئجار، أو من حساب Identity عند توفره.'
+                  : 'Saved automatically from contract details on booking, purchase, or rent — or from the Identity account when available.'}
               </p>
               <dl className="contact-facts">
                 <Fact

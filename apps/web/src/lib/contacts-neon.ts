@@ -82,6 +82,118 @@ function parseContactIdentity(raw: unknown): ContactIdentityProfile | null {
   };
 }
 
+/** Contract-step party snapshot saved on the owner address-book contact. */
+function parseBookingPartyIdentity(raw: unknown): ContactIdentityProfile | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const root = raw as Record<string, unknown>;
+  const entityType = root.entityType === 'company' ? 'company' : 'person';
+  if (entityType === 'company') {
+    const company =
+      root.company && typeof root.company === 'object'
+        ? (root.company as Record<string, unknown>)
+        : null;
+    if (!company) return null;
+    return {
+      subject: `booking:${str(company.email) || str(company.crNumber) || 'company'}`,
+      nameAr: str(company.nameAr),
+      nameEn: str(company.nameEn),
+      phone: str(company.phone),
+      phone2: str(company.altPhone),
+      whatsapp: null,
+      email: str(company.email),
+      gender: null,
+      birthDate: null,
+      nationality: null,
+      civilId: null,
+      civilIdExpires: null,
+      passportNumber: null,
+      passportExpires: null,
+      accountKind: 'company',
+      companyNameAr: str(company.nameAr),
+      companyNameEn: str(company.nameEn),
+      crNumber: str(company.crNumber),
+      crExpires: str(company.crExpiry),
+      taxId: null,
+      address: str(company.crAddress),
+      city: null,
+      hometown: null,
+      country: null,
+      zipCode: null,
+      files: {
+        civilIdFile: null,
+        passportFile: null,
+        commercialRegisterFile: company.crCopy
+          ? {
+              id: 'cr',
+              filename:
+                typeof (company.crCopy as { name?: string }).name === 'string'
+                  ? (company.crCopy as { name: string }).name
+                  : 'cr',
+              kind: 'commercial_register',
+            }
+          : null,
+        authorizationFile: null,
+      },
+      fetchedAt: new Date().toISOString(),
+    };
+  }
+  const person =
+    root.person && typeof root.person === 'object' ? (root.person as Record<string, unknown>) : null;
+  if (!person) return null;
+  return {
+    subject: `booking:${str(person.email) || str(person.civilId) || 'person'}`,
+    nameAr: str(person.nameAr),
+    nameEn: str(person.nameEn),
+    phone: str(person.phone),
+    phone2: str(person.altPhone),
+    whatsapp: null,
+    email: str(person.email),
+    gender: null,
+    birthDate: null,
+    nationality: str(person.nationality),
+    civilId: str(person.civilId),
+    civilIdExpires: str(person.civilIdExpiresOn),
+    passportNumber: str(person.passport),
+    passportExpires: str(person.passportExpiresOn),
+    accountKind: 'person',
+    companyNameAr: null,
+    companyNameEn: null,
+    crNumber: null,
+    crExpires: null,
+    taxId: null,
+    address: null,
+    city: null,
+    hometown: null,
+    country: str(person.nationality),
+    zipCode: null,
+    files: {
+      civilIdFile: person.civilIdCopy
+        ? {
+            id: 'civil',
+            filename:
+              typeof (person.civilIdCopy as { name?: string }).name === 'string'
+                ? (person.civilIdCopy as { name: string }).name
+                : 'civil-id',
+            kind: 'civil_id',
+          }
+        : null,
+      passportFile: person.passportCopy
+        ? {
+            id: 'passport',
+            filename:
+              typeof (person.passportCopy as { name?: string }).name === 'string'
+                ? (person.passportCopy as { name: string }).name
+                : 'passport',
+            kind: 'passport',
+          }
+        : null,
+      commercialRegisterFile: null,
+      authorizationFile: null,
+    },
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 function iso(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   const date = value instanceof Date ? value : new Date(value);
@@ -409,6 +521,7 @@ async function readContactRows(
       name_en: string | null;
       source: string | null;
       identity_json: unknown;
+      booking_party_json: unknown;
       created_at: Date | string;
       member: boolean;
     }>(
@@ -416,6 +529,7 @@ async function readContactRows(
         select p.id, p.display_name, p.type, p.email, p.phone, p.status,
           p.metadata->>'notes' as notes, p.metadata->>'nameEn' as name_en,
           p.metadata->>'source' as source, p.metadata->'identityAccount' as identity_json,
+          p.metadata->'bookingParty' as booking_party_json,
           p.created_at,
           exists (select 1 from memberships m
             where m.organization_id = p.organization_id and m.party_id = p.id) as member
@@ -651,7 +765,9 @@ async function readContactRows(
 
     const money = await loadMoney(tx, orgId, partyId, ownedIds, claims);
 
-    const identity = parseContactIdentity(party.identity_json);
+    const identity =
+      parseContactIdentity(party.identity_json) ??
+      parseBookingPartyIdentity(party.booking_party_json);
 
     return {
       party: {

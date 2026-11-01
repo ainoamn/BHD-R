@@ -646,6 +646,74 @@ export function UsersAdminDetail({
             )}
           </SiteAdminSurface>
 
+          <SiteAdminSurface
+            title={ar ? 'جهات الاتصال ودفتر العناوين' : 'Address-book contacts'}
+          >
+            <p className="muted" style={{ marginTop: 0 }}>
+              {ar
+                ? 'جهات الاتصال في منشآت هذا المستخدم كمالك/مدير، أو حيث يظهر هذا الحساب كطرف مرتبط بمالك آخر — لفرز سهل بين المالكين.'
+                : 'Contacts in organizations this user owns/manages, or where this account appears as a party linked to another landlord — for easy owner sorting.'}
+            </p>
+            {detail.addressBookContacts.length ? (
+              <div className="sa-table-wrap">
+                <table className="sa-table">
+                  <thead>
+                    <tr>
+                      <th>{ar ? 'الاسم' : 'Name'}</th>
+                      <th>{ar ? 'النوع' : 'Type'}</th>
+                      <th>{ar ? 'التواصل' : 'Contact'}</th>
+                      <th>{ar ? 'مرتبط بالمالك / الشركة' : 'Linked owner / company'}</th>
+                      <th>{ar ? 'المنشأة' : 'Organization'}</th>
+                      <th>{ar ? 'الأدوار' : 'Roles'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.addressBookContacts.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          <strong>{row.displayName}</strong>
+                          {row.source ? (
+                            <div className="muted" style={{ fontSize: '0.75rem' }}>
+                              {row.source}
+                            </div>
+                          ) : null}
+                        </td>
+                        <td>
+                          {row.type === 'company'
+                            ? ar
+                              ? 'شركة'
+                              : 'Company'
+                            : ar
+                              ? 'شخص'
+                              : 'Person'}
+                        </td>
+                        <td>
+                          <div>
+                            <bdi dir="ltr">{row.phone || '—'}</bdi>
+                          </div>
+                          <div className="muted">
+                            <bdi dir="ltr">{row.email || '—'}</bdi>
+                          </div>
+                        </td>
+                        <td>
+                          <strong>{row.linkedOwnerName}</strong>
+                        </td>
+                        <td>{row.organizationNameAr}</td>
+                        <td>{row.roles.length ? row.roles.join(' · ') : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="muted" style={{ margin: 0 }}>
+                {ar
+                  ? 'لا توجد جهات اتصال مرتبطة بعد.'
+                  : 'No linked address-book contacts yet.'}
+              </p>
+            )}
+          </SiteAdminSurface>
+
           <SiteAdminSurface title={ar ? 'الباقة والاشتراك' : 'Plan & subscription'}>
             {detail.organizations.length ? (
               <form className="sa-ledger-form" onSubmit={(event) => void changePlan(event)}>

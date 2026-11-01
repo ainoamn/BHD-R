@@ -402,7 +402,15 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       userId: claims.sub,
     });
     await lockKey(transaction, input.unitId);
-    const party = await ensureProspectParty(transaction, preview.organizationId, claims);
+    const bookerParty = await ensureProspectParty(transaction, preview.organizationId, claims);
+    const { upsertOwnerPartyFromReservation } = await import('@/lib/reservation-party-persist');
+    const party = await upsertOwnerPartyFromReservation(transaction, {
+      organizationId: preview.organizationId,
+      party: input.party,
+      bookingFor: input.bookingFor,
+      bookerPartyId: bookerParty.id,
+      bookerUserId: claims.sub,
+    });
     const resolvedTerms = await resolveBookingTerms(
       transaction,
       preview.organizationId,
@@ -445,7 +453,11 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     };
     const booker = {
       bookingFor: input.bookingFor,
-      bookedBy: { userId: claims.sub, displayName: party.displayName, email: party.email },
+      bookedBy: {
+        userId: claims.sub,
+        displayName: bookerParty.displayName,
+        email: bookerParty.email,
+      },
     };
 
     const ownRows = await transaction
@@ -459,10 +471,13 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       .where(
         and(
           eq(reservations.unitId, input.unitId),
-          eq(reservations.tenantPartyId, party.id),
           inArray(reservations.status, ['pending', 'confirmed']),
           gt(reservations.expiresAt, now),
           sql`${reservations.termsSnapshot}->>'flow' = ${LEASE_BOOKING_FLOW}`,
+          sql`(
+            ${reservations.tenantPartyId} in (${bookerParty.id}::uuid, ${party.id}::uuid)
+            or ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${claims.sub}
+          )`,
         ),
       )
       .limit(1);
@@ -495,7 +510,11 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       };
       await transaction
         .update(reservations)
-        .set({ termsSnapshot: nextSnapshot, updatedAt: now })
+        .set({
+          tenantPartyId: party.id,
+          termsSnapshot: nextSnapshot,
+          updatedAt: now,
+        })
         .where(eq(reservations.id, own.id));
       return {
         referenceCode: snapshot.referenceCode,

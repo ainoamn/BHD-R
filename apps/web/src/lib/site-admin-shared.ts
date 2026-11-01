@@ -684,6 +684,22 @@ export type AdminIdentityAccount = {
   };
 };
 
+/** A party in a landlord's address book, or a contact row linked to this user. */
+export type AdminUserContact = {
+  id: string;
+  displayName: string;
+  email: string | null;
+  phone: string | null;
+  type: 'person' | 'company';
+  roles: string[];
+  source: string | null;
+  organizationId: string;
+  organizationNameAr: string;
+  /** Owner / company this contact belongs to (landlord org). */
+  linkedOwnerName: string;
+  createdAt: string | null;
+};
+
 export type AdminUserDetail = {
   id: string;
   email: string | null;
@@ -704,6 +720,8 @@ export type AdminUserDetail = {
   /** Live profile + attachments from id.bhd-om.com/account (fetched on each load). */
   identityAccount: AdminIdentityAccount | null;
   organizations: AdminUserOrg[];
+  /** Address-book parties in orgs this user owns/manages, plus links when this user is a contact elsewhere. */
+  addressBookContacts: AdminUserContact[];
   propertiesOwned: AdminUserProperty[];
   leasesAsTenant: AdminUserLease[];
   contracts: AdminUserContract[];
