@@ -96,7 +96,8 @@ export async function labResetCounts(claims: SessionClaims): Promise<LabResetCou
         (async () =>
           (await countTable(tx, orgId, 'reservations')) +
           (await countTable(tx, orgId, 'contracts')) +
-          (await countTable(tx, orgId, 'holds')))(),
+          (await countTable(tx, orgId, 'holds')) +
+          (await countTable(tx, orgId, 'viewing_requests')))(),
         countTable(tx, orgId, 'stay_bookings'),
         (async () =>
           (await countTable(tx, orgId, 'maintenance_tickets')) +
