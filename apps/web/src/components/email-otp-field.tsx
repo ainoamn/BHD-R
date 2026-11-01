@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { maskEmailAddress } from '@/lib/email-address';
 
 /** Send / verify a 6-digit email OTP for tenant or company email during booking. */
 export function EmailOtpField({
@@ -17,8 +18,10 @@ export function EmailOtpField({
   organizationId?: string | null;
 }) {
   const ar = locale === 'ar';
+  const masked = maskEmailAddress(email);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   async function send() {
@@ -38,19 +41,30 @@ export function EmailOtpField({
       });
       const data = (await response.json()) as { error?: { code?: string } };
       if (!response.ok) {
+        setSent(false);
         setMessage(
           data.error?.code === 'rate_limited'
             ? ar
               ? 'محاولات كثيرة — انتظر دقيقة.'
               : 'Too many attempts — wait a minute.'
-            : ar
-              ? 'تعذّر إرسال الرمز. تحقّق من البريد.'
-              : 'Could not send the code. Check the email.',
+            : data.error?.code === 'email_unconfigured'
+              ? ar
+                ? 'إرسال البريد غير مفعّل حالياً — تواصل مع الدعم.'
+                : 'Email sending is not configured — contact support.'
+              : ar
+                ? 'تعذّر إرسال الرمز. تحقّق من البريد.'
+                : 'Could not send the code. Check the email.',
         );
         return;
       }
-      setMessage(ar ? 'أُرسل الرمز إلى بريدك.' : 'Code sent to your inbox.');
+      setSent(true);
+      setMessage(
+        ar
+          ? `أُرسل الرمز إلى ${masked}. إن لم يظهر في الوارد، راجع البريد غير المرغوب.`
+          : `Code sent to ${masked}. If it is missing, check spam/junk.`,
+      );
     } catch {
+      setSent(false);
       setMessage(ar ? 'تعذّر الاتصال.' : 'Could not connect.');
     } finally {
       setBusy(false);
@@ -97,7 +111,7 @@ export function EmailOtpField({
   if (verified) {
     return (
       <p className="notice notice--success" role="status">
-        {ar ? 'البريد مؤكَّد برمز OTP.' : 'Email confirmed with OTP.'}
+        {ar ? `البريد ${masked} مؤكَّد برمز OTP.` : `${masked} confirmed with OTP.`}
       </p>
     );
   }
@@ -106,8 +120,11 @@ export function EmailOtpField({
     <div className="party-form__otp field span-2">
       <p className="muted">
         {ar
-          ? 'أرسلنا رمز تحقق إلى البريد للتأكد من صحته (واتساب لاحقاً للجوال).'
-          : 'We send a verification code to the email (WhatsApp OTP for mobile later).'}
+          ? `سنرسل رمز تحقق إلى ${masked} للتأكد من صحة البريد (واتساب لاحقاً للجوال).`
+          : `We will send a verification code to ${masked} (WhatsApp OTP for mobile later).`}
+      </p>
+      <p className="field__hint" dir="ltr">
+        {masked}
       </p>
       <div className="form-actions" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
         <button
@@ -116,7 +133,13 @@ export function EmailOtpField({
           disabled={busy || email.trim().length < 5}
           onClick={() => void send()}
         >
-          {ar ? 'إرسال رمز التحقق' : 'Send verification code'}
+          {sent
+            ? ar
+              ? 'إعادة إرسال الرمز'
+              : 'Resend code'
+            : ar
+              ? 'إرسال رمز التحقق'
+              : 'Send verification code'}
         </button>
         <input
           className="input"

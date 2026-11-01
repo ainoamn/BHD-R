@@ -12,3 +12,18 @@ export function isPlausibleEmail(value: string): boolean {
   const email = normalizeEmailInput(value);
   return email.length > 0 && email.length <= 320 && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
 }
+
+/**
+ * Mask a mailbox for UI: keep the first and last local character, hide the middle,
+ * leave the domain readable (e.g. `a••••9@hotmail.com`).
+ */
+export function maskEmailAddress(value: string | null | undefined): string {
+  const email = normalizeEmailInput(value ?? '');
+  const at = email.indexOf('@');
+  if (at < 1 || at === email.length - 1) return email || '—';
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (local.length === 1) return `${local}••••@${domain}`;
+  if (local.length === 2) return `${local[0]}••••${local[1]}@${domain}`;
+  return `${local[0]}${'•'.repeat(Math.min(5, local.length - 2))}${local[local.length - 1]}@${domain}`;
+}

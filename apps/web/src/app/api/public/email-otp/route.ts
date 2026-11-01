@@ -82,11 +82,13 @@ export async function POST(request: Request) {
     const status =
       code === 'invalid_email' || code === 'invalid_otp' || code === 'otp_invalid'
         ? 400
-        : code === 'otp_expired' || code === 'otp_used' || code === 'otp_not_found'
-          ? 410
-          : code === 'otp_locked'
-            ? 429
-            : statusForSafeCode(code);
+        : code === 'email_unconfigured'
+          ? 503
+          : code === 'otp_expired' || code === 'otp_used' || code === 'otp_not_found'
+            ? 410
+            : code === 'otp_locked'
+              ? 429
+              : statusForSafeCode(code);
     return NextResponse.json({ error: { code } }, { status });
   }
 }

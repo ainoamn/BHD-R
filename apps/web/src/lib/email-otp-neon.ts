@@ -4,7 +4,7 @@ import { sql } from 'drizzle-orm';
 import { outboxEvents } from '@bhd-r/db';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
 import { emailableAddress, queueBrandedEmail } from '@/lib/email-notify';
-import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
+import { dispatchQueuedEmails } from '@/lib/email-outbox';
 import { normalizeEmailInput } from '@/lib/email-address';
 
 const PURPOSE = 'email_otp';
@@ -50,18 +50,20 @@ export async function sendEmailOtp(input: {
   const aggregateId = challengeId(email);
   const hash = codeHash(email, code);
 
+  let queued = false;
   await elevatedTx(async (tx) => {
-    // Mark prior challenges used.
+    // Invalidate prior OTP challenges only — never mark undelivered mail as sent.
     await tx.execute(sql`
       update outbox_events
       set published_at = coalesce(published_at, now()),
           payload = payload || '{"consumed":true}'::jsonb
       where aggregate_type = ${PURPOSE}
         and aggregate_id = ${aggregateId}::uuid
+        and topic = 'email.otp.challenge'
         and published_at is null
     `);
 
-    await queueBrandedEmail(tx, {
+    queued = await queueBrandedEmail(tx, {
       orgId: input.organizationId ?? null,
       recipient: email,
       subject:
@@ -119,7 +121,12 @@ export async function sendEmailOtp(input: {
     });
   });
 
-  sendQueuedEmailsSoon();
+  if (!queued) fail('email_unconfigured');
+
+  // Flush in-request so the booking UI learns immediately if Resend is down.
+  const dispatch = await dispatchQueuedEmails({ budgetMs: 8_000 });
+  if (!dispatch.configured) fail('email_unconfigured');
+
   return { ok: true, expiresAt: expiresAt.toISOString() };
 }
 
