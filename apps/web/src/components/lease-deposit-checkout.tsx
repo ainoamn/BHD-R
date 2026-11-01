@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useTransition } from 'react';
-import { InternationalPhoneField } from '@/components/international-phone-field';
+import { BookingDetailsProgressive } from '@/components/booking-details-progressive';
 import {
   ReservationPartyForm,
   buildReservationParty,
@@ -18,8 +18,7 @@ import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/bookin
 import { formatMoney } from '@/lib/format';
 import { contractUseForCategory } from '@/lib/lease-terms';
 import { partyDisplayName, partyErrorText, type ReservationParty } from '@/lib/reservation-party';
-import { isValidGuestPhone } from '@/lib/stay-booking-dates';
-import { countryName, toInternationalPhone } from '@/lib/world-countries';
+import { countryName, isInternationalPhone, toInternationalPhone } from '@/lib/world-countries';
 
 type Mode = 'rent' | 'sale';
 type Step = 'terms' | 'details' | 'party' | 'review' | 'payment';
@@ -262,8 +261,12 @@ export function LeaseDepositCheckout({
       );
       return;
     }
-    if (!isValidGuestPhone(phone)) {
-      setError(ar ? 'رقم الهاتف إلزامي (٨–١٥ رقماً)' : 'Phone is required (8–15 digits)');
+    if (!isInternationalPhone(phone)) {
+      setError(
+        ar
+          ? 'رقم الهاتف إلزامي — 8 أو 9 أرقام محلية مع رمز الدولة'
+          : 'Phone is required — 8 or 9 local digits with country code',
+      );
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -562,199 +565,23 @@ export function LeaseDepositCheckout({
       {step === 'details' ? (
         <div className="stays-checkout__panel">
           <h3>{ar ? 'بياناتك' : 'Your details'}</h3>
-          <p className="lease-checkout__question" id="lease-book-for-label">
-            {ar ? 'هل الحجز لك؟' : 'Is this booking for you?'}
-          </p>
-          <div
-            className="lease-checkout__modes"
-            role="radiogroup"
-            aria-labelledby="lease-book-for-label"
-          >
-            <button
-              type="button"
-              role="radio"
-              aria-checked={bookingFor === 'self'}
-              className={`button ${bookingFor === 'self' ? 'button--primary' : 'button--quiet'}`}
-              onClick={() => chooseBookingFor('self')}
-            >
-              {ar ? 'نعم، الحجز لي' : 'Yes, for me'}
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={bookingFor === 'other'}
-              className={`button ${bookingFor === 'other' ? 'button--primary' : 'button--quiet'}`}
-              onClick={() => chooseBookingFor('other')}
-            >
-              {ar ? 'لا، لشخص آخر' : 'No, for someone else'}
-            </button>
-          </div>
-
-          {bookingFor === 'other' ? (
-            <>
-              <p className="lease-checkout__question" id="lease-other-kind-label">
-                {ar
-                  ? 'الحجز لجهة شخصية أم شركة؟'
-                  : 'Is the booking for a person or a company?'}
-              </p>
-              <div
-                className="lease-checkout__modes"
-                role="radiogroup"
-                aria-labelledby="lease-other-kind-label"
-              >
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={partyForm.entityType === 'person'}
-                  className={`button ${partyForm.entityType === 'person' ? 'button--primary' : 'button--quiet'}`}
-                  onClick={() => chooseOtherEntity('person')}
-                >
-                  {ar ? 'شخصي' : 'Personal'}
-                </button>
-                <button
-                  type="button"
-                  role="radio"
-                  aria-checked={partyForm.entityType === 'company'}
-                  className={`button ${partyForm.entityType === 'company' ? 'button--primary' : 'button--quiet'}`}
-                  onClick={() => chooseOtherEntity('company')}
-                >
-                  {ar ? 'شركة' : 'Company'}
-                </button>
-              </div>
-            </>
-          ) : null}
-
-          {bookingFor === 'self' ? (
-            <p className="muted stays-checkout__hint">
-              {ar
-                ? 'جلبنا بياناتك من ملفك — راجعها وأكمل ما ينقص قبل المتابعة.'
-                : 'We loaded your details from your profile — review them and fill anything missing.'}
-            </p>
-          ) : partyForm.entityType === 'company' ? (
-            <p className="muted stays-checkout__hint">
-              {ar
-                ? 'أدخل بيانات الشركة المستأجرة أو المشترية. ستُكمل تفاصيل السجل والمفوّضين في الخطوة التالية.'
-                : 'Enter the company details. You will complete CR and signatories in the next step.'}
-            </p>
-          ) : contacts.saved.length ? (
-            <div className="field">
-              <label htmlFor="lease-book-saved">
-                {ar ? 'اختر من الأشخاص المحفوظين في ملفك' : 'Choose a saved person'}
-              </label>
-              <select
-                className="select"
-                id="lease-book-saved"
-                value={savedContactId}
-                onChange={(event) => chooseSavedContact(event.target.value)}
-              >
-                <option value={NEW_CONTACT}>{ar ? '+ شخص جديد' : '+ New person'}</option>
-                {contacts.saved.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.fullName}
-                    {row.phone ? ` — ${row.phone}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : (
-            <p className="muted stays-checkout__hint">
-              {ar
-                ? 'أدخل بيانات الشخص الذي سيتم الحجز باسمه.'
-                : 'Enter the details of the person the booking is for.'}
-            </p>
-          )}
-
-          <div className="stays-checkout__grid">
-            <div className="field stays-checkout__name">
-              <label htmlFor="lease-book-name">
-                {bookingFor === 'self'
-                  ? ar
-                    ? 'الاسم الكامل (كما في البطاقة)'
-                    : 'Full name (as on ID)'
-                  : partyForm.entityType === 'company'
-                    ? ar
-                      ? 'اسم الشركة'
-                      : 'Company name'
-                    : ar
-                      ? 'اسم الشخص الكامل (كما في البطاقة)'
-                      : 'Their full name (as on ID)'}
-              </label>
-              <input
-                className="input"
-                id="lease-book-name"
-                type="text"
-                required
-                minLength={2}
-                maxLength={partyForm.entityType === 'company' ? 200 : 160}
-                value={fullName}
-                onChange={(event) => updateForm({ fullName: event.target.value })}
-                autoComplete={bookingFor === 'self' ? 'name' : 'organization'}
-              />
-            </div>
-            <InternationalPhoneField
-              key={`${bookingFor}:${partyForm.entityType}:${savedContactId}`}
-              id="lease-book-phone"
-              label={
-                partyForm.entityType === 'company' && bookingFor === 'other'
-                  ? ar
-                    ? 'هاتف الشركة'
-                    : 'Company phone'
-                  : ar
-                    ? 'الهاتف'
-                    : 'Phone'
-              }
-              value={phone}
-              onChange={(next) => updateForm({ phone: next })}
-              locale={locale}
-              required
-              autoComplete={bookingFor === 'self' ? 'tel' : 'off'}
-            />
-            <div className="field stays-checkout__name">
-              <label htmlFor="lease-book-email">
-                {partyForm.entityType === 'company' && bookingFor === 'other'
-                  ? ar
-                    ? 'بريد الشركة'
-                    : 'Company email'
-                  : ar
-                    ? 'البريد الإلكتروني'
-                    : 'Email'}
-                <span aria-hidden="true"> *</span>
-              </label>
-              <input
-                className="input"
-                id="lease-book-email"
-                type="email"
-                required
-                value={email}
-                onChange={(event) => updateForm({ email: event.target.value })}
-                autoComplete={bookingFor === 'self' ? 'email' : 'off'}
-                dir="ltr"
-              />
-            </div>
-          </div>
-
-          {offerSave && !(bookingFor === 'other' && partyForm.entityType === 'company') ? (
-            <label className="checkbox-row lease-checkout__accept">
-              <input
-                type="checkbox"
-                checked={saveContact}
-                onChange={(event) => setSaveContact(event.target.checked)}
-              />
-              <span>
-                {bookingFor === 'self'
-                  ? ar
-                    ? 'حفظ رقم هاتفي في ملفي لاستخدامه في الحجوزات القادمة'
-                    : 'Save my phone number to my profile for future bookings'
-                  : selectedSaved
-                    ? ar
-                      ? 'تحديث بيانات هذا الشخص المحفوظة في ملفي'
-                      : 'Update this saved person in my profile'
-                    : ar
-                      ? 'حفظ بيانات هذا الشخص في ملفي لحجز آخر'
-                      : 'Save this person to my profile for another booking'}
-              </span>
-            </label>
-          ) : null}
+          <BookingDetailsProgressive
+            locale={locale}
+            bookingFor={bookingFor}
+            onBookingFor={chooseBookingFor}
+            entityType={partyForm.entityType}
+            onEntityType={chooseOtherEntity}
+            contacts={contacts}
+            savedContactId={savedContactId}
+            onSavedContact={chooseSavedContact}
+            fullName={fullName}
+            phone={phone}
+            email={email}
+            onFormChange={updateForm}
+            offerSave={offerSave}
+            saveContact={saveContact}
+            onSaveContact={setSaveContact}
+          />
           <div className="stays-checkout__nav stays-checkout__nav--sticky">
             <button type="button" className="button button--quiet" onClick={() => setStep('terms')}>
               {ar ? 'رجوع' : 'Back'}
