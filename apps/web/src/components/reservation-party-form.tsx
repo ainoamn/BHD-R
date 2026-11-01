@@ -307,7 +307,7 @@ export function ReservationPartyForm({
                 className={`button ${entityType === option ? 'button--primary' : 'button--quiet'}`}
                 onClick={() => onChange({ ...value, entityType: option })}
               >
-                {option === 'person' ? (ar ? 'فرد' : 'Individual') : ar ? 'شركة' : 'Company'}
+                {option === 'person' ? (ar ? 'شخصي' : 'Personal') : ar ? 'شركة' : 'Company'}
               </button>
             ))}
           </div>

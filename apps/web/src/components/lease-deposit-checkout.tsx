@@ -218,6 +218,18 @@ export function LeaseDepositCheckout({
     setError(null);
     setBookingFor(next);
     setSaveContact(next === 'self');
+    if (next === 'self') {
+      setPartyForm((current) => ({ ...current, entityType: 'person' }));
+    }
+  }
+
+  function chooseOtherEntity(next: 'person' | 'company') {
+    setError(null);
+    setPartyForm((current) => ({ ...current, entityType: next }));
+    if (next === 'company') {
+      setSavedContactId(NEW_CONTACT);
+      setSaveContact(false);
+    }
   }
 
   function chooseSavedContact(id: string) {
@@ -237,9 +249,16 @@ export function LeaseDepositCheckout({
   }
 
   function continueFromDetails() {
+    const forCompany = bookingFor === 'other' && partyForm.entityType === 'company';
     if (fullName.trim().length < 2) {
       setError(
-        ar ? 'أدخل الاسم الكامل (حرفان على الأقل)' : 'Enter your full name (at least 2 characters)',
+        forCompany
+          ? ar
+            ? 'أدخل اسم الشركة (حرفان على الأقل)'
+            : 'Enter the company name (at least 2 characters)'
+          : ar
+            ? 'أدخل الاسم الكامل (حرفان على الأقل)'
+            : 'Enter your full name (at least 2 characters)',
       );
       return;
     }
@@ -251,18 +270,36 @@ export function LeaseDepositCheckout({
       setError(ar ? 'البريد الإلكتروني إلزامي وبصيغة صحيحة' : 'A valid email is required');
       return;
     }
-    // First visit to the contract step: start the person from the contact just entered.
+    // Prefill the contract party from the contact just entered (person or company).
     setPartyForm((current) => {
+      const name = fullName.trim();
+      const nextPhone = phone.trim();
+      const nextEmail = email.trim();
+      if (bookingFor === 'other' && current.entityType === 'company') {
+        const company = current.company;
+        if (company.nameAr || company.nameEn || company.phone || company.email) {
+          return current;
+        }
+        return {
+          ...current,
+          company: {
+            ...company,
+            ...(ARABIC.test(name) ? { nameAr: name } : { nameEn: name }),
+            phone: nextPhone,
+            email: nextEmail,
+          },
+        };
+      }
       const person = current.person;
       if (person.nameAr || person.nameEn || person.phone || person.email) return current;
-      const name = fullName.trim();
       return {
         ...current,
+        entityType: bookingFor === 'self' ? 'person' : current.entityType,
         person: {
           ...person,
           ...(ARABIC.test(name) ? { nameAr: name } : { nameEn: name }),
-          phone: phone.trim(),
-          email: email.trim(),
+          phone: nextPhone,
+          email: nextEmail,
         },
       };
     });
@@ -553,11 +590,51 @@ export function LeaseDepositCheckout({
             </button>
           </div>
 
+          {bookingFor === 'other' ? (
+            <>
+              <p className="lease-checkout__question" id="lease-other-kind-label">
+                {ar
+                  ? 'الحجز لجهة شخصية أم شركة؟'
+                  : 'Is the booking for a person or a company?'}
+              </p>
+              <div
+                className="lease-checkout__modes"
+                role="radiogroup"
+                aria-labelledby="lease-other-kind-label"
+              >
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={partyForm.entityType === 'person'}
+                  className={`button ${partyForm.entityType === 'person' ? 'button--primary' : 'button--quiet'}`}
+                  onClick={() => chooseOtherEntity('person')}
+                >
+                  {ar ? 'شخصي' : 'Personal'}
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={partyForm.entityType === 'company'}
+                  className={`button ${partyForm.entityType === 'company' ? 'button--primary' : 'button--quiet'}`}
+                  onClick={() => chooseOtherEntity('company')}
+                >
+                  {ar ? 'شركة' : 'Company'}
+                </button>
+              </div>
+            </>
+          ) : null}
+
           {bookingFor === 'self' ? (
             <p className="muted stays-checkout__hint">
               {ar
                 ? 'جلبنا بياناتك من ملفك — راجعها وأكمل ما ينقص قبل المتابعة.'
                 : 'We loaded your details from your profile — review them and fill anything missing.'}
+            </p>
+          ) : partyForm.entityType === 'company' ? (
+            <p className="muted stays-checkout__hint">
+              {ar
+                ? 'أدخل بيانات الشركة المستأجرة أو المشترية. ستُكمل تفاصيل السجل والمفوّضين في الخطوة التالية.'
+                : 'Enter the company details. You will complete CR and signatories in the next step.'}
             </p>
           ) : contacts.saved.length ? (
             <div className="field">
@@ -594,9 +671,13 @@ export function LeaseDepositCheckout({
                   ? ar
                     ? 'الاسم الكامل (كما في البطاقة)'
                     : 'Full name (as on ID)'
-                  : ar
-                    ? 'اسم الشخص الكامل (كما في البطاقة)'
-                    : 'Their full name (as on ID)'}
+                  : partyForm.entityType === 'company'
+                    ? ar
+                      ? 'اسم الشركة'
+                      : 'Company name'
+                    : ar
+                      ? 'اسم الشخص الكامل (كما في البطاقة)'
+                      : 'Their full name (as on ID)'}
               </label>
               <input
                 className="input"
@@ -604,16 +685,24 @@ export function LeaseDepositCheckout({
                 type="text"
                 required
                 minLength={2}
-                maxLength={160}
+                maxLength={partyForm.entityType === 'company' ? 200 : 160}
                 value={fullName}
                 onChange={(event) => updateForm({ fullName: event.target.value })}
-                autoComplete={bookingFor === 'self' ? 'name' : 'off'}
+                autoComplete={bookingFor === 'self' ? 'name' : 'organization'}
               />
             </div>
             <InternationalPhoneField
-              key={`${bookingFor}:${savedContactId}`}
+              key={`${bookingFor}:${partyForm.entityType}:${savedContactId}`}
               id="lease-book-phone"
-              label={ar ? 'الهاتف' : 'Phone'}
+              label={
+                partyForm.entityType === 'company' && bookingFor === 'other'
+                  ? ar
+                    ? 'هاتف الشركة'
+                    : 'Company phone'
+                  : ar
+                    ? 'الهاتف'
+                    : 'Phone'
+              }
               value={phone}
               onChange={(next) => updateForm({ phone: next })}
               locale={locale}
@@ -622,7 +711,13 @@ export function LeaseDepositCheckout({
             />
             <div className="field stays-checkout__name">
               <label htmlFor="lease-book-email">
-                {ar ? 'البريد الإلكتروني' : 'Email'}
+                {partyForm.entityType === 'company' && bookingFor === 'other'
+                  ? ar
+                    ? 'بريد الشركة'
+                    : 'Company email'
+                  : ar
+                    ? 'البريد الإلكتروني'
+                    : 'Email'}
                 <span aria-hidden="true"> *</span>
               </label>
               <input
@@ -638,7 +733,7 @@ export function LeaseDepositCheckout({
             </div>
           </div>
 
-          {offerSave ? (
+          {offerSave && !(bookingFor === 'other' && partyForm.entityType === 'company') ? (
             <label className="checkbox-row lease-checkout__accept">
               <input
                 type="checkbox"
@@ -809,13 +904,25 @@ export function LeaseDepositCheckout({
                   ? ar
                     ? 'لي شخصياً'
                     : 'Myself'
-                  : ar
-                    ? 'شخص آخر'
-                    : 'Someone else'}
+                  : partyForm.entityType === 'company'
+                    ? ar
+                      ? 'شركة أخرى'
+                      : 'Another company'
+                    : ar
+                      ? 'شخص آخر'
+                      : 'Someone else'}
               </dd>
             </div>
             <div>
-              <dt>{ar ? 'الاسم' : 'Name'}</dt>
+              <dt>
+                {bookingFor === 'other' && partyForm.entityType === 'company'
+                  ? ar
+                    ? 'الشركة'
+                    : 'Company'
+                  : ar
+                    ? 'الاسم'
+                    : 'Name'}
+              </dt>
               <dd>{fullName}</dd>
             </div>
             <div>
