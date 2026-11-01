@@ -208,6 +208,95 @@ export function emitAccountRebound(userId?: string | null) {
   }
 }
 
+const PRODUCT_SESSION_CHANNEL = 'bhd-product-session';
+const HOSTILE_COOKIE_KEY = 'bhd_hostile_cookie_owner';
+
+/** Tell other tabs which account now owns the shared product cookie. */
+export function broadcastProductCookieOwner(sub: string) {
+  if (typeof window === 'undefined' || !sub) return;
+  try {
+    const bc = new BroadcastChannel(PRODUCT_SESSION_CHANNEL);
+    bc.postMessage({ type: 'cookie-owner', sub, at: Date.now() });
+    bc.close();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Other tab switched accounts — freeze live UI until this tab rebinds its ?au=. */
+export function markHostileProductCookie(ownerSub: string) {
+  if (typeof sessionStorage === 'undefined' || !ownerSub) return;
+  const au = readActiveAu();
+  if (au && ownerSub !== au) {
+    sessionStorage.setItem(HOSTILE_COOKIE_KEY, ownerSub);
+  }
+}
+
+export function clearHostileProductCookie() {
+  if (typeof sessionStorage === 'undefined') return;
+  sessionStorage.removeItem(HOSTILE_COOKIE_KEY);
+}
+
+export function hasHostileProductCookie(): boolean {
+  if (typeof sessionStorage === 'undefined') return false;
+  const owner = sessionStorage.getItem(HOSTILE_COOKIE_KEY)?.trim() || '';
+  if (!owner) return false;
+  const au = readActiveAu();
+  return Boolean(au && owner !== au);
+}
+
+export function watchProductCookieOwner(onOwner: (sub: string) => void): () => void {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') {
+    return () => undefined;
+  }
+  try {
+    const bc = new BroadcastChannel(PRODUCT_SESSION_CHANNEL);
+    bc.onmessage = (event: MessageEvent) => {
+      const sub =
+        event.data && typeof event.data === 'object' && event.data.type === 'cookie-owner'
+          ? String(event.data.sub || '')
+          : '';
+      if (sub) onOwner(sub);
+    };
+    return () => {
+      try {
+        bc.close();
+      } catch {
+        /* ignore */
+      }
+    };
+  } catch {
+    return () => undefined;
+  }
+}
+
+/**
+ * True when this tab's ?au= matches the product session cookie.
+ * Used to skip live refresh so another tab's account switch cannot paint here.
+ */
+export async function productSessionMatchesTab(): Promise<boolean> {
+  if (typeof window === 'undefined') return true;
+  if (hasHostileProductCookie()) return false;
+  const au = readActiveAu();
+  if (!au) return true;
+  try {
+    const response = await fetch('/api/auth/me', {
+      cache: 'no-store',
+      credentials: 'include',
+      headers: { accept: 'application/json' },
+    });
+    const body = (await response.json().catch(() => ({}))) as { currentSub?: string | null };
+    if (body.currentSub && body.currentSub !== au) {
+      markHostileProductCookie(body.currentSub);
+      return false;
+    }
+    if (body.currentSub && body.currentSub === au) clearHostileProductCookie();
+    return true;
+  } catch {
+    return true;
+  }
+}
+
 export function paintPrivacyVeil(_message?: string) {
   if (typeof document === 'undefined') return;
   try {
@@ -311,6 +400,7 @@ export async function switchWindowAccount(
     captureAccountToken(userId, body.token);
     setActiveAu(userId);
   }
+  if (response.ok) broadcastProductCookieOwner(userId);
   return {
     ok: response.ok,
     ...(typeof body.token === 'string' ? { token: body.token } : {}),
@@ -350,13 +440,18 @@ export async function applyAccountIsolation(
       if (!result.unchanged) {
         const guardKey = `bhd-sso:${result.userId || sub || 'x'}`;
         sessionStorage.setItem(guardKey, String(Date.now()));
+        clearHostileProductCookie();
+        if (result.userId || sub) broadcastProductCookieOwner(result.userId || sub || '');
         emitAccountRebound(result.userId || sub);
+      } else {
+        clearHostileProductCookie();
       }
       return;
     }
   }
 
   markIsolationPending();
+  if (sub) broadcastProductCookieOwner(sub);
   if (windowToken) {
     rebindWithWindowToken(windowToken, here, sub);
     return;

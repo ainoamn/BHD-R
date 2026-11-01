@@ -3,9 +3,11 @@
 import {
   applyAccountIsolation,
   clearAccountRebindLock,
+  ensureAuInUrl,
   isAccountRebindPending,
   isIdentityOrigin,
   scrubCacheBustFromUrl,
+  tabMayClaimProductCookie,
 } from '@/lib/identity/client';
 import { loadBhdIdentity } from '@/lib/identity/bhd-browser';
 import {
@@ -63,10 +65,23 @@ export function BhdPrivacyGate() {
       if (cancelled) return;
       try {
         const au = readActiveAu();
-        if (au) setActiveAu(au);
+        if (au) {
+          setActiveAu(au);
+          ensureAuInUrl(au);
+        }
 
-        if (productSub && (!au || productSub === au)) {
+        // Aligned — keep this tab's au; never overwrite URL au with cookie sub.
+        if (productSub && au && productSub === au) {
+          clearAccountRebindLock();
+          scrubCacheBustFromUrl();
+          ensureAuInUrl(au);
+          return;
+        }
+
+        // No tab binding yet — adopt cookie account as this tab's au.
+        if (productSub && !au) {
           setActiveAu(productSub);
+          ensureAuInUrl(productSub);
           clearAccountRebindLock();
           scrubCacheBustFromUrl();
           return;
@@ -79,6 +94,9 @@ export function BhdPrivacyGate() {
           }
           return;
         }
+
+        // Cookie belongs to another account — only the focused tab may reclaim it.
+        if (!tabMayClaimProductCookie()) return;
 
         const identity = await loadBhdIdentity();
         if (cancelled || !identity) {
@@ -113,6 +131,7 @@ export function BhdPrivacyGate() {
         if (matched) {
           clearAccountRebindLock();
           scrubCacheBustFromUrl();
+          ensureAuInUrl(targetAu);
           return;
         }
 

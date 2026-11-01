@@ -20,6 +20,7 @@ import {
   paintPrivacyVeil,
   switchWindowAccount,
 } from '@/lib/identity/client';
+import { readActiveAu } from '@/lib/identity/window-session';
 import { useBhdCatalog } from '@/lib/identity/use-bhd-catalog';
 import { roleLabel, type OrganizationChoice } from '@/lib/team-shared';
 import type { Viewer } from '@/lib/types';
@@ -301,6 +302,12 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   }, [panel, origin, catalogApps]);
 
   useEffect(() => {
+    // Prefer this tab's ?au= binding over the shared cookie (other tabs may have switched).
+    const au = readActiveAu();
+    if (au) {
+      setCurrentSub(au);
+      return;
+    }
     let live = true;
     void fetch('/api/auth/me', {
       credentials: 'same-origin',

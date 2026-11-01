@@ -3,12 +3,16 @@
 import {
   applyAccountIsolation,
   clearAccountRebindLock,
+  clearHostileProductCookie,
+  ensureAuInUrl,
   isAccountRebindPending,
   isIdentityOrigin,
+  markHostileProductCookie,
   productStartPath,
   scrubCacheBustFromUrl,
   SILENT_SSO_GUARD_MS,
   tabMayClaimProductCookie,
+  watchProductCookieOwner,
 } from '@/lib/identity/client';
 import { loadBhdIdentity } from '@/lib/identity/bhd-browser';
 import { boundWindowToken, readActiveAu, setActiveAu } from '@/lib/identity/window-session';
@@ -21,6 +25,7 @@ export function BhdSilentSso() {
 
   useEffect(() => {
     const onRebound = () => {
+      clearHostileProductCookie();
       startTransition(() => {
         try {
           router.refresh();
@@ -30,7 +35,14 @@ export function BhdSilentSso() {
       });
     };
     window.addEventListener('bhd:account-rebound', onRebound);
-    return () => window.removeEventListener('bhd:account-rebound', onRebound);
+    const stopWatch = watchProductCookieOwner((ownerSub) => {
+      const au = readActiveAu();
+      if (au && ownerSub !== au) markHostileProductCookie(ownerSub);
+    });
+    return () => {
+      window.removeEventListener('bhd:account-rebound', onRebound);
+      stopWatch();
+    };
   }, [router, startTransition]);
 
   useEffect(() => {
@@ -72,9 +84,12 @@ export function BhdSilentSso() {
         const productSub = local.currentSub || null;
         if (local.authenticated && productSub && au && productSub === au) {
           clearAccountRebindLock();
+          clearHostileProductCookie();
           scrubCacheBustFromUrl();
+          ensureAuInUrl(au);
           return;
         }
+        if (au) ensureAuInUrl(au);
 
         // Background tabs must not steal the shared cookie.
         if (!tabMayClaimProductCookie()) return;

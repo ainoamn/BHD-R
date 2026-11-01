@@ -2,6 +2,13 @@
 
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  hasHostileProductCookie,
+  markHostileProductCookie,
+  productSessionMatchesTab,
+  watchProductCookieOwner,
+} from '@/lib/identity/client';
+import { readActiveAu } from '@/lib/identity/window-session';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
 import { PENDING_APPROVALS_CHANGED_EVENT } from '@/lib/pending-approvals-shared';
 import { markOpsCacheStale } from '@/lib/portal-ops-client-cache';
@@ -16,6 +23,9 @@ const BACKOFF_MS = 5 * 60_000;
  * (server components via a soft refresh, client panels via events). Hidden
  * tabs skip polling, and nothing refreshes unless the data really changed
  * (BHD-SESSION-POLICY: no refresh on focus/visibility alone).
+ *
+ * Multi-account: never refresh while another tab owns the shared cookie and
+ * this tab is bound to a different ?au= (stops instant cross-tab switch).
  */
 export function LiveSync({ booking, reference }: { booking?: string; reference?: string }) {
   const router = useRouter();
@@ -38,7 +48,9 @@ export function LiveSync({ booking, reference }: { booking?: string; reference?:
       timer = window.setTimeout(() => void tick(), ms);
     };
 
-    const announce = () => {
+    const announce = async () => {
+      if (hasHostileProductCookie()) return;
+      if (!(await productSessionMatchesTab())) return;
       markOpsCacheStale();
       window.dispatchEvent(new Event(LIVE_CHANGE_EVENT));
       window.dispatchEvent(new Event(PENDING_APPROVALS_CHANGED_EVENT));
@@ -48,6 +60,7 @@ export function LiveSync({ booking, reference }: { booking?: string; reference?:
     async function tick() {
       if (cancelled) return;
       if (document.hidden) return schedule(POLL_MS);
+      if (hasHostileProductCookie()) return schedule(POLL_MS);
       try {
         const response = await fetch(`/api/live/pulse${query}`, {
           credentials: 'same-origin',
@@ -58,7 +71,7 @@ export function LiveSync({ booking, reference }: { booking?: string; reference?:
         if (!response.ok) return schedule(BACKOFF_MS);
         const { v } = (await response.json()) as { v?: string | null };
         if (!v) return schedule(BACKOFF_MS);
-        if (lastRef.current !== null && v !== lastRef.current && !cancelled) announce();
+        if (lastRef.current !== null && v !== lastRef.current && !cancelled) await announce();
         lastRef.current = v;
       } catch {
         /* network hiccup: try again on the next beat */
@@ -70,12 +83,18 @@ export function LiveSync({ booking, reference }: { booking?: string; reference?:
       if (!document.hidden) schedule(0);
     };
 
+    const stopWatch = watchProductCookieOwner((ownerSub) => {
+      const au = readActiveAu();
+      if (au && ownerSub !== au) markHostileProductCookie(ownerSub);
+    });
+
     schedule(500);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
       document.removeEventListener('visibilitychange', onVisible);
+      stopWatch();
     };
   }, [booking, reference]);
 
