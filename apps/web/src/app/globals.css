@@ -4253,11 +4253,11 @@ body:has(.stays-booking-receipt) #main-content {
   height: calc(100svh - 4.7rem);
   padding: 1rem 0.85rem 1.25rem;
   overflow-y: auto;
-  color: white;
+  color: #e8f2f1;
   background:
-    radial-gradient(circle at 18% 0%, rgb(212 175 55 / 0.16), transparent 18rem),
-    linear-gradient(165deg, #092d24 0%, #061f19 52%, #0a2433 100%);
-  border-inline-end: 1px solid rgb(255 255 255 / 0.06);
+    radial-gradient(ellipse 90% 55% at 0% 0%, rgb(8 163 159 / 0.28), transparent 55%),
+    linear-gradient(185deg, #0f3a52 0%, #12324a 48%, #0c283a 100%);
+  border-inline-end: none;
   scrollbar-width: thin;
   scrollbar-color: rgb(255 255 255 / 0.24) transparent;
   animation: portal-side-in 0.5s ease both;
@@ -4268,15 +4268,15 @@ body:has(.stays-booking-receipt) #main-content {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.15rem 0.35rem 0.85rem;
-  border-bottom: 1px solid rgb(255 255 255 / 0.1);
+  border-bottom: 1px solid rgb(255 255 255 / 0.12);
 }
 .portal-sidebar__title {
   margin: 0;
-  color: var(--gold-300);
+  color: #7dd3c7;
   font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 .portal-nav {
   display: grid;
@@ -4289,10 +4289,10 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .portal-nav__group-label {
   margin: 0 0.55rem 0.25rem;
-  color: rgb(255 255 255 / 0.45);
+  color: rgb(125 211 199 / 0.72);
   font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 .portal-nav a {
@@ -4300,17 +4300,19 @@ body:has(.stays-booking-receipt) #main-content {
   align-items: center;
   gap: 0.65rem;
   padding: 0.58rem 0.75rem;
-  color: rgb(255 255 255 / 0.78);
+  color: rgb(232 242 241 / 0.86);
+  border: 1px solid transparent;
   border-radius: 0.7rem;
   font-size: 0.9rem;
   font-weight: 650;
   transition:
     background 0.16s ease,
+    border-color 0.16s ease,
     color 0.16s ease,
     transform 0.16s ease;
 }
 .portal-nav a:hover {
-  color: white;
+  color: #fff;
   background: rgb(255 255 255 / 0.08);
   transform: translateX(var(--portal-nav-nudge, 2px));
 }
@@ -4318,13 +4320,15 @@ body:has(.stays-booking-receipt) #main-content {
   --portal-nav-nudge: -2px;
 }
 .portal-nav a[aria-current='page'] {
-  color: white;
-  background: linear-gradient(135deg, rgb(8 163 159 / 0.28), rgb(181 141 85 / 0.18));
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  color: #042f2e;
+  background: linear-gradient(135deg, #5eead4, #2dd4bf);
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgb(45 212 191 / 0.22);
+  font-weight: 800;
 }
 .portal-nav__mark {
   width: 1.55rem;
-  color: var(--gold-300);
+  color: #7dd3c7;
   text-align: center;
   font-size: 0.95rem;
 }
@@ -4341,7 +4345,7 @@ body:has(.stays-booking-receipt) #main-content {
   border: 0;
   border-radius: 0.7rem;
   background: transparent;
-  color: rgb(255 255 255 / 0.78);
+  color: rgb(232 242 241 / 0.86);
   font: inherit;
   font-size: 0.9rem;
   font-weight: 650;
@@ -4353,7 +4357,7 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .portal-nav__toggle:hover,
 .portal-nav__toggle[data-active] {
-  color: white;
+  color: #fff;
   background: rgb(255 255 255 / 0.08);
 }
 .portal-nav__toggle-label {
@@ -4389,15 +4393,15 @@ body:has(.stays-booking-receipt) #main-content {
   gap: 0.35rem;
   margin-top: auto;
   padding: 1rem 0.55rem 0.25rem;
-  border-top: 1px solid rgb(255 255 255 / 0.1);
+  border-top: 1px solid rgb(255 255 255 / 0.12);
 }
 .portal-sidebar__account {
-  color: rgb(255 255 255 / 0.68);
+  color: rgb(232 242 241 / 0.72);
   font-size: 0.78rem;
   font-weight: 650;
 }
 .portal-sidebar__account:hover {
-  color: var(--gold-300);
+  color: #5eead4;
 }
 .portal-user {
   display: none;
@@ -10004,7 +10008,7 @@ body:has(.stays-booking-receipt) #main-content {
   font-weight: 800;
 }
 .portal-layout[data-portal='tenant'] .portal-sidebar__title {
-  color: #1d4f8a;
+  color: #7dd3c7;
 }
 .tenant-section {
   display: grid;
@@ -26547,81 +26551,85 @@ button.lrw__step-body:focus-visible {
   border-color: var(--calm-line);
 }
 
-/* Sidebar: light, with a soft highlight for the current page */
+/* Sidebar: same navy/teal console look as site admin */
 .portal-layout .portal-sidebar {
-  color: var(--calm-ink-2);
-  background: var(--calm-surface);
-  border-inline-end: 1px solid var(--calm-line);
-  scrollbar-color: var(--calm-line-strong) transparent;
+  color: #e8f2f1;
+  background:
+    radial-gradient(ellipse 90% 55% at 0% 0%, rgb(8 163 159 / 0.28), transparent 55%),
+    linear-gradient(185deg, #0f3a52 0%, #12324a 48%, #0c283a 100%);
+  border-inline-end: none;
+  scrollbar-color: rgb(255 255 255 / 0.24) transparent;
 }
 .portal-layout .portal-sidebar__head,
 .portal-layout .portal-sidebar__foot {
-  border-color: var(--calm-line);
+  border-color: rgb(255 255 255 / 0.12);
 }
 .portal-layout .portal-sidebar__title {
-  color: var(--calm-gold);
-  letter-spacing: 0.04em;
+  color: #7dd3c7;
+  letter-spacing: 0.1em;
 }
 .portal-layout .portal-sidebar__close {
-  color: var(--calm-ink-2);
-  background: var(--calm-surface-2);
+  color: #e8f2f1;
+  background: rgb(255 255 255 / 0.1);
 }
 .portal-layout .portal-nav__group-label {
-  color: #94a29c;
-  font-weight: 700;
-  letter-spacing: 0.02em;
+  color: rgb(125 211 199 / 0.72);
+  font-weight: 800;
+  letter-spacing: 0.1em;
 }
 .portal-layout .portal-nav a,
 .portal-layout .portal-nav__toggle {
   position: relative;
-  color: var(--calm-ink-2);
-  border-radius: var(--calm-radius-sm);
+  color: rgb(232 242 241 / 0.86);
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
   font-weight: 600;
   transition:
     background-color 0.2s var(--calm-ease),
-    color 0.2s var(--calm-ease);
+    border-color 0.2s var(--calm-ease),
+    color 0.2s var(--calm-ease),
+    box-shadow 0.2s var(--calm-ease);
 }
 .portal-layout .portal-nav a:hover,
 .portal-layout .portal-nav__toggle:hover {
-  color: var(--calm-ink);
-  background: var(--calm-surface-2);
+  color: #fff;
+  background: rgb(255 255 255 / 0.08);
   transform: none;
 }
 .portal-layout .portal-nav__toggle[data-active] {
-  color: var(--calm-ink);
-  background: transparent;
+  color: #fff;
+  background: rgb(255 255 255 / 0.08);
   font-weight: 700;
 }
 .portal-layout .portal-nav a[aria-current='page'] {
-  color: var(--calm-accent);
-  background: var(--calm-accent-soft);
-  box-shadow: none;
-  font-weight: 700;
+  color: #042f2e;
+  background: linear-gradient(135deg, #5eead4, #2dd4bf);
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgb(45 212 191 / 0.22);
+  font-weight: 800;
 }
 .portal-layout .portal-nav a[aria-current='page']::before {
-  position: absolute;
-  inset-block: 0.55rem;
-  inset-inline-start: 0;
-  width: 3px;
-  content: '';
-  background: var(--calm-accent);
-  border-radius: 3px;
+  display: none;
+}
+.portal-layout .portal-nav a[aria-current='page'] .portal-nav__mark {
+  color: #042f2e;
+  opacity: 1;
 }
 .portal-layout .portal-nav__mark {
-  color: var(--calm-accent);
-  opacity: 0.8;
+  color: #7dd3c7;
+  opacity: 1;
 }
 .portal-layout .portal-nav__submenu {
-  border-inline-start-color: var(--calm-line);
+  border-inline-start-color: rgb(255 255 255 / 0.14);
 }
 .portal-layout .portal-sidebar__account {
-  color: var(--calm-muted);
+  color: rgb(232 242 241 / 0.72);
 }
 .portal-layout .portal-sidebar__account:hover {
-  color: var(--calm-accent);
+  color: #5eead4;
 }
 .portal-layout .portal-nav-backdrop {
-  background: rgb(20 37 32 / 0.32);
+  background: rgb(12 40 58 / 0.45);
   backdrop-filter: blur(2px);
 }
 
@@ -26643,9 +26651,9 @@ button.lrw__step-body:focus-visible {
     width: 2.1rem;
     height: 2.1rem;
     padding: 0;
-    color: var(--calm-muted, #6c7b75);
+    color: #7dd3c7;
     background: transparent;
-    border: 1px solid var(--calm-line, #e1e9e5);
+    border: 1px solid rgb(255 255 255 / 0.16);
     border-radius: 0.6rem;
     cursor: pointer;
     transition:
@@ -26653,11 +26661,11 @@ button.lrw__step-body:focus-visible {
       background 0.15s ease;
   }
   .portal-sidebar__collapse:hover {
-    color: var(--calm-accent, #0b623c);
-    background: var(--calm-surface-2, #f6f9f7);
+    color: #042f2e;
+    background: linear-gradient(135deg, #5eead4, #2dd4bf);
   }
   .portal-sidebar__collapse:focus-visible {
-    outline: 2px solid var(--calm-accent, #0b623c);
+    outline: 2px solid #2dd4bf;
     outline-offset: 2px;
   }
   [dir='rtl'] .portal-sidebar__collapse svg {
