@@ -10,6 +10,13 @@ import {
 } from '@/lib/payment-gateways-catalog';
 import type { PaymentGatewaysView, PaymentProviderState } from '@/lib/site-control-shared';
 import { adminErrorText, adminGet, type AdminNotice } from './admin-fetch';
+import {
+  SiteAdminBanner,
+  SiteAdminFailed,
+  SiteAdminLoading,
+  SiteAdminPage,
+  SiteAdminSurface,
+} from './site-admin-page';
 
 type Draft = {
   active: boolean;
@@ -56,15 +63,28 @@ export function PaymentGatewaysAdmin({ locale }: { locale: 'ar' | 'en' }) {
     };
   }, []);
 
+  const title = ar ? 'بوابات وطرق الدفع' : 'Payment gateways & methods';
+  const lead = ar
+    ? 'فعّل البوابة وأدخل المفاتيح — عند اكتمال الحقول تصبح جاهزة للاستخدام فوراً. بوابة التجربة تعمل دون مفاتيح خارجية.'
+    : 'Enable a gateway and enter its keys — once required fields are complete it is ready. The sandbox works without external keys.';
+
   if (failed) {
     return (
-      <p className="notice notice--error" role="alert">
-        {ar ? 'تعذّر تحميل بوابات الدفع.' : 'Could not load payment gateways.'}
-      </p>
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminFailed
+          locale={locale}
+          messageAr="تعذّر تحميل بوابات الدفع."
+          messageEn="Could not load payment gateways."
+        />
+      </SiteAdminPage>
     );
   }
   if (!view || !methods) {
-    return <p className="muted">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>;
+    return (
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminLoading locale={locale} />
+      </SiteAdminPage>
+    );
   }
 
   async function saveProvider(providerId: string) {
@@ -128,26 +148,14 @@ export function PaymentGatewaysAdmin({ locale }: { locale: 'ar' | 'en' }) {
   }
 
   return (
-    <div className="sa-gateways">
-      <header className="sa-section-head">
-        <div>
-          <h1>{ar ? 'بوابات وطرق الدفع' : 'Payment gateways & methods'}</h1>
-          <p className="muted">
-            {ar
-              ? 'فعّل البوابة وأدخل المفاتيح — عند اكتمال الحقول تصبح جاهزة للاستخدام فوراً. بوابة التجربة تعمل دون مفاتيح خارجية.'
-              : 'Enable a gateway and enter its keys — once required fields are complete it is ready. The sandbox works without external keys.'}
-          </p>
-        </div>
-      </header>
-
-      {notice ? (
-        <p className={`notice notice--${notice.tone}`} role="status">
-          {notice.text}
-        </p>
-      ) : null}
-
+    <SiteAdminPage locale={locale} title={title} lead={lead}>
+      <SiteAdminBanner notice={notice} />
+      <div className="sa-gateways" style={{ display: 'contents' }}>
+      <SiteAdminSurface title={ar ? 'طرق الدفع' : 'Payment methods'}>
       <section className="sa-gateway-methods" aria-labelledby="sa-methods-title">
-        <h2 id="sa-methods-title">{ar ? 'طرق الدفع' : 'Payment methods'}</h2>
+        <h2 id="sa-methods-title" className="visually-hidden">
+          {ar ? 'طرق الدفع' : 'Payment methods'}
+        </h2>
         <div className="sa-scopes">
           {PAYMENT_METHOD_IDS.map((id) => (
             <label key={id}>
@@ -181,7 +189,9 @@ export function PaymentGatewaysAdmin({ locale }: { locale: 'ar' | 'en' }) {
           </button>
         </div>
       </section>
+      </SiteAdminSurface>
 
+      <SiteAdminSurface title={ar ? 'البوابات' : 'Gateways'}>
       <div className="sa-gateway-grid">
         {PAYMENT_PROVIDERS.map((def) => {
           const row = view.providers.find((item) => item.id === def.id)!;
@@ -306,6 +316,8 @@ export function PaymentGatewaysAdmin({ locale }: { locale: 'ar' | 'en' }) {
           );
         })}
       </div>
-    </div>
+      </SiteAdminSurface>
+      </div>
+    </SiteAdminPage>
   );
 }

@@ -64,18 +64,22 @@ export function VerificationReview({ locale }: { locale: Locale }) {
   const openCount = queue.items.filter((item) => item.status === 'submitted').length;
 
   return (
-    <section className="verification-admin">
-      <header className="badges-hero">
-        <div>
-          <p className="eyebrow">{ar ? 'إدارة الموقع' : 'Site administration'}</p>
-          <h1>{ar ? 'توثيق الحسابات' : 'Account verification'}</h1>
-          <p className="muted">
+    <section className="verification-admin sa-page">
+      <header className="sa-page__head">
+        <div className="sa-page__intro">
+          <p className="sa-page__eyebrow">
+            <span className="sa-page__mark" aria-hidden="true" />
+            BHD R · {ar ? 'تحكم الموقع' : 'Site console'}
+          </p>
+          <h1 className="sa-page__title">{ar ? 'توثيق الحسابات' : 'Account verification'}</h1>
+          <p className="sa-page__lead">
             {ar
               ? 'راجع المستندات وطابق الاسم، سجّل سداد الرسوم أو أعفِ منها، ثم اعتمد الطلب لتظهر علامة التوثيق بجانب اسم صاحبه في كل الصفحات.'
               : 'Review documents, match the name, record the fee, then approve so the tick shows everywhere.'}
           </p>
         </div>
       </header>
+      <div className="sa-page__body">
 
       <PlansEditor locale={locale} plans={queue.plans} onSaved={load} />
 
@@ -117,6 +121,7 @@ export function VerificationReview({ locale }: { locale: Locale }) {
           ))}
         </ul>
       )}
+      </div>
     </section>
   );
 }

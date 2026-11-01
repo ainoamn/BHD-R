@@ -126,27 +126,31 @@ export function SiteAdminPanel({
   const decided = complaints?.filter((item) => item.status !== 'escalated') ?? [];
 
   return (
-    <main className="site-admin">
-      <header className="site-admin__head">
-        <div>
-          <p className="site-admin__kicker">{ar ? 'إدارة الموقع' : 'Site administration'}</p>
-          <h1>{ar ? 'شكاوى التأمين' : 'Deposit complaints'}</h1>
-          <p className="muted">
+    <main className="site-admin sa-page">
+      <header className="sa-page__head">
+        <div className="sa-page__intro">
+          <p className="sa-page__eyebrow">
+            <span className="sa-page__mark" aria-hidden="true" />
+            BHD R · {ar ? 'تحكم الموقع' : 'Site console'}
+          </p>
+          <h1 className="sa-page__title">{ar ? 'شكاوى التأمين' : 'Deposit complaints'}</h1>
+          <p className="sa-page__lead">
             {ar
               ? 'شكاوى الضيوف على قرارات الملاك في مبالغ التأمين، بعد أن لم يصلوا لحل مرضٍ مع المالك. قرارك نهائي ويُبلَّغ به الضيف.'
               : 'Guest complaints about hosts’ deposit decisions, after no satisfying answer from the host. Your decision is final and the guest is told.'}
           </p>
         </div>
-        <div className="site-admin__links">
+        <div className="sa-page__actions">
           <Link className="button button--quiet" href="/" prefetch={false}>
             {ar ? 'الرئيسية' : 'Home'}
           </Link>
         </div>
       </header>
 
+      <div className="sa-page__body">
       {notice ? (
         <p
-          className={`notice notice--${notice.tone}`}
+          className={`sa-banner sa-banner--${notice.tone}`}
           role={notice.tone === 'error' ? 'alert' : 'status'}
         >
           {notice.text}
@@ -216,6 +220,7 @@ export function SiteAdminPanel({
           onSaved={setSettings}
         />
       ) : null}
+      </div>
     </main>
   );
 }

@@ -9,6 +9,13 @@ import {
   type SitePagesView,
 } from '@/lib/site-control-shared';
 import { adminErrorText, adminGet, type AdminNotice } from './admin-fetch';
+import {
+  SiteAdminBanner,
+  SiteAdminFailed,
+  SiteAdminLoading,
+  SiteAdminPage,
+  SiteAdminSurface,
+} from './site-admin-page';
 
 /** Toggle public marketing / catalogue pages on or off. */
 export function SitePagesAdmin({ locale }: { locale: 'ar' | 'en' }) {
@@ -17,6 +24,10 @@ export function SitePagesAdmin({ locale }: { locale: 'ar' | 'en' }) {
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState<AdminNotice | null>(null);
   const [busy, setBusy] = useState(false);
+  const title = ar ? 'صفحات الموقع' : 'Site pages';
+  const lead = ar
+    ? 'عطّل صفحة عامة مؤقتاً دون حذفها. تسجيل الدخول يبقى متاحاً دائماً.'
+    : 'Temporarily disable a public page without deleting it. Login stays always available.';
 
   useEffect(() => {
     let live = true;
@@ -30,12 +41,22 @@ export function SitePagesAdmin({ locale }: { locale: 'ar' | 'en' }) {
 
   if (failed) {
     return (
-      <p className="notice notice--error" role="alert">
-        {ar ? 'تعذّر تحميل صفحات الموقع.' : 'Could not load site pages.'}
-      </p>
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminFailed
+          locale={locale}
+          messageAr="تعذّر تحميل صفحات الموقع."
+          messageEn="Could not load site pages."
+        />
+      </SiteAdminPage>
     );
   }
-  if (!pages) return <p className="muted">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>;
+  if (!pages) {
+    return (
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminLoading locale={locale} />
+      </SiteAdminPage>
+    );
+  }
 
   async function save() {
     setBusy(true);
@@ -58,16 +79,11 @@ export function SitePagesAdmin({ locale }: { locale: 'ar' | 'en' }) {
   }
 
   return (
-    <div className="sa-pages">
-      <header className="sa-section-head">
-        <div>
-          <h1>{ar ? 'صفحات الموقع' : 'Site pages'}</h1>
-          <p className="muted">
-            {ar
-              ? 'عطّل صفحة عامة مؤقتاً دون حذفها. تسجيل الدخول يبقى متاحاً دائماً.'
-              : 'Temporarily disable a public page without deleting it. Login stays always available.'}
-          </p>
-        </div>
+    <SiteAdminPage
+      locale={locale}
+      title={title}
+      lead={lead}
+      actions={
         <button
           type="button"
           className="button button--primary"
@@ -76,43 +92,40 @@ export function SitePagesAdmin({ locale }: { locale: 'ar' | 'en' }) {
         >
           {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ' : 'Save'}
         </button>
-      </header>
-
-      {notice ? (
-        <p className={`notice notice--${notice.tone}`} role="status">
-          {notice.text}
-        </p>
-      ) : null}
-
-      <ul className="sa-page-list">
-        {SITE_PAGE_IDS.map((id) => {
-          const meta = SITE_PAGE_META[id];
-          const locked = id === 'login';
-          return (
-            <li key={id} className={pages[id] ? '' : 'is-off'}>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={pages[id]}
-                  disabled={locked}
-                  onChange={(event) =>
-                    setPages((current) =>
-                      current ? { ...current, [id]: event.target.checked } : current,
-                    )
-                  }
-                />
-                <span>
-                  <strong>{ar ? meta.ar : meta.en}</strong>
-                  <small>
-                    <code>{meta.path}</code>
-                    {locked ? (ar ? ' — دائماً متاح' : ' — always on') : null}
-                  </small>
-                </span>
-              </label>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+      }
+    >
+      <SiteAdminBanner notice={notice} />
+      <SiteAdminSurface title={ar ? 'الصفحات العامة' : 'Public pages'}>
+        <ul className="sa-page-list">
+          {SITE_PAGE_IDS.map((id) => {
+            const meta = SITE_PAGE_META[id];
+            const locked = id === 'login';
+            return (
+              <li key={id} className={pages[id] ? '' : 'is-off'}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={pages[id]}
+                    disabled={locked}
+                    onChange={(event) =>
+                      setPages((current) =>
+                        current ? { ...current, [id]: event.target.checked } : current,
+                      )
+                    }
+                  />
+                  <span>
+                    <strong>{ar ? meta.ar : meta.en}</strong>
+                    <small>
+                      <code>{meta.path}</code>
+                      {locked ? (ar ? ' — دائماً متاح' : ' — always on') : null}
+                    </small>
+                  </span>
+                </label>
+              </li>
+            );
+          })}
+        </ul>
+      </SiteAdminSurface>
+    </SiteAdminPage>
   );
 }

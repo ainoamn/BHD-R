@@ -12,6 +12,13 @@ import {
 } from '@/lib/site-admin-shared';
 import { validAdminEmail } from '@/lib/stay-deposit-claims';
 import { adminDate, adminErrorText, adminGet, type AdminNotice } from './admin-fetch';
+import {
+  SiteAdminBanner,
+  SiteAdminFailed,
+  SiteAdminLoading,
+  SiteAdminPage,
+  SiteAdminSurface,
+} from './site-admin-page';
 
 type View = { access: SiteAdminAccess; rootEmails: string[]; delegates: AdminDelegate[] };
 type Draft = {
@@ -56,14 +63,29 @@ export function DelegatesAdmin({ locale }: { locale: 'ar' | 'en' }) {
     };
   }, []);
 
+  const title = ar ? 'التفويض' : 'Delegation';
+  const lead = ar
+    ? 'بدلاً من حساب إدارة منفصل: فوّض أي حساب BHD ببريده، واختر ما يديره فقط. يدخل المفوَّض بحسابه المعتاد ويجد «إدارة الموقع» في قائمة حسابه.'
+    : 'No separate admin login: delegate any BHD account by email and pick exactly what it runs. Delegates sign in as usual and find “Site admin” in their account menu.';
+
   if (failed) {
     return (
-      <p className="notice notice--error" role="alert">
-        {ar ? 'تعذّر تحميل المفوضين.' : 'Could not load delegates.'}
-      </p>
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminFailed
+          locale={locale}
+          messageAr="تعذّر تحميل المفوضين."
+          messageEn="Could not load delegates."
+        />
+      </SiteAdminPage>
     );
   }
-  if (!view) return <p className="muted">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>;
+  if (!view) {
+    return (
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminLoading locale={locale} />
+      </SiteAdminPage>
+    );
+  }
   const root = view.access.root;
   const locked = (draft: Draft) => !root && draft.scopes.includes('delegates');
 
@@ -144,35 +166,33 @@ export function DelegatesAdmin({ locale }: { locale: 'ar' | 'en' }) {
   );
 
   return (
-    <main className="site-admin">
-      <header className="site-admin__head">
-        <div>
-          <p className="site-admin__kicker">{ar ? 'إدارة الموقع' : 'Site administration'}</p>
-          <h1>{ar ? 'التفويض' : 'Delegation'}</h1>
-          <p className="muted">
-            {ar
-              ? 'بدلاً من حساب إدارة منفصل: فوّض أي حساب BHD ببريده، واختر ما يديره فقط. يدخل المفوَّض بحسابه المعتاد ويجد «إدارة الموقع» في قائمة حسابه.'
-              : 'No separate admin login: delegate any BHD account by email and pick exactly what it runs. Delegates sign in as usual and find “Site admin” in their account menu.'}
-          </p>
-        </div>
-      </header>
+    <SiteAdminPage
+      locale={locale}
+      title={title}
+      lead={lead}
+      actions={
+        root ? (
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={busy}
+            onClick={() => void save()}
+          >
+            {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ التفويض' : 'Save delegation'}
+          </button>
+        ) : undefined
+      }
+    >
+      <SiteAdminBanner notice={notice} />
 
-      {notice ? (
-        <p
-          className={`notice notice--${notice.tone}`}
-          role={notice.tone === 'error' ? 'alert' : 'status'}
-        >
-          {notice.text}
-        </p>
-      ) : null}
-
-      <section className="site-admin__section">
-        <h2>{ar ? 'الإدارة العليا' : 'Top-level admins'}</h2>
-        <p className="muted">
-          {ar
+      <SiteAdminSurface
+        title={ar ? 'الإدارة العليا' : 'Top-level admins'}
+        hint={
+          ar
             ? 'كل الصلاحيات، وتُدار من «شكاوى التأمين ← استقبال الشكاوى».'
-            : 'Every permission; managed under “Deposit complaints → Complaint inbox”.'}
-        </p>
+            : 'Every permission; managed under “Deposit complaints → Complaint inbox”.'
+        }
+      >
         <ul className="site-admin__chips">
           {view.rootEmails.map((item) => (
             <li key={item}>
@@ -180,10 +200,9 @@ export function DelegatesAdmin({ locale }: { locale: 'ar' | 'en' }) {
             </li>
           ))}
         </ul>
-      </section>
+      </SiteAdminSurface>
 
-      <section className="site-admin__section">
-        <h2>{ar ? `المفوَّضون (${drafts.length})` : `Delegates (${drafts.length})`}</h2>
+      <SiteAdminSurface title={ar ? `المفوَّضون (${drafts.length})` : `Delegates (${drafts.length})`}>
         {drafts.length ? (
           <ul className="site-admin__list">
             {drafts.map((draft, index) => (
@@ -243,13 +262,14 @@ export function DelegatesAdmin({ locale }: { locale: 'ar' | 'en' }) {
             ))}
           </ul>
         ) : (
-          <p className="muted">{ar ? 'لا يوجد مفوَّضون بعد.' : 'No delegates yet.'}</p>
+          <p className="muted" style={{ margin: 0 }}>
+            {ar ? 'لا يوجد مفوَّضون بعد.' : 'No delegates yet.'}
+          </p>
         )}
-      </section>
+      </SiteAdminSurface>
 
       {drafts.length < DELEGATE_LIMIT ? (
-        <section className="site-admin__section site-admin__settings">
-          <h2>{ar ? 'إضافة مفوَّض' : 'Add a delegate'}</h2>
+        <SiteAdminSurface title={ar ? 'إضافة مفوَّض' : 'Add a delegate'}>
           <input
             className="sa-input"
             type="email"
@@ -269,19 +289,8 @@ export function DelegatesAdmin({ locale }: { locale: 'ar' | 'en' }) {
           <button type="button" className="button button--quiet" onClick={add}>
             {ar ? 'إضافة إلى القائمة' : 'Add to the list'}
           </button>
-        </section>
+        </SiteAdminSurface>
       ) : null}
-
-      <div>
-        <button
-          type="button"
-          className="button button--primary"
-          disabled={busy}
-          onClick={() => void save()}
-        >
-          {ar ? 'حفظ التفويض' : 'Save delegation'}
-        </button>
-      </div>
-    </main>
+    </SiteAdminPage>
   );
 }

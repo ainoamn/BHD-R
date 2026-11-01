@@ -136,18 +136,24 @@ export function EmailWishesAdmin({ locale }: { locale: 'ar' | 'en' }) {
   }
 
   return (
-    <div className="form-shell" dir={ar ? 'rtl' : 'ltr'}>
-      <header className="portal-topbar">
-        <div>
-          <span className="ops-kicker">BHD R · SITE ADMIN</span>
-          <h1>{ar ? 'العبارات التحفيزية في الإيميل' : 'Email motivational phrases'}</h1>
-          <p className="muted">
+    <div className="form-shell sa-page" dir={ar ? 'rtl' : 'ltr'}>
+      <header className="sa-page__head">
+        <div className="sa-page__intro">
+          <p className="sa-page__eyebrow">
+            <span className="sa-page__mark" aria-hidden="true" />
+            BHD R · {ar ? 'تحكم الموقع' : 'Site console'}
+          </p>
+          <h1 className="sa-page__title">
+            {ar ? 'العبارات التحفيزية في الإيميل' : 'Email motivational phrases'}
+          </h1>
+          <p className="sa-page__lead">
             {ar
               ? 'الشريط أسفل محتوى الرسالة والتحية في المقدمة. سطر واحد لكل عبارة: أيقونة + عربي · أيقونة + إنجليزي. إن ظهرت عبارات قديمة اضغط «إعادة الافتراضي».'
               : 'The soft banner under the email body and the opening greeting. One line each: icon + AR · icon + EN. If old lines still show, press “Reset to defaults”.'}
           </p>
         </div>
       </header>
+      <div className="sa-page__body">
 
       {data?.usingDefaults ? (
         <p className="notice" role="status">
@@ -265,6 +271,7 @@ export function EmailWishesAdmin({ locale }: { locale: 'ar' | 'en' }) {
         >
           {busy ? (ar ? 'جارٍ…' : 'Working…') : ar ? 'حفظ' : 'Save'}
         </button>
+      </div>
       </div>
     </div>
   );

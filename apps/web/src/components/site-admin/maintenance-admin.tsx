@@ -4,6 +4,13 @@ import { useEffect, useState } from 'react';
 import { browserNextMutation } from '@/lib/api';
 import type { MaintenanceView } from '@/lib/site-control-shared';
 import { adminErrorText, adminGet, type AdminNotice } from './admin-fetch';
+import {
+  SiteAdminBanner,
+  SiteAdminFailed,
+  SiteAdminLoading,
+  SiteAdminPage,
+  SiteAdminSurface,
+} from './site-admin-page';
 
 /** Site-wide maintenance toggle and the notice shown to visitors. */
 export function MaintenanceAdmin({ locale }: { locale: 'ar' | 'en' }) {
@@ -12,6 +19,10 @@ export function MaintenanceAdmin({ locale }: { locale: 'ar' | 'en' }) {
   const [failed, setFailed] = useState(false);
   const [notice, setNotice] = useState<AdminNotice | null>(null);
   const [busy, setBusy] = useState(false);
+  const title = ar ? 'صيانة الموقع والتنبيه' : 'Site maintenance & notice';
+  const lead = ar
+    ? 'أظهر تنبيهاً للزوار، أو أوقف الصفحات العامة مؤقتاً. تحكم الموقع وتسجيل الدخول يبقيان متاحين.'
+    : 'Show a visitor notice, or briefly block public pages. Site control and login stay available.';
 
   useEffect(() => {
     let live = true;
@@ -33,12 +44,22 @@ export function MaintenanceAdmin({ locale }: { locale: 'ar' | 'en' }) {
 
   if (failed) {
     return (
-      <p className="notice notice--error" role="alert">
-        {ar ? 'تعذّر تحميل إعدادات الصيانة.' : 'Could not load maintenance settings.'}
-      </p>
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminFailed
+          locale={locale}
+          messageAr="تعذّر تحميل إعدادات الصيانة."
+          messageEn="Could not load maintenance settings."
+        />
+      </SiteAdminPage>
     );
   }
-  if (!form) return <p className="muted">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>;
+  if (!form) {
+    return (
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminLoading locale={locale} />
+      </SiteAdminPage>
+    );
+  }
 
   async function save() {
     setBusy(true);
@@ -66,16 +87,11 @@ export function MaintenanceAdmin({ locale }: { locale: 'ar' | 'en' }) {
   }
 
   return (
-    <div className="sa-maintenance">
-      <header className="sa-section-head">
-        <div>
-          <h1>{ar ? 'صيانة الموقع والتنبيه' : 'Site maintenance & notice'}</h1>
-          <p className="muted">
-            {ar
-              ? 'أظهر تنبيهاً للزوار، أو أوقف الصفحات العامة مؤقتاً. تحكم الموقع وتسجيل الدخول يبقيان متاحين.'
-              : 'Show a visitor notice, or briefly block public pages. Site control and login stay available.'}
-          </p>
-        </div>
+    <SiteAdminPage
+      locale={locale}
+      title={title}
+      lead={lead}
+      actions={
         <button
           type="button"
           className="button button--primary"
@@ -84,72 +100,72 @@ export function MaintenanceAdmin({ locale }: { locale: 'ar' | 'en' }) {
         >
           {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'حفظ' : 'Save'}
         </button>
-      </header>
-
-      {notice ? (
-        <p className={`notice notice--${notice.tone}`} role="status">
-          {notice.text}
-        </p>
-      ) : null}
-
-      <label className="sa-toggle">
-        <input
-          type="checkbox"
-          checked={form.enabled}
-          onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
-        />
-        {ar ? 'تفعيل وضع الصيانة' : 'Enable maintenance mode'}
-      </label>
-
-      <fieldset className="sa-field">
-        <legend>{ar ? 'نمط الصيانة' : 'Maintenance mode'}</legend>
-        <label>
+      }
+    >
+      <SiteAdminBanner notice={notice} />
+      <SiteAdminSurface
+        title={ar ? 'الإعدادات' : 'Settings'}
+        hint={ar ? 'غيّر الوضع والنص ثم احفظ.' : 'Change mode and copy, then save.'}
+      >
+        <label className="sa-toggle">
           <input
-            type="radio"
-            name="maint-mode"
-            checked={form.mode === 'banner'}
-            onChange={() => setForm({ ...form, mode: 'banner' })}
+            type="checkbox"
+            checked={form.enabled}
+            onChange={(event) => setForm({ ...form, enabled: event.target.checked })}
           />
-          {ar ? 'تنبيه فقط (الصفحات تعمل)' : 'Banner only (pages stay open)'}
+          {ar ? 'تفعيل وضع الصيانة' : 'Enable maintenance mode'}
         </label>
-        <label>
-          <input
-            type="radio"
-            name="maint-mode"
-            checked={form.mode === 'hard'}
-            onChange={() => setForm({ ...form, mode: 'hard' })}
+
+        <fieldset className="sa-field">
+          <legend>{ar ? 'نمط الصيانة' : 'Maintenance mode'}</legend>
+          <label>
+            <input
+              type="radio"
+              name="maint-mode"
+              checked={form.mode === 'banner'}
+              onChange={() => setForm({ ...form, mode: 'banner' })}
+            />
+            {ar ? 'تنبيه فقط (الصفحات تعمل)' : 'Banner only (pages stay open)'}
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="maint-mode"
+              checked={form.mode === 'hard'}
+              onChange={() => setForm({ ...form, mode: 'hard' })}
+            />
+            {ar
+              ? 'إيقاف الصفحات العامة (ما عدا الدخول والتحكم)'
+              : 'Block public pages (except login & admin)'}
+          </label>
+        </fieldset>
+
+        <label className="sa-field">
+          <span>{ar ? 'نص التنبيه (عربي)' : 'Notice (Arabic)'}</span>
+          <textarea
+            className="sa-input sa-input--area"
+            rows={3}
+            value={form.messageAr}
+            onChange={(event) => setForm({ ...form, messageAr: event.target.value })}
           />
-          {ar
-            ? 'إيقاف الصفحات العامة (ما عدا الدخول والتحكم)'
-            : 'Block public pages (except login & admin)'}
         </label>
-      </fieldset>
+        <label className="sa-field">
+          <span>{ar ? 'نص التنبيه (إنجليزي)' : 'Notice (English)'}</span>
+          <textarea
+            className="sa-input sa-input--area"
+            rows={3}
+            value={form.messageEn}
+            onChange={(event) => setForm({ ...form, messageEn: event.target.value })}
+          />
+        </label>
 
-      <label className="sa-field">
-        <span>{ar ? 'نص التنبيه (عربي)' : 'Notice (Arabic)'}</span>
-        <textarea
-          className="sa-input sa-input--area"
-          rows={3}
-          value={form.messageAr}
-          onChange={(event) => setForm({ ...form, messageAr: event.target.value })}
-        />
-      </label>
-      <label className="sa-field">
-        <span>{ar ? 'نص التنبيه (إنجليزي)' : 'Notice (English)'}</span>
-        <textarea
-          className="sa-input sa-input--area"
-          rows={3}
-          value={form.messageEn}
-          onChange={(event) => setForm({ ...form, messageEn: event.target.value })}
-        />
-      </label>
-
-      {form.enabled ? (
-        <div className="sa-maintenance-preview" role="status">
-          <strong>{ar ? 'معاينة التنبيه' : 'Notice preview'}</strong>
-          <p>{ar ? form.messageAr : form.messageEn}</p>
-        </div>
-      ) : null}
-    </div>
+        {form.enabled ? (
+          <div className="sa-maintenance-preview" role="status">
+            <strong>{ar ? 'معاينة التنبيه' : 'Notice preview'}</strong>
+            <p>{ar ? form.messageAr : form.messageEn}</p>
+          </div>
+        ) : null}
+      </SiteAdminSurface>
+    </SiteAdminPage>
   );
 }

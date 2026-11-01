@@ -541,23 +541,30 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
   if (!campaigns) return <p className="muted">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>;
 
   return (
-    <div className="sa-greetings">
-      <header className="sa-section-head">
-        <div>
-          <h1>{ar ? 'التهاني والإشعارات' : 'Greetings & notices'}</h1>
-          <p className="muted">
+    <div className="sa-greetings sa-page">
+      <header className="sa-page__head">
+        <div className="sa-page__intro">
+          <p className="sa-page__eyebrow">
+            <span className="sa-page__mark" aria-hidden="true" />
+            BHD R · {ar ? 'تحكم الموقع' : 'Site console'}
+          </p>
+          <h1 className="sa-page__title">{ar ? 'التهاني والإشعارات' : 'Greetings & notices'}</h1>
+          <p className="sa-page__lead">
             {ar
               ? 'ارفع صورة البطاقة واكتب النص بنفسك، عاين كيف يظهر في البريد وواتساب، ثم أرسل أو جدول للفئة المستهدفة.'
               : 'Upload the card image and write the copy yourself, preview email and WhatsApp, then send or schedule to the audience.'}
           </p>
         </div>
-        <button type="button" className="button" disabled={busy} onClick={resetNewForm}>
-          {ar ? 'حملة جديدة' : 'New campaign'}
-        </button>
+        <div className="sa-page__actions">
+          <button type="button" className="button" disabled={busy} onClick={resetNewForm}>
+            {ar ? 'حملة جديدة' : 'New campaign'}
+          </button>
+        </div>
       </header>
 
+      <div className="sa-page__body">
       {notice ? (
-        <p className={`notice notice--${notice.tone}`} role="status">
+        <p className={`sa-banner sa-banner--${notice.tone}`} role="status">
           {notice.text}
         </p>
       ) : null}
@@ -917,6 +924,7 @@ export function GreetingsAdmin({ locale }: { locale: 'ar' | 'en' }) {
             ) : null}
           </div>
         </section>
+      </div>
       </div>
     </div>
   );

@@ -12,6 +12,12 @@ import {
   type SubscriptionStatus,
 } from '@/lib/site-admin-shared';
 import { adminDate, adminErrorText, adminGet, type AdminNotice } from './admin-fetch';
+import {
+  SiteAdminBanner,
+  SiteAdminFailed,
+  SiteAdminLoading,
+  SiteAdminPage,
+} from './site-admin-page';
 
 type View = { plans: PlanDefinition[]; organizations: AdminOrganization[] };
 
@@ -52,14 +58,29 @@ export function PlansAdmin({ locale }: { locale: 'ar' | 'en' }) {
     };
   }, []);
 
+  const title = ar ? 'الباقات والاشتراكات' : 'Plans & subscriptions';
+  const lead = ar
+    ? 'حدّد أسعار الباقات وحدودها، ثم اختر باقة كل منشأة وحالة اشتراكها. الاشتراك الموقوف أو الملغى يُبقي البيانات لكنه يمنع إضافة مفوَّضين جدد.'
+    : 'Set plan prices and limits, then each organization’s plan and subscription. Suspended or cancelled subscriptions keep their data but cannot add team seats.';
+
   if (failed) {
     return (
-      <p className="notice notice--error" role="alert">
-        {ar ? 'تعذّر تحميل الباقات.' : 'Could not load plans.'}
-      </p>
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminFailed
+          locale={locale}
+          messageAr="تعذّر تحميل الباقات."
+          messageEn="Could not load plans."
+        />
+      </SiteAdminPage>
     );
   }
-  if (!view) return <p className="muted">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>;
+  if (!view) {
+    return (
+      <SiteAdminPage locale={locale} title={title} lead={lead}>
+        <SiteAdminLoading locale={locale} />
+      </SiteAdminPage>
+    );
+  }
 
   const usage = new Map<string, number>();
   for (const org of view.organizations) usage.set(org.planKey, (usage.get(org.planKey) ?? 0) + 1);
@@ -106,27 +127,9 @@ export function PlansAdmin({ locale }: { locale: 'ar' | 'en' }) {
     : view.organizations;
 
   return (
-    <main className="site-admin site-admin--wide">
-      <header className="site-admin__head">
-        <div>
-          <p className="site-admin__kicker">{ar ? 'إدارة الموقع' : 'Site administration'}</p>
-          <h1>{ar ? 'الباقات والاشتراكات' : 'Plans & subscriptions'}</h1>
-          <p className="muted">
-            {ar
-              ? 'حدّد أسعار الباقات وحدودها، ثم اختر باقة كل منشأة وحالة اشتراكها. الاشتراك الموقوف أو الملغى يُبقي البيانات لكنه يمنع إضافة مفوَّضين جدد.'
-              : 'Set plan prices and limits, then each organization’s plan and subscription. Suspended or cancelled subscriptions keep their data but cannot add team seats.'}
-          </p>
-        </div>
-      </header>
-
-      {notice ? (
-        <p
-          className={`notice notice--${notice.tone}`}
-          role={notice.tone === 'error' ? 'alert' : 'status'}
-        >
-          {notice.text}
-        </p>
-      ) : null}
+    <SiteAdminPage locale={locale} title={title} lead={lead}>
+      <SiteAdminBanner notice={notice} />
+      <div className="site-admin site-admin--wide" style={{ display: 'contents' }}>
 
       <section className="site-admin__section">
         <h2>{ar ? 'الباقات' : 'Plans'}</h2>
@@ -317,7 +320,8 @@ export function PlansAdmin({ locale }: { locale: 'ar' | 'en' }) {
           ))}
         </ul>
       </section>
-    </main>
+      </div>
+    </SiteAdminPage>
   );
 }
 

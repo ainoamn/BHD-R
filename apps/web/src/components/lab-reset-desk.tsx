@@ -11,6 +11,11 @@ import {
   type LabResetCounts,
   type LabResetResult,
 } from '@/lib/lab-reset-shared';
+import {
+  SiteAdminBanner,
+  SiteAdminPage,
+  SiteAdminSurface,
+} from '@/components/site-admin/site-admin-page';
 
 const EMPTY: LabResetCounts = {
   tasks: 0,
@@ -154,28 +159,35 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
   };
 
   return (
-    <section className="lab-reset" dir={ar ? 'rtl' : 'ltr'}>
-      <header className="lab-reset__head">
-        <p className="lab-reset__eyebrow">{ar ? 'تجريب مؤقت' : 'Temporary testing'}</p>
-        <h1>{ar ? 'إعادة ضبط بيانات التجارب' : 'Reset experimental data'}</h1>
-        <p className="lab-reset__lead">
-          {ar
-            ? 'احذف المعاملات التجريبية التي اخترتها. العقارات والوحدات والصور وإعداد الإقامة اليومية والفريق ودليل الحسابات تبقى كما هي.'
-            : 'Delete the experimental transactions you select. Properties, units, photos, stay property setup, team, and the chart of accounts stay.'}
-        </p>
+    <SiteAdminPage
+      locale={locale}
+      title={ar ? 'إعادة ضبط بيانات التجارب' : 'Reset experimental data'}
+      lead={
+        ar
+          ? 'احذف المعاملات التجريبية التي اخترتها. العقارات والوحدات والصور وإعداد الإقامة اليومية والفريق ودليل الحسابات تبقى كما هي.'
+          : 'Delete the experimental transactions you select. Properties, units, photos, stay property setup, team, and the chart of accounts stay.'
+      }
+      actions={
         <Link className="button button--quiet" href="/admin" prefetch={false}>
-          {ar ? 'العودة لتحكم الموقع' : 'Back to site console'}
+          {ar ? 'العودة للنظرة العامة' : 'Back to overview'}
         </Link>
-      </header>
-
-      {failed ? (
-        <p className="lab-reset__warn" role="alert">
-          {ar
-            ? 'تعذر تحميل العدادات. تأكد أن لديك صلاحية كتابة المنظمة.'
-            : 'Could not load counts. You need organization write access.'}
-        </p>
-      ) : null}
-
+      }
+    >
+      <SiteAdminBanner
+        notice={
+          failed
+            ? {
+                tone: 'error',
+                text: ar
+                  ? 'تعذر تحميل العدادات. تأكد أن لديك صلاحية كتابة المنظمة.'
+                  : 'Could not load counts. You need organization write access.',
+              }
+            : message
+              ? { tone: message.startsWith('تم') || message.startsWith('Deleted') || message.startsWith('لا') || message.startsWith('Nothing') ? 'success' : 'error', text: message }
+              : null
+        }
+      />
+      <SiteAdminSurface title={ar ? 'الفئات' : 'Categories'}>
       <div className="lab-reset__list">
         {LAB_RESET_CATEGORIES.map((category) => {
           const n = counts?.[category] ?? 0;
@@ -246,12 +258,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
             ? 'حذف الفئات المحددة نهائياً'
             : 'Permanently delete selected categories'}
       </button>
-
-      {message ? (
-        <p className="lab-reset__msg" role="status">
-          {message}
-        </p>
-      ) : null}
-    </section>
+      </SiteAdminSurface>
+    </SiteAdminPage>
   );
 }
