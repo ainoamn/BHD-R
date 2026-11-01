@@ -23,7 +23,7 @@ import {
   setActiveAu,
   tokenForAccount,
 } from '@/lib/identity/window-session';
-import { useEffect, useTransition } from 'react';
+import { useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
 async function productMe(): Promise<{ authenticated?: boolean; currentSub?: string | null }> {
@@ -38,7 +38,6 @@ async function productMe(): Promise<{ authenticated?: boolean; currentSub?: stri
   };
 }
 
-/** After silent rebind, confirm cookie then release within the splash budget. */
 async function releaseVeilWhenAligned(expectedSub: string) {
   const au = expectedSub.trim();
   if (!au) {
@@ -61,19 +60,29 @@ async function releaseVeilWhenAligned(expectedSub: string) {
     }
     await new Promise((resolve) => window.setTimeout(resolve, 80 + i * 60));
   }
-  // Max splash timer in paintPrivacyVeil will lift regardless.
   signalPrivacyVeilReady();
 }
 
+/**
+ * Multi-window policy:
+ * - First paint (boot): may splash + soft refresh once if cookie ≠ ?au=.
+ * - Later focus/visibility: reclaim shared cookie quietly — never refresh or veil.
+ */
 export function BhdSilentSso() {
   const router = useRouter();
   const [, startTransition] = useTransition();
+  const bootDoneRef = useRef(false);
+  const reclaimingRef = useRef(false);
 
   useEffect(() => {
     const onRebound = (event: Event) => {
-      const detail = (event as CustomEvent<{ userId?: string }>).detail;
+      const detail = (event as CustomEvent<{ userId?: string; refresh?: boolean }>).detail;
       const expected = (detail?.userId || readActiveAu() || '').trim();
       clearHostileProductCookie();
+      if (detail?.refresh === false) {
+        signalPrivacyVeilReady();
+        return;
+      }
       paintPrivacyVeil();
       startTransition(() => {
         try {
@@ -87,10 +96,8 @@ export function BhdSilentSso() {
     window.addEventListener('bhd:account-rebound', onRebound);
     const stopWatch = watchProductCookieOwner((ownerSub) => {
       const au = readActiveAu();
-      if (au && ownerSub !== au) {
-        markHostileProductCookie(ownerSub);
-        paintPrivacyVeil();
-      }
+      // Freeze live updates only — do not splash/refresh other windows.
+      if (au && ownerSub !== au) markHostileProductCookie(ownerSub);
     });
     return () => {
       window.removeEventListener('bhd:account-rebound', onRebound);
@@ -112,19 +119,24 @@ export function BhdSilentSso() {
       /\/book\//.test(path)
     ) {
       signalPrivacyVeilReady();
+      bootDoneRef.current = true;
       return;
     }
 
     let cancelled = false;
     let timer = 0;
 
-    async function reconcile() {
-      if (cancelled || isAccountRebindPending() || document.hidden) return;
+    async function reconcile(reason: 'boot' | 'focus' | 'interval') {
+      if (cancelled || document.hidden) return;
+      if (reclaimingRef.current) return;
+      if (reason !== 'boot' && isAccountRebindPending()) return;
+
+      const quiet = bootDoneRef.current && reason !== 'boot';
+
       try {
         const au = readActiveAu();
         if (au) setActiveAu(au);
 
-        // Fast path: rebind with this tab's token while /me runs in parallel.
         const cachedToken = (au && tokenForAccount(au)) || boundWindowToken();
         const mePromise = productMe();
 
@@ -132,7 +144,7 @@ export function BhdSilentSso() {
           const localPeek = await Promise.race([
             mePromise,
             new Promise<{ authenticated?: boolean; currentSub?: string | null }>((resolve) =>
-              window.setTimeout(() => resolve({}), 280),
+              window.setTimeout(() => resolve({}), quiet ? 200 : 280),
             ),
           ]);
           if (cancelled) return;
@@ -142,16 +154,24 @@ export function BhdSilentSso() {
             scrubCacheBustFromUrl();
             ensureAuInUrl(au);
             signalPrivacyVeilReady();
+            bootDoneRef.current = true;
             return;
           }
           if (!localPeek.currentSub || localPeek.currentSub !== au) {
             if (localPeek.currentSub) markHostileProductCookie(localPeek.currentSub);
-            paintPrivacyVeil();
-            await applyAccountIsolation(cachedToken, {
-              force: true,
-              sub: au,
-              silent: true,
-            });
+            if (!quiet) paintPrivacyVeil();
+            reclaimingRef.current = true;
+            try {
+              await applyAccountIsolation(cachedToken, {
+                force: true,
+                sub: au,
+                silent: true,
+                quiet,
+              });
+            } finally {
+              reclaimingRef.current = false;
+            }
+            bootDoneRef.current = true;
             return;
           }
         }
@@ -166,6 +186,7 @@ export function BhdSilentSso() {
           scrubCacheBustFromUrl();
           ensureAuInUrl(au);
           signalPrivacyVeilReady();
+          bootDoneRef.current = true;
           return;
         }
 
@@ -175,17 +196,21 @@ export function BhdSilentSso() {
           ensureAuInUrl(productSub);
           scrubCacheBustFromUrl();
           signalPrivacyVeilReady();
+          bootDoneRef.current = true;
           return;
         }
 
         if (au && productSub && productSub !== au) {
           markHostileProductCookie(productSub);
-          paintPrivacyVeil();
+          if (!quiet) paintPrivacyVeil();
         }
 
         if (au) ensureAuInUrl(au);
 
-        if (!tabMayClaimProductCookie()) return;
+        if (!tabMayClaimProductCookie()) {
+          if (quiet) signalPrivacyVeilReady();
+          return;
+        }
 
         const identity = await loadBhdIdentity();
         if (cancelled || !identity) return;
@@ -204,17 +229,19 @@ export function BhdSilentSso() {
           rememberProductCookieOwner(productSub);
           scrubCacheBustFromUrl();
           signalPrivacyVeilReady();
+          bootDoneRef.current = true;
           return;
         }
 
         const guardKey = `bhd-sso:${targetAu || identityId}`;
         const last = Number(sessionStorage.getItem(guardKey) || '0');
-        // Skip cooldown while splash is up — user just refreshed and expects a quick settle.
         const splashOpen = document.documentElement.dataset.bhdSwitching === '1';
-        if (!splashOpen && last && Date.now() - last < SILENT_SSO_GUARD_MS) return;
+        if (quiet && last && Date.now() - last < SILENT_SSO_GUARD_MS) return;
+        if (!quiet && !splashOpen && last && Date.now() - last < SILENT_SSO_GUARD_MS) return;
         sessionStorage.setItem(guardKey, String(Date.now()));
 
         if (!local.authenticated || !productSub) {
+          if (quiet) return;
           const here = `${window.location.pathname}${window.location.search || ''}` || '/ar/portal';
           window.location.replace(identity.productStart(here) || productStartPath(here));
           return;
@@ -224,28 +251,35 @@ export function BhdSilentSso() {
           (au && identityId !== au ? boundWindowToken() : '') ||
           boundWindowToken() ||
           (typeof body.token === 'string' ? body.token : '');
-        await applyAccountIsolation(token, {
-          force: true,
-          sub: targetAu || identityId,
-          silent: true,
-        });
+        reclaimingRef.current = true;
+        try {
+          await applyAccountIsolation(token, {
+            force: true,
+            sub: targetAu || identityId,
+            silent: true,
+            quiet,
+          });
+        } finally {
+          reclaimingRef.current = false;
+        }
+        bootDoneRef.current = true;
       } catch {
-        /* max splash timer still lifts */
+        if (quiet) signalPrivacyVeilReady();
       }
     }
 
-    void reconcile();
+    void reconcile('boot');
     const onVis = () => {
-      if (!document.hidden) void reconcile();
+      if (!document.hidden) void reconcile('focus');
     };
     document.addEventListener('visibilitychange', onVis);
     const onFocus = () => {
-      void reconcile();
+      void reconcile('focus');
     };
     window.addEventListener('focus', onFocus);
     timer = window.setInterval(() => {
-      if (!document.hidden && tabMayClaimProductCookie()) void reconcile();
-    }, 60_000);
+      if (!document.hidden && tabMayClaimProductCookie()) void reconcile('interval');
+    }, 90_000);
 
     return () => {
       cancelled = true;

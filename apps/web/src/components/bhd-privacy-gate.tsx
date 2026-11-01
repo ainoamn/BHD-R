@@ -20,11 +20,13 @@ import {
   setActiveAu,
   tokenForAccount,
 } from '@/lib/identity/window-session';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+/** Boot-only gate. Focus reclaim lives in BhdSilentSso (quiet). */
 export function BhdPrivacyGate() {
   const [productSub, setProductSub] = useState<string | null>(null);
   const [productEmail, setProductEmail] = useState<string | null>(null);
+  const settledRef = useRef(false);
 
   useEffect(() => {
     let live = true;
@@ -60,13 +62,17 @@ export function BhdPrivacyGate() {
       /\/book\//.test(path)
     ) {
       signalPrivacyVeilReady();
+      settledRef.current = true;
       return;
     }
+
+    // After first settle, never re-splash / refresh from this gate.
+    if (settledRef.current) return;
 
     let cancelled = false;
 
     async function gate() {
-      if (cancelled) return;
+      if (cancelled || settledRef.current) return;
       try {
         const au = readActiveAu();
         if (au) {
@@ -79,6 +85,7 @@ export function BhdPrivacyGate() {
           scrubCacheBustFromUrl();
           ensureAuInUrl(au);
           signalPrivacyVeilReady();
+          settledRef.current = true;
           return;
         }
 
@@ -88,39 +95,34 @@ export function BhdPrivacyGate() {
           ensureAuInUrl(productSub);
           scrubCacheBustFromUrl();
           signalPrivacyVeilReady();
+          settledRef.current = true;
           return;
         }
 
-        if (au && productSub && productSub !== au) {
+        if (!productSub) return;
+
+        if (au && productSub !== au) {
           markHostileProductCookie(productSub);
           paintPrivacyVeil();
         }
 
-        if (isAccountRebindPending()) {
-          if (productSub && au && productSub === au) {
-            rememberProductCookieOwner(au);
-            scrubCacheBustFromUrl();
-            signalPrivacyVeilReady();
-          }
-          return;
-        }
-
+        if (isAccountRebindPending()) return;
         if (!tabMayClaimProductCookie()) return;
 
         const cached = (au && tokenForAccount(au)) || boundWindowToken();
-        if (au && cached && productSub && productSub !== au) {
-          await applyAccountIsolation(cached, { force: true, sub: au, silent: true });
+        if (au && cached && productSub !== au) {
+          await applyAccountIsolation(cached, {
+            force: true,
+            sub: au,
+            silent: true,
+            quiet: false,
+          });
+          settledRef.current = true;
           return;
         }
 
         const identity = await loadBhdIdentity();
-        if (cancelled || !identity) {
-          if (productSub && au && productSub === au) {
-            scrubCacheBustFromUrl();
-            signalPrivacyVeilReady();
-          }
-          return;
-        }
+        if (cancelled || !identity) return;
 
         const { ok, body } = await identity.me();
         if (cancelled) return;
@@ -144,6 +146,7 @@ export function BhdPrivacyGate() {
           scrubCacheBustFromUrl();
           ensureAuInUrl(targetAu);
           signalPrivacyVeilReady();
+          settledRef.current = true;
           return;
         }
 
@@ -153,7 +156,9 @@ export function BhdPrivacyGate() {
           force: true,
           sub: targetAu || identityId,
           silent: true,
+          quiet: false,
         });
+        settledRef.current = true;
       } catch {
         /* splash max timer still lifts */
       }

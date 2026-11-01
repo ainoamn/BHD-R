@@ -80,7 +80,9 @@ export function LiveSync({ booking, reference }: { booking?: string; reference?:
     }
 
     const onVisible = () => {
-      if (!document.hidden) schedule(0);
+      // Do not pulse immediately on focus — cookie reclaim may still be in flight.
+      // Next regular beat is enough; avoids refresh thrash across windows.
+      if (!document.hidden) schedule(POLL_MS);
     };
 
     const stopWatch = watchProductCookieOwner((ownerSub) => {
@@ -88,7 +90,7 @@ export function LiveSync({ booking, reference }: { booking?: string; reference?:
       if (au && ownerSub !== au) markHostileProductCookie(ownerSub);
     });
 
-    schedule(500);
+    schedule(1_200);
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;

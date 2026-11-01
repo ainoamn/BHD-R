@@ -197,11 +197,13 @@ export function tabMayClaimProductCookie() {
   return true;
 }
 
-export function emitAccountRebound(userId?: string | null) {
+export function emitAccountRebound(userId?: string | null, options?: { refresh?: boolean }) {
   if (typeof window === 'undefined') return;
   try {
     window.dispatchEvent(
-      new CustomEvent('bhd:account-rebound', { detail: { userId: userId || '' } }),
+      new CustomEvent('bhd:account-rebound', {
+        detail: { userId: userId || '', refresh: options?.refresh !== false },
+      }),
     );
   } catch {
     /* ignore */
@@ -533,13 +535,20 @@ export async function switchWindowAccount(
 
 export async function applyAccountIsolation(
   token?: string | null,
-  options?: { force?: boolean; sub?: string | null; silent?: boolean },
+  options?: {
+    force?: boolean;
+    sub?: string | null;
+    silent?: boolean;
+    /** Reclaim shared cookie only — do not veil or router.refresh (multi-window focus). */
+    quiet?: boolean;
+  },
 ) {
   if (typeof window === 'undefined') return;
   if (!options?.force && isAccountRebindPending()) return;
   const sub = (options?.sub || readActiveAu() || '').trim();
   if (sub) setActiveAu(sub);
   const here = currentReturnPath();
+  const quiet = Boolean(options?.quiet);
 
   if (isIdentityOrigin()) {
     window.location.assign(accountBoundPath(here, sub));
@@ -555,8 +564,8 @@ export async function applyAccountIsolation(
 
   if (options?.silent) {
     if (!tabMayClaimProductCookie()) return;
-    // Hide wrong SSR/cookie paint until this tab's ?au= is confirmed after refresh.
-    if (sub) paintPrivacyVeil();
+    // Boot/mismatch may splash; focus reclaim stays invisible.
+    if (sub && !quiet) paintPrivacyVeil();
     const result = await silentRebind(windowToken, sub);
     if (result.ok) {
       scrubCacheBustFromUrl();
@@ -566,9 +575,14 @@ export async function applyAccountIsolation(
         sessionStorage.setItem(guardKey, String(Date.now()));
         clearHostileProductCookie();
         if (result.userId || sub) broadcastProductCookieOwner(result.userId || sub || '');
-        paintPrivacyVeil();
-        // Keep veil until SilentSso verifies me === au after router.refresh().
-        emitAccountRebound(result.userId || sub);
+        if (quiet) {
+          // UI already shows this tab's ?au= — only the shared cookie moved.
+          signalPrivacyVeilReady();
+          emitAccountRebound(result.userId || sub, { refresh: false });
+        } else {
+          paintPrivacyVeil();
+          emitAccountRebound(result.userId || sub, { refresh: true });
+        }
       } else {
         clearHostileProductCookie();
         if (result.userId || sub) rememberProductCookieOwner(result.userId || sub || '');
