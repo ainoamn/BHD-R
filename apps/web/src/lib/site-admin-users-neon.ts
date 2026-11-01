@@ -6,7 +6,6 @@ import { auditLogs, credentialTokens } from '@bhd-r/db';
 import { elevatedTx, isoOf, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
 import { appLink, queueBrandedEmail } from '@/lib/email-notify';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
-import { parseDeviceFromUserAgent } from '@/lib/client-device';
 import { unlockUserAccount } from '@/lib/security-protection';
 import { requireScope } from '@/lib/site-admin-neon';
 import {
