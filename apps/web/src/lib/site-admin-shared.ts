@@ -613,6 +613,65 @@ export type AdminUserAudit = {
   resourceId: string | null;
 };
 
+/** Live mirror of id.bhd-om.com/account for a linked Identity subject. */
+export type AdminIdentityAccountFile = {
+  id: string;
+  filename: string;
+  kind: string;
+};
+
+export type AdminIdentityAccount = {
+  subject: string;
+  accountUrl: string;
+  fetchedAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    username: string | null;
+    phone: string | null;
+    gender: string | null;
+    birthDate: string | null;
+    nationality: string | null;
+    nameAr: string | null;
+    nameEn: string | null;
+    civilId: string | null;
+    civilIdExpires: string | null;
+    passportNumber: string | null;
+    passportExpires: string | null;
+    accountKind: 'person' | 'company';
+    companyNameAr: string | null;
+    companyNameEn: string | null;
+    crNumber: string | null;
+    crExpires: string | null;
+    taxId: string | null;
+    picture: string | null;
+    emailVerified: boolean;
+    googleLinked: boolean;
+    facebookLinked: boolean;
+    hasPassword: boolean;
+    createdAt: string | null;
+    lastLoginAt: string | null;
+  };
+  contact: {
+    phone2: string | null;
+    whatsapp: string | null;
+    address: string | null;
+    city: string | null;
+    hometown: string | null;
+    country: string | null;
+    zipCode: string | null;
+    crNumber?: string | null;
+    taxId?: string | null;
+  } | null;
+  files: {
+    civilIdFile: AdminIdentityAccountFile | null;
+    passportFile: AdminIdentityAccountFile | null;
+    commercialRegisterFile: AdminIdentityAccountFile | null;
+    authorizationFile: AdminIdentityAccountFile | null;
+  };
+};
+
 export type AdminUserDetail = {
   id: string;
   email: string | null;
@@ -628,6 +687,10 @@ export type AdminUserDetail = {
   countryCode: string | null;
   countryNameAr: string | null;
   countryNameEn: string | null;
+  /** Linked BHD Identity `sub` when the account signed in via SSO. */
+  identitySubject: string | null;
+  /** Live profile + attachments from id.bhd-om.com/account (fetched on each load). */
+  identityAccount: AdminIdentityAccount | null;
   organizations: AdminUserOrg[];
   propertiesOwned: AdminUserProperty[];
   leasesAsTenant: AdminUserLease[];

@@ -8,12 +8,14 @@ import { appLink, queueBrandedEmail } from '@/lib/email-notify';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { unlockUserAccount } from '@/lib/security-protection';
 import { requireScope } from '@/lib/site-admin-neon';
+import { fetchIdentityAccountProfile } from '@/lib/identity/account-bridge';
 import {
   DEFAULT_PLANS,
   SUBSCRIPTION_LABELS,
   SUBSCRIPTION_STATUSES,
   parsePlan,
   type AdminContractInspect,
+  type AdminIdentityAccount,
   type AdminPropertyInspect,
   type AdminUserDetail,
   type AdminUserOrg,
@@ -107,11 +109,11 @@ function uuidList(ids: string[]) {
 }
 
 /** Full dossier for one account: orgs, assets, leases, reviews, storage, sessions. */
-export function getAdminUserDetail(
+export async function getAdminUserDetail(
   claims: SessionClaims,
   userId: string,
 ): Promise<AdminUserDetail> {
-  return elevatedTx(async (tx) => {
+  const local = await elevatedTx(async (tx) => {
     await requireScope(tx, claims, 'users');
     if (!UUID.test(userId)) fail('user_not_found');
 
@@ -129,6 +131,7 @@ export function getAdminUserDetail(
       created_at: Date | string | null;
       disabled_at: Date | string | null;
       security_locked_at: Date | string | null;
+      identity_subject: string | null;
       phone: string | null;
       party_email: string | null;
       session_country: string | null;
@@ -137,7 +140,7 @@ export function getAdminUserDetail(
     }>(
       await tx.execute(sql`
         select u.id::text, u.email, u.username, u.display_name, u.locale,
-          u.created_at, u.disabled_at, u.security_locked_at,
+          u.created_at, u.disabled_at, u.security_locked_at, u.identity_subject,
           (select p.phone from memberships m
             join parties p on p.id = m.party_id
             where m.user_id = u.id and m.status = 'active' and p.phone is not null
@@ -514,6 +517,8 @@ export function getAdminUserDetail(
       countryCode: primaryCountry,
       countryNameAr: user.country_name_ar,
       countryNameEn: user.country_name_en,
+      identitySubject: user.identity_subject?.trim() || null,
+      identityAccount: null as AdminIdentityAccount | null,
       organizations,
       propertiesOwned: propertiesOwned.map((row) => ({
         id: row.id,
@@ -649,6 +654,62 @@ export function getAdminUserDetail(
       plans: catalog.filter((plan) => plan.active || plan.key === 'starter'),
     };
   }, 20_000);
+
+  const subject = local.identitySubject;
+  if (!subject) return local;
+
+  const profile = await fetchIdentityAccountProfile(subject);
+  if (!profile) return local;
+
+  const identityAccount: AdminIdentityAccount = {
+    subject,
+    accountUrl: profile.accountUrl,
+    fetchedAt: profile.fetchedAt,
+    user: profile.user,
+    contact: profile.contact,
+    files: profile.files,
+  };
+
+  // Soft-mirror display fields so the dossier header matches Identity.
+  const nextName =
+    profile.user.nameAr?.trim() ||
+    profile.user.name?.trim() ||
+    profile.user.nameEn?.trim() ||
+    local.displayName;
+  const nextEmail = profile.user.email?.trim().toLowerCase() || local.email;
+  const nextUsername = profile.user.username?.trim() || local.username;
+  const nextPhone = profile.user.phone?.trim() || local.phone;
+
+  if (
+    nextName !== local.displayName ||
+    nextEmail !== local.email ||
+    nextUsername !== local.username
+  ) {
+    try {
+      await elevatedTx(async (tx) => {
+        await tx.execute(sql`
+          update users
+          set display_name = ${nextName},
+              email = ${nextEmail},
+              username = ${nextUsername},
+              updated_at = now()
+          where id = ${userId}::uuid
+            and identity_subject = ${subject}
+        `);
+      }, 8_000);
+    } catch {
+      // Read path must still return the live Identity payload.
+    }
+  }
+
+  return {
+    ...local,
+    displayName: nextName,
+    email: nextEmail,
+    username: nextUsername,
+    phone: nextPhone,
+    identityAccount,
+  };
 }
 
 export function getAdminPropertyInspect(

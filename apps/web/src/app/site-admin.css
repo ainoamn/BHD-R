@@ -672,6 +672,40 @@ body:has(.site-admin-shell) #main-content {
   gap: 0.5rem;
   margin-top: 1rem;
 }
+.sa-subhead {
+  margin: 0 0 0.65rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f2a24;
+}
+.sa-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+.sa-file-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  border-radius: 0.7rem;
+  background: #fff;
+  font-size: 0.9rem;
+}
+.sa-file-list a {
+  color: #0f766e;
+  font-weight: 600;
+  text-decoration: none;
+}
+.sa-file-list a:hover,
+.sa-file-list a:focus-visible {
+  text-decoration: underline;
+}
 .sa-metric {
   margin: 0 0 0.75rem;
 }

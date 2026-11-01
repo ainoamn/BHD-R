@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { browserNextMutation } from '@/lib/api';
 import type {
+  AdminIdentityAccountFile,
   AdminUserAuthAttempt,
   AdminUserDetail,
   AdminUserSession,
@@ -72,6 +73,16 @@ function deviceLabel(
             ? 'غير معروف'
             : 'Unknown';
   return row.deviceLabel ? `${kind} · ${row.deviceLabel}` : kind;
+}
+
+function textOrDash(value: string | null | undefined) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : '—';
+}
+
+function identityFileHref(userId: string, file: AdminIdentityAccountFile | null) {
+  if (!file) return null;
+  return `/api/site-admin/users/${encodeURIComponent(userId)}/identity-file?kind=${encodeURIComponent(file.kind)}`;
 }
 
 function ActivityTable<T extends { id: string }>({
@@ -302,7 +313,11 @@ export function UsersAdminDetail({
               </div>
               <div>
                 <dt>{ar ? 'الدولة' : 'Country'}</dt>
-                <dd>{countryOf(detail, ar)}</dd>
+                <dd>
+                  {detail.identityAccount?.contact?.country ||
+                    detail.identityAccount?.user.nationality ||
+                    countryOf(detail, ar)}
+                </dd>
               </div>
               <div>
                 <dt>{ar ? 'الحالة' : 'Status'}</dt>
@@ -393,6 +408,242 @@ export function UsersAdminDetail({
                 {ar ? 'إعادة ضبط كلمة المرور' : 'Reset password'}
               </button>
             </div>
+          </SiteAdminSurface>
+
+          <SiteAdminSurface title={ar ? 'حساب BHD Identity' : 'BHD Identity account'}>
+            {!detail.identitySubject ? (
+              <p className="muted" style={{ margin: 0 }}>
+                {ar
+                  ? 'هذا الحساب غير مرتبط بهوية BHD بعد.'
+                  : 'This account is not linked to BHD Identity yet.'}
+              </p>
+            ) : !detail.identityAccount ? (
+              <p className="muted" style={{ margin: 0 }}>
+                {ar
+                  ? 'تعذّر جلب بيانات الحساب من id.bhd-om.com. حدّث الصفحة أو افتح الحساب هناك.'
+                  : 'Could not load the live Identity profile. Refresh or open the account there.'}
+              </p>
+            ) : (
+              <>
+                <p className="muted" style={{ marginTop: 0 }}>
+                  {ar
+                    ? `نفس بيانات صفحة الحساب على Identity · حُدّثت ${adminDateTime(detail.identityAccount.fetchedAt, true)}`
+                    : `Same data as the Identity account page · fetched ${adminDateTime(detail.identityAccount.fetchedAt, false)}`}
+                </p>
+                <div className="sa-actions-row" style={{ marginBottom: '1rem' }}>
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    disabled={busy}
+                    onClick={() => load()}
+                  >
+                    {ar ? 'تحديث من Identity' : 'Refresh from Identity'}
+                  </button>
+                  <a
+                    className="button button--quiet"
+                    href={detail.identityAccount.accountUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {ar ? 'فتح الحساب في Identity' : 'Open in Identity'}
+                  </a>
+                </div>
+                {(() => {
+                  const idUser = detail.identityAccount.user;
+                  const contact = detail.identityAccount.contact;
+                  const files = detail.identityAccount.files;
+                  const fileRows: Array<{
+                    labelAr: string;
+                    labelEn: string;
+                    file: AdminIdentityAccountFile | null;
+                  }> = [
+                    { labelAr: 'البطاقة الشخصية', labelEn: 'Civil ID', file: files.civilIdFile },
+                    { labelAr: 'جواز السفر', labelEn: 'Passport', file: files.passportFile },
+                    {
+                      labelAr: 'السجل التجاري',
+                      labelEn: 'Commercial register',
+                      file: files.commercialRegisterFile,
+                    },
+                    {
+                      labelAr: 'خطاب التفويض',
+                      labelEn: 'Authorization letter',
+                      file: files.authorizationFile,
+                    },
+                  ];
+                  return (
+                    <>
+                      <dl className="sa-dl">
+                        <div>
+                          <dt>{ar ? 'نوع الحساب' : 'Account kind'}</dt>
+                          <dd>
+                            {idUser.accountKind === 'company'
+                              ? ar
+                                ? 'شركة'
+                                : 'Company'
+                              : ar
+                                ? 'فرد'
+                                : 'Person'}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الاسم بالعربي' : 'Name (AR)'}</dt>
+                          <dd>{textOrDash(idUser.nameAr || idUser.name)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الاسم بالإنجليزي' : 'Name (EN)'}</dt>
+                          <dd>{textOrDash(idUser.nameEn)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'البريد' : 'Email'}</dt>
+                          <dd>
+                            <bdi dir="ltr">{textOrDash(idUser.email)}</bdi>
+                            {idUser.emailVerified ? (
+                              <span className="pmh-badge pmh-badge--ready sa-tag">
+                                {ar ? 'موثّق' : 'Verified'}
+                              </span>
+                            ) : null}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'اسم المستخدم' : 'Username'}</dt>
+                          <dd>
+                            <bdi dir="ltr">{textOrDash(idUser.username)}</bdi>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
+                          <dd>
+                            <bdi dir="ltr">{textOrDash(idUser.phone)}</bdi>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'هاتف إضافي' : 'Phone 2'}</dt>
+                          <dd>
+                            <bdi dir="ltr">{textOrDash(contact?.phone2)}</bdi>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>WhatsApp</dt>
+                          <dd>
+                            <bdi dir="ltr">{textOrDash(contact?.whatsapp)}</bdi>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الجنس' : 'Gender'}</dt>
+                          <dd>{textOrDash(idUser.gender)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'تاريخ الميلاد' : 'Birth date'}</dt>
+                          <dd>{textOrDash(idUser.birthDate)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الجنسية' : 'Nationality'}</dt>
+                          <dd>{textOrDash(idUser.nationality)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الرقم المدني' : 'Civil ID'}</dt>
+                          <dd>
+                            <bdi dir="ltr">{textOrDash(idUser.civilId)}</bdi>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'انتهاء البطاقة' : 'Civil ID expiry'}</dt>
+                          <dd>{textOrDash(idUser.civilIdExpires)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'جواز السفر' : 'Passport'}</dt>
+                          <dd>
+                            <bdi dir="ltr">{textOrDash(idUser.passportNumber)}</bdi>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'انتهاء الجواز' : 'Passport expiry'}</dt>
+                          <dd>{textOrDash(idUser.passportExpires)}</dd>
+                        </div>
+                        {idUser.accountKind === 'company' ? (
+                          <>
+                            <div>
+                              <dt>{ar ? 'اسم الشركة (ع)' : 'Company (AR)'}</dt>
+                              <dd>{textOrDash(idUser.companyNameAr)}</dd>
+                            </div>
+                            <div>
+                              <dt>{ar ? 'اسم الشركة (En)' : 'Company (EN)'}</dt>
+                              <dd>{textOrDash(idUser.companyNameEn)}</dd>
+                            </div>
+                            <div>
+                              <dt>{ar ? 'السجل التجاري' : 'CR number'}</dt>
+                              <dd>
+                                <bdi dir="ltr">
+                                  {textOrDash(idUser.crNumber || contact?.crNumber)}
+                                </bdi>
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>{ar ? 'انتهاء السجل' : 'CR expiry'}</dt>
+                              <dd>{textOrDash(idUser.crExpires)}</dd>
+                            </div>
+                            <div>
+                              <dt>{ar ? 'الرقم الضريبي' : 'Tax ID'}</dt>
+                              <dd>
+                                <bdi dir="ltr">
+                                  {textOrDash(idUser.taxId || contact?.taxId)}
+                                </bdi>
+                              </dd>
+                            </div>
+                          </>
+                        ) : null}
+                        <div>
+                          <dt>{ar ? 'العنوان' : 'Address'}</dt>
+                          <dd>{textOrDash(contact?.address)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'المدينة' : 'City'}</dt>
+                          <dd>{textOrDash(contact?.city)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'مسقط الرأس' : 'Hometown'}</dt>
+                          <dd>{textOrDash(contact?.hometown)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الدولة' : 'Country'}</dt>
+                          <dd>{textOrDash(contact?.country || idUser.nationality)}</dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'الرمز البريدي' : 'ZIP'}</dt>
+                          <dd>
+                            <bdi dir="ltr">{textOrDash(contact?.zipCode)}</bdi>
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>{ar ? 'آخر دخول' : 'Last login'}</dt>
+                          <dd>{adminDateTime(idUser.lastLoginAt, ar)}</dd>
+                        </div>
+                      </dl>
+                      <h3 className="sa-subhead" style={{ marginTop: '1.25rem' }}>
+                        {ar ? 'المرفقات' : 'Attachments'}
+                      </h3>
+                      <ul className="sa-file-list">
+                        {fileRows.map((row) => {
+                          const href = identityFileHref(detail.id, row.file);
+                          return (
+                            <li key={row.labelEn}>
+                              <span>{ar ? row.labelAr : row.labelEn}</span>
+                              {href && row.file ? (
+                                <a href={href} target="_blank" rel="noreferrer">
+                                  {row.file.filename}
+                                </a>
+                              ) : (
+                                <span className="muted">{ar ? 'لا يوجد' : 'None'}</span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </>
+                  );
+                })()}
+              </>
+            )}
           </SiteAdminSurface>
 
           <SiteAdminSurface title={ar ? 'الباقة والاشتراك' : 'Plan & subscription'}>
