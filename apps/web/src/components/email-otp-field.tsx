@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { maskEmailAddress } from '@/lib/email-address';
 
+type Tone = 'ok' | 'error' | 'info';
+
 /** Send / verify a 6-digit email OTP for tenant or company email during booking. */
 export function EmailOtpField({
   email,
@@ -23,6 +25,12 @@ export function EmailOtpField({
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [tone, setTone] = useState<Tone>('info');
+
+  function show(next: string, nextTone: Tone) {
+    setMessage(next);
+    setTone(nextTone);
+  }
 
   async function send() {
     setBusy(true);
@@ -42,7 +50,7 @@ export function EmailOtpField({
       const data = (await response.json()) as { error?: { code?: string } };
       if (!response.ok) {
         setSent(false);
-        setMessage(
+        show(
           data.error?.code === 'rate_limited'
             ? ar
               ? 'محاولات كثيرة — انتظر دقيقة.'
@@ -54,18 +62,20 @@ export function EmailOtpField({
               : ar
                 ? 'تعذّر إرسال الرمز. تحقّق من البريد.'
                 : 'Could not send the code. Check the email.',
+          'error',
         );
         return;
       }
       setSent(true);
-      setMessage(
+      show(
         ar
           ? `أُرسل الرمز إلى ${masked}. إن لم يظهر في الوارد، راجع البريد غير المرغوب.`
           : `Code sent to ${masked}. If it is missing, check spam/junk.`,
+        'ok',
       );
     } catch {
       setSent(false);
-      setMessage(ar ? 'تعذّر الاتصال.' : 'Could not connect.');
+      show(ar ? 'تعذّر الاتصال.' : 'Could not connect.', 'error');
     } finally {
       setBusy(false);
     }
@@ -83,26 +93,31 @@ export function EmailOtpField({
       const data = (await response.json()) as { error?: { code?: string }; ok?: boolean };
       if (!response.ok) {
         onVerified(false);
-        setMessage(
-          data.error?.code === 'otp_invalid'
-            ? ar
-              ? 'رمز غير صحيح.'
-              : 'Incorrect code.'
-            : data.error?.code === 'otp_expired'
-              ? ar
-                ? 'انتهت صلاحية الرمز — اطلب رمزاً جديداً.'
-                : 'Code expired — request a new one.'
-              : ar
-                ? 'تعذّر التحقق.'
-                : 'Verification failed.',
-        );
+        const err = data.error?.code;
+        if (err === 'otp_invalid' || err === 'invalid_otp') {
+          show(ar ? 'رمز التحقق خاطئ.' : 'The verification code is incorrect.', 'error');
+        } else if (err === 'otp_expired' || err === 'otp_used' || err === 'otp_not_found') {
+          show(
+            ar
+              ? 'انتهت صلاحية الرمز أو لم يعد صالحاً — اطلب رمزاً جديداً.'
+              : 'Code expired or no longer valid — request a new one.',
+            'error',
+          );
+        } else if (err === 'otp_locked' || err === 'rate_limited') {
+          show(
+            ar ? 'محاولات كثيرة — انتظر قليلاً ثم أعد المحاولة.' : 'Too many attempts — wait and try again.',
+            'error',
+          );
+        } else {
+          show(ar ? 'رمز التحقق خاطئ.' : 'The verification code is incorrect.', 'error');
+        }
         return;
       }
       onVerified(true);
-      setMessage(ar ? 'تم تأكيد البريد.' : 'Email confirmed.');
+      show(ar ? 'تم تأكيد البريد.' : 'Email confirmed.', 'ok');
     } catch {
       onVerified(false);
-      setMessage(ar ? 'تعذّر الاتصال.' : 'Could not connect.');
+      show(ar ? 'تعذّر الاتصال.' : 'Could not connect.', 'error');
     } finally {
       setBusy(false);
     }
@@ -116,8 +131,10 @@ export function EmailOtpField({
     );
   }
 
+  const codeInvalid = tone === 'error' && Boolean(message);
+
   return (
-    <div className="party-form__otp field span-2">
+    <div className={`party-form__otp field span-2${codeInvalid ? ' is-error' : ''}`}>
       <p className="muted">
         {ar
           ? `سنرسل رمز تحقق إلى ${masked} للتأكد من صحة البريد (واتساب لاحقاً للجوال).`
@@ -148,7 +165,11 @@ export function EmailOtpField({
           maxLength={6}
           placeholder={ar ? 'الرمز المكوّن من 6 أرقام' : '6-digit code'}
           value={code}
-          onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+          aria-invalid={codeInvalid || undefined}
+          onChange={(event) => {
+            setCode(event.target.value.replace(/\D/g, '').slice(0, 6));
+            if (tone === 'error') setMessage(null);
+          }}
           style={{ maxWidth: '10rem' }}
         />
         <button
@@ -161,7 +182,10 @@ export function EmailOtpField({
         </button>
       </div>
       {message ? (
-        <p className="field__hint" role="status">
+        <p
+          className={tone === 'error' ? 'field__error' : 'field__hint'}
+          role={tone === 'error' ? 'alert' : 'status'}
+        >
           {message}
         </p>
       ) : null}
