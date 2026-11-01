@@ -111,6 +111,37 @@ function Section({
   );
 }
 
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="contact-fact">
+      <dt>{label}</dt>
+      <dd>{children ?? '—'}</dd>
+    </div>
+  );
+}
+
+function Sheet({
+  title,
+  eyebrow,
+  children,
+  tone = 'plain',
+}: {
+  title: string;
+  eyebrow?: string;
+  children: ReactNode;
+  tone?: 'plain' | 'identity';
+}) {
+  return (
+    <section className={`contact-sheet contact-sheet--${tone}`}>
+      <header className="contact-sheet__head">
+        {eyebrow ? <p className="contact-sheet__eyebrow">{eyebrow}</p> : null}
+        <h2>{title}</h2>
+      </header>
+      {children}
+    </section>
+  );
+}
+
 type FormState = {
   displayName: string;
   nameEn: string;
@@ -307,6 +338,9 @@ export function ContactWorkspace({
     { id: 'tasks', ar: 'المهام', en: 'Tasks', count: detail.tasks.length },
   ].filter((item) => item.count > 0);
 
+  const identity = party.identity;
+  const englishName = party.nameEn || identity?.nameEn || null;
+
   return (
     <div className="contact-page">
       <Link className="contact-page__back" href={`/${portal}/contacts`}>
@@ -314,251 +348,139 @@ export function ContactWorkspace({
       </Link>
 
       <header className="contact-hero">
-        {party.mark?.avatarUrl ? (
-          <IdentityAvatar
-            name={party.displayName}
-            mark={party.mark}
-            locale={locale}
-            size={72}
-            className="contact-hero__avatar"
-          />
-        ) : (
-          <span className="contact-hero__avatar" aria-hidden="true">
-            {party.displayName.trim().charAt(0).toUpperCase() || '؟'}
-          </span>
-        )}
-        <div className="contact-hero__main">
-          <h1 className="name-with-mark">
-            {party.displayName}
-            <VerifiedMark verified={party.mark?.verified} locale={locale} size={22} />
-          </h1>
-          <BadgeChips badges={party.badges} locale={locale} labelled size={22} max={5} />
-          {party.mark ? (
-            <p className={`account-status${party.mark.verified ? ' is-verified' : ''}`}>
-              {party.mark.verified
-                ? ar
-                  ? 'حساب موثّق: طابق فريق بن حمود اسمه مع مستند رسمي'
-                  : 'Verified: BHD matched the name with an official document'
-                : ar
-                  ? 'غير موثّق'
-                  : 'Not verified'}
-            </p>
-          ) : null}
-          <div className="contact-card__roles">
-            <span className="contact-role contact-role--muted">
-              {party.type === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Person'}
+        <div className="contact-hero__glow" aria-hidden="true" />
+        <div className="contact-hero__top">
+          {party.mark?.avatarUrl ? (
+            <IdentityAvatar
+              name={party.displayName}
+              mark={party.mark}
+              locale={locale}
+              size={88}
+              className="contact-hero__avatar"
+            />
+          ) : (
+            <span className="contact-hero__avatar" aria-hidden="true">
+              {party.displayName.trim().charAt(0).toUpperCase() || '؟'}
             </span>
-            {isOwner && !party.roles.includes('owner') ? (
-              <span className="contact-role contact-role--owner">
-                {contactRoleLabel('owner', ar)}
-              </span>
+          )}
+          <div className="contact-hero__main">
+            <p className="contact-hero__eyebrow">
+              {ar ? 'ملف الطرف · دفتر العناوين' : 'Party dossier · address book'}
+            </p>
+            <h1 className="name-with-mark">
+              {party.displayName}
+              <VerifiedMark verified={party.mark?.verified} locale={locale} size={22} />
+            </h1>
+            {englishName ? <p className="contact-hero__en">{englishName}</p> : null}
+            {party.mark ? (
+              <p className={`contact-hero__verify${party.mark.verified ? ' is-verified' : ''}`}>
+                {party.mark.verified
+                  ? ar
+                    ? 'موثّق لدى بن حمود'
+                    : 'Verified by Bin Hamood'
+                  : ar
+                    ? 'غير موثّق'
+                    : 'Not verified'}
+              </p>
             ) : null}
-            {liveLeases.length && !party.roles.includes('tenant') ? (
-              <span className="contact-role contact-role--tenant">
-                {contactRoleLabel('tenant', ar)}
-              </span>
-            ) : null}
-            {party.roles.map((role) => (
-              <span key={role} className={`contact-role contact-role--${role}`}>
-                {contactRoleLabel(role, ar)}
-              </span>
-            ))}
-            {party.member ? (
-              <span className="contact-role contact-role--member">
-                {ar ? 'عضو بالفريق' : 'Team member'}
-              </span>
-            ) : null}
-            {party.status !== 'active' ? (
+            <div className="contact-card__roles">
               <span className="contact-role contact-role--muted">
-                {statusLabel(party.status, ar)}
+                {party.type === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Person'}
               </span>
+              {isOwner && !party.roles.includes('owner') ? (
+                <span className="contact-role contact-role--owner">
+                  {contactRoleLabel('owner', ar)}
+                </span>
+              ) : null}
+              {liveLeases.length && !party.roles.includes('tenant') ? (
+                <span className="contact-role contact-role--tenant">
+                  {contactRoleLabel('tenant', ar)}
+                </span>
+              ) : null}
+              {party.roles.map((role) => (
+                <span key={role} className={`contact-role contact-role--${role}`}>
+                  {contactRoleLabel(role, ar)}
+                </span>
+              ))}
+              {party.member ? (
+                <span className="contact-role contact-role--member">
+                  {ar ? 'عضو بالفريق' : 'Team member'}
+                </span>
+              ) : null}
+              {party.status !== 'active' ? (
+                <span className="contact-role contact-role--muted">
+                  {statusLabel(party.status, ar)}
+                </span>
+              ) : null}
+            </div>
+            <BadgeChips badges={party.badges} locale={locale} labelled size={22} max={5} />
+          </div>
+          <div className="contact-hero__actions">
+            {whatsapp ? (
+              <a
+                className="contact-hero__btn contact-hero__btn--ghost"
+                href={`https://wa.me/${whatsapp}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {ar ? 'واتساب' : 'WhatsApp'}
+              </a>
+            ) : null}
+            {detail.canEdit ? (
+              <button
+                type="button"
+                className="contact-hero__btn contact-hero__btn--solid"
+                aria-expanded={editing}
+                onClick={() => {
+                  setForm(formFrom(detail));
+                  setMessage(null);
+                  setEditing((value) => !value);
+                }}
+              >
+                {editing
+                  ? ar
+                    ? 'إلغاء التعديل'
+                    : 'Cancel edit'
+                  : ar
+                    ? 'تعديل البيانات'
+                    : 'Edit details'}
+              </button>
             ) : null}
           </div>
-          <dl className="contact-hero__facts">
-            <div>
-              <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
-              <dd>
-                {party.phone ? (
-                  <bdi>
-                    <a href={`tel:${party.phone}`}>{party.phone}</a>
-                  </bdi>
-                ) : (
-                  '—'
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>{ar ? 'البريد' : 'Email'}</dt>
-              <dd>
-                {party.email ? (
-                  <bdi>
-                    <a href={`mailto:${party.email}`}>{party.email}</a>
-                  </bdi>
-                ) : (
-                  '—'
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>{ar ? 'العنوان' : 'Address'}</dt>
-              <dd>{addressLine || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'أُضيف في' : 'Added'}</dt>
-              <dd>{formatDay(party.createdAt, ar)}</dd>
-            </div>
-          </dl>
-          {party.notes ? <p className="contact-hero__notes">{party.notes}</p> : null}
         </div>
-        <div className="contact-hero__actions">
-          {whatsapp ? (
-            <a
-              className="button button--secondary"
-              href={`https://wa.me/${whatsapp}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {ar ? 'واتساب' : 'WhatsApp'}
-            </a>
-          ) : null}
-          {detail.canEdit ? (
-            <button
-              type="button"
-              className="button button--primary"
-              aria-expanded={editing}
-              onClick={() => {
-                setForm(formFrom(detail));
-                setMessage(null);
-                setEditing((value) => !value);
-              }}
-            >
-              {editing
-                ? ar
-                  ? 'إلغاء التعديل'
-                  : 'Cancel edit'
-                : ar
-                  ? 'تعديل البيانات'
-                  : 'Edit details'}
-            </button>
-          ) : null}
-        </div>
+        <ul className="contact-channels">
+          <li>
+            <span>{ar ? 'الهاتف' : 'Phone'}</span>
+            {party.phone ? (
+              <bdi>
+                <a href={`tel:${party.phone}`}>{party.phone}</a>
+              </bdi>
+            ) : (
+              '—'
+            )}
+          </li>
+          <li>
+            <span>{ar ? 'البريد' : 'Email'}</span>
+            {party.email ? (
+              <bdi>
+                <a href={`mailto:${party.email}`}>{party.email}</a>
+              </bdi>
+            ) : (
+              '—'
+            )}
+          </li>
+          <li>
+            <span>{ar ? 'العنوان' : 'Address'}</span>
+            <em>{addressLine || (ar ? 'غير مضاف' : 'Not added')}</em>
+          </li>
+          <li>
+            <span>{ar ? 'أُضيف في' : 'Added'}</span>
+            <em>{formatDay(party.createdAt, ar)}</em>
+          </li>
+        </ul>
       </header>
 
       <PartyBadgesPanel partyId={party.id} locale={locale} portal={portal} />
-
-      {party.identity ? (
-        <section className="contact-identity" aria-labelledby="contact-identity-title">
-          <h2 id="contact-identity-title">
-            {ar ? 'بيانات حساب BHD Identity' : 'BHD Identity account'}
-          </h2>
-          <p className="muted">
-            {ar
-              ? 'تُنسخ تلقائياً عند الحجز أو الشراء أو الاستئجار من صفحة الحساب على Identity.'
-              : 'Copied automatically on booking, purchase, or rent from the Identity account page.'}
-          </p>
-          <dl className="contact-hero__facts">
-            <div>
-              <dt>{ar ? 'الاسم بالعربي' : 'Name (AR)'}</dt>
-              <dd>{party.identity.nameAr || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'الاسم بالإنجليزي' : 'Name (EN)'}</dt>
-              <dd>{party.identity.nameEn || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'الهاتف' : 'Phone'}</dt>
-              <dd>
-                <bdi dir="ltr">{party.identity.phone || '—'}</bdi>
-              </dd>
-            </div>
-            <div>
-              <dt>WhatsApp</dt>
-              <dd>
-                <bdi dir="ltr">{party.identity.whatsapp || party.identity.phone2 || '—'}</bdi>
-              </dd>
-            </div>
-            <div>
-              <dt>{ar ? 'الجنسية' : 'Nationality'}</dt>
-              <dd>{party.identity.nationality || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'تاريخ الميلاد' : 'Birth date'}</dt>
-              <dd>{party.identity.birthDate || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'الرقم المدني' : 'Civil ID'}</dt>
-              <dd>
-                <bdi dir="ltr">{party.identity.civilId || '—'}</bdi>
-              </dd>
-            </div>
-            <div>
-              <dt>{ar ? 'انتهاء البطاقة' : 'Civil ID expiry'}</dt>
-              <dd>{party.identity.civilIdExpires || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'جواز السفر' : 'Passport'}</dt>
-              <dd>
-                <bdi dir="ltr">{party.identity.passportNumber || '—'}</bdi>
-              </dd>
-            </div>
-            <div>
-              <dt>{ar ? 'انتهاء الجواز' : 'Passport expiry'}</dt>
-              <dd>{party.identity.passportExpires || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'العنوان' : 'Address'}</dt>
-              <dd>{party.identity.address || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'المدينة / الدولة' : 'City / country'}</dt>
-              <dd>
-                {[party.identity.city, party.identity.country].filter(Boolean).join(' · ') || '—'}
-              </dd>
-            </div>
-            {party.identity.accountKind === 'company' ? (
-              <>
-                <div>
-                  <dt>{ar ? 'الشركة' : 'Company'}</dt>
-                  <dd>{party.identity.companyNameAr || party.identity.companyNameEn || '—'}</dd>
-                </div>
-                <div>
-                  <dt>{ar ? 'السجل التجاري' : 'CR'}</dt>
-                  <dd>
-                    <bdi dir="ltr">{party.identity.crNumber || '—'}</bdi>
-                  </dd>
-                </div>
-              </>
-            ) : null}
-          </dl>
-          <ul className="contact-identity__files">
-            {(
-              [
-                {
-                  label: ar ? 'البطاقة الشخصية' : 'Civil ID',
-                  file: party.identity.files.civilIdFile,
-                },
-                {
-                  label: ar ? 'جواز السفر' : 'Passport',
-                  file: party.identity.files.passportFile,
-                },
-                {
-                  label: ar ? 'السجل التجاري' : 'Commercial register',
-                  file: party.identity.files.commercialRegisterFile,
-                },
-                {
-                  label: ar ? 'خطاب التفويض' : 'Authorization',
-                  file: party.identity.files.authorizationFile,
-                },
-              ] as const
-            ).map((row) => (
-              <li key={row.label}>
-                <span>{row.label}</span>
-                <span className="muted">{row.file?.filename || (ar ? 'لا يوجد' : 'None')}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
 
       {message ? (
         <p
@@ -571,8 +493,12 @@ export function ContactWorkspace({
 
       {editing ? (
         <form className="contact-edit" onSubmit={(event) => void save(event)}>
+          <header className="contact-edit__banner">
+            <p>{ar ? 'تعديل ملف الطرف' : 'Edit party profile'}</p>
+            <h2>{ar ? 'حدّث البيانات الظاهرة في دفتر العناوين' : 'Update what appears in the address book'}</h2>
+          </header>
           <fieldset>
-            <legend>{ar ? 'البيانات الأساسية' : 'Details'}</legend>
+            <legend>{ar ? 'البيانات الأساسية' : 'Basics'}</legend>
             <BilingualNameField
               idPrefix="contact-name"
               labelAr={ar ? 'الاسم بالعربية' : 'Name (Arabic)'}
@@ -699,7 +625,163 @@ export function ContactWorkspace({
             </button>
           </div>
         </form>
-      ) : null}
+      ) : (
+        <div className="contact-sheets">
+          <Sheet
+            tone="plain"
+            eyebrow={ar ? 'دفتر العناوين' : 'Address book'}
+            title={ar ? 'بيانات الطرف' : 'Party details'}
+          >
+            <dl className="contact-facts">
+              <Fact label={ar ? 'الاسم بالعربية' : 'Name (AR)'}>{party.displayName}</Fact>
+              <Fact label={ar ? 'الاسم بالإنجليزية' : 'Name (EN)'}>{englishName || '—'}</Fact>
+              <Fact label={ar ? 'النوع' : 'Type'}>
+                {party.type === 'company' ? (ar ? 'شركة' : 'Company') : ar ? 'فرد' : 'Person'}
+              </Fact>
+              <Fact label={ar ? 'الحالة' : 'Status'}>{statusLabel(party.status, ar)}</Fact>
+              <Fact label={ar ? 'الهاتف' : 'Phone'}>
+                {party.phone ? (
+                  <bdi dir="ltr">
+                    <a href={`tel:${party.phone}`}>{party.phone}</a>
+                  </bdi>
+                ) : (
+                  '—'
+                )}
+              </Fact>
+              <Fact label={ar ? 'البريد' : 'Email'}>
+                {party.email ? (
+                  <bdi dir="ltr">
+                    <a href={`mailto:${party.email}`}>{party.email}</a>
+                  </bdi>
+                ) : (
+                  '—'
+                )}
+              </Fact>
+              <Fact label={ar ? 'الأدوار' : 'Roles'}>
+                {party.roles.length
+                  ? party.roles.map((role) => contactRoleLabel(role, ar)).join(' · ')
+                  : '—'}
+              </Fact>
+              <Fact label={ar ? 'المصدر' : 'Source'}>{party.source || '—'}</Fact>
+            </dl>
+            <div className="contact-sheet__block">
+              <h3>{ar ? 'العنوان المحلي' : 'Local address'}</h3>
+              <dl className="contact-facts contact-facts--tight">
+                <Fact label={ar ? 'المحافظة' : 'Governorate'}>
+                  {party.address?.governorate || '—'}
+                </Fact>
+                <Fact label={ar ? 'الولاية' : 'Wilayat'}>{party.address?.wilayat || '—'}</Fact>
+                <Fact label={ar ? 'المدينة' : 'City'}>{party.address?.city || '—'}</Fact>
+                <Fact label={ar ? 'الحي' : 'Area'}>{party.address?.area || '—'}</Fact>
+                <Fact label={ar ? 'الشارع' : 'Street'}>{party.address?.street || '—'}</Fact>
+                <Fact label={ar ? 'رقم المبنى' : 'Building'}>
+                  {party.address?.buildingNumber || '—'}
+                </Fact>
+                <Fact label={ar ? 'الرمز البريدي' : 'Postal code'}>
+                  {party.address?.postalCode || '—'}
+                </Fact>
+              </dl>
+            </div>
+            {party.notes ? (
+              <div className="contact-sheet__notes">
+                <h3>{ar ? 'ملاحظات داخلية' : 'Internal notes'}</h3>
+                <p>{party.notes}</p>
+              </div>
+            ) : null}
+          </Sheet>
+
+          {identity ? (
+            <Sheet
+              tone="identity"
+              eyebrow="BHD Identity"
+              title={ar ? 'بيانات الحساب الرسمية' : 'Official account profile'}
+            >
+              <p className="contact-sheet__lead">
+                {ar
+                  ? 'تُنسخ تلقائياً عند الحجز أو الشراء أو الاستئجار من صفحة الحساب على Identity.'
+                  : 'Copied automatically on booking, purchase, or rent from the Identity account page.'}
+              </p>
+              <dl className="contact-facts">
+                <Fact label={ar ? 'الاسم بالعربي' : 'Name (AR)'}>{identity.nameAr || '—'}</Fact>
+                <Fact label={ar ? 'الاسم بالإنجليزي' : 'Name (EN)'}>{identity.nameEn || '—'}</Fact>
+                <Fact label={ar ? 'الهاتف' : 'Phone'}>
+                  <bdi dir="ltr">{identity.phone || '—'}</bdi>
+                </Fact>
+                <Fact label="WhatsApp">
+                  <bdi dir="ltr">{identity.whatsapp || identity.phone2 || '—'}</bdi>
+                </Fact>
+                <Fact label={ar ? 'الجنسية' : 'Nationality'}>{identity.nationality || '—'}</Fact>
+                <Fact label={ar ? 'تاريخ الميلاد' : 'Birth date'}>{identity.birthDate || '—'}</Fact>
+                <Fact label={ar ? 'الرقم المدني' : 'Civil ID'}>
+                  <bdi dir="ltr">{identity.civilId || '—'}</bdi>
+                </Fact>
+                <Fact label={ar ? 'انتهاء البطاقة' : 'Civil ID expiry'}>
+                  {identity.civilIdExpires || '—'}
+                </Fact>
+                <Fact label={ar ? 'جواز السفر' : 'Passport'}>
+                  <bdi dir="ltr">{identity.passportNumber || '—'}</bdi>
+                </Fact>
+                <Fact label={ar ? 'انتهاء الجواز' : 'Passport expiry'}>
+                  {identity.passportExpires || '—'}
+                </Fact>
+                <Fact label={ar ? 'العنوان' : 'Address'}>{identity.address || '—'}</Fact>
+                <Fact label={ar ? 'المدينة / الدولة' : 'City / country'}>
+                  {[identity.city, identity.country].filter(Boolean).join(' · ') || '—'}
+                </Fact>
+                {identity.accountKind === 'company' ? (
+                  <>
+                    <Fact label={ar ? 'الشركة' : 'Company'}>
+                      {identity.companyNameAr || identity.companyNameEn || '—'}
+                    </Fact>
+                    <Fact label={ar ? 'السجل التجاري' : 'CR'}>
+                      <bdi dir="ltr">{identity.crNumber || '—'}</bdi>
+                    </Fact>
+                  </>
+                ) : null}
+              </dl>
+              <ul className="contact-identity__files">
+                {(
+                  [
+                    {
+                      label: ar ? 'البطاقة الشخصية' : 'Civil ID',
+                      file: identity.files.civilIdFile,
+                    },
+                    {
+                      label: ar ? 'جواز السفر' : 'Passport',
+                      file: identity.files.passportFile,
+                    },
+                    {
+                      label: ar ? 'السجل التجاري' : 'Commercial register',
+                      file: identity.files.commercialRegisterFile,
+                    },
+                    {
+                      label: ar ? 'خطاب التفويض' : 'Authorization',
+                      file: identity.files.authorizationFile,
+                    },
+                  ] as const
+                ).map((row) => (
+                  <li key={row.label} className={row.file ? 'is-ready' : undefined}>
+                    <span>{row.label}</span>
+                    <span>{row.file?.filename || (ar ? 'لا يوجد' : 'None')}</span>
+                  </li>
+                ))}
+              </ul>
+            </Sheet>
+          ) : (
+            <Sheet
+              tone="identity"
+              eyebrow="BHD Identity"
+              title={ar ? 'لا توجد بيانات هوية بعد' : 'No Identity profile yet'}
+            >
+              <p className="contact-sheet__lead">
+                {ar
+                  ? 'عند حجز أو شراء أو استئجار من حساب مسجّل تظهر هنا بيانات Identity كاملة تلقائياً.'
+                  : 'When this party books, buys, or rents while signed in, their full Identity profile appears here.'}
+              </p>
+            </Sheet>
+          )}
+        </div>
+      )}
 
       <section className="contact-stats" aria-label={ar ? 'الإحصائيات' : 'Statistics'}>
         <article className="contact-stat contact-stat--in">
