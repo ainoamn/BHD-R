@@ -685,6 +685,18 @@ body:has(.site-admin-shell) #main-content {
   border-radius: 0.9rem;
   background: #fff;
 }
+.sa-table-wrap--scroll {
+  max-height: 22rem;
+  overflow: auto;
+}
+.sa-limit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #55706a;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
 .sa-table {
   width: 100%;
   min-width: 46rem;

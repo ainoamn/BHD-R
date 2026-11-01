@@ -190,6 +190,11 @@ export async function GET(request: Request) {
         ipHash: ctx.ipHash,
         userAgentHash: ctx.userAgentHash,
         countryCode: ctx.countryCode,
+        deviceKind: ctx.deviceKind,
+        deviceLabel: ctx.deviceLabel,
+        region: ctx.region,
+        city: ctx.city,
+        ipAddress: ctx.ipAddress,
       },
     });
     // Telemetry must never undo a successful session (e.g. missing security_* tables).

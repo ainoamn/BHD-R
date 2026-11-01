@@ -1,10 +1,17 @@
 import 'server-only';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
+import { auditLogs, credentialTokens } from '@bhd-r/db';
 import { elevatedTx, isoOf, rowsOf, type ElevatedTx } from '@/lib/elevated-db';
+import { appLink, queueBrandedEmail } from '@/lib/email-notify';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
+import { parseDeviceFromUserAgent } from '@/lib/client-device';
+import { unlockUserAccount } from '@/lib/security-protection';
 import { requireScope } from '@/lib/site-admin-neon';
 import {
   DEFAULT_PLANS,
+  SUBSCRIPTION_LABELS,
   SUBSCRIPTION_STATUSES,
   parsePlan,
   type AdminContractInspect,
@@ -28,6 +35,8 @@ function fail(code: string): never {
 type StoredSubscription = {
   status: SubscriptionStatus;
   endsOn: string | null;
+  note?: string | null;
+  updatedAt?: string | null;
 };
 
 function readCatalog(value: unknown): PlanDefinition[] {
@@ -375,23 +384,71 @@ export function getAdminUserDetail(
       `),
     );
 
-    const sessions = rowsOf<{
-      id: string;
-      country_code: string | null;
-      ip_hash: string | null;
-      user_agent_hash: string | null;
-      created_at: Date | string | null;
-      expires_at: Date | string | null;
-      revoked_at: Date | string | null;
-    }>(
+    const sessionColsReady = rowsOf<{ ok: boolean }>(
       await tx.execute(sql`
-        select id::text, country_code, ip_hash, user_agent_hash, created_at, expires_at, revoked_at
-        from sessions
-        where user_id = ${userId}::uuid
-        order by created_at desc
-        limit 80
+        select exists (
+          select 1 from information_schema.columns
+          where table_schema = 'public' and table_name = 'sessions' and column_name = 'device_kind'
+        ) as ok
       `),
     );
+    const enrichedSessions = Boolean(sessionColsReady[0]?.ok);
+    const sessions = enrichedSessions
+      ? rowsOf<{
+          id: string;
+          country_code: string | null;
+          country_name_ar: string | null;
+          country_name_en: string | null;
+          region: string | null;
+          city: string | null;
+          ip_address: string | null;
+          ip_hash: string | null;
+          device_kind: string | null;
+          device_label: string | null;
+          user_agent_hash: string | null;
+          created_at: Date | string | null;
+          expires_at: Date | string | null;
+          revoked_at: Date | string | null;
+        }>(
+          await tx.execute(sql`
+            select s.id::text, s.country_code, cp.name_ar as country_name_ar, cp.name_en as country_name_en,
+              s.region, s.city, s.ip_address, s.ip_hash, s.device_kind, s.device_label,
+              s.user_agent_hash, s.created_at, s.expires_at, s.revoked_at
+            from sessions s
+            left join country_packs cp on cp.country_code = s.country_code
+            where s.user_id = ${userId}::uuid
+            order by s.created_at desc
+            limit 100
+          `),
+        )
+      : rowsOf<{
+          id: string;
+          country_code: string | null;
+          country_name_ar: string | null;
+          country_name_en: string | null;
+          region: string | null;
+          city: string | null;
+          ip_address: string | null;
+          ip_hash: string | null;
+          device_kind: string | null;
+          device_label: string | null;
+          user_agent_hash: string | null;
+          created_at: Date | string | null;
+          expires_at: Date | string | null;
+          revoked_at: Date | string | null;
+        }>(
+          await tx.execute(sql`
+            select s.id::text, s.country_code, cp.name_ar as country_name_ar, cp.name_en as country_name_en,
+              null::text as region, null::text as city, null::text as ip_address, s.ip_hash,
+              null::text as device_kind, null::text as device_label,
+              s.user_agent_hash, s.created_at, s.expires_at, s.revoked_at
+            from sessions s
+            left join country_packs cp on cp.country_code = s.country_code
+            where s.user_id = ${userId}::uuid
+            order by s.created_at desc
+            limit 100
+          `),
+        );
 
     const authReady = rowsOf<{ ok: boolean }>(
       await tx.execute(sql`
@@ -406,16 +463,21 @@ export function getAdminUserDetail(
           ip_address: string | null;
           ip_hash: string;
           country_code: string | null;
+          country_name_ar: string | null;
+          country_name_en: string | null;
           user_agent_hash: string | null;
           reason: string | null;
+          metadata: unknown;
         }>(
           await tx.execute(sql`
-            select id::text, created_at, outcome, ip_address, ip_hash, country_code,
-              user_agent_hash, reason
-            from security_auth_attempts
-            where user_id = ${userId}::uuid
-            order by created_at desc
-            limit 80
+            select a.id::text, a.created_at, a.outcome, a.ip_address, a.ip_hash, a.country_code,
+              cp.name_ar as country_name_ar, cp.name_en as country_name_en,
+              a.user_agent_hash, a.reason, a.metadata
+            from security_auth_attempts a
+            left join country_packs cp on cp.country_code = a.country_code
+            where a.user_id = ${userId}::uuid
+            order by a.created_at desc
+            limit 100
           `),
         )
       : [];
@@ -524,10 +586,24 @@ export function getAdminUserDetail(
       sessions: sessions.map((row) => {
         const revoked = Boolean(row.revoked_at);
         const expired = row.expires_at ? new Date(row.expires_at).getTime() < Date.now() : true;
+        const kind =
+          row.device_kind === 'phone' ||
+          row.device_kind === 'tablet' ||
+          row.device_kind === 'desktop' ||
+          row.device_kind === 'unknown'
+            ? row.device_kind
+            : null;
         return {
           id: row.id,
           countryCode: row.country_code,
+          countryNameAr: row.country_name_ar,
+          countryNameEn: row.country_name_en,
+          region: row.region,
+          city: row.city,
+          ipAddress: row.ip_address,
           ipHash: shortHash(row.ip_hash),
+          deviceKind: kind,
+          deviceLabel: row.device_label,
           deviceHash: shortHash(row.user_agent_hash),
           createdAt: isoOf(row.created_at),
           expiresAt: isoOf(row.expires_at),
@@ -535,22 +611,43 @@ export function getAdminUserDetail(
           active: !revoked && !expired,
         };
       }),
-      authAttempts: authAttempts.map((row) => ({
-        id: row.id,
-        at: isoOf(row.created_at),
-        outcome: row.outcome,
-        ipAddress: row.ip_address,
-        ipHash: shortHash(row.ip_hash) ?? row.ip_hash.slice(0, 10),
-        countryCode: row.country_code,
-        deviceHash: shortHash(row.user_agent_hash),
-        reason: row.reason,
-      })),
+      authAttempts: authAttempts.map((row) => {
+        const meta =
+          row.metadata && typeof row.metadata === 'object'
+            ? (row.metadata as Record<string, unknown>)
+            : {};
+        const kindRaw = typeof meta.deviceKind === 'string' ? meta.deviceKind : null;
+        const kind =
+          kindRaw === 'phone' ||
+          kindRaw === 'tablet' ||
+          kindRaw === 'desktop' ||
+          kindRaw === 'unknown'
+            ? kindRaw
+            : null;
+        return {
+          id: row.id,
+          at: isoOf(row.created_at),
+          outcome: row.outcome,
+          ipAddress: row.ip_address,
+          ipHash: shortHash(row.ip_hash) ?? row.ip_hash.slice(0, 10),
+          countryCode: row.country_code,
+          countryNameAr: row.country_name_ar,
+          countryNameEn: row.country_name_en,
+          region: typeof meta.region === 'string' ? meta.region : null,
+          city: typeof meta.city === 'string' ? meta.city : null,
+          deviceKind: kind,
+          deviceLabel: typeof meta.deviceLabel === 'string' ? meta.deviceLabel : null,
+          deviceHash: shortHash(row.user_agent_hash),
+          reason: row.reason,
+        };
+      }),
       audit: audit.map((row) => ({
         at: isoOf(row.occurred_at),
         action: row.action,
         resourceType: row.resource_type,
         resourceId: row.resource_id,
       })),
+      plans: catalog.filter((plan) => plan.active || plan.key === 'starter'),
     };
   }, 20_000);
 }
@@ -756,4 +853,249 @@ export function getAdminContractInspect(
       relatedUserIds: related.map((row) => row.user_id),
     };
   }, 8_000);
+}
+
+async function writeSubscriptions(
+  tx: ElevatedTx,
+  value: Record<string, StoredSubscription>,
+  userId: string,
+) {
+  await tx.execute(sql`
+    insert into platform_settings (key, value, updated_at, updated_by_user_id)
+    values (${SUBSCRIPTIONS_KEY}, ${JSON.stringify(value)}::jsonb, now(), ${userId}::uuid)
+    on conflict (key) do update
+      set value = excluded.value,
+          updated_at = now(),
+          updated_by_user_id = excluded.updated_by_user_id
+  `);
+}
+
+/** Signs the account out everywhere without suspending it. */
+export function revokeAdminUserSessions(
+  claims: SessionClaims,
+  userId: string,
+): Promise<{ revoked: number }> {
+  return elevatedTx(async (tx) => {
+    await requireScope(tx, claims, 'users');
+    if (!UUID.test(userId)) fail('user_not_found');
+    if (userId === claims.sub) fail('user_self');
+    const result = rowsOf<{ n: string }>(
+      await tx.execute(sql`
+        with updated as (
+          update sessions
+          set revoked_at = now()
+          where user_id = ${userId}::uuid and revoked_at is null
+          returning 1
+        )
+        select count(*)::text as n from updated
+      `),
+    );
+    await tx.execute(sql`
+      update users set session_version = session_version + 1, updated_at = now()
+      where id = ${userId}::uuid
+    `);
+    await tx.insert(auditLogs).values({
+      actorUserId: claims.sub,
+      action: 'site_admin.user.sessions_revoked',
+      resourceType: 'user',
+      resourceId: userId,
+      requestId: randomUUID(),
+      metadata: {},
+    });
+    return { revoked: Number(result[0]?.n ?? 0) };
+  });
+}
+
+/** Clears a security lock so the person can sign in again. */
+export async function unlockAdminUser(
+  claims: SessionClaims,
+  userId: string,
+): Promise<{ unlocked: true }> {
+  await elevatedTx(async (tx) => {
+    await requireScope(tx, claims, 'users');
+    if (!UUID.test(userId)) fail('user_not_found');
+    if (userId === claims.sub) fail('user_self');
+    const [row] = rowsOf<{ id: string }>(
+      await tx.execute(sql`select id::text from users where id = ${userId}::uuid`),
+    );
+    if (!row) fail('user_not_found');
+  });
+  await unlockUserAccount({ userId, unlockedBy: `site_admin:${claims.sub}` });
+  return { unlocked: true };
+}
+
+/** Emails a one-time password-reset link to the account. */
+export function sendAdminPasswordReset(
+  claims: SessionClaims,
+  userId: string,
+): Promise<{ sent: boolean }> {
+  return elevatedTx(async (tx) => {
+    await requireScope(tx, claims, 'users');
+    if (!UUID.test(userId)) fail('user_not_found');
+    const [user] = rowsOf<{
+      email: string | null;
+      display_name: string;
+      disabled_at: Date | string | null;
+      organization_id: string | null;
+    }>(
+      await tx.execute(sql`
+        select u.email, u.display_name, u.disabled_at,
+          (select m.organization_id::text from memberships m
+            where m.user_id = u.id and m.status = 'active'
+            order by m.created_at limit 1) as organization_id
+        from users u where u.id = ${userId}::uuid
+      `),
+    );
+    if (!user) fail('user_not_found');
+    if (user.disabled_at) fail('user_suspended');
+    if (!user.email) fail('user_no_email');
+
+    const token = randomBytes(32).toString('base64url');
+    const [tokenRow] = await tx
+      .insert(credentialTokens)
+      .values({
+        userId,
+        purpose: 'password_reset',
+        tokenHash: createHash('sha256').update(token).digest('hex'),
+        expiresAt: new Date(Date.now() + 30 * 60_000),
+      })
+      .returning({ id: credentialTokens.id });
+
+    const localePath = '/ar/reset-password';
+    const sent = await queueBrandedEmail(tx, {
+      orgId: user.organization_id,
+      recipient: user.email,
+      recipientName: user.display_name,
+      subject: 'إعادة ضبط كلمة مرور حسابك في BHD R',
+      tone: 'alert',
+      title: 'رابط إعادة ضبط كلمة المرور',
+      intro: `طلب مسؤول الموقع إرسال رابط لإعادة ضبط كلمة مرور حساب «${user.display_name}». الرابط صالح لمرة واحدة ولمدة 30 دقيقة.`,
+      details: [{ label: 'البريد', value: user.email }],
+      cta: { label: 'تعيين كلمة مرور جديدة', url: appLink(`${localePath}?token=${token}`) },
+      aggregateType: 'credential_token',
+      aggregateId: tokenRow?.id ?? userId,
+    });
+
+    await tx.insert(auditLogs).values({
+      actorUserId: claims.sub,
+      action: 'site_admin.user.password_reset_sent',
+      resourceType: 'user',
+      resourceId: userId,
+      requestId: randomUUID(),
+      metadata: { sent },
+    });
+    return { sent };
+  }).then(async (result) => {
+    if (result.sent) void sendQueuedEmailsSoon();
+    return result;
+  });
+}
+
+/** Upgrade/downgrade one of the user's organizations and email them. */
+export function updateAdminUserPlan(
+  claims: SessionClaims,
+  userId: string,
+  input: {
+    organizationId: string;
+    planKey: string;
+    status: SubscriptionStatus;
+    endsOn: string | null;
+    note: string | null;
+  },
+): Promise<{ organizationId: string; planKey: string; endsOn: string | null }> {
+  return elevatedTx(async (tx) => {
+    await requireScope(tx, claims, 'users');
+    if (!UUID.test(userId) || !UUID.test(input.organizationId)) fail('user_not_found');
+
+    const [membership] = rowsOf<{ ok: boolean }>(
+      await tx.execute(sql`
+        select exists (
+          select 1 from memberships
+          where user_id = ${userId}::uuid
+            and organization_id = ${input.organizationId}::uuid
+            and status = 'active'
+        ) as ok
+      `),
+    );
+    if (!membership?.ok) fail('organization_not_found');
+
+    const [current] = rowsOf<{ plan_key: string; name: string }>(
+      await tx.execute(sql`
+        select plan_key, display_name_ar as name
+        from organizations where id = ${input.organizationId}::uuid for update
+      `),
+    );
+    if (!current) fail('organization_not_found');
+
+    const catalog = readCatalog(await readSetting(tx, PLANS_KEY));
+    const planKey = input.planKey.trim().toLowerCase();
+    const plan = catalog.find((item) => item.key === planKey);
+    if (!plan || (!plan.active && planKey !== current.plan_key)) fail('plan_unknown');
+    if (!(SUBSCRIPTION_STATUSES as readonly string[]).includes(input.status)) fail('ledger_invalid');
+    const endsOn =
+      input.endsOn && /^\d{4}-\d{2}-\d{2}$/.test(input.endsOn) ? input.endsOn : null;
+    const note = input.note?.trim().slice(0, 200) || null;
+
+    const subscriptions = readSubscriptions(await readSetting(tx, SUBSCRIPTIONS_KEY));
+    const before = { planKey: current.plan_key, ...subscriptions[input.organizationId] };
+    subscriptions[input.organizationId] = {
+      status: input.status,
+      endsOn,
+      note,
+      updatedAt: new Date().toISOString(),
+    };
+    await tx.execute(sql`
+      update organizations set plan_key = ${planKey}, updated_at = now()
+      where id = ${input.organizationId}::uuid
+    `);
+    await writeSubscriptions(tx, subscriptions, claims.sub);
+
+    const [user] = rowsOf<{ email: string | null; display_name: string }>(
+      await tx.execute(
+        sql`select email, display_name from users where id = ${userId}::uuid`,
+      ),
+    );
+    const previous = catalog.find((item) => item.key === current.plan_key);
+    const upgraded = planKey !== current.plan_key;
+    await queueBrandedEmail(tx, {
+      orgId: input.organizationId,
+      recipient: user?.email,
+      recipientName: user?.display_name ?? null,
+      subject: upgraded
+        ? `🚀 باقة ${current.name} الآن: ${plan.nameAr}`
+        : `تحديث على اشتراك ${current.name}`,
+      tone: 'upgrade',
+      title: upgraded ? `أهلاً بك في باقة «${plan.nameAr}»` : 'تحدّث اشتراك منشأتك',
+      intro: upgraded
+        ? `حدّث مسؤول الموقع باقة منشأتك «${current.name}» إلى «${plan.nameAr}».`
+        : `حدّث مسؤول الموقع حالة اشتراك منشأتك «${current.name}».`,
+      details: [
+        ...(previous && upgraded ? [{ label: 'الباقة السابقة', value: previous.nameAr }] : []),
+        { label: 'الباقة الحالية', value: plan.nameAr },
+        { label: 'حالة الاشتراك', value: SUBSCRIPTION_LABELS[input.status].ar },
+        ...(endsOn
+          ? [{ label: 'ينتهي في', value: endsOn.split('-').reverse().join('/') }]
+          : []),
+        ...(note ? [{ label: 'ملاحظة', value: note }] : []),
+      ],
+      cta: { label: 'فتح لوحة التحكم', url: appLink('/ar/owner') },
+      aggregateType: 'organization',
+      aggregateId: input.organizationId,
+    });
+
+    await tx.insert(auditLogs).values({
+      organizationId: input.organizationId,
+      actorUserId: claims.sub,
+      action: 'site_admin.user.subscription.updated',
+      resourceType: 'organization',
+      resourceId: input.organizationId,
+      requestId: randomUUID(),
+      metadata: { userId, before, after: { planKey, status: input.status, endsOn, note } },
+    });
+
+    return { organizationId: input.organizationId, planKey, endsOn };
+  }, 12_000).then(async (result) => {
+    void sendQueuedEmailsSoon();
+    return result;
+  });
 }

@@ -165,6 +165,11 @@ export type SessionClientContext = {
   ipHash?: string | null;
   userAgentHash?: string | null;
   countryCode?: string | null;
+  deviceKind?: string | null;
+  deviceLabel?: string | null;
+  region?: string | null;
+  city?: string | null;
+  ipAddress?: string | null;
 };
 
 async function issueForUser(
@@ -232,6 +237,13 @@ async function issueForUser(
     ...(client.ipHash ? { ipHash: client.ipHash } : {}),
     ...(client.userAgentHash ? { userAgentHash: client.userAgentHash } : {}),
     ...(client.countryCode ? { countryCode: client.countryCode } : {}),
+    ...(client.deviceKind ? { deviceKind: client.deviceKind } : {}),
+    ...(client.deviceLabel ? { deviceLabel: client.deviceLabel } : {}),
+    ...(client.region ? { region: client.region } : {}),
+    ...(client.city ? { city: client.city } : {}),
+    ...(client.ipAddress && client.ipAddress !== 'unknown'
+      ? { ipAddress: client.ipAddress.slice(0, 64) }
+      : {}),
   });
   const identitySub = user.identitySubject?.trim();
   return {

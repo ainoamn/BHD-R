@@ -574,7 +574,14 @@ export type AdminUserReview = {
 export type AdminUserSession = {
   id: string;
   countryCode: string | null;
+  countryNameAr: string | null;
+  countryNameEn: string | null;
+  region: string | null;
+  city: string | null;
+  ipAddress: string | null;
   ipHash: string | null;
+  deviceKind: 'phone' | 'tablet' | 'desktop' | 'unknown' | null;
+  deviceLabel: string | null;
   deviceHash: string | null;
   createdAt: string | null;
   expiresAt: string | null;
@@ -589,6 +596,12 @@ export type AdminUserAuthAttempt = {
   ipAddress: string | null;
   ipHash: string;
   countryCode: string | null;
+  countryNameAr: string | null;
+  countryNameEn: string | null;
+  region: string | null;
+  city: string | null;
+  deviceKind: 'phone' | 'tablet' | 'desktop' | 'unknown' | null;
+  deviceLabel: string | null;
   deviceHash: string | null;
   reason: string | null;
 };
@@ -627,6 +640,7 @@ export type AdminUserDetail = {
   sessions: AdminUserSession[];
   authAttempts: AdminUserAuthAttempt[];
   audit: AdminUserAudit[];
+  plans: PlanDefinition[];
 };
 
 export type AdminPropertyInspect = {
@@ -853,6 +867,16 @@ const ERRORS: Record<string, { status: number; ar: string; en: string }> = {
     status: 404,
     ar: 'القيد غير موجود.',
     en: 'Ledger entry not found.',
+  },
+  user_suspended: {
+    status: 409,
+    ar: 'الحساب موقوف؛ أعد تفعيله قبل إرسال رابط كلمة المرور.',
+    en: 'Account is suspended; restore it before sending a reset link.',
+  },
+  user_no_email: {
+    status: 400,
+    ar: 'لا يوجد بريد إلكتروني صالح لهذا الحساب.',
+    en: 'This account has no usable email address.',
   },
   accounting_unavailable: {
     status: 503,

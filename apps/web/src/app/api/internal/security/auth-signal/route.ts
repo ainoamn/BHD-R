@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { parseDeviceFromUserAgent } from '@/lib/client-device';
 import { assertCronAuthorized, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { assertRouteRateLimit } from '@/lib/route-rate-limit';
 import {
@@ -71,11 +72,16 @@ export async function POST(request: Request) {
 
   const fallback = clientSecurityContext(request);
   const ipAddress = body.ipAddress?.trim() || fallback.ipAddress;
+  const parsed = parseDeviceFromUserAgent(body.userAgent);
   const ctx = {
     ipAddress,
     ipHash: hashIpAddress(ipAddress),
     userAgentHash: hashUserAgent(body.userAgent) ?? fallback.userAgentHash,
     countryCode: body.countryCode?.toUpperCase() ?? fallback.countryCode,
+    deviceKind: parsed.kind !== 'unknown' ? parsed.kind : fallback.deviceKind,
+    deviceLabel: parsed.label ?? fallback.deviceLabel,
+    region: fallback.region,
+    city: fallback.city,
   };
 
   const result = await recordAuthAttempt({

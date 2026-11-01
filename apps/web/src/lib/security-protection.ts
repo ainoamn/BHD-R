@@ -10,6 +10,7 @@ import {
 } from '@bhd-r/db';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
 import { clientIp } from '@/lib/route-rate-limit';
+import { deviceGeoFromRequest, type DeviceKind } from '@/lib/client-device';
 import {
   SECURITY_THRESHOLDS,
   shouldLockAccount,
@@ -22,6 +23,10 @@ export type ClientSecurityContext = {
   ipHash: string;
   userAgentHash: string | null;
   countryCode: string | null;
+  deviceKind: DeviceKind;
+  deviceLabel: string | null;
+  region: string | null;
+  city: string | null;
 };
 
 function pepper(): string {
@@ -65,11 +70,16 @@ export function countryFromRequest(request: Request): string | null {
 
 export function clientSecurityContext(request: Request): ClientSecurityContext {
   const ipAddress = clientIp(request);
+  const device = deviceGeoFromRequest(request);
   return {
     ipAddress,
     ipHash: hashIpAddress(ipAddress),
     userAgentHash: hashUserAgent(request.headers.get('user-agent')),
     countryCode: countryFromRequest(request),
+    deviceKind: device.deviceKind,
+    deviceLabel: device.deviceLabel,
+    region: device.region,
+    city: device.city,
   };
 }
 
@@ -293,7 +303,13 @@ export async function recordAuthAttempt(input: {
         userId: input.userId ?? null,
         identitySubject: input.identitySubject ?? null,
         reason: input.reason?.slice(0, 80) ?? null,
-        metadata: input.metadata ?? {},
+        metadata: {
+          ...(input.metadata ?? {}),
+          deviceKind: input.ctx.deviceKind,
+          deviceLabel: input.ctx.deviceLabel,
+          region: input.ctx.region,
+          city: input.ctx.city,
+        },
       });
     });
   } catch (error) {

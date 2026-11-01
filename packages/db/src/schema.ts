@@ -340,12 +340,23 @@ export const sessions = pgTable(
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
     ipHash: varchar('ip_hash', { length: 64 }),
     userAgentHash: varchar('user_agent_hash', { length: 64 }),
-    /** ISO 3166-1 alpha-2 from edge (e.g. CF-IPCountry); never a raw IP. */
+    /** ISO 3166-1 alpha-2 from edge (e.g. CF-IPCountry). */
     countryCode: varchar('country_code', { length: 2 }),
+    /** Coarse class for admin dossiers: phone | tablet | desktop | unknown. */
+    deviceKind: varchar('device_kind', { length: 16 }),
+    deviceLabel: varchar('device_label', { length: 120 }),
+    region: varchar('region', { length: 80 }),
+    city: varchar('city', { length: 120 }),
+    /** Login IP for site-admin review; hashed copy remains in ipHash. */
+    ipAddress: varchar('ip_address', { length: 64 }),
   },
   (table) => [
     uniqueIndex('sessions_token_hash_unique').on(table.tokenIdHash),
     index('sessions_user_idx').on(table.userId),
+    check(
+      'sessions_device_kind_check',
+      sql`${table.deviceKind} IS NULL OR ${table.deviceKind} IN ('phone', 'tablet', 'desktop', 'unknown')`,
+    ),
   ],
 );
 
