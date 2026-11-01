@@ -621,7 +621,7 @@ export async function getAdminUserDetail(
             ? (row.metadata as Record<string, unknown>)
             : {};
         const kindRaw = typeof meta.deviceKind === 'string' ? meta.deviceKind : null;
-        const kind =
+        const kind: 'phone' | 'tablet' | 'desktop' | 'unknown' | null =
           kindRaw === 'phone' ||
           kindRaw === 'tablet' ||
           kindRaw === 'desktop' ||
