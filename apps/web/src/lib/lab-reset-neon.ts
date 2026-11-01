@@ -384,6 +384,7 @@ export async function labResetPurge(
   ];
   const sorted = order.filter((item) => selected.includes(item));
 
+  // Keep under the route maxDuration (60s) so Vercel does not drop the socket as a bare network_error.
   return elevatedTx(async (tx) => {
     const deleted: Partial<Record<LabResetCategory, number>> = {};
     for (const category of sorted) {
@@ -420,5 +421,5 @@ export async function labResetPurge(
       }
     }
     return { deleted };
-  }, 120_000);
+  }, 50_000);
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from '@/i18n/navigation';
-import { ApiError, browserNextMutation } from '@/lib/api';
+import { ApiError, browserNextMutation, fetchBrowserCsrfToken } from '@/lib/api';
 import {
   LAB_RESET_CATEGORIES,
   LAB_RESET_CONFIRM,
@@ -54,6 +54,8 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
 
   useEffect(() => {
     void load();
+    // Warm Vercel CSRF so the purge POST does not pay a cold-start on /api/auth/csrf.
+    void fetchBrowserCsrfToken(true).catch(() => undefined);
   }, [load]);
 
   const toggle = (category: LabResetCategory) => {
@@ -81,16 +83,25 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
       );
       return;
     }
+    const selectedList = [...selected];
+    const selectableTotal = selectedList.reduce((sum, key) => sum + (counts?.[key] ?? 0), 0);
+    if (counts && selectableTotal === 0) {
+      setMessage(
+        ar ? 'لا صفوف للحذف في الفئات المختارة.' : 'Nothing to delete in the selected categories.',
+      );
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
+      // Stay under the route maxDuration (60s) so a killed function is not reported as network_error.
       const result = await browserNextMutation<LabResetResult>('/api/site-admin/lab-reset', {
         method: 'POST',
         body: JSON.stringify({
-          categories: [...selected],
+          categories: selectedList,
           confirm: confirm.trim(),
         }),
-        signal: AbortSignal.timeout(120_000),
+        signal: AbortSignal.timeout(55_000),
       });
       const parts = Object.entries(result.deleted ?? {})
         .filter(([, n]) => (n ?? 0) > 0)
@@ -109,6 +120,7 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
       await load();
     } catch (error) {
       const code = error instanceof ApiError ? error.code : '';
+      const detail = error instanceof ApiError ? error.message : '';
       setMessage(
         code === 'forbidden'
           ? ar
@@ -122,9 +134,19 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
               ? ar
                 ? 'محاولات كثيرة — انتظر دقيقة ثم أعد المحاولة.'
                 : 'Too many attempts — wait a minute and retry.'
-              : ar
-                ? `تعذر الحذف${code ? ` (${code})` : ''}. أعد المحاولة.`
-                : `Could not reset${code ? ` (${code})` : ''}. Try again.`,
+              : code === 'csrf_timeout' || code === 'csrf_unavailable' || code === 'csrf_rejected'
+                ? detail ||
+                  (ar
+                    ? 'رمز الحماية غير جاهز — حدّث الصفحة وأعد المحاولة.'
+                    : 'Security token not ready — refresh and retry.')
+                : code === 'network_error' || code === 'api_unreachable'
+                  ? detail ||
+                    (ar
+                      ? 'تعذر الاتصال أثناء الحذف. حدّث الصفحة وأعد المحاولة.'
+                      : 'Could not reach the server. Refresh and retry.')
+                  : ar
+                    ? `تعذر الحذف${code ? ` (${code})` : ''}. أعد المحاولة.`
+                    : `Could not reset${code ? ` (${code})` : ''}. Try again.`,
       );
     } finally {
       setBusy(false);

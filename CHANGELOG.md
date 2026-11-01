@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.8 — 2026-11-01
+
+- **إعادة ضبط التجارب:** إصلاح `network_error` عند الحذف — إطالة مهلة CSRF على Next مع إعادة محاولة، تسخين الرمز عند فتح الصفحة، ورسائل أوضح عند انتهاء المهلة؛ وتخطي الاستدعاء عندما تكون الفئات المختارة فارغة.
+
 ## 0.8.136.7 — 2026-11-01
 
 - **Vitest استعادة #2:** إعادة `email-template`؛ مواءمة `wrapLegacyEmail` مع وسم الترحيب و`seed` في `renderBrandedEmail` حتى يُحقَن نص الرسالة بدل إسقاطه.

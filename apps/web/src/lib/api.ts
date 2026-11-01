@@ -96,39 +96,60 @@ async function getNextCsrfToken(force = false): Promise<string> {
   if (!force && cachedNextCsrfToken) return cachedNextCsrfToken;
   if (!force && nextCsrfInflight) return nextCsrfInflight;
   nextCsrfInflight = (async () => {
-    let response: Response;
+    const attempt = async (): Promise<string> => {
+      let response: Response;
+      try {
+        // Hobby cold starts often exceed 12s; keep aligned with Nest CSRF budget.
+        response = await fetch('/api/auth/csrf', {
+          credentials: 'same-origin',
+          headers: { accept: 'application/json' },
+          signal: AbortSignal.timeout(40_000),
+          cache: 'no-store',
+        });
+      } catch (error) {
+        const timedOut =
+          (error instanceof DOMException && error.name === 'TimeoutError') ||
+          (error instanceof Error && /abort|timeout/i.test(error.message));
+        throw new ApiError(
+          0,
+          timedOut ? 'csrf_timeout' : 'network_error',
+          timedOut
+            ? 'رمز الحماية تأخر (إقلاع الخادم) — انتظر لحظات ثم أعد المحاولة.'
+            : 'تعذر إنشاء رمز الحماية. حدّث الصفحة أو سجّل الدخول مجدداً.',
+        );
+      }
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { code?: string; message?: string; messageAr?: string };
+        } | null;
+        throw new ApiError(
+          response.status,
+          payload?.error?.code ?? 'csrf_unavailable',
+          payload?.error?.messageAr ??
+            payload?.error?.message ??
+            'تعذر إنشاء طلب آمن. سجّل الخروج وادخل مجدداً ثم أعد المحاولة.',
+        );
+      }
+      const payload = (await response.json()) as { token?: string };
+      if (!payload.token || payload.token.length < 16) {
+        throw new ApiError(500, 'csrf_unavailable', 'تعذر إنشاء رمز الحماية.');
+      }
+      cachedNextCsrfToken = payload.token;
+      return payload.token;
+    };
     try {
-      response = await fetch('/api/auth/csrf', {
-        credentials: 'same-origin',
-        headers: { accept: 'application/json' },
-        signal: AbortSignal.timeout(12_000),
-        cache: 'no-store',
-      });
-    } catch {
-      throw new ApiError(
-        0,
-        'network_error',
-        'تعذر إنشاء رمز الحماية. حدّث الصفحة أو سجّل الدخول مجدداً.',
-      );
+      return await attempt();
+    } catch (error) {
+      // One retry after a cold-start miss / blip before surfacing to the desk.
+      if (
+        error instanceof ApiError &&
+        (error.code === 'network_error' || error.code === 'csrf_timeout')
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 800));
+        return attempt();
+      }
+      throw error;
     }
-    if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as {
-        error?: { code?: string; message?: string; messageAr?: string };
-      } | null;
-      throw new ApiError(
-        response.status,
-        payload?.error?.code ?? 'csrf_unavailable',
-        payload?.error?.messageAr ??
-          payload?.error?.message ??
-          'تعذر إنشاء طلب آمن. سجّل الخروج وادخل مجدداً ثم أعد المحاولة.',
-      );
-    }
-    const payload = (await response.json()) as { token?: string };
-    if (!payload.token || payload.token.length < 16) {
-      throw new ApiError(500, 'csrf_unavailable', 'تعذر إنشاء رمز الحماية.');
-    }
-    cachedNextCsrfToken = payload.token;
-    return payload.token;
   })();
   try {
     return await nextCsrfInflight;
@@ -340,8 +361,17 @@ export async function browserNextMutation<T>(path: string, init: RequestInit): P
         },
         signal: init.signal ?? AbortSignal.timeout(45_000),
       });
-    } catch {
-      throw new ApiError(0, 'network_error', 'تعذر إكمال الطلب. تحقق من الشبكة ثم أعد المحاولة.');
+    } catch (error) {
+      const timedOut =
+        (error instanceof DOMException && error.name === 'TimeoutError') ||
+        (error instanceof Error && /abort|timeout/i.test(error.message));
+      throw new ApiError(
+        0,
+        timedOut ? 'api_unreachable' : 'network_error',
+        timedOut
+          ? 'انتهت مهلة الطلب قبل اكتماله — أعد المحاولة بعد لحظات.'
+          : 'تعذر إكمال الطلب. تحقق من الشبكة ثم أعد المحاولة.',
+      );
     }
     if (!response.ok) {
       const payload = (await response.json().catch(() => null)) as {
@@ -364,7 +394,8 @@ export async function browserNextMutation<T>(path: string, init: RequestInit): P
     return response.json() as Promise<T>;
   };
 
-  const token = await getNextCsrfToken(true);
+  // Prefer a warmed token; force-refresh only after a CSRF rejection.
+  const token = await getNextCsrfToken(false);
   try {
     return await run(token);
   } catch (error) {
