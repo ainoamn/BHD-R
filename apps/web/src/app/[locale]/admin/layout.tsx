@@ -1,8 +1,12 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { SiteAdminChrome } from '@/components/site-admin/site-admin-chrome';
+import { SiteAdminUnavailable } from '@/components/site-admin/site-admin-unavailable';
+import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { readClaims } from '@/lib/portal-ops-data';
 import { privatePortalRobots } from '@/lib/seo';
-import { requireSiteAdminPage } from '@/lib/site-admin-page';
+import { siteAdminAccess } from '@/lib/site-admin-neon';
 import '../../site-admin.css';
 import '../../portal-adaptive.css';
 import '../../badges-verification.css';
@@ -20,6 +24,9 @@ export const metadata: Metadata = {
 /**
  * Dedicated chrome for site owners / managers only.
  * Sidebar lives here so every console page shares one navigation.
+ *
+ * Access denial is rendered here (not via notFound()) because a layout-level
+ * notFound() bubbles to the root catalogue 404 and skips admin/not-found.tsx.
  */
 export default async function SiteAdminLayout({
   children,
@@ -31,7 +38,17 @@ export default async function SiteAdminLayout({
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  const access = await requireSiteAdminPage(locale, null, { path: '/admin' });
+  if (!hasDatabaseUrl()) return <SiteAdminUnavailable />;
+  const claims = await readClaims();
+  if (!claims) redirect(`/${locale}/login?next=${encodeURIComponent(`/${locale}/admin`)}`);
+  let access;
+  try {
+    access = await siteAdminAccess(claims);
+  } catch (error) {
+    console.error('SiteAdminLayout: siteAdminAccess failed', error);
+    throw error;
+  }
+  if (!access) return <SiteAdminUnavailable />;
   return (
     <div className="site-admin-shell">
       <SiteAdminChrome access={access} locale={locale}>
