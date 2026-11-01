@@ -38,7 +38,7 @@ export default async function SiteAdminLayout({
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   setRequestLocale(locale);
-  if (!hasDatabaseUrl()) return <SiteAdminUnavailable />;
+  if (!hasDatabaseUrl()) return <SiteAdminUnavailable locale={locale} />;
   const claims = await readClaims();
   if (!claims) redirect(`/${locale}/login?next=${encodeURIComponent(`/${locale}/admin`)}`);
   let access;
@@ -48,7 +48,7 @@ export default async function SiteAdminLayout({
     console.error('SiteAdminLayout: siteAdminAccess failed', error);
     throw error;
   }
-  if (!access) return <SiteAdminUnavailable />;
+  if (!access) return <SiteAdminUnavailable locale={locale} />;
   return (
     <div className="site-admin-shell">
       <SiteAdminChrome access={access} locale={locale}>

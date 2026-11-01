@@ -2,5 +2,5 @@ import { SiteAdminUnavailable } from '@/components/site-admin/site-admin-unavail
 
 /** Segment not-found for /admin — never reuse the public catalogue 404 copy. */
 export default function SiteAdminNotFound() {
-  return <SiteAdminUnavailable />;
+  return <SiteAdminUnavailable locale="ar" />;
 }
