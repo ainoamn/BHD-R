@@ -73,44 +73,62 @@ export function clientSecurityContext(request: Request): ClientSecurityContext {
   };
 }
 
+function isMissingSecurityRelation(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /security_(auth_attempts|ip_quarantines|account_locks)|security_locked_at|undefined_table|does not exist/i.test(
+    message,
+  );
+}
+
 export async function isIpQuarantined(ipHash: string): Promise<{
   blocked: boolean;
   untilAt?: string;
   reason?: string;
 }> {
-  return elevatedTx(async (tx) => {
-    const [row] = rowsOf<{ until_at: Date; reason: string }>(
-      await tx.execute(sql`
-        select until_at, reason
-        from security_ip_quarantines
-        where ip_hash = ${ipHash}
-          and released_at is null
-          and until_at > now()
-        order by until_at desc
-        limit 1
-      `),
-    );
-    if (!row) return { blocked: false };
-    return {
-      blocked: true,
-      untilAt: row.until_at.toISOString(),
-      reason: row.reason,
-    };
-  });
+  try {
+    return await elevatedTx(async (tx) => {
+      const [row] = rowsOf<{ until_at: Date; reason: string }>(
+        await tx.execute(sql`
+          select until_at, reason
+          from security_ip_quarantines
+          where ip_hash = ${ipHash}
+            and released_at is null
+            and until_at > now()
+          order by until_at desc
+          limit 1
+        `),
+      );
+      if (!row) return { blocked: false };
+      return {
+        blocked: true,
+        untilAt: row.until_at.toISOString(),
+        reason: row.reason,
+      };
+    });
+  } catch (error) {
+    // Migration 0052 not applied yet — never block SSO for missing security tables.
+    if (isMissingSecurityRelation(error)) return { blocked: false };
+    throw error;
+  }
 }
 
 export async function isUserSecurityLocked(userId: string): Promise<boolean> {
-  return elevatedTx(async (tx) => {
-    const [row] = rowsOf<{ locked: boolean }>(
-      await tx.execute(sql`
-        select (security_locked_at is not null) as locked
-        from users
-        where id = ${userId}::uuid
-        limit 1
-      `),
-    );
-    return Boolean(row?.locked);
-  });
+  try {
+    return await elevatedTx(async (tx) => {
+      const [row] = rowsOf<{ locked: boolean }>(
+        await tx.execute(sql`
+          select (security_locked_at is not null) as locked
+          from users
+          where id = ${userId}::uuid
+          limit 1
+        `),
+      );
+      return Boolean(row?.locked);
+    });
+  } catch (error) {
+    if (isMissingSecurityRelation(error)) return false;
+    throw error;
+  }
 }
 
 export async function quarantineIp(input: {
@@ -262,21 +280,26 @@ export async function recordAuthAttempt(input: {
 }): Promise<{ quarantined: boolean; locked: boolean }> {
   const emailHash = input.email ? hashEmailForSecurity(input.email) : null;
 
-  await elevatedTx(async (tx) => {
-    await tx.insert(securityAuthAttempts).values({
-      outcome: input.outcome,
-      source: (input.source ?? 'product').slice(0, 40),
-      ipAddress: input.ctx.ipAddress === 'unknown' ? null : input.ctx.ipAddress.slice(0, 64),
-      ipHash: input.ctx.ipHash,
-      countryCode: input.ctx.countryCode,
-      userAgentHash: input.ctx.userAgentHash,
-      emailHash,
-      userId: input.userId ?? null,
-      identitySubject: input.identitySubject ?? null,
-      reason: input.reason?.slice(0, 80) ?? null,
-      metadata: input.metadata ?? {},
+  try {
+    await elevatedTx(async (tx) => {
+      await tx.insert(securityAuthAttempts).values({
+        outcome: input.outcome,
+        source: (input.source ?? 'product').slice(0, 40),
+        ipAddress: input.ctx.ipAddress === 'unknown' ? null : input.ctx.ipAddress.slice(0, 64),
+        ipHash: input.ctx.ipHash,
+        countryCode: input.ctx.countryCode,
+        userAgentHash: input.ctx.userAgentHash,
+        emailHash,
+        userId: input.userId ?? null,
+        identitySubject: input.identitySubject ?? null,
+        reason: input.reason?.slice(0, 80) ?? null,
+        metadata: input.metadata ?? {},
+      });
     });
-  });
+  } catch (error) {
+    if (isMissingSecurityRelation(error)) return { quarantined: false, locked: false };
+    throw error;
+  }
 
   let quarantined = false;
   let locked = false;

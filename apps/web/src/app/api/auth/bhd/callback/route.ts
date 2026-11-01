@@ -192,13 +192,14 @@ export async function GET(request: Request) {
         countryCode: ctx.countryCode,
       },
     });
+    // Telemetry must never undo a successful session (e.g. missing security_* tables).
     await recordAuthAttempt({
       outcome: 'success',
       source: 'oauth_callback',
       ctx,
       userId: issued.claims.sub,
       reason: 'session_issued',
-    });
+    }).catch(() => undefined);
   } catch (error) {
     const classified = classifySessionError(error);
     console.error('[bhd callback] session', classified.code);
