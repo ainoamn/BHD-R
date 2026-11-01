@@ -1,6 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { BilingualNameField } from '@/components/bilingual-name-field';
 import { EmailOtpField } from '@/components/email-otp-field';
 import { InternationalPhoneField } from '@/components/international-phone-field';
@@ -20,7 +26,29 @@ import {
   reservationPartySchema,
   type ReservationParty,
 } from '@/lib/reservation-party';
-import { sortedCountries } from '@/lib/world-countries';
+import { isInternationalPhone, sortedCountries } from '@/lib/world-countries';
+
+type PartyStep = {
+  id: string;
+  label: string;
+  done: boolean;
+  focusId?: string;
+  body: ReactNode;
+};
+
+function filled(value: string | null | undefined, min = 2): boolean {
+  return Boolean(value && value.trim().length >= min);
+}
+
+function focusStepField(id: string | undefined) {
+  if (!id || typeof document === 'undefined') return;
+  window.requestAnimationFrame(() => {
+    const el = document.getElementById(id);
+    if (!(el instanceof HTMLElement)) return;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
+}
 
 type SignatoryForm = {
   name: string;
@@ -185,9 +213,8 @@ function fieldHint(path: string, ar: boolean): string {
 }
 
 /**
- * Who the contract is with: contract type and term (lease), then an individual (bilingual name,
- * nationality, civil ID, passport for non-Omanis, two phones, email) or a company (CR data,
- * address, activity, and its single or joint signatories).
+ * Progressive contract-party form: one field (or small group) at a time.
+ * Completing the current step reveals the next and moves focus there.
  */
 export function ReservationPartyForm({
   value,
@@ -212,11 +239,12 @@ export function ReservationPartyForm({
   const person = value.person;
   const company = value.company;
   const omani = person.nationality === 'OM';
+  const today = muscatToday();
   const crMin = useMemo(() => {
-    const date = new Date(`${muscatToday()}T00:00:00Z`);
+    const date = new Date(`${today}T00:00:00Z`);
     date.setUTCMonth(date.getUTCMonth() + CR_MIN_VALID_MONTHS);
     return date.toISOString().slice(0, 10);
-  }, []);
+  }, [today]);
   const termOptions = useMemo(
     () =>
       [...new Set([minMonths, 12, 24, 36, 48, 60].filter((months) => months >= minMonths))].sort(
@@ -236,67 +264,88 @@ export function ReservationPartyForm({
       ),
     });
 
-  const missing =
-    entityType === 'person' ? missingPersonFields(person) : missingCompanyFields(company);
+  const [nationalityConfirmed, setNationalityConfirmed] = useState(
+    () => filled(person.civilId, 4) || filled(person.nameAr) || filled(person.nameEn),
+  );
+  const [unlocked, setUnlocked] = useState(0);
+  const [viewIndex, setViewIndex] = useState(0);
+  const lastFocused = useRef<string | null>(null);
 
-  return (
-    <div className="party-form">
-      <MissingFieldsBanner locale={locale} fields={missing} />
-      {!sale ? (
-        <fieldset className="party-form__section">
-          <legend>{ar ? 'العقد' : 'Contract'}</legend>
-          <div className="stays-checkout__grid">
-            <div className="field">
-              <label htmlFor="party-contract-type">
-                {ar ? 'نوع الاستخدام (العقد)' : 'Usage type (contract)'}
-              </label>
-              <select
-                id="party-contract-type"
-                className="select"
-                value={value.contractType}
-                onChange={(event) =>
-                  onChange({ ...value, contractType: event.target.value as ContractUse })
-                }
-              >
-                <option value="residential">{ar ? 'سكني' : 'Residential'}</option>
-                <option value="commercial">{ar ? 'تجاري' : 'Commercial'}</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="party-term">
-                {ar ? 'مدة العقد (بالأشهر)' : 'Contract term (months)'}
-              </label>
-              <input
-                id="party-term"
-                className="input"
-                type="number"
-                inputMode="numeric"
-                list="party-term-options"
-                min={minMonths}
-                max={MAX_LEASE_MONTHS}
-                dir="ltr"
-                required
-                value={value.termMonths}
-                onChange={(event) => onChange({ ...value, termMonths: event.target.value })}
-              />
-              <datalist id="party-term-options">
-                {termOptions.map((months) => (
-                  <option key={months} value={months} />
-                ))}
-              </datalist>
-              <p className="field__hint muted">
-                {ar
-                  ? `إلزامي — أقل مدة يقبلها المالك ${minMonths} شهراً.`
-                  : `Required — the owner accepts at least ${minMonths} months.`}
-              </p>
-            </div>
+  const emailOk = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const firstSig = company.signatories[0] ?? EMPTY_SIGNATORY;
+
+  const steps = useMemo((): PartyStep[] => {
+    const list: PartyStep[] = [];
+
+    if (!sale) {
+      list.push({
+        id: 'contractType',
+        label: ar ? 'نوع الاستخدام' : 'Usage type',
+        done: Boolean(value.contractType),
+        focusId: 'party-contract-type',
+        body: (
+          <div className="field">
+            <label htmlFor="party-contract-type">
+              {ar ? 'نوع الاستخدام (العقد)' : 'Usage type (contract)'}
+            </label>
+            <select
+              id="party-contract-type"
+              className="select"
+              value={value.contractType}
+              onChange={(event) =>
+                onChange({ ...value, contractType: event.target.value as ContractUse })
+              }
+            >
+              <option value="residential">{ar ? 'سكني' : 'Residential'}</option>
+              <option value="commercial">{ar ? 'تجاري' : 'Commercial'}</option>
+            </select>
           </div>
-        </fieldset>
-      ) : null}
+        ),
+      });
+      list.push({
+        id: 'termMonths',
+        label: ar ? 'مدة العقد' : 'Contract term',
+        done: Number(value.termMonths) >= minMonths,
+        focusId: 'party-term',
+        body: (
+          <div className="field">
+            <label htmlFor="party-term">
+              {ar ? 'مدة العقد (بالأشهر)' : 'Contract term (months)'}
+            </label>
+            <input
+              id="party-term"
+              className="input"
+              type="number"
+              inputMode="numeric"
+              list="party-term-options"
+              min={minMonths}
+              max={MAX_LEASE_MONTHS}
+              dir="ltr"
+              required
+              value={value.termMonths}
+              onChange={(event) => onChange({ ...value, termMonths: event.target.value })}
+            />
+            <datalist id="party-term-options">
+              {termOptions.map((months) => (
+                <option key={months} value={months} />
+              ))}
+            </datalist>
+            <p className="field__hint muted">
+              {ar
+                ? `أقل مدة يقبلها المالك ${minMonths} شهراً.`
+                : `Owner minimum: ${minMonths} months.`}
+            </p>
+          </div>
+        ),
+      });
+    }
 
-      {holder === 'other' ? (
-        <fieldset className="party-form__section">
-          <legend>{ar ? `نوع الجهة ${sale ? 'المشترية' : 'المستأجرة'}` : `${role} type`}</legend>
+    if (holder === 'other') {
+      list.push({
+        id: 'entityType',
+        label: ar ? 'شخصي أو شركة' : 'Personal or company',
+        done: value.entityType === 'person' || value.entityType === 'company',
+        body: (
           <div className="lease-checkout__modes" role="radiogroup">
             {(['person', 'company'] as const).map((option) => (
               <button
@@ -311,13 +360,18 @@ export function ReservationPartyForm({
               </button>
             ))}
           </div>
-        </fieldset>
-      ) : null}
+        ),
+      });
+    }
 
-      {entityType === 'person' ? (
-        <fieldset className="party-form__section">
-          <legend>{ar ? `بيانات ${role}` : `The ${role}`}</legend>
-          <div className="stays-checkout__grid">
+    if (entityType === 'person') {
+      list.push(
+        {
+          id: 'personName',
+          label: ar ? `اسم ${role}` : `${role} name`,
+          done: filled(person.nameAr) && filled(person.nameEn),
+          focusId: 'party-person-name-ar',
+          body: (
             <BilingualNameField
               idPrefix="party-person-name"
               labelAr={ar ? `اسم ${role} (عربي)` : 'Name (Arabic)'}
@@ -327,6 +381,14 @@ export function ReservationPartyForm({
               onChange={setPerson}
               locale={locale}
             />
+          ),
+        },
+        {
+          id: 'nationality',
+          label: ar ? 'الجنسية' : 'Nationality',
+          done: nationalityConfirmed && Boolean(person.nationality),
+          focusId: 'party-nationality',
+          body: (
             <div className="field">
               <label htmlFor="party-nationality">
                 {ar ? 'الجنسية' : 'Nationality'}
@@ -336,7 +398,10 @@ export function ReservationPartyForm({
                 id="party-nationality"
                 className="select"
                 value={person.nationality}
-                onChange={(event) => setPerson({ nationality: event.target.value })}
+                onChange={(event) => {
+                  setNationalityConfirmed(true);
+                  setPerson({ nationality: event.target.value });
+                }}
               >
                 {countries.map((row) => (
                   <option key={row.code} value={row.code}>
@@ -344,7 +409,24 @@ export function ReservationPartyForm({
                   </option>
                 ))}
               </select>
+              {!nationalityConfirmed ? (
+                <button
+                  type="button"
+                  className="button button--primary party-form__next"
+                  onClick={() => setNationalityConfirmed(true)}
+                >
+                  {ar ? 'تأكيد والمتابعة' : 'Confirm & continue'}
+                </button>
+              ) : null}
             </div>
+          ),
+        },
+        {
+          id: 'civilId',
+          label: ar ? 'الرقم المدني' : 'Civil ID',
+          done: filled(person.civilId, 4),
+          focusId: 'party-civil',
+          body: (
             <div className="field">
               <label htmlFor="party-civil">
                 {ar ? 'الرقم المدني' : 'Civil ID'}
@@ -360,6 +442,14 @@ export function ReservationPartyForm({
                 onChange={(event) => setPerson({ civilId: event.target.value })}
               />
             </div>
+          ),
+        },
+        {
+          id: 'civilExpiry',
+          label: ar ? 'انتهاء البطاقة' : 'Civil ID expiry',
+          done: Boolean(person.civilIdExpiresOn && person.civilIdExpiresOn >= today),
+          focusId: 'party-civil-expiry',
+          body: (
             <div className="field">
               <label htmlFor="party-civil-expiry">
                 {ar ? 'انتهاء البطاقة' : 'Civil ID expiry'}
@@ -370,11 +460,19 @@ export function ReservationPartyForm({
                 className="input"
                 type="date"
                 required
-                min={muscatToday()}
+                min={today}
                 value={person.civilIdExpiresOn}
                 onChange={(event) => setPerson({ civilIdExpiresOn: event.target.value })}
               />
             </div>
+          ),
+        },
+        {
+          id: 'civilCopy',
+          label: ar ? 'نسخة البطاقة' : 'Civil ID copy',
+          done: Boolean(person.civilIdCopy),
+          focusId: 'party-civil-copy',
+          body: (
             <PartyDocAttachField
               id="party-civil-copy"
               label={ar ? 'نسخة البطاقة' : 'Civil ID copy'}
@@ -383,48 +481,84 @@ export function ReservationPartyForm({
               value={person.civilIdCopy}
               onChange={(civilIdCopy) => setPerson({ civilIdCopy })}
             />
-            {!omani ? (
-              <>
-                <div className="field">
-                  <label htmlFor="party-passport">
-                    {ar ? 'رقم الجواز' : 'Passport number'}
-                    <span aria-hidden="true"> *</span>
-                  </label>
-                  <input
-                    id="party-passport"
-                    className="input"
-                    dir="ltr"
-                    required
-                    maxLength={32}
-                    value={person.passport}
-                    onChange={(event) => setPerson({ passport: event.target.value })}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor="party-passport-expiry">
-                    {ar ? 'انتهاء الجواز' : 'Passport expiry'}
-                    <span aria-hidden="true"> *</span>
-                  </label>
-                  <input
-                    id="party-passport-expiry"
-                    className="input"
-                    type="date"
-                    required
-                    min={muscatToday()}
-                    value={person.passportExpiresOn}
-                    onChange={(event) => setPerson({ passportExpiresOn: event.target.value })}
-                  />
-                </div>
-                <PartyDocAttachField
-                  id="party-passport-copy"
-                  label={ar ? 'نسخة الجواز' : 'Passport copy'}
-                  locale={locale}
+          ),
+        },
+      );
+
+      if (!omani) {
+        list.push(
+          {
+            id: 'passport',
+            label: ar ? 'رقم الجواز' : 'Passport number',
+            done: filled(person.passport, 4),
+            focusId: 'party-passport',
+            body: (
+              <div className="field">
+                <label htmlFor="party-passport">
+                  {ar ? 'رقم الجواز' : 'Passport number'}
+                  <span aria-hidden="true"> *</span>
+                </label>
+                <input
+                  id="party-passport"
+                  className="input"
+                  dir="ltr"
                   required
-                  value={person.passportCopy}
-                  onChange={(passportCopy) => setPerson({ passportCopy })}
+                  maxLength={32}
+                  value={person.passport}
+                  onChange={(event) => setPerson({ passport: event.target.value })}
                 />
-              </>
-            ) : null}
+              </div>
+            ),
+          },
+          {
+            id: 'passportExpiry',
+            label: ar ? 'انتهاء الجواز' : 'Passport expiry',
+            done: Boolean(person.passportExpiresOn && person.passportExpiresOn >= today),
+            focusId: 'party-passport-expiry',
+            body: (
+              <div className="field">
+                <label htmlFor="party-passport-expiry">
+                  {ar ? 'انتهاء الجواز' : 'Passport expiry'}
+                  <span aria-hidden="true"> *</span>
+                </label>
+                <input
+                  id="party-passport-expiry"
+                  className="input"
+                  type="date"
+                  required
+                  min={today}
+                  value={person.passportExpiresOn}
+                  onChange={(event) => setPerson({ passportExpiresOn: event.target.value })}
+                />
+              </div>
+            ),
+          },
+          {
+            id: 'passportCopy',
+            label: ar ? 'نسخة الجواز' : 'Passport copy',
+            done: Boolean(person.passportCopy),
+            focusId: 'party-passport-copy',
+            body: (
+              <PartyDocAttachField
+                id="party-passport-copy"
+                label={ar ? 'نسخة الجواز' : 'Passport copy'}
+                locale={locale}
+                required
+                value={person.passportCopy}
+                onChange={(passportCopy) => setPerson({ passportCopy })}
+              />
+            ),
+          },
+        );
+      }
+
+      list.push(
+        {
+          id: 'phone',
+          label: ar ? 'رقم الجوال' : 'Mobile',
+          done: isInternationalPhone(person.phone),
+          focusId: 'party-phone',
+          body: (
             <InternationalPhoneField
               id="party-phone"
               label={ar ? 'رقم الجوال' : 'Mobile'}
@@ -433,6 +567,16 @@ export function ReservationPartyForm({
               locale={locale}
               required
             />
+          ),
+        },
+        {
+          id: 'altPhone',
+          label: ar ? 'رقم هاتف بديل' : 'Alternate phone',
+          done:
+            isInternationalPhone(person.altPhone) &&
+            person.altPhone.trim() !== person.phone.trim(),
+          focusId: 'party-alt-phone',
+          body: (
             <InternationalPhoneField
               id="party-alt-phone"
               label={ar ? 'رقم هاتف بديل' : 'Alternate phone'}
@@ -444,7 +588,15 @@ export function ReservationPartyForm({
                 ar ? 'رقم مختلف للتواصل عند الضرورة.' : 'A different number for urgent contact.'
               }
             />
-            <div className="field span-2">
+          ),
+        },
+        {
+          id: 'email',
+          label: ar ? 'البريد الإلكتروني' : 'Email',
+          done: emailOk(person.email),
+          focusId: 'party-email',
+          body: (
+            <div className="field">
               <label htmlFor="party-email">
                 {ar ? 'البريد الإلكتروني' : 'Email'}
                 <span aria-hidden="true"> *</span>
@@ -457,169 +609,265 @@ export function ReservationPartyForm({
                 required
                 maxLength={254}
                 value={person.email}
-                onChange={(event) => setPerson({ email: event.target.value, emailVerified: false })}
+                onChange={(event) =>
+                  setPerson({ email: event.target.value, emailVerified: false })
+                }
               />
             </div>
+          ),
+        },
+        {
+          id: 'emailOtp',
+          label: ar ? 'تأكيد البريد' : 'Verify email',
+          done: person.emailVerified,
+          body: (
             <EmailOtpField
               email={person.email}
               verified={person.emailVerified}
               locale={locale}
               onVerified={(emailVerified) => setPerson({ emailVerified })}
             />
-          </div>
-        </fieldset>
-      ) : (
-        <>
-          <fieldset className="party-form__section">
-            <legend>{ar ? 'بيانات الشركة' : 'Company'}</legend>
-            <div className="stays-checkout__grid">
-              <BilingualNameField
-                idPrefix="party-company-name"
-                labelAr={ar ? 'اسم الشركة (عربي)' : 'Company name (Arabic)'}
-                labelEn={ar ? 'اسم الشركة بالإنجليزية' : 'Company name (English)'}
-                valueAr={company.nameAr}
-                valueEn={company.nameEn}
-                onChange={setCompany}
-                locale={locale}
-                kind="company"
-              />
-              <div className="field">
-                <label htmlFor="party-cr">
-                  {ar ? 'رقم السجل التجاري' : 'CR number'}
-                  <span aria-hidden="true"> *</span>
-                </label>
-                <input
-                  id="party-cr"
-                  className="input"
-                  dir="ltr"
-                  required
-                  maxLength={32}
-                  value={company.crNumber}
-                  onChange={(event) => setCompany({ crNumber: event.target.value })}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="party-cr-issued">
-                  {ar ? 'تاريخ التأسيس' : 'Established on'}
-                  <span aria-hidden="true"> *</span>
-                </label>
-                <input
-                  id="party-cr-issued"
-                  className="input"
-                  type="date"
-                  required
-                  max={muscatToday()}
-                  value={company.crIssuedOn}
-                  onChange={(event) => setCompany({ crIssuedOn: event.target.value })}
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="party-cr-expiry">
-                  {ar ? 'تاريخ انتهاء السجل' : 'CR expiry'}
-                  <span aria-hidden="true"> *</span>
-                </label>
-                <input
-                  id="party-cr-expiry"
-                  className="input"
-                  type="date"
-                  required
-                  min={crMin}
-                  value={company.crExpiry}
-                  onChange={(event) => setCompany({ crExpiry: event.target.value })}
-                />
-                <p className="field__hint muted">
-                  {ar
-                    ? 'لا يُقبل سجل منتهٍ أو ينتهي خلال أقل من شهرين — جدّده أولاً.'
-                    : 'Expired or expiring within two months is not accepted — renew first.'}
-                </p>
-              </div>
-              <PartyDocAttachField
-                id="party-cr-copy"
-                label={ar ? 'نسخة السجل التجاري' : 'CR document copy'}
-                locale={locale}
+          ),
+        },
+      );
+    } else {
+      list.push(
+        {
+          id: 'companyName',
+          label: ar ? 'اسم الشركة' : 'Company name',
+          done: filled(company.nameAr) && filled(company.nameEn),
+          focusId: 'party-company-name-ar',
+          body: (
+            <BilingualNameField
+              idPrefix="party-company-name"
+              labelAr={ar ? 'اسم الشركة (عربي)' : 'Company name (Arabic)'}
+              labelEn={ar ? 'اسم الشركة بالإنجليزية' : 'Company name (English)'}
+              valueAr={company.nameAr}
+              valueEn={company.nameEn}
+              onChange={setCompany}
+              locale={locale}
+              kind="company"
+            />
+          ),
+        },
+        {
+          id: 'crNumber',
+          label: ar ? 'رقم السجل' : 'CR number',
+          done: filled(company.crNumber, 3),
+          focusId: 'party-cr',
+          body: (
+            <div className="field">
+              <label htmlFor="party-cr">
+                {ar ? 'رقم السجل التجاري' : 'CR number'}
+                <span aria-hidden="true"> *</span>
+              </label>
+              <input
+                id="party-cr"
+                className="input"
+                dir="ltr"
                 required
-                value={company.crCopy}
-                onChange={(crCopy) => setCompany({ crCopy })}
+                maxLength={32}
+                value={company.crNumber}
+                onChange={(event) => setCompany({ crNumber: event.target.value })}
               />
-              <div className="field">
-                <label htmlFor="party-company-email">
-                  {ar ? 'البريد الإلكتروني' : 'Email'}
-                  <span aria-hidden="true"> *</span>
-                </label>
-                <input
-                  id="party-company-email"
-                  className="input"
-                  type="email"
-                  dir="ltr"
-                  required
-                  maxLength={254}
-                  value={company.email}
-                  onChange={(event) =>
-                    setCompany({ email: event.target.value, emailVerified: false })
-                  }
-                />
-              </div>
-              <EmailOtpField
-                email={company.email}
-                verified={company.emailVerified}
-                locale={locale}
-                onVerified={(emailVerified) => setCompany({ emailVerified })}
-              />
-              <InternationalPhoneField
-                id="party-company-phone"
-                label={ar ? 'رقم التواصل' : 'Contact number'}
-                value={company.phone}
-                onChange={(phone) => setCompany({ phone })}
-                locale={locale}
-                required
-              />
-              <InternationalPhoneField
-                id="party-company-alt-phone"
-                label={ar ? 'رقم هاتف بديل' : 'Alternate phone'}
-                value={company.altPhone}
-                onChange={(altPhone) => setCompany({ altPhone })}
-                locale={locale}
-                required
-              />
-              <div className="field span-2">
-                <label htmlFor="party-cr-address">
-                  {ar ? 'العنوان حسب السجل' : 'Address per the CR'}
-                  <span aria-hidden="true"> *</span>
-                </label>
-                <input
-                  id="party-cr-address"
-                  className="input"
-                  required
-                  maxLength={300}
-                  value={company.crAddress}
-                  onChange={(event) => setCompany({ crAddress: event.target.value })}
-                />
-              </div>
-              <div className="field span-2">
-                <label htmlFor="party-activity">
-                  {sale
-                    ? ar
-                      ? 'النشاط المراد الشراء لأجله'
-                      : 'Intended activity'
-                    : ar
-                      ? 'النشاط المراد الاستئجار لأجله'
-                      : 'Activity the premises are rented for'}
-                  <span aria-hidden="true"> *</span>
-                </label>
-                <input
-                  id="party-activity"
-                  className="input"
-                  required
-                  maxLength={200}
-                  value={company.activity}
-                  onChange={(event) => setCompany({ activity: event.target.value })}
-                />
-              </div>
             </div>
-          </fieldset>
-
-          <fieldset className="party-form__section">
-            <legend>{ar ? 'التوقيع حسب السجل التجاري' : 'Signing per the CR'}</legend>
+          ),
+        },
+        {
+          id: 'crIssued',
+          label: ar ? 'تاريخ التأسيس' : 'Established on',
+          done: Boolean(company.crIssuedOn && company.crIssuedOn <= today),
+          focusId: 'party-cr-issued',
+          body: (
+            <div className="field">
+              <label htmlFor="party-cr-issued">
+                {ar ? 'تاريخ التأسيس' : 'Established on'}
+                <span aria-hidden="true"> *</span>
+              </label>
+              <input
+                id="party-cr-issued"
+                className="input"
+                type="date"
+                required
+                max={today}
+                value={company.crIssuedOn}
+                onChange={(event) => setCompany({ crIssuedOn: event.target.value })}
+              />
+            </div>
+          ),
+        },
+        {
+          id: 'crExpiry',
+          label: ar ? 'انتهاء السجل' : 'CR expiry',
+          done: Boolean(company.crExpiry && company.crExpiry >= crMin),
+          focusId: 'party-cr-expiry',
+          body: (
+            <div className="field">
+              <label htmlFor="party-cr-expiry">
+                {ar ? 'تاريخ انتهاء السجل' : 'CR expiry'}
+                <span aria-hidden="true"> *</span>
+              </label>
+              <input
+                id="party-cr-expiry"
+                className="input"
+                type="date"
+                required
+                min={crMin}
+                value={company.crExpiry}
+                onChange={(event) => setCompany({ crExpiry: event.target.value })}
+              />
+              <p className="field__hint muted">
+                {ar
+                  ? 'لا يُقبل سجل ينتهي خلال أقل من شهرين.'
+                  : 'Must remain valid for at least two months.'}
+              </p>
+            </div>
+          ),
+        },
+        {
+          id: 'crCopy',
+          label: ar ? 'نسخة السجل' : 'CR copy',
+          done: Boolean(company.crCopy),
+          focusId: 'party-cr-copy',
+          body: (
+            <PartyDocAttachField
+              id="party-cr-copy"
+              label={ar ? 'نسخة السجل التجاري' : 'CR document copy'}
+              locale={locale}
+              required
+              value={company.crCopy}
+              onChange={(crCopy) => setCompany({ crCopy })}
+            />
+          ),
+        },
+        {
+          id: 'companyEmail',
+          label: ar ? 'بريد الشركة' : 'Company email',
+          done: emailOk(company.email),
+          focusId: 'party-company-email',
+          body: (
+            <div className="field">
+              <label htmlFor="party-company-email">
+                {ar ? 'البريد الإلكتروني' : 'Email'}
+                <span aria-hidden="true"> *</span>
+              </label>
+              <input
+                id="party-company-email"
+                className="input"
+                type="email"
+                dir="ltr"
+                required
+                maxLength={254}
+                value={company.email}
+                onChange={(event) =>
+                  setCompany({ email: event.target.value, emailVerified: false })
+                }
+              />
+            </div>
+          ),
+        },
+        {
+          id: 'companyEmailOtp',
+          label: ar ? 'تأكيد البريد' : 'Verify email',
+          done: company.emailVerified,
+          body: (
+            <EmailOtpField
+              email={company.email}
+              verified={company.emailVerified}
+              locale={locale}
+              onVerified={(emailVerified) => setCompany({ emailVerified })}
+            />
+          ),
+        },
+        {
+          id: 'companyPhone',
+          label: ar ? 'هاتف الشركة' : 'Company phone',
+          done: isInternationalPhone(company.phone),
+          focusId: 'party-company-phone',
+          body: (
+            <InternationalPhoneField
+              id="party-company-phone"
+              label={ar ? 'رقم التواصل' : 'Contact number'}
+              value={company.phone}
+              onChange={(phone) => setCompany({ phone })}
+              locale={locale}
+              required
+            />
+          ),
+        },
+        {
+          id: 'companyAltPhone',
+          label: ar ? 'هاتف بديل' : 'Alternate phone',
+          done:
+            isInternationalPhone(company.altPhone) &&
+            company.altPhone.trim() !== company.phone.trim(),
+          focusId: 'party-company-alt-phone',
+          body: (
+            <InternationalPhoneField
+              id="party-company-alt-phone"
+              label={ar ? 'رقم هاتف بديل' : 'Alternate phone'}
+              value={company.altPhone}
+              onChange={(altPhone) => setCompany({ altPhone })}
+              locale={locale}
+              required
+            />
+          ),
+        },
+        {
+          id: 'crAddress',
+          label: ar ? 'عنوان السجل' : 'CR address',
+          done: filled(company.crAddress),
+          focusId: 'party-cr-address',
+          body: (
+            <div className="field">
+              <label htmlFor="party-cr-address">
+                {ar ? 'العنوان حسب السجل' : 'Address per the CR'}
+                <span aria-hidden="true"> *</span>
+              </label>
+              <input
+                id="party-cr-address"
+                className="input"
+                required
+                maxLength={300}
+                value={company.crAddress}
+                onChange={(event) => setCompany({ crAddress: event.target.value })}
+              />
+            </div>
+          ),
+        },
+        {
+          id: 'activity',
+          label: ar ? 'النشاط' : 'Activity',
+          done: filled(company.activity),
+          focusId: 'party-activity',
+          body: (
+            <div className="field">
+              <label htmlFor="party-activity">
+                {sale
+                  ? ar
+                    ? 'النشاط المراد الشراء لأجله'
+                    : 'Intended activity'
+                  : ar
+                    ? 'النشاط المراد الاستئجار لأجله'
+                    : 'Activity the premises are rented for'}
+                <span aria-hidden="true"> *</span>
+              </label>
+              <input
+                id="party-activity"
+                className="input"
+                required
+                maxLength={200}
+                value={company.activity}
+                onChange={(event) => setCompany({ activity: event.target.value })}
+              />
+            </div>
+          ),
+        },
+        {
+          id: 'signingMode',
+          label: ar ? 'نوع التوقيع' : 'Signing mode',
+          done: company.signingMode === 'single' || company.signingMode === 'joint',
+          body: (
             <div className="lease-checkout__modes" role="radiogroup">
               {(['single', 'joint'] as const).map((option) => (
                 <button
@@ -648,184 +896,291 @@ export function ReservationPartyForm({
                 </button>
               ))}
             </div>
-            <p className="muted stays-checkout__hint">
-              {company.signingMode === 'single'
-                ? ar
-                  ? 'أدخل المفوّض بالتوقيع (يمكن إضافة أكثر من مفوّض).'
-                  : 'Enter the authorised signatory (you can add more than one).'
-                : ar
-                  ? 'أدخل أسماء الأشخاص الذين يوقّعون مجتمعين حسب بيانات السجل التجاري.'
-                  : 'Enter everyone who signs jointly per the CR.'}
-            </p>
-            <ol className="party-form__signatories">
-              {company.signatories.map((row, index) => (
-                <li key={index} className="party-form__signatory">
+          ),
+        },
+        {
+          id: 'signatory',
+          label: ar ? 'المفوّض بالتوقيع' : 'Signatory',
+          done:
+            filled(firstSig.name) &&
+            filled(firstSig.civilId, 4) &&
+            Boolean(firstSig.civilIdExpiresOn) &&
+            Boolean(firstSig.civilIdCopy) &&
+            (company.signingMode !== 'single' || isInternationalPhone(firstSig.phone)) &&
+            (firstSig.nationality === 'OM' ||
+              (filled(firstSig.passport || '', 4) &&
+                Boolean(firstSig.passportExpiresOn) &&
+                Boolean(firstSig.passportCopy))),
+          focusId: 'party-sig-name-0',
+          body: (
+            <div className="party-form__signatory party-form__signatory--solo">
+              <div className="field">
+                <label htmlFor="party-sig-name-0">
+                  {ar ? 'اسم المفوّض' : 'Signatory name'}
+                  <span aria-hidden="true"> *</span>
+                </label>
+                <input
+                  id="party-sig-name-0"
+                  className="input"
+                  required
+                  maxLength={160}
+                  value={firstSig.name}
+                  onChange={(event) => setSignatory(0, { name: event.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="party-sig-nationality-0">
+                  {ar ? 'الجنسية' : 'Nationality'}
+                </label>
+                <select
+                  id="party-sig-nationality-0"
+                  className="select"
+                  value={firstSig.nationality || 'OM'}
+                  onChange={(event) => setSignatory(0, { nationality: event.target.value })}
+                >
+                  {countries.map((country) => (
+                    <option key={country.code} value={country.code}>
+                      {ar ? country.nameAr : country.nameEn}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="party-sig-civil-0">
+                  {ar ? 'الرقم المدني' : 'Civil ID'}
+                  <span aria-hidden="true"> *</span>
+                </label>
+                <input
+                  id="party-sig-civil-0"
+                  className="input"
+                  dir="ltr"
+                  maxLength={32}
+                  required
+                  value={firstSig.civilId}
+                  onChange={(event) => setSignatory(0, { civilId: event.target.value })}
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="party-sig-civil-expiry-0">
+                  {ar ? 'انتهاء البطاقة' : 'ID expiry'}
+                </label>
+                <input
+                  id="party-sig-civil-expiry-0"
+                  className="input"
+                  type="date"
+                  required
+                  min={today}
+                  value={firstSig.civilIdExpiresOn}
+                  onChange={(event) =>
+                    setSignatory(0, { civilIdExpiresOn: event.target.value })
+                  }
+                />
+              </div>
+              <PartyDocAttachField
+                id="party-sig-civil-copy-0"
+                label={ar ? 'نسخة البطاقة' : 'ID copy'}
+                locale={locale}
+                required
+                value={firstSig.civilIdCopy}
+                onChange={(civilIdCopy) => setSignatory(0, { civilIdCopy })}
+              />
+              {firstSig.nationality && firstSig.nationality !== 'OM' ? (
+                <>
                   <div className="field">
-                    <label htmlFor={`party-sig-name-${index}`}>
-                      {ar ? 'الاسم' : 'Name'}
-                      <span aria-hidden="true"> *</span>
+                    <label htmlFor="party-sig-passport-0">
+                      {ar ? 'رقم الجواز' : 'Passport'}
                     </label>
                     <input
-                      id={`party-sig-name-${index}`}
-                      className="input"
-                      required
-                      maxLength={160}
-                      value={row.name}
-                      onChange={(event) => setSignatory(index, { name: event.target.value })}
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor={`party-sig-nationality-${index}`}>
-                      {ar ? 'الجنسية' : 'Nationality'}
-                      <span aria-hidden="true"> *</span>
-                    </label>
-                    <select
-                      id={`party-sig-nationality-${index}`}
-                      className="select"
-                      value={row.nationality || 'OM'}
-                      onChange={(event) => setSignatory(index, { nationality: event.target.value })}
-                    >
-                      {countries.map((country) => (
-                        <option key={country.code} value={country.code}>
-                          {ar ? country.nameAr : country.nameEn}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="field">
-                    <label htmlFor={`party-sig-civil-${index}`}>
-                      {ar ? 'الرقم المدني' : 'Civil ID'}
-                      {company.signingMode === 'single' ? <span aria-hidden="true"> *</span> : null}
-                    </label>
-                    <input
-                      id={`party-sig-civil-${index}`}
+                      id="party-sig-passport-0"
                       className="input"
                       dir="ltr"
+                      required
                       maxLength={32}
-                      required={company.signingMode === 'single'}
-                      value={row.civilId}
-                      onChange={(event) => setSignatory(index, { civilId: event.target.value })}
+                      value={firstSig.passport}
+                      onChange={(event) => setSignatory(0, { passport: event.target.value })}
                     />
                   </div>
                   <div className="field">
-                    <label htmlFor={`party-sig-civil-expiry-${index}`}>
-                      {ar ? 'انتهاء البطاقة' : 'ID expiry'}
-                      <span aria-hidden="true"> *</span>
+                    <label htmlFor="party-sig-passport-expiry-0">
+                      {ar ? 'انتهاء الجواز' : 'Passport expiry'}
                     </label>
                     <input
-                      id={`party-sig-civil-expiry-${index}`}
+                      id="party-sig-passport-expiry-0"
                       className="input"
                       type="date"
                       required
-                      min={muscatToday()}
-                      value={row.civilIdExpiresOn}
+                      min={today}
+                      value={firstSig.passportExpiresOn}
                       onChange={(event) =>
-                        setSignatory(index, { civilIdExpiresOn: event.target.value })
+                        setSignatory(0, { passportExpiresOn: event.target.value })
                       }
                     />
                   </div>
                   <PartyDocAttachField
-                    id={`party-sig-civil-copy-${index}`}
-                    label={ar ? 'نسخة البطاقة' : 'ID copy'}
+                    id="party-sig-passport-copy-0"
+                    label={ar ? 'نسخة الجواز' : 'Passport copy'}
                     locale={locale}
                     required
-                    value={row.civilIdCopy}
-                    onChange={(civilIdCopy) => setSignatory(index, { civilIdCopy })}
+                    value={firstSig.passportCopy}
+                    onChange={(passportCopy) => setSignatory(0, { passportCopy })}
                   />
-                  {row.nationality && row.nationality !== 'OM' ? (
-                    <>
-                      <div className="field">
-                        <label htmlFor={`party-sig-passport-${index}`}>
-                          {ar ? 'رقم الجواز' : 'Passport'}
-                          <span aria-hidden="true"> *</span>
-                        </label>
-                        <input
-                          id={`party-sig-passport-${index}`}
-                          className="input"
-                          dir="ltr"
-                          required
-                          maxLength={32}
-                          value={row.passport}
-                          onChange={(event) =>
-                            setSignatory(index, { passport: event.target.value })
-                          }
-                        />
-                      </div>
-                      <div className="field">
-                        <label htmlFor={`party-sig-passport-expiry-${index}`}>
-                          {ar ? 'انتهاء الجواز' : 'Passport expiry'}
-                          <span aria-hidden="true"> *</span>
-                        </label>
-                        <input
-                          id={`party-sig-passport-expiry-${index}`}
-                          className="input"
-                          type="date"
-                          required
-                          min={muscatToday()}
-                          value={row.passportExpiresOn}
-                          onChange={(event) =>
-                            setSignatory(index, { passportExpiresOn: event.target.value })
-                          }
-                        />
-                      </div>
-                      <PartyDocAttachField
-                        id={`party-sig-passport-copy-${index}`}
-                        label={ar ? 'نسخة الجواز' : 'Passport copy'}
-                        locale={locale}
-                        required
-                        value={row.passportCopy}
-                        onChange={(passportCopy) => setSignatory(index, { passportCopy })}
-                      />
-                    </>
-                  ) : null}
-                  <InternationalPhoneField
-                    id={`party-sig-phone-${index}`}
-                    label={ar ? 'رقم الهاتف' : 'Phone'}
-                    value={row.phone}
-                    onChange={(phone) => setSignatory(index, { phone })}
-                    locale={locale}
-                    required={company.signingMode === 'single'}
-                  />
-                  {company.signatories.length > 1 ? (
-                    <button
-                      type="button"
-                      className="button button--quiet party-form__remove"
-                      onClick={() =>
-                        setCompany({
-                          signatories: company.signatories.filter((_, at) => at !== index),
-                        })
-                      }
-                    >
-                      {ar ? 'حذف' : 'Remove'}
-                    </button>
-                  ) : null}
-                </li>
-              ))}
-            </ol>
-            {company.signatories.length < 10 ? (
+                </>
+              ) : null}
+              <InternationalPhoneField
+                id="party-sig-phone-0"
+                label={ar ? 'رقم الهاتف' : 'Phone'}
+                value={firstSig.phone}
+                onChange={(phone) => setSignatory(0, { phone })}
+                locale={locale}
+                required={company.signingMode === 'single'}
+              />
+              {company.signingMode === 'joint' ? (
+                <p className="muted stays-checkout__hint">
+                  {ar
+                    ? 'بعد المتابعة يمكنك إضافة بقية الموقّعين من مراجعة العقد أو عبر المالك.'
+                    : 'After continue, additional joint signatories can be completed with the owner if needed.'}
+                </p>
+              ) : null}
+            </div>
+          ),
+        },
+      );
+    }
+
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional field-driven rebuild
+  }, [
+    ar,
+    sale,
+    holder,
+    entityType,
+    role,
+    value,
+    person,
+    company,
+    omani,
+    today,
+    crMin,
+    minMonths,
+    termOptions,
+    countries,
+    locale,
+    nationalityConfirmed,
+  ]);
+
+  const firstIncomplete = steps.findIndex((step) => !step.done);
+  const frontier =
+    firstIncomplete === -1
+      ? Math.max(steps.length - 1, 0)
+      : Math.min(Math.max(unlocked, firstIncomplete), Math.max(steps.length - 1, 0));
+
+  useEffect(() => {
+    setUnlocked(0);
+    setViewIndex(0);
+    lastFocused.current = null;
+    setNationalityConfirmed(
+      filled(person.civilId, 4) || filled(person.nameAr) || filled(person.nameEn),
+    );
+    // Reset progressive cursor when switching person/company.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- entity switch only
+  }, [entityType]);
+
+  useEffect(() => {
+    setViewIndex(frontier);
+  }, [frontier]);
+
+  useEffect(() => {
+    const current = steps[frontier];
+    if (!current?.done || frontier >= steps.length - 1) return;
+    const timer = window.setTimeout(() => {
+      const next = frontier + 1;
+      setUnlocked((currentUnlock) => Math.max(currentUnlock, next));
+      setViewIndex(next);
+      const nextStep = steps[next];
+      if (nextStep?.focusId) {
+        lastFocused.current = nextStep.focusId;
+        focusStepField(nextStep.focusId);
+      }
+    }, 220);
+    return () => window.clearTimeout(timer);
+  }, [frontier, steps]);
+
+  useEffect(() => {
+    const current = steps[viewIndex];
+    if (!current?.focusId || current.done) return;
+    if (lastFocused.current === `${viewIndex}:${current.focusId}`) return;
+    lastFocused.current = `${viewIndex}:${current.focusId}`;
+    focusStepField(current.focusId);
+  }, [viewIndex, steps]);
+
+  const missing =
+    entityType === 'person' ? missingPersonFields(person) : missingCompanyFields(company);
+  const progressDone = steps.filter((step) => step.done).length;
+
+  return (
+    <div className="party-form party-form--progressive">
+      <div className="party-form__progress" aria-live="polite">
+        <strong>
+          {ar
+            ? `خطوة ${Math.min(viewIndex + 1, steps.length)} من ${steps.length}`
+            : `Step ${Math.min(viewIndex + 1, steps.length)} of ${steps.length}`}
+        </strong>
+        <span>
+          {ar
+            ? `${progressDone} مكتملة — عبّئ حقلاً واحداً في كل مرة`
+            : `${progressDone} done — fill one field at a time`}
+        </span>
+        <div className="party-form__progress-track" aria-hidden="true">
+          <div
+            className="party-form__progress-bar"
+            style={{ width: `${steps.length ? (progressDone / steps.length) * 100 : 0}%` }}
+          />
+        </div>
+      </div>
+
+      {progressDone > 0 && missing.length ? (
+        <MissingFieldsBanner locale={locale} fields={missing} />
+      ) : null}
+
+      <ol className="party-form__steps">
+        {steps.map((step, index) => {
+          if (index > frontier) return null;
+          const expanded = index === viewIndex;
+          return (
+            <li
+              key={step.id}
+              className={`party-form__step${expanded ? ' is-current' : ''}${step.done ? ' is-done' : ''}`}
+            >
               <button
                 type="button"
-                className="button button--quiet"
-                onClick={() =>
-                  setCompany({ signatories: [...company.signatories, { ...EMPTY_SIGNATORY }] })
-                }
+                className="party-form__step-head"
+                aria-expanded={expanded}
+                onClick={() => {
+                  setViewIndex(index);
+                  lastFocused.current = null;
+                  focusStepField(step.focusId);
+                }}
               >
-                {company.signingMode === 'single'
-                  ? ar
-                    ? '+ إضافة مفوّض آخر'
-                    : '+ Add another signatory'
-                  : ar
-                    ? '+ إضافة شخص'
-                    : '+ Add a person'}
+                <span className="party-form__step-index" aria-hidden="true">
+                  {step.done ? '✓' : index + 1}
+                </span>
+                <span>{step.label}</span>
+                {expanded ? (
+                  <em>{ar ? 'الآن' : 'Now'}</em>
+                ) : step.done ? (
+                  <em>{ar ? 'تعديل' : 'Edit'}</em>
+                ) : null}
               </button>
-            ) : null}
-          </fieldset>
-        </>
-      )}
+              {expanded ? <div className="party-form__step-body">{step.body}</div> : null}
+            </li>
+          );
+        })}
+      </ol>
+
       <p className="muted stays-checkout__hint">
         {ar
-          ? `تنتقل هذه البيانات مباشرةً إلى ${sale ? 'عقد البيع' : 'عقد الإيجار'} دون حاجة لإعادة إدخالها من المالك.`
-          : `These details go straight into the ${sale ? 'sale' : 'lease'} contract — the owner does not re-enter them.`}
+          ? `بعد إكمال الحقول تنتقل البيانات مباشرةً إلى ${sale ? 'عقد البيع' : 'عقد الإيجار'}.`
+          : `When complete, these details go straight into the ${sale ? 'sale' : 'lease'} contract.`}
       </p>
     </div>
   );

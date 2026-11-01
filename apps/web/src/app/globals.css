@@ -15792,6 +15792,128 @@ button.ops-row-key {
   display: grid;
   gap: 1rem;
 }
+.party-form--progressive {
+  gap: 0.85rem;
+}
+.party-form__progress {
+  position: relative;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem 1rem;
+  overflow: hidden;
+  color: #f7faf8;
+  background: linear-gradient(120deg, #0b3a2f, #08736f 72%);
+  border-radius: 1rem;
+}
+.party-form__progress strong {
+  font-size: 0.95rem;
+}
+.party-form__progress span {
+  color: rgb(247 250 248 / 0.78);
+  font-size: 0.8rem;
+}
+.party-form__progress-track {
+  margin-top: 0.45rem;
+  height: 0.35rem;
+  background: rgb(255 255 255 / 0.18);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.party-form__progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #b58d55, #f0d7a8);
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+.party-form__steps {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.party-form__step {
+  border: 1px solid rgb(9 45 36 / 0.1);
+  border-radius: 0.95rem;
+  background: #fff;
+  overflow: hidden;
+}
+.party-form__step.is-current {
+  border-color: rgb(8 163 159 / 0.45);
+  box-shadow: 0 12px 28px rgb(9 45 36 / 0.08);
+}
+.party-form__step.is-done:not(.is-current) {
+  background: #f7faf8;
+}
+.party-form__step-head {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.75rem 0.9rem;
+  border: 0;
+  background: transparent;
+  color: var(--oman-deep);
+  font: inherit;
+  font-weight: 750;
+  text-align: start;
+  cursor: pointer;
+}
+.party-form__step-index {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  color: #fff;
+  background: #174b70;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.party-form__step.is-done .party-form__step-index {
+  background: #0b6b3a;
+}
+.party-form__step.is-current .party-form__step-index {
+  background: #08a39f;
+}
+.party-form__step-head em {
+  margin-inline-start: auto;
+  color: #08736f;
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.party-form__step-body {
+  padding: 0 0.95rem 1rem;
+  animation: party-step-in 0.22s ease;
+}
+.party-form__step-body .stays-checkout__grid,
+.party-form__step-body .field,
+.party-form__step-body .bilingual-name-field,
+.party-form__step-body .lease-checkout__modes {
+  max-width: 36rem;
+}
+.party-form__next {
+  margin-top: 0.65rem;
+}
+.party-form__signatory--solo {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.7rem;
+  padding: 0;
+  background: transparent;
+}
+@keyframes party-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .party-form__property {
   display: grid;
   gap: 0.5rem;
