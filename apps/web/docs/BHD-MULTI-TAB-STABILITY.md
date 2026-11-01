@@ -15,7 +15,7 @@
 4. تهدئة أطول (45–60 ثانية) بين محاولات الإصلاح.
 5. الإبقاء على `?au=` عبر `history.replaceState`.
 6. **BroadcastChannel** `bhd-product-session` + `localStorage bhd_product_cookie_sub`: عند تبديل حساب تُعلَم باقي التبويبات ويُحفظ مالك الكوكي عبر التحديث.
-7. **Bootstrap قبل الرسم:** إن وُجد `?au=` ومالك الكوكي المتذكَّر مختلف (أو مجهول) → `data-bhd-switching` فوراً؛ CSS يغطي الصفحة حتى التأكيد.
+7. **Bootstrap قبل الرسم:** إن وُجد `?au=` → غطاء بشعار BHD المتحرّك (`#bhd-privacy-veil`) حتى تأكيد `/api/auth/me`.
 8. LiveSync يتجمّد عند كوكي معادٍ (`hasHostileProductCookie`).
 9. قائمة الحساب تفضّل `readActiveAu()` على كوكي المنتج.
 

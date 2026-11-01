@@ -318,6 +318,17 @@ export async function productSessionMatchesTab(): Promise<boolean> {
   }
 }
 
+const VEIL_MARK_SRC = '/brand/bhd-official-symbol.svg';
+
+function veilCaption() {
+  try {
+    return document.documentElement.lang === 'en' ? 'Securing your account…' : 'جاري تأمين حسابك…';
+  } catch {
+    return 'جاري تأمين حسابك…';
+  }
+}
+
+/** Branded cover while cookie/?au= reconcile — never show another account’s SSR paint. */
 export function paintPrivacyVeil(_message?: string) {
   if (typeof document === 'undefined') return;
   try {
@@ -326,10 +337,13 @@ export function paintPrivacyVeil(_message?: string) {
     if (!veil) {
       veil = document.createElement('div');
       veil.id = 'bhd-privacy-veil';
+      veil.className = 'bhd-account-veil';
       veil.setAttribute('aria-hidden', 'true');
-      veil.style.cssText =
-        'position:fixed;inset:0;z-index:2147483647;background:var(--ink-900,#092d24);pointer-events:none';
+      veil.innerHTML = `<div class="bhd-account-veil__stage"><span class="bhd-account-veil__ring" aria-hidden="true"></span><div class="bhd-account-veil__mark"><img src="${VEIL_MARK_SRC}" alt="" width="168" height="52" decoding="async" /></div><p class="bhd-account-veil__caption">${veilCaption()}</p></div>`;
       document.body.appendChild(veil);
+    } else if (!veil.querySelector('.bhd-account-veil__mark')) {
+      veil.className = 'bhd-account-veil';
+      veil.innerHTML = `<div class="bhd-account-veil__stage"><span class="bhd-account-veil__ring" aria-hidden="true"></span><div class="bhd-account-veil__mark"><img src="${VEIL_MARK_SRC}" alt="" width="168" height="52" decoding="async" /></div><p class="bhd-account-veil__caption">${veilCaption()}</p></div>`;
     }
   } catch {
     /* ignore */

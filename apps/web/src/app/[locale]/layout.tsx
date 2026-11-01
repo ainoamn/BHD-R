@@ -107,8 +107,8 @@ export default async function LocaleLayout({
     logo: `${publicWebOrigin}/og.png`,
     areaServed: 'OM',
   };
-  // Always veil when ?au= is present until /api/auth/me confirms cookie match (no wrong-account flash).
-  const accountVeilBootstrap = `(function(){try{if(new URL(location.href).searchParams.get('au')){document.documentElement.setAttribute('data-bhd-switching','1');}}catch(e){}})();`;
+  // Branded veil when ?au= present — logo before wrong-account SSR can paint.
+  const accountVeilBootstrap = `(function(){try{if(!new URL(location.href).searchParams.get('au'))return;document.documentElement.setAttribute('data-bhd-switching','1');var mount=function(){if(document.getElementById('bhd-privacy-veil'))return;var v=document.createElement('div');v.id='bhd-privacy-veil';v.className='bhd-account-veil';v.setAttribute('aria-hidden','true');var en=document.documentElement.lang==='en';v.innerHTML='<div class="bhd-account-veil__stage"><span class="bhd-account-veil__ring" aria-hidden="true"></span><div class="bhd-account-veil__mark"><img src="/brand/bhd-official-symbol.svg" alt="" width="168" height="52" decoding="async"/></div><p class="bhd-account-veil__caption">'+(en?'Securing your account…':'جاري تأمين حسابك…')+'</p></div>';(document.body||document.documentElement).appendChild(v);};if(document.body)mount();else document.addEventListener('DOMContentLoaded',mount);}catch(e){}})();`;
 
   return (
     <html lang={locale} dir={localeConfig[locale].dir}>
