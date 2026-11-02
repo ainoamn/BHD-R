@@ -1,18 +1,28 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { BookingDetailsProgressive } from '@/components/booking-details-progressive';
 import {
   ReservationPartyForm,
   buildReservationParty,
-  emptyPartyForm,
   type PartyForm,
 } from '@/components/reservation-party-form';
 import { BookingStepScene } from '@/components/stays/booking-step-scene';
 import { TermsAcceptance } from '@/components/terms-acceptance';
-import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
+import {
+  ApiError,
+  browserNextMutation,
+  fetchBrowserCsrfToken,
+  humanizeBrowserError,
+} from '@/lib/api';
 import type { BookingContactsForViewer, BookingFor } from '@/lib/booking-contacts-neon';
+import {
+  buildInitialPartyForm,
+  readBookingPartyDraft,
+  writeBookingPartyDraft,
+  type BookingPartySeed,
+} from '@/lib/booking-party-draft';
 import { greetingName, leaseCheckoutGreeting } from '@/lib/booking-step-greeting';
 import { bookingTermsDocument, type BookingTermsForCheckout } from '@/lib/booking-terms';
 import { formatMoney } from '@/lib/format';
@@ -98,6 +108,8 @@ async function postDepositCheckout(body: Record<string, unknown>): Promise<Check
 export function LeaseDepositCheckout({
   locale,
   unitId,
+  organizationId,
+  draftOwnerId,
   title,
   initialMode,
   allowedModes,
@@ -107,11 +119,16 @@ export function LeaseDepositCheckout({
   salePriceMinor,
   termsByMode,
   contacts,
+  partySeed = null,
   minLeaseMonths,
   property = null,
 }: {
   locale: 'ar' | 'en';
   unitId: string;
+  /** Property organization — where the booker's prospect party lives. */
+  organizationId: string;
+  /** Stable id for browser draft storage (usually the signed-in user id). */
+  draftOwnerId: string;
   title: string;
   initialMode: Mode;
   allowedModes: Mode[];
@@ -122,6 +139,8 @@ export function LeaseDepositCheckout({
   salePriceMinor: string | null;
   termsByMode: Partial<Record<Mode, BookingTermsForCheckout>>;
   contacts: BookingContactsForViewer;
+  /** Prefill from Identity / previous booking / server draft. */
+  partySeed?: BookingPartySeed | null;
   /** Shortest lease the owner accepts, in months (one year unless the owner set otherwise). */
   minLeaseMonths: number;
   /** Unit facts shown beside the contract details. */
@@ -129,18 +148,30 @@ export function LeaseDepositCheckout({
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
+  const contractType = contractUseForCategory(property?.category);
   const [step, setStep] = useState<Step>('terms');
   const [mode, setMode] = useState<Mode>(initialMode);
   const [accepted, setAccepted] = useState(false);
-  const [bookingFor, setBookingFor] = useState<BookingFor>('self');
+  const [bookingFor, setBookingFor] = useState<BookingFor>(
+    () => partySeed?.bookingFor ?? 'self',
+  );
   const [selfForm, setSelfForm] = useState<ContactForm>({
     fullName: contacts.self.fullName,
     phone: toInternationalPhone(contacts.self.phone),
     email: contacts.self.email ?? '',
   });
   const [partyForm, setPartyForm] = useState<PartyForm>(() =>
-    emptyPartyForm(minLeaseMonths, contractUseForCategory(property?.category)),
+    buildInitialPartyForm({
+      minMonths: minLeaseMonths,
+      contractType,
+      identity: partySeed?.identity ?? null,
+      bookingParty: partySeed?.bookingParty ?? null,
+      serverDraft: partySeed?.serverDraft ?? null,
+    }),
   );
+  const partyHydrated = useRef(false);
+  const [draftReady, setDraftReady] = useState(false);
+  const saveTimer = useRef<number | null>(null);
   const [party, setParty] = useState<ReservationParty | null>(null);
   const [otherForm, setOtherForm] = useState<ContactForm>(EMPTY_CONTACT);
   const [savedContactId, setSavedContactId] = useState<string>(NEW_CONTACT);
@@ -166,6 +197,47 @@ export function LeaseDepositCheckout({
   useEffect(() => {
     setError(null);
   }, [step]);
+
+  // Merge local draft after mount so returning visitors keep incomplete fields.
+  useEffect(() => {
+    if (partyHydrated.current) return;
+    partyHydrated.current = true;
+    const local = readBookingPartyDraft(draftOwnerId);
+    if (local?.form) {
+      setPartyForm(
+        buildInitialPartyForm({
+          minMonths: minLeaseMonths,
+          contractType,
+          identity: partySeed?.identity ?? null,
+          bookingParty: partySeed?.bookingParty ?? null,
+          serverDraft: partySeed?.serverDraft ?? null,
+          localDraft: local.form,
+        }),
+      );
+      if (local.bookingFor === 'self' || local.bookingFor === 'other') {
+        setBookingFor(local.bookingFor);
+      }
+    }
+    setDraftReady(true);
+  }, [contractType, draftOwnerId, minLeaseMonths, partySeed]);
+
+  // Autosave incomplete contract details locally + to the booker's prospect card.
+  useEffect(() => {
+    if (!draftReady) return;
+    writeBookingPartyDraft(draftOwnerId, { bookingFor, form: partyForm });
+    if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      void browserNextMutation('/api/public/booking-party-draft', {
+        method: 'POST',
+        body: JSON.stringify({ organizationId, bookingFor, form: partyForm }),
+      }).catch(() => {
+        /* keep local draft even if the network save fails */
+      });
+    }, 900);
+    return () => {
+      if (saveTimer.current) window.clearTimeout(saveTimer.current);
+    };
+  }, [bookingFor, draftOwnerId, draftReady, organizationId, partyForm]);
 
   const depositMinor = depositByMode[mode] ?? '0';
   const deposit = formatMoney(depositMinor, currency, locale);

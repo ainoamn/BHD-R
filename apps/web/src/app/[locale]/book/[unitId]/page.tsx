@@ -7,6 +7,8 @@ import { LeaseDepositCheckout } from '@/components/lease-deposit-checkout';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadBookingContacts, type BookingContactsForViewer } from '@/lib/booking-contacts-neon';
 import { depositForMode } from '@/lib/booking-deposit';
+import type { BookingPartySeed } from '@/lib/booking-party-draft';
+import { loadBookingPartySeed } from '@/lib/booking-party-draft-neon';
 import { loadBookingTermsForUnit } from '@/lib/booking-terms-neon';
 import { localizedName } from '@/lib/format';
 import { loadMinLeaseMonthsForUnit } from '@/lib/lease-min-term-neon';
@@ -125,6 +127,34 @@ export default async function BookUnitPage({
         )
       : null;
   const contacts = contactsResult?.status === 'ok' ? contactsResult.value : contactsFallback;
+  const partySeedFallback: BookingPartySeed = {
+    identity: null,
+    bookingParty: null,
+    serverDraft: null,
+    bookingFor: 'self',
+  };
+  const partySeedResult =
+    unit && hasDeposit && paymentEnabled && viewer
+      ? await withTimedResult(
+          loadBookingPartySeed({
+            organizationId: unit.organizationId,
+            claims: {
+              sub: viewer.id,
+              sid: viewer.id,
+              organizationId: viewer.organizationId,
+              partyId: viewer.partyId,
+              roles: viewer.roles as never,
+              permissions: viewer.permissions as never,
+              locale: viewer.locale,
+              sessionVersion: 0,
+            },
+          }),
+          5_000,
+          'book-party-seed',
+        )
+      : null;
+  const partySeed =
+    partySeedResult?.status === 'ok' ? partySeedResult.value : partySeedFallback;
   const minTermResult =
     unit && hasDeposit && paymentEnabled
       ? await withTimedResult(loadMinLeaseMonthsForUnit(unitId), 3_000, 'book-min-term')
@@ -263,6 +293,8 @@ export default async function BookUnitPage({
           <LeaseDepositCheckout
             locale={locale}
             unitId={unitId}
+            organizationId={unit.organizationId}
+            draftOwnerId={viewer.id}
             title={title}
             initialMode={mode}
             allowedModes={allowedModes}
@@ -272,6 +304,7 @@ export default async function BookUnitPage({
             salePriceMinor={unit.salePrice?.amountMinor ?? null}
             termsByMode={termsByMode}
             contacts={contacts}
+            partySeed={partySeed}
             minLeaseMonths={minLeaseMonths}
             property={{
               category: unit.category,

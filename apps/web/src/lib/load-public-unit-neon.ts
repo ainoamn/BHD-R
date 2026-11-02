@@ -27,7 +27,9 @@ function getDatabase(): DbHandle {
 }
 
 /** Public unit detail from Neon (covers Nest downtime + inline Neon gallery). */
-export async function loadPublicUnitFromNeon(unitId: string): Promise<PublicUnitDetail | null> {
+export async function loadPublicUnitFromNeon(
+  unitId: string,
+): Promise<(PublicUnitDetail & { organizationId: string }) | null> {
   if (!/^[0-9a-f-]{36}$/i.test(unitId)) return null;
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
@@ -109,6 +111,7 @@ export async function loadPublicUnitFromNeon(unitId: string): Promise<PublicUnit
     return {
       id: row.id,
       slug: row.slug,
+      organizationId: row.organizationId,
       propertyId: row.propertyId,
       unitId: row.unitId,
       code: row.code,
