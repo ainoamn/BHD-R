@@ -349,7 +349,9 @@ export async function assertBookingOwner(
   transaction: Tx,
   userId: string,
   partyEmail: string | null,
+  bookedByUserId?: string | null,
 ) {
+  if (bookedByUserId && bookedByUserId === userId) return;
   const user = await withElevatedRead(transaction, () =>
     transaction.query.users.findFirst({
       where: eq(users.id, userId),
@@ -693,7 +695,12 @@ export async function completeLeaseSandboxPayment(
       sessionReference,
     );
     if (!match) fail('not_found');
-    await assertBookingOwner(transaction, claims.sub, match.partyEmail);
+    await assertBookingOwner(
+      transaction,
+      claims.sub,
+      match.partyEmail,
+      match.snapshot.bookedBy?.userId,
+    );
     await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
     await lockKey(transaction, match.id);
     await lockKey(transaction, match.unitId);
@@ -1074,7 +1081,12 @@ export async function loadLeaseBookingForViewer(userId: string, referenceCode: s
   return db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) return null;
-    await assertBookingOwner(transaction, userId, match.partyEmail);
+    await assertBookingOwner(
+      transaction,
+      userId,
+      match.partyEmail,
+      match.snapshot.bookedBy?.userId,
+    );
     const location = await withElevatedRead(transaction, () =>
       loadPropertyLocation(transaction, match.organizationId, match.propertyId),
     ).catch(() => null);
@@ -1093,7 +1105,12 @@ export async function loadLeaseBookingAgreement(userId: string, referenceCode: s
   return db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) return null;
-    await assertBookingOwner(transaction, userId, match.partyEmail);
+    await assertBookingOwner(
+      transaction,
+      userId,
+      match.partyEmail,
+      match.snapshot.bookedBy?.userId,
+    );
     return leaseBookingAgreementData(transaction, match);
   });
 }
@@ -1302,7 +1319,12 @@ export async function completeLeaseEsign(
   return db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) fail('not_found');
-    await assertBookingOwner(transaction, claims.sub, match.partyEmail);
+    await assertBookingOwner(
+      transaction,
+      claims.sub,
+      match.partyEmail,
+      match.snapshot.bookedBy?.userId,
+    );
     await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
     await lockKey(transaction, match.id);
 

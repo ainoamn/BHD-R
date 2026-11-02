@@ -158,7 +158,8 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
   if (!hasDatabaseUrl()) return [];
   const result = await elevated((tx) =>
     tx.execute(sql`
-      select p.organization_id::text as "organizationId",
+      select distinct on (p.organization_id, p.id)
+             p.organization_id::text as "organizationId",
              p.id::text as "partyId",
              o.display_name_ar as "ar",
              o.display_name_en as "en"
@@ -167,6 +168,12 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
         and (
           (u.email not like '%@identity.bhd-om.local' and lower(p.email) = lower(u.email))
           or (p.metadata->>'userId') = u.id::text
+          -- Website bookings attributed to this user even if party email drifted.
+          or exists (
+            select 1 from reservations r
+            where r.tenant_party_id = p.id
+              and r.terms_snapshot->'bookedBy'->>'userId' = u.id::text
+          )
         )
       join organizations o on o.id = p.organization_id and o.status = 'active'
       where u.id = ${userId}
@@ -177,7 +184,11 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
           or exists (select 1 from leases l
                   where l.organization_id = p.organization_id and l.tenant_party_id = p.id)
           or exists (select 1 from reservations r
-                  where r.organization_id = p.organization_id and r.tenant_party_id = p.id)
+                  where r.organization_id = p.organization_id
+                    and (
+                      r.tenant_party_id = p.id
+                      or r.terms_snapshot->'bookedBy'->>'userId' = u.id::text
+                    ))
           or exists (select 1 from invoices i
                   where i.organization_id = p.organization_id and i.tenant_party_id = p.id)
           or exists (select 1 from stay_bookings b
@@ -185,7 +196,7 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
           or exists (select 1 from viewing_requests vr
                   where vr.organization_id = p.organization_id and vr.prospect_party_id = p.id)
         )
-      order by o.display_name_en
+      order by p.organization_id, p.id, o.display_name_en
       limit ${MAX_LANDLORDS}
     `),
   );
@@ -231,7 +242,11 @@ export const loadTenancySummary = cache(async (userId: string): Promise<TenancyS
           (select count(*)::int from stay_bookings
             where guest_party_id in (${partyIds}) or user_id = ${userId}::uuid)
           + (select count(*)::int from reservations
-            where tenant_party_id in (${partyIds}) and status in ('pending', 'confirmed'))
+            where status in ('pending', 'confirmed')
+              and (
+                tenant_party_id in (${partyIds})
+                or terms_snapshot->'bookedBy'->>'userId' = ${userId}
+              ))
           + (select count(*)::int from viewing_requests
             where prospect_party_id in (${partyIds})
               and status in ('requested', 'scheduled')) as "bookings",
@@ -629,7 +644,15 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
           terms: reservations.termsSnapshot,
         })
         .from(reservations)
-        .where(and(eq(reservations.organizationId, org), eq(reservations.tenantPartyId, party)))
+        .where(
+          and(
+            eq(reservations.organizationId, org),
+            sql`(
+              ${reservations.tenantPartyId} = ${party}::uuid
+              or ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${userId}
+            )`,
+          ),
+        )
         .orderBy(desc(reservations.createdAt))
         .limit(LIST_LIMIT),
       tx
