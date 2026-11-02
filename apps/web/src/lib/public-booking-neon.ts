@@ -34,6 +34,27 @@ export function getDatabase(): DbHandle {
 
 export type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
 
+/** Website rent/sale deposit checkout flow — unpaid drafts must not reserve the unit. */
+export const PUBLIC_LEASE_DEPOSIT_FLOW = 'public_deposit_v1';
+
+/**
+ * Pending website checkouts before deposit payment: keep the customer's session, but
+ * never block the listing or show the unit as reserved / notify the owner.
+ */
+export function unpaidPublicDepositCheckoutSql(
+  snapshot = reservations.termsSnapshot,
+  status = reservations.status,
+) {
+  return sql`(
+    ${status} = 'pending'
+    and coalesce(${snapshot}->>'depositPaidAt', '') = ''
+    and (
+      ${snapshot}->>'flow' = ${PUBLIC_LEASE_DEPOSIT_FLOW}
+      or coalesce(${snapshot}->>'awaitingPublicDepositPayment', '') in ('true', 't')
+    )
+  )`;
+}
+
 /** Scope writes to the listing org — never leave platform_admin=true for the whole txn (P1-04). */
 export async function applyOrgScope(
   transaction: Tx,
@@ -152,6 +173,7 @@ export async function assertUnitBookable(
                 eq(reservations.unitId, units.id),
                 inArray(reservations.status, ['pending', 'confirmed']),
                 gt(reservations.expiresAt, now),
+                sql`not ${unpaidPublicDepositCheckoutSql()}`,
               ),
             ),
         ),
@@ -559,15 +581,7 @@ export async function createPublicBookingCheckout(
       }
     }
 
-    await transaction.insert(holds).values({
-      organizationId: unit.organizationId,
-      unitId,
-      prospectPartyId: party.id,
-      status: 'active',
-      expiresAt,
-      note: 'Public booking checkout hold',
-    });
-
+    // No hold until deposit payment — unpaid drafts must not reserve the unit.
     const reservationRows = await transaction
       .insert(reservations)
       .values({
@@ -579,6 +593,7 @@ export async function createPublicBookingCheckout(
         rentMinor: unit.rentMinor,
         currency: unit.currency,
         termsSnapshot: {
+          flow: PUBLIC_LEASE_DEPOSIT_FLOW,
           listingPurpose: unit.listingPurpose,
           depositMinor: unit.depositMinor.toString(),
           currency: unit.currency,
@@ -748,6 +763,14 @@ export async function completePublicBookingPayment(
     const party = await ensureProspectParty(transaction, match.organizationId, claims);
     if (party.id !== match.tenantPartyId) throw new Error('forbidden');
 
+    await assertUnitBookable(transaction, match.unitId).catch((error: unknown) => {
+      if (error instanceof Error && error.message === 'unit_unavailable') {
+        throw new Error('unit_unavailable');
+      }
+      throw error;
+    });
+
+    const paidAt = new Date().toISOString();
     await transaction
       .update(reservations)
       .set({
@@ -755,7 +778,8 @@ export async function completePublicBookingPayment(
         updatedAt: new Date(),
         termsSnapshot: {
           ...(match.termsSnapshot ?? {}),
-          publicDepositPaidAt: new Date().toISOString(),
+          depositPaidAt: paidAt,
+          publicDepositPaidAt: paidAt,
           awaitingPublicDepositPayment: false,
         },
       })

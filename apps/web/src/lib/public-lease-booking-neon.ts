@@ -21,9 +21,12 @@ import {
   assertUnitBookable,
   ensureProspectParty,
   getDatabase,
+  PUBLIC_LEASE_DEPOSIT_FLOW,
   withElevatedRead,
   type Tx,
 } from '@/lib/public-booking-neon';
+import { appLink, notifyByEmail } from '@/lib/email-notify';
+import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
 import { postingDepositHeld } from '@/lib/accounting-posting';
 import { resolveApprovalPolicy } from '@/lib/approval-policy-neon';
@@ -51,10 +54,10 @@ import {
 import { readUnitSaleDeposits } from '@/lib/unit-sale-deposit-neon';
 import { loadBookingActivityRows } from '@/lib/workflow-activity-neon';
 
-export const LEASE_BOOKING_FLOW = 'public_deposit_v1';
+export const LEASE_BOOKING_FLOW = PUBLIC_LEASE_DEPOSIT_FLOW;
 export const LEASE_BOOKING_TERMS_VERSION = '2026-10';
 
-/** Unpaid checkout blocks the unit only briefly, like a stay hold. */
+/** How long an unpaid checkout session stays recoverable for the same booker. */
 const CHECKOUT_TTL_MS = 30 * 60 * 1000;
 /** A paid deposit keeps the unit reserved while the owner prepares the final contract. */
 const PAID_RESERVATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -532,6 +535,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     }
 
     assertTermsCurrent();
+    // Availability is checked again at payment; unpaid drafts must not hold the unit.
     const unit = await assertUnitBookable(transaction, input.unitId, input.mode).catch(
       (error: unknown) => {
         if (error instanceof Error && error.message === 'unit_unavailable')
@@ -542,15 +546,6 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     const expiresAt = new Date(now.getTime() + CHECKOUT_TTL_MS);
     const referenceCode = newReferenceCode();
     const sessionReference = newSessionReference();
-
-    await transaction.insert(holds).values({
-      organizationId: unit.organizationId,
-      unitId: input.unitId,
-      prospectPartyId: party.id,
-      status: 'active',
-      expiresAt,
-      note: `Public deposit checkout ${referenceCode}`,
-    });
 
     const snapshot: LeaseBookingSnapshot = {
       flow: LEASE_BOOKING_FLOW,
@@ -656,6 +651,7 @@ export async function completeLeaseSandboxPayment(
     await assertBookingOwner(transaction, claims.sub, match.partyEmail);
     await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
     await lockKey(transaction, match.id);
+    await lockKey(transaction, match.unitId);
 
     const freshRows = await transaction
       .select({
@@ -680,6 +676,16 @@ export async function completeLeaseSandboxPayment(
     }
     const now = new Date();
     if (fresh.status !== 'pending' || fresh.expiresAt <= now) fail('booking_expired');
+
+    // Reserve the unit only now — unpaid OTP / checkout drafts never held it.
+    await assertUnitBookable(transaction, match.unitId, snapshot.mode).catch(
+      (error: unknown) => {
+        if (error instanceof Error && error.message === 'unit_unavailable') {
+          fail('unit_unavailable');
+        }
+        throw error;
+      },
+    );
 
     let salesDealId: string | undefined;
     if (snapshot.mode === 'sale') {
@@ -816,7 +822,44 @@ export async function completeLeaseSandboxPayment(
       kind: 'lease_reservation' as const,
       referenceCode: snapshot.referenceCode,
       returnPath,
+      notifyOwner: {
+        organizationId: match.organizationId,
+        propertyId: match.propertyId,
+        reservationId: match.id,
+        referenceCode: snapshot.referenceCode,
+        mode: snapshot.mode,
+        contactName: snapshot.contact.fullName,
+      },
     };
+  }).then(async (result) => {
+    if (!('notifyOwner' in result) || !result.notifyOwner) return result;
+    const notice = result.notifyOwner;
+    const modeLabel = notice.mode === 'sale' ? 'شراء' : 'إيجار';
+    await notifyByEmail({
+      orgId: notice.organizationId,
+      aggregateType: 'reservation',
+      aggregateId: notice.reservationId,
+      audience: {
+        managersOf: { orgId: notice.organizationId, propertyId: notice.propertyId },
+      },
+      content: () => ({
+        tone: 'booking',
+        subject: `عربون مدفوع — حجز ${modeLabel} ${notice.referenceCode}`,
+        title: 'تم دفع عربون الحجز',
+        intro: `دفع ${notice.contactName || 'العميل'} عربون حجز ${modeLabel} برقم ${notice.referenceCode}. العقار محجوز الآن — راجع الحجز وأكمل الخطوات التالية.`,
+        details: [
+          { label: 'رقم الحجز', value: notice.referenceCode },
+          { label: 'النوع', value: modeLabel },
+        ],
+        cta: {
+          label: 'فتح الحجز',
+          url: appLink(`/ar/owner/bookings/${notice.reservationId}`),
+        },
+      }),
+    });
+    sendQueuedEmailsSoon();
+    const { notifyOwner: _drop, ...publicResult } = result;
+    return publicResult;
   });
 }
 

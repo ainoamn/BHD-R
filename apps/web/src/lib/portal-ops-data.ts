@@ -26,6 +26,7 @@ import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-set
 import { scopedOwnerParty } from '@/lib/portal-access';
 import { loadOpsContextExtras } from '@/lib/portal-ops-context-extras';
 import { aggregateOfferingChannels, unitOfferingChannels } from '@/lib/property-offering-channels';
+import { unpaidPublicDepositCheckoutSql } from '@/lib/public-booking-neon';
 import { requireSessionSecret } from '@/lib/runtime-env';
 import type { PortalRole } from '@/lib/types';
 
@@ -793,6 +794,8 @@ export async function loadOpsContextFromDb(
               eq(reservations.organizationId, orgId),
               inArray(reservations.status, ['pending', 'confirmed']),
               sql`${reservations.expiresAt} > now()`,
+              // Unpaid website deposit drafts must not mark the unit as reserved.
+              sql`not ${unpaidPublicDepositCheckoutSql()}`,
             ),
           ),
         transaction

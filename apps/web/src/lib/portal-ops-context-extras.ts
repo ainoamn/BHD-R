@@ -15,6 +15,7 @@ import {
   workTasks,
   type Database,
 } from '@bhd-r/db';
+import { unpaidPublicDepositCheckoutSql } from '@/lib/public-booking-neon';
 
 type OpsTransaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 
@@ -112,6 +113,7 @@ export async function loadOpsContextExtras(
         and(
           eq(reservations.organizationId, orgId),
           inArray(reservations.status, ['pending', 'confirmed']),
+          sql`not ${unpaidPublicDepositCheckoutSql()}`,
         ),
       )
       .orderBy(desc(reservations.createdAt)),

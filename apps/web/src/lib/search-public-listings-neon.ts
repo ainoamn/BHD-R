@@ -562,6 +562,14 @@ export async function searchPublicListingsFromNeon(
             where r.unit_id = u.id
               and r.status::text in ('pending', 'confirmed')
               and r.expires_at > now()
+              and not (
+                r.status::text = 'pending'
+                and coalesce(r.terms_snapshot->>'depositPaidAt', '') = ''
+                and (
+                  r.terms_snapshot->>'flow' = 'public_deposit_v1'
+                  or coalesce(r.terms_snapshot->>'awaitingPublicDepositPayment', '') in ('true', 't')
+                )
+              )
           ) then 'reserved'
           else 'available'
         end as occupancy,

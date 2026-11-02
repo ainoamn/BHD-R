@@ -33,6 +33,7 @@ import {
   type ReservationLifecycle,
 } from '@/lib/lease-reservation-lifecycle';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
+import { unpaidPublicDepositCheckoutSql } from '@/lib/public-booking-neon';
 import { loadStayStamps } from '@/lib/stay-arrival-neon';
 import { depositRefundStage } from '@/lib/stay-deposit-refund';
 import { accountReader, loadDepositLedger, refundFields } from '@/lib/stay-deposit-ledger-neon';
@@ -539,7 +540,14 @@ async function loadBookings(
             lifecycle: sql<ReservationLifecycle | null>`((${reservations.termsSnapshot}->'lifecycle') - 'contractDraft') || jsonb_build_object('contractDraft', case when (${reservations.termsSnapshot}->'lifecycle'->'contractDraft') is not null then '{}'::jsonb end)`,
           })
           .from(reservations)
-          .where(and(eq(reservations.organizationId, orgId), inArray(reservations.unitId, unitIds)))
+          .where(
+            and(
+              eq(reservations.organizationId, orgId),
+              inArray(reservations.unitId, unitIds),
+              // Hide unpaid website checkout drafts until the deposit is paid.
+              sql`not ${unpaidPublicDepositCheckoutSql()}`,
+            ),
+          )
           .orderBy(desc(reservations.createdAt))
           .limit(ROW_LIMIT),
         tx

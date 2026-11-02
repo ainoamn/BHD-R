@@ -35,6 +35,7 @@ const tenantParties = alias(parties, 'lease_tenant_parties');
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { contractCategory, contractTerm, propertyUsage } from '@/lib/contract-list-facets';
 import { ownerPartyScope, readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
+import { unpaidPublicDepositCheckoutSql } from '@/lib/public-booking-neon';
 import { loadStayIncomeRowsForViewer } from '@/lib/stay-deposit-ledger-neon';
 import type { OperationsSection } from '@/lib/portal-ops-types';
 import type { PortalRole } from '@/lib/types';
@@ -149,7 +150,14 @@ async function loadLeaseBookings(
       ? tx
           .select()
           .from(reservations)
-          .where(and(eq(reservations.organizationId, orgId), ...scopeUnits))
+          .where(
+            and(
+              eq(reservations.organizationId, orgId),
+              ...scopeUnits,
+              // Unpaid website checkouts stay invisible to owners until deposit payment.
+              sql`not ${unpaidPublicDepositCheckoutSql()}`,
+            ),
+          )
           .orderBy(desc(reservations.createdAt))
           .limit(BOOKINGS_LIMIT)
       : none<typeof reservations.$inferSelect>(),
@@ -690,7 +698,16 @@ async function loadReports(tx: OpsTransaction, orgId: string): Promise<NeonSecti
         (select count(*)::int from work_tasks
           where organization_id = ${orgId} and status in ('pending', 'approved', 'in_progress', 'on_hold')) as "tasksOpen",
         (select count(*)::int from reservations
-          where organization_id = ${orgId} and status in ('pending', 'confirmed')) as "reservationsActive",
+          where organization_id = ${orgId}
+            and status in ('pending', 'confirmed')
+            and not (
+              status = 'pending'
+              and coalesce(terms_snapshot->>'depositPaidAt', '') = ''
+              and (
+                terms_snapshot->>'flow' = 'public_deposit_v1'
+                or coalesce(terms_snapshot->>'awaitingPublicDepositPayment', '') in ('true', 't')
+              )
+            )) as "reservationsActive",
         (select count(*)::int from maintenance_tickets
           where organization_id = ${orgId} and status in ('open', 'assigned', 'in_progress')) as "maintenanceOpen",
         (select count(*)::int from legal_cases
