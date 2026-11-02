@@ -7,10 +7,30 @@ import {
   type TenancyContract,
   type TenancyInvoice,
   type TenancyLease,
+  type TenancyReservation,
   type TenancyStay,
 } from '@/lib/tenancy-shared';
 
 const landlord = { organizationId: 'org-1', ar: 'المالك', en: 'Landlord' };
+
+function reservation(patch: Partial<TenancyReservation>): TenancyReservation {
+  return {
+    id: 'r1',
+    landlord,
+    referenceCode: 'RSV-TEST',
+    mode: 'rent',
+    status: 'confirmed',
+    expiresAt: '2026-12-02T00:00:00.000Z',
+    awaitingPayment: false,
+    awaitingSignature: false,
+    depositMinor: '300000',
+    currency: 'OMR',
+    unitCode: 'S-01',
+    unitAr: null,
+    unitEn: null,
+    ...patch,
+  };
+}
 
 function contract(patch: Partial<TenancyContract>): TenancyContract {
   return {
@@ -159,6 +179,30 @@ describe('tenancy alerts', () => {
     );
     expect(alerts.map((alert) => alert.kind)).toEqual(['stay_payment', 'stay_refund']);
     expect(alerts[0]?.href).toBe('/guest/stays/pay?ref=ST-PAY');
+  });
+
+  it('asks for documents and signature before telling the tenant the owner prepares the contract', () => {
+    const unsigned = buildTenancyAlerts(
+      {
+        ...EMPTY_TENANCY,
+        reservations: [reservation({ id: 'unsigned', awaitingSignature: true })],
+      },
+      today,
+    );
+    expect(unsigned.map((alert) => alert.kind)).toEqual(['reservation_sign']);
+    expect(unsigned[0]?.action).toBe(true);
+    expect(unsigned[0]?.href).toBe('/book/sign?ref=RSV-TEST');
+
+    const signed = buildTenancyAlerts(
+      {
+        ...EMPTY_TENANCY,
+        reservations: [reservation({ id: 'signed', awaitingSignature: false })],
+      },
+      today,
+    );
+    expect(signed.map((alert) => alert.kind)).toEqual(['reservation_review']);
+    expect(signed[0]?.action).toBe(false);
+    expect(signed[0]?.href).toBe('/book/confirmed?ref=RSV-TEST');
   });
 
   it('never reports a negative outstanding amount', () => {

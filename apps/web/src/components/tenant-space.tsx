@@ -915,7 +915,11 @@ function alertContractFrame(
   if (alert.kind === 'lease_expiring') {
     return { tone: 'contract-renewal', kind: 'renewal' };
   }
-  if (alert.kind === 'reservation_review' || alert.kind === 'reservation_payment') {
+  if (
+    alert.kind === 'reservation_review' ||
+    alert.kind === 'reservation_payment' ||
+    alert.kind === 'reservation_sign'
+  ) {
     return { tone: 'contract-new', kind: 'initial' };
   }
   return null;
@@ -960,7 +964,14 @@ function AlertsList({ ar, locale, data }: Ctx) {
           : []),
       ],
       href: alert.href,
-      hrefLabel: ar ? 'متابعة' : 'Continue',
+      hrefLabel:
+        alert.kind === 'reservation_sign'
+          ? ar
+            ? 'رفع وتوقيع'
+            : 'Upload & sign'
+          : ar
+            ? 'متابعة'
+            : 'Continue',
     };
   });
   return (
@@ -1044,6 +1055,7 @@ function bookingPreviewItems(
   const reservations = takeRows(data.reservations, limit).map((reservation) => {
     const href = reservationHref(reservation);
     const awaitingPay = reservation.status === 'pending' && reservation.awaitingPayment;
+    const awaitingSign = reservation.awaitingSignature;
     return {
       id: `reservation:${reservation.id}`,
       title: tenancyUnitLabel(reservation, ar),
@@ -1063,9 +1075,13 @@ function bookingPreviewItems(
               ? ar
                 ? 'بانتظار دفع الضمان'
                 : 'Deposit payment due'
-              : domainStatusLabel(reservation.status, ar)
+              : awaitingSign
+                ? ar
+                  ? 'بانتظار المستندات والتوقيع'
+                  : 'Documents & signature due'
+                : domainStatusLabel(reservation.status, ar)
           }
-          tone={awaitingPay || reservation.handover ? 'action' : 'info'}
+          tone={awaitingPay || awaitingSign || reservation.handover ? 'action' : 'info'}
         />
       ),
       facts: [
@@ -1085,7 +1101,17 @@ function bookingPreviewItems(
         },
       ],
       href,
-      ...(href ? { hrefLabel: ar ? 'فتح مراحل الحجز' : 'Open booking journey' } : {}),
+      ...(href
+        ? {
+            hrefLabel: awaitingSign
+              ? ar
+                ? 'رفع وتوقيع'
+                : 'Upload & sign'
+              : ar
+                ? 'فتح مراحل الحجز'
+                : 'Open booking journey',
+          }
+        : {}),
     } satisfies PreviewItem;
   });
   return [...viewings, ...stays, ...reservations];

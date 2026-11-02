@@ -66,6 +66,7 @@ function stayAttention(stay: TenancyStay): boolean {
 function reservationAttention(reservation: TenancyReservation): boolean {
   return (
     Boolean(reservation.handover) ||
+    reservation.awaitingSignature ||
     (reservation.status === 'pending' && reservation.awaitingPayment)
   );
 }
@@ -146,6 +147,7 @@ function buildItems(
   const reservations: BoardItem[] = data.reservations.map((reservation) => {
     const href = reservationHref(reservation);
     const awaitingPay = reservation.status === 'pending' && reservation.awaitingPayment;
+    const awaitingSign = reservation.awaitingSignature;
     return {
       key: `reservation:${reservation.id}`,
       kind: 'reservation',
@@ -163,7 +165,11 @@ function buildItems(
         ? ar
           ? 'بانتظار دفع الضمان'
           : 'Deposit payment due'
-        : reservation.handover === 'awaiting_acceptance'
+        : awaitingSign
+          ? ar
+            ? 'بانتظار المستندات والتوقيع'
+            : 'Documents & signature due'
+          : reservation.handover === 'awaiting_acceptance'
           ? ar
             ? 'محضر التسليم'
             : 'Handover record'
@@ -173,13 +179,21 @@ function buildItems(
               : 'Object to handover'
             : domainStatusLabel(reservation.status, ar),
       statusTone:
-        awaitingPay || reservation.handover
+        awaitingPay || awaitingSign || reservation.handover
           ? 'action'
           : reservation.status === 'confirmed'
             ? 'good'
             : undefined,
       href,
-      cta: href ? (ar ? 'فتح مراحل الحجز' : 'Open booking journey') : null,
+      cta: href
+        ? awaitingSign
+          ? ar
+            ? 'رفع وتوقيع'
+            : 'Upload & sign'
+          : ar
+            ? 'فتح مراحل الحجز'
+            : 'Open booking journey'
+        : null,
     };
   });
 

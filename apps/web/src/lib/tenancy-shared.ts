@@ -120,6 +120,8 @@ export type TenancyReservation = {
   handover?: 'awaiting_acceptance' | 'defects_open' | null;
   expiresAt: string;
   awaitingPayment: boolean;
+  /** Deposit paid but ID upload / e-sign still outstanding — before owner review. */
+  awaitingSignature: boolean;
   depositMinor: string | null;
   currency: string | null;
   unitCode: string | null;
@@ -190,6 +192,7 @@ export type TenancyAlertKind =
   | 'invoice_due'
   | 'lease_expiring'
   | 'reservation_payment'
+  | 'reservation_sign'
   | 'reservation_review'
   | 'stay_payment'
   | 'stay_request'
@@ -264,11 +267,13 @@ export function stayHref(stay: Pick<TenancyStay, 'id' | 'referenceCode'>): strin
   return `/guest/stays/${encodeURIComponent(stay.id)}?ref=${encodeURIComponent(stay.referenceCode)}`;
 }
 
-/** Open the booking journey directly (confirmed page). Sign/payment are steps inside it. */
+/** Open the booking journey; route to sign when deposit is paid but e-sign is still due. */
 export function reservationHref(reservation: TenancyReservation): string | null {
-  return reservation.referenceCode
-    ? `/book/confirmed?ref=${encodeURIComponent(reservation.referenceCode)}`
-    : null;
+  if (!reservation.referenceCode) return null;
+  if (reservation.awaitingSignature) {
+    return `/book/sign?ref=${encodeURIComponent(reservation.referenceCode)}`;
+  }
+  return `/book/confirmed?ref=${encodeURIComponent(reservation.referenceCode)}`;
 }
 
 /** What needs the tenant's attention, most urgent first. `today` is YYYY-MM-DD. */
@@ -348,15 +353,20 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
     }
     if (reservation.status !== 'pending' && reservation.status !== 'confirmed') continue;
     const awaitingPayment = reservation.status === 'pending' && reservation.awaitingPayment;
+    const awaitingSignature = !awaitingPayment && reservation.awaitingSignature;
     alerts.push({
-      kind: awaitingPayment ? 'reservation_payment' : 'reservation_review',
+      kind: awaitingPayment
+        ? 'reservation_payment'
+        : awaitingSignature
+          ? 'reservation_sign'
+          : 'reservation_review',
       id: reservation.id,
       reference: reservation.referenceCode ?? reservation.id.slice(0, 8),
       href: reservationHref(reservation) ?? '/tenant/reservations',
       date: reservation.expiresAt.slice(0, 10),
       amountMinor: reservation.depositMinor,
       currency: reservation.currency,
-      action: awaitingPayment,
+      action: awaitingPayment || awaitingSignature,
     });
   }
   for (const stay of data.stays) {
@@ -427,12 +437,13 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
     invoice_overdue: 0,
     contract_sign: 1,
     reservation_payment: 2,
-    stay_payment: 3,
-    viewing_scheduled: 3,
-    invoice_due: 4,
-    stay_refund: 5,
-    lease_expiring: 6,
-    reservation_review: 7,
+    reservation_sign: 3,
+    stay_payment: 4,
+    viewing_scheduled: 4,
+    invoice_due: 5,
+    stay_refund: 6,
+    lease_expiring: 7,
+    reservation_review: 8,
     stay_request: 8,
     viewing_pending: 9,
   };
@@ -448,6 +459,10 @@ const ALERT_LABEL: Record<TenancyAlertKind, { ar: string; en: string }> = {
   invoice_due: { ar: 'فاتورة مستحقة قريباً', en: 'Invoice due soon' },
   lease_expiring: { ar: 'عقد إيجار ينتهي قريباً', en: 'Lease ending soon' },
   reservation_payment: { ar: 'أكمل دفع ضمان الحجز', en: 'Complete the booking deposit' },
+  reservation_sign: {
+    ar: 'ارفع المستندات ووقّع طلب الحجز',
+    en: 'Upload your documents and sign the booking',
+  },
   reservation_review: {
     ar: 'حجز بانتظار إعداد العقد من المالك',
     en: 'Booking awaiting the owner’s contract',

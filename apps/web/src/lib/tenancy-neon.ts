@@ -835,6 +835,10 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
       const terms = obj(row.terms);
       const mode = terms.mode === 'rent' || terms.mode === 'sale' ? terms.mode : null;
       const lifecycle = lifecycleOf(terms);
+      const awaitingPayment = terms.awaitingPublicDepositPayment === true;
+      const esign = obj(terms.esign);
+      const depositPaid = Boolean(terms.depositPaidAt || terms.publicDepositPaidAt);
+      const signed = Boolean(str(esign.signedAt));
       return {
         id: row.id,
         landlord,
@@ -847,7 +851,12 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
             ? 'defects_open'
             : null,
         expiresAt: iso(row.expiresAt),
-        awaitingPayment: terms.awaitingPublicDepositPayment === true,
+        awaitingPayment,
+        // Paid (or confirmed after pay) but no e-sign yet — tenant must upload ID + sign first.
+        awaitingSignature:
+          !awaitingPayment &&
+          !signed &&
+          (depositPaid || row.status === 'confirmed'),
         depositMinor: str(terms.depositMinor),
         currency: str(terms.currency) ?? row.currency,
         unitCode: null,
