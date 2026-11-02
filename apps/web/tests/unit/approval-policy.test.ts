@@ -23,6 +23,18 @@ describe('approval policy', () => {
       booking: 'auto',
     });
   });
+
+  it('keeps handoverAfterSign and drops deferred handoverOn when a schedule is set', () => {
+    expect(
+      sanitizeApprovalPolicy({
+        handoverAfterSign: 'week',
+        deferUntilHandover: ['meters', 'handoverOn'],
+      }),
+    ).toMatchObject({
+      handoverAfterSign: 'week',
+      deferUntilHandover: ['meters'],
+    });
+  });
 });
 
 describe('lease journey with electronic approvals', () => {
@@ -79,6 +91,39 @@ describe('lease journey with electronic approvals', () => {
     };
     expect(leaseJourneyPhase({ ...paid, status: 'cancelled', lifecycle })).toBe('closed');
     expect(documentsToVerify(lifecycle)).toEqual([]);
+  });
+
+  it('issues the contract before documents; documents open only after the tenant signed', () => {
+    const pendingDoc = {
+      code: 'civil_id',
+      labelAr: 'البطاقة',
+      labelEn: 'ID',
+      status: 'pending' as const,
+    };
+    const withDraft: ReservationLifecycle = {
+      approval: { at: paid.esignSignedAt, byUserId: null, byName: 'Owner', automatic: true },
+      contractDraft: { savedAt: paid.esignSignedAt, byName: 'Owner' },
+      requirements: [pendingDoc],
+    };
+    expect(leaseJourneyPhase({ ...paid, lifecycle: withDraft })).toBe('awaiting_contract_approval');
+
+    const issued: ReservationLifecycle = {
+      ...withDraft,
+      contract: {
+        id: 'c1',
+        reference: 'L-1',
+        issuedAt: paid.esignSignedAt,
+        byName: 'Owner',
+        automatic: true,
+      },
+    };
+    expect(leaseJourneyPhase({ ...paid, lifecycle: issued })).toBe('awaiting_tenant_signature');
+
+    const signed: ReservationLifecycle = {
+      ...issued,
+      tenantSignature: { signedAt: paid.esignSignedAt, evidenceEventId: 'e' },
+    };
+    expect(leaseJourneyPhase({ ...paid, lifecycle: signed })).toBe('awaiting_documents');
   });
 
   it('reopens documents when a cheque is rejected after the tenant signed', () => {

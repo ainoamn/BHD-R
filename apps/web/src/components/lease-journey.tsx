@@ -173,12 +173,7 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
           <LeaseCheques {...props} readOnly />
         </>
       ) : null}
-      {screen.action === 'sign_contract' && !past ? (
-        <>
-          <TenantAttestationGate {...props} />
-          <LeaseContractSign {...props} />
-        </>
-      ) : null}
+      {screen.action === 'sign_contract' && !past ? <LeaseContractSign {...props} /> : null}
       {screen.action === 'view_contract' && props.lifecycle.contract ? (
         <Link
           className="button button--quiet guest-stay-detail__rebook"
@@ -411,7 +406,7 @@ function DocumentsNeededNotice({
   if (phase !== 'awaiting_documents' && phase !== 'awaiting_documents_review') {
     return null;
   }
-  const approved = Boolean(lifecycle.approvedAt);
+  const signed = Boolean(lifecycle.tenantSignedAt);
   const needsAttest = lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
   const rejected =
     lifecycle.requirements.some((item) => item.status === 'rejected') ||
@@ -432,10 +427,10 @@ function DocumentsNeededNotice({
           ? ar
             ? 'أرجع المالك مستنداً أو شيكاً'
             : 'The owner returned a document or cheque'
-          : approved
+          : signed
             ? ar
-              ? 'المالك اعتمد حجزك'
-              : 'The owner approved your booking'
+              ? 'العقد موقّع — ارفع المستندات الآن'
+              : 'Contract signed — upload documents now'
             : ar
               ? 'مطلوب منك إجراء'
               : 'Action needed from you'}
@@ -515,84 +510,6 @@ export function ElectronicApprovalNotice({
           </>
         ) : null}
       </p>
-    </div>
-  );
-}
-
-function TenantAttestationGate({ locale, referenceCode, lifecycle }: LeaseJourneyProps) {
-  const ar = locale === 'ar';
-  const router = useRouter();
-  const required = lifecycle.requireTenantAttestation;
-  const done = Boolean(lifecycle.tenantAttestedAt);
-  const [checked, setChecked] = useState(done);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  if (!required) return null;
-
-  async function confirm() {
-    if (!checked) {
-      setError(ar ? 'يجب التأشير على الإقرار أولاً.' : 'Tick the confirmation box first.');
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      await browserNextMutation(
-        `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/attestation`,
-        { method: 'POST', body: JSON.stringify({ accepted: true }) },
-      );
-      router.refresh();
-    } catch (caught) {
-      setError(errorText(caught, ar));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (done) {
-    return (
-      <p className="notice notice--success" role="status">
-        {ar
-          ? 'تم تسجيل إقرارك بصحة البيانات وتحمّل المسؤولية.'
-          : 'Your accuracy and responsibility confirmation is recorded.'}
-      </p>
-    );
-  }
-
-  return (
-    <div className="lease-attestation" role="group" aria-labelledby="lease-attest-title">
-      <h3 id="lease-attest-title">{ar ? 'تأكيد صحة البيانات' : 'Confirm your details'}</h3>
-      <p className="muted">
-        {ar
-          ? 'المستندات تُراجع يدوياً قبل التسليم. أي اختلاف أو عدم صحة يمنح المالك حق إلغاء الحجز مع تحمّلك كامل المسؤولية.'
-          : 'Documents are reviewed manually before handover. Any mismatch lets the owner cancel, and you bear full responsibility.'}
-      </p>
-      <label className="lease-attestation__check">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(event) => setChecked(event.target.checked)}
-        />
-        <span>
-          {ar
-            ? 'أقرّ بأن جميع بياناتي ومستنداتي صحيحة وكاملة، وأتحمّل المسؤولية كاملة إن تبيّن خلاف ذلك، وأعلم بحق المالك في إلغاء الحجز قبل التسليم.'
-            : 'I confirm all my details and documents are true and complete, I accept full responsibility if they are not, and I understand the owner may cancel before handover.'}
-        </span>
-      </label>
-      {error ? (
-        <p className="notice notice--error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      <button
-        type="button"
-        className="button button--primary"
-        disabled={busy || !checked}
-        onClick={() => void confirm()}
-      >
-        {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'تأكيد والمتابعة' : 'Confirm and continue'}
-      </button>
     </div>
   );
 }
@@ -1365,23 +1282,54 @@ function LeaseCheques({
 function LeaseContractSign({ lifecycle, locale, referenceCode, mode }: LeaseJourneyProps) {
   const ar = locale === 'ar';
   const router = useRouter();
-  const [accepted, setAccepted] = useState(false);
+  const [attestedLocal, setAttestedLocal] = useState(Boolean(lifecycle.tenantAttestedAt));
+  const needsAttest = lifecycle.requireTenantAttestation && !attestedLocal;
+  const [gateOpen, setGateOpen] = useState(true);
+  const [dataOk, setDataOk] = useState(!needsAttest);
+  const [termsOk, setTermsOk] = useState(false);
+  const [gateBusy, setGateBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const contract = lifecycle.contract;
-  const blocked = lifecycle.requireTenantAttestation && !lifecycle.tenantAttestedAt;
   if (!contract) return null;
 
-  async function sign(signaturePng: string) {
-    if (blocked) {
+  async function confirmGate() {
+    if (needsAttest && !dataOk) {
+      setError(ar ? 'يجب التأشير على إقرار صحة البيانات أولاً.' : 'Tick the data accuracy box first.');
+      return;
+    }
+    if (!termsOk) {
       setError(
-        ar
-          ? 'أكّد صحة بياناتك أولاً قبل توقيع العقد.'
-          : 'Confirm your details first before signing the contract.',
+        ar ? 'أكّد أولاً أنك قرأت العقد ووافقت عليه.' : 'First confirm you read and accept the contract.',
       );
       return;
     }
-    if (!accepted) {
+    setGateBusy(true);
+    setError(null);
+    try {
+      if (needsAttest) {
+        await browserNextMutation(
+          `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/attestation`,
+          { method: 'POST', body: JSON.stringify({ accepted: true }) },
+        );
+        setAttestedLocal(true);
+      }
+      setGateOpen(false);
+    } catch (caught) {
+      setError(errorText(caught, ar));
+    } finally {
+      setGateBusy(false);
+    }
+  }
+
+  async function sign(signaturePng: string) {
+    if (gateOpen) {
+      setError(
+        ar ? 'أكمل التأكيد في النافذة أولاً ثم وقّع.' : 'Finish the confirmation popup first, then sign.',
+      );
+      return;
+    }
+    if (!termsOk) {
       setError(
         ar ? 'أكّد أولاً أنك قرأت العقد ووافقت عليه.' : 'First confirm you read and accept it.',
       );
@@ -1404,34 +1352,103 @@ function LeaseContractSign({ lifecycle, locale, referenceCode, mode }: LeaseJour
 
   return (
     <div className="lease-sign">
-      <Link
-        className="button button--quiet"
-        href={`/tenant/contracts/${encodeURIComponent(contract.id)}`}
-        target="_blank"
-      >
-        {ar ? `اقرأ العقد ${contract.reference} كاملاً` : `Read ${contract.reference} in full`}
-      </Link>
-      <label className="lease-sign__accept">
-        <input
-          type="checkbox"
-          checked={accepted}
-          onChange={(event) => setAccepted(event.target.checked)}
-        />
-        <span>
-          {ar
-            ? `قرأتُ ${mode === 'sale' ? 'عقد البيع' : 'عقد الإيجار'} وأوافق على جميع بنوده، وأقرّ بأن توقيعي الإلكتروني ملزم كتوقيعي بخط اليد.`
-            : 'I have read the contract, accept all its terms, and agree my e-signature binds me like my handwritten one.'}
-        </span>
-      </label>
-      {error ? (
-        <p className="notice notice--error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {busy ? (
-        <p className="muted">{ar ? 'جارٍ تسجيل توقيعك…' : 'Recording your signature…'}</p>
+      {gateOpen ? (
+        <div
+          className="lease-sign-gate"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="lease-sign-gate-title"
+        >
+          <div className="lease-sign-gate__card">
+            <h3 id="lease-sign-gate-title">
+              {ar ? 'تأكيد صحة البيانات والعقد' : 'Confirm details and contract'}
+            </h3>
+            <p className="muted">
+              {ar
+                ? 'المستندات تُراجع يدوياً قبل التسليم. أي اختلاف أو عدم صحة يمنح المالك حق إلغاء الحجز مع تحمّلك كامل المسؤولية.'
+                : 'Documents are reviewed manually before handover. Any mismatch lets the owner cancel, and you bear full responsibility.'}
+            </p>
+            {lifecycle.requireTenantAttestation ? (
+              <label className="lease-attestation__check">
+                <input
+                  type="checkbox"
+                  checked={dataOk || attestedLocal}
+                  disabled={attestedLocal || gateBusy}
+                  onChange={(event) => setDataOk(event.target.checked)}
+                />
+                <span>
+                  {ar
+                    ? 'أقرّ بأن جميع بياناتي ومستنداتي صحيحة وكاملة، وأتحمّل المسؤولية كاملة إن تبيّن خلاف ذلك، وأعلم بحق المالك في إلغاء الحجز قبل التسليم.'
+                    : 'I confirm all my details and documents are true and complete, I accept full responsibility if they are not, and I understand the owner may cancel before handover.'}
+                </span>
+              </label>
+            ) : null}
+            <Link
+              className="button button--quiet"
+              href={`/tenant/contracts/${encodeURIComponent(contract.id)}`}
+              target="_blank"
+            >
+              {ar ? `اقرأ العقد ${contract.reference} كاملاً` : `Read ${contract.reference} in full`}
+            </Link>
+            <label className="lease-attestation__check">
+              <input
+                type="checkbox"
+                checked={termsOk}
+                disabled={gateBusy}
+                onChange={(event) => setTermsOk(event.target.checked)}
+              />
+              <span>
+                {ar
+                  ? `قرأتُ ${mode === 'sale' ? 'عقد البيع' : 'عقد الإيجار'} وأوافق على جميع بنوده، وأقرّ بأن توقيعي الإلكتروني ملزم كتوقيعي بخط اليد.`
+                  : 'I have read the contract, accept all its terms, and agree my e-signature binds me like my handwritten one.'}
+              </span>
+            </label>
+            {error ? (
+              <p className="notice notice--error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={gateBusy || !termsOk || (needsAttest && !dataOk)}
+              onClick={() => void confirmGate()}
+            >
+              {gateBusy
+                ? ar
+                  ? 'جارٍ الحفظ…'
+                  : 'Saving…'
+                : ar
+                  ? 'تأكيد والمتابعة للتوقيع'
+                  : 'Confirm and continue to sign'}
+            </button>
+          </div>
+        </div>
       ) : (
-        <EsignSignaturePad locale={locale} onAccept={(png) => void sign(png)} />
+        <>
+          <Link
+            className="button button--quiet"
+            href={`/tenant/contracts/${encodeURIComponent(contract.id)}`}
+            target="_blank"
+          >
+            {ar ? `اقرأ العقد ${contract.reference} كاملاً` : `Read ${contract.reference} in full`}
+          </Link>
+          <p className="notice notice--success" role="status">
+            {ar
+              ? 'تم التأكيد — ارسم توقيعك أدناه لإتمام العقد.'
+              : 'Confirmed — draw your signature below to finish the contract.'}
+          </p>
+          {error ? (
+            <p className="notice notice--error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {busy ? (
+            <p className="muted">{ar ? 'جارٍ تسجيل توقيعك…' : 'Recording your signature…'}</p>
+          ) : (
+            <EsignSignaturePad locale={locale} onAccept={(png) => void sign(png)} />
+          )}
+        </>
       )}
     </div>
   );

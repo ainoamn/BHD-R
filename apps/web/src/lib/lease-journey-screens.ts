@@ -141,19 +141,65 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
                 sceneStatus: t('معتمد', 'Approved'),
               };
 
-  let documents: LeaseJourneyScreen | null = null;
+  let contract: LeaseJourneyScreen | null = null;
   if (current >= 2) {
     if (phase === 'awaiting_contract_draft') {
-      documents = {
+      contract = {
         headline: t('المالك يجهّز عقدك الآن 📝', 'The owner is preparing your contract 📝'),
         body: t(
-          `حجزك معتمد وفي انتظار قيام المالك بعمل ${contractWord}. سيحدد المالك المستندات اللازمة، وستظهر لك هنا لترفعها بلمسة.`,
-          `Your booking is approved and waiting for the owner to draw up the ${contractWord}. Any documents needed will appear here.`,
+          `حجزك معتمد وفي انتظار قيام المالك بعمل ${contractWord}. بعد اعتماده توقّعه هنا، ثم ترفع المستندات والشيكات.`,
+          `Your booking is approved and waiting for the owner to draw up the ${contractWord}. After approval you sign here, then upload documents and cheques.`,
         ),
         scene: 'contract',
         sceneStatus: t('قيد الإعداد', 'Being prepared'),
       };
-    } else if (phase === 'awaiting_documents') {
+    } else if (phase === 'awaiting_contract_approval') {
+      contract = {
+        headline: t('العقد في مرحلة الاعتماد ✍️', 'Your contract is being approved ✍️'),
+        body: t(
+          `المالك يضع اللمسات الأخيرة على ${contractWord} ليعتمده. سيصلك هنا للتوقيع فور اعتماده، ثم ترفع المستندات والشيكات.`,
+          `The owner is finalising the ${contractWord}. It comes here for your signature once approved, then you upload documents and cheques.`,
+        ),
+        scene: 'contract',
+        sceneStatus: t('بانتظار اعتماد المالك', 'Awaiting owner approval'),
+      };
+    } else if (phase === 'awaiting_tenant_signature') {
+      contract = {
+        headline: t('عقدك جاهز وينتظر توقيعك ✨', 'Your contract is ready for your signature ✨'),
+        body: lifecycle.contract?.automatic
+          ? t(
+              `اعتمد النظام ${contractWord} ${lifecycle.contract.reference} إلكترونياً نيابةً عن المالك ووُقّع باسمه. أكّد بياناتك واقرأ العقد ثم وقّع — وبعد التوقيع مباشرة يُطلب منك رفع المستندات والشيكات.`,
+              `The system approved ${lifecycle.contract.reference} electronically for the owner and signed it in their name. Confirm your details, read the contract, then sign — right after signing you will be asked for documents and cheques.`,
+            )
+          : t(
+              `اعتمد المالك ${contractWord} ${lifecycle.contract?.reference ?? ''} ووقّعه. أكّد بياناتك واقرأ العقد ثم وقّع — وبعد التوقيع مباشرة يُطلب منك رفع المستندات والشيكات.`,
+              `The owner approved and signed ${lifecycle.contract?.reference ?? 'the contract'}. Confirm your details, read it, then sign — right after signing you will be asked for documents and cheques.`,
+            ),
+        scene: 'contract',
+        sceneStatus: t('بانتظار توقيع الطرف الثاني', 'Awaiting second-party signature'),
+        action: 'sign_contract',
+      };
+    } else {
+      contract = {
+        headline: t(
+          'عقدك موقّع إلكترونياً من الطرفين 🤝',
+          'Signed electronically by both parties 🤝',
+        ),
+        body: t(
+          `وقّعتَ ${contractWord} ${lifecycle.contract?.reference ?? ''}${lifecycle.tenantSignedAt ? ` في ${journeyStamp(lifecycle.tenantSignedAt, ar)}` : ''}، وأصبح نافذاً وموقّعاً من الطرفين. احتفظ به دائماً في متناول يدك.`,
+          `You signed ${lifecycle.contract?.reference ?? 'the contract'}; it is now in force and signed by both parties.`,
+        ),
+        scene: 'contract',
+        sceneDone: true,
+        sceneStatus: t('موقّع من الطرفين', 'Signed by both parties'),
+        action: 'view_contract',
+      };
+    }
+  }
+
+  let documents: LeaseJourneyScreen | null = null;
+  if (current >= 3) {
+    if (phase === 'awaiting_documents') {
       const rejected =
         requirements.some((item) => item.status === 'rejected') ||
         (lifecycle.cheques ?? []).some((item) => item.status === 'rejected');
@@ -161,8 +207,8 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         headline: rejected
           ? t('ملف يحتاج نسخة أوضح 🔁', 'A file needs a clearer copy 🔁')
           : t(
-              'المالك اعتمد حجزك — ارفع المستندات والشيكات 📎',
-              'Owner approved — upload documents and cheques 📎',
+              'العقد موقّع — ارفع المستندات والشيكات 📎',
+              'Contract signed — upload documents and cheques 📎',
             ),
         body: rejected
           ? t(
@@ -170,8 +216,8 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
               'The owner asked for a replacement document or cheque — the reason is next to it. Replace it, then confirm send so the owner is notified.',
             )
           : t(
-              `المالك اعتمد حجزك. ليكتمل ${contractWord}: أكّد بياناتك، ارفع المستندات المطلوبة${lifecycle.cheques?.length ? '، وأدخل رقم كل شيك مع صورة الشيك' : ''}. يمكنك معاينة الملف وضبط صورة الشيك قبل الإرسال.`,
-              `The owner approved your booking. To complete the ${contractWord}: confirm your details, upload the required documents${lifecycle.cheques?.length ? ', and enter each cheque number with its photo' : ''}. You can preview files and adjust cheque photos before sending.`,
+              `بعد توقيعك: ارفع المستندات المطلوبة${lifecycle.cheques?.length ? '، وأدخل رقم كل شيك مع صورة الشيك' : ''} ثم أرسل الحزمة للمراجعة.`,
+              `After signing: upload the required documents${lifecycle.cheques?.length ? ', and enter each cheque number with its photo' : ''}, then send the package for review.`,
             ),
         action: 'documents',
       };
@@ -198,8 +244,8 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
           'Your documents await owner verification 🔍',
         ),
         body: t(
-          'العقد قد يُعتمد ويُوقَّع، لكن المستندات والشيكات ما زالت بانتظار اعتماد المالك يدوياً. تظهر أدناه المعتمدة والمتبقية. إن اتضح أن المستندات أو البيانات غير صحيحة يحق للمؤجر إلغاء العقد مع تحمل المستأجر كافة التكاليف والمسؤولية.',
-          'The contract may be approved and signed, but documents and cheques still need the owner’s manual verification. Approved and remaining items are listed below. If anything proves incorrect, the landlord may cancel and you bear all costs and responsibility.',
+          'العقد موقّع، لكن المستندات والشيكات ما زالت بانتظار اعتماد المالك يدوياً. تظهر أدناه المعتمدة والمتبقية. إن اتضح أن المستندات أو البيانات غير صحيحة يحق للمؤجر إلغاء العقد مع تحمل المستأجر كافة التكاليف والمسؤولية.',
+          'The contract is signed, but documents and cheques still need the owner’s manual verification. Approved and remaining items are listed below. If anything proves incorrect, the landlord may cancel and you bear all costs and responsibility.',
         ),
         action: 'documents',
       };
@@ -219,52 +265,6 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
           ? t('قبل المالك كل مستنداتك. أحسنت!', 'The owner accepted all your documents. Well done!')
           : t('لم يطلب المالك مستندات إضافية.', 'The owner did not need extra documents.'),
         action: requirements.length ? 'documents' : undefined,
-      };
-    }
-  }
-
-  let contract: LeaseJourneyScreen | null = null;
-  if (current >= 3) {
-    if (phase === 'awaiting_contract_approval') {
-      contract = {
-        headline: t('العقد في مرحلة الاعتماد ✍️', 'Your contract is being approved ✍️'),
-        body: t(
-          `مستنداتك مقبولة، والمالك يضع اللمسات الأخيرة على ${contractWord} ليعتمده. سيصلك هنا للتوقيع فور اعتماده.`,
-          `Your documents are accepted and the owner is finalising the ${contractWord}. It comes here for your signature once approved.`,
-        ),
-        scene: 'contract',
-        sceneStatus: t('بانتظار اعتماد المالك', 'Awaiting owner approval'),
-      };
-    } else if (phase === 'awaiting_tenant_signature') {
-      contract = {
-        headline: t('عقدك جاهز وينتظر توقيعك ✨', 'Your contract is ready for your signature ✨'),
-        body: lifecycle.contract?.automatic
-          ? t(
-              `اعتمد النظام ${contractWord} ${lifecycle.contract.reference} إلكترونياً نيابةً عن المالك ووُقّع باسمه. اقرأه بتمعّن، ثم وقّع بإصبعك — وبتوقيعك يصبح العقد موقّعاً إلكترونياً من الطرفين.`,
-              `The system approved ${lifecycle.contract.reference} electronically for the owner and signed it in their name. Read it carefully, then sign with your finger.`,
-            )
-          : t(
-              `اعتمد المالك ${contractWord} ${lifecycle.contract?.reference ?? ''} ووقّعه. اقرأه بتمعّن، ثم وقّع بإصبعك — وبتوقيعك يصبح العقد موقّعاً إلكترونياً من الطرفين.`,
-              `The owner approved and signed ${lifecycle.contract?.reference ?? 'the contract'}. Read it carefully, then sign with your finger — it becomes signed by both parties.`,
-            ),
-        scene: 'contract',
-        sceneStatus: t('بانتظار توقيع الطرف الثاني', 'Awaiting second-party signature'),
-        action: 'sign_contract',
-      };
-    } else {
-      contract = {
-        headline: t(
-          'عقدك موقّع إلكترونياً من الطرفين 🤝',
-          'Signed electronically by both parties 🤝',
-        ),
-        body: t(
-          `وقّعتَ ${contractWord} ${lifecycle.contract?.reference ?? ''}${lifecycle.tenantSignedAt ? ` في ${journeyStamp(lifecycle.tenantSignedAt, ar)}` : ''}، وأصبح نافذاً وموقّعاً من الطرفين. احتفظ به دائماً في متناول يدك.`,
-          `You signed ${lifecycle.contract?.reference ?? 'the contract'}; it is now in force and signed by both parties.`,
-        ),
-        scene: 'contract',
-        sceneDone: true,
-        sceneStatus: t('موقّع من الطرفين', 'Signed by both parties'),
-        action: 'view_contract',
       };
     }
   }
@@ -320,7 +320,7 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         };
   }
 
-  return [booking, approval, documents, contract, handover];
+  return [booking, approval, contract, documents, handover];
 }
 
 export function leaseJourneySteps(
@@ -332,8 +332,10 @@ export function leaseJourneySteps(
   const details = [
     null,
     props.lifecycle.approvedAt ? journeyStamp(props.lifecycle.approvedAt, ar) : null,
-    null,
     props.lifecycle.tenantSignedAt ? journeyStamp(props.lifecycle.tenantSignedAt, ar) : null,
+    props.lifecycle.customerDocumentsSentAt
+      ? journeyStamp(props.lifecycle.customerDocumentsSentAt, ar)
+      : null,
     props.lifecycle.handover ? journeyStamp(props.lifecycle.handover.on, ar) : null,
   ];
   return labels.map((label, index) => ({

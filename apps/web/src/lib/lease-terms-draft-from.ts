@@ -1,8 +1,11 @@
+import type { HandoverAfterSign } from '@/lib/approval-policy';
 import {
   DEFAULT_VAT_RATE_PERCENT,
   LEASE_TERMS_VERSION,
   addDays,
+  addMonths,
   buildRentSchedule,
+  contractPeriod,
   endDateForMonths,
   formatMinor,
   minorDigitsFor,
@@ -18,6 +21,69 @@ import {
 /** Calendar date in Asia/Muscat (YYYY-MM-DD). */
 export function muscatTodayIso(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
+}
+
+/** Muscat calendar date for an absolute instant. */
+export function muscatDateIso(at: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(at);
+}
+
+/** Handover calendar date from approval/issue time per owner settings. */
+export function computeHandoverOnAfterSign(from: Date, delay: HandoverAfterSign): string {
+  const base = muscatDateIso(from);
+  switch (delay) {
+    case 'hour':
+      return muscatDateIso(new Date(from.getTime() + 60 * 60 * 1000));
+    case 'day':
+      return addDays(base, 1);
+    case 'week':
+      return addDays(base, 7);
+    case 'month':
+      return addMonths(base, 1);
+  }
+}
+
+/**
+ * Shift handover + lease start (and rebuild end/schedule) from the owner’s
+ * post-approval handover delay. Keeps the same term length when possible.
+ */
+export function applyHandoverAfterSignToDraft(
+  draft: LeaseTermsDraft,
+  delay: HandoverAfterSign,
+  options: { from?: Date; currency?: string } = {},
+): LeaseTermsDraft {
+  const from = options.from ?? new Date();
+  const digits = minorDigitsFor(options.currency ?? 'OMR');
+  const handoverOn = computeHandoverOnAfterSign(from, delay);
+  const startsOn = handoverOn;
+  const prior =
+    draft.startsOn && draft.endsOn && draft.startsOn <= draft.endsOn
+      ? contractPeriod(draft.startsOn, draft.endsOn)
+      : null;
+  const months = prior && prior.months > 0 ? prior.months : 12;
+  const endsOn = endDateForMonths(startsOn, months);
+  const paymentDay = Number(draft.paymentDay) || 5;
+  const rentMinor = parseMoney(draft.monthlyRent, digits) ?? 0;
+  const schedule = buildRentSchedule({
+    startsOn,
+    endsOn,
+    monthlyRentMinor: rentMinor,
+    paymentDay,
+    frequency: draft.paymentFrequency || 'monthly',
+  });
+  const moneyRow = (minor: number) => formatMinor(minor, digits).replace(/\.?0+$/, '');
+  return {
+    ...draft,
+    handoverOn,
+    startsOn,
+    endsOn,
+    schedule: schedule.map((row, index) => ({
+      dueOn: row.dueOn,
+      rent: moneyRow(row.rentMinor),
+      chequeNumber: draft.schedule[index]?.chequeNumber ?? '',
+      bankName: draft.schedule[index]?.bankName ?? draft.chequeBankName ?? '',
+    })),
+  };
 }
 
 export type BookingLeaseTermsSeedInput = {

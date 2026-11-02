@@ -1075,8 +1075,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
   const phase =
     lifecycle !== serverLifecycle &&
     (serverProps.phase === 'awaiting_documents' ||
-      serverProps.phase === 'awaiting_documents_review' ||
-      serverProps.phase === 'awaiting_contract_approval')
+      serverProps.phase === 'awaiting_documents_review')
       ? documentsPhase(lifecycle)
       : serverProps.phase;
   const props: Props =
@@ -1137,11 +1136,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
   }
 
   const draftOpen =
-    phase === 'awaiting_contract_draft' ||
-    ((phase === 'awaiting_documents' ||
-      phase === 'awaiting_documents_review' ||
-      phase === 'awaiting_contract_approval') &&
-      editing);
+    phase === 'awaiting_contract_draft' || (phase === 'awaiting_contract_approval' && editing);
 
   return (
     <PreviewContext.Provider value={setPreview}>
@@ -1340,10 +1335,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               />
             ) : null}
 
-            {!draftOpen &&
-            (phase === 'awaiting_documents' ||
-              phase === 'awaiting_documents_review' ||
-              phase === 'awaiting_contract_approval') ? (
+            {!draftOpen && phase === 'awaiting_contract_approval' ? (
               <div className="lrw__card lrw__desk">
                 <div className="lrw__desk-head">
                   <div>
@@ -1352,8 +1344,8 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                     </h3>
                     <p className="muted">
                       {t(
-                        'راجع ملخص العقد، ثم تابع مستندات العميل والشيكات حتى يُفتح الاعتماد.',
-                        'Review the contract summary, then track client documents and cheques until approval opens.',
+                        'راجع ملخص العقد واعتمده للتوقيع. المستندات والشيكات تُطلب من العميل بعد توقيعه.',
+                        'Review the contract summary and approve it for signature. Documents and cheques are requested from the client after they sign.',
                       )}
                     </p>
                   </div>
@@ -1409,20 +1401,15 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 </div>
                 <div className="lrw__approve">
                   <p className="muted">
-                    {phase === 'awaiting_contract_approval'
-                      ? t(
-                          'المستندات والشيكات مكتملة. باعتمادك يوقَّع العقد باسم المالك ويُرسل للعميل ليوقّعه إلكترونياً.',
-                          'Documents and cheques are complete. Approving signs for the owner and sends the contract to the client to e-sign.',
-                        )
-                      : t(
-                          'يُفتح اعتماد العقد بعد أن يرفع العميل كل المستندات والشيكات المطلوبة وتقبلها.',
-                          'Contract approval opens once every required document and cheque is uploaded and accepted.',
-                        )}
+                    {t(
+                      'باعتمادك يوقَّع العقد باسم المالك ويُرسل للعميل ليوقّعه إلكترونياً، ثم يرفع المستندات والشيكات.',
+                      'Approving signs for the owner and sends the contract to the client to e-sign; they then upload documents and cheques.',
+                    )}
                   </p>
                   <button
                     type="button"
                     className="button button--primary"
-                    disabled={busy || phase !== 'awaiting_contract_approval' || !canSign}
+                    disabled={busy || !canSign}
                     onClick={() => void act({ action: 'issue_contract' })}
                   >
                     {busy
@@ -1441,18 +1428,73 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               </div>
             ) : null}
 
+            {!draftOpen &&
+            (phase === 'awaiting_documents' || phase === 'awaiting_documents_review') ? (
+              <div className="lrw__card lrw__desk">
+                <div className="lrw__desk-head">
+                  <div>
+                    <h3>{t('مستندات وشيكات بعد التوقيع', 'Documents & cheques after signature')}</h3>
+                    <p className="muted">
+                      {t(
+                        'العقد موقّع من الطرفين. راجع ما يرفعه العميل من مستندات وشيكات.',
+                        'The contract is signed by both parties. Review the documents and cheques the client uploads.',
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="lrw__desk-grid">
+                  <RequirementsReview
+                    {...props}
+                    busy={busy}
+                    fileHref={fileHref}
+                    onReview={(code, decision, note) =>
+                      decide(
+                        code,
+                        { status: decision, ...(note ? { note } : {}) },
+                        { action: 'review_document', code, decision, ...(note ? { note } : {}) },
+                      )
+                    }
+                    onReviewCheque={(key, decision, note) =>
+                      act({
+                        action: 'review_cheque',
+                        key,
+                        decision,
+                        ...(note ? { note } : {}),
+                      })
+                    }
+                    onAddRequirements={(requirements) =>
+                      void act({ action: 'add_requirements', requirements })
+                    }
+                  />
+                  <ChequesReview
+                    {...props}
+                    busy={busy}
+                    fileHref={fileHref}
+                    onReview={(key, decision, note) =>
+                      act({
+                        action: 'review_cheque',
+                        key,
+                        decision,
+                        ...(note ? { note } : {}),
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            ) : null}
+
             {phase === 'awaiting_tenant_signature' ? (
               <div className="lrw__card">
                 <h3>{t('بانتظار توقيع الطرف الثاني', 'Awaiting the second party')}</h3>
                 <p>
                   {lifecycle.contract?.automatic
                     ? t(
-                        `اعتمد النظام العقد ${lifecycle.contract.reference} نيابةً عنك بعد اكتمال المستندات ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً من صفحة حجزه.`,
-                        `The system approved contract ${lifecycle.contract.reference} for you once the documents were in; it is signed for the owner and awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature.`,
+                        `اعتمد النظام العقد ${lifecycle.contract.reference} نيابةً عنك ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً؛ بعد التوقيع يرفع المستندات والشيكات.`,
+                        `The system approved contract ${lifecycle.contract.reference} for you; it is signed for the owner and awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature. After signing they upload documents and cheques.`,
                       )
                     : t(
-                        `اعتمدت العقد ${lifecycle.contract?.reference ?? ''} ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً من صفحة حجزه.`,
-                        `You approved contract ${lifecycle.contract?.reference ?? ''}; it is signed for the owner and now awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature.`,
+                        `اعتمدت العقد ${lifecycle.contract?.reference ?? ''} ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً؛ بعد التوقيع يرفع المستندات والشيكات.`,
+                        `You approved contract ${lifecycle.contract?.reference ?? ''}; it is signed for the owner and awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature. After signing they upload documents and cheques.`,
                       )}
                 </p>
                 {contractHref ? (

@@ -13,7 +13,10 @@ import {
   users,
   workflowEvents,
 } from '@bhd-r/db';
-import { SYSTEM_APPROVER_AR } from '@/lib/approval-policy';
+import {
+  SYSTEM_APPROVER_AR,
+  type HandoverAfterSign,
+} from '@/lib/approval-policy';
 import {
   bankAccountPayeeName,
   normalizeAccountingSettings,
@@ -56,7 +59,10 @@ import {
   type ReservationSaleDraft,
 } from '@/lib/lease-reservation-lifecycle';
 import { computeLeaseTerms, minorDigitsFor, type LeaseTermsDraft } from '@/lib/lease-terms';
-import { buildBookingLeaseTermsDraft } from '@/lib/lease-terms-draft-from';
+import {
+  applyHandoverAfterSignToDraft,
+  buildBookingLeaseTermsDraft,
+} from '@/lib/lease-terms-draft-from';
 import {
   assertLeaseTermsValid,
   completeCounterpartySignatureInTx,
@@ -114,6 +120,7 @@ async function autoPrepareLeaseContractDraft(
   row: OwnerRow,
   lifecycle: ReservationLifecycle,
   deferUntilHandover: ReadonlyArray<'meters' | 'handoverOn'>,
+  handoverAfterSign: HandoverAfterSign | null = null,
 ): Promise<{
   lifecycle: ReservationLifecycle;
   lease: ManualLeaseInput;
@@ -121,7 +128,7 @@ async function autoPrepareLeaseContractDraft(
   const party = row.snapshot.party;
   if (!party?.contractType || !party.termMonths) return null;
   const bank = await loadOrgRentBank(tx, row.orgId, row.propertyId);
-  const terms = buildBookingLeaseTermsDraft({
+  let terms = buildBookingLeaseTermsDraft({
     currency: row.currency,
     rentMinor: row.snapshot.rentMinor,
     depositMinor: row.snapshot.depositMinor,
@@ -129,6 +136,14 @@ async function autoPrepareLeaseContractDraft(
     termMonths: party.termMonths,
     bank,
   });
+  const effectiveDefer = handoverAfterSign
+    ? deferUntilHandover.filter((item) => item !== 'handoverOn')
+    : deferUntilHandover;
+  if (handoverAfterSign) {
+    terms = applyHandoverAfterSignToDraft(terms, handoverAfterSign, {
+      currency: row.currency,
+    });
+  }
   // Without a rent bank account, fall back to transfer so auto-issue is not blocked.
   if (!bank || !terms.chequeAccountName?.trim()) {
     terms.paymentMethod = 'bank_transfer';
@@ -137,7 +152,7 @@ async function autoPrepareLeaseContractDraft(
     terms.rentBankAccountId = '';
   }
   try {
-    assertLeaseTermsValid(terms, row.currency, { deferUntilHandover });
+    assertLeaseTermsValid(terms, row.currency, { deferUntilHandover: effectiveDefer });
   } catch {
     return null;
   }
@@ -149,7 +164,7 @@ async function autoPrepareLeaseContractDraft(
     },
     terms,
   };
-  const chequeSeed = buildChequeInstructions(terms, row.currency, deferUntilHandover);
+  const chequeSeed = buildChequeInstructions(terms, row.currency, effectiveDefer);
   const chequeSubmissions = mergeChequeSubmissions(
     chequeSeed.instructions,
     lifecycle.chequeSubmissions,
@@ -163,7 +178,8 @@ async function autoPrepareLeaseContractDraft(
     },
     autoFlow: {
       contractAuto: true,
-      deferUntilHandover: [...deferUntilHandover],
+      deferUntilHandover: [...effectiveDefer],
+      handoverAfterSign,
       requireTenantAttestation: lifecycle.autoFlow?.requireTenantAttestation ?? true,
       allowHandoverBeforeDocVerify: lifecycle.autoFlow?.allowHandoverBeforeDocVerify ?? false,
     },
@@ -563,13 +579,14 @@ async function issueReservationContract(
   lifecycle: ReservationLifecycle,
   issuer: { byName: string | null; automatic: boolean },
 ) {
-  const draft = lifecycle.contractDraft ?? fail('reservation_not_ready');
+  let draft = lifecycle.contractDraft ?? fail('reservation_not_ready');
   const source = {
     type: 'lease_reservation',
     reservationId: row.id,
     referenceCode: row.snapshot.referenceCode,
     ...(issuer.automatic ? { automatic: true } : {}),
   };
+  let workingLifecycle = lifecycle;
   let outcome: { contractId: string; contractReference: string };
   if (row.snapshot.mode === 'sale') {
     if (!hasPermission(claims, 'sale.manage') || !draft.sale) fail('forbidden');
@@ -584,24 +601,54 @@ async function issueReservationContract(
     });
   } else {
     if (!hasPermission(claims, 'lease.create') || !draft.lease) fail('forbidden');
-    const lease = draft.lease as unknown as ManualLeaseInput;
+    const handoverAfterSign = lifecycle.autoFlow?.handoverAfterSign ?? null;
+    let lease = draft.lease as unknown as ManualLeaseInput;
+    let deferUntilHandover = lifecycle.autoFlow?.deferUntilHandover ?? [];
+    if (handoverAfterSign) {
+      const terms = applyHandoverAfterSignToDraft(lease.terms, handoverAfterSign, {
+        currency: row.currency,
+      });
+      lease = { ...lease, terms };
+      deferUntilHandover = deferUntilHandover.filter((item) => item !== 'handoverOn');
+      const chequeSeed = buildChequeInstructions(terms, row.currency, deferUntilHandover);
+      draft = { ...draft, lease };
+      workingLifecycle = {
+        ...lifecycle,
+        contractDraft: draft,
+        autoFlow: {
+          contractAuto: lifecycle.autoFlow?.contractAuto ?? false,
+          deferUntilHandover: [...deferUntilHandover],
+          handoverAfterSign,
+          requireTenantAttestation: lifecycle.autoFlow?.requireTenantAttestation ?? true,
+          allowHandoverBeforeDocVerify: lifecycle.autoFlow?.allowHandoverBeforeDocVerify ?? false,
+        },
+        chequePayableTo: chequeSeed.payableTo,
+        chequeBankName: chequeSeed.bankName,
+        rentBankAccountId: chequeSeed.rentBankAccountId,
+        chequeInstructions: chequeSeed.instructions,
+        chequeSubmissions: mergeChequeSubmissions(
+          chequeSeed.instructions,
+          lifecycle.chequeSubmissions,
+        ),
+      };
+    }
     const withCheques = applyChequeSubmissionsToLease(
       {
         ...lease,
         unitId: row.unitId,
         tenant: { ...lease.tenant, partyId: row.tenantPartyId },
       },
-      lifecycle.chequeSubmissions ?? [],
+      workingLifecycle.chequeSubmissions ?? [],
     );
-    const deferUntilHandover = lifecycle.autoFlow?.deferUntilHandover;
     outcome = await issueManualLeaseInTx(tx, claims, row.propertyId, withCheques, {
       source,
       awaitCounterparty: true,
-      ...(deferUntilHandover?.length ? { deferUntilHandover } : {}),
+      ...(deferUntilHandover.length ? { deferUntilHandover } : {}),
     });
   }
   const next: ReservationLifecycle = {
-    ...lifecycle,
+    ...workingLifecycle,
+    contractDraft: draft,
     contract: {
       id: outcome.contractId,
       reference: outcome.contractReference,
@@ -1279,7 +1326,10 @@ async function ownerActionInTx(
           row.propertyId,
           sale ? 'sale' : 'rent',
         );
-        const deferUntilHandover = approvalPolicy.deferUntilHandover;
+        const handoverAfterSign = approvalPolicy.handoverAfterSign;
+        const deferUntilHandover = handoverAfterSign
+          ? approvalPolicy.deferUntilHandover.filter((item) => item !== 'handoverOn')
+          : approvalPolicy.deferUntilHandover;
         let draft: NonNullable<ReservationLifecycle['contractDraft']>;
         if (sale) {
           if (!input.sale) fail('invalid_body');
@@ -1288,15 +1338,19 @@ async function ownerActionInTx(
           draft = { savedAt: at, byName, sale: input.sale };
         } else {
           if (!input.lease) fail('invalid_body');
-          assertLeaseTermsValid(input.lease.terms, row.currency, { deferUntilHandover });
-          if (
-            input.lease.terms.paymentMethod === 'cheque' &&
-            !input.lease.terms.chequeAccountName?.trim()
-          ) {
+          let leaseTerms = input.lease.terms;
+          if (handoverAfterSign) {
+            leaseTerms = applyHandoverAfterSignToDraft(leaseTerms, handoverAfterSign, {
+              currency: row.currency,
+            });
+          }
+          assertLeaseTermsValid(leaseTerms, row.currency, { deferUntilHandover });
+          if (leaseTerms.paymentMethod === 'cheque' && !leaseTerms.chequeAccountName?.trim()) {
             fail('invalid_body');
           }
           const lease: ManualLeaseInput = {
             ...input.lease,
+            terms: leaseTerms,
             unitId: row.unitId,
             tenant: { ...input.lease.tenant, partyId: row.tenantPartyId },
           };
@@ -1308,7 +1362,11 @@ async function ownerActionInTx(
         );
         const chequeSeed =
           !sale && input.lease
-            ? buildChequeInstructions(input.lease.terms, row.currency, deferUntilHandover)
+            ? buildChequeInstructions(
+                (draft.lease as ManualLeaseInput).terms,
+                row.currency,
+                deferUntilHandover,
+              )
             : {
                 payableTo: null,
                 bankName: null,
@@ -1326,6 +1384,7 @@ async function ownerActionInTx(
           autoFlow: {
             contractAuto: approvalPolicy.contract === 'auto',
             deferUntilHandover,
+            handoverAfterSign,
             requireTenantAttestation: approvalPolicy.requireTenantAttestation,
             allowHandoverBeforeDocVerify: approvalPolicy.allowHandoverBeforeDocVerify,
           },
@@ -1343,7 +1402,7 @@ async function ownerActionInTx(
       }
 
       case 'review_document': {
-        if (row.lifecycle.contract) fail('reservation_not_ready');
+        if (row.lifecycle.handover) fail('reservation_not_ready');
         const requirements = row.lifecycle.requirements ?? [];
         const target = requirements.find((item) => item.code === input.code);
         if (!target) fail('requirement_not_found');
@@ -1371,12 +1430,14 @@ async function ownerActionInTx(
       }
 
       case 'add_requirements': {
-        if (row.lifecycle.contract) fail('reservation_not_ready');
+        if (row.lifecycle.handover) fail('reservation_not_ready');
         if (
           phase !== 'awaiting_contract_draft' &&
           phase !== 'awaiting_documents' &&
           phase !== 'awaiting_documents_review' &&
-          phase !== 'awaiting_contract_approval'
+          phase !== 'awaiting_contract_approval' &&
+          phase !== 'awaiting_tenant_signature' &&
+          phase !== 'awaiting_handover'
         ) {
           fail('reservation_not_ready');
         }
@@ -1422,7 +1483,7 @@ async function ownerActionInTx(
       }
 
       case 'review_cheque': {
-        if (row.lifecycle.contract) fail('reservation_not_ready');
+        if (row.lifecycle.handover) fail('reservation_not_ready');
         const instructions = row.lifecycle.chequeInstructions ?? [];
         if (!instructions.some((item) => item.key === input.key)) fail('requirement_not_found');
         const submissions = row.lifecycle.chequeSubmissions ?? [];
@@ -1461,10 +1522,8 @@ async function ownerActionInTx(
         if (!hasPermission(claims, 'contract.create') || !hasPermission(claims, 'contract.sign')) {
           fail('forbidden');
         }
-        if (phase === 'awaiting_documents' || phase === 'awaiting_documents_review') {
-          fail('documents_incomplete');
-        }
         if (phase !== 'awaiting_contract_approval') fail('reservation_not_ready');
+        if (!row.lifecycle.contractDraft) fail('reservation_not_ready');
         const { outcome, lifecycle } = await issueReservationContract(
           tx,
           claims,
@@ -1749,6 +1808,7 @@ export async function runReservationAutomation(
           row,
           lifecycle,
           policy.deferUntilHandover,
+          policy.handoverAfterSign,
         );
         if (prepared) {
           lifecycle = prepared.lifecycle;
@@ -1765,23 +1825,49 @@ export async function runReservationAutomation(
         }
       }
 
-      const ready =
-        phase() === 'awaiting_documents_review' || phase() === 'awaiting_contract_approval';
-      // Accept replacements after a post-sign reject even when the contract already exists
-      // (they re-enter the manual verify queue). First-time issue still needs contract=auto.
-      const shouldAutoAcceptPackage =
-        ready &&
-        Boolean(lifecycle.contractDraft) &&
-        (Boolean(lifecycle.contract) || policy.contract === 'auto');
-      if (shouldAutoAcceptPackage) {
+      // Issue as soon as the draft is ready — documents/cheques come after the tenant signs.
+      if (
+        policy.contract === 'auto' &&
+        !lifecycle.contract &&
+        lifecycle.contractDraft &&
+        phase() === 'awaiting_contract_approval'
+      ) {
+        if (!signer) {
+          await event('reservation.auto_contract_skipped', { reason: 'delegate_unavailable' });
+          return phase();
+        }
+        try {
+          const issued = await tx.transaction((savepoint) =>
+            issueReservationContract(savepoint, signer, row, lifecycle, {
+              byName: SYSTEM_APPROVER_AR,
+              automatic: true,
+            }),
+          );
+          lifecycle = issued.lifecycle;
+          await event('reservation.contract_issued', {
+            contractId: issued.outcome.contractId,
+            contractReference: issued.outcome.contractReference,
+            signedForOwnerBy: delegate?.name ?? null,
+          });
+        } catch (error) {
+          await event('reservation.auto_contract_skipped', {
+            reason: clientSafeErrorCode(error, 'issue_failed'),
+          });
+        }
+      }
+
+      // Auto-accept packages the tenant sent after signing (or replacements after a reject).
+      if (
+        Boolean(lifecycle.contract) &&
+        Boolean(lifecycle.tenantSignature) &&
+        phase() === 'awaiting_documents_review'
+      ) {
         const submitted = (lifecycle.requirements ?? []).filter(
           (item) => item.status === 'submitted',
         );
         const submittedCheques = (lifecycle.chequeSubmissions ?? []).filter(
           (item) => item.status === 'submitted',
         );
-        const autoApprovedCodes = new Set(submitted.map((item) => item.code));
-        const autoApprovedChequeKeys = new Set(submittedCheques.map((item) => item.key));
         if (submitted.length || submittedCheques.length) {
           lifecycle = {
             ...lifecycle,
@@ -1815,47 +1901,6 @@ export async function runReservationAutomation(
             codes: submitted.map((item) => item.code),
             cheques: submittedCheques.map((item) => item.key),
           });
-        }
-        if (policy.contract === 'auto' && !lifecycle.contract) {
-          if (!signer) {
-            await event('reservation.auto_contract_skipped', { reason: 'delegate_unavailable' });
-            return phase();
-          }
-          try {
-            const issued = await tx.transaction((savepoint) =>
-              issueReservationContract(savepoint, signer, row, lifecycle, {
-                byName: SYSTEM_APPROVER_AR,
-                automatic: true,
-              }),
-            );
-            lifecycle = issued.lifecycle;
-            await event('reservation.contract_issued', {
-              contractId: issued.outcome.contractId,
-              contractReference: issued.outcome.contractReference,
-              signedForOwnerBy: delegate?.name ?? null,
-            });
-          } catch (error) {
-            // Keep docs/cheques as submitted so the owner still sees Accept/Reject.
-            if (autoApprovedCodes.size || autoApprovedChequeKeys.size) {
-              lifecycle = {
-                ...lifecycle,
-                requirements: (lifecycle.requirements ?? []).map((item) => {
-                  if (!autoApprovedCodes.has(item.code) || !item.autoApproved) return item;
-                  const { autoApproved: _a, reviewedAt: _r, reviewedByName: _n, ...rest } = item;
-                  return { ...rest, status: 'submitted' as const, note: null };
-                }),
-                chequeSubmissions: (lifecycle.chequeSubmissions ?? []).map((item) => {
-                  if (!autoApprovedChequeKeys.has(item.key) || !item.autoApproved) return item;
-                  const { autoApproved: _a, reviewedAt: _r, reviewedByName: _n, ...rest } = item;
-                  return { ...rest, status: 'submitted' as const, note: null };
-                }),
-              };
-              await saveLifecycle(tx, row, lifecycle);
-            }
-            await event('reservation.auto_contract_skipped', {
-              reason: clientSafeErrorCode(error, 'issue_failed'),
-            });
-          }
         }
       }
       return phase();
@@ -2017,7 +2062,7 @@ export async function sendReservationDocumentsPackage(
     await notifyOwnersOfCustomerStep(result.reservationId, {
       subject: '📎 العميل أرسل حزمة المستندات للمراجعة',
       title: 'مستندات الحجز جاهزة للمراجعة',
-      line: 'أكمل العميل رفع كل المستندات والشيكات المطلوبة وأكّد إرسالها. راجعها واعتمدها ليمضي الحجز إلى العقد.',
+      line: 'أكمل العميل رفع كل المستندات والشيكات المطلوبة بعد توقيع العقد وأكّد إرسالها. راجعها واعتمدها يدوياً قبل التسليم.',
     });
   }
   await runReservationAutomation(result.reservationId, claims.sub);

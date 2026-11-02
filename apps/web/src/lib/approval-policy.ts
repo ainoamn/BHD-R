@@ -15,12 +15,21 @@ export type DeferredLeaseField = 'meters' | 'handoverOn';
 
 export const DEFERRED_LEASE_FIELDS = ['meters', 'handoverOn'] as const;
 
+/**
+ * Automatic handover date after the lease contract is approved/issued
+ * (hour / day / week / month from that moment). Null = use the form date or defer.
+ */
+export type HandoverAfterSign = 'hour' | 'day' | 'week' | 'month';
+
+export const HANDOVER_AFTER_SIGN_OPTIONS = ['hour', 'day', 'week', 'month'] as const;
+
 export type ApprovalPolicy = {
   /** Approve a paid, signed booking. */
   booking: ApprovalMode;
   /**
    * Create / approve the contract electronically (stays: on booking confirm;
-   * long-term: when required documents are in), or leave it for the owner to issue by hand.
+   * long-term: once the draft is ready — documents follow the tenant signature),
+   * or leave it for the owner to issue by hand.
    */
   contract: ApprovalMode;
   /** Trust the payment channel's success report, or confirm receipt of the money by hand. */
@@ -35,6 +44,11 @@ export type ApprovalPolicy = {
    * (after the tenant e-signs).
    */
   deferUntilHandover: DeferredLeaseField[];
+  /**
+   * Long-term leases: set handover (and lease start) automatically this long after
+   * contract approval. When set, `handoverOn` is not deferred.
+   */
+  handoverAfterSign: HandoverAfterSign | null;
   /**
    * Tenant must confirm document accuracy and accept cancel-if-invalid risk
    * before uploading docs/cheques or signing the lease.
@@ -75,6 +89,7 @@ export const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = {
   payment: 'auto',
   reschedule: 'auto',
   deferUntilHandover: [],
+  handoverAfterSign: null,
   requireTenantAttestation: true,
   allowHandoverBeforeDocVerify: false,
   electronicSignature: true,
@@ -89,6 +104,7 @@ export const DEFAULT_APPROVAL_POLICY_BY_KIND: Record<ContractApprovalKind, Appro
     payment: 'auto',
     reschedule: 'auto',
     deferUntilHandover: [],
+    handoverAfterSign: null,
     requireTenantAttestation: false,
     allowHandoverBeforeDocVerify: false,
     electronicSignature: true,
@@ -100,6 +116,7 @@ export const DEFAULT_APPROVAL_POLICY_BY_KIND: Record<ContractApprovalKind, Appro
     payment: 'auto',
     reschedule: 'auto',
     deferUntilHandover: [],
+    handoverAfterSign: null,
     requireTenantAttestation: true,
     allowHandoverBeforeDocVerify: false,
     electronicSignature: true,
@@ -111,6 +128,7 @@ export const DEFAULT_APPROVAL_POLICY_BY_KIND: Record<ContractApprovalKind, Appro
     payment: 'auto',
     reschedule: 'auto',
     deferUntilHandover: [],
+    handoverAfterSign: null,
     requireTenantAttestation: true,
     allowHandoverBeforeDocVerify: false,
     electronicSignature: true,
@@ -124,7 +142,8 @@ export const FULL_AUTO_APPROVAL_POLICY: ApprovalPolicy = {
   contract: 'auto',
   payment: 'auto',
   reschedule: 'auto',
-  deferUntilHandover: ['meters', 'handoverOn'],
+  deferUntilHandover: ['meters'],
+  handoverAfterSign: 'day',
   requireTenantAttestation: true,
   allowHandoverBeforeDocVerify: false,
   electronicSignature: true,
@@ -147,18 +166,31 @@ export function sanitizeApprovalPolicy(
   const pick = (step: ApprovalStep): ApprovalMode =>
     source[step] === 'auto' || source[step] === 'manual' ? source[step] : fallback[step];
   const deferRaw = Array.isArray(source.deferUntilHandover) ? source.deferUntilHandover : [];
-  const deferUntilHandover = deferRaw
+  let deferUntilHandover = deferRaw
     .map((item) => String(item))
     .filter((item): item is DeferredLeaseField =>
       (DEFERRED_LEASE_FIELDS as readonly string[]).includes(item),
     )
     .filter((item, index, all) => all.indexOf(item) === index);
+  const handoverRaw = source.handoverAfterSign;
+  const handoverAfterSign: HandoverAfterSign | null =
+    kind === 'rent' &&
+    (handoverRaw === 'hour' ||
+      handoverRaw === 'day' ||
+      handoverRaw === 'week' ||
+      handoverRaw === 'month')
+      ? handoverRaw
+      : fallback.handoverAfterSign;
+  if (handoverAfterSign) {
+    deferUntilHandover = deferUntilHandover.filter((item) => item !== 'handoverOn');
+  }
   return {
     booking: pick('booking'),
     contract: pick('contract'),
     payment: pick('payment'),
     reschedule: pick('reschedule'),
     deferUntilHandover: kind === 'rent' ? deferUntilHandover : [],
+    handoverAfterSign: kind === 'rent' ? handoverAfterSign : null,
     requireTenantAttestation:
       kind === 'daily'
         ? source.requireTenantAttestation === true
@@ -205,6 +237,19 @@ export function deferredLeaseFieldLabel(field: DeferredLeaseField, ar: boolean):
   return labels[field][ar ? 0 : 1];
 }
 
+export function handoverAfterSignLabel(value: HandoverAfterSign | null, ar: boolean): string {
+  if (!value) {
+    return ar ? 'من نموذج العقد / مؤجّل للتسليم' : 'From the contract form / deferred to handover';
+  }
+  const labels: Record<HandoverAfterSign, [string, string]> = {
+    hour: ['بعد ساعة من اعتماد العقد', 'One hour after contract approval'],
+    day: ['بعد يوم من اعتماد العقد', 'One day after contract approval'],
+    week: ['بعد أسبوع من اعتماد العقد', 'One week after contract approval'],
+    month: ['بعد شهر من اعتماد العقد', 'One month after contract approval'],
+  };
+  return labels[value][ar ? 0 : 1];
+}
+
 export function approvalStepLabel(step: ApprovalStep, ar: boolean): string {
   const labels: Record<ApprovalStep, [string, string]> = {
     booking: ['اعتماد الحجز بعد الدفع', 'Booking approval after payment'],
@@ -235,8 +280,8 @@ export function approvalStepHelp(step: ApprovalStep, mode: ApprovalMode, ar: boo
     },
     contract: {
       auto: [
-        'ينشئ النظام العقد ويوقّعه باسمك وفق صلاحياتك عندما تكتمل شروط الاعتماد لهذا النوع.',
-        'The system creates and signs the contract in your name when this type’s approval conditions are met.',
+        'ينشئ النظام العقد ويوقّعه باسمك فور جاهزية المسودة؛ يطلب المستندات والشيكات من المستأجر بعد توقيعه.',
+        'The system creates and signs the contract in your name once the draft is ready; documents and cheques are requested after the tenant signs.',
       ],
       manual: [
         'لا يُنشأ العقد تلقائياً — تنشئه أو تعتمده بنفسك من الحجوزات أو العقود.',

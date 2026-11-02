@@ -33,6 +33,7 @@ const bodySchema = z
           .array(z.enum(['meters', 'handoverOn']))
           .max(2)
           .default([]),
+        handoverAfterSign: z.enum(['hour', 'day', 'week', 'month']).nullable().default(null),
         requireTenantAttestation: z.boolean().default(true),
         allowHandoverBeforeDocVerify: z.boolean().default(false),
         electronicSignature: z.boolean().default(true),

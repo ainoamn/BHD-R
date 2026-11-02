@@ -8,17 +8,20 @@ import {
   DEFERRED_LEASE_FIELDS,
   DEFAULT_APPROVAL_POLICY_BY_KIND,
   FULL_AUTO_APPROVAL_POLICY,
+  HANDOVER_AFTER_SIGN_OPTIONS,
   approvalStepHelp,
   approvalStepLabel,
   approvalStepsForKind,
   contractApprovalKindHint,
   contractApprovalKindLabel,
   deferredLeaseFieldLabel,
+  handoverAfterSignLabel,
   type ApprovalMode,
   type ApprovalPolicy,
   type ApprovalPolicySource,
   type ContractApprovalKind,
   type DeferredLeaseField,
+  type HandoverAfterSign,
 } from '@/lib/approval-policy';
 
 export type ApprovalPolicyKindState = {
@@ -34,6 +37,7 @@ function policyEqual(a: ApprovalPolicy, b: ApprovalPolicy): boolean {
   if (a.allowHandoverBeforeDocVerify !== b.allowHandoverBeforeDocVerify) return false;
   if (a.electronicSignature !== b.electronicSignature) return false;
   if (a.viewingAutoSchedule !== b.viewingAutoSchedule) return false;
+  if (a.handoverAfterSign !== b.handoverAfterSign) return false;
   const left = [...a.deferUntilHandover].sort().join(',');
   const right = [...b.deferUntilHandover].sort().join(',');
   return left === right;
@@ -111,6 +115,7 @@ function KindEditor({
 
   const toggleDefer = (field: DeferredLeaseField) => {
     setDraft((current) => {
+      if (field === 'handoverOn' && current.handoverAfterSign) return current;
       const has = current.deferUntilHandover.includes(field);
       return {
         ...current,
@@ -119,6 +124,16 @@ function KindEditor({
           : [...current.deferUntilHandover, field],
       };
     });
+  };
+
+  const setHandoverAfterSign = (value: HandoverAfterSign | null) => {
+    setDraft((current) => ({
+      ...current,
+      handoverAfterSign: value,
+      deferUntilHandover: value
+        ? current.deferUntilHandover.filter((item) => item !== 'handoverOn')
+        : current.deferUntilHandover,
+    }));
   };
 
   const anyAuto = steps.some((step) => draft[step] === 'auto');
@@ -254,6 +269,56 @@ function KindEditor({
           <fieldset className="approval-policy__step">
             <legend>
               {t(
+                'موعد التسليم بعد اعتماد العقد',
+                'Handover date after contract approval',
+              )}
+            </legend>
+            <p className="muted" style={{ marginTop: 0 }}>
+              {t(
+                'يُحسب تاريخ التسليم وبداية العقد تلقائياً ويظهر في العقد. المستندات والشيكات تُطلب من المستأجر مباشرة بعد توقيعه.',
+                'Handover and lease start are calculated automatically and shown in the contract. Documents and cheques are requested right after the tenant signs.',
+              )}
+            </p>
+            <div className="approval-policy__options">
+              <label
+                className={`approval-policy__option${
+                  draft.handoverAfterSign === null ? ' approval-policy__option--on' : ''
+                }`}
+              >
+                <input
+                  type="radio"
+                  name={`handover-after-${kind}`}
+                  checked={draft.handoverAfterSign === null}
+                  onChange={() => setHandoverAfterSign(null)}
+                />
+                <span>
+                  <strong>{handoverAfterSignLabel(null, ar)}</strong>
+                </span>
+              </label>
+              {HANDOVER_AFTER_SIGN_OPTIONS.map((option) => (
+                <label
+                  key={option}
+                  className={`approval-policy__option${
+                    draft.handoverAfterSign === option ? ' approval-policy__option--on' : ''
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name={`handover-after-${kind}`}
+                    checked={draft.handoverAfterSign === option}
+                    onChange={() => setHandoverAfterSign(option)}
+                  />
+                  <span>
+                    <strong>{handoverAfterSignLabel(option, ar)}</strong>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset className="approval-policy__step">
+            <legend>
+              {t(
                 'حقول تُؤجَّل لما بعد توقيع المستأجر وقبل التسليم',
                 'Fields deferred until after tenant sign, before handover',
               )}
@@ -264,15 +329,24 @@ function KindEditor({
                   key={field}
                   className={`approval-policy__option${
                     draft.deferUntilHandover.includes(field) ? ' approval-policy__option--on' : ''
-                  }`}
+                  }${field === 'handoverOn' && draft.handoverAfterSign ? ' approval-policy__option--disabled' : ''}`}
                 >
                   <input
                     type="checkbox"
                     checked={draft.deferUntilHandover.includes(field)}
+                    disabled={field === 'handoverOn' && Boolean(draft.handoverAfterSign)}
                     onChange={() => toggleDefer(field)}
                   />
                   <span>
                     <strong>{deferredLeaseFieldLabel(field, ar)}</strong>
+                    {field === 'handoverOn' && draft.handoverAfterSign ? (
+                      <small className="muted">
+                        {t(
+                          'يُحدَّد تلقائياً من ضبط موعد التسليم أعلاه.',
+                          'Set automatically from the handover schedule above.',
+                        )}
+                      </small>
+                    ) : null}
                   </span>
                 </label>
               ))}
@@ -301,8 +375,8 @@ function KindEditor({
               <span>
                 <strong>
                   {t(
-                    'إلزام المستأجر بالتأكيد قبل رفع المستندات أو توقيع العقد',
-                    'Require tenant confirmation before uploads or contract signature',
+                    'إلزام المستأجر بتأكيد صحة البيانات مع قبول بنود العقد قبل التوقيع',
+                    'Require tenant to confirm accurate data with contract acceptance before signing',
                   )}
                 </strong>
               </span>

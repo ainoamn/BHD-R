@@ -1,5 +1,5 @@
 /**
- * After the deposit: owner approval → required documents and the final contract
+ * After the deposit: owner approval → contract issue & tenant e-sign → documents/cheques → handover
  * → contract approved by the owner, then signed by the tenant → handover.
  * Everything lives on the reservation's terms snapshot under `lifecycle`.
  */
@@ -155,6 +155,8 @@ export type ReservationLifecycle = {
   autoFlow?: {
     contractAuto: boolean;
     deferUntilHandover: Array<'meters' | 'handoverOn'>;
+    /** Copied from approval policy: set handover/start this long after contract issue. */
+    handoverAfterSign?: 'hour' | 'day' | 'week' | 'month' | null;
     requireTenantAttestation: boolean;
     /**
      * When true, staff may complete handover while auto-accepted documents/cheques
@@ -512,13 +514,13 @@ export type LeaseJourneyPhase =
   | 'handed_over'
   | 'closed';
 
-export type LeaseJourneyStage = 'booking' | 'approval' | 'documents' | 'contract' | 'handover';
+export type LeaseJourneyStage = 'booking' | 'approval' | 'contract' | 'documents' | 'handover';
 
 export const LEASE_JOURNEY_STAGES: readonly LeaseJourneyStage[] = [
   'booking',
   'approval',
-  'documents',
   'contract',
+  'documents',
   'handover',
 ];
 
@@ -625,15 +627,15 @@ export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   if (life.paymentReview?.status === 'pending') return 'awaiting_payment_review';
   if (!life.approval) return 'awaiting_owner_approval';
   if (!life.contractDraft) return 'awaiting_contract_draft';
-  // Documents stay in control even after the contract is issued or signed, so an owner
-  // reject can reopen upload / send instead of leaving the client stuck on handover.
+  // Contract first: issue and tenant e-sign, then documents/cheques, then handover.
+  if (!life.contract) return 'awaiting_contract_approval';
+  if (!life.tenantSignature) return 'awaiting_tenant_signature';
+  // After the tenant signed, documents stay in control so an owner reject can reopen upload.
   const docs = documentsPhase(life);
   if (docs === 'awaiting_documents' || docs === 'awaiting_documents_review') {
     return docs;
   }
-  if (life.tenantSignature) return 'awaiting_handover';
-  if (life.contract) return 'awaiting_tenant_signature';
-  return 'awaiting_contract_approval';
+  return 'awaiting_handover';
 }
 
 /** Once the draft is ready: waiting on the client's documents, on their review, or on approval. */
@@ -680,10 +682,10 @@ const PHASE_STAGE: Record<LeaseJourneyPhase, number> = {
   awaiting_payment_review: 1,
   awaiting_owner_approval: 1,
   awaiting_contract_draft: 2,
-  awaiting_documents: 2,
-  awaiting_documents_review: 2,
-  awaiting_contract_approval: 3,
-  awaiting_tenant_signature: 3,
+  awaiting_contract_approval: 2,
+  awaiting_tenant_signature: 2,
+  awaiting_documents: 3,
+  awaiting_documents_review: 3,
   awaiting_handover: 4,
   handed_over: 5,
   closed: -1,
@@ -718,16 +720,16 @@ export function leaseJourneyStageLabels(sale: boolean, ar: boolean): string[] {
     return [
       'إتمام الحجز',
       'اعتماد المالك',
-      'المستندات',
       sale ? 'عقد البيع' : 'عقد الإيجار',
+      'المستندات',
       'تسليم العقار',
     ];
   }
   return [
     'Booking',
     'Owner approval',
-    'Documents',
     sale ? 'Sale contract' : 'Lease contract',
+    'Documents',
     'Handover',
   ];
 }
