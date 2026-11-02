@@ -34,12 +34,15 @@ export function EmailOtpField({
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
+  const [needsResend, setNeedsResend] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [tone, setTone] = useState<Tone>('info');
   const [cooldownLeft, setCooldownLeft] = useState(0);
   const cooldownEndsAt = useRef(0);
   const autoSentFor = useRef<string | null>(null);
   const sendInFlight = useRef(false);
+  const verifyInFlight = useRef(false);
+  const lastAttemptedCode = useRef('');
 
   function show(next: string, nextTone: Tone) {
     setMessage(next);
@@ -51,12 +54,20 @@ export function EmailOtpField({
     setCooldownLeft(seconds);
   }
 
+  function clearCooldown() {
+    cooldownEndsAt.current = 0;
+    setCooldownLeft(0);
+  }
+
   async function send(options: { silent?: boolean } = {}) {
     if (sendInFlight.current || email.trim().length < 5) return;
-    if (cooldownLeft > 0 && sent) return;
+    if (cooldownLeft > 0 && sent && !needsResend) return;
     sendInFlight.current = true;
     setBusy(true);
     if (!options.silent) setMessage(null);
+    setNeedsResend(false);
+    lastAttemptedCode.current = '';
+    setCode('');
     onVerified(false);
     try {
       const response = await fetch('/api/public/email-otp', {
@@ -113,14 +124,16 @@ export function EmailOtpField({
     }
   }
 
-  async function verify() {
+  async function verify(nextCode: string) {
+    if (verifyInFlight.current || nextCode.length !== 6) return;
+    verifyInFlight.current = true;
     setBusy(true);
     setMessage(null);
     try {
       const response = await fetch('/api/public/email-otp', {
         method: 'POST',
         headers: { 'content-type': 'application/json', accept: 'application/json' },
-        body: JSON.stringify({ action: 'verify', email, code: code.trim() }),
+        body: JSON.stringify({ action: 'verify', email, code: nextCode }),
       });
       const data = (await response.json()) as { error?: { code?: string }; ok?: boolean };
       if (!response.ok) {
@@ -129,14 +142,14 @@ export function EmailOtpField({
         if (err === 'otp_invalid' || err === 'invalid_otp') {
           show(ar ? 'رمز التحقق خاطئ.' : 'The verification code is incorrect.', 'error');
         } else if (err === 'otp_expired' || err === 'otp_used' || err === 'otp_not_found') {
+          setNeedsResend(true);
+          clearCooldown();
           show(
             ar
-              ? 'انتهت صلاحية الرمز أو لم يعد صالحاً — اطلب رمزاً جديداً.'
-              : 'Code expired or no longer valid — request a new one.',
+              ? 'انتهت صلاحية الرمز — أعد إرسال رمز جديد ثم أدخله.'
+              : 'Code expired — resend a new code, then enter it.',
             'error',
           );
-          setCooldownLeft(0);
-          cooldownEndsAt.current = 0;
         } else if (err === 'otp_locked' || err === 'rate_limited') {
           show(
             ar
@@ -155,6 +168,7 @@ export function EmailOtpField({
       onVerified(false);
       show(ar ? 'تعذّر الاتصال.' : 'Could not connect.', 'error');
     } finally {
+      verifyInFlight.current = false;
       setBusy(false);
     }
   }
@@ -169,6 +183,16 @@ export function EmailOtpField({
     void send({ silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- send once per email on step enter
   }, [email, verified]);
+
+  // Auto-verify as soon as 6 digits are entered — no confirm button.
+  useEffect(() => {
+    if (verified || busy || needsResend) return;
+    if (code.length !== 6) return;
+    if (lastAttemptedCode.current === code) return;
+    lastAttemptedCode.current = code;
+    void verify(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- trigger on full code only
+  }, [code, verified, busy, needsResend]);
 
   // Tick the resend countdown.
   useEffect(() => {
@@ -189,19 +213,23 @@ export function EmailOtpField({
   }
 
   const codeInvalid = tone === 'error' && Boolean(message);
-  const waiting = cooldownLeft > 0;
-  const canResend = sent && !waiting && !busy;
+  const waiting = cooldownLeft > 0 && !needsResend;
+  const canResend = (sent || needsResend) && !waiting && !busy;
 
   return (
     <div className={`party-form__otp field span-2${codeInvalid ? ' is-error' : ''}`}>
       <p className="muted">
-        {sent
+        {needsResend
           ? ar
-            ? `أرسلنا رمز تحقق إلى ${masked}. أدخله أدناه للتأكيد (واتساب لاحقاً للجوال).`
-            : `We sent a verification code to ${masked}. Enter it below (WhatsApp OTP later).`
-          : ar
-            ? `جاري إرسال رمز تحقق إلى ${masked}…`
-            : `Sending a verification code to ${masked}…`}
+            ? `انتهت صلاحية الرمز المرسل إلى ${masked}. أعد الإرسال ثم أدخل الرمز الجديد.`
+            : `The code sent to ${masked} expired. Resend, then enter the new code.`
+          : sent
+            ? ar
+              ? `أرسلنا رمز تحقق إلى ${masked}. أدخله أدناه للانتقال تلقائياً.`
+              : `We sent a verification code to ${masked}. Enter it below to continue automatically.`
+            : ar
+              ? `جاري إرسال رمز تحقق إلى ${masked}…`
+              : `Sending a verification code to ${masked}…`}
       </p>
       <p className="field__hint" dir="ltr">
         {masked}
@@ -213,22 +241,18 @@ export function EmailOtpField({
           inputMode="numeric"
           maxLength={6}
           autoComplete="one-time-code"
+          autoFocus
           placeholder={ar ? 'الرمز المكوّن من 6 أرقام' : '6-digit code'}
           value={code}
           aria-invalid={codeInvalid || undefined}
+          disabled={busy && code.length === 6 && !needsResend}
           onChange={(event) => {
-            setCode(event.target.value.replace(/\D/g, '').slice(0, 6));
+            const next = event.target.value.replace(/\D/g, '').slice(0, 6);
+            setCode(next);
             if (tone === 'error') setMessage(null);
+            if (next.length < 6) lastAttemptedCode.current = '';
           }}
         />
-        <button
-          type="button"
-          className="button button--primary"
-          disabled={busy || code.length !== 6}
-          onClick={() => void verify()}
-        >
-          {ar ? 'تأكيد' : 'Confirm'}
-        </button>
       </div>
 
       <div className="party-form__otp-resend" aria-live="polite">
@@ -242,15 +266,18 @@ export function EmailOtpField({
         {canResend ? (
           <button
             type="button"
-            className="button button--quiet"
+            className={`button ${needsResend ? 'button--primary' : 'button--quiet'}`}
             disabled={busy}
             onClick={() => void send()}
           >
-            {ar ? 'إعادة إرسال الرمز' : 'Resend code'}
+            {ar ? (needsResend ? 'إرسال رمز جديد' : 'إعادة إرسال الرمز') : needsResend ? 'Send new code' : 'Resend code'}
           </button>
         ) : null}
         {!sent && busy ? (
           <p className="field__hint muted">{ar ? 'جاري الإرسال…' : 'Sending…'}</p>
+        ) : null}
+        {busy && code.length === 6 && !needsResend ? (
+          <p className="field__hint muted">{ar ? 'جاري التحقق…' : 'Verifying…'}</p>
         ) : null}
       </div>
 
