@@ -24,7 +24,11 @@ import { DocStatusMark, docStatusLabel } from '@/components/doc-status-mark';
 import { NoteTranslateBar, OWNER_NOTE_SERVICE } from '@/components/note-translate';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
-import type { AccountingSettings } from '@/lib/accounting-integrity';
+import {
+  bankAccountPayeeName,
+  resolveRentBankAccount,
+  type AccountingSettings,
+} from '@/lib/accounting-integrity';
 import { formatMoney } from '@/lib/format';
 import { NOTE_TRANSLATE_MAX } from '@/lib/note-translation';
 import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
@@ -32,6 +36,7 @@ import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 const BOOKING_NOTE_MAX = Math.min(1000, NOTE_TRANSLATE_MAX);
 import type { ApprovalPolicy } from '@/lib/approval-policy';
 import { DEFAULT_LEASE_DOCUMENT_RULES, type LeaseDocumentRules } from '@/lib/lease-document-rules';
+import { buildBookingLeaseTermsDraft } from '@/lib/lease-terms-draft-from';
 import {
   BOOKING_IDENTITY_DOC_LABELS,
   bookingIdentityFileKind,
@@ -3500,6 +3505,53 @@ function ContractDraftEditor({
   const savedTenant = Object.fromEntries(
     Object.entries(savedLease?.tenant ?? {}).filter(([, value]) => typeof value === 'string'),
   );
+  const rentBank = resolveRentBankAccount(
+    bankAccounts.map((row) => ({
+      id: row.id,
+      labelAr: row.labelAr,
+      labelEn: row.labelEn,
+      bankName: row.bankName,
+      accountHolderName: row.accountHolderName,
+      accountHolderNameEn: row.accountHolderNameEn ?? '',
+      iban: '',
+      accountNumber: '',
+      currency,
+      active: row.active !== false,
+      defaultForRent: Boolean(row.defaultForRent),
+      propertyIds: row.propertyIds ?? [],
+      ledgerAccountId: null,
+    })),
+    propertyId,
+  );
+  const bookingTermsSeed = useMemo(() => {
+    if (savedLease?.terms) return savedLease.terms;
+    return buildBookingLeaseTermsDraft({
+      currency,
+      rentMinor: unit.rentMinor,
+      depositMinor: depositPaidAt ? depositMinor : (unit.depositMinor ?? unit.rentMinor),
+      contractType: party?.contractType ?? null,
+      termMonths: party?.termMonths ?? null,
+      areaSquareMeters: unit.areaSquareMeters,
+      bank: rentBank
+        ? {
+            id: rentBank.id,
+            bankName: rentBank.bankName,
+            accountHolderName: bankAccountPayeeName(rentBank, false),
+          }
+        : null,
+    });
+  }, [
+    savedLease?.terms,
+    currency,
+    unit.rentMinor,
+    unit.depositMinor,
+    unit.areaSquareMeters,
+    depositPaidAt,
+    depositMinor,
+    party?.contractType,
+    party?.termMonths,
+    rentBank,
+  ]);
   const [saleForm, setSaleForm] = useState({
     signedOn: lifecycle.contractDraft?.sale?.signedOn ?? todayIso(),
     amount: lifecycle.contractDraft?.sale?.amount ?? decimal(salePriceMinor, digits),
@@ -3654,6 +3706,7 @@ function ContractDraftEditor({
   return (
     <div className="lrw__contract-focus">
       <LeaseContractForm
+        key={`lease-draft:${savedLease?.terms ? 'saved' : 'seed'}:${party?.contractType ?? ''}:${rentBank?.id ?? 'nobank'}`}
         units={[unit]}
         tenants={[tenant]}
         canSign={canSign}
@@ -3688,7 +3741,7 @@ function ContractDraftEditor({
           ...savedTenant,
           partyId: tenant.id,
         }}
-        initialTerms={savedLease?.terms}
+        initialTerms={bookingTermsSeed}
         termsSeed={party?.termMonths ? { months: party.termMonths } : undefined}
         onSubmit={(payload) =>
           void onSave({ action: 'save_contract', lease: payload, requirements })

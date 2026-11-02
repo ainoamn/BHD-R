@@ -1,6 +1,7 @@
 import {
   DEFAULT_VAT_RATE_PERCENT,
   LEASE_TERMS_VERSION,
+  addDays,
   buildRentSchedule,
   endDateForMonths,
   formatMinor,
@@ -13,6 +14,116 @@ import {
   type PaymentFrequency,
   type PaymentMethod,
 } from '@/lib/lease-terms';
+
+/** Calendar date in Asia/Muscat (YYYY-MM-DD). */
+export function muscatTodayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
+}
+
+export type BookingLeaseTermsSeedInput = {
+  currency: string;
+  rentMinor: string | null | undefined;
+  depositMinor: string | null | undefined;
+  contractType: ContractUse | null | undefined;
+  termMonths: number | null | undefined;
+  areaSquareMeters?: string | null | undefined;
+  /** Contract signing day; handover defaults to the next calendar day. */
+  signedOn?: string | null | undefined;
+  bank?: {
+    id: string;
+    bankName: string;
+    accountHolderName: string;
+  } | null;
+};
+
+/**
+ * Prefill a lease draft from a website booking: usage/type and term the client chose,
+ * rent/deposit from the unit/arabon, handover = signing day + 1, start = handover.
+ */
+export function buildBookingLeaseTermsDraft(input: BookingLeaseTermsSeedInput): LeaseTermsDraft {
+  const digits = minorDigitsFor(input.currency);
+  const signedOn =
+    input.signedOn && /^\d{4}-\d{2}-\d{2}$/.test(input.signedOn)
+      ? input.signedOn
+      : muscatTodayIso();
+  const handoverOn = addDays(signedOn, 1);
+  const startsOn = handoverOn;
+  const months =
+    input.termMonths && input.termMonths > 0 && input.termMonths <= 120 ? input.termMonths : 12;
+  const endsOn = endDateForMonths(startsOn, months);
+  const use: ContractUse | '' =
+    input.contractType === 'commercial' || input.contractType === 'residential'
+      ? input.contractType
+      : '';
+  const rent = input.rentMinor ? money(Number(input.rentMinor), digits) : '';
+  const deposit = input.depositMinor
+    ? money(Number(input.depositMinor), digits)
+    : rent;
+  const paymentDay = '5';
+  const paymentFrequency: PaymentFrequency = 'monthly';
+  const bank = input.bank;
+  // Match the booking form default; bank payee binds when org accounts load.
+  const paymentMethod: PaymentMethod = 'cheque';
+  const schedule = buildRentSchedule({
+    startsOn,
+    endsOn,
+    monthlyRentMinor: Number(input.rentMinor) || 0,
+    paymentDay: Number(paymentDay),
+    frequency: paymentFrequency,
+  });
+  return {
+    contractType: use,
+    usageType: use,
+    municipalFormNo: '',
+    municipalContractNo: '',
+    rentCalcMode: 'full',
+    monthlyRent: rent,
+    rentAreaSqm: input.areaSquareMeters ?? '',
+    rentPerSqm: '',
+    handoverOn,
+    startsOn,
+    endsOn,
+    paymentDay,
+    paymentMethod,
+    paymentFrequency,
+    vatEnabled: false,
+    vatRate: DEFAULT_VAT_RATE_PERCENT,
+    vatMode: 'with_rent',
+    vatChequeCount: '1',
+    municipalityFeeEnabled: true,
+    municipalityFeePayer: 'owner',
+    registrationFee: '1',
+    otherTaxName: '',
+    otherTaxRate: '',
+    graceAsDiscount: true,
+    deposit,
+    depositItems: deposit
+      ? [
+          {
+            method: 'cheque',
+            amount: deposit,
+            reference: '',
+            bankName: bank?.bankName ?? '',
+            dueOn: '',
+          },
+        ]
+      : [],
+    chequeBankName: bank?.bankName ?? '',
+    chequeAccountName: bank?.accountHolderName ?? '',
+    rentBankAccountId: bank?.id ?? '',
+    schedule: schedule.map((row) => ({
+      dueOn: row.dueOn,
+      rent: money(row.rentMinor, digits),
+      chequeNumber: '',
+      bankName: bank?.bankName ?? '',
+    })),
+    vatChequeNumbers: [],
+    adjustments: [],
+    electricityReading: '',
+    waterReading: '',
+    notes: '',
+  };
+}
 
 function money(minor: number, digits: number): string {
   return formatMinor(minor, digits).replace(/\.?0+$/, '');

@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
   contracts,
@@ -14,6 +14,11 @@ import {
   workflowEvents,
 } from '@bhd-r/db';
 import { SYSTEM_APPROVER_AR } from '@/lib/approval-policy';
+import {
+  bankAccountPayeeName,
+  normalizeAccountingSettings,
+  resolveRentBankAccount,
+} from '@/lib/accounting-integrity';
 import { brandUploadedPhoto } from '@/lib/brand-uploaded-photo';
 import { issueHandoverPass, openHandoverPass, verifyHandoverCode } from '@/lib/handover-pass';
 import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
@@ -51,6 +56,7 @@ import {
   type ReservationSaleDraft,
 } from '@/lib/lease-reservation-lifecycle';
 import { computeLeaseTerms, minorDigitsFor, type LeaseTermsDraft } from '@/lib/lease-terms';
+import { buildBookingLeaseTermsDraft } from '@/lib/lease-terms-draft-from';
 import {
   assertLeaseTermsValid,
   completeCounterpartySignatureInTx,
@@ -70,7 +76,106 @@ import {
   normalizeLeaseReference,
   type LeaseBookingSnapshot,
 } from '@/lib/public-lease-booking-neon';
-import type { ReservationParty } from '@/lib/reservation-party';
+import { partyToLeaseTenant, type ReservationParty } from '@/lib/reservation-party';
+
+async function loadOrgRentBank(
+  tx: Tx,
+  orgId: string,
+  propertyId: string,
+): Promise<{ id: string; bankName: string; accountHolderName: string } | null> {
+  const latest = await tx
+    .select({ metadata: workflowEvents.metadata })
+    .from(workflowEvents)
+    .where(
+      and(
+        eq(workflowEvents.organizationId, orgId),
+        eq(workflowEvents.resourceType, 'accounting_settings'),
+        eq(workflowEvents.eventType, 'settings.updated'),
+      ),
+    )
+    .orderBy(desc(workflowEvents.occurredAt))
+    .limit(1);
+  const settings = normalizeAccountingSettings(latest[0]?.metadata);
+  const bank = resolveRentBankAccount(settings.bankAccounts, propertyId);
+  if (!bank) return null;
+  return {
+    id: bank.id,
+    bankName: bank.bankName,
+    accountHolderName: bankAccountPayeeName(bank, false),
+  };
+}
+
+/**
+ * Build and validate a lease contract draft from the booking snapshot so contract=auto
+ * can proceed without the owner re-typing type/usage/term/rent.
+ */
+async function autoPrepareLeaseContractDraft(
+  tx: Tx,
+  row: OwnerRow,
+  lifecycle: ReservationLifecycle,
+  deferUntilHandover: ReadonlyArray<'meters' | 'handoverOn'>,
+): Promise<{
+  lifecycle: ReservationLifecycle;
+  lease: ManualLeaseInput;
+} | null> {
+  const party = row.snapshot.party;
+  if (!party?.contractType || !party.termMonths) return null;
+  const bank = await loadOrgRentBank(tx, row.orgId, row.propertyId);
+  const terms = buildBookingLeaseTermsDraft({
+    currency: row.currency,
+    rentMinor: row.snapshot.rentMinor,
+    depositMinor: row.snapshot.depositMinor,
+    contractType: party.contractType,
+    termMonths: party.termMonths,
+    bank,
+  });
+  // Without a rent bank account, fall back to transfer so auto-issue is not blocked.
+  if (!bank || !terms.chequeAccountName?.trim()) {
+    terms.paymentMethod = 'bank_transfer';
+    terms.chequeBankName = '';
+    terms.chequeAccountName = '';
+    terms.rentBankAccountId = '';
+  }
+  try {
+    assertLeaseTermsValid(terms, row.currency, { deferUntilHandover });
+  } catch {
+    return null;
+  }
+  const lease: ManualLeaseInput = {
+    unitId: row.unitId,
+    tenant: {
+      ...partyToLeaseTenant(party),
+      partyId: row.tenantPartyId,
+    },
+    terms,
+  };
+  const chequeSeed = buildChequeInstructions(terms, row.currency, deferUntilHandover);
+  const chequeSubmissions = mergeChequeSubmissions(
+    chequeSeed.instructions,
+    lifecycle.chequeSubmissions,
+  );
+  const next: ReservationLifecycle = {
+    ...lifecycle,
+    contractDraft: {
+      savedAt: new Date().toISOString(),
+      byName: SYSTEM_APPROVER_AR,
+      lease,
+    },
+    autoFlow: {
+      contractAuto: true,
+      deferUntilHandover: [...deferUntilHandover],
+      requireTenantAttestation: lifecycle.autoFlow?.requireTenantAttestation ?? true,
+      allowHandoverBeforeDocVerify: lifecycle.autoFlow?.allowHandoverBeforeDocVerify ?? false,
+    },
+    chequePayableTo: chequeSeed.payableTo,
+    chequeBankName: chequeSeed.bankName,
+    rentBankAccountId: chequeSeed.rentBankAccountId,
+    chequeInstructions: chequeSeed.instructions,
+    chequeSubmissions,
+    requirements: lifecycle.requirements ?? [],
+  };
+  return { lifecycle: next, lease };
+}
 
 /** Drop only the party copies the owner rejected so locked ones stay on the booking. */
 function stripRejectedPartyDocumentCopies(
@@ -1628,6 +1733,36 @@ export async function runReservationAutomation(
             automatic: true,
           },
         });
+      }
+
+      // Prefill + save contract draft from the booking so auto-issue is not blocked on empty type/usage.
+      if (
+        policy.contract === 'auto' &&
+        row.snapshot.mode !== 'sale' &&
+        lifecycle.approval &&
+        !lifecycle.contractDraft &&
+        !lifecycle.contract &&
+        phase() === 'awaiting_contract_draft'
+      ) {
+        const prepared = await autoPrepareLeaseContractDraft(
+          tx,
+          row,
+          lifecycle,
+          policy.deferUntilHandover,
+        );
+        if (prepared) {
+          lifecycle = prepared.lifecycle;
+          await saveLifecycle(tx, row, lifecycle, { expiresAt: extendedHold(row.expiresAt) });
+          await event('reservation.contract_prepared', {
+            automatic: true,
+            requirements: (lifecycle.requirements ?? []).map((item) => item.code),
+            cheques: (lifecycle.chequeInstructions ?? []).map((item) => item.key),
+          });
+        } else {
+          await event('reservation.auto_contract_skipped', {
+            reason: 'draft_from_booking_failed',
+          });
+        }
       }
 
       const ready =

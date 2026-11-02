@@ -31,6 +31,7 @@ import {
   DEPOSIT_METHODS,
   PAYMENT_FREQUENCIES,
   PAYMENT_METHODS,
+  addDays,
   buildRentSchedule,
   computeLeaseTerms,
   contractPeriod,
@@ -207,7 +208,10 @@ function decimal(minor: string | null | undefined, digits: number): string {
 
 function initialDraft(unit: PropertyRecordUnit | undefined): LeaseTermsDraft {
   const digits = minorDigitsFor(unit?.currency ?? 'OMR');
-  const startsOn = todayIso();
+  // Signing day = today → handover next day → lease start on handover (editable later).
+  const signedOn = todayIso();
+  const handoverOn = addDays(signedOn, 1);
+  const startsOn = handoverOn;
   return {
     contractType: '',
     usageType: '',
@@ -217,7 +221,7 @@ function initialDraft(unit: PropertyRecordUnit | undefined): LeaseTermsDraft {
     monthlyRent: decimal(unit?.rentMinor, digits),
     rentAreaSqm: unit?.areaSquareMeters ?? '',
     rentPerSqm: '',
-    handoverOn: '',
+    handoverOn,
     startsOn,
     endsOn: endDateForMonths(startsOn, 12),
     paymentDay: '5',
@@ -497,6 +501,11 @@ export function LeaseContractForm({
   const [unitId, setUnitId] = useState(units[0]?.id ?? '');
   const [wizardStep, setWizardStep] = useState<WizardStepId>('main');
   const [showAllFields, setShowAllFields] = useState(false);
+  /** Booking policy: start date tracks handover until the owner edits start explicitly. */
+  const [startsFollowsHandover, setStartsFollowsHandover] = useState(true);
+  /** Progressive reveal cursor for taxes / extras (booking form). */
+  const [taxUnlock, setTaxUnlock] = useState(0);
+  const [extrasUnlock, setExtrasUnlock] = useState(0);
   const unit = units.find((item) => item.id === unitId);
   const currency = unit?.currency ?? 'OMR';
   const digits = minorDigitsFor(currency);
@@ -972,6 +981,10 @@ export function LeaseContractForm({
   const stepActive = (id: WizardStepId) => reviewMode || wizardStep === id;
   /** Essentials-only: hide optional filled chrome unless the user opts into «show all». */
   const showExtra = showAllFields || reviewMode;
+  /** Website booking: only empty fields (rent & term always stay visible). */
+  const bookingSparse = municipalAfterHandover && !renewalMode;
+  const hideFilled = bookingSparse && !showExtra;
+  const showGapField = (code: string, filled: boolean) => !hideFilled || !filled || gap(code);
 
   const stepTitles: Record<WizardStepId, [string, string]> = {
     main: ['📝 بيانات العقد الرئيسية', '📝 Main contract data'],
@@ -1065,7 +1078,25 @@ export function LeaseContractForm({
     }));
   }
 
+  function changeHandover(value: string) {
+    const count = Number(months);
+    setDraft((current) => {
+      const follow = startsFollowsHandover && !lockStartsOn;
+      const startsOn = follow && isIsoDate(value) ? value : current.startsOn;
+      return {
+        ...current,
+        handoverOn: value,
+        startsOn,
+        endsOn:
+          follow && isIsoDate(startsOn) && Number.isInteger(count) && count > 0
+            ? endDateForMonths(startsOn, count)
+            : current.endsOn,
+      };
+    });
+  }
+
   function changeStart(value: string) {
+    setStartsFollowsHandover(false);
     const count = Number(months);
     setDraft((current) => ({
       ...current,
@@ -1407,92 +1438,110 @@ export function LeaseContractForm({
           </p>
         ) : null}
         <div className="form-grid">
-          <Field id="lcf-unit" label={t('الوحدة', 'Unit')} required missing={gap('unit')}>
-            {renewalMode ? (
-              <output id="lcf-unit" className="input lcf-output" dir="ltr">
-                {unit?.code || '—'}
-              </output>
-            ) : (
-              <select
-                id="lcf-unit"
-                className="select"
-                required
-                value={unitId}
-                onChange={(event) => changeUnit(event.target.value)}
-              >
-                {units.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.code}
-                  </option>
-                ))}
-              </select>
-            )}
-          </Field>
-          <Field
-            id="lcf-type"
-            label={t('نوع العقد', 'Contract type')}
-            required
-            missing={gap('contract_type')}
-          >
-            {renewalMode ? (
-              <output id="lcf-type" className="input lcf-output">
-                {draft.contractType === 'commercial'
-                  ? t('تجاري', 'Commercial')
-                  : draft.contractType === 'residential'
-                    ? t('سكني', 'Residential')
-                    : '—'}
-              </output>
-            ) : (
-              <select
-                id="lcf-type"
-                className="select"
-                required
-                value={draft.contractType}
-                onChange={(event) => {
-                  const value = event.target.value as LeaseTermsDraft['contractType'];
-                  setDraft((current) => ({
-                    ...current,
-                    contractType: value,
-                    usageType: current.usageType || value,
-                  }));
-                }}
-              >
-                <option value="">{t('— اختر —', '— Choose —')}</option>
-                <option value="residential">{t('سكني', 'Residential')}</option>
-                <option value="commercial">{t('تجاري', 'Commercial')}</option>
-              </select>
-            )}
-          </Field>
-          <Field
-            id="lcf-usage"
-            label={t('نوع الاستعمال', 'Usage type')}
-            required
-            missing={gap('usage_type')}
-          >
-            {renewalMode ? (
-              <output id="lcf-usage" className="input lcf-output">
-                {draft.usageType === 'commercial'
-                  ? t('تجاري', 'Commercial')
-                  : draft.usageType === 'residential'
-                    ? t('سكني', 'Residential')
-                    : '—'}
-              </output>
-            ) : (
-              <select
-                id="lcf-usage"
-                className="select"
-                required
-                value={draft.usageType}
-                onChange={(event) =>
-                  set('usageType', event.target.value as LeaseTermsDraft['usageType'])
-                }
-              >
-                <option value="">{t('— اختر —', '— Choose —')}</option>
-                <option value="residential">{t('سكني', 'Residential')}</option>
-                <option value="commercial">{t('تجاري', 'Commercial')}</option>
-              </select>
-            )}
-          </Field>
+          {showGapField('unit', Boolean(unitId)) ? (
+            <Field id="lcf-unit" label={t('الوحدة', 'Unit')} required missing={gap('unit')}>
+              {renewalMode || (bookingSparse && units.length === 1) ? (
+                <output id="lcf-unit" className="input lcf-output" dir="ltr">
+                  {unit?.code || '—'}
+                </output>
+              ) : (
+                <select
+                  id="lcf-unit"
+                  className="select"
+                  required
+                  value={unitId}
+                  onChange={(event) => changeUnit(event.target.value)}
+                >
+                  {units.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.code}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </Field>
+          ) : null}
+          {showGapField('contract_type', Boolean(draft.contractType)) ? (
+            <Field
+              id="lcf-type"
+              label={t('نوع العقد', 'Contract type')}
+              required
+              missing={gap('contract_type')}
+            >
+              {renewalMode || (bookingSparse && Boolean(draft.contractType)) ? (
+                <output id="lcf-type" className="input lcf-output">
+                  {draft.contractType === 'commercial'
+                    ? t('تجاري', 'Commercial')
+                    : draft.contractType === 'residential'
+                      ? t('سكني', 'Residential')
+                      : '—'}
+                </output>
+              ) : (
+                <select
+                  id="lcf-type"
+                  className="select"
+                  required
+                  value={draft.contractType}
+                  onChange={(event) => {
+                    const value = event.target.value as LeaseTermsDraft['contractType'];
+                    setDraft((current) => ({
+                      ...current,
+                      contractType: value,
+                      usageType: current.usageType || value,
+                    }));
+                  }}
+                >
+                  <option value="">{t('— اختر —', '— Choose —')}</option>
+                  <option value="residential">{t('سكني', 'Residential')}</option>
+                  <option value="commercial">{t('تجاري', 'Commercial')}</option>
+                </select>
+              )}
+            </Field>
+          ) : null}
+          {showGapField('usage_type', Boolean(draft.usageType)) ? (
+            <Field
+              id="lcf-usage"
+              label={t('نوع الاستعمال', 'Usage type')}
+              required
+              missing={gap('usage_type')}
+            >
+              {renewalMode || (bookingSparse && Boolean(draft.usageType)) ? (
+                <output id="lcf-usage" className="input lcf-output">
+                  {draft.usageType === 'commercial'
+                    ? t('تجاري', 'Commercial')
+                    : draft.usageType === 'residential'
+                      ? t('سكني', 'Residential')
+                      : '—'}
+                </output>
+              ) : (
+                <select
+                  id="lcf-usage"
+                  className="select"
+                  required
+                  value={draft.usageType}
+                  onChange={(event) =>
+                    set('usageType', event.target.value as LeaseTermsDraft['usageType'])
+                  }
+                >
+                  <option value="">{t('— اختر —', '— Choose —')}</option>
+                  <option value="residential">{t('سكني', 'Residential')}</option>
+                  <option value="commercial">{t('تجاري', 'Commercial')}</option>
+                </select>
+              )}
+            </Field>
+          ) : null}
+          {hideFilled &&
+          !gap('unit') &&
+          !gap('contract_type') &&
+          !gap('usage_type') &&
+          !showExtra ? (
+            <p className="muted span-2">
+              {t(
+                'نوع العقد والاستعمال جُلبا من الحجز. فعّل «إظهار كافة البيانات» للمراجعة.',
+                'Contract type and usage came from the booking. Turn on “Show all fields” to review.',
+              )}
+            </p>
+          ) : null}
           {municipalAfterHandover || renewalMode ? (
             <p className="muted span-2">
               {renewalMode
@@ -2407,10 +2456,15 @@ export function LeaseContractForm({
                       'حسب ضبط الاعتماد: يُستكمل عند التسليم بعد توقيع المستأجر.',
                       'Per approval settings: completed at handover after the tenant signs.',
                     )
-                  : t(
-                      'إلزامي لحساب فترة السماح من الاستلام إلى البداية.',
-                      'Required to compute the grace period from handover to start.',
-                    )
+                  : bookingSparse
+                    ? t(
+                        'افتراضي: يوم بعد توقيع العقد. يمكن تعديله لاحقاً.',
+                        'Default: the day after contract signing. Editable later.',
+                      )
+                    : t(
+                        'إلزامي لحساب فترة السماح من الاستلام إلى البداية.',
+                        'Required to compute the grace period from handover to start.',
+                      )
             }
           >
             {renewalMode ? (
@@ -2423,9 +2477,11 @@ export function LeaseContractForm({
                 className="input"
                 type="date"
                 required={!deferHandover}
-                max={draft.startsOn}
+                {...(startsFollowsHandover || bookingSparse
+                  ? {}
+                  : { max: draft.startsOn })}
                 value={draft.handoverOn ?? ''}
-                onChange={(event) => set('handoverOn', event.target.value)}
+                onChange={(event) => changeHandover(event.target.value)}
               />
             )}
           </Field>
@@ -2440,7 +2496,15 @@ export function LeaseContractForm({
                     'ثابت: اليوم التالي لنهاية العقد السابق.',
                     'Fixed: the day after the previous contract ends.',
                   )
-                : undefined
+                : startsFollowsHandover
+                  ? t(
+                      'افتراضياً يوم تسليم الوحدة — عدّله إن لزم فيتوقف الربط التلقائي.',
+                      'Defaults to the handover day — editing it stops auto-linking.',
+                    )
+                  : t(
+                      'تم فصله عن تاريخ الاستلام بعد تعديلك.',
+                      'Unlinked from handover after your edit.',
+                    )
             }
           >
             {lockStartsOn ? (
@@ -2621,6 +2685,14 @@ export function LeaseContractForm({
             )}
           </p>
         ) : null}
+        {bookingSparse && !showExtra ? (
+          <p className="muted lcf-help">
+            {t(
+              'حقل واحد في كل مرة — أكمل ثم يظهر التالي.',
+              'One field at a time — complete it and the next appears.',
+            )}
+          </p>
+        ) : null}
         <div className="form-grid">
           <Field
             id="lcf-vat"
@@ -2630,13 +2702,16 @@ export function LeaseContractForm({
               id="lcf-vat"
               className="select"
               value={draft.vatEnabled ? 'yes' : 'no'}
-              onChange={(event) => set('vatEnabled', event.target.value === 'yes')}
+              onChange={(event) => {
+                set('vatEnabled', event.target.value === 'yes');
+                setTaxUnlock((level) => Math.max(level, 1));
+              }}
             >
               <option value="no">{t('لا', 'No')}</option>
               <option value="yes">{t('نعم', 'Yes')}</option>
             </select>
           </Field>
-          {draft.vatEnabled ? (
+          {draft.vatEnabled && (!bookingSparse || showExtra || taxUnlock >= 1) ? (
             <>
               <Field id="lcf-vat-rate" label={t('نسبة الضريبة المضافة (%)', 'VAT rate (%)')}>
                 <input
@@ -2646,7 +2721,10 @@ export function LeaseContractForm({
                   inputMode="decimal"
                   pattern="\d{1,3}(\.\d{1,2})?"
                   value={draft.vatRate}
-                  onChange={(event) => set('vatRate', event.target.value)}
+                  onChange={(event) => {
+                    set('vatRate', event.target.value);
+                    setTaxUnlock((level) => Math.max(level, 1));
+                  }}
                 />
               </Field>
               <Field
@@ -2660,9 +2738,10 @@ export function LeaseContractForm({
                   id="lcf-vat-mode"
                   className="select"
                   value={draft.vatMode}
-                  onChange={(event) =>
-                    set('vatMode', event.target.value as LeaseTermsDraft['vatMode'])
-                  }
+                  onChange={(event) => {
+                    set('vatMode', event.target.value as LeaseTermsDraft['vatMode']);
+                    setTaxUnlock((level) => Math.max(level, 1));
+                  }}
                 >
                   <option value="with_rent">{t('مع الإيجار الشهري', 'With monthly rent')}</option>
                   <option value="separate">
@@ -2697,20 +2776,25 @@ export function LeaseContractForm({
               )}
             </>
           ) : null}
-          <label className="checkbox-row span-2">
-            <input
-              type="checkbox"
-              checked={draft.municipalityFeeEnabled}
-              onChange={(event) => set('municipalityFeeEnabled', event.target.checked)}
-            />
-            <span>
-              {t('إظهار رسوم البلدية 3% في العقد', 'Show municipality fee 3% on the contract')}
-              {terms?.totals.municipalityFeeMinor ? (
-                <> · {money(terms.totals.municipalityFeeMinor)}</>
-              ) : null}
-            </span>
-          </label>
-          {draft.municipalityFeeEnabled ? (
+          {!bookingSparse || showExtra || taxUnlock >= 1 ? (
+            <label className="checkbox-row span-2">
+              <input
+                type="checkbox"
+                checked={draft.municipalityFeeEnabled}
+                onChange={(event) => {
+                  set('municipalityFeeEnabled', event.target.checked);
+                  setTaxUnlock((level) => Math.max(level, 2));
+                }}
+              />
+              <span>
+                {t('إظهار رسوم البلدية 3% في العقد', 'Show municipality fee 3% on the contract')}
+                {terms?.totals.municipalityFeeMinor ? (
+                  <> · {money(terms.totals.municipalityFeeMinor)}</>
+                ) : null}
+              </span>
+            </label>
+          ) : null}
+          {draft.municipalityFeeEnabled && (!bookingSparse || showExtra || taxUnlock >= 1) ? (
             <Field
               id="lcf-muni-payer"
               label={t('من يتحمّل رسوم البلدية؟', 'Who pays the municipality fee?')}
@@ -2719,55 +2803,82 @@ export function LeaseContractForm({
                 id="lcf-muni-payer"
                 className="select"
                 value={draft.municipalityFeePayer ?? 'owner'}
-                onChange={(event) =>
-                  set('municipalityFeePayer', event.target.value === 'tenant' ? 'tenant' : 'owner')
-                }
+                onChange={(event) => {
+                  set(
+                    'municipalityFeePayer',
+                    event.target.value === 'tenant' ? 'tenant' : 'owner',
+                  );
+                  setTaxUnlock((level) => Math.max(level, 2));
+                }}
               >
                 <option value="owner">{t('المالك (افتراضي)', 'Owner (default)')}</option>
                 <option value="tenant">{t('المستأجر', 'Tenant')}</option>
               </select>
             </Field>
           ) : null}
-          <Field
-            id="lcf-reg"
-            label={t(
-              `رسوم تسجيل العقد في البلدية (${currency})`,
-              `Municipal registration fee (${currency})`,
-            )}
-          >
-            <input
+          {!bookingSparse || showExtra || taxUnlock >= 2 ? (
+            <Field
               id="lcf-reg"
-              className="input"
-              dir="ltr"
-              inputMode="decimal"
-              pattern={MONEY_PATTERN}
-              value={draft.registrationFee}
-              onChange={(event) => set('registrationFee', event.target.value)}
-            />
-          </Field>
-          <Field id="lcf-tax-name" label={t('ضريبة / رسوم أخرى (الاسم)', 'Other tax / fee (name)')}>
-            <input
-              id="lcf-tax-name"
-              className="input"
-              maxLength={80}
-              value={draft.otherTaxName ?? ''}
-              onChange={(event) => set('otherTaxName', event.target.value)}
-            />
-          </Field>
-          <Field
-            id="lcf-tax-rate"
-            label={t('نسبتها من إجمالي الإيجار (%)', 'Rate on total rent (%)')}
-          >
-            <input
-              id="lcf-tax-rate"
-              className="input"
-              dir="ltr"
-              inputMode="decimal"
-              pattern="\d{1,3}(\.\d{1,2})?"
-              value={draft.otherTaxRate ?? ''}
-              onChange={(event) => set('otherTaxRate', event.target.value)}
-            />
-          </Field>
+              label={t(
+                `رسوم تسجيل العقد في البلدية (${currency})`,
+                `Municipal registration fee (${currency})`,
+              )}
+            >
+              <input
+                id="lcf-reg"
+                className="input"
+                dir="ltr"
+                inputMode="decimal"
+                pattern={MONEY_PATTERN}
+                value={draft.registrationFee}
+                onChange={(event) => {
+                  set('registrationFee', event.target.value);
+                  setTaxUnlock((level) => Math.max(level, 3));
+                }}
+              />
+            </Field>
+          ) : null}
+          {!bookingSparse || showExtra || taxUnlock >= 3 ? (
+            <>
+              <Field
+                id="lcf-tax-name"
+                label={t('ضريبة / رسوم أخرى (الاسم)', 'Other tax / fee (name)')}
+              >
+                <input
+                  id="lcf-tax-name"
+                  className="input"
+                  maxLength={80}
+                  value={draft.otherTaxName ?? ''}
+                  onChange={(event) => set('otherTaxName', event.target.value)}
+                />
+              </Field>
+              <Field
+                id="lcf-tax-rate"
+                label={t('نسبتها من إجمالي الإيجار (%)', 'Rate on total rent (%)')}
+              >
+                <input
+                  id="lcf-tax-rate"
+                  className="input"
+                  dir="ltr"
+                  inputMode="decimal"
+                  pattern="\d{1,3}(\.\d{1,2})?"
+                  value={draft.otherTaxRate ?? ''}
+                  onChange={(event) => set('otherTaxRate', event.target.value)}
+                />
+              </Field>
+            </>
+          ) : null}
+          {bookingSparse && !showExtra && taxUnlock < 3 ? (
+            <div className="span-2">
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setTaxUnlock((level) => Math.min(3, level + 1))}
+              >
+                {t('التالي: الرسوم التالية', 'Next: more fees')}
+              </button>
+            </div>
+          ) : null}
         </div>
       </Section>
 
@@ -2784,18 +2895,28 @@ export function LeaseContractForm({
             )}
           </p>
         ) : null}
-        <p className="muted lcf-help">
-          {t(
-            'حدّد هل المبلغ يُدفع مرة واحدة أو مع التجديد أو كل 3 أشهر أو شهرياً، وحتى نهاية العقد أو سنة أو مدة مخصصة.',
-            'Choose whether the amount is paid once, with renewal, every 3 months or monthly — until contract end, one year or a custom period.',
-          )}
-        </p>
+        {bookingSparse && !showExtra ? (
+          <p className="muted lcf-help">
+            {t(
+              'أضف بنداً واحداً في كل مرة عند الحاجة، أو تخطَّ هذا القسم.',
+              'Add one line at a time if needed, or skip this section.',
+            )}
+          </p>
+        ) : (
+          <p className="muted lcf-help">
+            {t(
+              'حدّد هل المبلغ يُدفع مرة واحدة أو مع التجديد أو كل 3 أشهر أو شهرياً، وحتى نهاية العقد أو سنة أو مدة مخصصة.',
+              'Choose whether the amount is paid once, with renewal, every 3 months or monthly — until contract end, one year or a custom period.',
+            )}
+          </p>
+        )}
         <datalist id="lcf-extra-suggestions">
           {EXTRA_SUGGESTIONS.map(([arText, enText]) => (
             <option key={enText} value={ar ? arText : enText} />
           ))}
         </datalist>
         {draft.adjustments.map((item, index) => {
+          if (bookingSparse && !showExtra && index > extrasUnlock) return null;
           const line = terms?.adjustments[index];
           return (
             <div key={index} className="lcf-line">
@@ -2907,7 +3028,8 @@ export function LeaseContractForm({
         <button
           type="button"
           className="button button--quiet psr-action"
-          onClick={() =>
+          onClick={() => {
+            const nextIndex = draft.adjustments.length;
             set('adjustments', [
               ...draft.adjustments,
               {
@@ -2918,8 +3040,9 @@ export function LeaseContractForm({
                 scope: 'contract_end',
                 months: '',
               },
-            ])
-          }
+            ]);
+            setExtrasUnlock(nextIndex);
+          }}
         >
           {t('＋ إضافة بند', '＋ Add item')}
         </button>

@@ -10,6 +10,7 @@ import {
 } from '@/components/reservation-compliance-manager';
 import { activeBadgeChips, chipsOf, type BadgeChip } from '@/lib/badge-chips-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { runReservationAutomation } from '@/lib/lease-reservation-lifecycle-neon';
 import { readClaims } from '@/lib/portal-ops-data';
 import { loadLeaseBookingForStaff } from '@/lib/public-lease-booking-neon';
 import { ApiError, apiFetch } from '@/lib/server-api';
@@ -22,9 +23,14 @@ async function Page({ params }: { params: Promise<{ locale: string; reservationI
   await requirePortal(locale, 'owner');
 
   const claims = hasDatabaseUrl() ? await readClaims() : null;
-  const booking = claims
+  let booking = claims
     ? await loadLeaseBookingForStaff(claims, reservationId).catch(() => null)
     : null;
+  // Advance auto contract draft/issue when the owner opens a booking still waiting on draft.
+  if (booking && claims && booking.phase === 'awaiting_contract_draft') {
+    await runReservationAutomation(reservationId, claims.sub).catch(() => null);
+    booking = await loadLeaseBookingForStaff(claims, reservationId).catch(() => booking);
+  }
   if (booking && claims) {
     const chips = await withTimeoutFallback(
       activeBadgeChips(
