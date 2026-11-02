@@ -418,11 +418,11 @@ export function StayEsignWizard({
             <p className="stay-esign__guide">
               {step === 'id_front'
                 ? ar
-                  ? 'صوّر وجه البطاقة الشخصية بوضوح داخل الإطار — للتحقق من مطابقتها للحجز'
-                  : 'Photograph the front of your ID clearly inside the frame — to match it with the booking'
+                  ? 'حاذِ وجه البطاقة مع الشكل الظاهر (الصورة على اليسار) ثم صوّرها بوضوح داخل الإطار'
+                  : 'Align the front of the ID with the outline (photo on the left), then capture it clearly in the frame'
                 : ar
-                  ? 'صوّر ظهر البطاقة الشخصية بوضوح داخل الإطار'
-                  : 'Photograph the back of your ID clearly inside the frame'}
+                  ? 'حاذِ ظهر البطاقة مع الشكل الظاهر (الشريحة يساراً ومنطقة MRZ أسفل) ثم صوّرها بوضوح'
+                  : 'Align the back of the ID with the outline (chip on the left, MRZ at the bottom), then capture clearly'}
             </p>
             <p className="muted stay-esign__privacy">
               {ar
@@ -469,8 +469,8 @@ export function StayEsignWizard({
           <section className="stay-esign__panel stay-esign__panel--capture">
             <p className="stay-esign__guide">
               {ar
-                ? 'لحماية حجزك والتحقق من شخصيتك: افتح الكاميرا الأمامية وضع وجهك داخل الإطار — نحتاج صورة مباشرة لمطابقتها مع البطاقة والحجز.'
-                : 'To protect your booking and verify it’s you: open the front camera and place your face in the frame — we need a live photo to match your ID and booking.'}
+                ? 'لحماية حجزك: ضع وجهك داخل ظل الشخص الظاهر (رأس وأكتاف) كما في الصورة الشخصية، ثم التقط صورة مباشرة لمطابقتها مع البطاقة.'
+                : 'To protect your booking: place your face inside the person silhouette (head and shoulders), then take a live photo to match your ID.'}
             </p>
             <p className="muted stay-esign__privacy">
               {ar

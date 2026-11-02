@@ -208,7 +208,9 @@ export function EsignCameraCapture({
           autoPlay
           style={facingMode === 'user' ? { transform: 'scaleX(-1)' } : undefined}
         />
-        {overlay && ready ? <div className="esign-cam__overlay">{overlay}</div> : null}
+        {overlay ? (
+          <div className={`esign-cam__overlay${ready ? '' : ' is-preview'}`}>{overlay}</div>
+        ) : null}
         {!ready ? (
           <div className="esign-cam__gate">
             <p className="esign-cam__hint">
@@ -218,11 +220,11 @@ export function EsignCameraCapture({
                   : 'Opening camera…'
                 : frame === 'id'
                   ? ar
-                    ? 'افتح الكاميرا لتصوير البطاقة، أو اختر صورة من المعرض'
-                    : 'Open the camera to photograph the ID, or pick from the gallery'
+                    ? 'حاذِ البطاقة مع الشكل الظاهر، ثم افتح الكاميرا أو اختر من المعرض'
+                    : 'Align the card with the outline shown, then open the camera or pick from the gallery'
                   : ar
-                    ? 'افتح الكاميرا لالتقاط صورة مباشرة لوجهك داخل الإطار، أو اختر من المعرض'
-                    : 'Open the camera for a live photo of your face in the frame, or pick from the gallery'}
+                    ? 'ضع وجهك داخل ظل الشخص الظاهر، ثم افتح الكاميرا أو اختر من المعرض'
+                    : 'Place your face inside the person outline, then open the camera or pick from the gallery'}
             </p>
           </div>
         ) : null}
