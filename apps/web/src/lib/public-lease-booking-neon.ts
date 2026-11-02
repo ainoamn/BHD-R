@@ -188,6 +188,11 @@ const ERRORS = {
     'أكّد البريد الإلكتروني برمز التحقق المرسل إلى بريدك.',
     'Verify the email with the OTP sent to your inbox.',
   ],
+  account_mismatch: [
+    409,
+    'الحجز يُنشأ بحساب آخر مفتوح في المتصفح — بدّل إلى الحساب الصحيح من قائمة الحسابات ثم أكّد مجدداً.',
+    'This booking would be created under another signed-in account — switch to the correct account, then confirm again.',
+  ],
   documents_incomplete: [
     400,
     'أكمل الحقول والمستندات الناقصة (نسخ البطاقات/الجواز وتواريخ الانتهاء).',
@@ -406,6 +411,19 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
     });
     await lockKey(transaction, input.unitId);
     const bookerParty = await ensureProspectParty(transaction, preview.organizationId, claims);
+    // Multi-tab cookie leak guard: self-booking must use the signed-in account's email.
+    if (input.bookingFor === 'self') {
+      const sessionEmail = (bookerParty.email ?? '').trim().toLowerCase();
+      const formEmail = (
+        input.email ||
+        input.party.person?.email ||
+        input.party.company?.email ||
+        ''
+      )
+        .trim()
+        .toLowerCase();
+      if (sessionEmail && formEmail && sessionEmail !== formEmail) fail('account_mismatch');
+    }
     const { upsertOwnerPartyFromReservation } = await import('@/lib/reservation-party-persist');
     const party = await upsertOwnerPartyFromReservation(transaction, {
       organizationId: preview.organizationId,

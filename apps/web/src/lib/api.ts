@@ -97,6 +97,21 @@ async function getNextCsrfToken(force = false): Promise<string> {
   if (!force && nextCsrfInflight) return nextCsrfInflight;
   nextCsrfInflight = (async () => {
     const attempt = async (): Promise<string> => {
+      // Bind cookie to this tab's ?au= before minting CSRF — shared cookie otherwise
+      // signs the write as the account active in another tab.
+      try {
+        const { claimProductSessionForActiveAu } = await import('@/lib/identity/client');
+        const claimed = await claimProductSessionForActiveAu();
+        if (!claimed.ok) {
+          throw new ApiError(
+            401,
+            'account_mismatch',
+            'الحساب النشط في هذه النافذة لا يطابق جلسة المنتج — بدّل الحساب من الرأس ثم أعد المحاولة.',
+          );
+        }
+      } catch (error) {
+        if (error instanceof ApiError) throw error;
+      }
       let response: Response;
       try {
         // Hobby cold starts often exceed 12s; keep aligned with Nest CSRF budget.

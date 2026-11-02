@@ -43,6 +43,7 @@ const PARTY_ERRORS = new Set([
   'email_unverified',
   'documents_incomplete',
 ]);
+const ACCOUNT_MISMATCH = 'account_mismatch';
 type ContactForm = { fullName: string; phone: string; email: string };
 
 export type PropertyFacts = {
@@ -79,6 +80,16 @@ type CheckoutResult = {
 };
 
 async function postDepositCheckout(body: Record<string, unknown>): Promise<CheckoutResult> {
+  // Force this tab's ?au= onto the shared product cookie before the write.
+  const { claimProductSessionForActiveAu } = await import('@/lib/identity/client');
+  const claimed = await claimProductSessionForActiveAu();
+  if (!claimed.ok) {
+    throw new ApiError(
+      401,
+      'account_mismatch',
+      'جلسة هذه النافذة لا تطابق الحساب الظاهر — بدّل الحساب من القائمة ثم أكّد الحجز مجدداً.',
+    );
+  }
   const send = async (csrf: string) =>
     fetch('/api/public/bookings/deposit-checkout', {
       method: 'POST',
@@ -91,7 +102,7 @@ async function postDepositCheckout(body: Record<string, unknown>): Promise<Check
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(45_000),
     });
-  let response = await send(await fetchBrowserCsrfToken());
+  let response = await send(await fetchBrowserCsrfToken(true));
   if (response.status === 403) response = await send(await fetchBrowserCsrfToken(true));
   const payload = (await response.json().catch(() => null)) as
     (CheckoutResult & { error?: { code?: string; message?: string; messageAr?: string } }) | null;
@@ -444,6 +455,14 @@ export function LeaseDepositCheckout({
         if (caught instanceof ApiError && caught.status === 401) {
           window.location.assign(
             `/${locale}/login?next=${encodeURIComponent(`/${locale}/book/${unitId}?mode=${mode}`)}`,
+          );
+          return;
+        }
+        if (caught instanceof ApiError && caught.code === ACCOUNT_MISMATCH) {
+          setError(
+            ar
+              ? 'هذه النافذة كانت تستخدم حساباً آخر بسبب تعدد الحسابات — بدّل إلى الحساب الصحيح من القائمة ثم أكّد الحجز.'
+              : 'This tab was signed in as another account (multi-account cookie) — switch to the correct account, then confirm again.',
           );
           return;
         }

@@ -503,6 +503,27 @@ export async function silentRebind(
   }
 }
 
+/**
+ * Before authenticated writes: bind the shared product cookie to this tab's ?au=.
+ * Multi-tab browsers share one cookie — without this, booking/payment lands on the other account.
+ */
+export async function claimProductSessionForActiveAu(): Promise<{ ok: boolean }> {
+  if (typeof window === 'undefined') return { ok: true };
+  const au = readActiveAu();
+  if (!au) return { ok: true };
+  try {
+    const matches = await productSessionMatchesTab();
+    if (matches) return { ok: true };
+    const result = await silentRebind(null, au);
+    if (!result.ok) return { ok: false };
+    clearHostileProductCookie();
+    broadcastProductCookieOwner(result.userId || au);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
+}
+
 export async function switchWindowAccount(
   sub: string,
 ): Promise<{ ok: boolean; token?: string; userId?: string }> {
