@@ -1,3 +1,4 @@
+import { after } from 'next/server';
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking-route';
@@ -8,6 +9,8 @@ import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-li
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+/** Large ID/selfie payloads — allow enough time to write evidence, then respond. */
+export const maxDuration = 60;
 
 const optionalCapture = z.string().startsWith('data:image/').max(900_000).optional();
 const bodySchema = z
@@ -54,7 +57,12 @@ export async function POST(request: Request, context: { params: Promise<{ refere
   const { reference } = await context.params;
   try {
     const { reservationId, ...result } = await completeLeaseEsign(claims, reference, parsed.data);
-    await runReservationAutomation(reservationId, claims.sub);
+    // Do not block the client on owner-policy automation (auto-approve / draft / issue).
+    after(() =>
+      runReservationAutomation(reservationId, claims.sub).catch((error) => {
+        console.error('lease esign automation failed', error);
+      }),
+    );
     return leaseBookingJson(result);
   } catch (error) {
     return leaseBookingErrorResponse(error, 'request_failed');

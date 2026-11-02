@@ -123,6 +123,12 @@ export function StayEsignWizard({
     }
   }, [docsReturn, locked, staged]);
 
+  // Warm CSRF on the review step so submit does not wait on account-claim + mint.
+  useEffect(() => {
+    if (step !== 'review' || !requireCsrf) return;
+    void fetchBrowserCsrfToken().catch(() => undefined);
+  }, [step, requireCsrf]);
+
   const goToConfirmed = useCallback(() => {
     router.push(continuePath ?? stayConfirmedReturnPath(locale, referenceCode));
   }, [continuePath, locale, referenceCode, router]);
@@ -212,16 +218,18 @@ export function StayEsignWizard({
     setBusy(true);
     setError(null);
     try {
+      const csrf = requireCsrf ? await fetchBrowserCsrfToken() : null;
       const response = await fetch(
         submitUrl ?? `/api/public/stays/bookings/${encodeURIComponent(referenceCode)}/esign`,
         {
           method: 'POST',
           credentials: 'same-origin',
+          signal: AbortSignal.timeout(55_000),
           headers: {
             accept: 'application/json',
             'content-type': 'application/json',
             'x-requested-with': 'BHD-R',
-            ...(requireCsrf ? { 'x-csrf-token': await fetchBrowserCsrfToken() } : {}),
+            ...(csrf ? { 'x-csrf-token': csrf } : {}),
           },
           body: JSON.stringify({
             ...(needSignature ? { signaturePng: signatureDataUrl } : {}),
@@ -239,18 +247,23 @@ export function StayEsignWizard({
       if (!response.ok) {
         throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? 'esign_failed');
       }
-      const at = payload?.signedAt ? new Date(payload.signedAt) : new Date();
-      setSignedAtLabel(
-        new Intl.DateTimeFormat(ar ? 'ar-OM' : 'en-GB', {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        }).format(at),
-      );
-      setStep('done');
-      if (contractDocument) router.refresh();
+      const nextPath = continuePath ?? stayConfirmedReturnPath(locale, referenceCode);
+      // Hard navigate so /book/sign server-redirects to the confirmed journey immediately.
+      window.location.assign(nextPath);
+      return;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'esign_failed');
-    } finally {
+      const timedOut =
+        (caught instanceof DOMException && caught.name === 'TimeoutError') ||
+        (caught instanceof Error && /abort|timeout/i.test(caught.message));
+      setError(
+        timedOut
+          ? ar
+            ? 'انتهت مهلة الإرسال — تحقق من الاتصال وأعد المحاولة.'
+            : 'Submit timed out — check your connection and try again.'
+          : caught instanceof Error
+            ? caught.message
+            : 'esign_failed',
+      );
       setBusy(false);
     }
   }
