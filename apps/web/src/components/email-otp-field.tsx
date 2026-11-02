@@ -6,7 +6,7 @@ import { maskEmailAddress } from '@/lib/email-address';
 type Tone = 'ok' | 'error' | 'info';
 
 /** Seconds before the customer may request another code. */
-const RESEND_COOLDOWN_SEC = 60;
+const RESEND_COOLDOWN_SEC = 120;
 
 function formatCountdown(totalSec: number): string {
   const safe = Math.max(0, totalSec);
