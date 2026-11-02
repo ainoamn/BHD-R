@@ -15888,6 +15888,16 @@ button.ops-row-key {
   padding: 0 0.95rem 1rem;
   animation: party-step-in 0.22s ease;
 }
+.party-form--current-only .party-form__step-head {
+  cursor: default;
+}
+.party-form__step-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 0.95rem 1rem;
+}
 .party-form__step-body .stays-checkout__grid,
 .party-form__step-body .field,
 .party-form__step-body .bilingual-name-field,

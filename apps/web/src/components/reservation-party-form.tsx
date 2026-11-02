@@ -1022,11 +1022,13 @@ export function ReservationPartyForm({
     firstIncomplete === -1
       ? Math.max(steps.length - 1, 0)
       : Math.min(Math.max(unlocked, firstIncomplete), Math.max(steps.length - 1, 0));
+  const prevFrontier = useRef(frontier);
 
   useEffect(() => {
     setUnlocked(0);
     setViewIndex(0);
     lastFocused.current = null;
+    prevFrontier.current = 0;
     setNationalityConfirmed(
       filled(person.civilId, 4) || filled(person.nameAr) || filled(person.nameEn),
     );
@@ -1034,8 +1036,10 @@ export function ReservationPartyForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- entity switch only
   }, [entityType]);
 
+  // Only jump forward when a new step unlocks — keep Back navigation intact.
   useEffect(() => {
-    setViewIndex(frontier);
+    if (frontier > prevFrontier.current) setViewIndex(frontier);
+    prevFrontier.current = frontier;
   }, [frontier]);
 
   useEffect(() => {
@@ -1065,14 +1069,30 @@ export function ReservationPartyForm({
   const missing =
     entityType === 'person' ? missingPersonFields(person) : missingCompanyFields(company);
   const progressDone = steps.filter((step) => step.done).length;
+  const safeIndex = Math.min(Math.max(viewIndex, 0), frontier);
+  const currentStep = steps[safeIndex];
+  const canGoBack = safeIndex > 0;
+  const canGoNext = safeIndex < frontier && Boolean(currentStep?.done);
+
+  function goBack() {
+    if (!canGoBack) return;
+    lastFocused.current = null;
+    setViewIndex(safeIndex - 1);
+  }
+
+  function goNext() {
+    if (!canGoNext) return;
+    lastFocused.current = null;
+    setViewIndex(safeIndex + 1);
+  }
 
   return (
-    <div className="party-form party-form--progressive">
+    <div className="party-form party-form--progressive party-form--current-only">
       <div className="party-form__progress" aria-live="polite">
         <strong>
           {ar
-            ? `خطوة ${Math.min(viewIndex + 1, steps.length)} من ${steps.length}`
-            : `Step ${Math.min(viewIndex + 1, steps.length)} of ${steps.length}`}
+            ? `خطوة ${Math.min(safeIndex + 1, steps.length)} من ${steps.length}`
+            : `Step ${Math.min(safeIndex + 1, steps.length)} of ${steps.length}`}
         </strong>
         <span>
           {ar
@@ -1091,40 +1111,35 @@ export function ReservationPartyForm({
         <MissingFieldsBanner locale={locale} fields={missing} />
       ) : null}
 
-      <ol className="party-form__steps">
-        {steps.map((step, index) => {
-          if (index > frontier) return null;
-          const expanded = index === viewIndex;
-          return (
-            <li
-              key={step.id}
-              className={`party-form__step${expanded ? ' is-current' : ''}${step.done ? ' is-done' : ''}`}
-            >
-              <button
-                type="button"
-                className="party-form__step-head"
-                aria-expanded={expanded}
-                onClick={() => {
-                  setViewIndex(index);
-                  lastFocused.current = null;
-                  focusStepField(step.focusId);
-                }}
-              >
-                <span className="party-form__step-index" aria-hidden="true">
-                  {step.done ? '✓' : index + 1}
-                </span>
-                <span>{step.label}</span>
-                {expanded ? (
-                  <em>{ar ? 'الآن' : 'Now'}</em>
-                ) : step.done ? (
-                  <em>{ar ? 'تعديل' : 'Edit'}</em>
-                ) : null}
+      {currentStep ? (
+        <div
+          className={`party-form__step is-current${currentStep.done ? ' is-done' : ''}`}
+          key={currentStep.id}
+        >
+          <div className="party-form__step-head" aria-current="step">
+            <span className="party-form__step-index" aria-hidden="true">
+              {currentStep.done ? '✓' : safeIndex + 1}
+            </span>
+            <span>{currentStep.label}</span>
+            <em>{ar ? 'الآن' : 'Now'}</em>
+          </div>
+          <div className="party-form__step-body">{currentStep.body}</div>
+          <div className="party-form__step-nav">
+            {canGoBack ? (
+              <button type="button" className="button button--quiet" onClick={goBack}>
+                {ar ? 'رجوع' : 'Back'}
               </button>
-              {expanded ? <div className="party-form__step-body">{step.body}</div> : null}
-            </li>
-          );
-        })}
-      </ol>
+            ) : (
+              <span />
+            )}
+            {canGoNext ? (
+              <button type="button" className="button button--primary" onClick={goNext}>
+                {ar ? 'متابعة' : 'Continue'}
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       <p className="muted stays-checkout__hint">
         {ar
