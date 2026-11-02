@@ -32,6 +32,31 @@ export function leaseBookingErrorResponse(error: unknown, fallback = 'booking_fa
     return leaseBookingJson(mapped.body, { status: mapped.status });
   }
   if (postgresCode(error) === '23505') {
+    const constraint =
+      error && typeof error === 'object' && 'constraint' in error
+        ? String((error as { constraint?: unknown }).constraint ?? '')
+        : '';
+    const causeConstraint =
+      error &&
+      typeof error === 'object' &&
+      'cause' in error &&
+      (error as { cause?: { constraint?: unknown } }).cause &&
+      typeof (error as { cause: { constraint?: unknown } }).cause === 'object'
+        ? String((error as { cause: { constraint?: unknown } }).cause.constraint ?? '')
+        : '';
+    const name = `${constraint} ${causeConstraint}`;
+    if (name.includes('parties_org_')) {
+      return leaseBookingJson(
+        {
+          error: {
+            code: 'tenant_details_invalid',
+            message: 'These party details conflict with an existing contact.',
+            messageAr: 'بيانات الطرف تتعارض مع جهة اتصال موجودة — راجع البريد أو الرقم المدني.',
+          },
+        },
+        { status: 409 },
+      );
+    }
     return leaseBookingJson(
       {
         error: {

@@ -463,29 +463,34 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       },
     };
 
-    const ownRows = await transaction
-      .select({
-        id: reservations.id,
-        status: reservations.status,
-        expiresAt: reservations.expiresAt,
-        termsSnapshot: reservations.termsSnapshot,
-      })
-      .from(reservations)
-      .where(
-        and(
-          eq(reservations.unitId, input.unitId),
-          inArray(reservations.status, ['pending', 'confirmed']),
-          gt(reservations.expiresAt, now),
-          sql`${reservations.termsSnapshot}->>'flow' = ${LEASE_BOOKING_FLOW}`,
-          sql`(
-            ${reservations.tenantPartyId} in (${bookerParty.id}::uuid, ${party.id}::uuid)
-            or ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${claims.sub}
-          )`,
-        ),
-      )
-      .limit(1);
-    const own = ownRows[0];
-    if (own) {
+    const findOwnCheckout = async () => {
+      const ownRows = await transaction
+        .select({
+          id: reservations.id,
+          status: reservations.status,
+          expiresAt: reservations.expiresAt,
+          termsSnapshot: reservations.termsSnapshot,
+        })
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.unitId, input.unitId),
+            inArray(reservations.status, ['pending', 'confirmed']),
+            gt(reservations.expiresAt, now),
+            sql`${reservations.termsSnapshot}->>'flow' = ${LEASE_BOOKING_FLOW}`,
+            sql`(
+              ${reservations.tenantPartyId} in (${bookerParty.id}::uuid, ${party.id}::uuid)
+              or ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${claims.sub}
+            )`,
+          ),
+        )
+        .limit(1);
+      return ownRows[0];
+    };
+
+    const reuseOwnCheckout = async (
+      own: NonNullable<Awaited<ReturnType<typeof findOwnCheckout>>>,
+    ) => {
       const snapshot = own.termsSnapshot as unknown as LeaseBookingSnapshot;
       if (snapshot.depositPaidAt) {
         return {
@@ -510,6 +515,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
         termsVersion: LEASE_BOOKING_TERMS_VERSION,
         termsAcceptedAt: now.toISOString(),
         ownerTerms,
+        awaitingPublicDepositPayment: true,
       };
       await transaction
         .update(reservations)
@@ -532,7 +538,10 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
           snapshot.referenceCode,
         ),
       };
-    }
+    };
+
+    const own = await findOwnCheckout();
+    if (own) return reuseOwnCheckout(own);
 
     assertTermsCurrent();
     // Availability is checked again at payment; unpaid drafts must not hold the unit.
@@ -568,34 +577,52 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       capturedAt: now.toISOString(),
     };
 
-    const inserted = await transaction
-      .insert(reservations)
-      .values({
-        organizationId: unit.organizationId,
-        unitId: input.unitId,
-        tenantPartyId: party.id,
-        status: 'pending',
-        expiresAt,
-        rentMinor: unit.rentMinor,
-        currency: unit.currency,
-        termsSnapshot: snapshot,
-      })
-      .returning({ id: reservations.id });
+    try {
+      const inserted = await transaction
+        .insert(reservations)
+        .values({
+          organizationId: unit.organizationId,
+          unitId: input.unitId,
+          tenantPartyId: party.id,
+          status: 'pending',
+          expiresAt,
+          rentMinor: unit.rentMinor,
+          currency: unit.currency,
+          termsSnapshot: snapshot,
+        })
+        .returning({ id: reservations.id });
 
-    await transaction.insert(workflowEvents).values({
-      organizationId: unit.organizationId,
-      actorUserId: claims.sub,
-      resourceType: 'reservation',
-      resourceId: inserted[0]!.id,
-      eventType: 'reservation.public_checkout_started',
-      toStatus: 'pending',
-      metadata: {
-        referenceCode,
-        mode: input.mode,
-        termsVersion: LEASE_BOOKING_TERMS_VERSION,
-        termsAcceptedAt: snapshot.termsAcceptedAt,
-      },
-    });
+      await transaction.insert(workflowEvents).values({
+        organizationId: unit.organizationId,
+        actorUserId: claims.sub,
+        resourceType: 'reservation',
+        resourceId: inserted[0]!.id,
+        eventType: 'reservation.public_checkout_started',
+        toStatus: 'pending',
+        metadata: {
+          referenceCode,
+          mode: input.mode,
+          termsVersion: LEASE_BOOKING_TERMS_VERSION,
+          termsAcceptedAt: snapshot.termsAcceptedAt,
+        },
+      });
+    } catch (error: unknown) {
+      // Parallel confirm / leftover unpaid draft: reuse our row instead of a false "taken" error.
+      const code =
+        error && typeof error === 'object' && 'code' in error
+          ? String((error as { code?: unknown }).code)
+          : error &&
+              typeof error === 'object' &&
+              'cause' in error &&
+              (error as { cause?: { code?: unknown } }).cause &&
+              typeof (error as { cause: { code?: unknown } }).cause === 'object'
+            ? String((error as { cause: { code?: unknown } }).cause.code ?? '')
+            : '';
+      if (code !== '23505') throw error;
+      const raced = await findOwnCheckout();
+      if (raced) return reuseOwnCheckout(raced);
+      fail('unit_unavailable');
+    }
 
     return {
       referenceCode,

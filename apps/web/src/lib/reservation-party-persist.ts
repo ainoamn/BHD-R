@@ -112,13 +112,29 @@ export async function upsertOwnerPartyFromReservation(
       userId: input.bookerUserId,
       holder: 'self',
     };
+    let nextEmail = fields.email || existing.email;
+    if (fields.email && fields.email !== existing.email) {
+      const [emailTaken] = await transaction
+        .select({ id: parties.id })
+        .from(parties)
+        .where(
+          and(
+            eq(parties.organizationId, input.organizationId),
+            sql`lower(${parties.email}) = ${fields.email}`,
+            sql`${parties.id} <> ${existing.id}::uuid`,
+          ),
+        )
+        .limit(1);
+      // Keep the prospect row's email when another contact already owns it.
+      if (emailTaken) nextEmail = existing.email;
+    }
     const [updated] = await transaction
       .update(parties)
       .set({
         type: fields.type,
         displayName: fields.displayName || existing.displayName,
         phone: fields.phone || existing.phone,
-        email: fields.email || existing.email,
+        email: nextEmail,
         metadata: nextMeta,
         updatedAt: now,
       })

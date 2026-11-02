@@ -67,7 +67,20 @@ RETURN EXISTS (
     AND u.status = 'active' AND p.status = 'active'
     AND u.publish_when_available AND l.enabled AND l.published_at IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM holds h WHERE h.unit_id = u.id AND h.status = 'active' AND h.expires_at > now())
-    AND NOT EXISTS (SELECT 1 FROM reservations r WHERE r.unit_id = u.id AND r.status IN ('pending','confirmed') AND r.expires_at > now())
+    AND NOT EXISTS (
+      SELECT 1 FROM reservations r
+      WHERE r.unit_id = u.id
+        AND r.status IN ('pending','confirmed')
+        AND r.expires_at > now()
+        AND NOT (
+          r.status = 'pending'
+          AND coalesce(r.terms_snapshot->>'depositPaidAt', '') = ''
+          AND (
+            r.terms_snapshot->>'flow' = 'public_deposit_v1'
+            OR coalesce(r.terms_snapshot->>'awaitingPublicDepositPayment', '') IN ('true', 't')
+          )
+        )
+    )
     AND NOT EXISTS (SELECT 1 FROM leases x WHERE x.unit_id = u.id AND x.status IN ('draft','active') AND x.ends_on >= current_date)
     AND NOT EXISTS (SELECT 1 FROM maintenance_tickets m WHERE m.unit_id = u.id AND m.blocks_availability AND m.status NOT IN ('resolved','closed','cancelled'))
 );

@@ -961,7 +961,17 @@ export const reservations = pgTable(
     index('reservations_org_idx').on(table.organizationId),
     uniqueIndex('reservations_one_active_per_unit')
       .on(table.unitId)
-      .where(sql`${table.status} IN ('pending', 'confirmed')`),
+      .where(
+        sql`${table.status} IN ('pending', 'confirmed')
+          AND NOT (
+            ${table.status} = 'pending'
+            AND coalesce(${table.termsSnapshot}->>'depositPaidAt', '') = ''
+            AND (
+              ${table.termsSnapshot}->>'flow' = 'public_deposit_v1'
+              OR coalesce(${table.termsSnapshot}->>'awaitingPublicDepositPayment', '') IN ('true', 't')
+            )
+          )`,
+      ),
   ],
 );
 
