@@ -1429,15 +1429,19 @@ export function LeaseReservationWorkflow(serverProps: Props) {
             ) : null}
 
             {!draftOpen &&
-            (phase === 'awaiting_documents' || phase === 'awaiting_documents_review') ? (
+            Boolean(lifecycle.tenantSignature) &&
+            !lifecycle.handover &&
+            (phase === 'awaiting_documents' ||
+              phase === 'awaiting_documents_review' ||
+              phase === 'awaiting_handover') ? (
               <div className="lrw__card lrw__desk">
                 <div className="lrw__desk-head">
                   <div>
                     <h3>{t('مستندات وشيكات بعد التوقيع', 'Documents & cheques after signature')}</h3>
                     <p className="muted">
                       {t(
-                        'العقد موقّع من الطرفين. راجع ما يرفعه العميل من مستندات وشيكات.',
-                        'The contract is signed by both parties. Review the documents and cheques the client uploads.',
+                        'العقد موقّع من الطرفين. راجع ما يرفعه العميل من مستندات وشيكات، أو أضف مطلوبات إضافية.',
+                        'The contract is signed by both parties. Review uploads, or add further requirements.',
                       )}
                     </p>
                   </div>
@@ -2183,19 +2187,6 @@ function CompletedStage(
   } else if (index === 2) {
     body = (
       <>
-        <DraftSummary {...props} />
-        <RequirementsReview
-          {...props}
-          canManage={false}
-          busy
-          fileHref={props.fileHref}
-          onReview={async () => undefined}
-        />
-      </>
-    );
-  } else if (index === 3) {
-    body = (
-      <>
         <dl className="contract-detail__facts">
           <div>
             <dt>{t('رقم العقد', 'Contract no.')}</dt>
@@ -2219,11 +2210,31 @@ function CompletedStage(
             <dd>{when(lifecycle.tenantSignature?.signedAt)}</dd>
           </div>
         </dl>
+        <DraftSummary {...props} />
         {contractHref ? (
           <a className="button button--quiet" href={contractHref}>
             {t('عرض العقد', 'View contract')}
           </a>
         ) : null}
+      </>
+    );
+  } else if (index === 3) {
+    body = (
+      <>
+        <RequirementsReview
+          {...props}
+          canManage={false}
+          busy
+          fileHref={props.fileHref}
+          onReview={async () => undefined}
+        />
+        <ChequesReview
+          {...props}
+          canManage={false}
+          busy
+          fileHref={props.fileHref}
+          onReview={async () => undefined}
+        />
       </>
     );
   } else if (lifecycle.handover) {

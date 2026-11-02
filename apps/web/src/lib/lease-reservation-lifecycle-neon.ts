@@ -59,6 +59,8 @@ import {
   type ReservationSaleDraft,
 } from '@/lib/lease-reservation-lifecycle';
 import { computeLeaseTerms, minorDigitsFor, type LeaseTermsDraft } from '@/lib/lease-terms';
+import { suggestLeaseDocuments } from '@/lib/lease-document-rules';
+import { resolveLeaseDocumentRules } from '@/lib/lease-document-rules-neon';
 import {
   applyHandoverAfterSignToDraft,
   buildBookingLeaseTermsDraft,
@@ -169,6 +171,7 @@ async function autoPrepareLeaseContractDraft(
     chequeSeed.instructions,
     lifecycle.chequeSubmissions,
   );
+  const requirements = await seedDefaultRequirements(tx, row, lifecycle.requirements);
   const next: ReservationLifecycle = {
     ...lifecycle,
     contractDraft: {
@@ -188,7 +191,7 @@ async function autoPrepareLeaseContractDraft(
     rentBankAccountId: chequeSeed.rentBankAccountId,
     chequeInstructions: chequeSeed.instructions,
     chequeSubmissions,
-    requirements: lifecycle.requirements ?? [],
+    requirements,
   };
   return { lifecycle: next, lease };
 }
@@ -462,7 +465,7 @@ function buildChequeInstructions(
   const computed = computeLeaseTerms(draft, currency, minorDigitsFor(currency), {
     deferUntilHandover,
   });
-  if (!computed.ok || computed.terms.paymentMethod !== 'cheque') {
+  if (!computed.ok) {
     return {
       payableTo: null,
       bankName: null,
@@ -472,30 +475,34 @@ function buildChequeInstructions(
   }
   const terms = computed.terms;
   const instructions: ReservationChequeInstruction[] = [];
-  for (const [index, row] of terms.schedule.entries()) {
-    instructions.push({
-      key: `rent-${index}`,
-      kind: 'rent',
-      labelAr: `شيك إيجار #${index + 1}`,
-      labelEn: `Rent cheque #${index + 1}`,
-      dueOn: row.dueOn,
-      amountMinor: row.totalMinor,
-      currency,
-      suggestedChequeNumber: row.chequeNumber,
-    });
+  // Rent/VAT cheques only when rent itself is paid by cheque.
+  if (terms.paymentMethod === 'cheque') {
+    for (const [index, row] of terms.schedule.entries()) {
+      instructions.push({
+        key: `rent-${index}`,
+        kind: 'rent',
+        labelAr: `شيك إيجار #${index + 1}`,
+        labelEn: `Rent cheque #${index + 1}`,
+        dueOn: row.dueOn,
+        amountMinor: row.totalMinor,
+        currency,
+        suggestedChequeNumber: row.chequeNumber,
+      });
+    }
+    for (const [index, row] of terms.vatCheques.entries()) {
+      instructions.push({
+        key: `vat-${index}`,
+        kind: 'vat',
+        labelAr: `شيك ضريبة #${index + 1}`,
+        labelEn: `VAT cheque #${index + 1}`,
+        dueOn: row.dueOn,
+        amountMinor: row.amountMinor,
+        currency,
+        suggestedChequeNumber: row.chequeNumber,
+      });
+    }
   }
-  for (const [index, row] of terms.vatCheques.entries()) {
-    instructions.push({
-      key: `vat-${index}`,
-      kind: 'vat',
-      labelAr: `شيك ضريبة #${index + 1}`,
-      labelEn: `VAT cheque #${index + 1}`,
-      dueOn: row.dueOn,
-      amountMinor: row.amountMinor,
-      currency,
-      suggestedChequeNumber: row.chequeNumber,
-    });
-  }
+  // Deposit cheques are requested even when rent is paid by transfer.
   terms.depositItems.forEach((item, index) => {
     if (item.method !== 'cheque') return;
     instructions.push({
@@ -515,6 +522,35 @@ function buildChequeInstructions(
     rentBankAccountId: terms.rentBankAccountId,
     instructions,
   };
+}
+
+/** Default post-sign uploads from the org document matrix + tenant nationality. */
+async function seedDefaultRequirements(
+  tx: Tx,
+  row: OwnerRow,
+  existing: ReservationRequirement[] | undefined,
+): Promise<ReservationRequirement[]> {
+  if (existing?.length) return existing;
+  const party = row.snapshot.party;
+  if (!party) return [];
+  const { rules } = await resolveLeaseDocumentRules(tx, row.orgId, row.propertyId);
+  const picks = suggestLeaseDocuments(
+    {
+      entityType: party.entityType === 'company' ? 'company' : 'person',
+      nationality:
+        party.entityType === 'person'
+          ? party.person?.nationality
+          : party.company?.signatories?.[0]?.nationality,
+      signatoryNationality: party.company?.signatories?.[0]?.nationality,
+    },
+    rules,
+  );
+  return picks.map((item) => ({
+    code: item.code,
+    labelAr: item.labelAr,
+    labelEn: item.labelEn,
+    status: 'pending' as const,
+  }));
 }
 
 /** Keep approved/submitted cheque rows when the schedule keys still match. */
@@ -1852,6 +1888,40 @@ export async function runReservationAutomation(
         } catch (error) {
           await event('reservation.auto_contract_skipped', {
             reason: clientSafeErrorCode(error, 'issue_failed'),
+          });
+        }
+      }
+
+      // Backfill default docs/cheques when auto-issue left the package empty (pre-seed bookings).
+      if (
+        row.snapshot.mode !== 'sale' &&
+        lifecycle.contract &&
+        !(lifecycle.requirements?.length) &&
+        !(lifecycle.chequeInstructions?.length) &&
+        lifecycle.contractDraft?.lease
+      ) {
+        const requirements = await seedDefaultRequirements(tx, row, lifecycle.requirements);
+        const lease = lifecycle.contractDraft.lease as unknown as ManualLeaseInput;
+        const defer = lifecycle.autoFlow?.deferUntilHandover ?? [];
+        const chequeSeed = buildChequeInstructions(lease.terms, row.currency, defer);
+        if (requirements.length || chequeSeed.instructions.length) {
+          lifecycle = {
+            ...lifecycle,
+            requirements,
+            chequePayableTo: chequeSeed.payableTo ?? lifecycle.chequePayableTo ?? null,
+            chequeBankName: chequeSeed.bankName ?? lifecycle.chequeBankName ?? null,
+            rentBankAccountId: chequeSeed.rentBankAccountId ?? lifecycle.rentBankAccountId ?? null,
+            chequeInstructions: chequeSeed.instructions,
+            chequeSubmissions: mergeChequeSubmissions(
+              chequeSeed.instructions,
+              lifecycle.chequeSubmissions,
+            ),
+            customerDocumentsSentAt: null,
+          };
+          await saveLifecycle(tx, row, lifecycle);
+          await event('reservation.documents_package_seeded', {
+            requirements: requirements.map((item) => item.code),
+            cheques: chequeSeed.instructions.map((item) => item.key),
           });
         }
       }

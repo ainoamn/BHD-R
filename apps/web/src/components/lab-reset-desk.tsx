@@ -11,6 +11,7 @@ import {
   type LabResetCounts,
   type LabResetResult,
 } from '@/lib/lab-reset-shared';
+import { adminGet } from '@/components/site-admin/admin-fetch';
 import {
   SiteAdminBanner,
   SiteAdminPage,
@@ -41,15 +42,8 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
 
   const load = useCallback(async () => {
     try {
-      const response = await fetch('/api/site-admin/lab-reset', {
-        credentials: 'same-origin',
-        headers: { accept: 'application/json' },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (!response.ok) throw new Error(String(response.status));
-      const body = (await response.json()) as { counts: LabResetCounts };
-      setCounts(body.counts);
+      const body = await adminGet<{ counts: LabResetCounts }>('/api/site-admin/lab-reset');
+      setCounts(body.counts ?? EMPTY);
       setFailed(false);
     } catch {
       setFailed(true);

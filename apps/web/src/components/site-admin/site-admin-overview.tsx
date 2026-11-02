@@ -28,12 +28,8 @@ export function SiteAdminOverview({ locale }: { locale: 'ar' | 'en' }) {
     let cancelled = false;
     void (async () => {
       try {
-        const response = await fetch('/api/site-admin/diagnostics', {
-          credentials: 'same-origin',
-          cache: 'no-store',
-        });
-        if (!response.ok) return;
-        const payload = (await response.json()) as PlatformDiagnostics;
+        const { adminGet } = await import('@/components/site-admin/admin-fetch');
+        const payload = await adminGet<PlatformDiagnostics>('/api/site-admin/diagnostics');
         if (!cancelled) setPulse(payload.counts);
       } catch {
         /* overview still works without pulse */

@@ -2,7 +2,25 @@ import { ApiError } from '@/lib/api';
 
 export type AdminNotice = { tone: 'success' | 'error'; text: string };
 
+/** Bind ?au= product cookie before site-admin reads so counts match the tab account. */
+async function claimActiveAuIfNeeded(): Promise<void> {
+  try {
+    const { claimProductSessionForActiveAu } = await import('@/lib/identity/client');
+    const claimed = await claimProductSessionForActiveAu();
+    if (!claimed.ok) {
+      throw new ApiError(
+        401,
+        'account_mismatch',
+        'الحساب النشط في هذه النافذة لا يطابق جلسة المنتج — بدّل الحساب من الرأس ثم أعد المحاولة.',
+      );
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+  }
+}
+
 export async function adminGet<T>(path: string): Promise<T> {
+  await claimActiveAuIfNeeded();
   const response = await fetch(path, {
     credentials: 'same-origin',
     cache: 'no-store',
