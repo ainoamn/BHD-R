@@ -613,8 +613,11 @@ export function LeaseDepositCheckout({
                 ? `${mode === 'sale' ? 'المشتري' : 'المستأجر'} شخص آخر — حدّد إن كان فرداً أو شركة وأدخل بياناته.`
                 : `The ${mode === 'sale' ? 'buyer' : 'tenant'} is someone else — choose individual or company and enter their details.`}
           </p>
-          <section className="party-form__property" aria-labelledby="lease-property-facts">
-            <h4 id="lease-property-facts">{ar ? 'بيانات العقار' : 'Property details'}</h4>
+          <details className="party-form__property">
+            <summary id="lease-property-facts">
+              <span>{ar ? 'بيانات العقار' : 'Property details'}</span>
+              <em>{ar ? 'عرض' : 'Show'}</em>
+            </summary>
             <dl className="stays-checkout__summary">
               <div>
                 <dt>{ar ? 'العقار' : 'Property'}</dt>
@@ -685,7 +688,7 @@ export function LeaseDepositCheckout({
                 </div>
               ) : null}
             </dl>
-          </section>
+          </details>
           <ReservationPartyForm
             value={partyForm}
             onChange={(next) => {

@@ -15934,11 +15934,57 @@ button.ops-row-key {
   display: grid;
   gap: 0.5rem;
   margin-bottom: 1rem;
-  padding: 0.9rem 1rem;
+  padding: 0.55rem 0.85rem 0.7rem;
   border: 1px solid #d7e1dc;
   border-radius: 0.9rem;
   background: #f7faf8;
   min-width: 0;
+}
+.party-form__property > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0;
+  list-style: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--oman-deep, #0b3a2f);
+}
+.party-form__property > summary::-webkit-details-marker {
+  display: none;
+}
+.party-form__property > summary::before {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  border-inline-end: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.15s ease;
+  flex: none;
+}
+[dir='rtl'] .party-form__property > summary::before {
+  transform: rotate(135deg);
+}
+.party-form__property[open] > summary::before {
+  transform: rotate(45deg);
+}
+[dir='rtl'] .party-form__property[open] > summary::before {
+  transform: rotate(-135deg);
+}
+.party-form__property > summary em {
+  margin-inline-start: auto;
+  color: #08736f;
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.party-form__property[open] > summary em {
+  display: none;
+}
+.party-form__property[open] {
+  padding-bottom: 0.9rem;
 }
 .party-form__property h4 {
   margin: 0;
