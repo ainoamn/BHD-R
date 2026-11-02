@@ -3,6 +3,7 @@
 import {
   ensureAuInUrl,
   isIdentityOrigin,
+  markHostileProductCookie,
   rememberProductCookieOwner,
   scrubCacheBustFromUrl,
   signalPrivacyVeilReady,
@@ -13,6 +14,7 @@ import { useEffect, useRef } from 'react';
 /**
  * Lightweight boot helper only — does not rebind or splash.
  * Cookie reclaim / refresh lives solely in BhdSilentSso (avoids double flicker).
+ * On cookie≠?au= mismatch: mark hostile and leave the veil up for SilentSso.
  */
 export function BhdPrivacyGate() {
   const settledRef = useRef(false);
@@ -56,14 +58,22 @@ export function BhdPrivacyGate() {
           rememberProductCookieOwner(au);
           ensureAuInUrl(au);
           scrubCacheBustFromUrl();
+          signalPrivacyVeilReady();
         } else if (productSub && !au) {
           setActiveAu(productSub);
           rememberProductCookieOwner(productSub);
           ensureAuInUrl(productSub);
+          signalPrivacyVeilReady();
+        } else if (au && productSub && productSub !== au) {
+          markHostileProductCookie(productSub);
+          ensureAuInUrl(au);
+          // Do not lift the veil — BhdSilentSso reclaims then signals ready.
         } else if (au) {
           ensureAuInUrl(au);
+          signalPrivacyVeilReady();
+        } else {
+          signalPrivacyVeilReady();
         }
-        signalPrivacyVeilReady();
         settledRef.current = true;
       })
       .catch(() => {

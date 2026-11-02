@@ -22,6 +22,7 @@ import {
   setActiveAu,
   tokenForAccount,
 } from '@/lib/identity/window-session';
+import { invalidateTenantSpaceCache } from '@/lib/tenant-space-client-cache';
 import { useEffect, useRef, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -115,6 +116,7 @@ export function BhdSilentSso() {
           silent: true,
           quiet: true,
         });
+        invalidateTenantSpaceCache();
       } finally {
         reclaimingRef.current = false;
       }
@@ -157,10 +159,13 @@ export function BhdSilentSso() {
         }
 
         if (au) ensureAuInUrl(au);
-        signalPrivacyVeilReady();
 
-        if (au && productSub && productSub !== au) {
-          markHostileProductCookie(productSub);
+        const mismatched = Boolean(au && productSub && productSub !== au);
+        if (mismatched) {
+          markHostileProductCookie(productSub!);
+        } else {
+          // Only lift the cover when this tab already matches the cookie.
+          signalPrivacyVeilReady();
         }
 
         if (!tabMayClaimProductCookie()) {
@@ -171,9 +176,9 @@ export function BhdSilentSso() {
         const cachedToken = (au && tokenForAccount(au)) || boundWindowToken();
 
         // Cookie belongs to another account — cover wrong SSR paint, then reclaim.
-        if (au && productSub && productSub !== au && cachedToken) {
+        if (mismatched && cachedToken) {
           if (!quiet) paintPrivacyVeil();
-          await reclaimQuiet(au, cachedToken);
+          await reclaimQuiet(au!, cachedToken);
           bootDoneRef.current = true;
           // First boot in this JS context: one soft refresh so SSR matches ?au=.
           if (!quiet && !bootRefreshDoneRef.current) {
@@ -201,6 +206,7 @@ export function BhdSilentSso() {
         }
 
         if (quiet) {
+          signalPrivacyVeilReady();
           bootDoneRef.current = true;
           return;
         }
