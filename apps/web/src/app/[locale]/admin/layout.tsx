@@ -7,6 +7,8 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { readClaims } from '@/lib/portal-ops-data';
 import { privatePortalRobots } from '@/lib/seo';
 import { siteAdminAccess } from '@/lib/site-admin-neon';
+import type { Viewer } from '@/lib/types';
+import { getShellViewer } from '@/lib/viewer';
 import '../../site-admin.css';
 import '../../portal-adaptive.css';
 import '../../badges-verification.css';
@@ -49,9 +51,20 @@ export default async function SiteAdminLayout({
     throw error;
   }
   if (!access) return <SiteAdminUnavailable locale={locale} />;
+  const shell = await getShellViewer();
+  const viewer: Viewer = shell ?? {
+    id: claims.sub,
+    displayName: claims.locale === 'ar' ? 'مستخدم BHD' : 'BHD user',
+    partyId: claims.partyId,
+    locale,
+    organizationId: claims.organizationId,
+    roles: claims.roles,
+    permissions: claims.permissions,
+    portals: ['owner', 'tenant'],
+  };
   return (
     <div className="site-admin-shell">
-      <SiteAdminChrome access={access} locale={locale}>
+      <SiteAdminChrome access={access} locale={locale} viewer={viewer}>
         {children}
       </SiteAdminChrome>
     </div>
