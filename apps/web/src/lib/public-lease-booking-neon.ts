@@ -106,6 +106,8 @@ export type LeaseBookingSnapshot = {
   salesDealId?: string;
   esign?: { signedAt: string; completed: true; evidenceEventId: string };
   lifecycle?: ReservationLifecycle;
+  cancelledAt?: string;
+  cancelReason?: 'guest_abandoned_checkout';
 };
 
 export class LeaseBookingError extends Error {
@@ -678,6 +680,88 @@ export async function lookupLeasePaymentSession(sessionReference: string) {
       propertyNameEn: match.propertyNameEn,
       paid: Boolean(match.snapshot.depositPaidAt),
       expiresAt: match.expiresAt.toISOString(),
+    };
+  });
+}
+
+/** Guest cancels an unpaid lease checkout — frees the draft before deposit payment. */
+export async function cancelLeaseSandboxCheckout(
+  claims: SessionClaims,
+  sessionReference: string,
+) {
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    const match = await findLeaseReservation(
+      transaction,
+      'checkoutSessionReference',
+      sessionReference,
+    );
+    if (!match) fail('not_found');
+    await assertBookingOwner(
+      transaction,
+      claims.sub,
+      match.partyEmail,
+      match.snapshot.bookedBy?.userId,
+    );
+    await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
+    await lockKey(transaction, match.id);
+
+    const freshRows = await transaction
+      .select({
+        status: reservations.status,
+        termsSnapshot: reservations.termsSnapshot,
+      })
+      .from(reservations)
+      .where(eq(reservations.id, match.id))
+      .limit(1);
+    const fresh = freshRows[0];
+    if (!fresh) fail('not_found');
+    const snapshot = fresh.termsSnapshot as unknown as LeaseBookingSnapshot;
+    if (snapshot.depositPaidAt) fail('not_ready');
+    if (fresh.status === 'cancelled' || fresh.status === 'expired') {
+      return {
+        cancelled: true as const,
+        referenceCode: snapshot.referenceCode,
+        homePath: `/${snapshot.locale || 'ar'}`,
+        unitPath: `/${snapshot.locale || 'ar'}/book/${match.unitId}?mode=${snapshot.mode}`,
+      };
+    }
+    if (fresh.status !== 'pending') fail('not_ready');
+
+    const now = new Date();
+    await transaction
+      .update(reservations)
+      .set({
+        status: 'cancelled',
+        updatedAt: now,
+        termsSnapshot: {
+          ...snapshot,
+          cancelledAt: now.toISOString(),
+          cancelReason: 'guest_abandoned_checkout',
+        },
+      })
+      .where(eq(reservations.id, match.id));
+
+    await transaction.insert(workflowEvents).values({
+      organizationId: match.organizationId,
+      actorUserId: claims.sub,
+      resourceType: 'reservation',
+      resourceId: match.id,
+      eventType: 'reservation.checkout_cancelled',
+      fromStatus: 'pending',
+      toStatus: 'cancelled',
+      metadata: {
+        referenceCode: snapshot.referenceCode,
+        mode: snapshot.mode,
+        reason: 'guest_abandoned_checkout',
+      },
+    });
+
+    return {
+      cancelled: true as const,
+      referenceCode: snapshot.referenceCode,
+      homePath: `/${snapshot.locale || 'ar'}`,
+      unitPath: `/${snapshot.locale || 'ar'}/book/${match.unitId}?mode=${snapshot.mode}`,
     };
   });
 }

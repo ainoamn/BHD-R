@@ -3866,6 +3866,22 @@ body:has(.stays-booking-receipt) #main-content {
   min-height: 2.95rem;
   font-weight: 800;
 }
+.pay-gateway__exit {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.35rem;
+}
+.pay-gateway__exit .button {
+  width: 100%;
+  min-height: 2.6rem;
+  text-align: center;
+  text-decoration: none;
+}
+.pay-gateway__home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .pay-gateway__secure,
 .pay-gateway__ref {
   margin: 0;

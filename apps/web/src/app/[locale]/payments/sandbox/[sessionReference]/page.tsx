@@ -198,6 +198,7 @@ export default async function SandboxPaymentPage({
           sessionReference={sessionReference}
           stayKind={stayKind}
           leaseKind={leaseKind}
+          homeHref={`/${locale}`}
           {...(returnPath ? { returnPath } : {})}
           {...(leaseSession
             ? {

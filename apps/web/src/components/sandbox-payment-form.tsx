@@ -136,6 +136,64 @@ function expiryOk(mmYy: string): boolean {
   return exp >= now;
 }
 
+async function cancelLeaseSandboxCheckout(sessionReference: string): Promise<{
+  cancelled: boolean;
+  homePath?: string;
+  unitPath?: string;
+}> {
+  const send = async (csrf: string) =>
+    fetch(
+      `/api/public/bookings/payment-sessions/${encodeURIComponent(sessionReference)}/cancel`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          'x-csrf-token': csrf,
+        },
+        body: '{}',
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+  let response = await send(await fetchBrowserCsrfToken());
+  if (response.status === 403) response = await send(await fetchBrowserCsrfToken(true));
+  const payload = (await response.json().catch(() => null)) as {
+    error?: { code?: string; messageAr?: string; message?: string };
+    cancelled?: boolean;
+    homePath?: string;
+    unitPath?: string;
+  } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? 'cancel_failed');
+  }
+  return {
+    cancelled: Boolean(payload?.cancelled),
+    ...(payload?.homePath ? { homePath: payload.homePath } : {}),
+    ...(payload?.unitPath ? { unitPath: payload.unitPath } : {}),
+  };
+}
+
+async function cancelStaySandboxCheckout(referenceCode: string): Promise<void> {
+  const response = await fetch('/api/public/stays/guest/cancel', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      accept: 'application/json',
+      'content-type': 'application/json',
+      'x-requested-with': 'BHD-R',
+    },
+    body: JSON.stringify({ referenceCode }),
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { messageAr?: string; message?: string };
+    } | null;
+    throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? 'cancel_failed');
+  }
+}
+
 export function SandboxPaymentForm({
   sessionReference,
   returnPath,
@@ -145,6 +203,7 @@ export function SandboxPaymentForm({
   currency,
   referenceCode,
   rebookHref,
+  homeHref,
 }: {
   sessionReference: string;
   returnPath?: string;
@@ -156,10 +215,13 @@ export function SandboxPaymentForm({
   referenceCode?: string;
   /** When payment fails because the day was taken — link back to the same stay book flow. */
   rebookHref?: string;
+  homeHref?: string;
 }) {
   const locale = useLocale();
   const ar = locale === 'ar';
+  const homePath = homeHref ?? `/${locale}`;
   const [busy, setBusy] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [cardName, setCardName] = useState('');
@@ -274,6 +336,33 @@ export function SandboxPaymentForm({
     (errorCode === 'dates_taken' ||
       errorCode === 'booking_expired' ||
       Boolean(message && /نفد الحجز|taken by another|dates_taken|اختر يوماً/i.test(message)));
+
+  async function cancelCheckout() {
+    if (busy || cancelling) return;
+    const confirmed = window.confirm(
+      ar
+        ? 'إلغاء طلب الحجز؟ لن يُخصم أي مبلغ، ويمكنك البدء من جديد لاحقاً.'
+        : 'Cancel this booking request? Nothing will be charged, and you can start again later.',
+    );
+    if (!confirmed) return;
+    setCancelling(true);
+    setMessage(null);
+    setErrorCode(null);
+    try {
+      if (leaseKind) {
+        const result = await cancelLeaseSandboxCheckout(sessionReference);
+        window.location.assign(result.homePath || homePath);
+        return;
+      }
+      if (stayKind && referenceCode) {
+        await cancelStaySandboxCheckout(referenceCode);
+      }
+      window.location.assign(homePath);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'cancel_failed');
+      setCancelling(false);
+    }
+  }
 
   return (
     <div className="pay-gateway">
@@ -425,7 +514,11 @@ export function SandboxPaymentForm({
           </div>
         </div>
 
-        <button type="submit" className="button button--primary pay-gateway__pay" disabled={busy}>
+        <button
+          type="submit"
+          className="button button--primary pay-gateway__pay"
+          disabled={busy || cancelling}
+        >
           {busy
             ? ar
               ? 'جارٍ معالجة الدفع…'
@@ -438,6 +531,26 @@ export function SandboxPaymentForm({
                 ? 'ادفع الآن'
                 : 'Pay now'}
         </button>
+
+        <div className="pay-gateway__exit">
+          <button
+            type="button"
+            className="button button--secondary"
+            disabled={busy || cancelling}
+            onClick={() => void cancelCheckout()}
+          >
+            {cancelling
+              ? ar
+                ? 'جارٍ الإلغاء…'
+                : 'Cancelling…'
+              : ar
+                ? 'إلغاء الطلب'
+                : 'Cancel request'}
+          </button>
+          <a className="button button--quiet pay-gateway__home" href={homePath}>
+            {ar ? 'العودة للرئيسية' : 'Back to home'}
+          </a>
+        </div>
 
         <p className="pay-gateway__secure muted">
           {ar
