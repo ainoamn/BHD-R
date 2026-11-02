@@ -526,32 +526,55 @@ export async function claimProductSessionForActiveAu(): Promise<{ ok: boolean }>
 
 export async function switchWindowAccount(
   sub: string,
-): Promise<{ ok: boolean; token?: string; userId?: string }> {
+): Promise<{ ok: boolean; token?: string; userId?: string; error?: string }> {
   if (!sub) return { ok: false };
   paintPrivacyVeil();
-  const response = await identityFetch('/api/auth/switch', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-BHD-Persist-Cookie': '1',
-    },
-    body: JSON.stringify({ sub }),
-  });
-  const body = (await response.json().catch(() => ({}))) as {
-    token?: string;
-    user?: { id?: string } | null;
-  };
-  const userId = typeof body.user?.id === 'string' ? body.user.id : sub;
-  if (typeof body.token === 'string') {
-    captureAccountToken(userId, body.token);
+  try {
+    // Cookie-only: do NOT send the current tab Bearer — it pins identity to the
+    // old account and blocks multi-account POST /api/auth/switch (Google-style).
+    const response = await fetch(identityApiUrl('/api/auth/switch'), {
+      method: 'POST',
+      cache: 'no-store',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-BHD-Persist-Cookie': '1',
+      },
+      body: JSON.stringify({ sub }),
+    });
+    const body = (await response.json().catch(() => ({}))) as {
+      token?: string;
+      user?: { id?: string } | null;
+      error?: { code?: string } | string;
+    };
+    const userId = typeof body.user?.id === 'string' ? body.user.id : sub;
+    if (!response.ok) {
+      signalPrivacyVeilReady();
+      clearAccountRebindLock();
+      const code =
+        typeof body.error === 'object' && body.error?.code
+          ? body.error.code
+          : typeof body.error === 'string'
+            ? body.error
+            : 'switch_failed';
+      return { ok: false, userId, error: code };
+    }
+    if (typeof body.token === 'string') {
+      captureAccountToken(userId, body.token);
+    }
     setActiveAu(userId);
+    broadcastProductCookieOwner(userId);
+    return {
+      ok: true,
+      userId,
+      ...(typeof body.token === 'string' ? { token: body.token } : {}),
+    };
+  } catch {
+    signalPrivacyVeilReady();
+    clearAccountRebindLock();
+    return { ok: false, error: 'network' };
   }
-  if (response.ok) broadcastProductCookieOwner(userId);
-  return {
-    ok: response.ok,
-    ...(typeof body.token === 'string' ? { token: body.token } : {}),
-    userId,
-  };
 }
 
 export async function applyAccountIsolation(

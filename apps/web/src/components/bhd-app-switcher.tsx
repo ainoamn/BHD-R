@@ -14,13 +14,16 @@ import {
 import { hopOrigins, launchUrlForApp, type BhdApp } from '@/lib/bhd/apps';
 import { BhdAppIcon } from '@/components/bhd/bhd-app-icon';
 import {
+  accountBoundPath,
   addAccountUrl,
   applyAccountIsolation,
+  currentReturnPath,
   identityMe,
   paintPrivacyVeil,
+  signalPrivacyVeilReady,
   switchWindowAccount,
 } from '@/lib/identity/client';
-import { readActiveAu } from '@/lib/identity/window-session';
+import { readActiveAu, tokenForAccount } from '@/lib/identity/window-session';
 import { useBhdCatalog } from '@/lib/identity/use-bhd-catalog';
 import { roleLabel, type OrganizationChoice } from '@/lib/team-shared';
 import type { Viewer } from '@/lib/types';
@@ -473,18 +476,43 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     if (!sub || sub === currentSub || switchBusy) return;
     setSwitchBusy(sub);
     paintPrivacyVeil();
+    const goStart = (nextSub: string) => {
+      const returnTo = accountBoundPath(currentReturnPath(), nextSub);
+      window.location.assign(
+        `/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}`,
+      );
+    };
     try {
       const switched = await switchWindowAccount(sub);
-      if (!switched.ok) {
-        setSwitchBusy(null);
+      if (switched.ok) {
+        const nextSub = switched.userId || sub;
+        const token = switched.token || tokenForAccount(nextSub);
+        if (token) {
+          await applyAccountIsolation(token, {
+            force: true,
+            sub: nextSub,
+          });
+          return;
+        }
+        // Spec §2: identity switched but no access token — bind product via SSO start.
+        goStart(nextSub);
         return;
       }
-      await applyAccountIsolation(switched.token, {
-        force: true,
-        sub: switched.userId || sub,
-      });
+      // Fallback: product roster switch when identity cookie-only switch fails.
+      try {
+        await browserNextMutation('/api/auth/switch', {
+          method: 'POST',
+          body: JSON.stringify({ sub }),
+        });
+        goStart(sub);
+        return;
+      } catch {
+        setSwitchBusy(null);
+        signalPrivacyVeilReady();
+      }
     } catch {
       setSwitchBusy(null);
+      signalPrivacyVeilReady();
     }
   };
 
