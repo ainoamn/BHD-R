@@ -6,6 +6,7 @@ import {
   ensureAuInUrl,
   isIdentityOrigin,
   markHostileProductCookie,
+  paintPrivacyVeil,
   productStartPath,
   rememberProductCookieOwner,
   scrubCacheBustFromUrl,
@@ -169,8 +170,9 @@ export function BhdSilentSso() {
 
         const cachedToken = (au && tokenForAccount(au)) || boundWindowToken();
 
-        // Cookie belongs to another account — reclaim quietly (no veil).
+        // Cookie belongs to another account — cover wrong SSR paint, then reclaim.
         if (au && productSub && productSub !== au && cachedToken) {
+          if (!quiet) paintPrivacyVeil();
           await reclaimQuiet(au, cachedToken);
           bootDoneRef.current = true;
           // First boot in this JS context: one soft refresh so SSR matches ?au=.
@@ -182,14 +184,19 @@ export function BhdSilentSso() {
               } catch {
                 /* no-op */
               }
+              signalPrivacyVeilReady();
             });
+          } else {
+            signalPrivacyVeilReady();
           }
           return;
         }
 
         if (au && !productSub && cachedToken) {
+          if (!quiet) paintPrivacyVeil();
           await reclaimQuiet(au, cachedToken);
           bootDoneRef.current = true;
+          signalPrivacyVeilReady();
           return;
         }
 

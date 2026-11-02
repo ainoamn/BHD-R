@@ -304,50 +304,109 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   useEffect(() => {
     // Prefer this tab's ?au= binding over the shared cookie (other tabs may have switched).
     const au = readActiveAu();
-    if (au) {
-      setCurrentSub(au);
-      return;
-    }
+    if (au) setCurrentSub(au);
+
     let live = true;
+    const applyMe = (payload: {
+      currentSub?: string | null;
+      accounts?: RosterAccount[];
+      email?: string;
+      displayName?: string;
+      username?: string | null;
+    } | null) => {
+      if (!live || !payload) return;
+      if (Array.isArray(payload.accounts) && payload.accounts.length) {
+        setAccounts(payload.accounts);
+      }
+      // Never let cookie currentSub overwrite this tab's ?au=.
+      if (!au && payload.currentSub) setCurrentSub(payload.currentSub);
+    };
+
     void fetch('/api/auth/me', {
       credentials: 'same-origin',
       cache: 'no-store',
       headers: { accept: 'application/json' },
     })
       .then((response) => (response.ok ? response.json() : null))
-      .then((payload: { currentSub?: string | null } | null) => {
-        if (live && payload?.currentSub) setCurrentSub(payload.currentSub);
+      .then((payload) => applyMe(payload))
+      .catch(() => undefined);
+
+    // Enrich from identity with this tab's Bearer token (phone/picture for ?au=).
+    void identityMe()
+      .then((payload) => {
+        if (!live || !payload) return;
+        if (Array.isArray(payload.accounts)) {
+          setAccounts(rosterFromIdentityAccounts(payload.accounts));
+        }
       })
       .catch(() => undefined);
+
+    const onRebound = () => {
+      void fetch('/api/auth/me', {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { accept: 'application/json' },
+      })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((payload) => applyMe(payload))
+        .catch(() => undefined);
+      void identityMe()
+        .then((payload) => {
+          if (!payload?.accounts) return;
+          setAccounts(rosterFromIdentityAccounts(payload.accounts));
+        })
+        .catch(() => undefined);
+    };
+    window.addEventListener('bhd:account-rebound', onRebound);
     return () => {
       live = false;
+      window.removeEventListener('bhd:account-rebound', onRebound);
     };
   }, []);
 
+  const tabAu = currentSub || (typeof window !== 'undefined' ? readActiveAu() : '') || null;
   const current =
-    (currentSub && accounts.find((item) => item.sub === currentSub)) || accounts[0] || null;
-  const activePerson: SwitcherPerson = current
+    (tabAu && accounts.find((item) => item.sub === tabAu)) ||
+    (!tabAu ? accounts[0] || null : null);
+  // Shared product cookie may belong to another tab — never flash that SSR viewer under ?au=.
+  const viewerEmail = viewer.email?.trim().toLowerCase() || '';
+  const viewerMatchesTab =
+    Boolean(tabAu) &&
+    Boolean(viewerEmail) &&
+    accounts.some((item) => item.sub === tabAu && item.email === viewerEmail);
+  const activePerson: SwitcherPerson | null = current
     ? toPerson(current)
-    : {
-        name: viewer.displayName,
-        email: viewer.email || '',
-        username: viewer.username || null,
-        phone: null,
-        picture: null,
-        providers: ['password'],
-      };
-  const otherAccounts = accounts.filter((item) => item.sub !== (currentSub || current?.sub));
-  const avatarInitial = (activePerson.name || activePerson.email || 'B')
+    : !tabAu
+      ? {
+          name: viewer.displayName,
+          email: viewer.email || '',
+          username: viewer.username || null,
+          phone: null,
+          picture: null,
+          providers: ['password'],
+        }
+      : viewerMatchesTab
+        ? {
+            name: viewer.displayName,
+            email: viewer.email || '',
+            username: viewer.username || null,
+            phone: null,
+            picture: null,
+            providers: ['password'],
+          }
+        : null;
+  const otherAccounts = accounts.filter((item) => item.sub !== (tabAu || current?.sub));
+  const avatarInitial = (activePerson?.name || activePerson?.email || 'B')
     .trim()
     .slice(0, 1)
     .toUpperCase();
-  const showAvatarPicture = Boolean(activePerson.picture) && !avatarBroken;
+  const showAvatarPicture = Boolean(activePerson?.picture) && !avatarBroken;
 
   useEffect(() => {
     setAvatarBroken(false);
-  }, [activePerson.picture]);
+  }, [activePerson?.picture]);
 
-  // Accounts list from identity host directly (BHD-ACCOUNT-SWITCHER §2.1).
+  // Refresh identity roster when the account panel opens.
   useEffect(() => {
     if (panel !== 'account') return;
     let live = true;
@@ -480,10 +539,10 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
         aria-controls={panel === 'account' ? accountId : undefined}
         onClick={() => setPanel((currentPanel) => (currentPanel === 'account' ? null : 'account'))}
       >
-        {showAvatarPicture ? (
+        {showAvatarPicture && activePerson?.picture ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={activePerson.picture || undefined}
+            src={activePerson.picture}
             alt=""
             width={32}
             height={32}
@@ -537,11 +596,25 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
           aria-label={ar ? 'الحساب' : 'Account'}
         >
           <div className="bhd-switcher-account-now">
-            <AccountRow user={activePerson} ar={ar} large />
+            {activePerson ? (
+              <AccountRow user={activePerson} ar={ar} large />
+            ) : (
+              <span className="bhd-switcher-person bhd-switcher-person--pending" aria-busy="true">
+                <span className="bhd-switcher-face is-large">
+                  <span aria-hidden="true">…</span>
+                </span>
+                <span className="bhd-switcher-who">
+                  <span className="bhd-switcher-who__line">
+                    <strong>{ar ? 'جاري مزامنة الحساب…' : 'Syncing account…'}</strong>
+                  </span>
+                  <small>{ar ? 'عزل نافذة الحساب' : 'Per-tab account binding'}</small>
+                </span>
+              </span>
+            )}
             <a
               className="bhd-switcher-manage"
               href={(() => {
-                const sub = (currentSub || readActiveAu() || '').trim();
+                const sub = (tabAu || currentSub || readActiveAu() || '').trim();
                 if (!sub) return 'https://id.bhd-om.com/account';
                 return `https://id.bhd-om.com/auth/switch?sub=${encodeURIComponent(sub)}&next=${encodeURIComponent(`/account?au=${sub}`)}`;
               })()}
