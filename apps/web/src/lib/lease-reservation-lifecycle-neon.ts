@@ -146,7 +146,10 @@ async function autoPrepareLeaseContractDraft(
       currency: row.currency,
     });
   }
-  // Without a rent bank account, fall back to transfer so auto-issue is not blocked.
+  // Booking defaults to cheque PDCs. Without an org rent bank we still ask the tenant
+  // for rent+deposit cheque photos, but the issued contract falls back to transfer so
+  // validation is not blocked on missing payee/account id.
+  const wantRentCheques = terms.paymentMethod === 'cheque';
   if (!bank || !terms.chequeAccountName?.trim()) {
     terms.paymentMethod = 'bank_transfer';
     terms.chequeBankName = '';
@@ -166,7 +169,9 @@ async function autoPrepareLeaseContractDraft(
     },
     terms,
   };
-  const chequeSeed = buildChequeInstructions(terms, row.currency, effectiveDefer);
+  const chequeSeed = buildChequeInstructions(terms, row.currency, effectiveDefer, {
+    includeRentSchedule: wantRentCheques,
+  });
   const chequeSubmissions = mergeChequeSubmissions(
     chequeSeed.instructions,
     lifecycle.chequeSubmissions,
@@ -456,6 +461,7 @@ function buildChequeInstructions(
   draft: LeaseTermsDraft,
   currency: string,
   deferUntilHandover: ReadonlyArray<'meters' | 'handoverOn'> = [],
+  options: { includeRentSchedule?: boolean } = {},
 ): {
   payableTo: string | null;
   bankName: string | null;
@@ -475,8 +481,11 @@ function buildChequeInstructions(
   }
   const terms = computed.terms;
   const instructions: ReservationChequeInstruction[] = [];
-  // Rent/VAT cheques only when rent itself is paid by cheque.
-  if (terms.paymentMethod === 'cheque') {
+  // Rent/VAT PDCs when the contract is by cheque, or when the booking flow still
+  // asks for schedule cheques after a no-bank transfer fallback.
+  const includeRent =
+    terms.paymentMethod === 'cheque' || options.includeRentSchedule === true;
+  if (includeRent) {
     for (const [index, row] of terms.schedule.entries()) {
       instructions.push({
         key: `rent-${index}`,
@@ -646,7 +655,12 @@ async function issueReservationContract(
       });
       lease = { ...lease, terms };
       deferUntilHandover = deferUntilHandover.filter((item) => item !== 'handoverOn');
-      const chequeSeed = buildChequeInstructions(terms, row.currency, deferUntilHandover);
+      const hadRentCheques = (lifecycle.chequeInstructions ?? []).some(
+        (item) => item.kind === 'rent',
+      );
+      const chequeSeed = buildChequeInstructions(terms, row.currency, deferUntilHandover, {
+        includeRentSchedule: hadRentCheques || terms.paymentMethod === 'cheque',
+      });
       draft = { ...draft, lease };
       workingLifecycle = {
         ...lifecycle,
@@ -1892,37 +1906,53 @@ export async function runReservationAutomation(
         }
       }
 
-      // Backfill default docs/cheques when auto-issue left the package empty (pre-seed bookings).
-      if (
-        row.snapshot.mode !== 'sale' &&
-        lifecycle.contract &&
-        !(lifecycle.requirements?.length) &&
-        !(lifecycle.chequeInstructions?.length) &&
-        lifecycle.contractDraft?.lease
-      ) {
-        const requirements = await seedDefaultRequirements(tx, row, lifecycle.requirements);
+      // Backfill docs / rent PDCs when auto-issue used transfer fallback (no org bank)
+      // and only deposit cheques (or nothing) were seeded.
+      if (row.snapshot.mode !== 'sale' && lifecycle.contract && lifecycle.contractDraft?.lease) {
         const lease = lifecycle.contractDraft.lease as unknown as ManualLeaseInput;
         const defer = lifecycle.autoFlow?.deferUntilHandover ?? [];
-        const chequeSeed = buildChequeInstructions(lease.terms, row.currency, defer);
-        if (requirements.length || chequeSeed.instructions.length) {
-          lifecycle = {
-            ...lifecycle,
-            requirements,
-            chequePayableTo: chequeSeed.payableTo ?? lifecycle.chequePayableTo ?? null,
-            chequeBankName: chequeSeed.bankName ?? lifecycle.chequeBankName ?? null,
-            rentBankAccountId: chequeSeed.rentBankAccountId ?? lifecycle.rentBankAccountId ?? null,
-            chequeInstructions: chequeSeed.instructions,
-            chequeSubmissions: mergeChequeSubmissions(
-              chequeSeed.instructions,
-              lifecycle.chequeSubmissions,
-            ),
-            customerDocumentsSentAt: null,
-          };
-          await saveLifecycle(tx, row, lifecycle);
-          await event('reservation.documents_package_seeded', {
-            requirements: requirements.map((item) => item.code),
-            cheques: chequeSeed.instructions.map((item) => item.key),
+        const existingCheques = lifecycle.chequeInstructions ?? [];
+        const hasRentCheques = existingCheques.some((item) => item.kind === 'rent');
+        const needsRequirements = !(lifecycle.requirements?.length);
+        const needsRentCheques =
+          !hasRentCheques && (lease.terms.schedule?.length ?? 0) > 0;
+        if (needsRequirements || needsRentCheques) {
+          const requirements = needsRequirements
+            ? await seedDefaultRequirements(tx, row, lifecycle.requirements)
+            : (lifecycle.requirements ?? []);
+          const chequeSeed = buildChequeInstructions(lease.terms, row.currency, defer, {
+            includeRentSchedule: needsRentCheques || lease.terms.paymentMethod === 'cheque',
           });
+          const instructions =
+            needsRentCheques || !existingCheques.length
+              ? chequeSeed.instructions
+              : existingCheques;
+          if (
+            requirements !== lifecycle.requirements ||
+            instructions !== existingCheques
+          ) {
+            lifecycle = {
+              ...lifecycle,
+              requirements,
+              chequePayableTo: chequeSeed.payableTo ?? lifecycle.chequePayableTo ?? null,
+              chequeBankName: chequeSeed.bankName ?? lifecycle.chequeBankName ?? null,
+              rentBankAccountId:
+                chequeSeed.rentBankAccountId ?? lifecycle.rentBankAccountId ?? null,
+              chequeInstructions: instructions,
+              chequeSubmissions: mergeChequeSubmissions(
+                instructions,
+                lifecycle.chequeSubmissions,
+              ),
+              // Re-open send if we added new cheque rows the tenant must complete.
+              ...(needsRentCheques ? { customerDocumentsSentAt: null } : {}),
+            };
+            await saveLifecycle(tx, row, lifecycle);
+            await event('reservation.documents_package_seeded', {
+              requirements: requirements.map((item) => item.code),
+              cheques: instructions.map((item) => item.key),
+              rentChequesBackfilled: needsRentCheques,
+            });
+          }
         }
       }
 
