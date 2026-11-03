@@ -2584,7 +2584,9 @@ function RequirementsReview({
   }
 
   function sameQueueItem(a: ReviewQueueItem, b: ReviewQueueItem): boolean {
-    return a.kind === b.kind && (a.kind === 'doc' ? a.code === b.code : a.key === b.key);
+    if (a.kind === 'doc' && b.kind === 'doc') return a.code === b.code;
+    if (a.kind === 'cheque' && b.kind === 'cheque') return a.key === b.key;
+    return false;
   }
 
   async function decideCurrent(
@@ -2669,8 +2671,7 @@ function RequirementsReview({
   const needsReplace =
     requirements.filter((item) => item.status === 'rejected').length +
     (includeCheques
-      ? chequeInstructions.filter((item) => chequeByKey.get(item.key)?.status === 'rejected')
-          .length
+      ? chequeInstructions.filter((item) => chequeByKey.get(item.key)?.status === 'rejected').length
       : 0);
   const notUploaded =
     requirements.filter((item) => item.status === 'pending').length +

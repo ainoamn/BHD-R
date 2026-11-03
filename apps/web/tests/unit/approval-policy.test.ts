@@ -133,6 +133,13 @@ describe('approval policy', () => {
           accountHolderName: 'A',
           accountNumber: '1',
           chequeNumber: '1',
+          file: {
+            eventId: 'evt-cheque-1',
+            name: 'deposit.pdf',
+            mime: 'application/pdf',
+            size: 12,
+            submittedAt: '2026-01-01T00:00:00.000Z',
+          },
         },
       ],
     };
@@ -148,7 +155,7 @@ describe('approval policy', () => {
           status: 'approved',
         },
       ],
-      chequeInstructions: pending.chequeInstructions,
+      chequeInstructions: pending.chequeInstructions ?? [],
       chequeSubmissions: [
         {
           key: 'deposit-0',
@@ -157,6 +164,13 @@ describe('approval policy', () => {
           accountHolderName: 'A',
           accountNumber: '1',
           chequeNumber: '1',
+          file: {
+            eventId: 'evt-cheque-1',
+            name: 'deposit.pdf',
+            mime: 'application/pdf',
+            size: 12,
+            submittedAt: '2026-01-01T00:00:00.000Z',
+          },
         },
       ],
     };

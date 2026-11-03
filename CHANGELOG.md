@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.63 — 2026-11-03
+
+- **إصلاح نشر Vercel:** أخطاء TypeScript في اعتماد الحزمة (`documentsPackageFullyApproved` مع عرض المستأجر) ومقارنة عناصر طابور المراجعة واختبارات سياسة الاعتماد كانت توقف بناء `bhd-r-api`.
+
 ## 0.8.136.62 — 2026-11-03
 
 - **مرحلة التسليم:** بعد اكتمال اعتماد المستندات لا تُعرض قائمة الاعتماد مرة أخرى في الخطوة 5؛ تظهر فقط تعليمات مسح رمز المستأجر للتسليم.

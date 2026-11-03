@@ -562,31 +562,32 @@ export function allowHandoverBeforeDocVerify(
   return Boolean(lifecycle?.autoFlow?.allowHandoverBeforeDocVerify);
 }
 
+type DocumentsPackageView = {
+  requirements?: Array<{ status: string }>;
+  /** Tenant-facing flattened cheque rows. */
+  cheques?: Array<{ status: string }>;
+  chequeInstructions?: Array<{ key: string }>;
+  chequeSubmissions?: Array<{ key: string; status: string }>;
+};
+
 /**
  * True when every required document and cheque is owner-approved (manual review done).
  * Empty package counts as complete. Accepts raw lifecycle or the tenant-facing view.
  */
 export function documentsPackageFullyApproved(
-  lifecycle:
-    | ReservationLifecycle
-    | {
-        requirements?: Array<{ status: string; autoApproved?: boolean; verified?: boolean }>;
-        cheques?: Array<{ status: string; autoApproved?: boolean; verified?: boolean }>;
-        chequeInstructions?: ReservationChequeInstruction[];
-        chequeSubmissions?: ReservationChequeSubmission[];
-        autoFlow?: ReservationLifecycle['autoFlow'];
-        cancellation?: ReservationLifecycle['cancellation'];
-        handover?: ReservationLifecycle['handover'];
-      }
-    | null
-    | undefined,
+  lifecycle: DocumentsPackageView | null | undefined,
 ): boolean {
   if (!lifecycle) return true;
   const requirements = lifecycle.requirements ?? [];
   const chequeStatuses =
     'cheques' in lifecycle && Array.isArray(lifecycle.cheques)
       ? lifecycle.cheques.map((item) => item.status)
-      : chequeStatusesOf(lifecycle as ReservationLifecycle);
+      : (() => {
+          const instructions = lifecycle.chequeInstructions ?? [];
+          if (!instructions.length) return [] as string[];
+          const byKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
+          return instructions.map((item) => byKey.get(item.key)?.status ?? 'pending');
+        })();
   if (!requirements.length && !chequeStatuses.length) return true;
   if (requirements.some((item) => item.status !== 'approved')) return false;
   if (chequeStatuses.some((status) => status !== 'approved')) return false;
