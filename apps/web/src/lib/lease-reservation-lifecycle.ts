@@ -535,27 +535,24 @@ export function requirementsOf(lifecycle: ReservationLifecycle | null | undefine
   return lifecycle?.requirements ?? [];
 }
 
-/** Documents the system accepted on the owner's behalf that the team has not verified yet. */
-export function documentsToVerify(lifecycle: ReservationLifecycle | null | undefined) {
-  if (lifecycle?.cancellation || lifecycle?.handover) return [];
-  return requirementsOf(lifecycle).filter(
-    (item) => item.autoApproved && item.status === 'approved' && !item.verifiedAt,
-  );
+/**
+ * @deprecated Second «verify» pass removed — owner `review_*` is final.
+ * Kept empty so legacy UI panels stay hidden.
+ */
+export function documentsToVerify(_lifecycle: ReservationLifecycle | null | undefined) {
+  return [] as ReservationRequirement[];
 }
 
-/** Cheques the system accepted on the owner's behalf that the team has not verified yet. */
-export function chequesToVerify(lifecycle: ReservationLifecycle | null | undefined) {
-  if (lifecycle?.cancellation || lifecycle?.handover) return [];
-  return (lifecycle?.chequeSubmissions ?? []).filter(
-    (item) => item.autoApproved && item.status === 'approved' && !item.verifiedAt,
-  );
+/** @deprecated Second «verify» pass removed — owner `review_*` is final. */
+export function chequesToVerify(_lifecycle: ReservationLifecycle | null | undefined) {
+  return [] as ReservationChequeSubmission[];
 }
 
-/** Any auto-accepted document or cheque still waiting for a human verify/reject decision. */
+/** Always false: one manual approve in the documents stage is enough. */
 export function packageNeedsManualVerification(
-  lifecycle: ReservationLifecycle | null | undefined,
+  _lifecycle: ReservationLifecycle | null | undefined,
 ): boolean {
-  return documentsToVerify(lifecycle).length > 0 || chequesToVerify(lifecycle).length > 0;
+  return false;
 }
 
 /** Policy snapshot: may hand over keys before every auto-accepted file is verified. */
@@ -593,24 +590,6 @@ export function documentsPackageFullyApproved(
   if (!requirements.length && !chequeStatuses.length) return true;
   if (requirements.some((item) => item.status !== 'approved')) return false;
   if (chequeStatuses.some((status) => status !== 'approved')) return false;
-  // Legacy auto-accept still needs a human verify unless policy allows bypass.
-  const autoDocsPending = requirements.some(
-    (item) =>
-      item.status === 'approved' &&
-      item.autoApproved &&
-      !('verifiedAt' in item
-        ? Boolean((item as { verifiedAt?: string | null }).verifiedAt)
-        : Boolean((item as { verified?: boolean }).verified)),
-  );
-  const autoChequesPending =
-    'cheques' in lifecycle && Array.isArray(lifecycle.cheques)
-      ? lifecycle.cheques.some(
-          (item) => item.status === 'approved' && item.autoApproved && !item.verified,
-        )
-      : chequesToVerify(lifecycle as ReservationLifecycle).length > 0;
-  if ((autoDocsPending || autoChequesPending) && !allowHandoverBeforeDocVerify(lifecycle as ReservationLifecycle)) {
-    return false;
-  }
   return true;
 }
 

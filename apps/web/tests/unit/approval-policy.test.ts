@@ -10,6 +10,7 @@ import {
   documentsToVerify,
   handoverBlockedByUnverifiedDocs,
   leaseJourneyPhase,
+  packageNeedsManualVerification,
   phaseWaitsOn,
   tenantLeaseContractDetailsLocked,
   type ReservationLifecycle,
@@ -179,7 +180,7 @@ describe('lease journey with electronic approvals', () => {
     expect(confirmed).toBe('awaiting_owner_approval');
   });
 
-  it('lists documents the system accepted until the team verifies them', () => {
+  it('treats a single owner document review as final — no second verify pass', () => {
     const lifecycle: ReservationLifecycle = {
       approval: { at: paid.esignSignedAt, byUserId: null, byName: null, automatic: true },
       requirements: [
@@ -202,7 +203,9 @@ describe('lease journey with electronic approvals', () => {
       ],
     };
     expect(approvedElectronically(lifecycle)).toBe(true);
-    expect(documentsToVerify(lifecycle).map((item) => item.code)).toEqual(['civil_id']);
+    expect(documentsToVerify(lifecycle)).toEqual([]);
+    expect(packageNeedsManualVerification(lifecycle)).toBe(false);
+    expect(handoverBlockedByUnverifiedDocs(lifecycle)).toBe(false);
     expect(approvedElectronically({ requirements: [] })).toBe(false);
   });
 

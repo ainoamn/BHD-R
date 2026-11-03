@@ -1467,6 +1467,10 @@ async function ownerActionInTx(
                 note: input.decision === 'rejected' ? note : null,
                 reviewedAt: at,
                 reviewedByName: byName,
+                // One owner review is final — no second «verify» step.
+                autoApproved: false,
+                verifiedAt: input.decision === 'approved' ? at : null,
+                verifiedByName: input.decision === 'approved' ? byName : null,
               }
             : item,
         );
@@ -1549,6 +1553,10 @@ async function ownerActionInTx(
                 note: input.decision === 'rejected' ? note : null,
                 reviewedAt: at,
                 reviewedByName: byName,
+                // One owner review is final — no second «verify» step.
+                autoApproved: false,
+                verifiedAt: input.decision === 'approved' ? at : null,
+                verifiedByName: input.decision === 'approved' ? byName : null,
               }
             : item,
         );
