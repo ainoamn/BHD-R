@@ -2454,6 +2454,10 @@ function RequirementsReview({
   const [reviewChequeKey, setReviewChequeKey] = useState<string | null>(null);
   const [customLabel, setCustomLabel] = useState('');
   const [pickedExtras, setPickedExtras] = useState<string[]>([]);
+  const [lastDecision, setLastDecision] = useState<{
+    label: string;
+    decision: 'approved' | 'rejected';
+  } | null>(null);
   const requirements = lifecycle.requirements ?? [];
   const chequeInstructions = lifecycle.chequeInstructions ?? [];
   const chequeByKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
@@ -2574,6 +2578,19 @@ function RequirementsReview({
     });
   }
 
+  function queueItemLabel(item: ReviewQueueItem): string {
+    if (item.kind === 'doc') {
+      const row = requirements.find((entry) => entry.code === item.code);
+      return ar ? row?.labelAr || item.code : row?.labelEn || row?.labelAr || item.code;
+    }
+    const row = chequeInstructions.find((entry) => entry.key === item.key);
+    return ar ? row?.labelAr || item.key : row?.labelEn || row?.labelAr || item.key;
+  }
+
+  function sameQueueItem(a: ReviewQueueItem, b: ReviewQueueItem): boolean {
+    return a.kind === b.kind && (a.kind === 'doc' ? a.code === b.code : a.key === b.key);
+  }
+
   async function decideCurrent(
     decision: 'approved' | 'rejected',
     rejectNote?: string,
@@ -2587,24 +2604,27 @@ function RequirementsReview({
           ? { kind: 'doc' as const, code: reviewItem.code }
           : null);
     if (!current) return;
+    const currentIndex = queue.findIndex((item) => sameQueueItem(item, current));
+    const label = queueItemLabel(current);
     if (current.kind === 'doc') {
       await onReview(current.code, decision, rejectNote);
     } else {
       await onReviewCheque?.(current.key, decision, rejectNote);
     }
-    const remaining = queue.filter((item) =>
-      current.kind === 'doc'
-        ? !(item.kind === 'doc' && item.code === current.code)
-        : !(item.kind === 'cheque' && item.key === current.key),
-    );
-    if (remaining[0]) {
-      openQueueItem(remaining[0]);
-    } else {
-      setReviewCode(null);
-      setReviewChequeKey(null);
-      setRejecting(null);
-      setNote('');
+    setLastDecision({ label, decision });
+    // Always advance forward in the review order — never jump back to an earlier item.
+    const nextForward =
+      currentIndex >= 0
+        ? queue.slice(currentIndex + 1).find((item) => !sameQueueItem(item, current))
+        : null;
+    if (nextForward) {
+      openQueueItem(nextForward);
+      return;
     }
+    setReviewCode(null);
+    setReviewChequeKey(null);
+    setRejecting(null);
+    setNote('');
   }
 
   function submitExtras(event: FormEvent) {
@@ -2706,6 +2726,21 @@ function RequirementsReview({
             <span>{ar ? 'مطلوب الاستبدال' : 'Replace'}</span>
           </li>
         </ul>
+      ) : null}
+
+      {lastDecision ? (
+        <p
+          className={`notice ${lastDecision.decision === 'approved' ? 'notice--success' : 'notice--info'}`}
+          role="status"
+        >
+          {lastDecision.decision === 'approved'
+            ? ar
+              ? `✓ تم اعتماد «${lastDecision.label}».`
+              : `✓ «${lastDecision.label}» approved.`
+            : ar
+              ? `أُرجع «${lastDecision.label}» للعميل مع ملاحظتك.`
+              : `«${lastDecision.label}» was returned to the client with your note.`}
+        </p>
       ) : null}
 
       {awaitingOpen || needsReplace || notUploaded ? (
