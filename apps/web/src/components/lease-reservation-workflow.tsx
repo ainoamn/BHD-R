@@ -1408,9 +1408,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
             {!draftOpen &&
             Boolean(lifecycle.tenantSignature) &&
             !lifecycle.handover &&
-            (phase === 'awaiting_documents' ||
-              phase === 'awaiting_documents_review' ||
-              phase === 'awaiting_handover') ? (
+            (phase === 'awaiting_documents' || phase === 'awaiting_documents_review') ? (
               <div className="lrw__card lrw__desk">
                 <div className="lrw__desk-head">
                   <div>
@@ -1476,14 +1474,12 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 <h3>
                   {t('تسليم العقار بمسح رمز المستأجر', 'Hand over by scanning the tenant’s code')}
                 </h3>
-                {packageNeedsManualVerification(lifecycle) ? (
-                  <p className="notice notice--warning" role="status">
-                    {t(
-                      `العقد معتمد وموقّع من الطرفين، لكن ${documentsToVerify(lifecycle).length + chequesToVerify(lifecycle).length} من المستندات/الشيكات ما زالت بانتظار اعتمادك اليدوي أعلاه. لا يُعتبر العقد تاماً وصالحاً للتسليم حتى تعتمدها كلها${handoverBlockedByUnverifiedDocs(lifecycle) ? ' — التسليم مقفل حتى ذلك' : ' — سياسة الضبط تسمح بالتجاوز لكن المراجعة تبقى واجبة'}.`,
-                      `The contract is approved and signed by both parties, but ${documentsToVerify(lifecycle).length + chequesToVerify(lifecycle).length} document(s)/cheque(s) still need your manual verification above. The contract is not complete for handover until you verify them all${handoverBlockedByUnverifiedDocs(lifecycle) ? ' — handover stays locked until then' : ' — policy allows a bypass, but review remains required'}.`,
-                    )}
-                  </p>
-                ) : null}
+                <p className="notice notice--success" role="status">
+                  {t(
+                    'تم اعتماد المستندات والشيكات في المرحلة السابقة. هذه الخطوة للتسليم فقط — امسح رمز المستأجر عند حضوره.',
+                    'Documents and cheques were approved in the previous step. This step is handover only — scan the tenant’s code when they arrive.',
+                  )}
+                </p>
                 <p>
                   {t(
                     'العقد موقّع من الطرفين. عند حضور المستأجر لاستلام المفاتيح يعرض رمز التسليم المشفّر من حسابه، فيمسحه المالك أو ممثله أو حارس المبنى، فيلتقط كل من المستلم والمسلِّم صورة سيلفي في اللحظة نفسها، ثم يوثّق المسلِّم حالة العقار. بمجرد تسجيل المحضر يصبح التسليم نافذاً؛ يطّلع عليه المستأجر ويحق له الاعتراض خلال 3 ساعات.',
