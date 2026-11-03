@@ -48,7 +48,9 @@ export async function BookingTermsPage({
       {approval ? (
         <ApprovalPolicyCard
           locale={locale}
+          portal={portal}
           propertyId={propertyId}
+          rentPrerequisites={approval.rentPrerequisites}
           kinds={approval.kinds.map((row) => ({
             kind: row.kind,
             initialPolicy: row.own?.policy ?? null,

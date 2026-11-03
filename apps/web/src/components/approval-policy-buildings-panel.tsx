@@ -14,6 +14,7 @@ import {
   type ApprovalPolicyBuildingRow,
   type ApprovalPolicySource,
   type ContractApprovalKind,
+  type RentAutoContractPrerequisites,
 } from '@/lib/approval-policy';
 
 type BundleResponse = {
@@ -22,6 +23,7 @@ type BundleResponse = {
     own: { policy: ApprovalPolicy; delegate: { name: string | null } | null } | null;
     inherited: { source: ApprovalPolicySource; policy: ApprovalPolicy };
   }>;
+  rentPrerequisites?: RentAutoContractPrerequisites;
 };
 
 function normalize(value: string): string {
@@ -56,6 +58,8 @@ export function ApprovalPolicyBuildingsPanel({
   const [filter, setFilter] = useState<'all' | 'custom' | 'inherited'>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [kinds, setKinds] = useState<ApprovalPolicyKindState[] | null>(null);
+  const [rentPrerequisites, setRentPrerequisites] =
+    useState<RentAutoContractPrerequisites | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -78,6 +82,7 @@ export function ApprovalPolicyBuildingsPanel({
     setBusy(true);
     setError(null);
     setKinds(null);
+    setRentPrerequisites(null);
     try {
       const response = await fetch(
         `/api/owner/approval-policy?propertyId=${encodeURIComponent(propertyId)}`,
@@ -101,6 +106,7 @@ export function ApprovalPolicyBuildingsPanel({
         };
       });
       setKinds(next);
+      setRentPrerequisites(data.rentPrerequisites ?? null);
       setBuildings((rows) =>
         rows.map((row) =>
           row.id === propertyId
@@ -242,8 +248,10 @@ export function ApprovalPolicyBuildingsPanel({
                 <ApprovalPolicyCard
                   key={selected.id}
                   locale={locale}
+                  portal={portal}
                   propertyId={selected.id}
                   kinds={kinds}
+                  rentPrerequisites={rentPrerequisites}
                   onOverrideChange={markOverride}
                 />
               ) : null}

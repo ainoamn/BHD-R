@@ -130,6 +130,8 @@ const KNOWN_CODES = new Set([
   'passport_required',
   'term_too_short',
   'approval_delegate_forbidden',
+  'approval_bank_required',
+  'approval_handover_contact_required',
   'legal_case_not_found',
   'legal_invalid',
   'legal_file_invalid',
@@ -352,6 +354,8 @@ export function statusForSafeCode(code: string): number {
     case 'meters_required':
     case 'handover_required':
     case 'bank_account_required':
+    case 'approval_bank_required':
+    case 'approval_handover_contact_required':
     case 'duplicate_cheque_number':
     case 'viewing_contact_invalid':
     case 'viewing_contact_phone_required':

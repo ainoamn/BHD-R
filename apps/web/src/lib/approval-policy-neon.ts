@@ -8,7 +8,21 @@ import {
   type Permission,
   type SessionClaims,
 } from '@bhd-r/authz';
-import { memberships, properties, stayPolicies, stayProfiles, units, users } from '@bhd-r/db';
+import {
+  memberships,
+  parties,
+  properties,
+  stayPolicies,
+  stayProfiles,
+  units,
+  users,
+  workflowEvents,
+} from '@bhd-r/db';
+import {
+  isRentBankAccountComplete,
+  normalizeAccountingSettings,
+  resolveRentBankAccount,
+} from '@/lib/accounting-integrity';
 import { loadSavedRolePermissions } from '@/lib/organization-roles-read';
 import {
   DEFAULT_APPROVAL_POLICY_BY_KIND,
@@ -18,6 +32,7 @@ import {
   type ApprovalPolicyBuildingRow,
   type ApprovalPolicySource,
   type ContractApprovalKind,
+  type RentAutoContractPrerequisites,
   CONTRACT_APPROVAL_KINDS,
 } from '@/lib/approval-policy';
 import {
@@ -216,7 +231,105 @@ export type OwnerApprovalPolicyView = {
 
 export type OwnerApprovalPolicyBundle = {
   kinds: OwnerApprovalPolicyView[];
+  /** Long-term lease: banks + guard/handover phone required before contract=auto. */
+  rentPrerequisites: RentAutoContractPrerequisites;
 };
+
+async function staffPhoneForUser(
+  transaction: Tx,
+  organizationId: string,
+  userId: string,
+): Promise<string | null> {
+  const rows = await transaction
+    .select({ phone: parties.phone })
+    .from(memberships)
+    .leftJoin(parties, and(eq(parties.id, memberships.partyId), eq(parties.organizationId, organizationId)))
+    .where(
+      and(
+        eq(memberships.organizationId, organizationId),
+        eq(memberships.userId, userId),
+        eq(memberships.status, 'active'),
+      ),
+    )
+    .limit(8);
+  for (const row of rows) {
+    const phone = row.phone?.trim();
+    if (phone && phone.length >= 8) return phone;
+  }
+  return null;
+}
+
+/** Org rent bank + property guard/handover contact with phone. */
+export async function loadRentAutoContractPrerequisites(
+  transaction: Tx,
+  organizationId: string,
+  propertyId: string | null,
+): Promise<RentAutoContractPrerequisites> {
+  const latest = await transaction
+    .select({ metadata: workflowEvents.metadata })
+    .from(workflowEvents)
+    .where(
+      and(
+        eq(workflowEvents.organizationId, organizationId),
+        eq(workflowEvents.resourceType, 'accounting_settings'),
+        eq(workflowEvents.eventType, 'settings.updated'),
+      ),
+    )
+    .orderBy(desc(workflowEvents.occurredAt))
+    .limit(1);
+  const settings = normalizeAccountingSettings(latest[0]?.metadata);
+  const bank = resolveRentBankAccount(settings.bankAccounts, propertyId);
+  const bankReady = isRentBankAccountComplete(bank);
+
+  const propertyRows = await transaction
+    .select({
+      id: properties.id,
+      nameAr: properties.nameAr,
+      nameEn: properties.nameEn,
+      viewingContactUserId: properties.viewingContactUserId,
+    })
+    .from(properties)
+    .where(
+      and(
+        eq(properties.organizationId, organizationId),
+        sql`${properties.status} <> 'archived'`,
+        ...(propertyId ? [eq(properties.id, propertyId)] : []),
+      ),
+    )
+    .limit(propertyId ? 1 : 500);
+
+  const missingHandoverProperties: RentAutoContractPrerequisites['missingHandoverProperties'] = [];
+  for (const row of propertyRows) {
+    if (!row.viewingContactUserId) {
+      missingHandoverProperties.push({
+        id: row.id,
+        nameAr: row.nameAr,
+        nameEn: row.nameEn ?? row.nameAr,
+      });
+      continue;
+    }
+    const phone = await staffPhoneForUser(transaction, organizationId, row.viewingContactUserId);
+    if (!phone) {
+      missingHandoverProperties.push({
+        id: row.id,
+        nameAr: row.nameAr,
+        nameEn: row.nameEn ?? row.nameAr,
+      });
+    }
+  }
+
+  // Org with no buildings yet: only the bank blocks auto contract; guard is set per building later.
+  const handoverContactReady = propertyId
+    ? missingHandoverProperties.length === 0 && propertyRows.length === 1
+    : missingHandoverProperties.length === 0;
+
+  return { bankReady, handoverContactReady, missingHandoverProperties };
+}
+
+function assertRentAutoContractPrerequisites(prereq: RentAutoContractPrerequisites): void {
+  if (!prereq.bankReady) throw new Error('approval_bank_required');
+  if (!prereq.handoverContactReady) throw new Error('approval_handover_contact_required');
+}
 
 export async function loadOwnerApprovalPolicy(
   scope: MemberScope,
@@ -272,10 +385,17 @@ export async function loadOwnerApprovalPolicyBundle(
   scope: MemberScope,
   propertyId: string | null,
 ): Promise<OwnerApprovalPolicyBundle> {
-  const kinds = await Promise.all(
-    CONTRACT_APPROVAL_KINDS.map((kind) => loadOwnerApprovalPolicy(scope, propertyId, kind)),
-  );
-  return { kinds };
+  const { db } = getDatabase();
+  const [kinds, rentPrerequisites] = await Promise.all([
+    Promise.all(
+      CONTRACT_APPROVAL_KINDS.map((kind) => loadOwnerApprovalPolicy(scope, propertyId, kind)),
+    ),
+    db.transaction(async (transaction) => {
+      await applyMemberScope(transaction, scope);
+      return loadRentAutoContractPrerequisites(transaction, scope.organizationId, propertyId);
+    }),
+  ]);
+  return { kinds, rentPrerequisites };
 }
 
 /**
@@ -390,6 +510,11 @@ export async function saveApprovalPolicy(
       });
       if (!property) throw new Error('property_not_found');
       if (property.status === 'archived') throw new Error('property_archived');
+    }
+    if (kind === 'rent' && policy?.contract === 'auto') {
+      assertRentAutoContractPrerequisites(
+        await loadRentAutoContractPrerequisites(transaction, organizationId, propertyId),
+      );
     }
     await transaction.execute(
       sql`select pg_advisory_xact_lock(hashtext(${`${organizationId}:${code}`}))`,

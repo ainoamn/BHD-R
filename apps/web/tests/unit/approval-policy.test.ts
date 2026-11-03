@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_APPROVAL_POLICY, sanitizeApprovalPolicy } from '@/lib/approval-policy';
+import {
+  DEFAULT_APPROVAL_POLICY,
+  rentAutoContractReady,
+  sanitizeApprovalPolicy,
+} from '@/lib/approval-policy';
 import {
   approvedElectronically,
   documentsToVerify,
@@ -8,6 +12,7 @@ import {
   type ReservationLifecycle,
 } from '@/lib/lease-reservation-lifecycle';
 import { pendingApprovalTitle, type PendingApprovalItem } from '@/lib/pending-approvals-shared';
+import { isRentBankAccountComplete } from '@/lib/accounting-integrity';
 
 const paid = {
   status: 'confirmed',
@@ -16,12 +21,64 @@ const paid = {
 };
 
 describe('approval policy', () => {
-  it('defaults contract and payment to auto; invalid steps fall back to defaults', () => {
+  it('defaults rent contract to manual; payment stays auto; invalid steps fall back', () => {
     expect(sanitizeApprovalPolicy(null)).toEqual(DEFAULT_APPROVAL_POLICY);
+    expect(DEFAULT_APPROVAL_POLICY.contract).toBe('manual');
     expect(sanitizeApprovalPolicy({ booking: 'auto', contract: 'bogus' })).toEqual({
       ...DEFAULT_APPROVAL_POLICY,
       booking: 'auto',
     });
+  });
+
+  it('requires bank and handover contact before rent auto contract is ready', () => {
+    expect(
+      rentAutoContractReady({
+        bankReady: true,
+        handoverContactReady: false,
+        missingHandoverProperties: [],
+      }),
+    ).toBe(false);
+    expect(
+      rentAutoContractReady({
+        bankReady: true,
+        handoverContactReady: true,
+        missingHandoverProperties: [],
+      }),
+    ).toBe(true);
+    expect(
+      isRentBankAccountComplete({
+        id: '1',
+        labelAr: 'بنك',
+        labelEn: 'Bank',
+        bankName: 'Bank Muscat',
+        accountHolderName: 'Owner',
+        accountHolderNameEn: '',
+        iban: 'OM123',
+        accountNumber: '',
+        currency: 'OMR',
+        active: true,
+        defaultForRent: true,
+        propertyIds: [],
+        ledgerAccountId: null,
+      }),
+    ).toBe(true);
+    expect(
+      isRentBankAccountComplete({
+        id: '1',
+        labelAr: 'بنك',
+        labelEn: 'Bank',
+        bankName: '',
+        accountHolderName: 'Owner',
+        accountHolderNameEn: '',
+        iban: 'OM123',
+        accountNumber: '',
+        currency: 'OMR',
+        active: true,
+        defaultForRent: true,
+        propertyIds: [],
+        ledgerAccountId: null,
+      }),
+    ).toBe(false);
   });
 
   it('keeps handoverAfterSign and drops deferred handoverOn when a schedule is set', () => {

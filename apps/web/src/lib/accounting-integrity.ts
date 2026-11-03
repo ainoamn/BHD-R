@@ -68,6 +68,16 @@ export function resolveRentBankAccount(
   return active.find((row) => row.defaultForRent) ?? active[0] ?? null;
 }
 
+/** Bank name, payee, and IBAN or account number — enough to print rent/deposit cheques. */
+export function isRentBankAccountComplete(account: AccountingBankAccount | null | undefined): boolean {
+  if (!account || !account.active) return false;
+  const bank = account.bankName.trim();
+  const holder =
+    bankAccountPayeeName(account, false).trim() || bankAccountPayeeName(account, true).trim();
+  const hasNumber = Boolean(account.iban.trim() || account.accountNumber.trim());
+  return Boolean(bank && holder && hasNumber);
+}
+
 export function bankAccountPayeeName(account: AccountingBankAccount, preferEn = true): string {
   const en = account.accountHolderNameEn.trim();
   const ar = account.accountHolderName.trim();

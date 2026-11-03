@@ -85,7 +85,7 @@ export type ApprovalStep = (typeof APPROVAL_STEPS)[number];
 
 export const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = {
   booking: 'manual',
-  contract: 'auto',
+  contract: 'manual',
   payment: 'auto',
   reschedule: 'auto',
   deferUntilHandover: [],
@@ -95,6 +95,18 @@ export const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = {
   electronicSignature: true,
   viewingAutoSchedule: false,
 };
+
+/** Checklist before long-term lease contract may be set to automatic. */
+export type RentAutoContractPrerequisites = {
+  bankReady: boolean;
+  handoverContactReady: boolean;
+  /** Buildings still missing a guard / handover contact with phone. */
+  missingHandoverProperties: Array<{ id: string; nameAr: string; nameEn: string }>;
+};
+
+export function rentAutoContractReady(prereq: RentAutoContractPrerequisites | null | undefined): boolean {
+  return Boolean(prereq?.bankReady && prereq?.handoverContactReady);
+}
 
 /** Defaults tuned per contract kind when nothing is saved yet. */
 export const DEFAULT_APPROVAL_POLICY_BY_KIND: Record<ContractApprovalKind, ApprovalPolicy> = {
@@ -112,7 +124,7 @@ export const DEFAULT_APPROVAL_POLICY_BY_KIND: Record<ContractApprovalKind, Appro
   },
   rent: {
     booking: 'manual',
-    contract: 'auto',
+    contract: 'manual',
     payment: 'auto',
     reschedule: 'auto',
     deferUntilHandover: [],

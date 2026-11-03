@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { Link } from '@/i18n/navigation';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import {
   APPROVAL_STEPS,
@@ -16,12 +17,14 @@ import {
   contractApprovalKindLabel,
   deferredLeaseFieldLabel,
   handoverAfterSignLabel,
+  rentAutoContractReady,
   type ApprovalMode,
   type ApprovalPolicy,
   type ApprovalPolicySource,
   type ContractApprovalKind,
   type DeferredLeaseField,
   type HandoverAfterSign,
+  type RentAutoContractPrerequisites,
 } from '@/lib/approval-policy';
 
 export type ApprovalPolicyKindState = {
@@ -45,13 +48,17 @@ function policyEqual(a: ApprovalPolicy, b: ApprovalPolicy): boolean {
 
 function KindEditor({
   locale,
+  portal,
   propertyId,
   state,
+  rentPrerequisites,
   onOverrideChange,
 }: {
   locale: 'ar' | 'en';
+  portal: 'owner' | 'developer';
   propertyId: string | null;
   state: ApprovalPolicyKindState;
+  rentPrerequisites: RentAutoContractPrerequisites | null;
   onOverrideChange?: ((kind: ContractApprovalKind, hasOwn: boolean) => void) | undefined;
 }) {
   const ar = locale === 'ar';
@@ -65,6 +72,7 @@ function KindEditor({
   const effective = saved ?? state.inherited.policy;
   const dirty = !policyEqual(draft, effective) || !saved;
   const steps = approvalStepsForKind(kind);
+  const rentAutoReady = kind !== 'rent' || rentAutoContractReady(rentPrerequisites);
   const fallbackLabel =
     state.inherited.source === 'organization'
       ? t('سياسة المؤسسة', 'the organization policy')
@@ -73,6 +81,16 @@ function KindEditor({
         : t('الإعداد الافتراضي', 'the default');
 
   async function save(policy: ApprovalPolicy | null) {
+    if (policy?.contract === 'auto' && !rentAutoReady) {
+      setMessage({
+        ok: false,
+        text: t(
+          'أكمل الحساب البنكي ورقم الحارس أو مسؤول التسليم أولاً، ثم فعّل اعتماد العقد تلقائياً.',
+          'Complete the bank account and the guard or handover phone first, then enable automatic contract approval.',
+        ),
+      });
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
@@ -98,20 +116,41 @@ function KindEditor({
                 'الاعتماد التلقائي للعقد يوقّع العقد باسم من يفعّله، لذا يلزمك صلاحية إنشاء العقود وتوقيعها.',
                 'Automatic contract approval signs in the name of whoever enables it — you need contract signing rights.',
               )
-            : code === 'forbidden'
+            : code === 'approval_bank_required'
               ? t(
-                  'لا تملك صلاحية إدارة هذا النوع من العقود.',
-                  'You cannot manage this contract type.',
+                  'أكمل بيانات الحساب البنكي المطلوب (بنك، المستفيد، والآيبان أو رقم الحساب) في المحاسبة قبل تفعيل اعتماد العقد تلقائياً.',
+                  'Complete the required bank account (bank, payee, and IBAN or account number) in accounting before enabling automatic contract approval.',
                 )
-              : t('تعذّر الحفظ — أعد المحاولة.', 'Could not save — try again.'),
+              : code === 'approval_handover_contact_required'
+                ? t(
+                    'عيّن الحارس أو مسؤول التسليم مع رقم هاتفه في صفحة العقار قبل تفعيل اعتماد العقد تلقائياً.',
+                    'Set the guard or handover contact with their phone on the property page before enabling automatic contract approval.',
+                  )
+                : code === 'forbidden'
+                  ? t(
+                      'لا تملك صلاحية إدارة هذا النوع من العقود.',
+                      'You cannot manage this contract type.',
+                    )
+                  : t('تعذّر الحفظ — أعد المحاولة.', 'Could not save — try again.'),
       });
     } finally {
       setBusy(false);
     }
   }
 
-  const set = (step: (typeof APPROVAL_STEPS)[number], mode: ApprovalMode) =>
+  const set = (step: (typeof APPROVAL_STEPS)[number], mode: ApprovalMode) => {
+    if (step === 'contract' && mode === 'auto' && !rentAutoReady) {
+      setMessage({
+        ok: false,
+        text: t(
+          'أكمل الحساب البنكي ورقم الحارس أو مسؤول التسليم أولاً، ثم فعّل اعتماد العقد تلقائياً.',
+          'Complete the bank account and the guard or handover phone first, then enable automatic contract approval.',
+        ),
+      });
+      return;
+    }
     setDraft((current) => ({ ...current, [step]: mode }));
+  };
 
   const toggleDefer = (field: DeferredLeaseField) => {
     setDraft((current) => {
@@ -136,18 +175,96 @@ function KindEditor({
     }));
   };
 
+  const enableFullElectronic = () => {
+    if (!rentAutoReady && kind === 'rent') {
+      setDraft({ ...FULL_AUTO_APPROVAL_POLICY, contract: 'manual' });
+      setMessage({
+        ok: false,
+        text: t(
+          'تم تفعيل المسار الإلكتروني مع إبقاء اعتماد العقد يدوياً حتى تُكمل الحساب البنكي ورقم مسؤول التسليم.',
+          'Electronic path enabled with contract approval kept manual until the bank account and handover contact phone are complete.',
+        ),
+      });
+      return;
+    }
+    setDraft({ ...FULL_AUTO_APPROVAL_POLICY });
+  };
+
   const anyAuto = steps.some((step) => draft[step] === 'auto');
+  const accountingHref = `/${portal}/accounting`;
+  const handoverHref = propertyId
+    ? `/${portal}/properties/${propertyId}#viewing-contact`
+    : `/${portal}/properties`;
 
   return (
     <div className="approval-policy__kind">
       <p className="muted">{contractApprovalKindHint(kind, ar)}</p>
+
+      {kind === 'rent' && rentPrerequisites ? (
+        <div
+          className={`notice ${rentAutoReady ? 'notice--success' : 'notice--info'}`}
+          role="status"
+        >
+          <strong>
+            {t(
+              'قبل اعتماد العقد تلقائياً أكمل الآتي:',
+              'Before automatic contract approval, complete:',
+            )}
+          </strong>
+          <ul style={{ margin: '0.5rem 0 0', paddingInlineStart: '1.25rem' }}>
+            <li>
+              {rentPrerequisites.bankReady
+                ? t('✓ الحساب البنكي المطلوب مكتمل', '✓ Required bank account is complete')
+                : t(
+                    '○ أضف حساباً بنكياً للإيجار (اسم البنك، المستفيد، والآيبان أو رقم الحساب)',
+                    '○ Add a rent bank account (bank name, payee, and IBAN or account number)',
+                  )}{' '}
+              {!rentPrerequisites.bankReady ? (
+                <Link href={accountingHref}>{t('المحاسبة', 'Accounting')}</Link>
+              ) : null}
+            </li>
+            <li>
+              {rentPrerequisites.handoverContactReady
+                ? t(
+                    '✓ رقم الحارس أو مسؤول التسليم محفوظ',
+                    '✓ Guard or handover contact phone is saved',
+                  )
+                : t(
+                    '○ عيّن الحارس أو مسؤول التسليم مع رقم هاتفه',
+                    '○ Assign the guard or handover contact with their phone number',
+                  )}{' '}
+              {!rentPrerequisites.handoverContactReady ? (
+                <Link href={handoverHref}>
+                  {propertyId
+                    ? t('صفحة العقار', 'Property page')
+                    : t('العقارات', 'Properties')}
+                </Link>
+              ) : null}
+            </li>
+          </ul>
+          {!rentPrerequisites.handoverContactReady &&
+          rentPrerequisites.missingHandoverProperties.length > 0 &&
+          !propertyId ? (
+            <p className="muted" style={{ marginBottom: 0 }}>
+              {t('ينقص في:', 'Missing on:')}{' '}
+              {rentPrerequisites.missingHandoverProperties
+                .slice(0, 5)
+                .map((row) => (ar ? row.nameAr : row.nameEn))
+                .join(' · ')}
+              {rentPrerequisites.missingHandoverProperties.length > 5
+                ? ` (+${rentPrerequisites.missingHandoverProperties.length - 5})`
+                : ''}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="approval-policy__actions approval-policy__actions--top">
         <button
           type="button"
           className="button button--quiet"
           disabled={busy}
-          onClick={() => setDraft({ ...FULL_AUTO_APPROVAL_POLICY })}
+          onClick={enableFullElectronic}
         >
           {t('تفعيل المسار الإلكتروني الكامل', 'Enable full electronic path')}
         </button>
@@ -165,30 +282,43 @@ function KindEditor({
           <fieldset key={step} className="approval-policy__step">
             <legend>{approvalStepLabel(step, ar)}</legend>
             <div className="approval-policy__options">
-              {(['manual', 'auto'] as const).map((mode) => (
-                <label
-                  key={mode}
-                  className={`approval-policy__option${draft[step] === mode ? ' approval-policy__option--on' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name={`approval-${propertyId ?? 'org'}-${kind}-${step}`}
-                    checked={draft[step] === mode}
-                    onChange={() => set(step, mode)}
-                  />
-                  <span>
-                    <strong>
-                      {mode === 'auto'
-                        ? t(
-                            'تلقائي — يعتمده النظام نيابةً عني',
-                            'Automatic — the system approves for me',
-                          )
-                        : t('يدوي — أعتمده بنفسي', 'Manual — I approve it')}
-                    </strong>
-                    <small>{approvalStepHelp(step, mode, ar)}</small>
-                  </span>
-                </label>
-              ))}
+              {(['manual', 'auto'] as const).map((mode) => {
+                const contractAutoLocked = step === 'contract' && mode === 'auto' && !rentAutoReady;
+                return (
+                  <label
+                    key={mode}
+                    className={`approval-policy__option${draft[step] === mode ? ' approval-policy__option--on' : ''}${
+                      contractAutoLocked ? ' approval-policy__option--locked' : ''
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name={`approval-${propertyId ?? 'org'}-${kind}-${step}`}
+                      checked={draft[step] === mode}
+                      disabled={contractAutoLocked}
+                      onChange={() => set(step, mode)}
+                    />
+                    <span>
+                      <strong>
+                        {mode === 'auto'
+                          ? t(
+                              'تلقائي — يعتمده النظام نيابةً عني',
+                              'Automatic — the system approves for me',
+                            )
+                          : t('يدوي — أعتمده بنفسي', 'Manual — I approve it')}
+                      </strong>
+                      <small>
+                        {contractAutoLocked
+                          ? t(
+                              'أكمل الحساب البنكي ورقم الحارس أو مسؤول التسليم أولاً.',
+                              'Complete the bank account and the guard or handover phone first.',
+                            )
+                          : approvalStepHelp(step, mode, ar)}
+                      </small>
+                    </span>
+                  </label>
+                );
+              })}
             </div>
           </fieldset>
         ))}
@@ -480,13 +610,17 @@ function KindEditor({
  */
 export function ApprovalPolicyCard({
   locale,
+  portal = 'owner',
   propertyId,
   kinds,
+  rentPrerequisites = null,
   onOverrideChange,
 }: {
   locale: 'ar' | 'en';
+  portal?: 'owner' | 'developer';
   propertyId: string | null;
   kinds: ApprovalPolicyKindState[];
+  rentPrerequisites?: RentAutoContractPrerequisites | null;
   /** Fired after save/clear so parent lists can show custom vs inherited. */
   onOverrideChange?: ((kind: ContractApprovalKind, hasOwn: boolean) => void) | undefined;
 }) {
@@ -556,8 +690,10 @@ export function ApprovalPolicyCard({
           <KindEditor
             key={row.kind}
             locale={locale}
+            portal={portal}
             propertyId={propertyId}
             state={row}
+            rentPrerequisites={rentPrerequisites}
             onOverrideChange={onOverrideChange}
           />
         ) : null,
