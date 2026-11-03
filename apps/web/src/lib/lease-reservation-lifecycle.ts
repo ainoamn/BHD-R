@@ -638,6 +638,16 @@ export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   return 'awaiting_handover';
 }
 
+/**
+ * After the tenant has signed, hide the issued lease body until the document/cheque
+ * package is uploaded and sent. Signing itself still needs the contract text.
+ */
+export function tenantLeaseContractDetailsLocked(
+  phase: LeaseJourneyPhase | null | undefined,
+): boolean {
+  return phase === 'awaiting_documents';
+}
+
 /** Once the draft is ready: waiting on the client's documents, on their review, or on approval. */
 export function documentsPhase(lifecycle: ReservationLifecycle): LeaseJourneyPhase {
   const requirements = requirementsOf(lifecycle);

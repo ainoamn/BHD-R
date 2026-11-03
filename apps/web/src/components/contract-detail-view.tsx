@@ -79,6 +79,41 @@ export async function ContractDetailView({
     );
   }
   const badges = await contractBadges(contract);
+  if (portal === 'tenant' && contract.tenantDocsGate?.locked) {
+    const bookingRef = contract.tenantDocsGate.bookingReference;
+    return (
+      <div className="form-shell contract-detail" dir={ar ? 'rtl' : 'ltr'}>
+        <Card>
+          <CardContent>
+            <p className="ops-kicker">{contract.reference}</p>
+            <h1>{ar ? 'العقد معتمد — بانتظار مستنداتك' : 'Contract approved — documents needed'}</h1>
+            <p>
+              {ar
+                ? 'لا تُعرض بنود العقد وبياناته هنا حتى ترفع المستندات والشيكات المطلوبة من صفحة حجزك وترسلها للمراجعة.'
+                : 'Contract terms and details stay hidden here until you upload the required documents and cheques from your booking page and send them for review.'}
+            </p>
+            <p className="notice notice--info" role="note">
+              {ar
+                ? 'بعد رفع المستندات سيظهر لك العقد المعتمد. إن اختلفت البيانات أو المستندات يحق للمالك إلغاء العقد، ويتحمّل المستأجر كافة المسؤولية.'
+                : 'After you upload the documents you will see the approved contract. If the details or documents differ, the owner may cancel the contract and the tenant bears full responsibility.'}
+            </p>
+            {bookingRef ? (
+              <Link
+                className="button button--primary"
+                href={`/${currentLocale}/book/confirmed?ref=${encodeURIComponent(bookingRef)}`}
+              >
+                {ar ? 'رفع المستندات من صفحة الحجز' : 'Upload documents from the booking page'}
+              </Link>
+            ) : (
+              <Link className="button button--secondary" href={`/${currentLocale}/tenant/contracts`}>
+                {ar ? 'العودة إلى العقود' : 'Back to contracts'}
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   if (contract.document) {
     const annexes = await Promise.all(
       contract.document.annexes
@@ -92,6 +127,15 @@ export async function ContractDetailView({
     );
     return (
       <>
+        {portal === 'tenant' && contract.tenantDocsGate && !contract.tenantDocsGate.locked ? (
+          <div className="form-shell" dir={ar ? 'rtl' : 'ltr'}>
+            <p className="notice notice--success" role="status">
+              {ar
+                ? 'العقد معتمد. ملاحظة: إن اختلفت البيانات أو المستندات يحق للمالك إلغاء العقد مع تحمّل المستأجر كافة المسؤولية.'
+                : 'The contract is approved. Note: if details or documents differ, the owner may cancel the contract and the tenant bears full responsibility.'}
+            </p>
+          </div>
+        ) : null}
         <ContractDocumentView
           contract={contract}
           doc={contract.document}

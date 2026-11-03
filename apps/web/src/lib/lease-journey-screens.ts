@@ -179,19 +179,30 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         sceneStatus: t('بانتظار توقيع الطرف الثاني', 'Awaiting second-party signature'),
         action: 'sign_contract',
       };
-    } else {
+    } else if (phase === 'awaiting_documents') {
       contract = {
-        headline: t(
-          'عقدك موقّع إلكترونياً من الطرفين 🤝',
-          'Signed electronically by both parties 🤝',
-        ),
+        headline: t('العقد معتمد — ارفع المستندات أولاً 📎', 'Contract approved — upload documents first 📎'),
         body: t(
-          `وقّعتَ ${contractWord} ${lifecycle.contract?.reference ?? ''}${lifecycle.tenantSignedAt ? ` في ${journeyStamp(lifecycle.tenantSignedAt, ar)}` : ''}، وأصبح نافذاً وموقّعاً من الطرفين. احتفظ به دائماً في متناول يدك.`,
-          `You signed ${lifecycle.contract?.reference ?? 'the contract'}; it is now in force and signed by both parties.`,
+          `اعتمد ${contractWord} ${lifecycle.contract?.reference ?? ''} ووقّعته. بنود العقد وبياناته تُعرض لك بعد رفع المستندات والشيكات وإرسالها. إن اختلفت البيانات أو المستندات يحق للمالك إلغاء العقد مع تحمّلك كافة المسؤولية.`,
+          `${lifecycle.contract?.reference ?? 'The contract'} is approved and signed. Its terms stay hidden until you upload and send documents and cheques. If details or documents differ, the owner may cancel and you bear full responsibility.`,
         ),
         scene: 'contract',
         sceneDone: true,
-        sceneStatus: t('موقّع من الطرفين', 'Signed by both parties'),
+        sceneStatus: t('معتمد — بانتظار المستندات', 'Approved — awaiting documents'),
+      };
+    } else {
+      contract = {
+        headline: t(
+          'عقدك معتمد وموقّع من الطرفين 🤝',
+          'Your contract is approved and signed by both parties 🤝',
+        ),
+        body: t(
+          `بعد رفع مستنداتك: ${contractWord} ${lifecycle.contract?.reference ?? ''} معتمد وموقّع. إن اختلفت البيانات أو المستندات يحق للمالك إلغاء العقد مع تحمّل المستأجر كافة المسؤولية.`,
+          `After your documents: ${lifecycle.contract?.reference ?? 'the contract'} is approved and signed. If details or documents differ, the owner may cancel and the tenant bears full responsibility.`,
+        ),
+        scene: 'contract',
+        sceneDone: true,
+        sceneStatus: t('معتمد وموقّع', 'Approved and signed'),
         action: 'view_contract',
       };
     }
@@ -207,8 +218,8 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
         headline: rejected
           ? t('ملف يحتاج نسخة أوضح 🔁', 'A file needs a clearer copy 🔁')
           : t(
-              'العقد موقّع — ارفع المستندات والشيكات 📎',
-              'Contract signed — upload documents and cheques 📎',
+              'ارفع المستندات والشيكات لإظهار العقد المعتمد 📎',
+              'Upload documents and cheques to reveal the approved contract 📎',
             ),
         body: rejected
           ? t(
@@ -216,17 +227,17 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
               'The owner asked for a replacement document or cheque — the reason is next to it. Replace it, then confirm send so the owner is notified.',
             )
           : t(
-              `بعد توقيعك: ارفع المستندات المطلوبة${lifecycle.cheques?.length ? '، وأدخل رقم كل شيك مع صورة الشيك' : ''} ثم أرسل الحزمة للمراجعة.`,
-              `After signing: upload the required documents${lifecycle.cheques?.length ? ', and enter each cheque number with its photo' : ''}, then send the package for review.`,
+              `ارفع المستندات المطلوبة${lifecycle.cheques?.length ? '، وأدخل رقم كل شيك مع صورة الشيك' : ''} ثم أرسل الحزمة. بعدها يظهر لك العقد المعتمد. إن اختلفت البيانات أو المستندات يحق للمالك إلغاء العقد مع تحمّلك كافة المسؤولية.`,
+              `Upload the required documents${lifecycle.cheques?.length ? ', and enter each cheque number with its photo' : ''}, then send the package. The approved contract appears after that. If details or documents differ, the owner may cancel and you bear full responsibility.`,
             ),
         action: 'documents',
       };
     } else if (phase === 'awaiting_documents_review') {
       documents = {
-        headline: t('وصلت مستنداتك، والمالك يراجعها 🔍', 'Documents received — under review 🔍'),
+        headline: t('وصلت مستنداتك — العقد معتمد للمراجعة 🔍', 'Documents received — contract approved for review 🔍'),
         body: t(
-          'شكراً لك! أرسلت كل المستندات المطلوبة، وهي الآن قيد مراجعة المالك. إن احتاج أي تعديل ستجده هنا.',
-          'Thank you! Everything requested is in and the owner is reviewing it.',
+          'شكراً لك! أرسلت المستندات، والعقد معتمد. المالك يراجع الآن. إن اختلفت البيانات أو المستندات يحق للمالك إلغاء العقد مع تحمّل المستأجر كافة المسؤولية.',
+          'Thank you! Documents are in and the contract is approved. The owner is reviewing now. If details or documents differ, the owner may cancel and the tenant bears full responsibility.',
         ),
         action: 'documents',
       };

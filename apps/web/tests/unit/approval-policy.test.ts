@@ -9,6 +9,7 @@ import {
   documentsToVerify,
   leaseJourneyPhase,
   phaseWaitsOn,
+  tenantLeaseContractDetailsLocked,
   type ReservationLifecycle,
 } from '@/lib/lease-reservation-lifecycle';
 import { pendingApprovalTitle, type PendingApprovalItem } from '@/lib/pending-approvals-shared';
@@ -91,6 +92,13 @@ describe('approval policy', () => {
       handoverAfterSign: 'week',
       deferUntilHandover: ['meters'],
     });
+  });
+
+  it('locks tenant contract details only while documents are still pending upload', () => {
+    expect(tenantLeaseContractDetailsLocked('awaiting_documents')).toBe(true);
+    expect(tenantLeaseContractDetailsLocked('awaiting_documents_review')).toBe(false);
+    expect(tenantLeaseContractDetailsLocked('awaiting_tenant_signature')).toBe(false);
+    expect(tenantLeaseContractDetailsLocked('awaiting_handover')).toBe(false);
   });
 });
 

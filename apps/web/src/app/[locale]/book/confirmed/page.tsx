@@ -21,6 +21,7 @@ import {
   leasePhaseLabel,
   packageHasRejected,
   phaseWaitsOn,
+  tenantLeaseContractDetailsLocked,
 } from '@/lib/lease-reservation-lifecycle';
 import { loadLeaseBookingForViewer, leasePaymentPath } from '@/lib/public-lease-booking-neon';
 import { partyDisplayName } from '@/lib/reservation-party';
@@ -391,12 +392,12 @@ export default async function LeaseBookingConfirmedPage({
                       : 'Sign booking agreement'}
                 </Link>
               ) : null}
-              {contract ? (
+              {contract && !tenantLeaseContractDetailsLocked(booking.phase) ? (
                 <Link
                   className="button button--quiet"
                   href={`/tenant/contracts/${encodeURIComponent(contract.id)}`}
                 >
-                  {ar ? 'عرض العقد' : 'View contract'}
+                  {ar ? 'عرض العقد المعتمد' : 'View approved contract'}
                 </Link>
               ) : null}
               <Link className="button button--quiet" href="/properties">

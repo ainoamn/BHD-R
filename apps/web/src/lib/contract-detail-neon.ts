@@ -56,6 +56,10 @@ import { leaseBookingAgreement, type LeaseBookingAgreement } from '@/lib/lease-b
 import { leaseBookingDocumentPath } from '@/lib/lease-booking-paths';
 import { publicWebOrigin } from '@/lib/seo';
 import { loadLeaseBookingAgreementInTx } from '@/lib/public-lease-booking-neon';
+import {
+  tenantLeaseContractDetailsLocked,
+  type LeaseJourneyPhase,
+} from '@/lib/lease-reservation-lifecycle';
 import { readStayTypeFromSnapshot } from '@/lib/stay-booking-dates';
 import type { ContractArticleHead } from '@/components/contract-document-view';
 import { contractDigitalSeal } from '@/lib/document-authenticity';
@@ -148,6 +152,16 @@ export interface ContractDetail {
   } | null;
   /** Owner / property-management transaction trail (not shown to tenants). */
   activityLog?: ReservationActivityRow[] | undefined;
+  /**
+   * Tenant portal only: issued lease body stays hidden until documents/cheques are sent.
+   * Signing still uses the booking journey; this gates `/tenant/contracts/[id]`.
+   */
+  tenantDocsGate?:
+    | {
+        locked: boolean;
+        bookingReference: string | null;
+      }
+    | undefined;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -641,29 +655,59 @@ export async function loadContractDetailFromNeon(
   const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
   const reference = contract.reference ?? `CTR-${contract.id.slice(0, 8).toUpperCase()}`;
   const signerPartyId = claims.partyId;
-  const document = await buildContractDocument(detail, snapshot, orgId);
+  const bookingPhase =
+    detail.booking && 'phase' in detail.booking
+      ? ((detail.booking as { phase?: LeaseJourneyPhase }).phase ?? null)
+      : null;
+  const docsLocked = portal === 'tenant' && tenantLeaseContractDetailsLocked(bookingPhase);
+  const document = docsLocked ? undefined : await buildContractDocument(detail, snapshot, orgId);
+  const bookingReference =
+    detail.booking && 'referenceCode' in detail.booking
+      ? String((detail.booking as { referenceCode?: string }).referenceCode ?? '') || null
+      : typeof (snapshot.source as { referenceCode?: string } | null)?.referenceCode === 'string'
+        ? (snapshot.source as { referenceCode: string }).referenceCode
+        : null;
   return {
-    document,
-    bookingCopy: detail.booking
-      ? {
-          ...leaseBookingAgreement(detail.booking),
-          signaturePng: detail.booking.signature?.png ?? null,
-        }
-      : null,
+    ...(document ? { document } : {}),
+    bookingCopy:
+      docsLocked || !detail.booking
+        ? null
+        : {
+            ...leaseBookingAgreement(detail.booking),
+            signaturePng: detail.booking.signature?.png ?? null,
+          },
     ...(detail.activityLog?.length ? { activityLog: detail.activityLog } : {}),
+    ...(portal === 'tenant' && bookingPhase
+      ? {
+          tenantDocsGate: {
+            locked: docsLocked,
+            bookingReference,
+          },
+        }
+      : {}),
     id: contract.id,
     reference,
     kind: contract.kind as ContractDetail['kind'],
     parentContractId: contract.parentContractId,
     status: contract.status,
-    startsOn: typeof snapshot.startsOn === 'string' ? snapshot.startsOn : (lease?.startsOn ?? ''),
-    endsOn: typeof snapshot.endsOn === 'string' ? snapshot.endsOn : (lease?.endsOn ?? ''),
-    documentUrl: contract.renderedPdfObjectKey
-      ? await signedDocumentUrl(contract.renderedPdfObjectKey, reference)
-      : null,
-    documentHash: contract.renderedPdfHash,
-    digitalSeal: contractDigitalSeal(contract.renderedPdfHash),
+    startsOn: docsLocked
+      ? ''
+      : typeof snapshot.startsOn === 'string'
+        ? snapshot.startsOn
+        : (lease?.startsOn ?? ''),
+    endsOn: docsLocked
+      ? ''
+      : typeof snapshot.endsOn === 'string'
+        ? snapshot.endsOn
+        : (lease?.endsOn ?? ''),
+    documentUrl:
+      docsLocked || !contract.renderedPdfObjectKey
+        ? null
+        : await signedDocumentUrl(contract.renderedPdfObjectKey, reference),
+    documentHash: docsLocked ? null : contract.renderedPdfHash,
+    digitalSeal: docsLocked ? null : contractDigitalSeal(contract.renderedPdfHash),
     canSign:
+      !docsLocked &&
       !access.crossOrganization &&
       Boolean(signerPartyId) &&
       [contract.ownerPartyId, contract.tenantPartyId].includes(signerPartyId!) &&
