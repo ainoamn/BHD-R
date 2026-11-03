@@ -6,7 +6,9 @@ import {
 } from '@/lib/approval-policy';
 import {
   approvedElectronically,
+  documentsPackageFullyApproved,
   documentsToVerify,
+  handoverBlockedByUnverifiedDocs,
   leaseJourneyPhase,
   phaseWaitsOn,
   tenantLeaseContractDetailsLocked,
@@ -99,6 +101,66 @@ describe('approval policy', () => {
     expect(tenantLeaseContractDetailsLocked('awaiting_documents_review')).toBe(false);
     expect(tenantLeaseContractDetailsLocked('awaiting_tenant_signature')).toBe(false);
     expect(tenantLeaseContractDetailsLocked('awaiting_handover')).toBe(false);
+  });
+
+  it('blocks handover until every document and cheque is manually approved', () => {
+    const pending: ReservationLifecycle = {
+      requirements: [
+        {
+          code: 'civil_id',
+          labelAr: 'بطاقة',
+          labelEn: 'ID',
+          status: 'submitted',
+        },
+      ],
+      chequeInstructions: [
+        {
+          key: 'deposit-0',
+          kind: 'deposit',
+          labelAr: 'تأمين',
+          labelEn: 'Deposit',
+          dueOn: null,
+          amountMinor: 1000,
+          currency: 'OMR',
+        },
+      ],
+      chequeSubmissions: [
+        {
+          key: 'deposit-0',
+          status: 'submitted',
+          bankName: 'Bank',
+          accountHolderName: 'A',
+          accountNumber: '1',
+          chequeNumber: '1',
+        },
+      ],
+    };
+    expect(documentsPackageFullyApproved(pending)).toBe(false);
+    expect(handoverBlockedByUnverifiedDocs(pending)).toBe(true);
+
+    const approved: ReservationLifecycle = {
+      requirements: [
+        {
+          code: 'civil_id',
+          labelAr: 'بطاقة',
+          labelEn: 'ID',
+          status: 'approved',
+        },
+      ],
+      chequeInstructions: pending.chequeInstructions,
+      chequeSubmissions: [
+        {
+          key: 'deposit-0',
+          status: 'approved',
+          bankName: 'Bank',
+          accountHolderName: 'A',
+          accountNumber: '1',
+          chequeNumber: '1',
+        },
+      ],
+    };
+    expect(documentsPackageFullyApproved(approved)).toBe(true);
+    expect(handoverBlockedByUnverifiedDocs(approved)).toBe(false);
   });
 });
 

@@ -566,14 +566,62 @@ export function allowHandoverBeforeDocVerify(
 }
 
 /**
- * Handover must wait until the owner (or delegate) verifies every auto-accepted
- * document and cheque, unless the org policy explicitly allows early handover.
+ * True when every required document and cheque is owner-approved (manual review done).
+ * Empty package counts as complete. Accepts raw lifecycle or the tenant-facing view.
+ */
+export function documentsPackageFullyApproved(
+  lifecycle:
+    | ReservationLifecycle
+    | {
+        requirements?: Array<{ status: string; autoApproved?: boolean; verified?: boolean }>;
+        cheques?: Array<{ status: string; autoApproved?: boolean; verified?: boolean }>;
+        chequeInstructions?: ReservationChequeInstruction[];
+        chequeSubmissions?: ReservationChequeSubmission[];
+        autoFlow?: ReservationLifecycle['autoFlow'];
+        cancellation?: ReservationLifecycle['cancellation'];
+        handover?: ReservationLifecycle['handover'];
+      }
+    | null
+    | undefined,
+): boolean {
+  if (!lifecycle) return true;
+  const requirements = lifecycle.requirements ?? [];
+  const chequeStatuses =
+    'cheques' in lifecycle && Array.isArray(lifecycle.cheques)
+      ? lifecycle.cheques.map((item) => item.status)
+      : chequeStatusesOf(lifecycle as ReservationLifecycle);
+  if (!requirements.length && !chequeStatuses.length) return true;
+  if (requirements.some((item) => item.status !== 'approved')) return false;
+  if (chequeStatuses.some((status) => status !== 'approved')) return false;
+  // Legacy auto-accept still needs a human verify unless policy allows bypass.
+  const autoDocsPending = requirements.some(
+    (item) =>
+      item.status === 'approved' &&
+      item.autoApproved &&
+      !('verifiedAt' in item
+        ? Boolean((item as { verifiedAt?: string | null }).verifiedAt)
+        : Boolean((item as { verified?: boolean }).verified)),
+  );
+  const autoChequesPending =
+    'cheques' in lifecycle && Array.isArray(lifecycle.cheques)
+      ? lifecycle.cheques.some(
+          (item) => item.status === 'approved' && item.autoApproved && !item.verified,
+        )
+      : chequesToVerify(lifecycle as ReservationLifecycle).length > 0;
+  if ((autoDocsPending || autoChequesPending) && !allowHandoverBeforeDocVerify(lifecycle as ReservationLifecycle)) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Handover (and the tenant handover code) waits until the owner has approved every
+ * document and cheque. Legacy auto-accepted rows still need verify unless policy allows.
  */
 export function handoverBlockedByUnverifiedDocs(
   lifecycle: ReservationLifecycle | null | undefined,
 ): boolean {
-  if (!packageNeedsManualVerification(lifecycle)) return false;
-  return !allowHandoverBeforeDocVerify(lifecycle);
+  return !documentsPackageFullyApproved(lifecycle);
 }
 
 /** Any step the system approved for the owner, which the customer is told about. */

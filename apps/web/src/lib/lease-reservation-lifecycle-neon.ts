@@ -1956,53 +1956,7 @@ export async function runReservationAutomation(
         }
       }
 
-      // Auto-accept packages the tenant sent after signing (or replacements after a reject).
-      if (
-        Boolean(lifecycle.contract) &&
-        Boolean(lifecycle.tenantSignature) &&
-        phase() === 'awaiting_documents_review'
-      ) {
-        const submitted = (lifecycle.requirements ?? []).filter(
-          (item) => item.status === 'submitted',
-        );
-        const submittedCheques = (lifecycle.chequeSubmissions ?? []).filter(
-          (item) => item.status === 'submitted',
-        );
-        if (submitted.length || submittedCheques.length) {
-          lifecycle = {
-            ...lifecycle,
-            requirements: (lifecycle.requirements ?? []).map((item) =>
-              item.status === 'submitted'
-                ? {
-                    ...item,
-                    status: 'approved' as const,
-                    note: null,
-                    autoApproved: true,
-                    reviewedAt: at,
-                    reviewedByName: SYSTEM_APPROVER_AR,
-                  }
-                : item,
-            ),
-            chequeSubmissions: (lifecycle.chequeSubmissions ?? []).map((item) =>
-              item.status === 'submitted'
-                ? {
-                    ...item,
-                    status: 'approved' as const,
-                    note: null,
-                    autoApproved: true,
-                    reviewedAt: at,
-                    reviewedByName: SYSTEM_APPROVER_AR,
-                  }
-                : item,
-            ),
-          };
-          await saveLifecycle(tx, row, lifecycle);
-          await event('reservation.documents_auto_accepted', {
-            codes: submitted.map((item) => item.code),
-            cheques: submittedCheques.map((item) => item.key),
-          });
-        }
-      }
+      // Documents/cheques stay `submitted` until the owner reviews them manually.
       return phase();
     });
   } catch (error) {
@@ -2916,6 +2870,7 @@ export async function tenantHandoverPass(claims: SessionClaims, referenceCode: s
     const phase = phaseOf(match.status, match.snapshot, lifecycle);
     if (phase === 'handed_over') return { state: 'handed_over' as const };
     if (phase !== 'awaiting_handover') return { state: 'not_ready' as const };
+    if (handoverBlockedByUnverifiedDocs(lifecycle)) return { state: 'not_ready' as const };
     // Legacy awaiting-accept records: promote so the tenant sees the record + objection window.
     if (handoverAwaitingTenant(lifecycle)) {
       const handover = lifecycle.handover!;

@@ -18,6 +18,7 @@ import {
   type LeaseJourneyProps,
 } from '@/lib/lease-journey-screens';
 import {
+  documentsPackageFullyApproved,
   leasePhaseLabel,
   packageHasRejected,
   phaseWaitsOn,
@@ -248,7 +249,9 @@ export default async function LeaseBookingConfirmedPage({
             )}
 
             {!closed &&
-            (booking.phase === 'awaiting_handover' || booking.lifecycle.handover?.scanned) ? (
+            ((booking.phase === 'awaiting_handover' &&
+              documentsPackageFullyApproved(booking.lifecycle)) ||
+              booking.lifecycle.handover?.scanned) ? (
               <LeaseHandoverPanel
                 locale={locale}
                 referenceCode={booking.referenceCode}
