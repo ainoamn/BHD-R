@@ -1361,44 +1361,21 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                   ) : null}
                 </div>
                 <DraftSummary {...props} />
-                <div className="lrw__desk-grid">
-                  <RequirementsReview
-                    {...props}
-                    busy={busy}
-                    fileHref={fileHref}
-                    onReview={(code, decision, note) =>
-                      decide(
-                        code,
-                        { status: decision, ...(note ? { note } : {}) },
-                        { action: 'review_document', code, decision, ...(note ? { note } : {}) },
-                      )
-                    }
-                    onReviewCheque={(key, decision, note) =>
-                      act({
-                        action: 'review_cheque',
-                        key,
-                        decision,
-                        ...(note ? { note } : {}),
-                      })
-                    }
-                    onAddRequirements={(requirements) =>
-                      void act({ action: 'add_requirements', requirements })
-                    }
-                  />
-                  <ChequesReview
-                    {...props}
-                    busy={busy}
-                    fileHref={fileHref}
-                    onReview={(key, decision, note) =>
-                      act({
-                        action: 'review_cheque',
-                        key,
-                        decision,
-                        ...(note ? { note } : {}),
-                      })
-                    }
-                  />
-                </div>
+                <RequirementsReview
+                  {...props}
+                  busy={busy}
+                  fileHref={fileHref}
+                  onReview={(code, decision, note) =>
+                    decide(
+                      code,
+                      { status: decision, ...(note ? { note } : {}) },
+                      { action: 'review_document', code, decision, ...(note ? { note } : {}) },
+                    )
+                  }
+                  onAddRequirements={(requirements) =>
+                    void act({ action: 'add_requirements', requirements })
+                  }
+                />
                 <div className="lrw__approve">
                   <p className="muted">
                     {t(
@@ -1437,53 +1414,38 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               <div className="lrw__card lrw__desk">
                 <div className="lrw__desk-head">
                   <div>
-                    <h3>{t('مستندات وشيكات بعد التوقيع', 'Documents & cheques after signature')}</h3>
+                    <h3>{t('اعتماد المستندات والشيكات', 'Approve documents & cheques')}</h3>
                     <p className="muted">
                       {t(
-                        'العقد موقّع من الطرفين. راجع ما يرفعه العميل من مستندات وشيكات، أو أضف مطلوبات إضافية.',
-                        'The contract is signed by both parties. Review uploads, or add further requirements.',
+                        'العقد موقّع من الطرفين. راجع المرفقات واحداً تلو الآخر من قائمة واحدة، ثم أكمل الاعتماد قبل التسليم. يمكنك طلب مستند إضافي من العميل إن لزم.',
+                        'The contract is signed by both parties. Review attachments one by one from a single list, then finish approval before handover. You can still request an extra document if needed.',
                       )}
                     </p>
                   </div>
                 </div>
-                <div className="lrw__desk-grid">
-                  <RequirementsReview
-                    {...props}
-                    busy={busy}
-                    fileHref={fileHref}
-                    onReview={(code, decision, note) =>
-                      decide(
-                        code,
-                        { status: decision, ...(note ? { note } : {}) },
-                        { action: 'review_document', code, decision, ...(note ? { note } : {}) },
-                      )
-                    }
-                    onReviewCheque={(key, decision, note) =>
-                      act({
-                        action: 'review_cheque',
-                        key,
-                        decision,
-                        ...(note ? { note } : {}),
-                      })
-                    }
-                    onAddRequirements={(requirements) =>
-                      void act({ action: 'add_requirements', requirements })
-                    }
-                  />
-                  <ChequesReview
-                    {...props}
-                    busy={busy}
-                    fileHref={fileHref}
-                    onReview={(key, decision, note) =>
-                      act({
-                        action: 'review_cheque',
-                        key,
-                        decision,
-                        ...(note ? { note } : {}),
-                      })
-                    }
-                  />
-                </div>
+                <RequirementsReview
+                  {...props}
+                  busy={busy}
+                  fileHref={fileHref}
+                  onReview={(code, decision, note) =>
+                    decide(
+                      code,
+                      { status: decision, ...(note ? { note } : {}) },
+                      { action: 'review_document', code, decision, ...(note ? { note } : {}) },
+                    )
+                  }
+                  onReviewCheque={(key, decision, note) =>
+                    act({
+                      action: 'review_cheque',
+                      key,
+                      decision,
+                      ...(note ? { note } : {}),
+                    })
+                  }
+                  onAddRequirements={(requirements) =>
+                    void act({ action: 'add_requirements', requirements })
+                  }
+                />
               </div>
             ) : null}
 
@@ -2220,22 +2182,14 @@ function CompletedStage(
     );
   } else if (index === 3) {
     body = (
-      <>
-        <RequirementsReview
-          {...props}
-          canManage={false}
-          busy
-          fileHref={props.fileHref}
-          onReview={async () => undefined}
-        />
-        <ChequesReview
-          {...props}
-          canManage={false}
-          busy
-          fileHref={props.fileHref}
-          onReview={async () => undefined}
-        />
-      </>
+      <RequirementsReview
+        {...props}
+        canManage={false}
+        busy
+        fileHref={props.fileHref}
+        onReview={async () => undefined}
+        onReviewCheque={async () => undefined}
+      />
     );
   } else if (lifecycle.handover) {
     body = <HandoverFacts handover={lifecycle.handover} ar={ar} />;
@@ -2406,337 +2360,6 @@ function chequeFactsBlock(
   );
 }
 
-function ChequesReview({
-  lifecycle,
-  locale,
-  busy,
-  canManage,
-  fileHref,
-  onReview,
-}: Props & {
-  busy: boolean;
-  fileHref: (file: string) => string;
-  onReview: (key: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
-}) {
-  const ar = locale === 'ar';
-  const preview = useContext(PreviewContext);
-  const [rejecting, setRejecting] = useState<string | null>(null);
-  const [note, setNote] = useState('');
-  const [reviewKey, setReviewKey] = useState<string | null>(null);
-  const instructions = lifecycle.chequeInstructions ?? [];
-  if (!instructions.length) return null;
-  const byKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
-  const submitted = instructions.filter((item) => {
-    const row = byKey.get(item.key);
-    return row?.status === 'submitted' && row.file;
-  });
-  const reviewItem =
-    (reviewKey && instructions.find((item) => item.key === reviewKey)) || submitted[0] || null;
-  const reviewSubmitted = reviewItem ? byKey.get(reviewItem.key) : undefined;
-  const reviewIndex = reviewItem ? submitted.findIndex((item) => item.key === reviewItem.key) : -1;
-
-  function openReview(key: string) {
-    const item = instructions.find((row) => row.key === key);
-    const row = byKey.get(key);
-    if (!item || !row?.file) return;
-    setReviewKey(key);
-    setRejecting(null);
-    setNote('');
-    const href = fileHref(`cheque-${key}`);
-    const label = ar ? item.labelAr : item.labelEn;
-    preview({
-      href,
-      label,
-      details: chequeFactsBlock(item, row, ar, locale),
-      actions:
-        canManage && row.status === 'submitted' ? (
-          <>
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={busy}
-              onClick={() => void decideCurrent('approved', undefined, key)}
-            >
-              {ar ? 'اعتماد الشيك' : 'Approve cheque'}
-            </button>
-            <button
-              type="button"
-              className="button button--quiet"
-              disabled={busy}
-              onClick={() => {
-                setRejecting(key);
-                setNote('');
-              }}
-            >
-              {ar ? 'رفض' : 'Reject'}
-            </button>
-          </>
-        ) : undefined,
-    });
-  }
-
-  async function decideCurrent(
-    decision: 'approved' | 'rejected',
-    rejectNote?: string,
-    keyOverride?: string,
-  ) {
-    const key = keyOverride ?? reviewItem?.key;
-    if (!key) return;
-    await onReview(key, decision, rejectNote);
-    const remaining = submitted.filter((item) => item.key !== key);
-    if (remaining[0]) {
-      openReview(remaining[0].key);
-    } else {
-      setReviewKey(null);
-      setRejecting(null);
-      setNote('');
-    }
-  }
-
-  return (
-    <div className="lrw__docs lrw__docs--panel">
-      <header className="lrw__docs-head">
-        <h4>{ar ? 'الشيكات من العميل' : 'Cheques from the client'}</h4>
-        <span className="lrw__docs-count">
-          {instructions.filter((item) => byKey.get(item.key)?.status === 'approved').length}/
-          {instructions.length}
-        </span>
-      </header>
-      {lifecycle.chequePayableTo ? (
-        <p className="muted lrw__docs-payee">
-          {ar ? 'تُكتب باسم: ' : 'Payable to: '}
-          <strong>{lifecycle.chequePayableTo}</strong>
-          {lifecycle.chequeBankName ? ` · ${lifecycle.chequeBankName}` : ''}
-        </p>
-      ) : null}
-
-      {canManage && submitted.length ? (
-        <div className="lrw__review-bar">
-          <p>
-            {ar
-              ? `${submitted.length} شيك بانتظار مراجعتك — راجع الرقم والمبلغ والتاريخ والحساب ثم اعتمد.`
-              : `${submitted.length} cheque(s) awaiting review — verify number, amount, date and account, then approve.`}
-          </p>
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={busy}
-            onClick={() => openReview(submitted[0]!.key)}
-          >
-            {ar ? 'بدء مراجعة الشيكات واحداً تلو الآخر' : 'Review cheques one by one'}
-          </button>
-        </div>
-      ) : null}
-
-      {reviewItem && reviewSubmitted?.status === 'submitted' && canManage ? (
-        <div className="lrw__review-card">
-          <div className="lrw__review-card-head">
-            <strong>{ar ? reviewItem.labelAr : reviewItem.labelEn}</strong>
-            <span className="muted">
-              {reviewIndex >= 0
-                ? ar
-                  ? `${reviewIndex + 1} من ${submitted.length}`
-                  : `${reviewIndex + 1} of ${submitted.length}`
-                : null}
-            </span>
-          </div>
-          {chequeFactsBlock(reviewItem, reviewSubmitted, ar, locale)}
-          <div className="lrw__doc-actions">
-            <DocFileThumb
-              href={fileHref(`cheque-${reviewItem.key}`)}
-              label={ar ? reviewItem.labelAr : reviewItem.labelEn}
-              onOpen={() => openReview(reviewItem.key)}
-            />
-            <button
-              type="button"
-              className="button button--quiet"
-              onClick={() => openReview(reviewItem.key)}
-            >
-              {ar ? 'عرض الملف' : 'View file'}
-            </button>
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={busy}
-              onClick={() => void decideCurrent('approved')}
-            >
-              {ar ? 'اعتماد الشيك' : 'Approve cheque'}
-            </button>
-            <button
-              type="button"
-              className="button button--quiet"
-              disabled={busy}
-              onClick={() => {
-                setRejecting(reviewItem.key);
-                setNote('');
-              }}
-            >
-              {ar ? 'رفض مع ملاحظة' : 'Reject with note'}
-            </button>
-            {submitted.length > 1 ? (
-              <>
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  disabled={busy || reviewIndex <= 0}
-                  onClick={() => {
-                    const prev = submitted[reviewIndex - 1];
-                    if (prev) openReview(prev.key);
-                  }}
-                >
-                  {ar ? 'السابق' : 'Previous'}
-                </button>
-                <button
-                  type="button"
-                  className="button button--quiet"
-                  disabled={busy || reviewIndex < 0 || reviewIndex >= submitted.length - 1}
-                  onClick={() => {
-                    const next = submitted[reviewIndex + 1];
-                    if (next) openReview(next.key);
-                  }}
-                >
-                  {ar ? 'التالي' : 'Next'}
-                </button>
-              </>
-            ) : null}
-          </div>
-          {rejecting === reviewItem.key ? (
-            <form
-              className="lrw__reject"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!note.trim()) return;
-                void decideCurrent('rejected', note.trim());
-              }}
-            >
-              <label htmlFor={`reject-cheque-focus-${reviewItem.key}`}>
-                {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
-              </label>
-              <textarea
-                id={`reject-cheque-focus-${reviewItem.key}`}
-                className="textarea"
-                rows={2}
-                required
-                maxLength={BOOKING_NOTE_MAX}
-                value={note}
-                onChange={(event) => setNote(event.target.value)}
-              />
-              <NoteTranslateBar
-                value={note}
-                onChange={setNote}
-                locale={locale}
-                max={BOOKING_NOTE_MAX}
-                disabled={busy}
-                service={OWNER_NOTE_SERVICE}
-              />
-              <button type="submit" className="button button--primary" disabled={busy}>
-                {ar ? 'تأكيد الرفض' : 'Confirm rejection'}
-              </button>
-            </form>
-          ) : null}
-        </div>
-      ) : null}
-
-      <ul className="lrw__docs-checklist">
-        {instructions.map((item) => {
-          const row = byKey.get(item.key);
-          const status = row?.status ?? 'pending';
-          const href = row?.file ? fileHref(`cheque-${item.key}`) : null;
-          return (
-            <li key={item.key} className={`lrw__doc lrw__doc--${status}`}>
-              <DocStatusMark status={status} ar={ar} viewer="owner" />
-              {href ? (
-                <DocFileThumb
-                  href={href}
-                  label={ar ? item.labelAr : item.labelEn}
-                  onOpen={() => openReview(item.key)}
-                />
-              ) : null}
-              <div className="lrw__doc-main">
-                <strong>{ar ? item.labelAr : item.labelEn}</strong>
-                <span className="lrw__doc-status">{docStatusLabel(status, ar, 'owner')}</span>
-                {chequeFactsBlock(item, row, ar, locale)}
-                {row?.note && status === 'rejected' ? (
-                  <small className="muted">{row.note}</small>
-                ) : null}
-              </div>
-              <div className="lrw__doc-actions">
-                {href ? (
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    onClick={() => openReview(item.key)}
-                  >
-                    {ar ? 'عرض الملف' : 'View file'}
-                  </button>
-                ) : null}
-                {canManage && status === 'submitted' && row?.file ? (
-                  <>
-                    <button
-                      type="button"
-                      className="button button--primary"
-                      disabled={busy}
-                      onClick={() => void onReview(item.key, 'approved')}
-                    >
-                      {ar ? 'اعتماد' : 'Approve'}
-                    </button>
-                    <button
-                      type="button"
-                      className="button button--quiet"
-                      disabled={busy}
-                      onClick={() => {
-                        setReviewKey(item.key);
-                        setRejecting(item.key);
-                        setNote('');
-                      }}
-                    >
-                      {ar ? 'رفض' : 'Reject'}
-                    </button>
-                  </>
-                ) : null}
-              </div>
-              {rejecting === item.key && reviewKey !== item.key ? (
-                <form
-                  className="lrw__reject"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!note.trim()) return;
-                    void onReview(item.key, 'rejected', note.trim()).then(() => setRejecting(null));
-                  }}
-                >
-                  <label htmlFor={`reject-cheque-${item.key}`}>
-                    {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
-                  </label>
-                  <textarea
-                    id={`reject-cheque-${item.key}`}
-                    className="textarea"
-                    rows={2}
-                    required
-                    maxLength={BOOKING_NOTE_MAX}
-                    value={note}
-                    onChange={(event) => setNote(event.target.value)}
-                  />
-                  <NoteTranslateBar
-                    value={note}
-                    onChange={setNote}
-                    locale={locale}
-                    max={BOOKING_NOTE_MAX}
-                    disabled={busy}
-                    service={OWNER_NOTE_SERVICE}
-                  />
-                  <button type="submit" className="button button--primary" disabled={busy}>
-                    {ar ? 'تأكيد الرفض' : 'Confirm rejection'}
-                  </button>
-                </form>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
-  );
-}
-
 type ReviewQueueItem = { kind: 'doc'; code: string } | { kind: 'cheque'; key: string };
 
 function RequirementsReview({
@@ -2782,7 +2405,13 @@ function RequirementsReview({
       ? submittedCheques.map((item) => ({ kind: 'cheque' as const, key: item.key }))
       : []),
   ];
-  const approvedCount = requirements.filter((item) => item.status === 'approved').length;
+  const includeCheques = Boolean(onReviewCheque) && hasCheques;
+  const approvedDocs = requirements.filter((item) => item.status === 'approved').length;
+  const approvedCheques = includeCheques
+    ? chequeInstructions.filter((item) => chequeByKey.get(item.key)?.status === 'approved').length
+    : 0;
+  const approvedCount = approvedDocs + approvedCheques;
+  const totalCount = requirements.length + (includeCheques ? chequeInstructions.length : 0);
   const existingCodes = new Set(requirements.map((item) => item.code));
   const catalogue = REQUIREMENT_CATALOGUE.filter(
     (item) => (sale ? item.sale : item.rent) && !existingCodes.has(item.code),
@@ -2798,6 +2427,7 @@ function RequirementsReview({
     : reviewItem
       ? queue.findIndex((item) => item.kind === 'doc' && item.code === reviewItem.code)
       : -1;
+  const focusedReview = Boolean(reviewItem || reviewChequeItem);
   function openQueueItem(item: ReviewQueueItem) {
     if (item.kind === 'doc') openReview(item.code);
     else openChequeReview(item.key);
@@ -2950,20 +2580,50 @@ function RequirementsReview({
     );
   }
 
-  const awaitingOpen = requirements.filter((item) => item.status === 'submitted').length;
-  const needsReplace = requirements.filter((item) => item.status === 'rejected').length;
-  const notUploaded = requirements.filter((item) => item.status === 'pending').length;
+  const awaitingOpen =
+    requirements.filter((item) => item.status === 'submitted').length +
+    (includeCheques
+      ? chequeInstructions.filter((item) => chequeByKey.get(item.key)?.status === 'submitted')
+          .length
+      : 0);
+  const needsReplace =
+    requirements.filter((item) => item.status === 'rejected').length +
+    (includeCheques
+      ? chequeInstructions.filter((item) => chequeByKey.get(item.key)?.status === 'rejected')
+          .length
+      : 0);
+  const notUploaded =
+    requirements.filter((item) => item.status === 'pending').length +
+    (includeCheques
+      ? chequeInstructions.filter((item) => !chequeByKey.get(item.key)?.file).length
+      : 0);
 
   return (
-    <div className="lrw__docs lrw__docs--panel">
+    <div className={`lrw__docs lrw__docs--panel${includeCheques ? ' lrw__docs--package' : ''}`}>
       <header className="lrw__docs-head">
-        <h4>{ar ? 'المستندات المطلوبة' : 'Required documents'}</h4>
+        <h4>
+          {includeCheques
+            ? ar
+              ? 'حزمة المستندات والشيكات'
+              : 'Documents & cheques package'
+            : ar
+              ? 'المستندات المطلوبة'
+              : 'Required documents'}
+        </h4>
         <span className="lrw__docs-count">
-          {approvedCount}/{requirements.length || 0}
+          {approvedCount}/{totalCount || 0}
         </span>
       </header>
 
-      {requirements.length ? (
+      {includeCheques && lifecycle.chequePayableTo ? (
+        <p className="muted lrw__docs-payee">
+          {ar ? 'تُكتب الشيكات باسم: ' : 'Cheques payable to: '}
+          <strong>{lifecycle.chequePayableTo}</strong>
+          {lifecycle.chequeBankName ? ` · ${lifecycle.chequeBankName}` : ''}
+        </p>
+      ) : null}
+
+      {totalCount ? (
         <ul className="doc-status-legend" aria-label={ar ? 'مفتاح الحالات' : 'Status key'}>
           <li>
             <DocStatusMark status="approved" ar={ar} viewer="owner" />
@@ -2981,10 +2641,6 @@ function RequirementsReview({
             <DocStatusMark status="rejected" ar={ar} viewer="owner" />
             <span>{ar ? 'مطلوب الاستبدال' : 'Replace'}</span>
           </li>
-          <li>
-            <DocStatusMark status="rejected" ar={ar} viewer="owner" hardReject />
-            <span>{ar ? 'مرفوضة' : 'Rejected'}</span>
-          </li>
         </ul>
       ) : null}
 
@@ -2992,28 +2648,34 @@ function RequirementsReview({
         <p className="lrw__docs-remaining muted" role="status">
           {ar
             ? [
-                awaitingOpen ? `${awaitingOpen} بانتظار فتحك` : null,
+                awaitingOpen ? `${awaitingOpen} بانتظار مراجعتك` : null,
                 notUploaded ? `${notUploaded} لم تُرفع` : null,
                 needsReplace ? `${needsReplace} مطلوب استبدالها` : null,
               ]
                 .filter(Boolean)
                 .join(' · ')
             : [
-                awaitingOpen ? `${awaitingOpen} to open` : null,
+                awaitingOpen ? `${awaitingOpen} awaiting your review` : null,
                 notUploaded ? `${notUploaded} not uploaded` : null,
                 needsReplace ? `${needsReplace} need replacement` : null,
               ]
                 .filter(Boolean)
                 .join(' · ')}
         </p>
+      ) : totalCount ? (
+        <p className="notice notice--success" role="status">
+          {ar
+            ? 'اكتملت مراجعة الحزمة. يمكنك المتابعة إلى التسليم عند جهوزيته.'
+            : 'Package review is complete. You can continue to handover when ready.'}
+        </p>
       ) : null}
 
-      {canManage && queue.length ? (
+      {canManage && queue.length && !focusedReview ? (
         <div className="lrw__review-bar">
           <p>
             {ar
-              ? `${queue.length} مرفق بانتظار مراجعتك (مستندات وشيكات) — مرّ عليها واحداً تلو الآخر واعتمد أو ارفض.`
-              : `${queue.length} attachment(s) awaiting review (documents & cheques) — go one by one and approve or reject.`}
+              ? `${queue.length} مرفق بانتظارك — ابدأ المراجعة بالترتيب (مستندات ثم شيكات) واعتمد أو ارفض مع ملاحظة.`
+              : `${queue.length} attachment(s) waiting — review in order (documents then cheques) and approve or reject with a note.`}
           </p>
           <button
             type="button"
@@ -3021,7 +2683,7 @@ function RequirementsReview({
             disabled={busy}
             onClick={() => openQueueItem(queue[0]!)}
           >
-            {ar ? 'بدء المراجعة واحداً تلو الآخر' : 'Review one by one'}
+            {ar ? 'بدء المراجعة بالترتيب' : 'Start ordered review'}
           </button>
         </div>
       ) : null}
@@ -3183,125 +2845,165 @@ function RequirementsReview({
         </div>
       ) : null}
 
-      {requirements.length ? (
-        <ul className="lrw__docs-checklist">
-          {requirements.map((item) => (
-            <li key={item.code} className={`lrw__doc lrw__doc--${item.status}`}>
-              <DocStatusMark status={item.status} ar={ar} viewer="owner" />
-              {item.file ? (
-                <DocFileThumb
-                  href={fileHref(`doc-${item.code}`)}
-                  label={ar ? item.labelAr : item.labelEn || item.labelAr}
-                  onOpen={() => openReview(item.code)}
-                />
+      {requirements.length || includeCheques ? (
+        <div className="lrw__docs-lists">
+          {requirements.length ? (
+            <>
+              {includeCheques ? (
+                <h5 className="lrw__docs-group">
+                  {ar
+                    ? `مستندات (${approvedDocs}/${requirements.length})`
+                    : `Documents (${approvedDocs}/${requirements.length})`}
+                </h5>
               ) : null}
-              <div className="lrw__doc-main">
-                <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-                <span className="lrw__doc-status">
-                  {item.status === 'approved' && item.autoApproved
-                    ? requirementStatusText(item, ar)
-                    : docStatusLabel(item.status, ar, 'owner')}
-                </span>
-                {item.note && item.status === 'rejected' ? (
-                  <small className="muted">
-                    {ar ? 'ملاحظة للعميل: ' : 'Note to client: '}
-                    {item.note}
-                  </small>
-                ) : null}
-                {item.file?.name ? (
-                  <small className="muted" dir="auto">
-                    {item.file.name}
-                  </small>
-                ) : null}
-              </div>
-              <div className="lrw__doc-actions">
-                {item.file ? (
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    onClick={() => openReview(item.code)}
-                  >
-                    {ar ? 'عرض' : 'View'}
-                  </button>
-                ) : null}
-                {canManage && item.status === 'submitted' ? (
-                  <>
-                    <button
-                      type="button"
-                      className="button button--primary"
-                      disabled={busy}
-                      onClick={() => void onReview(item.code, 'approved')}
+              <ul className="lrw__docs-checklist">
+                {requirements.map((item) => {
+                  const isFocus = reviewCode === item.code;
+                  return (
+                    <li
+                      key={item.code}
+                      className={`lrw__doc lrw__doc--${item.status}${isFocus ? ' lrw__doc--focus' : ''}`}
                     >
-                      {ar ? 'قبول' : 'Accept'}
-                    </button>
-                    <button
-                      type="button"
-                      className="button button--quiet"
-                      disabled={busy}
-                      onClick={() => {
-                        setReviewCode(item.code);
-                        setRejecting(item.code);
-                        setNote('');
-                        if (item.file) {
-                          preview({
-                            href: fileHref(`doc-${item.code}`),
-                            label: ar ? item.labelAr : item.labelEn || item.labelAr,
-                          });
-                        }
-                      }}
+                      <DocStatusMark status={item.status} ar={ar} viewer="owner" />
+                      {item.file ? (
+                        <DocFileThumb
+                          href={fileHref(`doc-${item.code}`)}
+                          label={ar ? item.labelAr : item.labelEn || item.labelAr}
+                          onOpen={() => openReview(item.code)}
+                        />
+                      ) : null}
+                      <div className="lrw__doc-main">
+                        <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
+                        <span className="lrw__doc-status">
+                          {item.status === 'approved' && item.autoApproved
+                            ? requirementStatusText(item, ar)
+                            : docStatusLabel(item.status, ar, 'owner')}
+                        </span>
+                        {item.note && item.status === 'rejected' ? (
+                          <small className="muted">
+                            {ar ? 'ملاحظة للعميل: ' : 'Note to client: '}
+                            {item.note}
+                          </small>
+                        ) : null}
+                      </div>
+                      <div className="lrw__doc-actions">
+                        {item.file ? (
+                          <button
+                            type="button"
+                            className="button button--quiet"
+                            onClick={() => openReview(item.code)}
+                          >
+                            {ar ? 'عرض' : 'View'}
+                          </button>
+                        ) : null}
+                        {canManage && item.status === 'submitted' && !focusedReview ? (
+                          <>
+                            <button
+                              type="button"
+                              className="button button--primary"
+                              disabled={busy}
+                              onClick={() => void onReview(item.code, 'approved')}
+                            >
+                              {ar ? 'قبول' : 'Accept'}
+                            </button>
+                            <button
+                              type="button"
+                              className="button button--quiet"
+                              disabled={busy}
+                              onClick={() => {
+                                openReview(item.code);
+                                setRejecting(item.code);
+                              }}
+                            >
+                              {ar ? 'رفض' : 'Reject'}
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : null}
+
+          {includeCheques ? (
+            <>
+              <h5 className="lrw__docs-group">
+                {ar
+                  ? `شيكات (${approvedCheques}/${chequeInstructions.length})`
+                  : `Cheques (${approvedCheques}/${chequeInstructions.length})`}
+              </h5>
+              <ul className="lrw__docs-checklist">
+                {chequeInstructions.map((item) => {
+                  const row = chequeByKey.get(item.key);
+                  const status = row?.status ?? 'pending';
+                  const href = row?.file ? fileHref(`cheque-${item.key}`) : null;
+                  const isFocus = reviewChequeKey === item.key;
+                  return (
+                    <li
+                      key={item.key}
+                      className={`lrw__doc lrw__doc--${status}${isFocus ? ' lrw__doc--focus' : ''}`}
                     >
-                      {ar ? 'رفض' : 'Reject'}
-                    </button>
-                  </>
-                ) : null}
-              </div>
-              {rejecting === item.code && reviewCode !== item.code ? (
-                <form
-                  className="lrw__reject"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    if (!note.trim()) return;
-                    void onReview(item.code, 'rejected', note.trim()).then(() => {
-                      setRejecting(null);
-                      setNote('');
-                    });
-                  }}
-                >
-                  <label htmlFor={`reject-${item.code}`}>
-                    {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
-                  </label>
-                  <textarea
-                    id={`reject-${item.code}`}
-                    className="textarea"
-                    rows={2}
-                    value={note}
-                    maxLength={BOOKING_NOTE_MAX}
-                    required
-                    onChange={(event) => setNote(event.target.value)}
-                  />
-                  <NoteTranslateBar
-                    value={note}
-                    onChange={setNote}
-                    locale={locale}
-                    max={BOOKING_NOTE_MAX}
-                    disabled={busy}
-                    service={OWNER_NOTE_SERVICE}
-                  />
-                  <button type="submit" className="button button--primary" disabled={busy}>
-                    {ar ? 'إرسال الرفض' : 'Send rejection'}
-                  </button>
-                  <button
-                    type="button"
-                    className="button button--quiet"
-                    onClick={() => setRejecting(null)}
-                  >
-                    {ar ? 'إلغاء' : 'Cancel'}
-                  </button>
-                </form>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+                      <DocStatusMark status={status} ar={ar} viewer="owner" />
+                      {href ? (
+                        <DocFileThumb
+                          href={href}
+                          label={ar ? item.labelAr : item.labelEn}
+                          onOpen={() => openChequeReview(item.key)}
+                        />
+                      ) : null}
+                      <div className="lrw__doc-main">
+                        <strong>{ar ? item.labelAr : item.labelEn}</strong>
+                        <span className="lrw__doc-status">
+                          {docStatusLabel(status, ar, 'owner')}
+                        </span>
+                        {chequeFactsBlock(item, row, ar, locale)}
+                        {row?.note && status === 'rejected' ? (
+                          <small className="muted">{row.note}</small>
+                        ) : null}
+                      </div>
+                      <div className="lrw__doc-actions">
+                        {href ? (
+                          <button
+                            type="button"
+                            className="button button--quiet"
+                            onClick={() => openChequeReview(item.key)}
+                          >
+                            {ar ? 'عرض' : 'View'}
+                          </button>
+                        ) : null}
+                        {canManage && status === 'submitted' && row?.file && !focusedReview ? (
+                          <>
+                            <button
+                              type="button"
+                              className="button button--primary"
+                              disabled={busy}
+                              onClick={() => void onReviewCheque?.(item.key, 'approved')}
+                            >
+                              {ar ? 'اعتماد' : 'Approve'}
+                            </button>
+                            <button
+                              type="button"
+                              className="button button--quiet"
+                              disabled={busy}
+                              onClick={() => {
+                                openChequeReview(item.key);
+                                setRejecting(item.key);
+                              }}
+                            >
+                              {ar ? 'رفض' : 'Reject'}
+                            </button>
+                          </>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          ) : null}
+        </div>
       ) : (
         <p className="muted">
           {ar
