@@ -54,10 +54,24 @@ export default async function LeaseBookingConfirmedPage({
     redirect(`/${locale}/login?next=${encodeURIComponent(leaseConfirmedPath(locale, ref))}`);
   }
 
-  const booking = await loadLeaseBookingForViewer(viewer.id, ref).catch(() => null);
+  let booking = await loadLeaseBookingForViewer(viewer.id, ref).catch(() => null);
   if (!booking) notFound();
   if (!booking.depositPaidAt && booking.status === 'pending') {
     redirect(leasePaymentPath(locale, booking.sessionReference, booking.referenceCode));
+  }
+  // Seed missing rent PDCs / docs after sign when auto-issue used a no-bank transfer fallback.
+  if (
+    booking.lifecycle.tenantSignedAt &&
+    booking.reservationId &&
+    (booking.phase === 'awaiting_documents' ||
+      booking.phase === 'awaiting_handover' ||
+      booking.phase === 'awaiting_documents_review')
+  ) {
+    const { runReservationAutomation } = await import(
+      '@/lib/lease-reservation-lifecycle-neon'
+    );
+    await runReservationAutomation(booking.reservationId, viewer.id).catch(() => null);
+    booking = (await loadLeaseBookingForViewer(viewer.id, ref).catch(() => null)) ?? booking;
   }
 
   const paid = Boolean(booking.depositPaidAt);
