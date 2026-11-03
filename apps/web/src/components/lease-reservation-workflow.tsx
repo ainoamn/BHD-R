@@ -2362,6 +2362,70 @@ function chequeFactsBlock(
 
 type ReviewQueueItem = { kind: 'doc'; code: string } | { kind: 'cheque'; key: string };
 
+function OwnerAttachmentActions({
+  ar,
+  busy,
+  kind,
+  queueIndex,
+  queueLength,
+  onView,
+  onApprove,
+  onReject,
+  onPrev,
+  onNext,
+}: {
+  ar: boolean;
+  busy: boolean;
+  kind: 'document' | 'cheque';
+  queueIndex: number;
+  queueLength: number;
+  onView: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  return (
+    <>
+      <button type="button" className="button button--quiet" onClick={onView}>
+        {ar ? 'عرض الملف' : 'View file'}
+      </button>
+      <button type="button" className="button button--primary" disabled={busy} onClick={onApprove}>
+        {kind === 'cheque'
+          ? ar
+            ? 'اعتماد الشيك'
+            : 'Approve cheque'
+          : ar
+            ? 'اعتماد المستند'
+            : 'Approve document'}
+      </button>
+      <button type="button" className="button button--quiet" disabled={busy} onClick={onReject}>
+        {ar ? 'رفض مع ملاحظة' : 'Reject with note'}
+      </button>
+      {queueLength > 1 ? (
+        <>
+          <button
+            type="button"
+            className="button button--quiet"
+            disabled={busy || queueIndex <= 0}
+            onClick={onPrev}
+          >
+            {ar ? 'السابق' : 'Previous'}
+          </button>
+          <button
+            type="button"
+            className="button button--quiet"
+            disabled={busy || queueIndex < 0 || queueIndex >= queueLength - 1}
+            onClick={onNext}
+          >
+            {ar ? 'التالي' : 'Next'}
+          </button>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 function RequirementsReview({
   lifecycle,
   locale,
@@ -2670,26 +2734,28 @@ function RequirementsReview({
         </p>
       ) : null}
 
-      {canManage && queue.length && !focusedReview ? (
+      {canManage && queue.length ? (
         <div className="lrw__review-bar">
           <p>
             {ar
-              ? `${queue.length} مرفق بانتظارك — ابدأ المراجعة بالترتيب (مستندات ثم شيكات) واعتمد أو ارفض مع ملاحظة.`
-              : `${queue.length} attachment(s) waiting — review in order (documents then cheques) and approve or reject with a note.`}
+              ? `${queue.length} مرفق بانتظارك — راجع من البطاقة أعلاه أو من كل صف (عرض / اعتماد / رفض)، وتنقّل بالسابق والتالي.`
+              : `${queue.length} attachment(s) waiting — review from the card above or each row (view / approve / reject), and move with previous/next.`}
           </p>
-          <button
-            type="button"
-            className="button button--primary"
-            disabled={busy}
-            onClick={() => openQueueItem(queue[0]!)}
-          >
-            {ar ? 'بدء المراجعة بالترتيب' : 'Start ordered review'}
-          </button>
+          {!focusedReview ? (
+            <button
+              type="button"
+              className="button button--primary"
+              disabled={busy}
+              onClick={() => openQueueItem(queue[0]!)}
+            >
+              {ar ? 'بدء المراجعة بالترتيب' : 'Start ordered review'}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
       {(reviewItem || reviewChequeItem) && canManage ? (
-        <div className="lrw__review-card">
+        <div className="lrw__review-card lrw__review-card--sticky" id="lrw-review-focus">
           <div className="lrw__review-card-head">
             <strong>
               {reviewChequeItem
@@ -2887,37 +2953,49 @@ function RequirementsReview({
                         ) : null}
                       </div>
                       <div className="lrw__doc-actions">
-                        {item.file ? (
+                        {canManage && item.status === 'submitted' ? (
+                          <OwnerAttachmentActions
+                            ar={ar}
+                            busy={busy}
+                            kind="document"
+                            queueIndex={queue.findIndex(
+                              (q) => q.kind === 'doc' && q.code === item.code,
+                            )}
+                            queueLength={queue.length}
+                            onView={() => openReview(item.code)}
+                            onApprove={() =>
+                              void decideCurrent('approved', undefined, {
+                                kind: 'doc',
+                                code: item.code,
+                              })
+                            }
+                            onReject={() => {
+                              openReview(item.code);
+                              setRejecting(item.code);
+                            }}
+                            onPrev={() => {
+                              const index = queue.findIndex(
+                                (q) => q.kind === 'doc' && q.code === item.code,
+                              );
+                              const prev = queue[index - 1];
+                              if (prev) openQueueItem(prev);
+                            }}
+                            onNext={() => {
+                              const index = queue.findIndex(
+                                (q) => q.kind === 'doc' && q.code === item.code,
+                              );
+                              const next = queue[index + 1];
+                              if (next) openQueueItem(next);
+                            }}
+                          />
+                        ) : item.file ? (
                           <button
                             type="button"
                             className="button button--quiet"
                             onClick={() => openReview(item.code)}
                           >
-                            {ar ? 'عرض' : 'View'}
+                            {ar ? 'عرض الملف' : 'View file'}
                           </button>
-                        ) : null}
-                        {canManage && item.status === 'submitted' && !focusedReview ? (
-                          <>
-                            <button
-                              type="button"
-                              className="button button--primary"
-                              disabled={busy}
-                              onClick={() => void onReview(item.code, 'approved')}
-                            >
-                              {ar ? 'قبول' : 'Accept'}
-                            </button>
-                            <button
-                              type="button"
-                              className="button button--quiet"
-                              disabled={busy}
-                              onClick={() => {
-                                openReview(item.code);
-                                setRejecting(item.code);
-                              }}
-                            >
-                              {ar ? 'رفض' : 'Reject'}
-                            </button>
-                          </>
                         ) : null}
                       </div>
                     </li>
@@ -2964,37 +3042,49 @@ function RequirementsReview({
                         ) : null}
                       </div>
                       <div className="lrw__doc-actions">
-                        {href ? (
+                        {canManage && status === 'submitted' && row?.file ? (
+                          <OwnerAttachmentActions
+                            ar={ar}
+                            busy={busy}
+                            kind="cheque"
+                            queueIndex={queue.findIndex(
+                              (q) => q.kind === 'cheque' && q.key === item.key,
+                            )}
+                            queueLength={queue.length}
+                            onView={() => openChequeReview(item.key)}
+                            onApprove={() =>
+                              void decideCurrent('approved', undefined, {
+                                kind: 'cheque',
+                                key: item.key,
+                              })
+                            }
+                            onReject={() => {
+                              openChequeReview(item.key);
+                              setRejecting(item.key);
+                            }}
+                            onPrev={() => {
+                              const index = queue.findIndex(
+                                (q) => q.kind === 'cheque' && q.key === item.key,
+                              );
+                              const prev = queue[index - 1];
+                              if (prev) openQueueItem(prev);
+                            }}
+                            onNext={() => {
+                              const index = queue.findIndex(
+                                (q) => q.kind === 'cheque' && q.key === item.key,
+                              );
+                              const next = queue[index + 1];
+                              if (next) openQueueItem(next);
+                            }}
+                          />
+                        ) : href ? (
                           <button
                             type="button"
                             className="button button--quiet"
                             onClick={() => openChequeReview(item.key)}
                           >
-                            {ar ? 'عرض' : 'View'}
+                            {ar ? 'عرض الملف' : 'View file'}
                           </button>
-                        ) : null}
-                        {canManage && status === 'submitted' && row?.file && !focusedReview ? (
-                          <>
-                            <button
-                              type="button"
-                              className="button button--primary"
-                              disabled={busy}
-                              onClick={() => void onReviewCheque?.(item.key, 'approved')}
-                            >
-                              {ar ? 'اعتماد' : 'Approve'}
-                            </button>
-                            <button
-                              type="button"
-                              className="button button--quiet"
-                              disabled={busy}
-                              onClick={() => {
-                                openChequeReview(item.key);
-                                setRejecting(item.key);
-                              }}
-                            >
-                              {ar ? 'رفض' : 'Reject'}
-                            </button>
-                          </>
                         ) : null}
                       </div>
                     </li>

@@ -22957,6 +22957,12 @@ body:has(.stay-esign-shell) {
   border: 1px solid #0d5c45;
   background: linear-gradient(180deg, #f3faf6, #fff 70%);
 }
+.lrw__review-card--sticky {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 3;
+  box-shadow: 0 8px 24px rgba(13, 92, 69, 0.12);
+}
 .lrw__review-card-head {
   display: flex;
   flex-wrap: wrap;
