@@ -20,6 +20,10 @@ export const DEFAULT_MIN_LEASE_MONTHS = 12;
 export const MAX_LEASE_MONTHS = 120;
 /** A commercial registration must stay valid at least this long after booking. */
 export const CR_MIN_VALID_MONTHS = 2;
+/** Rent bookings: civil ID must remain valid at least this many days (hard block below). */
+export const CIVIL_ID_MIN_REMAINING_DAYS = 30;
+/** Rent bookings: soft warning when civil ID validity drops below this many days. */
+export const CIVIL_ID_WARN_REMAINING_DAYS = 90;
 
 const docAttachSchema = z
   .object({
@@ -90,6 +94,7 @@ export type ReservationParty = {
 export type ReservationPartyError =
   | 'tenant_details_invalid'
   | 'passport_required'
+  | 'civil_id_expiring_soon'
   | 'cr_expired'
   | 'cr_expiring_soon'
   | 'term_too_short'
@@ -178,6 +183,56 @@ function addMonthsIso(iso: string, months: number): string {
   return date.toISOString().slice(0, 10);
 }
 
+export function addDaysIso(iso: string, days: number): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+/** Earliest civil ID expiry date allowed for a new rent booking (today + 30 days). */
+export function civilIdMinExpiryOn(today: string): string {
+  return addDaysIso(today, CIVIL_ID_MIN_REMAINING_DAYS);
+}
+
+/** Soft-warn threshold date for rent civil ID expiry (today + 90 days). */
+export function civilIdWarnExpiryBefore(today: string): string {
+  return addDaysIso(today, CIVIL_ID_WARN_REMAINING_DAYS);
+}
+
+/**
+ * Hard block for rent: missing dates are handled as documents_incomplete;
+ * expired or under 30 days remaining cannot start a lease.
+ */
+export function civilIdExpiryBlocksRent(
+  expiresOn: string | null | undefined,
+  today: string,
+): boolean {
+  if (!expiresOn) return false;
+  return expiresOn < civilIdMinExpiryOn(today);
+}
+
+/** Soft warning for rent when 30–89 days of civil ID validity remain. */
+export function civilIdExpiryWarnsRent(
+  expiresOn: string | null | undefined,
+  today: string,
+): boolean {
+  if (!expiresOn || civilIdExpiryBlocksRent(expiresOn, today)) return false;
+  return expiresOn < civilIdWarnExpiryBefore(today);
+}
+
+export function civilIdExpiryWarningText(ar: boolean): string {
+  return ar
+    ? 'بطاقة المستأجر تنتهي خلال أقل من 90 يوماً — جدّدها لتأكيد استمرار الخدمات بعد التعاقد.'
+    : 'The tenant ID expires in less than 90 days — renew it to keep services continuous after contracting.';
+}
+
+function rentCivilIdError(
+  expiresOn: string | null | undefined,
+  today: string,
+): ReservationPartyError | null {
+  return civilIdExpiryBlocksRent(expiresOn, today) ? 'civil_id_expiring_soon' : null;
+}
+
 /**
  * Business rules on top of the shape: passport for non-Omanis, CR validity, signatories,
  * email OTP verification, and identity document copies with expiry dates.
@@ -200,6 +255,10 @@ export function reservationPartyError(
     if (isSamePhone(person.phone, person.altPhone)) return 'tenant_details_invalid';
     if (!person.emailVerified) return 'email_unverified';
     if (missingPersonFields(person).length) return 'documents_incomplete';
+    if (options.mode === 'rent') {
+      const civilError = rentCivilIdError(person.civilIdExpiresOn, options.today);
+      if (civilError) return civilError;
+    }
     return null;
   }
   const company = party.company;
@@ -217,6 +276,12 @@ export function reservationPartyError(
   }
   if (!company.emailVerified) return 'email_unverified';
   if (missingCompanyFields(company).length) return 'documents_incomplete';
+  if (options.mode === 'rent') {
+    for (const row of company.signatories) {
+      const civilError = rentCivilIdError(row.civilIdExpiresOn, options.today);
+      if (civilError) return civilError;
+    }
+  }
   return null;
 }
 
@@ -226,6 +291,10 @@ export function partyErrorText(code: string, ar: boolean): string {
       return ar
         ? 'رقم الجواز إلزامي لغير العمانيين.'
         : 'Passport number is required for non-Omani tenants.';
+    case 'civil_id_expiring_soon':
+      return ar
+        ? 'مدة انتهاء البطاقة أقل من شهر — جدّد بطاقتك أولاً ثم واصل تسجيل عقد الإيجار.'
+        : 'Your ID card expires in less than a month — renew it first, then continue with the lease.';
     case 'cr_expired':
       return ar ? 'السجل التجاري منتهٍ.' : 'The commercial registration has expired.';
     case 'cr_expiring_soon':

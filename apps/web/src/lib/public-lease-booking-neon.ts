@@ -205,6 +205,11 @@ const ERRORS = {
     'رقم الجواز إلزامي لغير العمانيين.',
     'A passport number is required for non-Omanis.',
   ],
+  civil_id_expiring_soon: [
+    400,
+    'مدة انتهاء البطاقة أقل من شهر — جدّد بطاقتك أولاً ثم واصل تسجيل عقد الإيجار.',
+    'Your ID card expires in less than a month — renew it first, then continue with the lease.',
+  ],
   cr_expired: [
     400,
     'السجل التجاري منتهٍ — يجب تجديده أولاً.',

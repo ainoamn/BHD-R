@@ -1,5 +1,7 @@
 ﻿import { describe, expect, it } from 'vitest';
 import {
+  civilIdExpiryBlocksRent,
+  civilIdExpiryWarnsRent,
   parseReservationParty,
   partyToLeaseTenant,
   reservationPartyError,
@@ -29,6 +31,13 @@ function person(patch: Partial<NonNullable<ReservationParty['person']>> = {}): R
       phone: '+96891234567',
       altPhone: '+96899887766',
       email: 'm@example.com',
+      emailVerified: true,
+      civilIdExpiresOn: '2027-06-30',
+      civilIdCopy: {
+        name: 'id.jpg',
+        mime: 'image/jpeg',
+        size: 12,
+      },
       ...patch,
     },
     company: null,
@@ -54,7 +63,26 @@ function company(crExpiry: string, signingMode: 'single' | 'joint' = 'single'): 
       crAddress: 'مسقط، الخوير',
       activity: 'مكتب إداري',
       signingMode,
-      signatories: [{ name: 'سالم', civilId: '1111', phone: '+96892000000' }],
+      emailVerified: true,
+      crCopy: {
+        name: 'cr.pdf',
+        mime: 'application/pdf',
+        size: 12,
+      },
+      signatories: [
+        {
+          name: 'سالم',
+          civilId: '1111',
+          phone: '+96892000000',
+          nationality: 'OM',
+          civilIdExpiresOn: '2027-06-30',
+          civilIdCopy: {
+            name: 'sig-id.jpg',
+            mime: 'image/jpeg',
+            size: 12,
+          },
+        },
+      ],
     },
   };
 }
@@ -70,7 +98,19 @@ describe('reservation party rules', () => {
   it('requires a passport for non-Omanis', () => {
     expect(reservationPartyError(person({ nationality: 'IN' }), rent)).toBe('passport_required');
     expect(
-      reservationPartyError(person({ nationality: 'IN', passport: 'P1234567' }), rent),
+      reservationPartyError(
+        person({
+          nationality: 'IN',
+          passport: 'P1234567',
+          passportExpiresOn: '2027-06-30',
+          passportCopy: {
+            name: 'passport.jpg',
+            mime: 'image/jpeg',
+            size: 12,
+          },
+        }),
+        rent,
+      ),
     ).toBeNull();
   });
 
@@ -85,6 +125,32 @@ describe('reservation party rules', () => {
     expect(reservationPartyError(company('2026-10-01'), rent)).toBe('cr_expired');
     expect(reservationPartyError(company('2026-11-30'), rent)).toBe('cr_expiring_soon');
     expect(reservationPartyError(company('2027-06-30'), rent)).toBeNull();
+  });
+
+  it('blocks rent when the civil ID expires in under 30 days', () => {
+    const complete = (expiresOn: string) =>
+      person({
+        emailVerified: true,
+        civilIdExpiresOn: expiresOn,
+        civilIdCopy: {
+          name: 'id.jpg',
+          mime: 'image/jpeg',
+          size: 12,
+        },
+      });
+    expect(reservationPartyError(complete('2026-10-20'), rent)).toBe('civil_id_expiring_soon');
+    expect(reservationPartyError(complete('2026-11-10'), rent)).toBe('civil_id_expiring_soon');
+    expect(reservationPartyError(complete('2026-11-11'), rent)).toBeNull();
+    expect(reservationPartyError(complete('2026-12-01'), rent)).toBeNull();
+  });
+
+  it('warns (without blocking) when civil ID validity is under 90 days', () => {
+    expect(civilIdExpiryBlocksRent('2026-11-11', TODAY)).toBe(false);
+    expect(civilIdExpiryWarnsRent('2026-11-11', TODAY)).toBe(true);
+    expect(civilIdExpiryWarnsRent('2027-01-09', TODAY)).toBe(true);
+    expect(civilIdExpiryWarnsRent('2027-01-10', TODAY)).toBe(false);
+    expect(civilIdExpiryBlocksRent('2026-11-10', TODAY)).toBe(true);
+    expect(civilIdExpiryWarnsRent('2026-11-10', TODAY)).toBe(false);
   });
 
   it('needs at least two people for joint signing', () => {

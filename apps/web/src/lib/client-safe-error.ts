@@ -127,6 +127,7 @@ const KNOWN_CODES = new Set([
   'tenant_details_invalid',
   'cr_expired',
   'cr_expiring_soon',
+  'civil_id_expiring_soon',
   'passport_required',
   'term_too_short',
   'approval_delegate_forbidden',
@@ -266,6 +267,7 @@ export function statusForSafeCode(code: string): number {
     case 'tenant_details_invalid':
     case 'cr_expired':
     case 'cr_expiring_soon':
+    case 'civil_id_expiring_soon':
     case 'passport_required':
     case 'term_too_short':
       return 400;

@@ -19,8 +19,12 @@ import {
   type PartyDocAttach,
 } from '@/lib/profile-completeness';
 import {
+  CIVIL_ID_MIN_REMAINING_DAYS,
   CR_MIN_VALID_MONTHS,
   MAX_LEASE_MONTHS,
+  civilIdExpiryWarningText,
+  civilIdExpiryWarnsRent,
+  civilIdMinExpiryOn,
   partyErrorText,
   reservationPartyError,
   reservationPartySchema,
@@ -155,6 +159,10 @@ export function ReservationPartyForm({
   const company = value.company;
   const omani = person.nationality === 'OM';
   const today = muscatToday();
+  const civilIdMin = useMemo(
+    () => (sale ? today : civilIdMinExpiryOn(today)),
+    [sale, today],
+  );
   const crMin = useMemo(() => {
     const date = new Date(`${today}T00:00:00Z`);
     date.setUTCMonth(date.getUTCMonth() + CR_MIN_VALID_MONTHS);
@@ -201,6 +209,13 @@ export function ReservationPartyForm({
 
   const emailOk = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const firstSig = company.signatories[0] ?? EMPTY_SIGNATORY;
+  const personCivilIdWarn =
+    !sale && civilIdExpiryWarnsRent(person.civilIdExpiresOn || null, today);
+  const signatoryCivilIdWarn =
+    !sale &&
+    entityType === 'company' &&
+    civilIdExpiryWarnsRent(firstSig.civilIdExpiresOn || null, today);
+  const civilIdWarn = personCivilIdWarn || signatoryCivilIdWarn;
 
   const steps = useMemo((): PartyStep[] => {
     const list: PartyStep[] = [];
@@ -375,7 +390,7 @@ export function ReservationPartyForm({
         {
           id: 'civilExpiry',
           label: ar ? 'انتهاء البطاقة' : 'Civil ID expiry',
-          done: Boolean(person.civilIdExpiresOn && person.civilIdExpiresOn >= today),
+          done: Boolean(person.civilIdExpiresOn && person.civilIdExpiresOn >= civilIdMin),
           focusId: 'party-civil-expiry',
           body: (
             <div className="field">
@@ -388,10 +403,22 @@ export function ReservationPartyForm({
                 className="input"
                 type="date"
                 required
-                min={today}
+                min={civilIdMin}
                 value={person.civilIdExpiresOn}
                 onChange={(event) => setPerson({ civilIdExpiresOn: event.target.value })}
               />
+              {!sale ? (
+                <p className="field__hint muted">
+                  {ar
+                    ? `لا يُقبل تسجيل عقد إيجار إذا تبقت أقل من ${CIVIL_ID_MIN_REMAINING_DAYS} يوماً على انتهاء البطاقة — جدّدها أولاً ثم واصل.`
+                    : `A lease cannot be registered if the ID expires in under ${CIVIL_ID_MIN_REMAINING_DAYS} days — renew it first, then continue.`}
+                </p>
+              ) : null}
+              {personCivilIdWarn ? (
+                <p className="field__hint" role="status">
+                  {civilIdExpiryWarningText(ar)}
+                </p>
+              ) : null}
             </div>
           ),
         },
@@ -918,12 +945,24 @@ export function ReservationPartyForm({
                   className="input"
                   type="date"
                   required
-                  min={today}
+                  min={civilIdMin}
                   value={firstSig.civilIdExpiresOn}
                   onChange={(event) =>
                     setSignatory(0, { civilIdExpiresOn: event.target.value })
                   }
                 />
+                {!sale ? (
+                  <p className="field__hint muted">
+                    {ar
+                      ? `لا يُقبل تسجيل عقد إيجار إذا تبقت أقل من ${CIVIL_ID_MIN_REMAINING_DAYS} يوماً على انتهاء البطاقة — جدّدها أولاً ثم واصل.`
+                      : `A lease cannot be registered if the ID expires in under ${CIVIL_ID_MIN_REMAINING_DAYS} days — renew it first, then continue.`}
+                  </p>
+                ) : null}
+                {signatoryCivilIdWarn ? (
+                  <p className="field__hint" role="status">
+                    {civilIdExpiryWarningText(ar)}
+                  </p>
+                ) : null}
               </div>
               <PartyDocAttachField
                 id="party-sig-civil-copy-0"
@@ -1009,6 +1048,9 @@ export function ReservationPartyForm({
     company,
     omani,
     today,
+    civilIdMin,
+    personCivilIdWarn,
+    signatoryCivilIdWarn,
     crMin,
     minMonths,
     termOptions,
@@ -1109,6 +1151,12 @@ export function ReservationPartyForm({
 
       {progressDone > 0 && missing.length ? (
         <MissingFieldsBanner locale={locale} fields={missing} />
+      ) : null}
+
+      {civilIdWarn ? (
+        <p className="tenant-alert tenant-alert--warn" role="status">
+          {civilIdExpiryWarningText(ar)}
+        </p>
       ) : null}
 
       {currentStep ? (

@@ -37,6 +37,7 @@ const ARABIC = /[\u0600-\u06FF]/;
 const PARTY_ERRORS = new Set([
   'tenant_details_invalid',
   'passport_required',
+  'civil_id_expiring_soon',
   'cr_expired',
   'cr_expiring_soon',
   'term_too_short',
