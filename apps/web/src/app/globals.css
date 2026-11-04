@@ -31173,12 +31173,24 @@ a.contract-annex-bar__item:focus-visible {
 .guest-stay-detail__lang {
   margin-inline-end: auto;
 }
+.guest-stay-detail__hero-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-inline-start: auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.guest-stay-detail__hero-tools .guest-stay-detail__lang {
+  margin-inline-end: 0;
+}
 .guest-stay-detail__account {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
-  max-width: min(14rem, 42vw);
-  padding: 0.22rem 0.35rem 0.22rem 0.7rem;
+  gap: 0.2rem;
+  flex-shrink: 0;
+  max-width: 100%;
+  padding: 0.12rem 0.2rem 0.12rem 0.55rem;
   color: #fff;
   background: rgb(255 255 255 / 0.16);
   border: 1px solid rgb(255 255 255 / 0.3);
@@ -31186,19 +31198,65 @@ a.contract-annex-bar__item:focus-visible {
   backdrop-filter: blur(6px);
 }
 .guest-stay-detail__account-label {
+  max-width: 7.5rem;
   overflow: hidden;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 .guest-stay-detail__account .bhd-switcher-slot {
+  position: relative;
+  z-index: 5;
   flex-shrink: 0;
 }
+.guest-stay-detail__account .bhd-switcher-grid,
 .guest-stay-detail__account .bhd-switcher-avatar {
   width: 1.85rem;
   height: 1.85rem;
-  border-color: rgb(255 255 255 / 0.45);
+  color: #fff;
+}
+.guest-stay-detail__account .bhd-switcher-grid:hover,
+.guest-stay-detail__account .bhd-switcher-avatar:hover {
+  background: rgb(255 255 255 / 0.18);
+}
+.guest-stay-detail__account .bhd-switcher-avatar img,
+.guest-stay-detail__account .bhd-switcher-avatar > span {
+  width: 1.45rem;
+  height: 1.45rem;
+}
+.guest-stay-detail__account .bhd-switcher-card {
+  z-index: 40;
+}
+/* Narrow lease image rail: keep account control fully inside the hero, dropdown may spill. */
+@media (orientation: landscape) and (min-width: 640px), (min-width: 1200px) {
+  .guest-stay-detail.lease-journey .guest-stay-detail__hero {
+    overflow: visible;
+    z-index: 3;
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__panel {
+    position: relative;
+    z-index: 1;
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__hero-top {
+    gap: 0.35rem;
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__hero-tools {
+    gap: 0.3rem;
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__back {
+    padding: 0.32rem 0.65rem;
+    font-size: 0.78rem;
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__logo img {
+    width: clamp(2.8rem, 8vw, 3.6rem);
+  }
+  .guest-stay-detail.lease-journey .guest-stay-detail__account-label {
+    max-width: 5.5rem;
+  }
+  .guest-stay-detail.lease-journey .bhd-switcher-grid {
+    display: none;
+  }
 }
 .stay-trip {
   margin: -0.25rem 0 0.9rem;

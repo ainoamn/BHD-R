@@ -11,9 +11,16 @@ const BhdAppSwitcher = dynamic(
   { ssr: false },
 );
 
+function shortAccountLabel(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const local = trimmed.includes('@') ? trimmed.slice(0, trimmed.indexOf('@')) : trimmed;
+  return local.length > 14 ? `${local.slice(0, 12)}…` : local;
+}
+
 /**
- * Booking journey pages hide the site header — keep a compact account chip so multi-tab
- * users can see which ?au= this tab is bound to.
+ * Booking journey pages hide the site header — keep a compact account control so multi-tab
+ * users can see and switch which ?au= this tab is bound to.
  */
 export function LeaseJourneyAccount({
   viewer,
@@ -61,11 +68,11 @@ export function LeaseJourneyAccount({
     };
   }, []);
 
+  const chip = shortAccountLabel(label) || (ar ? 'حسابي' : 'Account');
+
   return (
-    <div className="guest-stay-detail__account">
-      <span className="guest-stay-detail__account-label" title={label}>
-        {label}
-      </span>
+    <div className="guest-stay-detail__account" title={label}>
+      <span className="guest-stay-detail__account-label">{chip}</span>
       <BhdAppSwitcher viewer={viewer} locale={locale} />
     </div>
   );

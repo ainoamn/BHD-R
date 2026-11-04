@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.79 — 2026-11-04
+
+- **شريحة الحساب في صفحة تأكيد الحجز:** إصلاح القصّ في عمود الصورة الضيّق — اسم مختصر + أفاتار التبديل ظاهران بالكامل، والقائمة تفتح فوق اللوحة البيضاء.
+
 ## 0.8.136.78 — 2026-11-04
 
 - **إصلاح بناء Vercel:** استيراد `readActiveAu` من `window-session` بدل إعادة تصدير غير موجودة من `identity/client` التي أوقفت نشر إصلاح رمز الاستلام.

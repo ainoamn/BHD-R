@@ -144,24 +144,26 @@ export default async function LeaseBookingConfirmedPage({
             <Link className="guest-stay-detail__back" href={`/units/${booking.unitId}`}>
               {ar ? '→ العقار' : '← Property'}
             </Link>
-            <Link
-              className="guest-stay-detail__back guest-stay-detail__lang"
-              href={samePageHref}
-              locale={otherLocale}
-              hrefLang={otherLocale}
-              lang={otherLocale}
-            >
-              {ar ? 'English' : 'العربية'}
-            </Link>
-            <LeaseJourneyAccount viewer={viewer} locale={locale} />
-            <Link
-              className="guest-stay-detail__logo logo__product logo__product--on-dark"
-              href="/"
-              aria-label="BHD R"
-            >
-              <img src="/brand/bhd-official-symbol.svg" alt="" width="84" height="26" />
-              <i>R</i>
-            </Link>
+            <div className="guest-stay-detail__hero-tools">
+              <Link
+                className="guest-stay-detail__back guest-stay-detail__lang"
+                href={samePageHref}
+                locale={otherLocale}
+                hrefLang={otherLocale}
+                lang={otherLocale}
+              >
+                {ar ? 'English' : 'العربية'}
+              </Link>
+              <LeaseJourneyAccount viewer={viewer} locale={locale} />
+              <Link
+                className="guest-stay-detail__logo logo__product logo__product--on-dark"
+                href="/"
+                aria-label="BHD R"
+              >
+                <img src="/brand/bhd-official-symbol.svg" alt="" width="84" height="26" />
+                <i>R</i>
+              </Link>
+            </div>
           </div>
           <div className="guest-stay-detail__hero-content">
             <p className="guest-stay-detail__kicker">
