@@ -8,7 +8,7 @@ import { useEffect, useRef } from 'react';
  * paint the current page first, then prefetch the rest so header hops feel in-place.
  * Heavy catalogue routes start after a short idle — Neon reads are capped (0.4.81+).
  */
-const MARKETING_SHELLS_FAST = ['/', '/trust'] as const;
+const MARKETING_SHELLS_FAST = ['/', '/trust', '/offices', '/appraisers', '/insurance', '/valuation'] as const;
 const MARKETING_SHELLS_HEAVY = ['/properties', '/stays'] as const;
 
 function isPortalChromePath(pathname: string): boolean {

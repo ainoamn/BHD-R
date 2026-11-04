@@ -6,6 +6,7 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { BadgeShowcaseSection } from '@/components/badges/badge-showcase';
 import { HomeLeaderboardsSection } from '@/components/home/home-leaderboards';
+import { HomeServicesSection } from '@/components/marketplace/home-services';
 import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
 import { HomeSearchTabs } from '@/components/stays/home-search-tabs';
@@ -159,6 +160,8 @@ async function HomeDeferredBody({
           </ul>
         </div>
       ) : null}
+
+      <HomeServicesSection locale={locale} />
 
       <HomeLeaderboardsSection data={leaders} locale={locale} />
 

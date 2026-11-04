@@ -100,6 +100,18 @@ export function SiteHeader() {
           <Link href="/properties" prefetch scroll={false} onClick={() => setOpen(false)}>
             {t('Nav.available')}
           </Link>
+          <Link href="/offices" prefetch scroll={false} onClick={() => setOpen(false)}>
+            {locale === 'ar' ? 'المكاتب' : 'Offices'}
+          </Link>
+          <Link href="/appraisers" prefetch scroll={false} onClick={() => setOpen(false)}>
+            {locale === 'ar' ? 'المثمّنون' : 'Appraisers'}
+          </Link>
+          <Link href="/insurance" prefetch scroll={false} onClick={() => setOpen(false)}>
+            {locale === 'ar' ? 'التأمين' : 'Insurance'}
+          </Link>
+          <Link href="/valuation" prefetch scroll={false} onClick={() => setOpen(false)}>
+            {locale === 'ar' ? 'التثمين' : 'Valuation'}
+          </Link>
           <Link href="/#how-it-works" onClick={() => setOpen(false)}>
             {t('Nav.howItWorks')}
           </Link>

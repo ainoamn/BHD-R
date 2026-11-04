@@ -75,6 +75,18 @@ export function SiteFooter() {
           <a href={`/${ar ? 'ar' : 'en'}/badges`}>
             {ar ? 'الشارات والتوثيق' : 'Badges & verification'}
           </a>
+          <a href={`/${ar ? 'ar' : 'en'}/offices`}>
+            {ar ? 'المكاتب العقارية' : 'Real estate offices'}
+          </a>
+          <a href={`/${ar ? 'ar' : 'en'}/appraisers`}>
+            {ar ? 'المثمّنون' : 'Appraisers'}
+          </a>
+          <a href={`/${ar ? 'ar' : 'en'}/insurance`}>
+            {ar ? 'التأمين العقاري' : 'Property insurance'}
+          </a>
+          <a href={`/${ar ? 'ar' : 'en'}/valuation`}>
+            {ar ? 'طلب تثمين' : 'Valuation request'}
+          </a>
           <a href="https://www.bhd-om.com/brand">{ar ? 'هوية الشركة' : 'Brand'}</a>
           <a href="https://www.bhd-om.com/apps">{ar ? 'برامجنا' : 'Programmes'}</a>
           <a href="https://www.bhd-om.com/privacy">{ar ? 'الخصوصية' : 'Privacy'}</a>
