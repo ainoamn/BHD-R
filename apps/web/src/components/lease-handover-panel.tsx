@@ -49,6 +49,8 @@ export function LeaseHandoverPanel({
   return null;
 }
 
+type PassStatus = 'loading' | 'ready' | 'retrying' | 'not_ready' | 'tenant_only' | 'forbidden';
+
 function HandoverPass({
   ar,
   locale,
@@ -60,7 +62,7 @@ function HandoverPass({
 }) {
   const router = useRouter();
   const [pass, setPass] = useState<Pass | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [status, setStatus] = useState<PassStatus>('loading');
   const [selfie, setSelfie] = useState<SelfieState>(null);
   const [scannedBy, setScannedBy] = useState<string | null>(null);
 
@@ -74,24 +76,52 @@ function HandoverPass({
           { credentials: 'same-origin', cache: 'no-store' },
         );
         const body = (await response.json().catch(() => null)) as
-          | ({ state?: string; selfie?: SelfieState; scannedBy?: string | null } & Partial<Pass>)
+          | ({
+              state?: string;
+              selfie?: SelfieState;
+              scannedBy?: string | null;
+              error?: { code?: string };
+            } & Partial<Pass>)
           | null;
         if (stopped) return;
+        if (response.status === 401 || response.status === 403) {
+          setStatus(response.status === 401 ? 'forbidden' : 'tenant_only');
+          return;
+        }
         if (!response.ok || !body) {
-          setFailed(true);
-        } else if (body.state === 'pass' && body.qrSvg && body.code && body.refreshAt) {
-          setFailed(false);
+          setStatus('retrying');
+          timer = window.setTimeout(() => void load(), 5000);
+          return;
+        }
+        if (body.state === 'tenant_only') {
+          setStatus('tenant_only');
+          return;
+        }
+        if (body.state === 'not_ready') {
+          setStatus('not_ready');
+          timer = window.setTimeout(() => void load(), 15_000);
+          return;
+        }
+        if (body.state === 'pass' && body.qrSvg && body.code && body.refreshAt) {
+          setStatus('ready');
           setSelfie(body.selfie ?? null);
           setScannedBy(body.scannedBy ?? null);
           setPass((current) => (current?.refreshAt === body.refreshAt ? current : (body as Pass)));
-        } else if (body.state === 'awaiting_acceptance' || body.state === 'handed_over') {
+          timer = window.setTimeout(() => void load(), 5000);
+          return;
+        }
+        if (body.state === 'awaiting_acceptance' || body.state === 'handed_over') {
           router.refresh();
           return;
         }
+        setStatus('retrying');
+        timer = window.setTimeout(() => void load(), 5000);
       } catch {
-        if (!stopped) setFailed(true);
+        if (!stopped) {
+          setStatus('retrying');
+          timer = window.setTimeout(() => void load(), 5000);
+        }
       }
-      if (!stopped) timer = window.setTimeout(() => void load(), 5000);
     };
     void load();
     return () => {
@@ -99,6 +129,27 @@ function HandoverPass({
       window.clearTimeout(timer);
     };
   }, [referenceCode, locale, router]);
+
+  const statusCopy =
+    status === 'tenant_only'
+      ? ar
+        ? 'رمز الاستلام خاص بحساب المستأجر الذي أنشأ الحجز. سجّل الدخول بذلك الحساب لعرض الرمز، أو امسح الرمز من جهاز المستأجر عند التسليم.'
+        : 'The handover code is only for the tenant account that created this booking. Sign in as that tenant to view it, or scan it from their device at handover.'
+      : status === 'forbidden'
+        ? ar
+          ? 'يجب تسجيل الدخول بحساب المستأجر لعرض رمز الاستلام.'
+          : 'Sign in with the tenant account to view the handover code.'
+        : status === 'not_ready'
+          ? ar
+            ? 'التسليم غير جاهز بعد — بعد اعتماد كل المستندات والشيكات يظهر الرمز هنا تلقائياً.'
+            : 'Handover is not ready yet — the code appears here once every document and cheque is approved.'
+          : status === 'retrying'
+            ? ar
+              ? 'تعذّر تحميل الرمز، نعيد المحاولة…'
+              : 'Could not load the code; retrying…'
+            : ar
+              ? 'جارٍ إنشاء رمزك المشفّر…'
+              : 'Creating your sealed code…';
 
   // Keep the QR/code visible until the handover record is filed — a staff refresh must
   // not hide the pass after the selfie was taken.
@@ -131,7 +182,7 @@ function HandoverPass({
           </p>
         )}
         <div className="handover-pass__body">
-          {pass ? (
+          {pass && status === 'ready' ? (
             <>
               <span
                 className="handover-pass__qr"
@@ -154,14 +205,15 @@ function HandoverPass({
               </div>
             </>
           ) : (
-            <p className="muted" role="status">
-              {failed
-                ? ar
-                  ? 'تعذّر تحميل الرمز، نعيد المحاولة…'
-                  : 'Could not load the code; retrying…'
-                : ar
-                  ? 'جارٍ إنشاء رمزك المشفّر…'
-                  : 'Creating your sealed code…'}
+            <p
+              className={
+                status === 'tenant_only' || status === 'forbidden' || status === 'not_ready'
+                  ? 'notice notice--warning'
+                  : 'muted'
+              }
+              role="status"
+            >
+              {statusCopy}
             </p>
           )}
         </div>

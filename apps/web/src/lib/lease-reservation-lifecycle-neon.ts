@@ -2928,7 +2928,26 @@ export async function tenantHandoverPass(claims: SessionClaims, referenceCode: s
   return db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) leaseBookingFail('not_found');
-    await assertBookingOwner(transaction, claims.sub, match.partyEmail);
+    try {
+      await assertBookingOwner(
+        transaction,
+        claims.sub,
+        match.partyEmail,
+        match.snapshot.bookedBy?.userId,
+      );
+    } catch {
+      // Staff may open /book/confirmed, but the sealed QR is tenant-only.
+      if (
+        claims.organizationId === match.organizationId &&
+        hasPermission(claims, 'reservation.read')
+      ) {
+        const ownerPartyId = ownerPartyScope(claims);
+        if (!ownerPartyId || match.ownerPartyId === ownerPartyId) {
+          return { state: 'tenant_only' as const };
+        }
+      }
+      leaseBookingFail('forbidden');
+    }
     const lifecycle = lifecycleOf(match.snapshot);
     const phase = phaseOf(match.status, match.snapshot, lifecycle);
     if (phase === 'handed_over') return { state: 'handed_over' as const };
