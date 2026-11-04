@@ -1288,93 +1288,97 @@ export async function loadLeaseBookingAgreementInTx(
 async function leaseBookingAgreementData(transaction: Tx, match: LeaseReservationMatch) {
   const orgId = match.organizationId;
   const esign = match.snapshot.esign ?? null;
+  // Keep queries sequential on this transaction: set_config / elevated reads must not
+  // race inside Promise.all (that previously surfaced as a blank 404 on /book/sign).
   return withElevatedRead(transaction, async () => {
-    const [owner, premises, letterhead, signaturePng, location] = await Promise.all([
-      transaction
-        .select({
-          displayName: parties.displayName,
-          type: parties.type,
-          email: parties.email,
-          phone: parties.phone,
-        })
-        .from(parties)
-        .where(and(eq(parties.organizationId, orgId), eq(parties.id, match.ownerPartyId)))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      transaction
-        .select({
-          propertyNameAr: properties.nameAr,
-          propertyNameEn: properties.nameEn,
-          kind: properties.kind,
-          category: properties.category,
-          serialNumber: properties.serialNumber,
-          governorate: addresses.governorate,
-          wilayat: addresses.wilayat,
-          city: addresses.city,
-          area: addresses.area,
-          street: addresses.street,
-          buildingNumber: addresses.buildingNumber,
-          postalCode: addresses.postalCode,
-          deedNumber: propertyProfiles.deedNumber,
-          plotNumber: propertyProfiles.plotNumber,
-          furnishing: propertyProfiles.furnishing,
-          parkingSpaces: propertyProfiles.parkingSpaces,
-          builtUpArea: propertyProfiles.builtUpAreaSquareMeters,
-          floorsCount: propertyProfiles.floorsCount,
-          yearBuilt: propertyProfiles.yearBuilt,
-          unitFloor: units.floor,
-          unitBedrooms: units.bedrooms,
-          unitBathrooms: units.bathrooms,
-          unitMajlis: units.majlis,
-          unitHalls: units.halls,
-          unitKitchens: units.kitchens,
-          unitHasPool: units.hasPool,
-          unitAreaSquareMeters: units.areaSquareMeters,
-        })
-        .from(units)
-        .innerJoin(
-          properties,
-          and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
-        )
-        .innerJoin(
-          addresses,
-          and(eq(addresses.id, properties.addressId), eq(addresses.organizationId, orgId)),
-        )
-        .leftJoin(
-          propertyProfiles,
-          and(
-            eq(propertyProfiles.propertyId, properties.id),
-            eq(propertyProfiles.organizationId, orgId),
-          ),
-        )
-        .where(and(eq(units.organizationId, orgId), eq(units.id, match.unitId)))
-        .limit(1)
-        .then((rows) => rows[0] ?? null),
-      readTermsLetterhead(transaction, orgId).catch(() => null),
-      esign
-        ? transaction
-            .select({
-              png: sql<string | null>`${workflowEvents.metadata}->'esign'->>'signaturePng'`,
-            })
-            .from(workflowEvents)
-            .where(
-              and(
-                eq(workflowEvents.organizationId, orgId),
-                eq(workflowEvents.id, esign.evidenceEventId),
-              ),
-            )
-            .limit(1)
-            .then((rows) => rows[0]?.png ?? null)
-        : Promise.resolve(null),
-      loadPropertyLocation(transaction, orgId, match.propertyId),
-    ]);
-    const serial = esign ? await reservationSignatureSerial(transaction, orgId, match.id) : null;
+    const [owner] = await transaction
+      .select({
+        displayName: parties.displayName,
+        type: parties.type,
+        email: parties.email,
+        phone: parties.phone,
+      })
+      .from(parties)
+      .where(and(eq(parties.organizationId, orgId), eq(parties.id, match.ownerPartyId)))
+      .limit(1);
+
+    const [premises] = await transaction
+      .select({
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
+        kind: properties.kind,
+        category: properties.category,
+        serialNumber: properties.serialNumber,
+        governorate: addresses.governorate,
+        wilayat: addresses.wilayat,
+        city: addresses.city,
+        area: addresses.area,
+        street: addresses.street,
+        buildingNumber: addresses.buildingNumber,
+        postalCode: addresses.postalCode,
+        deedNumber: propertyProfiles.deedNumber,
+        plotNumber: propertyProfiles.plotNumber,
+        furnishing: propertyProfiles.furnishing,
+        parkingSpaces: propertyProfiles.parkingSpaces,
+        builtUpArea: propertyProfiles.builtUpAreaSquareMeters,
+        floorsCount: propertyProfiles.floorsCount,
+        yearBuilt: propertyProfiles.yearBuilt,
+        unitFloor: units.floor,
+        unitBedrooms: units.bedrooms,
+        unitBathrooms: units.bathrooms,
+        unitMajlis: units.majlis,
+        unitHalls: units.halls,
+        unitKitchens: units.kitchens,
+        unitHasPool: units.hasPool,
+        unitAreaSquareMeters: units.areaSquareMeters,
+      })
+      .from(units)
+      .innerJoin(
+        properties,
+        and(eq(properties.id, units.propertyId), eq(properties.organizationId, orgId)),
+      )
+      .innerJoin(
+        addresses,
+        and(eq(addresses.id, properties.addressId), eq(addresses.organizationId, orgId)),
+      )
+      .leftJoin(
+        propertyProfiles,
+        and(
+          eq(propertyProfiles.propertyId, properties.id),
+          eq(propertyProfiles.organizationId, orgId),
+        ),
+      )
+      .where(and(eq(units.organizationId, orgId), eq(units.id, match.unitId)))
+      .limit(1);
+
+    const letterhead = await readTermsLetterhead(transaction, orgId).catch(() => null);
+    const signaturePng = esign
+      ? await transaction
+          .select({
+            png: sql<string | null>`${workflowEvents.metadata}->'esign'->>'signaturePng'`,
+          })
+          .from(workflowEvents)
+          .where(
+            and(
+              eq(workflowEvents.organizationId, orgId),
+              eq(workflowEvents.id, esign.evidenceEventId),
+            ),
+          )
+          .limit(1)
+          .then((rows) => rows[0]?.png ?? null)
+      : null;
+    const location = await loadPropertyLocation(transaction, orgId, match.propertyId).catch(
+      () => null,
+    );
+    const serial = esign
+      ? await reservationSignatureSerial(transaction, orgId, match.id).catch(() => null)
+      : null;
     const png = signaturePng && SIGNATURE_IMAGE.test(signaturePng) ? signaturePng : null;
     return {
       ...leaseBookingView(match),
       capturedAt: match.snapshot.capturedAt,
-      owner,
-      premises,
+      owner: owner ?? null,
+      premises: premises ?? null,
       location,
       letterhead,
       signature: esign ? { signedAt: esign.signedAt, png, serial } : null,

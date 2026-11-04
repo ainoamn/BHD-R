@@ -44,8 +44,24 @@ export default async function LeaseBookingSignPage({
     redirect(`/${locale}/login?next=${encodeURIComponent(leaseSignPath(locale, referenceCode))}`);
   }
 
+  const viewOnly =
+    query.view === '1' || (Array.isArray(query.view) ? query.view[0] === '1' : false);
+
   const booking = await loadLeaseBookingAgreement(viewer.id, referenceCode).catch(() => null);
-  if (!booking) notFound();
+  if (!booking) {
+    // Agreement enrichment can fail while the booking itself is fine — recover via the
+    // lighter viewer load so a signed booking still redirects instead of a blank 404.
+    const { loadLeaseBookingForViewer } = await import('@/lib/public-lease-booking-neon');
+    const lite = await loadLeaseBookingForViewer(viewer.id, referenceCode).catch(() => null);
+    if (!lite) notFound();
+    if (!lite.depositPaidAt) {
+      if (lite.status === 'pending') {
+        redirect(leasePaymentPath(locale, lite.sessionReference, lite.referenceCode));
+      }
+      notFound();
+    }
+    redirect(leaseConfirmedPath(locale, lite.referenceCode));
+  }
   if (!booking.depositPaidAt) {
     if (booking.status === 'pending') {
       redirect(leasePaymentPath(locale, booking.sessionReference, booking.referenceCode));
@@ -56,8 +72,6 @@ export default async function LeaseBookingSignPage({
   const { head, doc } = leaseBookingAgreement(booking);
   const title = leaseContractTitle(booking.mode);
   const signature = booking.signature;
-  const viewOnly =
-    query.view === '1' || (Array.isArray(query.view) ? query.view[0] === '1' : false);
   // After the booking agreement is signed, the journey lives on /book/confirmed.
   if (signature && !viewOnly) {
     redirect(leaseConfirmedPath(locale, booking.referenceCode));
