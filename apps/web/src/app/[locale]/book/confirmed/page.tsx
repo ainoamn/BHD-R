@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { LeaseHandoverPanel } from '@/components/lease-handover-panel';
+import { LeaseJourneyAccount } from '@/components/lease-journey-account';
 import { LeaseJourneyCard } from '@/components/lease-journey';
 import { PropertyLocationMap } from '@/components/property-location-map';
 import { StayJourneyProvider, StayJourneySteps } from '@/components/stays/stay-journey';
@@ -123,7 +124,11 @@ export default async function LeaseBookingConfirmedPage({
   const waitsOn = phaseWaitsOn(booking.phase);
   const contract = booking.lifecycle.contract;
   const otherLocale = ar ? 'en' : 'ar';
-  const samePageHref = `/book/confirmed?ref=${encodeURIComponent(booking.referenceCode)}`;
+  const auRaw = query.au;
+  const au = typeof auRaw === 'string' ? auRaw : Array.isArray(auRaw) ? auRaw[0] : undefined;
+  const samePageHref = `/book/confirmed?ref=${encodeURIComponent(booking.referenceCode)}${
+    au ? `&au=${encodeURIComponent(au)}` : ''
+  }`;
 
   return (
     <main className="guest-stay-detail lease-journey">
@@ -148,6 +153,7 @@ export default async function LeaseBookingConfirmedPage({
             >
               {ar ? 'English' : 'العربية'}
             </Link>
+            <LeaseJourneyAccount viewer={viewer} locale={locale} />
             <Link
               className="guest-stay-detail__logo logo__product logo__product--on-dark"
               href="/"

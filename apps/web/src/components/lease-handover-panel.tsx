@@ -6,6 +6,11 @@ import { FilePreviewDialog, type PreviewFile } from '@/components/file-preview';
 import { HandoverSelfieCard } from '@/components/handover-selfie';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
+import {
+  claimProductSessionForActiveAu,
+  ensureAuInUrl,
+  readActiveAu,
+} from '@/lib/identity/client';
 import type { LeaseLifecycleView } from '@/lib/public-lease-booking-neon';
 import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 
@@ -65,68 +70,130 @@ function HandoverPass({
   const [status, setStatus] = useState<PassStatus>('loading');
   const [selfie, setSelfie] = useState<SelfieState>(null);
   const [scannedBy, setScannedBy] = useState<string | null>(null);
+  const passRef = useRef<Pass | null>(null);
 
   useEffect(() => {
     let stopped = false;
     let timer: number | undefined;
+    let inflight = false;
+
+    type PassBody = {
+      state?: string;
+      selfie?: SelfieState;
+      scannedBy?: string | null;
+      error?: { code?: string };
+    } & Partial<Pass>;
+
+    const schedule = (ms: number) => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => void load(), ms);
+    };
+
+    const readBody = async (response: Response): Promise<PassBody | null> =>
+      (await response.json().catch(() => null)) as PassBody | null;
+
+    const fetchPass = async () => {
+      ensureAuInUrl(readActiveAu() || undefined);
+      await claimProductSessionForActiveAu().catch(() => ({ ok: false }));
+      return fetch(
+        `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/handover?locale=${locale}`,
+        { credentials: 'same-origin', cache: 'no-store' },
+      );
+    };
+
+    const keepPassThroughCookieRace = () => {
+      // Owner tab stole the shared cookie — do not wipe a pass we already showed.
+      if (passRef.current) setStatus('ready');
+      else setStatus('tenant_only');
+      schedule(8_000);
+    };
+
     const load = async () => {
+      if (stopped || inflight) return;
+      inflight = true;
       try {
-        const response = await fetch(
-          `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/handover?locale=${locale}`,
-          { credentials: 'same-origin', cache: 'no-store' },
-        );
-        const body = (await response.json().catch(() => null)) as
-          | ({
-              state?: string;
-              selfie?: SelfieState;
-              scannedBy?: string | null;
-              error?: { code?: string };
-            } & Partial<Pass>)
-          | null;
+        let response = await fetchPass();
+        let body = await readBody(response);
         if (stopped) return;
-        if (response.status === 401 || response.status === 403) {
-          setStatus(response.status === 401 ? 'forbidden' : 'tenant_only');
+
+        if (response.status === 401) {
+          if (passRef.current) {
+            setStatus('ready');
+            schedule(8_000);
+            return;
+          }
+          setStatus('forbidden');
           return;
         }
+
+        // Staff / wrong account while ?au= is the tenant: reclaim cookie and retry once.
+        if (body?.state === 'tenant_only' || response.status === 403) {
+          const claimed = await claimProductSessionForActiveAu().catch(() => ({ ok: false }));
+          if (claimed.ok && !stopped) {
+            response = await fetch(
+              `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/handover?locale=${locale}`,
+              { credentials: 'same-origin', cache: 'no-store' },
+            );
+            body = await readBody(response);
+          }
+          if (stopped) return;
+          if (body?.state === 'tenant_only' || response.status === 403) {
+            keepPassThroughCookieRace();
+            return;
+          }
+        }
+
         if (!response.ok || !body) {
-          setStatus('retrying');
-          timer = window.setTimeout(() => void load(), 5000);
+          if (!passRef.current) setStatus('retrying');
+          schedule(5_000);
           return;
         }
         if (body.state === 'tenant_only') {
-          setStatus('tenant_only');
+          keepPassThroughCookieRace();
           return;
         }
         if (body.state === 'not_ready') {
           setStatus('not_ready');
-          timer = window.setTimeout(() => void load(), 15_000);
+          schedule(15_000);
           return;
         }
         if (body.state === 'pass' && body.qrSvg && body.code && body.refreshAt) {
+          const next = body as Pass;
+          passRef.current = next;
           setStatus('ready');
           setSelfie(body.selfie ?? null);
           setScannedBy(body.scannedBy ?? null);
-          setPass((current) => (current?.refreshAt === body.refreshAt ? current : (body as Pass)));
-          timer = window.setTimeout(() => void load(), 5000);
+          setPass((current) => (current?.refreshAt === next.refreshAt ? current : next));
+          schedule(5_000);
           return;
         }
         if (body.state === 'awaiting_acceptance' || body.state === 'handed_over') {
           router.refresh();
           return;
         }
-        setStatus('retrying');
-        timer = window.setTimeout(() => void load(), 5000);
+        if (!passRef.current) setStatus('retrying');
+        schedule(5_000);
       } catch {
         if (!stopped) {
-          setStatus('retrying');
-          timer = window.setTimeout(() => void load(), 5000);
+          if (!passRef.current) setStatus('retrying');
+          schedule(5_000);
         }
+      } finally {
+        inflight = false;
       }
     };
+
     void load();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void load();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
     return () => {
       stopped = true;
       window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
     };
   }, [referenceCode, locale, router]);
 
@@ -182,7 +249,7 @@ function HandoverPass({
           </p>
         )}
         <div className="handover-pass__body">
-          {pass && status === 'ready' ? (
+          {pass ? (
             <>
               <span
                 className="handover-pass__qr"

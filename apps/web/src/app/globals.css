@@ -31173,6 +31173,33 @@ a.contract-annex-bar__item:focus-visible {
 .guest-stay-detail__lang {
   margin-inline-end: auto;
 }
+.guest-stay-detail__account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: min(14rem, 42vw);
+  padding: 0.22rem 0.35rem 0.22rem 0.7rem;
+  color: #fff;
+  background: rgb(255 255 255 / 0.16);
+  border: 1px solid rgb(255 255 255 / 0.3);
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
+}
+.guest-stay-detail__account-label {
+  overflow: hidden;
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.guest-stay-detail__account .bhd-switcher-slot {
+  flex-shrink: 0;
+}
+.guest-stay-detail__account .bhd-switcher-avatar {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-color: rgb(255 255 255 / 0.45);
+}
 .stay-trip {
   margin: -0.25rem 0 0.9rem;
   overflow: hidden;

@@ -492,7 +492,14 @@ export async function silentRebind(
       user?: { id?: string } | null;
     };
     if (!response.ok || !body.ok) return { ok: false };
-    if (body.user?.id) setActiveAu(body.user.id);
+    // Keep the tab's identity ?au= — product user.id is a different id space and must not
+    // replace it (multi-tab cookie reclaim would then fail productSessionMatchesTab).
+    if (boundSub) {
+      setActiveAu(boundSub);
+      ensureAuInUrl(boundSub);
+    } else if (body.user?.id) {
+      setActiveAu(body.user.id);
+    }
     return {
       ok: true,
       unchanged: Boolean(body.unchanged),
