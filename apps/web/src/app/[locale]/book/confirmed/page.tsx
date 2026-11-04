@@ -24,7 +24,13 @@ import {
   phaseWaitsOn,
   tenantLeaseContractDetailsLocked,
 } from '@/lib/lease-reservation-lifecycle';
-import { loadLeaseBookingForViewer, leasePaymentPath } from '@/lib/public-lease-booking-neon';
+import { readClaims } from '@/lib/portal-ops-data';
+import {
+  leasePaymentPath,
+  leaseReservationIdForStaff,
+  loadLeaseBookingForStaff,
+  loadLeaseBookingForViewer,
+} from '@/lib/public-lease-booking-neon';
 import { partyDisplayName } from '@/lib/reservation-party';
 import { getViewer } from '@/lib/viewer';
 
@@ -56,13 +62,24 @@ export default async function LeaseBookingConfirmedPage({
     redirect(`/${locale}/login?next=${encodeURIComponent(leaseConfirmedPath(locale, ref))}`);
   }
 
-  let booking = await loadLeaseBookingForViewer(viewer.id, ref).catch(() => null);
+  // Same access model as /book/receipt: the tenant who booked, else org staff with reservation.read.
+  let own = await loadLeaseBookingForViewer(viewer.id, ref).catch(() => null);
+  const claims = own ? null : await readClaims();
+  const reservationId =
+    !own && claims ? await leaseReservationIdForStaff(claims, ref).catch(() => null) : null;
+  const staff =
+    !own && reservationId && claims
+      ? await loadLeaseBookingForStaff(claims, reservationId).catch(() => null)
+      : null;
+  let booking = own ?? staff;
   if (!booking) notFound();
   if (!booking.depositPaidAt && booking.status === 'pending') {
     redirect(leasePaymentPath(locale, booking.sessionReference, booking.referenceCode));
   }
   // Seed missing rent PDCs / docs after sign when auto-issue used a no-bank transfer fallback.
+  // Only the booking owner triggers automation — staff is a read-through of the same URL.
   if (
+    own &&
     booking.lifecycle.tenantSignedAt &&
     booking.reservationId &&
     (booking.phase === 'awaiting_documents' ||
@@ -73,7 +90,8 @@ export default async function LeaseBookingConfirmedPage({
       '@/lib/lease-reservation-lifecycle-neon'
     );
     await runReservationAutomation(booking.reservationId, viewer.id).catch(() => null);
-    booking = (await loadLeaseBookingForViewer(viewer.id, ref).catch(() => null)) ?? booking;
+    own = (await loadLeaseBookingForViewer(viewer.id, ref).catch(() => null)) ?? own;
+    booking = own;
   }
 
   const paid = Boolean(booking.depositPaidAt);

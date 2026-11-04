@@ -8,7 +8,14 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
 import { leaseConfirmedPath, leaseSignPath } from '@/lib/lease-booking-paths';
-import { leasePaymentPath, loadLeaseBookingAgreement } from '@/lib/public-lease-booking-neon';
+import { readClaims } from '@/lib/portal-ops-data';
+import {
+  leasePaymentPath,
+  leaseReservationIdForStaff,
+  loadLeaseBookingAgreement,
+  loadLeaseBookingForStaff,
+  loadLeaseBookingForViewer,
+} from '@/lib/public-lease-booking-neon';
 import { getViewer } from '@/lib/viewer';
 import { Link } from '@/i18n/navigation';
 
@@ -47,20 +54,29 @@ export default async function LeaseBookingSignPage({
   const viewOnly =
     query.view === '1' || (Array.isArray(query.view) ? query.view[0] === '1' : false);
 
-  const booking = await loadLeaseBookingAgreement(viewer.id, referenceCode).catch(() => null);
+  let booking = await loadLeaseBookingAgreement(viewer.id, referenceCode).catch(() => null);
   if (!booking) {
     // Agreement enrichment can fail while the booking itself is fine — recover via the
-    // lighter viewer load so a signed booking still redirects instead of a blank 404.
-    const { loadLeaseBookingForViewer } = await import('@/lib/public-lease-booking-neon');
+    // lighter viewer load, then org staff (same pattern as /book/receipt).
     const lite = await loadLeaseBookingForViewer(viewer.id, referenceCode).catch(() => null);
-    if (!lite) notFound();
-    if (!lite.depositPaidAt) {
-      if (lite.status === 'pending') {
-        redirect(leasePaymentPath(locale, lite.sessionReference, lite.referenceCode));
+    if (lite) {
+      if (!lite.depositPaidAt) {
+        if (lite.status === 'pending') {
+          redirect(leasePaymentPath(locale, lite.sessionReference, lite.referenceCode));
+        }
+        notFound();
       }
-      notFound();
+      redirect(leaseConfirmedPath(locale, lite.referenceCode));
     }
-    redirect(leaseConfirmedPath(locale, lite.referenceCode));
+    const claims = await readClaims();
+    const reservationId = claims
+      ? await leaseReservationIdForStaff(claims, referenceCode).catch(() => null)
+      : null;
+    booking =
+      reservationId && claims
+        ? await loadLeaseBookingForStaff(claims, reservationId).catch(() => null)
+        : null;
+    if (!booking) notFound();
   }
   if (!booking.depositPaidAt) {
     if (booking.status === 'pending') {
