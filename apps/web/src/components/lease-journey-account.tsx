@@ -19,8 +19,8 @@ function shortAccountLabel(value: string): string {
 }
 
 /**
- * Booking journey pages hide the site header — keep a compact account control so multi-tab
- * users can see and switch which ?au= this tab is bound to.
+ * Booking journey pages hide the site header — compact account control so multi-tab
+ * users can see/switch which ?au= this tab is bound to inside the narrow hero rail.
  */
 export function LeaseJourneyAccount({
   viewer,
@@ -30,7 +30,7 @@ export function LeaseJourneyAccount({
   locale: 'ar' | 'en';
 }) {
   const ar = locale === 'ar';
-  const [label, setLabel] = useState(
+  const [fullLabel, setFullLabel] = useState(
     () => viewer.email?.trim() || viewer.displayName?.trim() || (ar ? 'حسابي' : 'Account'),
   );
 
@@ -60,7 +60,7 @@ export function LeaseJourneyAccount({
           active?.name?.trim() ||
           me.email?.trim() ||
           me.displayName?.trim();
-        if (next) setLabel(next);
+        if (next) setFullLabel(next);
       })
       .catch(() => undefined);
     return () => {
@@ -68,11 +68,11 @@ export function LeaseJourneyAccount({
     };
   }, []);
 
-  const chip = shortAccountLabel(label) || (ar ? 'حسابي' : 'Account');
+  const short = shortAccountLabel(fullLabel) || (ar ? 'حسابي' : 'Account');
 
   return (
-    <div className="guest-stay-detail__account" title={label}>
-      <span className="guest-stay-detail__account-label">{chip}</span>
+    <div className="guest-stay-detail__account" title={fullLabel}>
+      <span className="guest-stay-detail__account-label">{short}</span>
       <BhdAppSwitcher viewer={viewer} locale={locale} />
     </div>
   );
