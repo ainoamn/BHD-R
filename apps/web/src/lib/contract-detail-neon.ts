@@ -39,6 +39,7 @@ import {
 import { loadPropertyLocation } from '@/lib/property-location-neon';
 import { defaultTemplateCounterpart } from '@/lib/contract-default-templates';
 import { formatMoney } from '@/lib/format';
+import { normalizeStoredLeaseTerms } from '@/lib/lease-terms';
 import { ownerPartyScope, readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
 import {
@@ -1022,6 +1023,7 @@ async function buildContractDocument(
     letterhead: loaded.letterhead,
     amount: money(snapshot.amount),
     deposit,
+    leaseTerms: type === 'lease' ? normalizeStoredLeaseTerms(snapshot.leaseTerms) : null,
     stayType: text(snapshot.stayType),
     checkInTime: text(snapshot.checkInTime) ?? loaded.stayPeriodTimes?.checkInTime ?? null,
     checkOutTime: text(snapshot.checkOutTime) ?? loaded.stayPeriodTimes?.checkOutTime ?? null,

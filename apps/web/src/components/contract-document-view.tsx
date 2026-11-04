@@ -12,6 +12,11 @@ import type {
   ContractPremises,
 } from '@/lib/contract-document';
 import { formatMoney } from '@/lib/format';
+import {
+  PAYMENT_FREQUENCY_LABELS,
+  PAYMENT_METHOD_LABELS,
+  type LeaseTerms,
+} from '@/lib/lease-terms';
 import { omanLocations } from '@/lib/oman-locations';
 import {
   ANNEX_META,
@@ -626,6 +631,81 @@ export function ContractDocumentView({
  * The contract as its original bilingual document: letterhead, seal, QR, articles,
  * signatures and print footer. Every official agreement on the site renders through it.
  */
+function LeasePaymentScheduleTable({
+  terms,
+  bi,
+  moneyMinor,
+}: {
+  terms: LeaseTerms;
+  bi: Kit['bi'];
+  moneyMinor: (minor: number, currency: string) => Pair;
+}) {
+  const isCheque = terms.paymentMethod === 'cheque';
+  const showVat = terms.vat.enabled && terms.vat.mode === 'with_rent';
+  return (
+    <>
+      <table className="contract-doc__compare">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>{bi(['الفترة', 'Period'])}</th>
+            <th>{bi(['تاريخ الاستحقاق', 'Due date'])}</th>
+            <th>{bi(['الإيجار', 'Rent'])}</th>
+            {showVat ? <th>{bi(['الضريبة', 'VAT'])}</th> : null}
+            <th>{bi(['الإجمالي', 'Total'])}</th>
+            {isCheque ? <th>{bi(['رقم الشيك', 'Cheque no.'])}</th> : null}
+            {isCheque ? <th>{bi(['البنك', 'Bank'])}</th> : null}
+          </tr>
+        </thead>
+        <tbody>
+          {terms.schedule.map((row) => (
+            <tr key={row.index}>
+              <td>{row.index}</td>
+              <td dir="ltr">
+                {row.periodFrom && row.periodTo ? `${row.periodFrom} → ${row.periodTo}` : '—'}
+                {row.extraDays ? bi([' (أيام إضافية)', ' (extra days)']) : null}
+              </td>
+              <td dir="ltr">{row.dueOn}</td>
+              <td>{bi(moneyMinor(row.rentMinor, terms.currency))}</td>
+              {showVat ? <td>{bi(moneyMinor(row.vatMinor, terms.currency))}</td> : null}
+              <td>{bi(moneyMinor(row.totalMinor, terms.currency))}</td>
+              {isCheque ? <td dir="ltr">{row.chequeNumber ?? '—'}</td> : null}
+              {isCheque ? <td>{row.bankName ?? '—'}</td> : null}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {terms.vatCheques.length ? (
+        <>
+          <div className="contract-doc__para contract-doc__lead" style={{ marginTop: '1rem' }}>
+            <strong>{bi(['شيكات الضريبة المضافة', 'VAT cheques'])}</strong>
+          </div>
+          <table className="contract-doc__compare">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>{bi(['تاريخ الاستحقاق', 'Due date'])}</th>
+                <th>{bi(['المبلغ', 'Amount'])}</th>
+                <th>{bi(['رقم الشيك', 'Cheque no.'])}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {terms.vatCheques.map((row) => (
+                <tr key={`vat-${row.index}`}>
+                  <td>{row.index}</td>
+                  <td dir="ltr">{row.dueOn}</td>
+                  <td>{bi(moneyMinor(row.amountMinor, terms.currency))}</td>
+                  <td dir="ltr">{row.chequeNumber ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 export function ContractArticle({
   id,
   contract,
@@ -659,9 +739,14 @@ export function ContractArticle({
   const stay = doc.type === 'stay';
   const sale = doc.type === 'sale';
   const reservation = doc.reservation ?? null;
+  const leaseTerms = !stay && !sale && !reservation ? doc.leaseTerms : null;
   const owner = doc.owner;
   const tenant = doc.tenant;
   const premises = doc.premises;
+  const moneyMinor = (minor: number, currency: string): Pair => [
+    formatMoney(String(Math.round(minor)), currency, 'ar'),
+    formatMoney(String(Math.round(minor)), currency, 'en'),
+  ];
   const signatureImage = doc.files.some((file) => file.kind === 'signature')
     ? links.file('signature')
     : null;
@@ -1144,9 +1229,44 @@ export function ContractArticle({
                         ? ['ثمن البيع', 'Price']
                         : reservation
                           ? ['الإيجار الشهري', 'Monthly rent']
-                          : ['القيمة الإيجارية', 'Rent'],
+                          : leaseTerms
+                            ? ['إجمالي قيمة العقد', 'Contract total']
+                            : ['القيمة الإيجارية', 'Rent'],
                     bi(money(doc.amount)),
                   )}
+                  {leaseTerms
+                    ? row(
+                        ['الإيجار الشهري', 'Monthly rent'],
+                        bi(moneyMinor(leaseTerms.monthlyRentMinor, leaseTerms.currency)),
+                      )
+                    : null}
+                  {leaseTerms
+                    ? row(
+                        ['طريقة الدفع', 'Payment method'],
+                        bi(PAYMENT_METHOD_LABELS[leaseTerms.paymentMethod]),
+                      )
+                    : null}
+                  {leaseTerms
+                    ? row(
+                        ['دورية الدفع', 'Payment frequency'],
+                        bi(PAYMENT_FREQUENCY_LABELS[leaseTerms.paymentFrequency]),
+                      )
+                    : null}
+                  {leaseTerms?.paymentMethod === 'cheque' && leaseTerms.chequeAccountName
+                    ? row(
+                        ['الشيكات تُكتب باسم', 'Cheques payable to'],
+                        leaseTerms.chequeAccountName,
+                      )
+                    : null}
+                  {leaseTerms?.paymentMethod === 'cheque' && leaseTerms.chequeBankName
+                    ? row(['بنك الشيكات', 'Cheque bank'], leaseTerms.chequeBankName)
+                    : null}
+                  {leaseTerms
+                    ? row(
+                        ['يوم استحقاق الإيجار', 'Rent due day'],
+                        String(leaseTerms.paymentDay),
+                      )
+                    : null}
                   {reservation ? (
                     <>
                       {row(
@@ -1170,6 +1290,26 @@ export function ContractArticle({
                     : null}
                 </dl>
               </section>
+
+              {leaseTerms?.schedule.length ? (
+                <section className="contract-doc__section" id="contract-payment-schedule">
+                  {heading(
+                    leaseTerms.paymentMethod === 'cheque'
+                      ? ['ملحق جدول الدفع والشيكات', 'Payment & cheque schedule annex']
+                      : ['ملحق جدول الدفع', 'Payment schedule annex'],
+                  )}
+                  {para(
+                    leaseTerms.paymentMethod === 'cheque'
+                      ? 'هذا الملحق متمّم للعقد وجزء لا يتجزأ منه، ويبين أقساط الإيجار وأرقام الشيكات وتواريخ استحقاقها المتفق عليها بين الطرفين.'
+                      : 'هذا الملحق متمّم للعقد وجزء لا يتجزأ منه، ويبين أقساط الإيجار ومواعيد استحقاقها المتفق عليها بين الطرفين.',
+                    leaseTerms.paymentMethod === 'cheque'
+                      ? 'This annex forms an integral part of the contract and sets out the rent instalments, cheque numbers and due dates agreed by the parties.'
+                      : 'This annex forms an integral part of the contract and sets out the rent instalments and due dates agreed by the parties.',
+                    'contract-doc__lead',
+                  )}
+                  <LeasePaymentScheduleTable terms={leaseTerms} bi={bi} moneyMinor={moneyMinor} />
+                </section>
+              ) : null}
 
               {templateAr || templateEn ? (
                 <section className="contract-doc__section">

@@ -2,13 +2,15 @@
 
 import type { ReactNode } from 'react';
 import { formatMoney } from '@/lib/format';
-import type {
-  AdjustmentRecurrence,
-  AdjustmentScope,
-  DepositMethod,
-  LeaseTerms,
-  PaymentFrequency,
-  PaymentMethod,
+import {
+  normalizeStoredLeaseTerms,
+  PAYMENT_FREQUENCY_LABELS,
+  PAYMENT_METHOD_LABELS,
+  type AdjustmentRecurrence,
+  type AdjustmentScope,
+  type DepositMethod,
+  type LeaseTerms,
+  type LocalePair,
 } from '@/lib/lease-terms';
 
 export type LeaseTenantDetails = {
@@ -26,21 +28,10 @@ export type LeaseTenantDetails = {
   email: string | null;
 };
 
-type Pair = [string, string];
+type Pair = LocalePair;
 
-export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, Pair> = {
-  cheque: ['شيك', 'Cheque'],
-  cash: ['نقداً', 'Cash'],
-  bank_transfer: ['تحويل بنكي', 'Bank transfer'],
-};
-
-export const FREQUENCY_LABELS: Record<PaymentFrequency, Pair> = {
-  monthly: ['شهرياً', 'Monthly'],
-  bimonthly: ['كل شهرين', 'Every 2 months'],
-  quarterly: ['كل 3 أشهر', 'Every 3 months'],
-  semiannual: ['كل 6 أشهر', 'Every 6 months'],
-  annual: ['سنوياً', 'Yearly'],
-};
+export { PAYMENT_METHOD_LABELS };
+export const FREQUENCY_LABELS = PAYMENT_FREQUENCY_LABELS;
 
 export const RECURRENCE_LABELS: Record<AdjustmentRecurrence, Pair> = {
   one_time: ['مرة واحدة', 'Once'],
@@ -546,31 +537,7 @@ export function LeaseTermsView({
 export function parseLeaseTerms(json: string | null | undefined): LeaseTerms | null {
   if (!json) return null;
   try {
-    const value = JSON.parse(json) as LeaseTerms;
-    if (!value || !Array.isArray(value.schedule) || !value.totals) return null;
-    const payer =
-      value.municipalityFee?.payer === 'tenant' || value.municipalityFee?.payer === 'owner'
-        ? value.municipalityFee.payer
-        : 'owner';
-    const municipalityFeeMinor = value.totals.municipalityFeeMinor ?? 0;
-    const municipalityFeeOnTenantMinor =
-      value.totals.municipalityFeeOnTenantMinor ?? (payer === 'tenant' ? municipalityFeeMinor : 0);
-    return {
-      ...value,
-      municipalityFee: {
-        enabled: Boolean(value.municipalityFee?.enabled),
-        rateBasisPoints: value.municipalityFee?.rateBasisPoints ?? 300,
-        payer,
-      },
-      totals: {
-        ...value.totals,
-        municipalityFeeMinor,
-        municipalityFeeOnTenantMinor,
-        chargesMinor:
-          value.totals.chargesMinor ??
-          value.totals.grandTotalMinor + (value.totals.totalDiscountsMinor ?? 0),
-      },
-    };
+    return normalizeStoredLeaseTerms(JSON.parse(json));
   } catch {
     return null;
   }

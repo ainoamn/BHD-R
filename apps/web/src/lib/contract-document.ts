@@ -1,5 +1,6 @@
 import type { NumberedTermsBlock, TermsLetterhead } from '@/lib/booking-terms';
 import type { ContractAnnexLink } from '@/lib/contract-annex';
+import type { LeaseTerms } from '@/lib/lease-terms';
 
 export type ContractFileKind = 'signature' | 'id-front' | 'id-back' | 'selfie';
 
@@ -98,6 +99,12 @@ export interface ContractDocument {
   letterhead: TermsLetterhead | null;
   amount: Money | null;
   deposit: Money | null;
+  /**
+   * Computed long-term lease financials from `payload_snapshot.leaseTerms`
+   * (payment method/frequency, rent schedule, cheque details). Null for stays/sales
+   * or older contracts that never stored terms.
+   */
+  leaseTerms: LeaseTerms | null;
   stayType: string | null;
   /** Property-configured clock times for this stay type (HH:MM). */
   checkInTime: string | null;

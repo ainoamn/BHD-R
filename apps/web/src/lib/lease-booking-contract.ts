@@ -75,6 +75,7 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
     letterhead: booking.letterhead,
     amount: money(priceMinor),
     deposit: null,
+    leaseTerms: null,
     stayType: null,
     checkInTime: null,
     checkOutTime: null,

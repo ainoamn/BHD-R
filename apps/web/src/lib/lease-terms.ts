@@ -789,3 +789,66 @@ export function computeLeaseTerms(
     },
   };
 }
+
+/* ------------------------------------------------------------------ display / stored */
+
+export type LocalePair = [string, string];
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, LocalePair> = {
+  cheque: ['شيك', 'Cheque'],
+  cash: ['نقداً', 'Cash'],
+  bank_transfer: ['تحويل بنكي', 'Bank transfer'],
+};
+
+export const PAYMENT_FREQUENCY_LABELS: Record<PaymentFrequency, LocalePair> = {
+  monthly: ['شهرياً', 'Monthly'],
+  bimonthly: ['كل شهرين', 'Every 2 months'],
+  quarterly: ['كل 3 أشهر', 'Every 3 months'],
+  semiannual: ['كل 6 أشهر', 'Every 6 months'],
+  annual: ['سنوياً', 'Yearly'],
+};
+
+/** Normalize lease terms JSON already stored on a contract payload. */
+export function normalizeStoredLeaseTerms(value: unknown): LeaseTerms | null {
+  if (!value || typeof value !== 'object') return null;
+  const raw = value as LeaseTerms;
+  if (!Array.isArray(raw.schedule) || !raw.totals) return null;
+  if (
+    raw.paymentMethod !== 'cheque' &&
+    raw.paymentMethod !== 'cash' &&
+    raw.paymentMethod !== 'bank_transfer'
+  ) {
+    return null;
+  }
+  if (!(PAYMENT_FREQUENCIES as readonly string[]).includes(raw.paymentFrequency)) return null;
+
+  const payer =
+    raw.municipalityFee?.payer === 'tenant' || raw.municipalityFee?.payer === 'owner'
+      ? raw.municipalityFee.payer
+      : 'owner';
+  const municipalityFeeMinor = raw.totals.municipalityFeeMinor ?? 0;
+  const municipalityFeeOnTenantMinor =
+    raw.totals.municipalityFeeOnTenantMinor ?? (payer === 'tenant' ? municipalityFeeMinor : 0);
+
+  return {
+    ...raw,
+    municipalityFee: {
+      enabled: Boolean(raw.municipalityFee?.enabled),
+      rateBasisPoints: raw.municipalityFee?.rateBasisPoints ?? 300,
+      payer,
+    },
+    chequeBankName: raw.chequeBankName ?? null,
+    chequeAccountName: raw.chequeAccountName ?? null,
+    vatCheques: Array.isArray(raw.vatCheques) ? raw.vatCheques : [],
+    depositItems: Array.isArray(raw.depositItems) ? raw.depositItems : [],
+    adjustments: Array.isArray(raw.adjustments) ? raw.adjustments : [],
+    totals: {
+      ...raw.totals,
+      municipalityFeeMinor,
+      municipalityFeeOnTenantMinor,
+      chargesMinor:
+        raw.totals.chargesMinor ??
+        raw.totals.grandTotalMinor + (raw.totals.totalDiscountsMinor ?? 0),
+    },
+  };
+}
