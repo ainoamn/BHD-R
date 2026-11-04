@@ -48,6 +48,7 @@ import { ownerPartyScope } from '@/lib/portal-ops-data';
 import { loadPropertyLocation } from '@/lib/property-location-neon';
 import {
   parseReservationParty,
+  partyWithoutEmbeddedFiles,
   reservationPartyError,
   type ReservationParty,
 } from '@/lib/reservation-party';
@@ -1155,7 +1156,7 @@ function leaseBookingView(match: LeaseReservationMatch) {
     rentMinor: snapshot.rentMinor,
     salePriceMinor: snapshot.salePriceMinor,
     contact: snapshot.contact,
-    party: parseReservationParty(snapshot.party),
+    party: partyWithoutEmbeddedFiles(parseReservationParty(snapshot.party)),
     bookingFor: snapshot.bookingFor ?? 'self',
     bookedByName: snapshot.bookedBy?.displayName ?? null,
     termsAcceptedAt: snapshot.termsAcceptedAt,

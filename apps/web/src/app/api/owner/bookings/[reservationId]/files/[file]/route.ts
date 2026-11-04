@@ -35,7 +35,8 @@ export async function GET(
       headers: {
         'Content-Type': found.mimeType,
         'Content-Length': String(found.bytes.length),
-        'Cache-Control': 'private, no-store',
+        // Short private cache: thumbs re-hit the same URL while the owner reviews the package.
+        'Cache-Control': 'private, max-age=60',
         'X-Content-Type-Options': 'nosniff',
         'Content-Disposition': `inline; filename="${safeName}"`,
         'Content-Security-Policy':

@@ -841,7 +841,11 @@ export async function reservationOwnerAction(
   const result = await ownerActionInTx(claims, reservationId, input);
   await notifyReservationStep(reservationId, input);
   if (!AUTOMATION_TRIGGERS.has(input.action)) return result;
-  if (options.defer && input.action === 'review_document') {
+  // Document/cheque reviews must answer the owner quickly — run follow-up automation after the response.
+  if (
+    options.defer &&
+    (input.action === 'review_document' || input.action === 'review_cheque')
+  ) {
     options.defer(() => runReservationAutomation(reservationId, claims.sub));
     return { ...result, automationPending: true };
   }
@@ -2591,6 +2595,33 @@ const PARTY_FILE_PATH: Record<string, string[]> = {
   'party-cr': ['company', 'crCopy'],
 };
 
+const PARTY_FILE_JSON: Record<string, string> = {
+  'party-civil-id': '{party,person,civilIdCopy}',
+  'party-passport': '{party,person,passportCopy}',
+  'party-cr': '{party,company,crCopy}',
+};
+
+/** Pull one string out of workflow metadata without shipping the whole JSONB blob. */
+async function readWorkflowMetadataPath(
+  transaction: Tx,
+  orgId: string,
+  eventId: string,
+  path: string[],
+): Promise<string | null> {
+  if (!path.length || path.some((part) => !/^[A-Za-z0-9_]+$/.test(part))) return null;
+  const jsonPathLiteral = `'{${path.join(',')}}'`;
+  return withElevatedRead(transaction, async () => {
+    const [row] = await transaction
+      .select({
+        value: sql<string | null>`${workflowEvents.metadata} #>> ${sql.raw(jsonPathLiteral)}`,
+      })
+      .from(workflowEvents)
+      .where(and(eq(workflowEvents.id, eventId), eq(workflowEvents.organizationId, orgId)))
+      .limit(1);
+    return row?.value ?? null;
+  });
+}
+
 /**
  * Identity captures, signatures and requested documents of a website booking, for staff
  * of its organization (and an individual owner on their own property only).
@@ -2610,24 +2641,44 @@ export async function readReservationFileForStaff(
   if (identity && !hasPermission(claims, 'reservation.manage')) return null;
   const { db } = getDatabase();
   const dataUrl = await db.transaction(async (transaction) => {
-    const match = await findLeaseReservation(transaction, 'id', reservationId);
-    if (!match || match.organizationId !== claims.organizationId) return null;
+    // Avoid findLeaseReservation here: it pulls the full terms_snapshot (incl. embedded ID
+    // photos) on every thumbnail request. Only load the JSON pointers this file needs.
+    const partyJson = PARTY_FILE_JSON[file];
+    const [row] = await withElevatedRead(transaction, async () =>
+      transaction
+        .select({
+          organizationId: reservations.organizationId,
+          ownerPartyId: properties.ownerPartyId,
+          referenceCode: sql<string | null>`${reservations.termsSnapshot}->>'referenceCode'`,
+          lifecycle: sql<unknown>`${reservations.termsSnapshot}->'lifecycle'`,
+          esign: sql<unknown>`${reservations.termsSnapshot}->'esign'`,
+          partyAttach: partyJson
+            ? sql<unknown>`${reservations.termsSnapshot} #> ${sql.raw(`'${partyJson}'`)}`
+            : sql<unknown>`null::jsonb`,
+        })
+        .from(reservations)
+        .innerJoin(units, eq(units.id, reservations.unitId))
+        .innerJoin(properties, eq(properties.id, units.propertyId))
+        .where(
+          and(
+            eq(reservations.id, reservationId),
+            sql`${reservations.termsSnapshot}->>'flow' = ${LEASE_BOOKING_FLOW}`,
+          ),
+        )
+        .limit(1),
+    );
+    if (!row || row.organizationId !== claims.organizationId) return null;
     const ownerPartyId = ownerPartyScope(claims);
-    if (ownerPartyId && match.ownerPartyId !== ownerPartyId) return null;
-    const lifecycle = lifecycleOf(match.snapshot);
+    if (ownerPartyId && row.ownerPartyId !== ownerPartyId) return null;
+    const lifecycle = lifecycleOf({ lifecycle: row.lifecycle });
     if (handoverPhoto) {
-      const value = await handoverPhotoDataUrl(transaction, match.organizationId, lifecycle, file);
-      return value ? { value, name: `${match.snapshot.referenceCode}-${file}` } : null;
+      const value = await handoverPhotoDataUrl(transaction, row.organizationId, lifecycle, file);
+      return value ? { value, name: `${row.referenceCode ?? reservationId}-${file}` } : null;
     }
     if (file in PARTY_FILE_PATH) {
-      let cursor: unknown = match.snapshot.party;
-      for (const key of PARTY_FILE_PATH[file]!) {
-        cursor =
-          cursor && typeof cursor === 'object' ? (cursor as Record<string, unknown>)[key] : null;
-      }
       const attach =
-        cursor && typeof cursor === 'object'
-          ? (cursor as { dataUrl?: unknown; name?: unknown })
+        row.partyAttach && typeof row.partyAttach === 'object'
+          ? (row.partyAttach as { dataUrl?: unknown; name?: unknown })
           : null;
       const value = typeof attach?.dataUrl === 'string' ? attach.dataUrl : null;
       const name = typeof attach?.name === 'string' ? attach.name : file;
@@ -2642,30 +2693,16 @@ export async function readReservationFileForStaff(
           ? lifecycle.bookingDocsReturn?.fixFiles?.[file]
           : undefined;
       if (staged?.eventId) {
-        const value = await withElevatedRead(transaction, async () => {
-          const [row] = await transaction
-            .select({ metadata: workflowEvents.metadata })
-            .from(workflowEvents)
-            .where(
-              and(
-                eq(workflowEvents.id, staged.eventId),
-                eq(workflowEvents.organizationId, match.organizationId),
-              ),
-            )
-            .limit(1);
-          const meta = row?.metadata;
-          return meta &&
-            typeof meta === 'object' &&
-            typeof (meta as { dataUrl?: unknown }).dataUrl === 'string'
-            ? (meta as { dataUrl: string }).dataUrl
-            : null;
-        });
+        const value = await readWorkflowMetadataPath(transaction, row.organizationId, staged.eventId, [
+          'dataUrl',
+        ]);
         return value ? { value, name: staged.name || file } : null;
       }
-      eventId =
-        match.snapshot.esign?.evidenceEventId ??
-        lifecycle.bookingDocsReturn?.evidenceEventId ??
-        null;
+      const esign =
+        row.esign && typeof row.esign === 'object'
+          ? (row.esign as { evidenceEventId?: string })
+          : null;
+      eventId = esign?.evidenceEventId ?? lifecycle.bookingDocsReturn?.evidenceEventId ?? null;
       path = ['esign', ESIGN_FIELDS[file]!];
     } else if (file === 'contract-signature') {
       eventId = lifecycle.tenantSignature?.evidenceEventId ?? null;
@@ -2686,22 +2723,7 @@ export async function readReservationFileForStaff(
       path = ['dataUrl'];
     }
     if (!eventId || !path.length) return null;
-    const id = eventId;
-    const value = await withElevatedRead(transaction, async () => {
-      const [row] = await transaction
-        .select({ metadata: workflowEvents.metadata })
-        .from(workflowEvents)
-        .where(
-          and(eq(workflowEvents.id, id), eq(workflowEvents.organizationId, match.organizationId)),
-        )
-        .limit(1);
-      let cursor: unknown = row?.metadata;
-      for (const key of path) {
-        cursor =
-          cursor && typeof cursor === 'object' ? (cursor as Record<string, unknown>)[key] : null;
-      }
-      return typeof cursor === 'string' ? cursor : null;
-    });
+    const value = await readWorkflowMetadataPath(transaction, row.organizationId, eventId, path);
     return value ? { value, name } : null;
   });
   if (!dataUrl) return null;

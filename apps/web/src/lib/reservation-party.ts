@@ -323,6 +323,44 @@ export function parseReservationParty(value: unknown): ReservationParty | null {
   return parsed.success ? parsed.data : null;
 }
 
+function attachWithoutBytes(attach: PartyDocAttach | undefined): PartyDocAttach | undefined {
+  if (!attach) return undefined;
+  return { name: attach.name, mime: attach.mime, size: attach.size };
+}
+
+/**
+ * Keep file metadata for UI (name / mime / size) but drop embedded `dataUrl` bytes so booking
+ * pages and RSC payloads stay small — bytes are served from `/files/…` on demand.
+ */
+export function partyWithoutEmbeddedFiles(party: ReservationParty | null): ReservationParty | null {
+  if (!party) return null;
+  if (party.entityType === 'company' && party.company) {
+    return {
+      ...party,
+      company: {
+        ...party.company,
+        crCopy: attachWithoutBytes(party.company.crCopy),
+        signatories: party.company.signatories.map((row) => ({
+          ...row,
+          civilIdCopy: attachWithoutBytes(row.civilIdCopy),
+          passportCopy: attachWithoutBytes(row.passportCopy),
+        })),
+      },
+    };
+  }
+  if (party.entityType === 'person' && party.person) {
+    return {
+      ...party,
+      person: {
+        ...party.person,
+        civilIdCopy: attachWithoutBytes(party.person.civilIdCopy),
+        passportCopy: attachWithoutBytes(party.person.passportCopy),
+      },
+    };
+  }
+  return party;
+}
+
 /** Display name of the contracting party (Arabic first). */
 export function partyDisplayName(party: ReservationParty, ar = true): string {
   const row = party.entityType === 'company' ? party.company : party.person;
