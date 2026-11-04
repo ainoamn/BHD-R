@@ -18,6 +18,7 @@ import {
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 
 export type ProfileCompletenessSummary = {
+  ownerPartyId: string | null;
   ownerMissing: number;
   buildingsMissing: number;
   ownerFields: ReturnType<typeof missingOwnerFields>;
@@ -28,105 +29,139 @@ export type ProfileCompletenessSummary = {
   }>;
 };
 
+type OwnerGapTx = Parameters<Parameters<typeof withinViewerTenant>[1]>[0];
+
+async function ownerFieldsForParty(
+  tx: OwnerGapTx,
+  orgId: string,
+  ownerPartyId: string,
+): Promise<ReturnType<typeof missingOwnerFields>> {
+  const [party] = await tx
+    .select({
+      displayName: parties.displayName,
+      phone: parties.phone,
+      hasNationalId: sql<boolean>`${parties.nationalIdLookupHash} is not null`,
+    })
+    .from(parties)
+    .where(and(eq(parties.id, ownerPartyId), eq(parties.organizationId, orgId)))
+    .limit(1);
+
+  const idDocs = await tx
+    .select({
+      documentType: partyIdentityDocuments.documentType,
+      expiresOn: partyIdentityDocuments.expiresOn,
+      metadata: partyIdentityDocuments.metadata,
+    })
+    .from(partyIdentityDocuments)
+    .where(
+      and(
+        eq(partyIdentityDocuments.partyId, ownerPartyId),
+        eq(partyIdentityDocuments.organizationId, orgId),
+        inArray(partyIdentityDocuments.documentType, ['civil_id', 'passport']),
+      ),
+    );
+
+  const civil = idDocs.find((row) => row.documentType === 'civil_id');
+  const roles = await tx
+    .select({ roleKey: partyRoles.roleKey })
+    .from(partyRoles)
+    .where(
+      and(
+        eq(partyRoles.partyId, ownerPartyId),
+        eq(partyRoles.organizationId, orgId),
+        eq(partyRoles.status, 'active'),
+      ),
+    );
+  const isAgent = roles.some((row) => row.roleKey === 'authorized_representative');
+  let hasPowerOfAttorney = false;
+  let principalCivilIdCopy = false;
+  if (isAgent) {
+    const [auth] = await tx
+      .select({ id: representationAuthorities.id })
+      .from(representationAuthorities)
+      .where(
+        and(
+          eq(representationAuthorities.representativePartyId, ownerPartyId),
+          eq(representationAuthorities.organizationId, orgId),
+          eq(representationAuthorities.status, 'active'),
+        ),
+      )
+      .limit(1);
+    hasPowerOfAttorney = Boolean(auth);
+    if (auth) {
+      const [link] = await tx
+        .select({ principalPartyId: representationAuthorities.principalPartyId })
+        .from(representationAuthorities)
+        .where(eq(representationAuthorities.id, auth.id))
+        .limit(1);
+      if (link) {
+        const [principalDoc] = await tx
+          .select({ id: partyIdentityDocuments.id })
+          .from(partyIdentityDocuments)
+          .where(
+            and(
+              eq(partyIdentityDocuments.partyId, link.principalPartyId),
+              eq(partyIdentityDocuments.documentType, 'civil_id'),
+            ),
+          )
+          .limit(1);
+        principalCivilIdCopy = Boolean(principalDoc);
+      }
+    }
+  }
+
+  const meta = (civil?.metadata ?? {}) as { hasCopy?: boolean };
+  const owner: CompletenessOwner = {
+    displayName: party?.displayName ?? undefined,
+    civilId: party?.hasNationalId ? '••••' : undefined,
+    phone: party?.phone ?? undefined,
+    civilIdCopy: Boolean(civil) || meta.hasCopy === true,
+    civilIdExpiresOn: civil?.expiresOn ?? undefined,
+    isAgent,
+    hasPowerOfAttorney,
+    principalCivilIdCopy,
+  };
+  return missingOwnerFields(owner);
+}
+
+/** Missing owner-profile field counts for address-book cards (owners / property holders). */
+export async function loadOwnerGapCounts(
+  claims: SessionClaims,
+  partyIds: string[],
+): Promise<Map<string, number>> {
+  const unique = [...new Set(partyIds.filter(Boolean))];
+  const gaps = new Map<string, number>();
+  if (!claims.organizationId || !unique.length) return gaps;
+  const orgId = claims.organizationId;
+  return withinViewerTenant(claims, async (tx) => {
+    for (const partyId of unique) {
+      const fields = await ownerFieldsForParty(tx, orgId, partyId);
+      if (fields.length) gaps.set(partyId, fields.length);
+    }
+    return gaps;
+  });
+}
+
 /** Counts incomplete owner identity and building profiles for portal alerts. */
 export async function loadProfileCompletenessSummary(
   claims: SessionClaims,
 ): Promise<ProfileCompletenessSummary> {
   if (!claims.organizationId) {
-    return { ownerMissing: 0, buildingsMissing: 0, ownerFields: [], buildings: [] };
+    return {
+      ownerPartyId: null,
+      ownerMissing: 0,
+      buildingsMissing: 0,
+      ownerFields: [],
+      buildings: [],
+    };
   }
   const orgId = claims.organizationId;
-  const ownerPartyId = ownerPartyScope(claims) ?? claims.partyId;
+  const ownerPartyId = ownerPartyScope(claims) ?? claims.partyId ?? null;
 
   return withinViewerTenant(claims, async (tx) => {
     let ownerFields: ReturnType<typeof missingOwnerFields> = [];
     if (ownerPartyId) {
-      const [party] = await tx
-        .select({
-          displayName: parties.displayName,
-          phone: parties.phone,
-          hasNationalId: sql<boolean>`${parties.nationalIdLookupHash} is not null`,
-        })
-        .from(parties)
-        .where(and(eq(parties.id, ownerPartyId), eq(parties.organizationId, orgId)))
-        .limit(1);
-
-      const idDocs = await tx
-        .select({
-          documentType: partyIdentityDocuments.documentType,
-          expiresOn: partyIdentityDocuments.expiresOn,
-          metadata: partyIdentityDocuments.metadata,
-        })
-        .from(partyIdentityDocuments)
-        .where(
-          and(
-            eq(partyIdentityDocuments.partyId, ownerPartyId),
-            eq(partyIdentityDocuments.organizationId, orgId),
-            inArray(partyIdentityDocuments.documentType, ['civil_id', 'passport']),
-          ),
-        );
-
-      const civil = idDocs.find((row) => row.documentType === 'civil_id');
-      const roles = await tx
-        .select({ roleKey: partyRoles.roleKey })
-        .from(partyRoles)
-        .where(
-          and(
-            eq(partyRoles.partyId, ownerPartyId),
-            eq(partyRoles.organizationId, orgId),
-            eq(partyRoles.status, 'active'),
-          ),
-        );
-      const isAgent = roles.some((row) => row.roleKey === 'authorized_representative');
-      let hasPowerOfAttorney = false;
-      let principalCivilIdCopy = false;
-      if (isAgent) {
-        const [auth] = await tx
-          .select({ id: representationAuthorities.id })
-          .from(representationAuthorities)
-          .where(
-            and(
-              eq(representationAuthorities.representativePartyId, ownerPartyId),
-              eq(representationAuthorities.organizationId, orgId),
-              eq(representationAuthorities.status, 'active'),
-            ),
-          )
-          .limit(1);
-        hasPowerOfAttorney = Boolean(auth);
-        if (auth) {
-          const [link] = await tx
-            .select({ principalPartyId: representationAuthorities.principalPartyId })
-            .from(representationAuthorities)
-            .where(eq(representationAuthorities.id, auth.id))
-            .limit(1);
-          if (link) {
-            const [principalDoc] = await tx
-              .select({ id: partyIdentityDocuments.id })
-              .from(partyIdentityDocuments)
-              .where(
-                and(
-                  eq(partyIdentityDocuments.partyId, link.principalPartyId),
-                  eq(partyIdentityDocuments.documentType, 'civil_id'),
-                ),
-              )
-              .limit(1);
-            principalCivilIdCopy = Boolean(principalDoc);
-          }
-        }
-      }
-
-      const meta = (civil?.metadata ?? {}) as { hasCopy?: boolean };
-      const owner: CompletenessOwner = {
-        displayName: party?.displayName ?? undefined,
-        civilId: party?.hasNationalId ? '••••' : undefined,
-        phone: party?.phone ?? undefined,
-        civilIdCopy: Boolean(civil) || meta.hasCopy === true,
-        civilIdExpiresOn: civil?.expiresOn ?? undefined,
-        isAgent,
-        hasPowerOfAttorney,
-        principalCivilIdCopy,
-      };
-      ownerFields = missingOwnerFields(owner);
+      ownerFields = await ownerFieldsForParty(tx, orgId, ownerPartyId);
     }
 
     const propertyFilter = ownerPartyId
@@ -168,6 +203,7 @@ export async function loadProfileCompletenessSummary(
     }
 
     return {
+      ownerPartyId,
       ownerMissing: ownerFields.length,
       buildingsMissing: buildings.length,
       ownerFields,

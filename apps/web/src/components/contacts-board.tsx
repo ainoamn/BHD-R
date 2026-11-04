@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { IdentityAvatar, VerifiedMark } from '@/components/identity/verified-mark';
 import { Link } from '@/i18n/navigation';
@@ -59,10 +60,14 @@ export function ContactsBoard({
   active: boolean;
 }) {
   const ar = locale === 'ar';
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get('focus')?.trim() || null;
+  const gapsOwner = searchParams.get('gaps') === 'owner';
   const [contacts, setContacts] = useState<ContactSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<Filter>('all');
+  const [filter, setFilter] = useState<Filter>(gapsOwner ? 'owner' : 'all');
+  const focusRef = useRef<HTMLLIElement | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -91,15 +96,38 @@ export function ContactsBoard({
     return () => window.removeEventListener('bhd-r-ops-refresh', onRefresh);
   }, [active, load]);
 
+  useEffect(() => {
+    if (gapsOwner) setFilter('owner');
+  }, [gapsOwner]);
+
+  useEffect(() => {
+    if (!active || !focusId || !contacts) return;
+    focusRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [active, focusId, contacts]);
+
   const needle = query.trim().toLowerCase();
-  const shown = (contacts ?? []).filter(
-    (contact) =>
-      matches(contact, filter) &&
-      (!needle ||
-        [contact.displayName, contact.email, contact.phone]
-          .filter(Boolean)
-          .some((value) => value!.toLowerCase().includes(needle))),
-  );
+  const shown = useMemo(() => {
+    const filtered = (contacts ?? []).filter(
+      (contact) =>
+        matches(contact, filter) &&
+        (!needle ||
+          [contact.displayName, contact.email, contact.phone]
+            .filter(Boolean)
+            .some((value) => value!.toLowerCase().includes(needle))),
+    );
+    if (!gapsOwner) return filtered;
+    return [...filtered].sort((a, b) => {
+      const gapDiff = (b.ownerGaps ?? 0) - (a.ownerGaps ?? 0);
+      if (gapDiff) return gapDiff;
+      if (focusId) {
+        if (a.id === focusId) return -1;
+        if (b.id === focusId) return 1;
+      }
+      return 0;
+    });
+  }, [contacts, filter, needle, gapsOwner, focusId]);
+
+  const incompleteOwners = (contacts ?? []).filter((contact) => (contact.ownerGaps ?? 0) > 0).length;
 
   return (
     <section className="contacts-board" aria-label={ar ? 'دفتر العناوين' : 'Address book'}>
@@ -129,6 +157,14 @@ export function ContactsBoard({
         </div>
       </div>
 
+      {incompleteOwners > 0 ? (
+        <p className="contacts-board__gaps-banner" role="status">
+          {ar
+            ? `${incompleteOwners} ${incompleteOwners === 1 ? 'طرف مالك' : 'أطراف ملاك'} ببيانات ناقصة — البطاقات المعلّمة تحتاج استكمالاً.`
+            : `${incompleteOwners} owner part${incompleteOwners === 1 ? 'y' : 'ies'} with incomplete details — marked cards need completion.`}
+        </p>
+      ) : null}
+
       {!contacts ? (
         <p className="contacts-board__empty" role={failed ? 'alert' : 'status'}>
           {failed
@@ -141,100 +177,120 @@ export function ContactsBoard({
         </p>
       ) : shown.length ? (
         <ul className="contacts-board__list">
-          {shown.map((contact) => (
-            <li key={contact.id}>
-              <Link
-                className="contact-card"
-                href={`/${portal}/contacts/${encodeURIComponent(contact.id)}`}
-              >
-                {contact.mark?.avatarUrl ? (
-                  <IdentityAvatar
-                    name={contact.displayName}
-                    mark={contact.mark}
-                    locale={locale}
-                    size={44}
-                    className="contact-card__avatar"
-                  />
-                ) : (
-                  <span className="contact-card__avatar" aria-hidden="true">
-                    {contact.displayName.trim().charAt(0).toUpperCase() || '؟'}
+          {shown.map((contact) => {
+            const gaps = contact.ownerGaps ?? 0;
+            const focused = Boolean(focusId && contact.id === focusId);
+            return (
+              <li key={contact.id} ref={focused ? focusRef : undefined}>
+                <Link
+                  className={`contact-card${gaps ? ' contact-card--gaps' : ''}${
+                    focused ? ' is-focus' : ''
+                  }`}
+                  href={`/${portal}/contacts/${encodeURIComponent(contact.id)}${
+                    gaps ? '?gaps=owner' : ''
+                  }`}
+                >
+                  {gaps ? (
+                    <span className="contact-card__watermark" aria-hidden="true">
+                      {ar ? 'نقص' : 'Gaps'}
+                    </span>
+                  ) : null}
+                  {contact.mark?.avatarUrl ? (
+                    <IdentityAvatar
+                      name={contact.displayName}
+                      mark={contact.mark}
+                      locale={locale}
+                      size={44}
+                      className="contact-card__avatar"
+                    />
+                  ) : (
+                    <span className="contact-card__avatar" aria-hidden="true">
+                      {contact.displayName.trim().charAt(0).toUpperCase() || '؟'}
+                    </span>
+                  )}
+                  <span className="contact-card__body">
+                    <strong className="name-with-mark">
+                      {contact.displayName}
+                      <VerifiedMark verified={contact.mark?.verified} locale={locale} />
+                      <BadgeChips badges={contact.badges} locale={locale} size={18} linked={false} />
+                    </strong>
+                    <span className="contact-card__roles">
+                      {gaps ? (
+                        <span className="contact-role contact-role--gaps">
+                          {ar
+                            ? `${gaps} ${gaps === 1 ? 'حقل ناقص' : 'حقول ناقصة'}`
+                            : `${gaps} missing field${gaps === 1 ? '' : 's'}`}
+                        </span>
+                      ) : null}
+                      {contact.properties > 0 && !contact.roles.includes('owner') ? (
+                        <span className="contact-role contact-role--owner">
+                          {contactRoleLabel('owner', ar)}
+                        </span>
+                      ) : null}
+                      {contact.roles.map((role) => (
+                        <span key={role} className={`contact-role contact-role--${role}`}>
+                          {contactRoleLabel(role, ar)}
+                        </span>
+                      ))}
+                      {contact.member ? (
+                        <span className="contact-role contact-role--member">
+                          {ar ? 'عضو بالفريق' : 'Team member'}
+                        </span>
+                      ) : null}
+                      {contact.status !== 'active' ? (
+                        <span className="contact-role contact-role--muted">
+                          {contact.status === 'archived'
+                            ? ar
+                              ? 'مؤرشف'
+                              : 'Archived'
+                            : ar
+                              ? 'غير نشط'
+                              : 'Inactive'}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="contact-card__meta">
+                      {[contact.phone, contact.email].filter(Boolean).join(' · ') ||
+                        (ar ? 'لا توجد بيانات تواصل' : 'No contact details')}
+                    </span>
+                    <span className="contact-card__links">
+                      {contact.properties ? (
+                        <span>
+                          {ar
+                            ? `يملك ${contact.properties} ${arPlural(contact.properties, 'عقار', 'عقارات')}`
+                            : `Owns ${contact.properties} propert${contact.properties === 1 ? 'y' : 'ies'}`}
+                        </span>
+                      ) : null}
+                      {contact.activeLeases ? (
+                        <span>
+                          {ar
+                            ? `${contact.activeLeases} إيجار ساري`
+                            : `${contact.activeLeases} active lease${contact.activeLeases === 1 ? '' : 's'}`}
+                        </span>
+                      ) : null}
+                      {contact.contracts ? (
+                        <span>
+                          {ar
+                            ? `${contact.contracts} ${arPlural(contact.contracts, 'عقد', 'عقود')}`
+                            : `${contact.contracts} contracts`}
+                        </span>
+                      ) : null}
+                      {contact.openLegal ? (
+                        <span className="contact-card__alert">
+                          {ar
+                            ? `${contact.openLegal} قضية مفتوحة`
+                            : `${contact.openLegal} open case${contact.openLegal === 1 ? '' : 's'}`}
+                        </span>
+                      ) : null}
+                    </span>
                   </span>
-                )}
-                <span className="contact-card__body">
-                  <strong className="name-with-mark">
-                    {contact.displayName}
-                    <VerifiedMark verified={contact.mark?.verified} locale={locale} />
-                    <BadgeChips badges={contact.badges} locale={locale} size={18} linked={false} />
-                  </strong>
-                  <span className="contact-card__roles">
-                    {contact.properties > 0 && !contact.roles.includes('owner') ? (
-                      <span className="contact-role contact-role--owner">
-                        {contactRoleLabel('owner', ar)}
-                      </span>
-                    ) : null}
-                    {contact.roles.map((role) => (
-                      <span key={role} className={`contact-role contact-role--${role}`}>
-                        {contactRoleLabel(role, ar)}
-                      </span>
-                    ))}
-                    {contact.member ? (
-                      <span className="contact-role contact-role--member">
-                        {ar ? 'عضو بالفريق' : 'Team member'}
-                      </span>
-                    ) : null}
-                    {contact.status !== 'active' ? (
-                      <span className="contact-role contact-role--muted">
-                        {contact.status === 'archived'
-                          ? ar
-                            ? 'مؤرشف'
-                            : 'Archived'
-                          : ar
-                            ? 'غير نشط'
-                            : 'Inactive'}
-                      </span>
-                    ) : null}
+                  <span className="contact-card__open" aria-hidden="true">
+                    {ar ? 'عرض وتعديل' : 'View & edit'}
                   </span>
-                  <span className="contact-card__meta">
-                    {[contact.phone, contact.email].filter(Boolean).join(' · ') ||
-                      (ar ? 'لا توجد بيانات تواصل' : 'No contact details')}
-                  </span>
-                  <span className="contact-card__links">
-                    {contact.properties ? (
-                      <span>
-                        {ar
-                          ? `يملك ${contact.properties} ${arPlural(contact.properties, 'عقار', 'عقارات')}`
-                          : `Owns ${contact.properties} propert${contact.properties === 1 ? 'y' : 'ies'}`}
-                      </span>
-                    ) : null}
-                    {contact.activeLeases ? (
-                      <span>
-                        {ar
-                          ? `${contact.activeLeases} إيجار ساري`
-                          : `${contact.activeLeases} active lease${contact.activeLeases === 1 ? '' : 's'}`}
-                      </span>
-                    ) : null}
-                    {contact.contracts ? (
-                      <span>
-                        {ar
-                          ? `${contact.contracts} ${arPlural(contact.contracts, 'عقد', 'عقود')}`
-                          : `${contact.contracts} contracts`}
-                      </span>
-                    ) : null}
-                    {contact.openLegal ? (
-                      <span className="contact-card__alert">
-                        {ar
-                          ? `${contact.openLegal} قضية مفتوحة`
-                          : `${contact.openLegal} open case${contact.openLegal === 1 ? '' : 's'}`}
-                      </span>
-                    ) : null}
-                  </span>
-                </span>
-                <span className="contact-card__open" aria-hidden="true">
-                  {ar ? 'عرض وتعديل' : 'View & edit'}
-                </span>
-              </Link>
-            </li>
-          ))}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="contacts-board__empty">

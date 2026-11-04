@@ -330,6 +330,7 @@ async function withProfileCompletenessAlerts(
         severity: 'warning',
         code: 'incomplete_owner_profile',
         count: completeness.ownerMissing,
+        ...(completeness.ownerPartyId ? { resourceId: completeness.ownerPartyId } : {}),
       });
     }
     if (completeness.buildingsMissing > 0) {

@@ -54,6 +54,11 @@ export type ContactSummary = {
   contracts: number;
   openLegal: number;
   member: boolean;
+  /**
+   * Owner-profile completeness gaps (name / civil ID / phone / ID copy / expiry / PoA).
+   * Only set for parties that own property or hold the owner role.
+   */
+  ownerGaps?: number;
   mark?: IdentityMark;
   /** Current awards as an owner and as a tenant. */
   badges?: BadgeChip[];

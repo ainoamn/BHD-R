@@ -32,7 +32,13 @@ export interface PortalOverview {
   activeLeases?: number | null;
   vacantUnits?: number | null;
   openInvoices?: number | null;
-  alerts?: Array<{ severity: 'danger' | 'warning' | 'info'; code: string; count: number }>;
+  alerts?: Array<{
+    severity: 'danger' | 'warning' | 'info';
+    code: string;
+    count: number;
+    /** Optional party/property id the alert points at. */
+    resourceId?: string;
+  }>;
   generatedAt?: string;
   recentActivity: Array<{
     id: string;

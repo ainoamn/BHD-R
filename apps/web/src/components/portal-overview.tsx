@@ -70,7 +70,7 @@ function alertCopy(
   }
 }
 
-function alertHref(portal: PortalRole, code: string): string {
+function alertHref(portal: PortalRole, code: string, resourceId?: string): string {
   switch (code) {
     case 'open_tickets':
       return `/${portal}/maintenance`;
@@ -82,8 +82,11 @@ function alertHref(portal: PortalRole, code: string): string {
       return `/${portal}/bookings`;
     case 'stay_bookings':
       return `/${portal}/bookings?tab=daily`;
-    case 'incomplete_owner_profile':
-      return `/${portal}/contacts`;
+    case 'incomplete_owner_profile': {
+      const params = new URLSearchParams({ gaps: 'owner' });
+      if (resourceId) params.set('focus', resourceId);
+      return `/${portal}/contacts?${params.toString()}`;
+    }
     case 'incomplete_buildings':
       return `/${portal}/properties`;
     default:
@@ -469,21 +472,24 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
                 </Link>
               </li>
             ))}
-            {alerts.map((alert) => (
-              <li key={alert.code} className={`dash-alert dash-alert--${alert.severity}`}>
-                {opens(alertHref(portal, alert.code)) ? (
-                  <Link href={alertHref(portal, alert.code)} prefetch>
-                    <strong>{alert.count}</strong>
-                    <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
-                  </Link>
-                ) : (
-                  <span>
-                    <strong>{alert.count}</strong>
-                    <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
-                  </span>
-                )}
-              </li>
-            ))}
+            {alerts.map((alert) => {
+              const href = alertHref(portal, alert.code, alert.resourceId);
+              return (
+                <li key={alert.code} className={`dash-alert dash-alert--${alert.severity}`}>
+                  {opens(href) ? (
+                    <Link href={href} prefetch>
+                      <strong>{alert.count}</strong>
+                      <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
+                    </Link>
+                  ) : (
+                    <span>
+                      <strong>{alert.count}</strong>
+                      <span>{alertCopy(alert.code, alert.count, t, locale)}</span>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="dash-alerts__empty">{t('Portal.noAlerts')}</p>

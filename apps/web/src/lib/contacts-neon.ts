@@ -237,16 +237,26 @@ export async function listContacts(claims: SessionClaims): Promise<ContactSummar
   const orgId = requireOrg(claims);
   const list = await listContactRows(claims, orgId);
   const ids = list.map((contact) => contact.id);
-  const [marks, chips] = await Promise.all([
+  const ownerIds = list
+    .filter((contact) => contact.properties > 0 || contact.roles.includes('owner'))
+    .map((contact) => contact.id);
+  const [marks, chips, ownerGaps] = await Promise.all([
     marksForParties(orgId, ids),
     partyBadgeChips(orgId, ids),
+    ownerIds.length
+      ? import('@/lib/profile-completeness-neon').then(({ loadOwnerGapCounts }) =>
+          loadOwnerGapCounts(claims, ownerIds),
+        )
+      : Promise.resolve(new Map<string, number>()),
   ]);
   return list.map((contact) => {
     const badges = partyChipsOf(chips, contact.id);
+    const gaps = ownerGaps.get(contact.id) ?? 0;
     return {
       ...contact,
       mark: marks.get(contact.id) ?? NO_MARK,
       ...(badges.length ? { badges } : {}),
+      ...(gaps ? { ownerGaps: gaps } : {}),
     };
   });
 }
