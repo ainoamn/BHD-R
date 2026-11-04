@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.78 — 2026-11-04
+
+- **إصلاح بناء Vercel:** استيراد `readActiveAu` من `window-session` بدل إعادة تصدير غير موجودة من `identity/client` التي أوقفت نشر إصلاح رمز الاستلام.
+
 ## 0.8.136.77 — 2026-11-04
 
 - **رمز الاستلام لا يعتمد على كوكي الجلسة المشتركة:** تبويب المستأجر يرسل توكن الهوية الخاص به (`x-bhd-identity-bearer`) لإثبات ملكية الحجز حتى لو سرق تبويب المالك كوكي المنتج — فيظهر رمز QR بثبات مع حسابي مالك ومستأجر مفتوحين معاً في كروم.

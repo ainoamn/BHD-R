@@ -3,7 +3,8 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import type { Viewer } from '@/lib/types';
-import { ensureAuInUrl, readActiveAu } from '@/lib/identity/client';
+import { ensureAuInUrl } from '@/lib/identity/client';
+import { readActiveAu } from '@/lib/identity/window-session';
 
 const BhdAppSwitcher = dynamic(
   () => import('@/components/bhd-app-switcher').then((mod) => mod.BhdAppSwitcher),

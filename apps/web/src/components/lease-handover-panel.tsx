@@ -6,12 +6,8 @@ import { FilePreviewDialog, type PreviewFile } from '@/components/file-preview';
 import { HandoverSelfieCard } from '@/components/handover-selfie';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
 import { ApiError, browserNextMutation } from '@/lib/api';
-import {
-  claimProductSessionForActiveAu,
-  ensureAuInUrl,
-  readActiveAu,
-} from '@/lib/identity/client';
-import { boundWindowToken } from '@/lib/identity/window-session';
+import { claimProductSessionForActiveAu, ensureAuInUrl } from '@/lib/identity/client';
+import { boundWindowToken, readActiveAu } from '@/lib/identity/window-session';
 import type { LeaseLifecycleView } from '@/lib/public-lease-booking-neon';
 import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 
