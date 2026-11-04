@@ -180,6 +180,11 @@ const ERRORS = {
     'الملف غير مدعوم أو كبير جداً — أرسل صورة أو PDF بحجم أصغر.',
     'Unsupported or too large — send an image or a PDF under the size limit.',
   ],
+  duplicate_file_name: [
+    409,
+    'اسم هذا الملف مستخدم في حقل آخر — اختر ملفاً مختلفاً لكل مستند أو شيك حتى لا يُرفع نفس الملف مرتين.',
+    'This file name is already used on another field — pick a different file for each document or cheque.',
+  ],
   tenant_details_invalid: [
     400,
     'أكمل بيانات المستأجر أو المشتري بشكل صحيح.',

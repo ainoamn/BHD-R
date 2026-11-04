@@ -36,6 +36,7 @@ import {
   HANDOVER_DEFECTS_HOURS,
   REQUIREMENT_FILE_MAX_CHARS,
   REQUIREMENT_FILE_TYPES,
+  bookingUploadFileSlots,
   chequeStatusesOf,
   handoverAwaitingTenant,
   handoverBlockedByUnverifiedDocs,
@@ -48,6 +49,7 @@ import {
   leaseJourneyPhase,
   listBookingIdentityDocs,
   lifecycleOf,
+  otherSlotUsingUploadFileName,
   type BookingIdentityDocCode,
   type HandoverPhotoMeta,
   type LeaseJourneyPhase,
@@ -2184,6 +2186,18 @@ export async function submitReservationCheque(
 
     const submittedAt = new Date().toISOString();
     const name = input.fileName.trim().slice(0, 120) || `${input.key}.jpg`;
+    if (
+      otherSlotUsingUploadFileName(
+        name,
+        bookingUploadFileSlots({
+          requirements: current.lifecycle.requirements,
+          chequeSubmissions: current.lifecycle.chequeSubmissions,
+        }),
+        `cheque:${input.key}`,
+      )
+    ) {
+      leaseBookingFail('duplicate_file_name');
+    }
     const [stored] = await transaction
       .insert(workflowEvents)
       .values({
@@ -2272,6 +2286,18 @@ export async function submitReservationDocument(
 
     const submittedAt = new Date().toISOString();
     const name = input.fileName.trim().slice(0, 120) || `${input.code}`;
+    if (
+      otherSlotUsingUploadFileName(
+        name,
+        bookingUploadFileSlots({
+          requirements: current.lifecycle.requirements,
+          chequeSubmissions: current.lifecycle.chequeSubmissions,
+        }),
+        `doc:${input.code}`,
+      )
+    ) {
+      leaseBookingFail('duplicate_file_name');
+    }
     // Files live on their own resource type so reservation timelines stay light.
     const [stored] = await transaction
       .insert(workflowEvents)

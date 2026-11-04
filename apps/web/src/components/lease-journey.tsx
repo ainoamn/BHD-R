@@ -19,8 +19,10 @@ import { leaseScreens, type LeaseJourneyProps } from '@/lib/lease-journey-screen
 import {
   BOOKING_IDENTITY_DOC_LABELS,
   REQUIREMENT_FILE_MAX_CHARS,
+  bookingUploadFileSlots,
   isBookingIdentityDocCode,
   leaseJourneyStageLabels,
+  otherSlotUsingUploadFileName,
 } from '@/lib/lease-reservation-lifecycle';
 import { OMAN_BANKS } from '@/lib/stay-deposit-refund';
 
@@ -661,6 +663,22 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       setError(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
       return;
     }
+    const duplicate = otherSlotUsingUploadFileName(
+      picked.name,
+      bookingUploadFileSlots({
+        requirements: lifecycle.requirements,
+        cheques: lifecycle.cheques,
+      }),
+      `doc:${code}`,
+    );
+    if (duplicate) {
+      setError(
+        ar
+          ? `اسم الملف «${duplicate}» مستخدم في حقل آخر — ارفع ملفاً مختلفاً لكل مستند.`
+          : `The file name “${duplicate}” is already used on another field — upload a different file for each document.`,
+      );
+      return;
+    }
     setError(null);
     setPending({ code, file: picked });
   }
@@ -669,6 +687,21 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
     setBusy(code);
     setPending(null);
     try {
+      const duplicate = otherSlotUsingUploadFileName(
+        prepared.name,
+        bookingUploadFileSlots({
+          requirements: lifecycle.requirements,
+          cheques: lifecycle.cheques,
+        }),
+        `doc:${code}`,
+      );
+      if (duplicate) {
+        throw new Error(
+          ar
+            ? `اسم الملف «${duplicate}» مستخدم في حقل آخر — ارفع ملفاً مختلفاً لكل مستند.`
+            : `The file name “${duplicate}” is already used on another field — upload a different file for each document.`,
+        );
+      }
       const file = prepared.type.startsWith('image/')
         ? await compressImageFile(prepared)
         : prepared;
@@ -997,6 +1030,22 @@ function LeaseCheques({
       setError(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
       return;
     }
+    const duplicate = otherSlotUsingUploadFileName(
+      picked.name,
+      bookingUploadFileSlots({
+        requirements: lifecycle.requirements,
+        cheques: lifecycle.cheques,
+      }),
+      `cheque:${key}`,
+    );
+    if (duplicate) {
+      setError(
+        ar
+          ? `اسم الملف «${duplicate}» مستخدم في حقل آخر — ارفع صورة مختلفة لكل شيك.`
+          : `The file name “${duplicate}” is already used on another field — upload a different photo for each cheque.`,
+      );
+      return;
+    }
     setError(null);
     setPending({ key, file: picked });
   }
@@ -1005,6 +1054,21 @@ function LeaseCheques({
     setBusy(key);
     setPending(null);
     try {
+      const duplicate = otherSlotUsingUploadFileName(
+        prepared.name,
+        bookingUploadFileSlots({
+          requirements: lifecycle.requirements,
+          cheques: lifecycle.cheques,
+        }),
+        `cheque:${key}`,
+      );
+      if (duplicate) {
+        throw new Error(
+          ar
+            ? `اسم الملف «${duplicate}» مستخدم في حقل آخر — ارفع صورة مختلفة لكل شيك.`
+            : `The file name “${duplicate}” is already used on another field — upload a different photo for each cheque.`,
+        );
+      }
       const file = prepared.type.startsWith('image/')
         ? await compressImageFile(prepared)
         : prepared;

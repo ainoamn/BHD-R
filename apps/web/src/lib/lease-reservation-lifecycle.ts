@@ -500,6 +500,59 @@ export const REQUIREMENT_CATALOGUE: ReadonlyArray<{
 export const REQUIREMENT_FILE_MAX_CHARS = 1_600_000;
 export const REQUIREMENT_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
+/** Basename only, case-insensitive — so the same phone photo is not attached to two slots. */
+export function normalizeUploadFileName(name: string): string {
+  return name.trim().replace(/^.*[\\/]/, '').toLowerCase();
+}
+
+export type UploadFileSlot = { slotKey: string; fileName: string | null | undefined };
+
+/**
+ * Names already used on other document/cheque slots of this booking.
+ * Replacing the same slot with the same name is allowed (`currentSlotKey` is skipped).
+ */
+export function otherSlotUsingUploadFileName(
+  fileName: string,
+  slots: readonly UploadFileSlot[],
+  currentSlotKey: string,
+): string | null {
+  const normalized = normalizeUploadFileName(fileName);
+  if (!normalized) return null;
+  for (const slot of slots) {
+    if (slot.slotKey === currentSlotKey) continue;
+    const other = normalizeUploadFileName(slot.fileName ?? '');
+    if (other && other === normalized) {
+      return (slot.fileName ?? fileName).trim() || fileName.trim();
+    }
+  }
+  return null;
+}
+
+/** Flat list of uploaded names on a reservation (requirements + cheque photos). */
+export function bookingUploadFileSlots(input: {
+  requirements?: Array<{ code: string; fileName?: string | null; file?: { name?: string } | null }>;
+  cheques?: Array<{ key: string; fileName?: string | null }>;
+  chequeSubmissions?: Array<{ key: string; file?: { name?: string } | null }>;
+}): UploadFileSlot[] {
+  const slots: UploadFileSlot[] = [];
+  for (const item of input.requirements ?? []) {
+    slots.push({
+      slotKey: `doc:${item.code}`,
+      fileName: item.fileName ?? item.file?.name ?? null,
+    });
+  }
+  if (input.cheques?.length) {
+    for (const item of input.cheques) {
+      slots.push({ slotKey: `cheque:${item.key}`, fileName: item.fileName ?? null });
+    }
+  } else {
+    for (const item of input.chequeSubmissions ?? []) {
+      slots.push({ slotKey: `cheque:${item.key}`, fileName: item.file?.name ?? null });
+    }
+  }
+  return slots;
+}
+
 export type LeaseJourneyPhase =
   | 'awaiting_payment'
   | 'awaiting_terms_signature'
