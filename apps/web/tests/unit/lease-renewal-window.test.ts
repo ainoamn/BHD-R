@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  canRenewLeaseEarlyException,
   isLeaseRenewalWindowOpen,
   leaseDaysRemaining,
   RENEWAL_HEADS_UP_DAYS,
@@ -27,5 +28,13 @@ describe('lease renewal window', () => {
 
   it('heads-up day is before the open window', () => {
     expect(RENEWAL_HEADS_UP_DAYS).toBeGreaterThan(RENEWAL_OPEN_WITHIN_DAYS);
+  });
+
+  it('allows early exception only for owner/admin roles', () => {
+    expect(canRenewLeaseEarlyException(['organization_owner'])).toBe(true);
+    expect(canRenewLeaseEarlyException(['organization_admin'])).toBe(true);
+    expect(canRenewLeaseEarlyException(['property_owner'])).toBe(true);
+    expect(canRenewLeaseEarlyException(['property_manager'])).toBe(false);
+    expect(canRenewLeaseEarlyException(['finance_manager', 'admin_staff'])).toBe(false);
   });
 });

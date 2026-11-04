@@ -67,6 +67,8 @@ const bodySchema = z
       .max(20)
       .optional()
       .default([]),
+    /** Owner/admin acknowledgement to renew outside the normal 90-day window. */
+    earlyException: z.boolean().optional(),
   })
   .strip();
 
@@ -132,21 +134,25 @@ export async function POST(request: Request, context: RouteContext) {
         ? 'يوجد ملحق تجديد غير مكتمل لهذا العقد — أكمله أو ألغِه أولاً.'
         : code === 'renewal_too_early'
           ? 'لا يمكن بدء تجديد عقد الإيجار طويل الأمد قبل 3 أشهر من انتهائه.'
-          : code === 'lease_not_renewable'
-            ? 'يمكن تجديد العقود النشطة فقط.'
-            : code === 'renewal_date_invalid'
-              ? 'تاريخ النهاية الجديد يجب أن يكون بعد نهاية العقد الحالي.'
-              : code === 'forbidden'
-                ? 'ليست لديك صلاحية إنشاء ملحق التجديد.'
-                : code === 'renewal_duplicate'
-                  ? 'تعذّر الحفظ بسبب تكرار المرجع — حدّث الصفحة وأعد المحاولة.'
-                  : code === 'renewal_template_missing'
-                    ? 'قالب ملحق التجديد غير موجود.'
-                    : 'تعذّر حفظ ملحق التجديد.';
+          : code === 'renewal_exception_required'
+            ? 'التجديد المبكر استثناء لمدير المؤسسة أو المالك — أكّد الاستثناء للمتابعة.'
+            : code === 'lease_not_renewable'
+              ? 'يمكن تجديد العقود النشطة فقط.'
+              : code === 'renewal_date_invalid'
+                ? 'تاريخ النهاية الجديد يجب أن يكون بعد نهاية العقد الحالي.'
+                : code === 'forbidden'
+                  ? 'ليست لديك صلاحية إنشاء ملحق التجديد.'
+                  : code === 'renewal_duplicate'
+                    ? 'تعذّر الحفظ بسبب تكرار المرجع — حدّث الصفحة وأعد المحاولة.'
+                    : code === 'renewal_template_missing'
+                      ? 'قالب ملحق التجديد غير موجود.'
+                      : 'تعذّر حفظ ملحق التجديد.';
     const message =
       code === 'renewal_too_early'
         ? 'Long-term leases can only be renewed within 3 months of expiry.'
-        : code;
+        : code === 'renewal_exception_required'
+          ? 'Early renewal requires owner/admin acknowledgement.'
+          : code;
     return NextResponse.json({ error: { code, message, messageAr } }, { status });
   }
 }

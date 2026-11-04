@@ -134,8 +134,13 @@ function isTenantFacingClaims(claims: SessionClaims): boolean {
   );
 }
 
-/** Long-term leases may only renew when ≤ 90 days remain (≈ 3 months). */
+/** Long-term leases normally renew when ≤ 90 days remain (≈ 3 months). */
 const RENEWAL_OPEN_WITHIN_DAYS = 90;
+const RENEWAL_EARLY_EXCEPTION_ROLES = new Set([
+  'organization_owner',
+  'organization_admin',
+  'property_owner',
+]);
 
 function muscatTodayIso(): string {
   return new Intl.DateTimeFormat('en-CA', {
@@ -156,12 +161,20 @@ function daysRemainingUntil(endsOn: string, today: string): number {
 export function assertRenewalTerms(
   current: { endsOn: string; currency: string },
   proposed: { endsOn: string; currency?: string | undefined },
+  options?: { earlyException?: boolean; roles?: readonly string[] },
 ): void {
   const remaining = daysRemainingUntil(current.endsOn, muscatTodayIso());
   if (remaining > RENEWAL_OPEN_WITHIN_DAYS) {
-    throw new ConflictException(
-      'Long-term leases can only be renewed within 3 months of expiry',
-    );
+    const allowed =
+      options?.earlyException === true &&
+      (options.roles ?? []).some((role) => RENEWAL_EARLY_EXCEPTION_ROLES.has(role));
+    if (!allowed) {
+      throw new ConflictException(
+        options?.roles?.some((role) => RENEWAL_EARLY_EXCEPTION_ROLES.has(role))
+          ? 'Early renewal requires owner/admin acknowledgement'
+          : 'Long-term leases can only be renewed within 3 months of expiry',
+      );
+    }
   }
   if (proposed.endsOn <= current.endsOn)
     throw new ConflictException('Renewal date must extend the current lease');
@@ -630,6 +643,7 @@ export class LeasingService {
       chequeAccountName?: string | null | undefined;
       chequeBankName?: string | null | undefined;
       rentBankAccountId?: string | null | undefined;
+      earlyException?: boolean | undefined;
     },
   ) {
     return this.database.withinTenant(claims, async (transaction) => {
@@ -641,7 +655,11 @@ export class LeasingService {
       });
       if (!lease || lease.status !== 'active' || !lease.contractId)
         throw new ConflictException('Only an active lease with a signed contract can be renewed');
-      assertRenewalTerms(lease, { endsOn: input.endsOn, currency: input.rent?.currency });
+      assertRenewalTerms(
+        lease,
+        { endsOn: input.endsOn, currency: input.rent?.currency },
+        { earlyException: input.earlyException === true, roles: claims.roles },
+      );
       const [signedParent, template, owner, tenant, unit] = await Promise.all([
         transaction.query.contracts.findFirst({
           where: and(

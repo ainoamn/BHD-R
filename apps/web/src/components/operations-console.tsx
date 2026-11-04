@@ -45,11 +45,7 @@ import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { hasRenewalDraft } from '@/lib/lease-renewal-draft';
-import {
-  isLeaseRenewalWindowOpen,
-  leaseDaysRemaining,
-  renewalTooEarlyMessage,
-} from '@/lib/lease-renewal-window';
+import { isLeaseRenewalWindowOpen, leaseDaysRemaining } from '@/lib/lease-renewal-window';
 import { replaceSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
@@ -1279,12 +1275,15 @@ function LeasingNextActions({
         className="ops-action"
         type="button"
         role="menuitem"
-        disabled={busy || !renewalOpen}
+        disabled={busy}
         title={
-          renewalOpen ? undefined : renewalTooEarlyMessage(ar, daysLeft)
+          renewalOpen
+            ? undefined
+            : ar
+              ? `متبقٍ ${daysLeft} يوماً — التجديد المبكر استثناء للمدير أو المالك مع تأكيد.`
+              : `${daysLeft} days left — early renewal is an owner/manager exception with confirmation.`
         }
         onClick={(event) => {
-          if (!renewalOpen) return;
           closeOpsActionMenu(event.currentTarget);
           onRenew(row);
         }}
@@ -1295,8 +1294,8 @@ function LeasingNextActions({
             : 'Renewal draft'
           : !renewalOpen
             ? ar
-              ? `تجديد (بعد ${Math.max(0, daysLeft - 90)} ي)`
-              : `Renew (in ${Math.max(0, daysLeft - 90)}d)`
+              ? `تجديد استثنائي (${daysLeft} ي)`
+              : `Early renew (${daysLeft}d)`
             : ar
               ? 'تجديد'
               : 'Renew'}

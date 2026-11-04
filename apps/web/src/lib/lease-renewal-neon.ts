@@ -28,6 +28,7 @@ import { buildRenewalTermsDraft, type RenewalPreviousMeters } from '@/lib/lease-
 import type { LeaseTermsDraft, PaymentFrequency, PaymentMethod } from '@/lib/lease-terms';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 import {
+  canRenewLeaseEarlyException,
   isLeaseRenewalWindowOpen,
   leaseDaysRemaining,
   RENEWAL_OPEN_WITHIN_DAYS,
@@ -102,6 +103,11 @@ export type CreateLeaseRenewalInput = {
   rentBankAccountId?: string | null | undefined;
   /** Documents the tenant must attach before / with e-sign. */
   requirements?: RenewalRequirement[] | undefined;
+  /**
+   * Owner/admin exception: renew while more than 90 days remain.
+   * Required when outside the normal window; ignored inside it.
+   */
+  earlyException?: boolean | undefined;
 };
 
 export type LeaseRenewalTenantSeed = {
@@ -125,6 +131,8 @@ export type LeaseRenewalWindowInfo = {
   open: boolean;
   daysRemaining: number;
   opensWithinDays: number;
+  /** Org owner / org admin / property owner may renew early with acknowledgement. */
+  canEarlyException: boolean;
 };
 
 export type LeaseRenewalContext = {
@@ -384,6 +392,7 @@ export async function loadLeaseRenewalContext(
         open: isLeaseRenewalWindowOpen(lease.endsOn, today),
         daysRemaining,
         opensWithinDays: RENEWAL_OPEN_WITHIN_DAYS,
+        canEarlyException: canRenewLeaseEarlyException(claims.roles),
       },
       lease: {
         id: lease.id,
@@ -459,11 +468,24 @@ export async function createLeaseRenewalOnNeon(
       where: and(eq(leases.id, leaseId), eq(leases.organizationId, orgId)),
     });
     if (!lease || lease.status !== 'active' || !lease.contractId) fail('lease_not_renewable');
-    if (!isLeaseRenewalWindowOpen(lease.endsOn, muscatToday())) fail('renewal_too_early');
+    const today = muscatToday();
+    const windowOpen = isLeaseRenewalWindowOpen(lease.endsOn, today);
+    const earlyException =
+      !windowOpen &&
+      input.earlyException === true &&
+      canRenewLeaseEarlyException(claims.roles);
+    if (!windowOpen && !earlyException) {
+      fail(
+        canRenewLeaseEarlyException(claims.roles)
+          ? 'renewal_exception_required'
+          : 'renewal_too_early',
+      );
+    }
     if (input.endsOn <= lease.endsOn) fail('renewal_date_invalid');
     if (input.rent?.currency && input.rent.currency !== lease.currency) {
       fail('renewal_currency_mismatch');
     }
+    const daysRemainingAtCreate = leaseDaysRemaining(lease.endsOn, today);
 
     const [signedParent, template, owner, tenant, unit] = await Promise.all([
       tx.query.contracts.findFirst({
@@ -599,6 +621,17 @@ export async function createLeaseRenewalOnNeon(
         byName: viewer?.displayName ?? null,
         at: now.toISOString(),
       },
+      ...(earlyException
+        ? {
+            earlyException: {
+              byUserId: claims.sub,
+              byName: viewer?.displayName ?? null,
+              at: now.toISOString(),
+              daysRemaining: daysRemainingAtCreate,
+              acknowledged: true,
+            },
+          }
+        : {}),
       ...(input.leaseTerms && typeof input.leaseTerms === 'object'
         ? { leaseTerms: input.leaseTerms }
         : {}),

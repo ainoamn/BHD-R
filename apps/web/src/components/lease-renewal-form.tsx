@@ -13,7 +13,11 @@ import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { clearRenewalDraft } from '@/lib/lease-renewal-draft';
 import type { LeaseRenewalContext } from '@/lib/lease-renewal-neon';
-import { renewalTooEarlyMessage } from '@/lib/lease-renewal-window';
+import {
+  RENEWAL_HEADS_UP_DAYS,
+  renewalEarlyExceptionWarning,
+  renewalTooEarlyMessage,
+} from '@/lib/lease-renewal-window';
 import {
   computeLeaseTerms,
   contractPeriod,
@@ -89,10 +93,16 @@ export function LeaseRenewalForm({
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [earlyExceptionAck, setEarlyExceptionAck] = useState(false);
   const [bankAccounts, setBankAccounts] = useState<LeaseBankAccountOption[]>([]);
   const [requirements, setRequirements] = useState<
     Array<{ code: string; labelAr: string; labelEn: string }>
   >([]);
+  const windowOpen = context.renewalWindow.open;
+  const canEarly = context.renewalWindow.canEarlyException;
+  const daysLeft = context.renewalWindow.daysRemaining;
+  const needsEarlyException = !windowOpen && canEarly;
+  const formBlocked = !windowOpen && !canEarly;
 
   useEffect(() => {
     const saved = readV2(context.lease.id);
@@ -139,8 +149,16 @@ export function LeaseRenewalForm({
       : `${context.property.nameEn || context.property.nameAr} · ${context.unit.code}`;
 
   async function onSubmit(payload: LeaseContractPayload) {
-    if (!context.renewalWindow.open) {
-      setError(renewalTooEarlyMessage(ar, context.renewalWindow.daysRemaining));
+    if (formBlocked) {
+      setError(renewalTooEarlyMessage(ar, daysLeft));
+      return;
+    }
+    if (needsEarlyException && !earlyExceptionAck) {
+      setError(
+        ar
+          ? 'أكّد التجديد الاستثنائي أدناه للمتابعة — التجديد المبكر لمدير المؤسسة أو المالك فقط.'
+          : 'Confirm the early-renewal exception below to continue — early renewal is for the organization manager or owner only.',
+      );
       return;
     }
     setBusy(true);
@@ -278,6 +296,9 @@ export function LeaseRenewalForm({
           labelEn: row.labelEn,
         }));
       }
+      if (needsEarlyException) {
+        body.earlyException = true;
+      }
 
       // Save on Vercel → Neon (no Nest/Render). Same-origin Next CSRF.
       // Owner with sign permission delivers the addendum to the tenant immediately.
@@ -301,10 +322,14 @@ export function LeaseRenewalForm({
             ? ar
               ? 'يوجد ملحق تجديد غير مكتمل لهذا العقد — أكمله أو ألغِه أولاً.'
               : 'An unfinished renewal already exists for this lease — finish or void it first.'
-            : code === 'renewal_too_early' ||
-                /within 3 months|renewal_too_early/i.test(caught.message)
-              ? renewalTooEarlyMessage(ar, context.renewalWindow.daysRemaining)
-              : code === 'lease_not_renewable' || /Only an active lease/i.test(caught.message)
+            : code === 'renewal_exception_required'
+              ? ar
+                ? 'التجديد المبكر استثناء لمدير المؤسسة أو المالك — أكّد الاستثناء للمتابعة.'
+                : 'Early renewal requires owner/admin acknowledgement.'
+              : code === 'renewal_too_early' ||
+                  /within 3 months|renewal_too_early/i.test(caught.message)
+                ? renewalTooEarlyMessage(ar, daysLeft)
+                : code === 'lease_not_renewable' || /Only an active lease/i.test(caught.message)
                 ? ar
                   ? 'يمكن تجديد العقود النشطة فقط.'
                   : 'Only an active lease can be renewed.'
@@ -383,9 +408,36 @@ export function LeaseRenewalForm({
         </Link>
       </header>
 
-      {!context.renewalWindow.open ? (
+      {formBlocked ? (
         <div className="notice notice--warning" role="status">
-          {renewalTooEarlyMessage(ar, context.renewalWindow.daysRemaining)}
+          {renewalTooEarlyMessage(ar, daysLeft)}
+        </div>
+      ) : null}
+
+      {needsEarlyException ? (
+        <div className="notice notice--warning" role="status">
+          <p style={{ margin: 0 }}>
+            {daysLeft > RENEWAL_HEADS_UP_DAYS
+              ? renewalEarlyExceptionWarning(ar, daysLeft)
+              : ar
+                ? `تنبيه: يتبقّى على هذا العقد ${daysLeft} يوماً. التجديد الآن استثناء لمدير المؤسسة أو المالك فقط.`
+                : `Warning: ${daysLeft} days remain. Early renewal is an exception for the organization manager or owner only.`}
+          </p>
+          <label
+            className="field"
+            style={{ display: 'flex', gap: '0.55rem', alignItems: 'flex-start', marginTop: '0.75rem' }}
+          >
+            <input
+              type="checkbox"
+              checked={earlyExceptionAck}
+              onChange={(event) => setEarlyExceptionAck(event.target.checked)}
+            />
+            <span>
+              {ar
+                ? `أؤكّد التجديد الاستثنائي رغم بقاء ${daysLeft} يوماً على العقد، وأتحمّل مسؤولية هذا القرار بصفتي مديراً أو مالكاً.`
+                : `I confirm this exceptional renewal despite ${daysLeft} days remaining, as organization manager or owner.`}
+            </span>
+          </label>
         </div>
       ) : null}
 
@@ -467,7 +519,7 @@ export function LeaseRenewalForm({
         tenants={[context.tenant]}
         canSign
         locale={locale}
-        busy={busy || !context.renewalWindow.open}
+        busy={busy || formBlocked || (needsEarlyException && !earlyExceptionAck)}
         formError={error}
         bankAccounts={bankAccounts}
         propertyId={context.property.id}

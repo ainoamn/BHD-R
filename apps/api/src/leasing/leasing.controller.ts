@@ -109,6 +109,8 @@ const renewalSchema = z
     chequeAccountName: z.string().trim().max(160).nullish(),
     chequeBankName: z.string().trim().max(160).nullish(),
     rentBankAccountId: z.string().trim().max(64).nullish(),
+    /** Owner/admin acknowledgement to renew outside the normal 90-day window. */
+    earlyException: z.boolean().optional(),
   })
   .strip();
 const challengeSchema = z.discriminatedUnion('authenticationMethod', [
