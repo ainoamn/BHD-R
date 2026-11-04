@@ -2708,19 +2708,19 @@ function RequirementsReview({
         <ul className="doc-status-legend" aria-label={ar ? 'مفتاح الحالات' : 'Status key'}>
           <li>
             <DocStatusMark status="approved" ar={ar} viewer="owner" />
-            <span>{ar ? 'معتمدة' : 'Approved'}</span>
+            <span>{ar ? 'مكتمل / معتمد (أخضر)' : 'Complete / approved (green)'}</span>
           </li>
           <li>
             <DocStatusMark status="submitted" ar={ar} viewer="owner" />
-            <span>{ar ? 'بانتظار المراجعة' : 'Awaiting review'}</span>
+            <span>{ar ? 'مرفوع — بانتظار مراجعتك' : 'Uploaded — awaiting your review'}</span>
           </li>
           <li>
             <DocStatusMark status="pending" ar={ar} viewer="owner" />
-            <span>{ar ? 'لم تُرفع' : 'Not uploaded'}</span>
+            <span>{ar ? 'ناقص — لم يُرفع (أحمر)' : 'Missing — not uploaded (red)'}</span>
           </li>
           <li>
             <DocStatusMark status="rejected" ar={ar} viewer="owner" />
-            <span>{ar ? 'مطلوب الاستبدال' : 'Replace'}</span>
+            <span>{ar ? 'مرفوض — يحتاج استبدالاً (أحمر)' : 'Rejected — needs replacement (red)'}</span>
           </li>
         </ul>
       ) : null}

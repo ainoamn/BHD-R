@@ -12,15 +12,15 @@ export function docStatusMarkKind(
     case 'approved':
       return 'ok';
     case 'rejected':
-      // Tenant must re-upload; owner still sees the replace spinner.
-      return tenant ? 'error' : 'spin';
+      // Incomplete for both sides — needs a replacement upload.
+      return 'error';
     case 'submitted':
       // Tenant: upload done (green). Owner: still awaiting review (amber).
       return tenant ? 'ok' : 'alert';
     case 'pending':
     default:
-      // Tenant: missing upload (red). Owner: not received yet (muted).
-      return tenant ? 'error' : 'wait';
+      // Missing upload — red for both owner checklist and tenant journey.
+      return 'error';
   }
 }
 

@@ -23189,6 +23189,7 @@ button.lrw__step-body:focus-visible {
   border: 1px solid #e1e8e4;
   border-inline-start: 4px solid #c9d3ce;
   border-radius: 0.6rem;
+  background: #fff;
 }
 .lrw__docs-checklist > .lrw__doc {
   display: grid;
@@ -23198,15 +23199,38 @@ button.lrw__step-body:focus-visible {
 .lrw__docs-checklist > .lrw__doc .lrw__reject {
   grid-column: 1 / -1;
 }
+.lrw__doc--pending,
+.lrw__doc--rejected {
+  border-inline-start-color: #c8102e;
+  background: #fff5f6;
+  box-shadow: inset 0 0 0 1px rgb(200 16 46 / 0.08);
+}
+.lrw__doc--pending .lrw__doc-main strong,
+.lrw__doc--rejected .lrw__doc-main strong,
+.lrw__doc--pending .lrw__doc-status,
+.lrw__doc--rejected .lrw__doc-status {
+  color: #a11228;
+  font-weight: 700;
+}
 .lrw__doc--submitted {
   border-inline-start-color: #c98a12;
   background: #fffaf0;
+  box-shadow: inset 0 0 0 1px rgb(201 138 18 / 0.12);
+}
+.lrw__doc--submitted .lrw__doc-main strong,
+.lrw__doc--submitted .lrw__doc-status {
+  color: #8a5a00;
+  font-weight: 700;
 }
 .lrw__doc--approved {
   border-inline-start-color: #1f6b45;
+  background: #f3faf6;
+  box-shadow: inset 0 0 0 1px rgb(31 107 69 / 0.1);
 }
-.lrw__doc--rejected {
-  border-inline-start-color: #c8102e;
+.lrw__doc--approved .lrw__doc-main strong,
+.lrw__doc--approved .lrw__doc-status {
+  color: #0d5c45;
+  font-weight: 700;
 }
 .lrw__doc-main {
   display: grid;
