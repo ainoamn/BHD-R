@@ -186,6 +186,11 @@ const ERRORS = {
     'اسم هذا الملف مستخدم في حقل آخر — اختر ملفاً مختلفاً لكل مستند أو شيك حتى لا يُرفع نفس الملف مرتين.',
     'This file name is already used on another field — pick a different file for each document or cheque.',
   ],
+  duplicate_cheque_number: [
+    409,
+    'رقم الشيك مكرر في حجزك — استبدله برقم مختلف لكل شيك.',
+    'This cheque number is already used on this booking — replace it with a different number for each cheque.',
+  ],
   tenant_details_invalid: [
     400,
     'أكمل بيانات المستأجر أو المشتري بشكل صحيح.',

@@ -2190,6 +2190,13 @@ export async function submitReservationCheque(
 
     const submittedAt = new Date().toISOString();
     const name = input.fileName.trim().slice(0, 120) || `${input.key}.jpg`;
+    const numberTaken = (current.lifecycle.chequeSubmissions ?? []).some(
+      (row) =>
+        row.key !== input.key &&
+        row.status !== 'rejected' &&
+        row.chequeNumber.trim().toLowerCase() === chequeNumber.toLowerCase(),
+    );
+    if (numberTaken) leaseBookingFail('duplicate_cheque_number');
     if (
       otherSlotUsingUploadFileName(
         name,

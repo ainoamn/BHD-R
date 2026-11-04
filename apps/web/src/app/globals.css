@@ -24182,6 +24182,24 @@ button.lrw__step-body:focus-visible {
 .lease-cheques__shared-read {
   margin: 0.5rem 0 0.75rem;
 }
+.lease-cheques__alert {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 3;
+  box-shadow: 0 0.35rem 1rem rgb(160 30 40 / 18%);
+}
+.lease-cheques__row--error {
+  outline: 2px solid #c8102e;
+  outline-offset: -2px;
+  background: #fff0f1 !important;
+}
+.lease-cheques__row-error {
+  display: block;
+  margin-top: 0.35rem;
+  color: #a11228;
+  font-weight: 600;
+  line-height: 1.35;
+}
 .lease-cheques__table-wrap {
   overflow-x: auto;
   margin-top: 0.35rem;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from '@/i18n/navigation';
 import { DocFileThumb } from '@/components/doc-file-thumb';
 import { DocStatusMark, docStatusLabel } from '@/components/doc-status-mark';
@@ -672,11 +672,11 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       `doc:${code}`,
     );
     if (duplicate) {
-      setError(
-        ar
-          ? `اسم الملف «${duplicate}» مستخدم في حقل آخر — ارفع ملفاً مختلفاً لكل مستند.`
-          : `The file name “${duplicate}” is already used on another field — upload a different file for each document.`,
-      );
+      const message = ar
+        ? `المستند مكرر: الملف «${duplicate}» مرفوع في حقل آخر — استبدله بملف مختلف.`
+        : `Duplicate document: “${duplicate}” is already attached elsewhere — replace it with a different file.`;
+      setError(message);
+      window.alert(message);
       return;
     }
     setError(null);
@@ -954,8 +954,15 @@ function LeaseCheques({
   const cheques = lifecycle.cheques ?? [];
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
   const [pending, setPending] = useState<{ key: string; file: File } | null>(null);
   const [preview, setPreview] = useState<PreviewFile | null>(null);
+
+  useEffect(() => {
+    if (!error) return;
+    errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [error, errorKey]);
 
   const seededShared = (() => {
     const withBank = cheques.find((item) => item.bankName?.trim());
@@ -988,6 +995,26 @@ function LeaseCheques({
 
   if (!cheques.length) return null;
 
+  function flagChequeProblem(message: string, key: string) {
+    setErrorKey(key);
+    setError(message);
+    // Immediate native alert — the table is long and the banner alone is easy to miss.
+    window.alert(message);
+  }
+
+  function duplicateChequeNumber(key: string, value: string): string | null {
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+    for (const item of cheques) {
+      if (item.key === key) continue;
+      const other = (numbers[item.key] ?? item.chequeNumber ?? '').trim().toLowerCase();
+      if (other && other === normalized) {
+        return ar ? item.labelAr : item.labelEn || item.labelAr;
+      }
+    }
+    return null;
+  }
+
   function applySequenceFrom(index: number, value: string) {
     setNumbers((current) => {
       const next = { ...current };
@@ -1011,23 +1038,36 @@ function LeaseCheques({
       accountHolderName.trim().length < 2 ||
       accountNumber.trim().replace(/\s+/g, '').length < 4
     ) {
-      setError(
+      flagChequeProblem(
         ar
           ? 'أدخل البنك واسم صاحب الحساب ورقم الحساب مرة واحدة أعلى الجدول قبل رفع الصور.'
           : 'Enter bank, account holder, and account number once above the table before uploading photos.',
+        key,
       );
       return;
     }
-    if (!(numbers[key] ?? '').trim()) {
-      setError(
+    const chequeNumber = (numbers[key] ?? '').trim();
+    if (!chequeNumber) {
+      flagChequeProblem(
         ar
           ? 'أدخل رقم الشيك قبل رفع الصورة.'
           : 'Enter the cheque number before uploading the photo.',
+        key,
+      );
+      return;
+    }
+    const numberClash = duplicateChequeNumber(key, chequeNumber);
+    if (numberClash) {
+      flagChequeProblem(
+        ar
+          ? `رقم الشيك «${chequeNumber}» مكرر مع «${numberClash}» — استبدله برقم مختلف قبل الرفع.`
+          : `Cheque number “${chequeNumber}” is already used on “${numberClash}” — replace it with a different number before uploading.`,
+        key,
       );
       return;
     }
     if (picked.type !== 'application/pdf' && !picked.type.startsWith('image/')) {
-      setError(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.');
+      flagChequeProblem(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.', key);
       return;
     }
     const duplicate = otherSlotUsingUploadFileName(
@@ -1039,46 +1079,65 @@ function LeaseCheques({
       `cheque:${key}`,
     );
     if (duplicate) {
-      setError(
+      flagChequeProblem(
         ar
-          ? `اسم الملف «${duplicate}» مستخدم في حقل آخر — ارفع صورة مختلفة لكل شيك.`
-          : `The file name “${duplicate}” is already used on another field — upload a different photo for each cheque.`,
+          ? `صورة الشيك مكررة: الملف «${duplicate}» مرفوع في حقل آخر — استبدله بصورة شيك مختلفة.`
+          : `Duplicate cheque photo: “${duplicate}” is already attached elsewhere — replace it with a different cheque image.`,
+        key,
       );
       return;
     }
     setError(null);
+    setErrorKey(null);
     setPending({ key, file: picked });
   }
 
   async function send(key: string, prepared: File) {
     setBusy(key);
     setPending(null);
-    try {
-      const duplicate = otherSlotUsingUploadFileName(
-        prepared.name,
-        bookingUploadFileSlots({
-          requirements: lifecycle.requirements,
-          cheques: lifecycle.cheques,
-        }),
-        `cheque:${key}`,
+    const chequeNumber = (numbers[key] ?? '').trim();
+    const numberClash = duplicateChequeNumber(key, chequeNumber);
+    if (numberClash) {
+      flagChequeProblem(
+        ar
+          ? `رقم الشيك «${chequeNumber}» مكرر مع «${numberClash}» — استبدله برقم مختلف.`
+          : `Cheque number “${chequeNumber}” is already used on “${numberClash}” — replace it.`,
+        key,
       );
-      if (duplicate) {
-        throw new Error(
-          ar
-            ? `اسم الملف «${duplicate}» مستخدم في حقل آخر — ارفع صورة مختلفة لكل شيك.`
-            : `The file name “${duplicate}” is already used on another field — upload a different photo for each cheque.`,
-        );
-      }
+      setBusy(null);
+      return;
+    }
+    const duplicate = otherSlotUsingUploadFileName(
+      prepared.name,
+      bookingUploadFileSlots({
+        requirements: lifecycle.requirements,
+        cheques: lifecycle.cheques,
+      }),
+      `cheque:${key}`,
+    );
+    if (duplicate) {
+      flagChequeProblem(
+        ar
+          ? `صورة الشيك مكررة: الملف «${duplicate}» مرفوع في حقل آخر — استبدله بصورة شيك مختلفة.`
+          : `Duplicate cheque photo: “${duplicate}” is already attached elsewhere — replace it with a different cheque image.`,
+        key,
+      );
+      setBusy(null);
+      return;
+    }
+    try {
       const file = prepared.type.startsWith('image/')
         ? await compressImageFile(prepared)
         : prepared;
       const dataUrl = await readAsDataUrl(file);
       if (dataUrl.length > REQUIREMENT_FILE_MAX_CHARS) {
-        throw new Error(
+        flagChequeProblem(
           ar
             ? 'الملف كبير جداً (الحد نحو 1 ميغابايت). صوّره بدقة أقل.'
             : 'The file is too large (about 1 MB max).',
+          key,
         );
+        return;
       }
       await browserNextMutation(
         `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/cheques`,
@@ -1089,15 +1148,20 @@ function LeaseCheques({
             bankName: bankName.trim(),
             accountHolderName: accountHolderName.trim(),
             accountNumber: accountNumber.trim().replace(/\s+/g, ''),
-            chequeNumber: (numbers[key] ?? '').trim(),
+            chequeNumber,
             fileName: prepared.name.slice(0, 200),
             dataUrl,
           }),
         },
       );
+      setError(null);
+      setErrorKey(null);
       router.refresh();
     } catch (caught) {
-      setError(caught instanceof ApiError ? errorText(caught, ar) : (caught as Error).message);
+      flagChequeProblem(
+        caught instanceof ApiError ? errorText(caught, ar) : (caught as Error).message,
+        key,
+      );
     } finally {
       setBusy(null);
     }
@@ -1125,7 +1189,7 @@ function LeaseCheques({
           : 'Enter bank, account holder, and account number once, then the first cheque number — the rest fill automatically and stay editable. Amounts come from the system; attach each cheque photo in the last column.'}
       </p>
       {error ? (
-        <p className="notice notice--error" role="alert">
+        <p ref={errorRef} className="notice notice--error lease-cheques__alert" role="alert">
           {error}
         </p>
       ) : null}
@@ -1237,13 +1301,16 @@ function LeaseCheques({
           <tbody>
             {cheques.map((item, index) => {
               const canEdit = !readOnly && item.status !== 'approved';
+              const rowHasError = errorKey === item.key && Boolean(error);
               const fileHref = item.fileName
                 ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/cheque-${encodeURIComponent(item.key)}`
                 : null;
               return (
                 <tr
                   key={item.key}
-                  className={`lease-cheques__row lease-cheques__row--${item.status}`}
+                  className={`lease-cheques__row lease-cheques__row--${item.status}${
+                    rowHasError ? ' lease-cheques__row--error' : ''
+                  }`}
                 >
                   <td>
                     <strong>{ar ? item.labelAr : item.labelEn}</strong>
@@ -1357,6 +1424,11 @@ function LeaseCheques({
                       ) : null}
                       {!canEdit && !fileHref ? '—' : null}
                     </div>
+                    {rowHasError ? (
+                      <small className="lease-cheques__row-error" role="alert">
+                        {error}
+                      </small>
+                    ) : null}
                   </td>
                 </tr>
               );
