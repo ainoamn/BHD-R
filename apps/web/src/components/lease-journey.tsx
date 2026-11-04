@@ -1068,69 +1068,88 @@ function LeaseCheques({
 
       {!readOnly ? (
         <div className="lease-cheques__shared">
-          <label>
-            {ar ? 'بنك الحساب (مرة واحدة لكل الشيكات)' : 'Account bank (once for all cheques)'}
-            <select
-              className="select"
-              value={bankSelectValue}
-              disabled={busy !== null}
-              onChange={(event) => {
-                const value = event.target.value;
-                if (value === BANK_OTHER) {
-                  setBankOther(true);
-                  if (OMAN_BANKS.includes(bankName)) setBankName('');
-                  return;
-                }
-                setBankOther(false);
-                setBankName(value);
-              }}
-            >
-              <option value="">{ar ? '— اختر البنك —' : '— Select bank —'}</option>
-              {OMAN_BANKS.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-              <option value={BANK_OTHER}>{ar ? 'بنك آخر…' : 'Other bank…'}</option>
-            </select>
-          </label>
-          {bankOther ? (
-            <label>
-              {ar ? 'اسم البنك (يدوي)' : 'Bank name (custom)'}
-              <input
-                className="input"
-                maxLength={160}
-                value={bankName}
-                disabled={busy !== null}
-                onChange={(event) => setBankName(event.target.value)}
-                placeholder={ar ? 'اكتب اسم البنك' : 'Type the bank name'}
-              />
-            </label>
-          ) : null}
-          <label>
-            {ar ? 'اسم صاحب الحساب (مرة واحدة)' : 'Account holder (once)'}
-            <input
-              className="input"
-              maxLength={160}
-              value={accountHolderName}
-              disabled={busy !== null}
-              onChange={(event) => setAccountHolderName(event.target.value)}
-              placeholder={ar ? 'الاسم كما على دفتر الشيكات' : 'Name as on the cheque book'}
-            />
-          </label>
-          <label>
-            {ar ? 'رقم الحساب البنكي (مرة واحدة)' : 'Bank account number (once)'}
-            <input
-              className="input"
-              dir="ltr"
-              maxLength={64}
-              value={accountNumber}
-              disabled={busy !== null}
-              onChange={(event) => setAccountNumber(event.target.value)}
-              placeholder={ar ? 'كما على دفتر الشيكات' : 'As on the cheque book'}
-              autoComplete="off"
-            />
-          </label>
+          {(() => {
+            const bankSelectOk = Boolean(bankSelectValue);
+            const bankCustomOk = bankName.trim().length >= 2;
+            const holderOk = accountHolderName.trim().length >= 2;
+            const accountOk = accountNumber.trim().replace(/\s+/g, '').length >= 4;
+            const tone = (ok: boolean) => `field ${ok ? 'field--ok' : 'field--missing'}`;
+            return (
+              <>
+                <div className={tone(bankSelectOk)}>
+                  <label>
+                    {ar ? 'بنك الحساب (مرة واحدة لكل الشيكات)' : 'Account bank (once for all cheques)'}
+                    <select
+                      className="select"
+                      value={bankSelectValue}
+                      disabled={busy !== null}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (value === BANK_OTHER) {
+                          setBankOther(true);
+                          if (OMAN_BANKS.includes(bankName)) setBankName('');
+                          return;
+                        }
+                        setBankOther(false);
+                        setBankName(value);
+                      }}
+                    >
+                      <option value="">{ar ? '— اختر البنك —' : '— Select bank —'}</option>
+                      {OMAN_BANKS.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                      <option value={BANK_OTHER}>{ar ? 'بنك آخر…' : 'Other bank…'}</option>
+                    </select>
+                  </label>
+                </div>
+                {bankOther ? (
+                  <div className={tone(bankCustomOk)}>
+                    <label>
+                      {ar ? 'اسم البنك (يدوي)' : 'Bank name (custom)'}
+                      <input
+                        className="input"
+                        maxLength={160}
+                        value={bankName}
+                        disabled={busy !== null}
+                        onChange={(event) => setBankName(event.target.value)}
+                        placeholder={ar ? 'اكتب اسم البنك' : 'Type the bank name'}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+                <div className={tone(holderOk)}>
+                  <label>
+                    {ar ? 'اسم صاحب الحساب (مرة واحدة)' : 'Account holder (once)'}
+                    <input
+                      className="input"
+                      maxLength={160}
+                      value={accountHolderName}
+                      disabled={busy !== null}
+                      onChange={(event) => setAccountHolderName(event.target.value)}
+                      placeholder={ar ? 'الاسم كما على دفتر الشيكات' : 'Name as on the cheque book'}
+                    />
+                  </label>
+                </div>
+                <div className={tone(accountOk)}>
+                  <label>
+                    {ar ? 'رقم الحساب البنكي (مرة واحدة)' : 'Bank account number (once)'}
+                    <input
+                      className="input"
+                      dir="ltr"
+                      maxLength={64}
+                      value={accountNumber}
+                      disabled={busy !== null}
+                      onChange={(event) => setAccountNumber(event.target.value)}
+                      placeholder={ar ? 'كما على دفتر الشيكات' : 'As on the cheque book'}
+                      autoComplete="off"
+                    />
+                  </label>
+                </div>
+              </>
+            );
+          })()}
         </div>
       ) : bankName || accountHolderName || accountNumber ? (
         <p className="lease-cheques__shared-read muted">
@@ -1193,7 +1212,15 @@ function LeaseCheques({
                   <td className="lease-cheques__due" dir="ltr">
                     {item.dueOn || '—'}
                   </td>
-                  <td>
+                  <td
+                    className={
+                      canEdit
+                        ? (numbers[item.key] ?? '').trim()
+                          ? 'lease-cheques__cell--ok'
+                          : 'lease-cheques__cell--missing'
+                        : undefined
+                    }
+                  >
                     {canEdit ? (
                       <input
                         className="input lease-cheques__number"
@@ -1220,7 +1247,15 @@ function LeaseCheques({
                       <span dir="ltr">{item.chequeNumber || numbers[item.key] || '—'}</span>
                     )}
                   </td>
-                  <td className="lease-cheques__file">
+                  <td
+                    className={`lease-cheques__file${
+                      canEdit
+                        ? item.status === 'pending' || item.status === 'rejected'
+                          ? ' lease-cheques__cell--missing'
+                          : ' lease-cheques__cell--ok'
+                        : ''
+                    }`}
+                  >
                     <div className="lease-docs__actions">
                       {fileHref ? (
                         <DocFileThumb
