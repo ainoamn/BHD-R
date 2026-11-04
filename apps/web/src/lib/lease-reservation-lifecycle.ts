@@ -530,9 +530,11 @@ export function otherSlotUsingUploadFileName(
 
 /** Flat list of uploaded names on a reservation (requirements + cheque photos). */
 export function bookingUploadFileSlots(input: {
-  requirements?: Array<{ code: string; fileName?: string | null; file?: { name?: string } | null }>;
-  cheques?: Array<{ key: string; fileName?: string | null }>;
-  chequeSubmissions?: Array<{ key: string; file?: { name?: string } | null }>;
+  requirements?:
+    | Array<{ code: string; fileName?: string | null; file?: { name?: string } | null }>
+    | undefined;
+  cheques?: Array<{ key: string; fileName?: string | null }> | undefined;
+  chequeSubmissions?: Array<{ key: string; file?: { name?: string } | null }> | undefined;
 }): UploadFileSlot[] {
   const slots: UploadFileSlot[] = [];
   for (const item of input.requirements ?? []) {
