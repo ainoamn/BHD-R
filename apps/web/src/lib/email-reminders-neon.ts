@@ -3,14 +3,20 @@ import { sql } from 'drizzle-orm';
 import { elevatedTx, rowsOf } from '@/lib/elevated-db';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
+import {
+  RENEWAL_HEADS_UP_DAYS,
+  RENEWAL_OPEN_WITHIN_DAYS,
+} from '@/lib/lease-renewal-window';
 import { rentDocHref, rentMonthLabel } from '@/lib/rent-documents';
 import { leaseStatementsInTx } from '@/lib/tenancy-neon';
 import { muscatToday } from '@/lib/tenant-charges-neon';
 import { arrearsLabel, type LeaseStatement, type LedgerLine } from '@/lib/tenant-ledger';
+import { notifyPartyWhatsApp } from '@/lib/whatsapp-notify';
 
 /** Days after the oldest unpaid due date on which a tenant hears about their arrears. */
 const ARREARS_DAYS = [1, 3, 7, 14, 30, 60, 90];
 const DUE_SOON_DAYS = 3;
+/** Legacy owner+tenant notices at these remaining-day marks (kept alongside renewal cadence). */
 const LEASE_NOTICE_DAYS = [60, 30];
 /** Sunday in Muscat: the start of the working week. */
 const DIGEST_WEEKDAY = 0;
@@ -23,6 +29,8 @@ export type ReminderRun = {
   arrears: number;
   dueSoon: number;
   leaseExpiry: number;
+  renewalHeadsUp: number;
+  renewalDaily: number;
   collections: number;
   digests: number;
   skipped: number;
@@ -111,6 +119,24 @@ async function runningLeases(today: string): Promise<LeaseRow[]> {
   );
 }
 
+/** Leases that already have a signed renewal addendum (docs were required to sign). */
+async function leasesWithSignedRenewal(leaseIds: string[]): Promise<Set<string>> {
+  if (!leaseIds.length) return new Set();
+  const rows = await elevatedTx(async (tx) =>
+    rowsOf<{ lease_id: string }>(
+      await tx.execute(sql`
+        select l.id as lease_id
+        from leases l
+        join contracts parent on parent.id = l.contract_id
+        join contracts renewal on renewal.parent_contract_id = parent.id
+          and renewal.kind = 'renewal'
+          and renewal.status = 'signed'
+        where l.id = any(${`{${leaseIds.join(',')}}`}::uuid[])`),
+    ),
+  );
+  return new Set(rows.map((row) => row.lease_id));
+}
+
 async function statementsOf(leases: LeaseRow[]): Promise<Map<string, LeaseStatement>> {
   const out = new Map<string, LeaseStatement>();
   const byOrg = new Map<string, string[]>();
@@ -189,6 +215,8 @@ export async function sendDailyReminders(
     arrears: 0,
     dueSoon: 0,
     leaseExpiry: 0,
+    renewalHeadsUp: 0,
+    renewalDaily: 0,
     collections: 0,
     digests: 0,
     skipped: 0,
@@ -210,6 +238,7 @@ export async function sendDailyReminders(
 
   const leases = await runningLeases(today);
   const statements = await statementsOf(leases);
+  const renewedLeaseIds = await leasesWithSignedRenewal(leases.map((row) => row.id));
   const orgArrears = new Map<string, OrgArrears>();
   const soon = plusDays(today, DUE_SOON_DAYS);
 
@@ -310,13 +339,111 @@ export async function sendDailyReminders(
     }
 
     const remaining = daysBetween(today, lease.ends_on);
-    if (!LEASE_NOTICE_DAYS.includes(remaining)) continue;
-    const leaseKey = `reminder:lease:${lease.id}:${remaining}`;
     const details = [
       { label: 'العقار', value: place },
       { label: 'ينتهي العقد في', value: arDate(lease.ends_on) },
-      { label: 'المتبقي', value: arDays(remaining) },
+      { label: 'المتبقي', value: remaining < 0 ? 'انتهى' : arDays(remaining) },
     ];
+    const tenantContractUrl = appLink(
+      lease.contract_id ? `/ar/tenant/contracts/${lease.contract_id}` : '/ar/tenant',
+    );
+
+    // 100 days before expiry: one heads-up email that renewal will open soon.
+    if (remaining === RENEWAL_HEADS_UP_DAYS) {
+      const headsKey = `reminder:renewal-100:${lease.id}`;
+      if (fresh(headsKey)) {
+        run.renewalHeadsUp += await notifyByEmail({
+          orgId: lease.organization_id,
+          aggregateType: 'lease',
+          aggregateId: lease.id,
+          dedupeKey: headsKey,
+          audience: { parties: [lease.tenant_party_id] },
+          content: () => ({
+            tone: 'contract',
+            subject: `⏳ تبقّى ${arDays(RENEWAL_HEADS_UP_DAYS)} على عقدك في ${lease.property}`,
+            title: 'تذكير بمدة عقد الإيجار',
+            intro: `يتبقّى على عقدك ${arDays(remaining)}. يُفتح باب التجديد الإلكتروني عند بقاء ${arDays(RENEWAL_OPEN_WITHIN_DAYS)}، فتجهّز المستندات المطلوبة مبكراً لتجديد هادئ دون انقطاع.`,
+            details,
+            lines: [
+              'عند فتح نافذة التجديد ستصلك رسالة لإكمال التوقيع ورفع المستندات المطلوبة.',
+            ],
+            cta: { label: 'عرض عقدك', url: tenantContractUrl },
+          }),
+        });
+      }
+    }
+
+    // From day 90 (and overdue): daily email + WhatsApp until a signed renewal exists.
+    if (remaining <= RENEWAL_OPEN_WITHIN_DAYS) {
+      const renewed = renewedLeaseIds.has(lease.id);
+      if (!renewed) {
+        const dailyKey = `reminder:renewal-daily:${lease.id}:${today}`;
+        if (fresh(dailyKey)) {
+          const sentMail = await notifyByEmail({
+            orgId: lease.organization_id,
+            aggregateType: 'lease',
+            aggregateId: lease.id,
+            dedupeKey: `${dailyKey}:email`,
+            audience: { parties: [lease.tenant_party_id] },
+            content: () => ({
+              tone: 'contract',
+              subject:
+                remaining < 0
+                  ? `🚨 عقدك في ${lease.property} انتهى — أكمل التجديد`
+                  : `🔁 جدّد عقدك في ${lease.property} — متبقٍ ${arDays(remaining)}`,
+              title: remaining < 0 ? 'عقدك انتهى — التجديد مطلوب' : 'حان وقت تجديد عقد الإيجار',
+              intro:
+                remaining < 0
+                  ? 'انتهت مدة العقد. أكمل التوقيع ورفع المستندات المطلوبة فوراً لاستمرار الإيجار.'
+                  : `نافذة التجديد مفتوحة (متبقٍ ${arDays(remaining)}). أكمل التوقيع ورفع المستندات حتى يُعتمد التجديد.`,
+              details,
+              lines: [
+                'ستصلك تذكيرات يومية بالبريد وواتساب حتى يكتمل التجديد مع كل المستندات المطلوبة.',
+              ],
+              cta: { label: 'إكمال التجديد', url: tenantContractUrl },
+            }),
+          });
+          const sentWa = await notifyPartyWhatsApp({
+            orgId: lease.organization_id,
+            partyId: lease.tenant_party_id,
+            aggregateType: 'lease',
+            aggregateId: lease.id,
+            dedupeKey: `${dailyKey}:whatsapp`,
+            draft: {
+              tone: 'contract',
+              titleAr:
+                remaining < 0 ? 'عقدك انتهى — أكمل التجديد' : 'حان وقت تجديد عقد الإيجار',
+              titleEn:
+                remaining < 0 ? 'Lease ended — complete renewal' : 'Time to renew your lease',
+              introAr:
+                remaining < 0
+                  ? `عقد ${place} انتهى. أكمل التوقيع والمستندات المطلوبة فوراً.`
+                  : `عقد ${place} — متبقٍ ${arDays(remaining)}. أكمل التوقيع ورفع المستندات لتجديد العقد.`,
+              introEn:
+                remaining < 0
+                  ? `Lease for ${place} has ended. Complete signing and required documents now.`
+                  : `Lease for ${place} — ${remaining} days left. Complete signing and required documents.`,
+              details: [
+                { labelAr: 'العقار', labelEn: 'Property', value: place },
+                { labelAr: 'ينتهي في', labelEn: 'Ends on', value: arDate(lease.ends_on) },
+                {
+                  labelAr: 'المتبقي',
+                  labelEn: 'Remaining',
+                  value: remaining < 0 ? 'انتهى / ended' : arDays(remaining),
+                },
+              ],
+              linkLabelAr: 'إكمال التجديد',
+              linkLabelEn: 'Complete renewal',
+              link: tenantContractUrl,
+            },
+          });
+          if (sentMail || sentWa) run.renewalDaily += 1;
+        }
+      }
+    }
+
+    if (!LEASE_NOTICE_DAYS.includes(remaining)) continue;
+    const leaseKey = `reminder:lease:${lease.id}:${remaining}`;
     if (fresh(`${leaseKey}:tenant`)) {
       run.leaseExpiry += await notifyByEmail({
         orgId: lease.organization_id,
@@ -333,9 +460,7 @@ export async function sendDailyReminders(
           details,
           cta: {
             label: 'عرض العقد',
-            url: appLink(
-              lease.contract_id ? `/ar/tenant/contracts/${lease.contract_id}` : '/ar/tenant',
-            ),
+            url: tenantContractUrl,
           },
         }),
       });

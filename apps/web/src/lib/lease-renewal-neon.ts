@@ -27,7 +27,13 @@ import { formatMoney } from '@/lib/format';
 import { buildRenewalTermsDraft, type RenewalPreviousMeters } from '@/lib/lease-terms-draft-from';
 import type { LeaseTermsDraft, PaymentFrequency, PaymentMethod } from '@/lib/lease-terms';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
+import {
+  isLeaseRenewalWindowOpen,
+  leaseDaysRemaining,
+  RENEWAL_OPEN_WITHIN_DAYS,
+} from '@/lib/lease-renewal-window';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
+import { muscatToday } from '@/lib/tenant-charges-neon';
 
 function fail(code: string): never {
   throw new Error(code);
@@ -115,7 +121,14 @@ export type LeaseRenewalTenantSeed = {
   email: string;
 };
 
+export type LeaseRenewalWindowInfo = {
+  open: boolean;
+  daysRemaining: number;
+  opensWithinDays: number;
+};
+
 export type LeaseRenewalContext = {
+  renewalWindow: LeaseRenewalWindowInfo;
   lease: {
     id: string;
     status: string;
@@ -364,7 +377,14 @@ export async function loadLeaseRenewalContext(
     );
     const defaultTemplateVersionId = leaseTemplates[0]?.id ?? templateRows[0]?.id ?? '';
 
+    const today = muscatToday();
+    const daysRemaining = leaseDaysRemaining(lease.endsOn, today);
     return {
+      renewalWindow: {
+        open: isLeaseRenewalWindowOpen(lease.endsOn, today),
+        daysRemaining,
+        opensWithinDays: RENEWAL_OPEN_WITHIN_DAYS,
+      },
       lease: {
         id: lease.id,
         status: lease.status,
@@ -439,6 +459,7 @@ export async function createLeaseRenewalOnNeon(
       where: and(eq(leases.id, leaseId), eq(leases.organizationId, orgId)),
     });
     if (!lease || lease.status !== 'active' || !lease.contractId) fail('lease_not_renewable');
+    if (!isLeaseRenewalWindowOpen(lease.endsOn, muscatToday())) fail('renewal_too_early');
     if (input.endsOn <= lease.endsOn) fail('renewal_date_invalid');
     if (input.rent?.currency && input.rent.currency !== lease.currency) {
       fail('renewal_currency_mismatch');

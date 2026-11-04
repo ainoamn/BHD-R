@@ -50,6 +50,7 @@ const KNOWN_CODES = new Set([
   'contract_not_pending',
   'lease_overlap',
   'lease_not_renewable',
+  'renewal_too_early',
   'renewal_pending',
   'renewal_date_invalid',
   'renewal_currency_mismatch',
@@ -273,6 +274,7 @@ export function statusForSafeCode(code: string): number {
       return 400;
     case 'sale_decision_not_open':
     case 'lease_not_renewable':
+    case 'renewal_too_early':
     case 'renewal_pending':
     case 'renewal_duplicate':
       return 409;

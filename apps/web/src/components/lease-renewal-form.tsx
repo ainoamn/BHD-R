@@ -13,6 +13,7 @@ import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { formatMoney, toMinorUnits } from '@/lib/format';
 import { clearRenewalDraft } from '@/lib/lease-renewal-draft';
 import type { LeaseRenewalContext } from '@/lib/lease-renewal-neon';
+import { renewalTooEarlyMessage } from '@/lib/lease-renewal-window';
 import {
   computeLeaseTerms,
   contractPeriod,
@@ -138,6 +139,10 @@ export function LeaseRenewalForm({
       : `${context.property.nameEn || context.property.nameAr} · ${context.unit.code}`;
 
   async function onSubmit(payload: LeaseContractPayload) {
+    if (!context.renewalWindow.open) {
+      setError(renewalTooEarlyMessage(ar, context.renewalWindow.daysRemaining));
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -296,11 +301,14 @@ export function LeaseRenewalForm({
             ? ar
               ? 'يوجد ملحق تجديد غير مكتمل لهذا العقد — أكمله أو ألغِه أولاً.'
               : 'An unfinished renewal already exists for this lease — finish or void it first.'
-            : code === 'lease_not_renewable' || /Only an active lease/i.test(caught.message)
-              ? ar
-                ? 'يمكن تجديد العقود النشطة فقط.'
-                : 'Only an active lease can be renewed.'
-              : code === 'renewal_date_invalid'
+            : code === 'renewal_too_early' ||
+                /within 3 months|renewal_too_early/i.test(caught.message)
+              ? renewalTooEarlyMessage(ar, context.renewalWindow.daysRemaining)
+              : code === 'lease_not_renewable' || /Only an active lease/i.test(caught.message)
+                ? ar
+                  ? 'يمكن تجديد العقود النشطة فقط.'
+                  : 'Only an active lease can be renewed.'
+                : code === 'renewal_date_invalid'
                 ? ar
                   ? 'تاريخ النهاية الجديد يجب أن يكون بعد نهاية العقد الحالي.'
                   : 'New end date must follow the current term.'
@@ -374,6 +382,12 @@ export function LeaseRenewalForm({
           {ar ? 'العودة للتأجير' : 'Back to leasing'}
         </Link>
       </header>
+
+      {!context.renewalWindow.open ? (
+        <div className="notice notice--warning" role="status">
+          {renewalTooEarlyMessage(ar, context.renewalWindow.daysRemaining)}
+        </div>
+      ) : null}
 
       {restoredDraft ? (
         <div className="notice" role="status">
@@ -453,7 +467,7 @@ export function LeaseRenewalForm({
         tenants={[context.tenant]}
         canSign
         locale={locale}
-        busy={busy}
+        busy={busy || !context.renewalWindow.open}
         formError={error}
         bankAccounts={bankAccounts}
         propertyId={context.property.id}

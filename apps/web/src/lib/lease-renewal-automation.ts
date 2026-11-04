@@ -56,7 +56,8 @@ export function sanitizeLeaseRenewalAutomation(raw: unknown): LeaseRenewalAutoma
       : clampInt(termRaw, 1, 120, 12);
   return {
     enabled: row.enabled === true,
-    leadDays: clampInt(row.leadDays, 0, 365, DEFAULT_LEASE_RENEWAL_AUTOMATION.leadDays),
+    // Cap at 90 days — long-term renewals cannot open more than ≈3 months early.
+    leadDays: clampInt(row.leadDays, 0, 90, DEFAULT_LEASE_RENEWAL_AUTOMATION.leadDays),
     termMonths,
     minTermMonths: clampInt(
       row.minTermMonths,
@@ -75,7 +76,7 @@ export function sanitizeLeaseRenewalOverride(raw: unknown): LeaseRenewalAutomati
   if (typeof row.enabled === 'boolean') out.enabled = row.enabled;
   else if (row.enabled === null) out.enabled = null;
   if (row.leadDays === null) out.leadDays = null;
-  else if (row.leadDays !== undefined) out.leadDays = clampInt(row.leadDays, 0, 365, 90);
+  else if (row.leadDays !== undefined) out.leadDays = clampInt(row.leadDays, 0, 90, 90);
   if (row.termMonths === null) out.termMonths = null;
   else if (row.termMonths !== undefined) out.termMonths = clampInt(row.termMonths, 1, 120, 12);
   if (row.minTermMonths === null) out.minTermMonths = null;

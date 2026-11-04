@@ -13,7 +13,7 @@ export const EMAIL_MAX_ATTEMPTS = 6;
 export const EMAIL_MAX_AGE_HOURS = 12;
 const BATCH = 10;
 
-const messageSchema = z.object({
+const emailMessageSchema = z.object({
   channel: z.literal('email'),
   recipient: z.email().max(320),
   subject: z.string().min(1).max(300),
@@ -21,7 +21,15 @@ const messageSchema = z.object({
   html: z.string().max(200_000).optional(),
 });
 
-type Outcome = 'sent' | 'retry' | 'reject';
+const whatsappMessageSchema = z.object({
+  channel: z.literal('whatsapp'),
+  recipient: z.string().regex(/^\d{10,15}$/),
+  text: z.string().min(1).max(4000),
+});
+
+const messageSchema = z.discriminatedUnion('channel', [emailMessageSchema, whatsappMessageSchema]);
+
+type Outcome = 'sent' | 'retry' | 'reject' | 'skip';
 
 export type EmailDeliveryState = 'sent' | 'sending' | 'failed';
 
@@ -41,6 +49,13 @@ function settings(): { key: string; from: string } | null {
   return { key, from: `BHD R <${address}>` };
 }
 
+function whatsappSettings(): { token: string; phoneNumberId: string } | null {
+  const token = process.env.WHATSAPP_TOKEN?.trim();
+  const phoneNumberId = process.env.WHATSAPP_FROM?.trim();
+  if (!token || !phoneNumberId) return null;
+  return { token, phoneNumberId };
+}
+
 export function emailDeliveryState(row: {
   publishedAt: Date | string | null;
   occurredAt: Date | string;
@@ -52,10 +67,10 @@ export function emailDeliveryState(row: {
   return 'sending';
 }
 
-async function send(
+async function sendEmail(
   config: { key: string; from: string },
   id: string,
-  message: z.infer<typeof messageSchema>,
+  message: z.infer<typeof emailMessageSchema>,
 ): Promise<Outcome> {
   try {
     const response = await fetch('https://api.resend.com/emails', {
@@ -83,10 +98,56 @@ async function send(
   }
 }
 
-async function dispatchBatch(config: {
-  key: string;
-  from: string;
-}): Promise<DispatchSummary & { picked: number }> {
+async function sendWhatsApp(
+  config: { token: string; phoneNumberId: string },
+  id: string,
+  message: z.infer<typeof whatsappMessageSchema>,
+): Promise<Outcome> {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(config.phoneNumberId)}/messages`,
+      {
+        method: 'POST',
+        signal: AbortSignal.timeout(8_000),
+        headers: {
+          authorization: `Bearer ${config.token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: message.recipient,
+          type: 'text',
+          text: { body: message.text, preview_url: false },
+        }),
+      },
+    );
+    if (response.ok) return 'sent';
+    return response.status === 400 || response.status === 404 || response.status === 422
+      ? 'reject'
+      : 'retry';
+  } catch {
+    return 'retry';
+  }
+}
+
+async function deliver(
+  emailConfig: { key: string; from: string } | null,
+  whatsappConfig: { token: string; phoneNumberId: string } | null,
+  id: string,
+  message: z.infer<typeof messageSchema>,
+): Promise<Outcome> {
+  if (message.channel === 'email') {
+    if (!emailConfig) return 'skip';
+    return sendEmail(emailConfig, id, message);
+  }
+  if (!whatsappConfig) return 'reject';
+  return sendWhatsApp(whatsappConfig, id, message);
+}
+
+async function dispatchBatch(
+  emailConfig: { key: string; from: string } | null,
+  whatsappConfig: { token: string; phoneNumberId: string } | null,
+): Promise<DispatchSummary & { picked: number }> {
   try {
     const { hydrateEmailWishPools } = await import('@/lib/email-wish-pools-neon');
     await hydrateEmailWishPools();
@@ -94,6 +155,12 @@ async function dispatchBatch(config: {
     /* keep built-in wishes if settings are unavailable */
   }
   return elevatedTx(async (tx) => {
+    const channelFilter =
+      emailConfig && whatsappConfig
+        ? sql`true`
+        : emailConfig
+          ? sql`coalesce(payload->>'channel', 'email') = 'email'`
+          : sql`payload->>'channel' = 'whatsapp'`;
     const rows = rowsOf<{ id: string; payload: unknown }>(
       await tx.execute(sql`
         select id::text, payload from outbox_events
@@ -101,19 +168,30 @@ async function dispatchBatch(config: {
           and occurred_at > now() - make_interval(hours => ${EMAIL_MAX_AGE_HOURS})
           and occurred_at + make_interval(secs => case when attempts = 0 then 0
             else least(3600, 60 * power(2, attempts)::integer) end) <= now()
+          and ${channelFilter}
         order by occurred_at
         for update skip locked
         limit ${BATCH}
       `),
     );
-    const summary = { configured: true, sent: 0, retried: 0, dropped: 0, picked: rows.length };
+    const summary = {
+      configured: Boolean(emailConfig || whatsappConfig),
+      sent: 0,
+      retried: 0,
+      dropped: 0,
+      picked: rows.length,
+    };
     for (const row of rows) {
       const parsed = messageSchema.safeParse(row.payload);
-      const outcome: Outcome = parsed.success ? await send(config, row.id, parsed.data) : 'reject';
+      const outcome: Outcome = parsed.success
+        ? await deliver(emailConfig, whatsappConfig, row.id, parsed.data)
+        : 'reject';
       if (outcome === 'sent') {
         summary.sent += 1;
         await tx.execute(sql`update outbox_events
           set published_at = now(), attempts = attempts + 1 where id = ${row.id}::uuid`);
+      } else if (outcome === 'skip') {
+        summary.retried += 1;
       } else if (outcome === 'retry') {
         summary.retried += 1;
         await tx.execute(
@@ -123,23 +201,29 @@ async function dispatchBatch(config: {
         summary.dropped += 1;
         await tx.execute(sql`update outbox_events
           set attempts = ${EMAIL_MAX_ATTEMPTS} where id = ${row.id}::uuid`);
-        console.warn('email dropped', row.id, parsed.success ? 'rejected' : 'invalid');
+        console.warn('notification dropped', row.id, parsed.success ? 'rejected' : 'invalid');
       }
     }
     return summary;
   }, 30_000);
 }
 
-/** Sends due queued emails through Resend until the queue is empty or the time budget ends. */
+/** Sends due queued email/WhatsApp notices until the queue is empty or the time budget ends. */
 export async function dispatchQueuedEmails(
   options: { budgetMs?: number } = {},
 ): Promise<DispatchSummary> {
-  const config = settings();
-  const total: DispatchSummary = { configured: Boolean(config), sent: 0, retried: 0, dropped: 0 };
-  if (!config) return total;
+  const emailConfig = settings();
+  const whatsappConfig = whatsappSettings();
+  const total: DispatchSummary = {
+    configured: Boolean(emailConfig || whatsappConfig),
+    sent: 0,
+    retried: 0,
+    dropped: 0,
+  };
+  if (!emailConfig && !whatsappConfig) return total;
   const deadline = Date.now() + (options.budgetMs ?? 15_000);
   do {
-    const batch = await dispatchBatch(config);
+    const batch = await dispatchBatch(emailConfig, whatsappConfig);
     total.sent += batch.sent;
     total.retried += batch.retried;
     total.dropped += batch.dropped;
@@ -150,10 +234,10 @@ export async function dispatchQueuedEmails(
 
 /**
  * Sends what is queued once the current response has gone out (the writing transaction has
- * committed by then). Safe to call from any request; a no-op where email is not configured.
+ * committed by then). Safe to call from any request; a no-op where channels are not configured.
  */
 export function sendQueuedEmailsSoon(): void {
-  if (!settings()) return;
+  if (!settings() && !whatsappSettings()) return;
   try {
     after(async () => {
       try {

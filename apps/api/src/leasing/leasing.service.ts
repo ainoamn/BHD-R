@@ -134,10 +134,35 @@ function isTenantFacingClaims(claims: SessionClaims): boolean {
   );
 }
 
+/** Long-term leases may only renew when ≤ 90 days remain (≈ 3 months). */
+const RENEWAL_OPEN_WITHIN_DAYS = 90;
+
+function muscatTodayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Muscat',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function daysRemainingUntil(endsOn: string, today: string): number {
+  return Math.round(
+    (Date.parse(`${endsOn.slice(0, 10)}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) /
+      86_400_000,
+  );
+}
+
 export function assertRenewalTerms(
   current: { endsOn: string; currency: string },
   proposed: { endsOn: string; currency?: string | undefined },
 ): void {
+  const remaining = daysRemainingUntil(current.endsOn, muscatTodayIso());
+  if (remaining > RENEWAL_OPEN_WITHIN_DAYS) {
+    throw new ConflictException(
+      'Long-term leases can only be renewed within 3 months of expiry',
+    );
+  }
   if (proposed.endsOn <= current.endsOn)
     throw new ConflictException('Renewal date must extend the current lease');
   if (proposed.currency && proposed.currency !== current.currency)

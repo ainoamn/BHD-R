@@ -45,6 +45,11 @@ import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { hasRenewalDraft } from '@/lib/lease-renewal-draft';
+import {
+  isLeaseRenewalWindowOpen,
+  leaseDaysRemaining,
+  renewalTooEarlyMessage,
+} from '@/lib/lease-renewal-window';
 import { replaceSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
@@ -1264,19 +1269,37 @@ function LeasingNextActions({
 
   if (status === 'active') {
     const draft = hasRenewalDraft(safeString(row.id));
+    const endsOn = safeString(row.endsOn).slice(0, 10);
+    const today = muscatToday();
+    const renewalOpen = !endsOn || isLeaseRenewalWindowOpen(endsOn, today);
+    const daysLeft = endsOn ? leaseDaysRemaining(endsOn, today) : 0;
     items.push(
       <button
         key="renew"
         className="ops-action"
         type="button"
         role="menuitem"
-        disabled={busy}
+        disabled={busy || !renewalOpen}
+        title={
+          renewalOpen ? undefined : renewalTooEarlyMessage(ar, daysLeft)
+        }
         onClick={(event) => {
+          if (!renewalOpen) return;
           closeOpsActionMenu(event.currentTarget);
           onRenew(row);
         }}
       >
-        {draft ? (ar ? 'مسودة تجديد' : 'Renewal draft') : ar ? 'تجديد' : 'Renew'}
+        {draft
+          ? ar
+            ? 'مسودة تجديد'
+            : 'Renewal draft'
+          : !renewalOpen
+            ? ar
+              ? `تجديد (بعد ${Math.max(0, daysLeft - 90)} ي)`
+              : `Renew (in ${Math.max(0, daysLeft - 90)}d)`
+            : ar
+              ? 'تجديد'
+              : 'Renew'}
       </button>,
     );
     if (row.renewalPendingContractId) {
