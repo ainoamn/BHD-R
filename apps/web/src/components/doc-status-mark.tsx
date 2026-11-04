@@ -7,18 +7,20 @@ export function docStatusMarkKind(
   status: RequirementStatus,
   options?: { viewer?: 'owner' | 'tenant' },
 ): DocStatusMarkKind {
+  const tenant = options?.viewer === 'tenant';
   switch (status) {
     case 'approved':
       return 'ok';
     case 'rejected':
-      return 'spin';
+      // Tenant must re-upload; owner still sees the replace spinner.
+      return tenant ? 'error' : 'spin';
     case 'submitted':
-      // Uploaded — awaiting owner review.
-      return 'alert';
+      // Tenant: upload done (green). Owner: still awaiting review (amber).
+      return tenant ? 'ok' : 'alert';
     case 'pending':
     default:
-      void options;
-      return 'wait';
+      // Tenant: missing upload (red). Owner: not received yet (muted).
+      return tenant ? 'error' : 'wait';
   }
 }
 

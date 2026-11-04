@@ -736,19 +736,19 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       <ul className="doc-status-legend" aria-label={ar ? 'مفتاح الحالات' : 'Status key'}>
         <li>
           <DocStatusMark status="approved" ar={ar} viewer="tenant" />
-          <span>{ar ? 'معتمدة من المالك' : 'Owner-approved'}</span>
+          <span>{ar ? 'مكتمل / معتمد (أخضر)' : 'Complete / approved (green)'}</span>
         </li>
         <li>
           <DocStatusMark status="submitted" ar={ar} viewer="tenant" />
-          <span>{ar ? 'بانتظار الاعتماد / التحقق' : 'Awaiting approval / verify'}</span>
+          <span>{ar ? 'تم الرفع — بانتظار اعتماد المالك' : 'Uploaded — awaiting owner approval'}</span>
         </li>
         <li>
           <DocStatusMark status="pending" ar={ar} viewer="tenant" />
-          <span>{ar ? 'لم تُرفع' : 'Not uploaded'}</span>
+          <span>{ar ? 'ناقص — يحتاج رفع (أحمر)' : 'Missing — needs upload (red)'}</span>
         </li>
         <li>
           <DocStatusMark status="rejected" ar={ar} viewer="tenant" />
-          <span>{ar ? 'مطلوب الاستبدال' : 'Replace'}</span>
+          <span>{ar ? 'مرفوض — استبدل الملف (أحمر)' : 'Rejected — replace file (red)'}</span>
         </li>
       </ul>
       {remaining.length ? (
@@ -768,23 +768,25 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
               : `${fullyApprovedCount} of ${totalItems} fully approved`}
           </span>
           <ul className="lease-docs-remaining__list">
-            {remaining.map((item) => (
-              <li key={item.key}>
-                <DocStatusMark
-                  status={item.pendingVerify ? 'submitted' : item.status}
-                  ar={ar}
-                  viewer="tenant"
-                />
-                <span>{item.label}</span>
-                <small>
-                  {item.pendingVerify
-                    ? ar
-                      ? 'قُبل إلكترونياً — قيد تحقق الفريق'
-                      : 'Accepted electronically — team verifying'
-                    : docStatusLabel(item.status, ar, 'tenant')}
-                </small>
-              </li>
-            ))}
+            {remaining.map((item) => {
+              const markStatus = item.pendingVerify ? 'submitted' : item.status;
+              return (
+                <li
+                  key={item.key}
+                  className={`lease-docs-remaining__item lease-docs-remaining__item--${markStatus}`}
+                >
+                  <DocStatusMark status={markStatus} ar={ar} viewer="tenant" />
+                  <span>{item.label}</span>
+                  <small>
+                    {item.pendingVerify
+                      ? ar
+                        ? 'قُبل إلكترونياً — قيد تحقق الفريق'
+                        : 'Accepted electronically — team verifying'
+                      : docStatusLabel(item.status, ar, 'tenant')}
+                  </small>
+                </li>
+              );
+            })}
           </ul>
           {pendingVerifyCount ? (
             <p className="notice notice--info">

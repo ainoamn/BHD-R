@@ -24033,7 +24033,8 @@ button.lrw__step-body:focus-visible {
   padding: 0;
   list-style: none;
 }
-.lease-docs-remaining__list li {
+.lease-docs-remaining__list li,
+.lease-docs-remaining__item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 0.4rem 0.55rem;
@@ -24041,20 +24042,49 @@ button.lrw__step-body:focus-visible {
   font-size: 0.88rem;
   color: #234438;
 }
+.lease-docs-remaining__item--pending,
+.lease-docs-remaining__item--rejected {
+  color: #a11228;
+  font-weight: 700;
+}
+.lease-docs-remaining__item--submitted,
+.lease-docs-remaining__item--approved {
+  color: #0d5c45;
+  font-weight: 700;
+}
 .lease-docs-remaining__list small {
   color: #5b6b63;
   font-size: 0.78rem;
 }
-.lease-docs__item--submitted {
-  border-inline-start-color: #2f6f8f;
+.lease-docs__item--pending,
+.lease-docs__item--rejected {
+  border-inline-start-color: #c8102e;
+  background: #fff5f6;
+  box-shadow: inset 0 0 0 1px rgb(200 16 46 / 0.08);
 }
+.lease-docs__item--pending .lease-docs__text strong,
+.lease-docs__item--rejected .lease-docs__text strong {
+  color: #a11228;
+}
+.lease-docs__item--pending .lease-docs__text span,
+.lease-docs__item--rejected .lease-docs__text span {
+  color: #a11228;
+  font-weight: 700;
+}
+.lease-docs__item--submitted,
 .lease-docs__item--approved {
   border-inline-start-color: #1f6b45;
   background: #f3faf6;
+  box-shadow: inset 0 0 0 1px rgb(31 107 69 / 0.1);
 }
-.lease-docs__item--rejected {
-  border-inline-start-color: #c8102e;
-  background: #fff6f7;
+.lease-docs__item--submitted .lease-docs__text strong,
+.lease-docs__item--approved .lease-docs__text strong {
+  color: #0d5c45;
+}
+.lease-docs__item--submitted .lease-docs__text span,
+.lease-docs__item--approved .lease-docs__text span {
+  color: #1f6b45;
+  font-weight: 700;
 }
 .lease-docs__text {
   display: grid;
@@ -24137,11 +24167,23 @@ button.lrw__step-body:focus-visible {
 .lease-cheques__table tbody tr:last-child td {
   border-bottom: 0;
 }
+.lease-cheques__row--pending,
 .lease-cheques__row--rejected {
-  background: #fff8f4;
+  background: #fff5f6;
+  box-shadow: inset 3px 0 0 #c8102e;
 }
+.lease-cheques__row--pending td strong,
+.lease-cheques__row--rejected td strong {
+  color: #a11228;
+}
+.lease-cheques__row--submitted,
 .lease-cheques__row--approved {
-  background: #f4faf6;
+  background: #f3faf6;
+  box-shadow: inset 3px 0 0 #1f6b45;
+}
+.lease-cheques__row--submitted td strong,
+.lease-cheques__row--approved td strong {
+  color: #0d5c45;
 }
 .lease-cheques__table td strong {
   display: block;
@@ -24656,9 +24698,15 @@ button.lrw__step-body:focus-visible {
   background: #fff;
 }
 .booking-docs-return__item--fix {
-  border-inline-start: 4px solid #c98a12;
-  background: #fffaf0;
+  border-inline-start: 4px solid #c8102e;
+  background: #fff5f6;
   grid-template-columns: 2.4rem minmax(0, 1fr);
+}
+.booking-docs-return__item--fix:not(.booking-docs-return__item--done)
+  .booking-docs-return__text
+  span {
+  color: #a11228;
+  font-weight: 800;
 }
 .booking-docs-return__item--fix .booking-docs-return__actions {
   grid-column: 1 / -1;
@@ -24670,6 +24718,10 @@ button.lrw__step-body:focus-visible {
   border-inline-start-color: #1f6b45;
   background: #f3faf6;
   grid-template-columns: 3.2rem minmax(0, 1fr);
+}
+.booking-docs-return__item--done .booking-docs-return__text span {
+  color: #0d5c45;
+  font-weight: 800;
 }
 .booking-docs-return__item--lock {
   border-inline-start: 4px solid #1f6b45;
@@ -24689,8 +24741,9 @@ button.lrw__step-body:focus-visible {
   width: 2.4rem;
   height: 2.4rem;
   border-radius: 0.4rem;
-  background: #f3e0b8;
-  color: #7a5a20;
+  background: #ffeff1;
+  color: #a11228;
+  border: 1px solid #e8a0aa;
   font-weight: 700;
 }
 .booking-docs-return__text {
