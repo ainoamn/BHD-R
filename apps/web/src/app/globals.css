@@ -17171,9 +17171,9 @@ body:has(.guest-stay-detail) #main-content {
     grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     grid-template-rows: minmax(0, 1fr);
   }
-  /* Lease booking journey: wider image rail so steps stay readable. */
+  /* Lease booking journey: image rail wide enough for account chip + logo. */
   .guest-stay-detail.lease-journey {
-    grid-template-columns: minmax(15rem, 0.34fr) minmax(0, 1.66fr);
+    grid-template-columns: minmax(18rem, 0.4fr) minmax(0, 1.6fr);
   }
   .guest-stay-detail.lease-journey .guest-stay-detail__panel-body > * {
     max-width: min(72rem, 100%);
