@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { contractQrSvg } from '@/lib/contract-verify';
+import {
+  identityBearerFromRequest,
+  productUserIdFromIdentityBearer,
+} from '@/lib/identity/tab-product-user';
 import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking-route';
 import {
   acceptHandover,
@@ -66,7 +70,8 @@ export async function GET(request: Request, context: { params: Promise<{ referen
   const { reference } = await context.params;
   const locale = new URL(request.url).searchParams.get('locale') === 'en' ? 'en' : 'ar';
   try {
-    const result = await tenantHandoverPass(claims, reference);
+    const tabUserId = await productUserIdFromIdentityBearer(identityBearerFromRequest(request));
+    const result = await tenantHandoverPass(claims, reference, { tabUserId });
     if (result.state !== 'pass') return leaseBookingJson(result);
     const { token, ...pass } = result;
     const url = `${publicWebOrigin()}/${locale}/handover?t=${encodeURIComponent(token)}`;

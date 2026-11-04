@@ -11,6 +11,7 @@ import {
   ensureAuInUrl,
   readActiveAu,
 } from '@/lib/identity/client';
+import { boundWindowToken } from '@/lib/identity/window-session';
 import type { LeaseLifecycleView } from '@/lib/public-lease-booking-neon';
 import { HANDOVER_PHOTOS_MAX, HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 
@@ -92,12 +93,20 @@ function HandoverPass({
     const readBody = async (response: Response): Promise<PassBody | null> =>
       (await response.json().catch(() => null)) as PassBody | null;
 
+    const passHeaders = (): HeadersInit => {
+      const headers: Record<string, string> = { accept: 'application/json' };
+      const identityToken = boundWindowToken();
+      if (identityToken) headers['x-bhd-identity-bearer'] = identityToken;
+      return headers;
+    };
+
     const fetchPass = async () => {
       ensureAuInUrl(readActiveAu() || undefined);
+      // Best-effort cookie reclaim — ownership is proven by the tab Bearer below.
       await claimProductSessionForActiveAu().catch(() => ({ ok: false }));
       return fetch(
         `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/handover?locale=${locale}`,
-        { credentials: 'same-origin', cache: 'no-store' },
+        { credentials: 'same-origin', cache: 'no-store', headers: passHeaders() },
       );
     };
 
@@ -126,13 +135,13 @@ function HandoverPass({
           return;
         }
 
-        // Staff / wrong account while ?au= is the tenant: reclaim cookie and retry once.
+        // Cookie still staff while this tab is the tenant: reclaim once, Bearer still sent.
         if (body?.state === 'tenant_only' || response.status === 403) {
           const claimed = await claimProductSessionForActiveAu().catch(() => ({ ok: false }));
           if (claimed.ok && !stopped) {
             response = await fetch(
               `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/handover?locale=${locale}`,
-              { credentials: 'same-origin', cache: 'no-store' },
+              { credentials: 'same-origin', cache: 'no-store', headers: passHeaders() },
             );
             body = await readBody(response);
           }

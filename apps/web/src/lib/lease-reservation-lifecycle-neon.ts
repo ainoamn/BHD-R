@@ -2921,21 +2921,42 @@ const muscatDate = (date: Date) => date.toLocaleDateString('en-CA', { timeZone: 
  * What the tenant's booking page shows at the handover stage: a fresh pass while the keys are
  * still to be handed over, or the step after it once a staff member recorded the handover.
  */
-export async function tenantHandoverPass(claims: SessionClaims, referenceCode: string) {
+export async function tenantHandoverPass(
+  claims: SessionClaims,
+  referenceCode: string,
+  options?: { tabUserId?: string | null },
+) {
   const normalized = normalizeLeaseReference(referenceCode);
   if (!normalized) leaseBookingFail('not_found');
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) leaseBookingFail('not_found');
-    try {
-      await assertBookingOwner(
-        transaction,
-        claims.sub,
-        match.partyEmail,
-        match.snapshot.bookedBy?.userId,
-      );
-    } catch {
+    // Prefer this tab's identity-bound product user (sessionStorage Bearer) over the shared
+    // product cookie — owner + tenant tabs in one Chrome profile thrash that cookie.
+    const ownerCandidates = [
+      ...new Set(
+        [options?.tabUserId, claims.sub]
+          .map((value) => value?.trim())
+          .filter((value): value is string => Boolean(value)),
+      ),
+    ];
+    let isBookingTenant = false;
+    for (const userId of ownerCandidates) {
+      try {
+        await assertBookingOwner(
+          transaction,
+          userId,
+          match.partyEmail,
+          match.snapshot.bookedBy?.userId,
+        );
+        isBookingTenant = true;
+        break;
+      } catch {
+        /* try next candidate */
+      }
+    }
+    if (!isBookingTenant) {
       // Staff may open /book/confirmed, but the sealed QR is tenant-only.
       if (
         claims.organizationId === match.organizationId &&
