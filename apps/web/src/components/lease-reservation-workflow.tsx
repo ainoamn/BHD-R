@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type FormEvent,
@@ -2464,23 +2465,40 @@ function RequirementsReview({
   useEffect(() => {
     if (!rejecting) return;
     const frame = requestAnimationFrame(() => {
-      document.getElementById(`reject-focus-${rejecting}`)?.focus();
+      const field = document.getElementById(`reject-focus-${rejecting}`);
+      if (!(field instanceof HTMLElement)) return;
+      field.focus({ preventScroll: true });
+      const pane = stagePaneRef.current;
+      if (pane && pane.contains(field) && pane.scrollHeight > pane.clientHeight + 8) {
+        const paneRect = pane.getBoundingClientRect();
+        const fieldRect = field.getBoundingClientRect();
+        if (fieldRect.bottom > paneRect.bottom || fieldRect.top < paneRect.top) {
+          pane.scrollBy({ top: fieldRect.top - paneRect.top - 12, behavior: 'smooth' });
+        }
+        return;
+      }
+      field.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     });
     return () => cancelAnimationFrame(frame);
   }, [rejecting]);
+  const queuePaneRef = useRef<HTMLDivElement>(null);
+  const stagePaneRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setMounted(true);
   }, []);
   useEffect(() => {
     if (!desk || !full) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    document.documentElement.classList.add('lrw-screen-open');
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setFull(false);
+      if (event.key !== 'Escape') return;
+      if (document.querySelector('.file-preview')) return;
+      setFull(false);
     }
     window.addEventListener('keydown', onKey);
     return () => {
-      document.body.style.overflow = previous;
+      document.documentElement.classList.remove('lrw-screen-open');
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
       window.removeEventListener('keydown', onKey);
     };
   }, [desk, full]);
@@ -2572,6 +2590,28 @@ function RequirementsReview({
     includeCheques,
     chequeInstructions,
   ]);
+  useEffect(() => {
+    if (!desk) return;
+    const pane = stagePaneRef.current;
+    if (!pane || pane.scrollTop < 8) return;
+    pane.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [desk, stageHref]);
+  useEffect(() => {
+    if (!desk) return;
+    const root = queuePaneRef.current;
+    if (!root) return;
+    const id = reviewChequeKey
+      ? `cheque-${reviewChequeKey}`
+      : reviewCode
+        ? `doc-${reviewCode}`
+        : '';
+    const row = id ? root.querySelector(`[data-item="${CSS.escape(id)}"]`) : null;
+    if (!(row instanceof HTMLElement)) return;
+    const rootRect = root.getBoundingClientRect();
+    const rowRect = row.getBoundingClientRect();
+    if (rowRect.top >= rootRect.top && rowRect.bottom <= rootRect.bottom) return;
+    root.scrollBy({ top: rowRect.top - rootRect.top - 8, behavior: 'smooth' });
+  }, [desk, reviewCode, reviewChequeKey]);
   function selectItem(item: ReviewQueueItem) {
     if (item.kind === 'doc') {
       setReviewCode(item.code);
@@ -2805,7 +2845,17 @@ function RequirementsReview({
             {approvedCount}/{totalCount || 0}
           </span>
           {desk ? (
-            <button type="button" className="button button--quiet" onClick={() => setFull((open) => !open)}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => {
+                if (full) {
+                  document.body.style.overflow = '';
+                  document.documentElement.style.overflow = '';
+                }
+                setFull((open) => !open);
+              }}
+            >
               {full
                 ? ar
                   ? 'تصغير'
@@ -2910,7 +2960,11 @@ function RequirementsReview({
       ) : null}
 
       {(reviewItem || reviewChequeItem) && canManage ? (
-        <div className="lrw__review-card lrw__review-card--sticky" id="lrw-review-focus">
+        <div
+          className="lrw__review-card lrw__review-card--sticky"
+          id="lrw-review-focus"
+          ref={stagePaneRef}
+        >
           <div className="lrw__review-card-head">
             <strong>{stageLabel}</strong>
             <span className="muted">
@@ -2925,6 +2979,7 @@ function RequirementsReview({
           {desk && stageHref ? (
             <div className="lrw-screen__shot">
               <DocFileThumb
+                key={stageHref}
                 href={stageHref}
                 label={stageLabel}
                 onOpen={() =>
@@ -3081,7 +3136,7 @@ function RequirementsReview({
       ) : null}
 
       {requirements.length || includeCheques ? (
-        <div className="lrw__docs-lists">
+        <div className="lrw__docs-lists" ref={queuePaneRef}>
           {requirements.length ? (
             <>
               {includeCheques ? (
@@ -3097,7 +3152,9 @@ function RequirementsReview({
                   return (
                     <li
                       key={item.code}
+                      data-item={`doc-${item.code}`}
                       className={`lrw__doc lrw__doc--${item.status}${isFocus ? ' lrw__doc--focus' : ''}`}
+                      onMouseDown={desk ? (event) => event.preventDefault() : undefined}
                       onClick={desk ? () => selectItem({ kind: 'doc', code: item.code }) : undefined}
                       onKeyDown={
                         desk
@@ -3202,7 +3259,9 @@ function RequirementsReview({
                   return (
                     <li
                       key={item.key}
+                      data-item={`cheque-${item.key}`}
                       className={`lrw__doc lrw__doc--${status}${isFocus ? ' lrw__doc--focus' : ''}`}
+                      onMouseDown={desk ? (event) => event.preventDefault() : undefined}
                       onClick={desk ? () => selectItem({ kind: 'cheque', key: item.key }) : undefined}
                       onKeyDown={
                         desk

@@ -3,6 +3,26 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
+let pageScrollLocks = 0;
+let pageScrollOverflow = '';
+
+/** Nested modals share one lock so closing the top one cannot leave the page unscrollable. */
+function lockPageScroll() {
+  if (pageScrollLocks === 0) {
+    pageScrollOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+  }
+  pageScrollLocks += 1;
+}
+
+function unlockPageScroll() {
+  pageScrollLocks = Math.max(0, pageScrollLocks - 1);
+  if (pageScrollLocks === 0) {
+    document.body.style.overflow = pageScrollOverflow;
+    pageScrollOverflow = '';
+  }
+}
+
 /**
  * Renders a modal into `document.body` so animated or transformed ancestors (which become the
  * containing block for `position: fixed`) cannot pin it inside the page. Locks page scroll while
@@ -15,15 +35,13 @@ export function ModalPortal({ children, onClose }: { children: ReactNode; onClos
 
   useEffect(() => {
     setMounted(true);
-    const { body } = document;
-    const previousOverflow = body.style.overflow;
-    body.style.overflow = 'hidden';
+    lockPageScroll();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onCloseRef.current?.();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => {
-      body.style.overflow = previousOverflow;
+      unlockPageScroll();
       window.removeEventListener('keydown', onKeyDown);
     };
   }, []);

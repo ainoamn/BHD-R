@@ -22985,11 +22985,6 @@ body:has(.stay-esign-shell) {
 .lrw-screen__split > .lrw__docs-lists {
   grid-column: 1;
   grid-row: 1;
-  position: sticky;
-  top: 0.5rem;
-  max-height: calc(100dvh - 8rem);
-  overflow: auto;
-  padding-inline-end: 0.15rem;
 }
 .lrw-screen__split > .lrw__review-card {
   grid-column: 2;
@@ -22997,26 +22992,75 @@ body:has(.stay-esign-shell) {
   margin-bottom: 0;
 }
 .lrw-screen .lrw__review-card--sticky {
-  top: 0.5rem;
+  position: sticky;
+  top: 0.85rem;
+  box-shadow: none;
+}
+.lrw-screen--full .lrw__review-card--sticky {
+  position: relative;
+  top: auto;
 }
 .lrw-screen--full {
   position: fixed;
   inset: 0;
   z-index: 400;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
   margin: 0;
-  padding: 0.9rem clamp(0.85rem, 2vw, 1.5rem) 1.25rem;
-  overflow: auto;
+  padding: 0.85rem clamp(0.85rem, 2vw, 1.5rem) 1rem;
+  overflow: hidden;
+  overscroll-behavior: contain;
+  animation: lrw-screen-in 0.16s ease;
   background:
     radial-gradient(circle at 88% -10%, rgb(8 163 159 / 0.08), transparent 28rem),
     #f3f6f4;
 }
+html.lrw-screen-open,
+html.lrw-screen-open body {
+  overflow: hidden;
+}
+@keyframes lrw-screen-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.lrw-screen--full .lrw-screen__split {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
 .lrw-screen--full .lrw__docs-lists,
 .lrw-screen--full .lrw__review-card {
-  max-height: calc(100dvh - 7rem);
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
 }
 .lrw-screen--full .lrw__review-card {
+  display: flex;
+  flex-direction: column;
+}
+.lrw-screen--full .lrw__extra-docs {
+  flex: 0 1 auto;
+  max-height: 8.5rem;
+  margin-top: 0;
   overflow: auto;
+}
+.lrw-screen--full .lrw-screen__shot {
+  flex: 1 1 auto;
+  min-height: 10rem;
+  height: auto;
+}
+.lrw-screen--full .lrw-screen__shot .doc-file-thumb {
+  height: 100%;
+  min-height: 10rem;
 }
 .lrw-screen .lrw__docs-checklist > .lrw__doc {
   grid-template-columns: auto minmax(0, 1fr);
@@ -23044,6 +23088,15 @@ body:has(.stay-esign-shell) {
 .lrw-screen__shot .doc-file-thumb img {
   object-fit: contain;
   background: #10241c;
+  animation: lrw-shot-in 0.18s ease;
+}
+@keyframes lrw-shot-in {
+  from {
+    opacity: 0.2;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .lrw-screen__shot .doc-file-thumb__fallback {
   color: #d7e8e0;
