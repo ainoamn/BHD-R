@@ -536,6 +536,14 @@ function statusBadgeLabel(status: string, locale: 'ar' | 'en'): string {
   return domainStatusLabel(status, locale);
 }
 
+function bookingKindTone(row: PropertyRecordRow): 'stay' | 'rent' | 'purchase' | 'viewing' | null {
+  if (row.kind === 'stay') return 'stay';
+  if (row.kind === 'viewing') return 'viewing';
+  if (row.kind === 'reservation' && row.bookingMode === 'sale') return 'purchase';
+  if (row.kind === 'reservation') return 'rent';
+  return null;
+}
+
 function rowHighlightClass(row: PropertyRecordRow, focused: boolean): string | undefined {
   const classes: string[] = [];
   if (focused) classes.push('psr-row--focus');
@@ -864,14 +872,21 @@ function Cell({
       return (
         <StayLogCell row={row} locale={locale} documentHref={documentHref} compact={compactDense} />
       );
-    case 'kind':
-      if (value === 'reservation' && row.bookingMode === 'rent') {
-        return <>{ar ? 'حجز إيجار بعربون' : 'Rent deposit booking'}</>;
-      }
-      if (value === 'reservation' && row.bookingMode === 'sale') {
-        return <>{ar ? 'حجز شراء بعربون' : 'Purchase deposit booking'}</>;
-      }
-      return <>{label(value, ar)}</>;
+    case 'kind': {
+      const tone = bookingKindTone(row);
+      const text =
+        value === 'reservation' && row.bookingMode === 'rent'
+          ? ar
+            ? 'حجز إيجار بعربون'
+            : 'Rent deposit booking'
+          : value === 'reservation' && row.bookingMode === 'sale'
+            ? ar
+              ? 'حجز شراء بعربون'
+              : 'Purchase deposit booking'
+            : label(value, ar);
+      if (!tone) return <>{text}</>;
+      return <span className={`pmh-badge pmh-badge--kind-${tone}`}>{text}</span>;
+    }
     case 'contractKind':
     case 'contractType':
     case 'priority':
@@ -2303,7 +2318,16 @@ export function PropertySectionRecords({
                   <Fragment key={`${row.kind ?? section}-${row.id}`}>
                     <tr
                       id={`psr-row-${row.id}`}
-                      className={rowHighlightClass(row, focusId === row.id)}
+                      className={
+                        [
+                          rowHighlightClass(row, focusId === row.id),
+                          section === 'bookings' && bookingKindTone(row)
+                            ? `psr-row--kind-${bookingKindTone(row)}`
+                            : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ') || undefined
+                      }
                     >
                       {columns.map((column) => (
                         <td
