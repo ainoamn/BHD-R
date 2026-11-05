@@ -654,6 +654,26 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<{ code: string; file: File } | null>(null);
   const [preview, setPreview] = useState<PreviewFile | null>(null);
+  const [viewMode, setViewMode] = useState<'list' | 'step'>('list');
+  const [stepIndex, setStepIndex] = useState(0);
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(`bhd-doc-view:${referenceCode}`);
+      if (stored === 'step' || stored === 'list') setViewMode(stored);
+    } catch {
+      /* private mode */
+    }
+  }, [referenceCode]);
+
+  function chooseMode(mode: 'list' | 'step') {
+    setViewMode(mode);
+    try {
+      sessionStorage.setItem(`bhd-doc-view:${referenceCode}`, mode);
+    } catch {
+      /* ignore */
+    }
+  }
 
   function pick(code: string, event: ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
@@ -757,6 +777,85 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       pendingVerify: needsTeamVerify(item),
     })),
   ];
+  const orderedRequirements = [...lifecycle.requirements].sort((left, right) => {
+    const rank = (status: string) =>
+      status === 'pending' || status === 'rejected' ? 0 : status === 'submitted' ? 1 : 2;
+    return rank(left.status) - rank(right.status);
+  });
+  const actionQueue = orderedRequirements.filter(
+    (item) => item.status === 'pending' || item.status === 'rejected',
+  );
+  const uploadedRequirements = orderedRequirements.filter(
+    (item) => item.status !== 'pending' && item.status !== 'rejected',
+  );
+  const stepItem = actionQueue.length
+    ? actionQueue[Math.min(stepIndex, actionQueue.length - 1)]!
+    : null;
+
+  function renderDocItem(item: (typeof lifecycle.requirements)[number]) {
+    const canUpload = item.status !== 'approved';
+    const fileHref = item.fileName
+      ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/doc-${encodeURIComponent(item.code)}`
+      : null;
+    return (
+      <li key={item.code} className={`lease-docs__item lease-docs__item--${item.status}`}>
+        <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
+        <div className="lease-docs__text">
+          <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
+          <span>
+            {item.autoApproved && item.status === 'approved' && !item.verified
+              ? requirementStatus(item, ar)
+              : docStatusLabel(item.status, ar, 'tenant')}
+          </span>
+          {item.status === 'rejected' && item.note ? (
+            <small>
+              {ar ? 'ملاحظة المالك: ' : 'Owner note: '}
+              {item.note}
+            </small>
+          ) : null}
+          {item.fileName && item.status !== 'rejected' ? (
+            <small dir="auto">{item.fileName}</small>
+          ) : null}
+        </div>
+        <div className="lease-docs__actions">
+          {fileHref ? (
+            <DocFileThumb
+              href={fileHref}
+              label={ar ? item.labelAr : item.labelEn || item.labelAr}
+              onOpen={() =>
+                setPreview({
+                  href: fileHref,
+                  label: ar ? item.labelAr : item.labelEn || item.labelAr,
+                })
+              }
+            />
+          ) : null}
+          {canUpload ? (
+            <label className="button button--quiet lease-docs__upload">
+              {busy === item.code
+                ? ar
+                  ? 'جارٍ الإرسال…'
+                  : 'Sending…'
+                : item.status === 'pending'
+                  ? ar
+                    ? 'رفع المستند'
+                    : 'Upload'
+                  : ar
+                    ? 'استبدال'
+                    : 'Replace'}
+              <input
+                type="file"
+                accept="image/*,application/pdf"
+                hidden
+                disabled={busy !== null}
+                onChange={(event) => pick(item.code, event)}
+              />
+            </label>
+          ) : null}
+        </div>
+      </li>
+    );
+  }
   const totalItems = lifecycle.requirements.length + cheques.length;
   const fullyApprovedCount = totalItems - remaining.length;
   const pendingVerifyCount = remaining.filter((item) => item.pendingVerify).length;
@@ -784,6 +883,14 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
           <span>{ar ? 'مرفوض — استبدل الملف (أحمر)' : 'Rejected — replace file (red)'}</span>
         </li>
       </ul>
+      <div className="lease-docs__modes" role="group" aria-label={ar ? 'طريقة عرض المستندات' : 'Document view'}>
+        <button type="button" aria-pressed={viewMode === 'list'} onClick={() => chooseMode('list')}>
+          {ar ? 'القائمة' : 'List'}
+        </button>
+        <button type="button" aria-pressed={viewMode === 'step'} onClick={() => chooseMode('step')}>
+          {ar ? 'واحداً تلو الآخر' : 'One by one'}
+        </button>
+      </div>
       {remaining.length ? (
         <div className="lease-docs-remaining" role="status">
           <strong>
@@ -841,72 +948,90 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
           {error}
         </p>
       ) : null}
-      <ul className="lease-docs lease-docs--checklist">
-        {lifecycle.requirements.map((item) => {
-          const canUpload = item.status !== 'approved';
-          const fileHref = item.fileName
-            ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/doc-${encodeURIComponent(item.code)}`
-            : null;
-          return (
-            <li key={item.code} className={`lease-docs__item lease-docs__item--${item.status}`}>
-              <DocStatusMark status={item.status} ar={ar} viewer="tenant" />
-              <div className="lease-docs__text">
-                <strong>{ar ? item.labelAr : item.labelEn || item.labelAr}</strong>
-                <span>
-                  {item.autoApproved && item.status === 'approved' && !item.verified
-                    ? requirementStatus(item, ar)
-                    : docStatusLabel(item.status, ar, 'tenant')}
+      {viewMode === 'step' ? (
+        <div className="lease-docs__step">
+          {stepItem ? (
+            <>
+              <div className="lease-docs__step-head">
+                <strong>{ar ? stepItem.labelAr : stepItem.labelEn || stepItem.labelAr}</strong>
+                <span className="muted">
+                  {ar
+                    ? `${Math.min(stepIndex, actionQueue.length - 1) + 1} من ${actionQueue.length} متبقٍ`
+                    : `${Math.min(stepIndex, actionQueue.length - 1) + 1} of ${actionQueue.length} remaining`}
                 </span>
-                {item.status === 'rejected' && item.note ? (
-                  <small>
-                    {ar ? 'ملاحظة المالك: ' : 'Owner note: '}
-                    {item.note}
-                  </small>
-                ) : null}
-                {item.fileName && item.status !== 'rejected' ? (
-                  <small dir="auto">{item.fileName}</small>
-                ) : null}
               </div>
-              <div className="lease-docs__actions">
-                {fileHref ? (
-                  <DocFileThumb
-                    href={fileHref}
-                    label={ar ? item.labelAr : item.labelEn || item.labelAr}
-                    onOpen={() =>
-                      setPreview({
-                        href: fileHref,
-                        label: ar ? item.labelAr : item.labelEn || item.labelAr,
-                      })
-                    }
-                  />
-                ) : null}
-                {canUpload ? (
-                  <label className="button button--quiet lease-docs__upload">
-                    {busy === item.code
+              <span>
+                {stepItem.status === 'rejected' && stepItem.note
+                  ? ar
+                    ? `ملاحظة المالك: ${stepItem.note}`
+                    : `Owner note: ${stepItem.note}`
+                  : ar
+                    ? 'ارفع هذا المستند، ثم ينتقل التركيز إلى المستند التالي.'
+                    : 'Upload this document, then focus moves to the next one.'}
+              </span>
+              <div className="lease-docs__step-actions">
+                <label className="button button--primary lease-docs__upload">
+                  {busy === stepItem.code
+                    ? ar
+                      ? 'جارٍ الإرسال…'
+                      : 'Sending…'
+                    : stepItem.status === 'rejected'
                       ? ar
-                        ? 'جارٍ الإرسال…'
-                        : 'Sending…'
-                      : item.status === 'pending'
-                        ? ar
-                          ? 'رفع المستند'
-                          : 'Upload'
-                        : ar
-                          ? 'استبدال'
-                          : 'Replace'}
-                    <input
-                      type="file"
-                      accept="image/*,application/pdf"
-                      hidden
-                      disabled={busy !== null}
-                      onChange={(event) => pick(item.code, event)}
-                    />
-                  </label>
+                        ? 'استبدال المستند'
+                        : 'Replace document'
+                      : ar
+                        ? 'رفع المستند'
+                        : 'Upload document'}
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    hidden
+                    disabled={busy !== null}
+                    onChange={(event) => pick(stepItem.code, event)}
+                  />
+                </label>
+                {actionQueue.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      disabled={busy !== null || stepIndex <= 0}
+                      onClick={() => setStepIndex((index) => Math.max(0, index - 1))}
+                    >
+                      {ar ? 'السابق' : 'Previous'}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--quiet"
+                      disabled={busy !== null || stepIndex >= actionQueue.length - 1}
+                      onClick={() =>
+                        setStepIndex((index) => Math.min(actionQueue.length - 1, index + 1))
+                      }
+                    >
+                      {ar ? 'التالي' : 'Next'}
+                    </button>
+                  </>
                 ) : null}
               </div>
-            </li>
-          );
-        })}
-      </ul>
+            </>
+          ) : (
+            <p className="notice notice--success" role="status">
+              {ar
+                ? 'رُفعت كل المستندات المطلوبة. المرفوع يظهر أسفل القائمة.'
+                : 'Every required document is uploaded. Uploaded files sit at the bottom of the list.'}
+            </p>
+          )}
+          {uploadedRequirements.length ? (
+            <ul className="lease-docs lease-docs--checklist">
+              {uploadedRequirements.map((item) => renderDocItem(item))}
+            </ul>
+          ) : null}
+        </div>
+      ) : (
+        <ul className="lease-docs lease-docs--checklist">
+          {orderedRequirements.map((item) => renderDocItem(item))}
+        </ul>
+      )}
       {pending ? (
         <UploadPrepareDialog
           file={pending.file}

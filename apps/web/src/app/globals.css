@@ -23888,6 +23888,46 @@ button.lrw__step-body:focus-visible {
   gap: 0.6rem;
   margin-top: 0.85rem;
 }
+.lease-docs__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.lease-docs__modes button {
+  border: 1px solid rgb(9 45 36 / 0.16);
+  background: #fff;
+  color: #123528;
+  border-radius: 999px;
+  padding: 0.35rem 0.8rem;
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.lease-docs__modes button[aria-pressed='true'] {
+  background: #123528;
+  color: #fff;
+  border-color: #123528;
+}
+.lease-docs__step {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgb(9 45 36 / 0.14);
+  border-radius: 0.9rem;
+  background: #fff;
+}
+.lease-docs__step-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+.lease-docs__step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
 .lease-docs {
   display: grid;
   gap: 0.5rem;
