@@ -193,6 +193,7 @@ export function leaseBookingAgreement(booking: LeaseBookingAgreement): {
     addenda: [],
     parent: null,
     annexes: [],
+    chequeAnnex: null,
     reservation: {
       mode: booking.mode,
       depositPaid: money(booking.depositMinor),

@@ -18,6 +18,7 @@ import {
   stayBookings,
   stayProfiles,
   units,
+  reservations,
 } from '@bhd-r/db';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
@@ -39,6 +40,7 @@ import {
 import { loadPropertyLocation } from '@/lib/property-location-neon';
 import { defaultTemplateCounterpart } from '@/lib/contract-default-templates';
 import { formatMoney } from '@/lib/format';
+import { buildContractChequeAnnex } from '@/lib/contract-cheque-annex';
 import { normalizeStoredLeaseTerms } from '@/lib/lease-terms';
 import { ownerPartyScope, readClaims, withinViewerTenant } from '@/lib/portal-ops-data';
 import { lookupPublicStayBookingOnNeon } from '@/lib/public-stays-guest-neon';
@@ -604,6 +606,24 @@ export async function loadContractDetailFromNeon(
           },
         )
       : null;
+    const chequeLifecycle = sourceReservationId
+      ? await tx
+          .select({ termsSnapshot: reservations.termsSnapshot })
+          .from(reservations)
+          .where(
+            and(eq(reservations.id, sourceReservationId), eq(reservations.organizationId, orgId)),
+          )
+          .limit(1)
+          .then((rows) => {
+            const snapshot = rows[0]?.termsSnapshot;
+            if (!snapshot || typeof snapshot !== 'object') return null;
+            return (snapshot as { lifecycle?: unknown }).lifecycle ?? null;
+          })
+          .catch((error: unknown) => {
+            console.error('contract cheque annex failed', error);
+            return null;
+          })
+      : null;
     const activityLog =
       portal === 'tenant'
         ? []
@@ -647,6 +667,7 @@ export async function loadContractDetailFromNeon(
       stamps,
       refundRequestedAt: refund?.requestedAt || null,
       booking,
+      chequeLifecycle,
       activityLog,
     };
   });
@@ -884,6 +905,7 @@ type Loaded = {
   identityDocs: Array<{ partyId: string; documentType: string; last4: string }>;
   location: PropertyLocation | null;
   booking: LeaseBookingAgreement | null;
+  chequeLifecycle: unknown;
 };
 
 type PartyRow = {
@@ -1224,6 +1246,11 @@ async function buildContractDocument(
           reference: loaded.parent.reference ?? `CTR-${loaded.parent.id.slice(0, 8).toUpperCase()}`,
         }
       : null,
+    chequeAnnex: buildContractChequeAnnex({
+      reference: `${contract.reference ?? `CTR-${contract.id.slice(0, 8).toUpperCase()}`}-CHQ`,
+      lifecycle: loaded.chequeLifecycle,
+      leaseTerms: type === 'lease' ? normalizeStoredLeaseTerms(snapshot.leaseTerms) : null,
+    }),
     annexes: loaded.stayBookingId
       ? contractAnnexLinks(contract.reference ?? `CTR-${contract.id.slice(0, 8).toUpperCase()}`, {
           checkIn: checkInStamp?.at ?? null,

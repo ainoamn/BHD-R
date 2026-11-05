@@ -1,5 +1,6 @@
 import type { NumberedTermsBlock, TermsLetterhead } from '@/lib/booking-terms';
 import type { ContractAnnexLink } from '@/lib/contract-annex';
+import type { ContractChequeAnnex } from '@/lib/contract-cheque-annex';
 import type { LeaseTerms } from '@/lib/lease-terms';
 
 export type ContractFileKind = 'signature' | 'id-front' | 'id-back' | 'selfie';
@@ -200,6 +201,11 @@ export interface ContractDocument {
   parent: { id: string; reference: string } | null;
   /** Stay annexes (check-in, check-out, deposit refund), each a separate document. */
   annexes: ContractAnnexLink[];
+  /**
+   * Cheque schedule as its own companion document (not an article inside the contract).
+   * Null when the lease has no submitted or scheduled cheques.
+   */
+  chequeAnnex: ContractChequeAnnex | null;
   /**
    * The website booking a rent or purchase contract was issued from: its terms are part of
    * the contract, and the QR opens the booking document for its parties.

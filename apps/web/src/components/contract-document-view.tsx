@@ -431,7 +431,7 @@ export function ContractDocumentView({
         recipientPath={portal === 'tenant' ? null : recipientPath}
         pdfUrl={contract.documentUrl}
         parts={
-          doc.annexes.length || bookingCopy || doc.addenda.length
+          doc.annexes.length || bookingCopy || doc.chequeAnnex || doc.addenda.length
             ? [
                 {
                   id: DOCUMENT_ID,
@@ -444,6 +444,16 @@ export function ContractDocumentView({
                         id: BOOKING_COPY_ID,
                         label: ar ? 'نسخة مستند الحجز' : 'Booking document copy',
                         available: true,
+                      },
+                    ]
+                  : []),
+                ...(doc.chequeAnnex
+                  ? [
+                      {
+                        id: 'contract-cheque-annex',
+                        label: ar ? 'ملحق الشيكات' : 'Cheque annex',
+                        available: true,
+                        href: `/${locale}/${portal}/contracts/${contract.id}/cheques`,
                       },
                     ]
                   : []),
@@ -463,7 +473,7 @@ export function ContractDocumentView({
         }
       />
 
-      {doc.annexes.length || doc.booking || doc.addenda.length ? (
+      {doc.annexes.length || doc.booking || doc.chequeAnnex || doc.addenda.length ? (
         <nav
           className="contract-annex-bar"
           aria-label={ar ? 'محاضر العقد وملاحقه' : 'Contract records & addenda'}
@@ -475,6 +485,18 @@ export function ContractDocumentView({
                 {ar ? 'مستند الحجز وشروطه' : 'Booking document & terms'}
               </span>
               <small dir="ltr">{doc.booking.referenceCode}</small>
+            </Link>
+          ) : null}
+          {doc.chequeAnnex ? (
+            <Link
+              className="contract-annex-bar__item"
+              href={`/${locale}/${portal}/contracts/${contract.id}/cheques`}
+            >
+              <span className="contract-annex-bar__no">CHQ</span>
+              <span className="contract-annex-bar__title">
+                {ar ? 'ملحق الشيكات' : 'Cheque annex'}
+              </span>
+              <small dir="ltr">{doc.chequeAnnex.reference}</small>
             </Link>
           ) : null}
           {doc.annexes.map((annex) => {
@@ -640,7 +662,8 @@ function LeasePaymentScheduleTable({
   bi: Kit['bi'];
   moneyMinor: (minor: number, currency: string) => Pair;
 }) {
-  const isCheque = terms.paymentMethod === 'cheque';
+  const isCheque =
+    terms.paymentMethod === 'cheque' || terms.schedule.some((row) => row.chequeNumber);
   const showVat = terms.vat.enabled && terms.vat.mode === 'with_rent';
   return (
     <>
@@ -1267,6 +1290,12 @@ export function ContractArticle({
                         String(leaseTerms.paymentDay),
                       )
                     : null}
+                  {doc.chequeAnnex
+                    ? row(
+                        ['ملحق الشيكات', 'Cheque annex'],
+                        ltr(doc.chequeAnnex.reference),
+                      )
+                    : null}
                   {reservation ? (
                     <>
                       {row(
@@ -1291,7 +1320,7 @@ export function ContractArticle({
                 </dl>
               </section>
 
-              {leaseTerms?.schedule.length ? (
+              {leaseTerms?.schedule.length && !doc.chequeAnnex ? (
                 <section className="contract-doc__section" id="contract-payment-schedule">
                   {heading(
                     leaseTerms.paymentMethod === 'cheque'
