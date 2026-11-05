@@ -144,7 +144,7 @@ export type LeaseReservationWorkflowProps = {
 
 type Props = LeaseReservationWorkflowProps;
 
-const PreviewContext = createContext<(file: PreviewFile) => void>(() => undefined);
+const PreviewContext = createContext<(file: PreviewFile | null) => void>(() => undefined);
 
 function ViewFileButton({ href, label, ar }: { href: string; label: string; ar: boolean }) {
   const preview = useContext(PreviewContext);
@@ -2454,6 +2454,13 @@ function RequirementsReview({
     label: string;
     decision: 'approved' | 'rejected';
   } | null>(null);
+  useEffect(() => {
+    if (!rejecting) return;
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(`reject-focus-${rejecting}`)?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [rejecting]);
   const requirements = lifecycle.requirements ?? [];
   const chequeInstructions = lifecycle.chequeInstructions ?? [];
   const chequeByKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
@@ -2497,6 +2504,20 @@ function RequirementsReview({
     else openChequeReview(item.key);
   }
 
+  function focusReject(target: ReviewQueueItem) {
+    if (target.kind === 'doc') {
+      setReviewCode(target.code);
+      setReviewChequeKey(null);
+      setRejecting(target.code);
+    } else {
+      setReviewChequeKey(target.key);
+      setReviewCode(null);
+      setRejecting(target.key);
+    }
+    setNote('');
+    preview(null);
+  }
+
   function openReview(code: string) {
     const item = requirements.find((row) => row.code === code);
     if (!item?.file) return;
@@ -2523,10 +2544,7 @@ function RequirementsReview({
             type="button"
             className="button button--quiet"
             disabled={busy}
-            onClick={() => {
-              setRejecting(code);
-              setNote('');
-            }}
+            onClick={() => focusReject(target)}
           >
             {ar ? 'رفض' : 'Reject'}
           </button>
@@ -2562,10 +2580,7 @@ function RequirementsReview({
             type="button"
             className="button button--quiet"
             disabled={busy}
-            onClick={() => {
-              setRejecting(key);
-              setNote('');
-            }}
+            onClick={() => focusReject(target)}
           >
             {ar ? 'رفض' : 'Reject'}
           </button>
@@ -2861,8 +2876,8 @@ function RequirementsReview({
               className="button button--quiet"
               disabled={busy}
               onClick={() => {
-                setRejecting(reviewChequeItem?.key ?? reviewItem!.code);
-                setNote('');
+                if (reviewChequeItem) focusReject({ kind: 'cheque', key: reviewChequeItem.key });
+                else if (reviewItem) focusReject({ kind: 'doc', code: reviewItem.code });
               }}
             >
               {ar ? 'رفض مع ملاحظة' : 'Reject with note'}
@@ -3001,10 +3016,7 @@ function RequirementsReview({
                                 code: item.code,
                               })
                             }
-                            onReject={() => {
-                              openReview(item.code);
-                              setRejecting(item.code);
-                            }}
+                            onReject={() => focusReject({ kind: 'doc', code: item.code })}
                             onPrev={() => {
                               const index = queue.findIndex(
                                 (q) => q.kind === 'doc' && q.code === item.code,
@@ -3090,10 +3102,7 @@ function RequirementsReview({
                                 key: item.key,
                               })
                             }
-                            onReject={() => {
-                              openChequeReview(item.key);
-                              setRejecting(item.key);
-                            }}
+                            onReject={() => focusReject({ kind: 'cheque', key: item.key })}
                             onPrev={() => {
                               const index = queue.findIndex(
                                 (q) => q.kind === 'cheque' && q.key === item.key,
