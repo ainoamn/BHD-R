@@ -12847,6 +12847,18 @@ body:has(.stays-booking-receipt) #main-content {
   background: #fdf1e2;
   color: #9a5a12;
 }
+.ops-facet--reservation {
+  background: #e7f6ee;
+  color: #1f6b45;
+}
+.ops-facet--viewing {
+  background: #fdeef3;
+  color: #9a3458;
+}
+.ops-facet--hold {
+  background: #eef1f3;
+  color: #44535b;
+}
 .ops-facet--residential {
   background: #e9f5ec;
   color: #2e6b3d;
@@ -27630,6 +27642,72 @@ button.lrw__step-body:focus-visible {
 .portal-layout .ops-table tbody tr:hover {
   background: #f6faf8;
 }
+.portal-layout .ops-table tbody tr.ops-table__row--daily {
+  background: #f3fbfa;
+  box-shadow: inset 4px 0 0 #0b6e6a;
+}
+.portal-layout .ops-table tbody tr.ops-table__row--monthly {
+  background: #f4f8fd;
+  box-shadow: inset 4px 0 0 #2a5a93;
+}
+.portal-layout .ops-table tbody tr.ops-table__row--yearly {
+  background: #f7f4fc;
+  box-shadow: inset 4px 0 0 #5b3d99;
+}
+.portal-layout .ops-table tbody tr.ops-table__row--sale {
+  background: #fdf8f1;
+  box-shadow: inset 4px 0 0 #9a5a12;
+}
+.portal-layout .ops-table tbody tr.ops-table__row--reservation {
+  background: #f3faf6;
+  box-shadow: inset 4px 0 0 #1f6b45;
+}
+.portal-layout .ops-table tbody tr.ops-table__row--viewing {
+  background: #fdf6f8;
+  box-shadow: inset 4px 0 0 #9a3458;
+}
+.portal-layout .ops-table tbody tr.ops-table__row--hold {
+  background: #f6f7f8;
+  box-shadow: inset 4px 0 0 #44535b;
+}
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--daily,
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--monthly,
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--yearly,
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--sale,
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--reservation,
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--viewing,
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--hold {
+  box-shadow: inset -4px 0 0 var(--ops-row-tone, #0b6e6a);
+}
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--daily { --ops-row-tone: #0b6e6a; }
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--monthly { --ops-row-tone: #2a5a93; }
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--yearly { --ops-row-tone: #5b3d99; }
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--sale { --ops-row-tone: #9a5a12; }
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--reservation { --ops-row-tone: #1f6b45; }
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--viewing { --ops-row-tone: #9a3458; }
+[dir='rtl'] .portal-layout .ops-table tbody tr.ops-table__row--hold { --ops-row-tone: #44535b; }
+.portal-layout .ops-table tbody tr.ops-table__row--daily:hover { background: #e7f6f4; }
+.portal-layout .ops-table tbody tr.ops-table__row--monthly:hover { background: #e8f0fa; }
+.portal-layout .ops-table tbody tr.ops-table__row--yearly:hover { background: #efeaf8; }
+.portal-layout .ops-table tbody tr.ops-table__row--sale:hover { background: #faf1e4; }
+.portal-layout .ops-table tbody tr.ops-table__row--reservation:hover { background: #e7f6ee; }
+.portal-layout .ops-table tbody tr.ops-table__row--viewing:hover { background: #fbe7ee; }
+.portal-layout .ops-table tbody tr.ops-table__row--hold:hover { background: #eef1f3; }
+.ops-mobile-card--daily { border-inline-start: 4px solid #0b6e6a; background: #f3fbfa; }
+.ops-mobile-card--monthly { border-inline-start: 4px solid #2a5a93; background: #f4f8fd; }
+.ops-mobile-card--yearly { border-inline-start: 4px solid #5b3d99; background: #f7f4fc; }
+.ops-mobile-card--sale { border-inline-start: 4px solid #9a5a12; background: #fdf8f1; }
+.ops-mobile-card--reservation { border-inline-start: 4px solid #1f6b45; background: #f3faf6; }
+.ops-mobile-card--viewing { border-inline-start: 4px solid #9a3458; background: #fdf6f8; }
+.ops-mobile-card--hold { border-inline-start: 4px solid #44535b; background: #f6f7f8; }
+.purpose-tabs__item--daily { border-color: #9ed4d1; }
+.purpose-tabs__item--monthly { border-color: #b7cce8; }
+.purpose-tabs__item--yearly { border-color: #cfc0ea; }
+.purpose-tabs__item--sale { border-color: #efd0a8; }
+.purpose-tabs__item--daily.is-active { background: #0b6e6a; border-color: #0b6e6a; }
+.purpose-tabs__item--monthly.is-active { background: #2a5a93; border-color: #2a5a93; }
+.purpose-tabs__item--yearly.is-active { background: #5b3d99; border-color: #5b3d99; }
+.purpose-tabs__item--sale.is-active { background: #9a5a12; border-color: #9a5a12; }
 .portal-layout :is(.ops-status, .status-pill) {
   font-weight: 700;
 }

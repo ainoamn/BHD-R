@@ -879,6 +879,38 @@ function moneyFromRecord(row: DataRow, key: string, locale: 'ar' | 'en'): string
 
 const BOOKING_RECORD_KINDS = new Set(['stay_booking', 'reservation', 'viewing', 'hold']);
 
+const BOOKING_TYPE_FACETS: Record<string, { ar: string; en: string; tone: string }> = {
+  stay_booking: { ar: 'إقامة يومية', en: 'Daily stay', tone: 'daily' },
+  reservation: { ar: 'حجز إيجار', en: 'Lease reservation', tone: 'reservation' },
+  viewing: { ar: 'معاينة', en: 'Viewing', tone: 'viewing' },
+  hold: { ar: 'حجز مؤقت', en: 'Hold', tone: 'hold' },
+  daily: { ar: 'يومي', en: 'Daily', tone: 'daily' },
+  monthly: { ar: 'شهري', en: 'Monthly', tone: 'monthly' },
+  yearly: { ar: 'سنوي', en: 'Yearly', tone: 'yearly' },
+  sale: { ar: 'بيع', en: 'Sale', tone: 'sale' },
+};
+
+function bookingTypeTone(row: DataRow): string {
+  const kind = safeString(row.recordKind);
+  if (kind === 'viewing' || kind === 'hold') return kind;
+  if (kind === 'stay_booking') return 'daily';
+  const purpose = safeString(row.bookingPurpose);
+  if (purpose === 'daily' || purpose === 'monthly' || purpose === 'yearly' || purpose === 'sale') {
+    return purpose;
+  }
+  return 'monthly';
+}
+
+function bookingTypeFacet(kind: string, locale: 'ar' | 'en'): ReactNode | null {
+  const hit = BOOKING_TYPE_FACETS[kind];
+  if (!hit) return null;
+  return (
+    <span className={`ops-facet ops-facet--${hit.tone}`}>
+      {locale === 'ar' ? hit.ar : hit.en}
+    </span>
+  );
+}
+
 function statusTone(status: string, recordKind?: string): string {
   if (recordKind && BOOKING_RECORD_KINDS.has(recordKind)) {
     return bookingStatusTone(status, recordKind);
@@ -1088,6 +1120,8 @@ function displayCellValue(
   }
   if (column.key === 'kind' || column.key === 'recordKind' || column.key === 'bookingPurpose') {
     const kind = safeString(value);
+    const facet = bookingTypeFacet(kind, locale);
+    if (facet) return facet;
     if (kind === 'unit') return locale === 'ar' ? 'وحدة' : 'Unit';
     if (kind === 'multi_unit') return locale === 'ar' ? 'مبنى متعدد' : 'Multi-unit';
     if (kind === 'single_unit') return locale === 'ar' ? 'عقار واحد' : 'Single unit';
@@ -4536,8 +4570,8 @@ ${depositHtml}${
                 type="button"
                 className={
                   bookingPurposeTab === tab.id
-                    ? 'purpose-tabs__item is-active'
-                    : 'purpose-tabs__item'
+                    ? `purpose-tabs__item purpose-tabs__item--${tab.id} is-active`
+                    : `purpose-tabs__item purpose-tabs__item--${tab.id}`
                 }
                 aria-current={bookingPurposeTab === tab.id ? 'page' : undefined}
                 onClick={() => setBookingTab(tab.id)}
@@ -4897,19 +4931,21 @@ ${depositHtml}${
                               row.documentReady
                             ? 'receipt'
                             : null;
+                      const bookingTone = section === 'bookings' ? bookingTypeTone(row) : '';
+                      const bookingApproval =
+                        section === 'bookings' &&
+                        bookingNeedsApproval(safeString(row.status), safeString(row.recordKind));
                       return (
                         <tr
                           key={safeString(row.id ?? row.reference) || String(index)}
                           className={
-                            isChildUnit
-                              ? 'ops-table__child-row'
-                              : section === 'bookings' &&
-                                  bookingNeedsApproval(
-                                    safeString(row.status),
-                                    safeString(row.recordKind),
-                                  )
-                                ? 'ops-table__row--approval'
-                                : undefined
+                            [
+                              isChildUnit ? 'ops-table__child-row' : '',
+                              bookingTone ? `ops-table__row--${bookingTone}` : '',
+                              bookingApproval ? 'ops-table__row--approval' : '',
+                            ]
+                              .filter(Boolean)
+                              .join(' ') || undefined
                           }
                         >
                           {definition.columns.map((column) => (
@@ -5375,17 +5411,22 @@ ${depositHtml}${
                     section === 'contracts'
                       ? contractKindTone(safeString(row.kind) || 'initial')
                       : null;
+                  const bookingTone = section === 'bookings' ? bookingTypeTone(row) : '';
+                  const bookingApproval =
+                    section === 'bookings' &&
+                    bookingNeedsApproval(safeString(row.status), safeString(row.recordKind));
                   return (
                     <article
                       className={
-                        section === 'bookings' &&
-                        bookingNeedsApproval(safeString(row.status), safeString(row.recordKind))
-                          ? 'ops-mobile-card ops-mobile-card--approval'
-                          : contractTone === 'renewal'
-                            ? 'ops-mobile-card ops-mobile-card--contract-renewal'
-                            : contractTone === 'new'
-                              ? 'ops-mobile-card ops-mobile-card--contract-new'
-                              : 'ops-mobile-card'
+                        [
+                          'ops-mobile-card',
+                          bookingTone ? `ops-mobile-card--${bookingTone}` : '',
+                          bookingApproval ? 'ops-mobile-card--approval' : '',
+                          contractTone === 'renewal' ? 'ops-mobile-card--contract-renewal' : '',
+                          contractTone === 'new' ? 'ops-mobile-card--contract-new' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')
                       }
                       key={safeString(row.id ?? row.reference) || `m-${index}`}
                     >
