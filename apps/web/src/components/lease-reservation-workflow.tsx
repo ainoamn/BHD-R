@@ -11,6 +11,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 
 import { DocFileThumb } from '@/components/doc-file-thumb';
 import { FilePreviewDialog, type PreviewFile } from '@/components/file-preview';
@@ -1443,6 +1444,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                   onAddRequirements={(requirements) =>
                     void act({ action: 'add_requirements', requirements })
                   }
+                  desk
                 />
               </div>
             ) : null}
@@ -2432,6 +2434,7 @@ function RequirementsReview({
   onReview,
   onReviewCheque,
   onAddRequirements,
+  desk = false,
 }: Props & {
   busy: boolean;
   fileHref: (file: string) => string;
@@ -2440,6 +2443,8 @@ function RequirementsReview({
   onAddRequirements?: (
     requirements: Array<{ code: string; labelAr: string; labelEn: string }>,
   ) => void;
+  /** Full-screen documents desk: queue beside one stage, instead of a card per file. */
+  desk?: boolean;
 }) {
   const ar = locale === 'ar';
   const sale = mode === 'sale';
@@ -2448,6 +2453,8 @@ function RequirementsReview({
   const [note, setNote] = useState('');
   const [reviewCode, setReviewCode] = useState<string | null>(null);
   const [reviewChequeKey, setReviewChequeKey] = useState<string | null>(null);
+  const [full, setFull] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [customLabel, setCustomLabel] = useState('');
   const [pickedExtras, setPickedExtras] = useState<string[]>([]);
   const [lastDecision, setLastDecision] = useState<{
@@ -2461,6 +2468,22 @@ function RequirementsReview({
     });
     return () => cancelAnimationFrame(frame);
   }, [rejecting]);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  useEffect(() => {
+    if (!desk || !full) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    function onKey(event: KeyboardEvent) {
+      if (event.key === 'Escape') setFull(false);
+    }
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [desk, full]);
   const requirements = lifecycle.requirements ?? [];
   const chequeInstructions = lifecycle.chequeInstructions ?? [];
   const chequeByKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
@@ -2493,13 +2516,78 @@ function RequirementsReview({
   const reviewChequeSubmitted = reviewChequeItem
     ? chequeByKey.get(reviewChequeItem.key)
     : undefined;
-  const activeQueueIndex = reviewChequeItem
-    ? queue.findIndex((item) => item.kind === 'cheque' && item.key === reviewChequeItem.key)
-    : reviewItem
-      ? queue.findIndex((item) => item.kind === 'doc' && item.code === reviewItem.code)
-      : -1;
   const focusedReview = Boolean(reviewItem || reviewChequeItem);
+  const browse: ReviewQueueItem[] = [
+    ...requirements.map((item) => ({ kind: 'doc' as const, code: item.code })),
+    ...(includeCheques
+      ? chequeInstructions.map((item) => ({ kind: 'cheque' as const, key: item.key }))
+      : []),
+  ];
+  const navItems = desk ? browse : queue;
+  const navIndex = reviewChequeItem
+    ? navItems.findIndex((item) => item.kind === 'cheque' && item.key === reviewChequeItem.key)
+    : reviewItem
+      ? navItems.findIndex((item) => item.kind === 'doc' && item.code === reviewItem.code)
+      : -1;
+  const stageStatus = reviewChequeItem
+    ? (reviewChequeSubmitted?.status ?? 'pending')
+    : (reviewItem?.status ?? 'pending');
+  const stageHref = reviewChequeItem
+    ? reviewChequeSubmitted?.file
+      ? fileHref(`cheque-${reviewChequeItem.key}`)
+      : null
+    : reviewItem?.file
+      ? fileHref(`doc-${reviewItem.code}`)
+      : null;
+  const stageLabel = reviewChequeItem
+    ? ar
+      ? reviewChequeItem.labelAr
+      : reviewChequeItem.labelEn
+    : reviewItem
+      ? ar
+        ? reviewItem.labelAr
+        : reviewItem.labelEn || reviewItem.labelAr
+      : '';
+  const canDecide = desk ? stageStatus === 'submitted' && Boolean(stageHref) : Boolean(stageHref);
+  useEffect(() => {
+    if (!desk || !canManage) return;
+    if (reviewCode || reviewChequeKey) return;
+    const first =
+      queue[0] ??
+      (requirements[0]
+        ? { kind: 'doc' as const, code: requirements[0].code }
+        : includeCheques && chequeInstructions[0]
+          ? { kind: 'cheque' as const, key: chequeInstructions[0].key }
+          : null);
+    if (!first) return;
+    if (first.kind === 'doc') setReviewCode(first.code);
+    else setReviewChequeKey(first.key);
+  }, [
+    desk,
+    canManage,
+    queue,
+    reviewCode,
+    reviewChequeKey,
+    requirements,
+    includeCheques,
+    chequeInstructions,
+  ]);
+  function selectItem(item: ReviewQueueItem) {
+    if (item.kind === 'doc') {
+      setReviewCode(item.code);
+      setReviewChequeKey(null);
+    } else {
+      setReviewChequeKey(item.key);
+      setReviewCode(null);
+    }
+    setRejecting(null);
+    setNote('');
+  }
   function openQueueItem(item: ReviewQueueItem) {
+    if (desk) {
+      selectItem(item);
+      return;
+    }
     if (item.kind === 'doc') openReview(item.code);
     else openChequeReview(item.key);
   }
@@ -2694,21 +2782,40 @@ function RequirementsReview({
       ? chequeInstructions.filter((item) => !chequeByKey.get(item.key)?.file).length
       : 0);
 
-  return (
-    <div className={`lrw__docs lrw__docs--panel${includeCheques ? ' lrw__docs--package' : ''}`}>
+  const tree = (
+    <div
+      className={`lrw__docs lrw__docs--panel${includeCheques ? ' lrw__docs--package' : ''}${desk ? ' lrw-screen' : ''}${desk && full ? ' lrw-screen--full' : ''}`}
+    >
       <header className="lrw__docs-head">
         <h4>
-          {includeCheques
+          {desk && full
             ? ar
-              ? 'حزمة المستندات والشيكات'
-              : 'Documents & cheques package'
-            : ar
-              ? 'المستندات المطلوبة'
-              : 'Required documents'}
+              ? 'اعتماد المستندات والشيكات'
+              : 'Approve documents & cheques'
+            : includeCheques
+              ? ar
+                ? 'حزمة المستندات والشيكات'
+                : 'Documents & cheques package'
+              : ar
+                ? 'المستندات المطلوبة'
+                : 'Required documents'}
         </h4>
-        <span className="lrw__docs-count">
-          {approvedCount}/{totalCount || 0}
-        </span>
+        <div className="lrw-screen__tools">
+          <span className="lrw__docs-count">
+            {approvedCount}/{totalCount || 0}
+          </span>
+          {desk ? (
+            <button type="button" className="button button--quiet" onClick={() => setFull((open) => !open)}>
+              {full
+                ? ar
+                  ? 'تصغير'
+                  : 'Exit full screen'
+                : ar
+                  ? 'ملء الشاشة'
+                  : 'Full screen'}
+            </button>
+          ) : null}
+        </div>
       </header>
 
       {includeCheques && lifecycle.chequePayableTo ? (
@@ -2781,7 +2888,8 @@ function RequirementsReview({
         </p>
       ) : null}
 
-      {canManage && queue.length ? (
+      <div className={desk ? 'lrw-screen__split' : 'lrw-screen__stack'}>
+      {canManage && queue.length && !desk ? (
         <div className="lrw__review-bar">
           <p>
             {ar
@@ -2804,92 +2912,106 @@ function RequirementsReview({
       {(reviewItem || reviewChequeItem) && canManage ? (
         <div className="lrw__review-card lrw__review-card--sticky" id="lrw-review-focus">
           <div className="lrw__review-card-head">
-            <strong>
-              {reviewChequeItem
-                ? ar
-                  ? reviewChequeItem.labelAr
-                  : reviewChequeItem.labelEn
-                : ar
-                  ? reviewItem!.labelAr
-                  : reviewItem!.labelEn || reviewItem!.labelAr}
-            </strong>
+            <strong>{stageLabel}</strong>
             <span className="muted">
-              {activeQueueIndex >= 0
+              {navIndex >= 0
                 ? ar
-                  ? `${activeQueueIndex + 1} من ${queue.length}`
-                  : `${activeQueueIndex + 1} of ${queue.length}`
+                  ? `${navIndex + 1} من ${navItems.length}`
+                  : `${navIndex + 1} of ${navItems.length}`
                 : null}
+              {stageStatus ? ` · ${docStatusLabel(stageStatus, ar, 'owner')}` : ''}
             </span>
           </div>
-          {reviewChequeItem
-            ? chequeFactsBlock(reviewChequeItem, reviewChequeSubmitted, ar, locale)
-            : null}
-          <div className="lrw__doc-actions">
-            <DocFileThumb
-              href={
-                reviewChequeItem
-                  ? fileHref(`cheque-${reviewChequeItem.key}`)
-                  : fileHref(`doc-${reviewItem!.code}`)
-              }
-              label={
-                reviewChequeItem
+          {desk && stageHref ? (
+            <div className="lrw-screen__shot">
+              <DocFileThumb
+                href={stageHref}
+                label={stageLabel}
+                onOpen={() =>
+                  reviewChequeItem
+                    ? openChequeReview(reviewChequeItem.key)
+                    : openReview(reviewItem!.code)
+                }
+              />
+            </div>
+          ) : desk ? (
+            <p className="lrw-screen__empty muted">
+              {ar ? 'لا ملف مرفوع لهذا البند بعد.' : 'No file uploaded for this item yet.'}
+            </p>
+          ) : null}
+          {reviewChequeItem ? (
+            <div className={desk ? 'lrw-screen__facts' : undefined}>
+              {chequeFactsBlock(reviewChequeItem, reviewChequeSubmitted, ar, locale)}
+            </div>
+          ) : null}
+          <div className={`lrw__doc-actions${desk ? ' lrw-screen__actions' : ''}`}>
+            {stageHref && !desk ? (
+              <DocFileThumb
+                href={stageHref}
+                label={stageLabel}
+                onOpen={() =>
+                  reviewChequeItem
+                    ? openChequeReview(reviewChequeItem.key)
+                    : openReview(reviewItem!.code)
+                }
+              />
+            ) : null}
+            {stageHref ? (
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() =>
+                  reviewChequeItem
+                    ? openChequeReview(reviewChequeItem.key)
+                    : openReview(reviewItem!.code)
+                }
+              >
+                {desk
                   ? ar
-                    ? reviewChequeItem.labelAr
-                    : reviewChequeItem.labelEn
+                    ? 'تكبير الملف'
+                    : 'Enlarge file'
                   : ar
-                    ? reviewItem!.labelAr
-                    : reviewItem!.labelEn || reviewItem!.labelAr
-              }
-              onOpen={() =>
-                reviewChequeItem
-                  ? openChequeReview(reviewChequeItem.key)
-                  : openReview(reviewItem!.code)
-              }
-            />
-            <button
-              type="button"
-              className="button button--quiet"
-              onClick={() =>
-                reviewChequeItem
-                  ? openChequeReview(reviewChequeItem.key)
-                  : openReview(reviewItem!.code)
-              }
-            >
-              {ar ? 'عرض الملف' : 'View file'}
-            </button>
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={busy}
-              onClick={() => void decideCurrent('approved')}
-            >
-              {reviewChequeItem
-                ? ar
-                  ? 'اعتماد الشيك'
-                  : 'Approve cheque'
-                : ar
-                  ? 'اعتماد المستند'
-                  : 'Approve document'}
-            </button>
-            <button
-              type="button"
-              className="button button--quiet"
-              disabled={busy}
-              onClick={() => {
-                if (reviewChequeItem) focusReject({ kind: 'cheque', key: reviewChequeItem.key });
-                else if (reviewItem) focusReject({ kind: 'doc', code: reviewItem.code });
-              }}
-            >
-              {ar ? 'رفض مع ملاحظة' : 'Reject with note'}
-            </button>
-            {queue.length > 1 ? (
+                    ? 'عرض الملف'
+                    : 'View file'}
+              </button>
+            ) : null}
+            {canDecide ? (
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={busy}
+                onClick={() => void decideCurrent('approved')}
+              >
+                {reviewChequeItem
+                  ? ar
+                    ? 'اعتماد الشيك'
+                    : 'Approve cheque'
+                  : ar
+                    ? 'اعتماد المستند'
+                    : 'Approve document'}
+              </button>
+            ) : null}
+            {canDecide ? (
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={busy}
+                onClick={() => {
+                  if (reviewChequeItem) focusReject({ kind: 'cheque', key: reviewChequeItem.key });
+                  else if (reviewItem) focusReject({ kind: 'doc', code: reviewItem.code });
+                }}
+              >
+                {ar ? 'رفض مع ملاحظة' : 'Reject with note'}
+              </button>
+            ) : null}
+            {navItems.length > 1 ? (
               <>
                 <button
                   type="button"
                   className="button button--quiet"
-                  disabled={busy || activeQueueIndex <= 0}
+                  disabled={busy || navIndex <= 0}
                   onClick={() => {
-                    const prev = queue[activeQueueIndex - 1];
+                    const prev = navItems[navIndex - 1];
                     if (prev) openQueueItem(prev);
                   }}
                 >
@@ -2898,9 +3020,9 @@ function RequirementsReview({
                 <button
                   type="button"
                   className="button button--quiet"
-                  disabled={busy || activeQueueIndex < 0 || activeQueueIndex >= queue.length - 1}
+                  disabled={busy || navIndex < 0 || navIndex >= navItems.length - 1}
                   onClick={() => {
-                    const next = queue[activeQueueIndex + 1];
+                    const next = navItems[navIndex + 1];
                     if (next) openQueueItem(next);
                   }}
                 >
@@ -2976,9 +3098,22 @@ function RequirementsReview({
                     <li
                       key={item.code}
                       className={`lrw__doc lrw__doc--${item.status}${isFocus ? ' lrw__doc--focus' : ''}`}
+                      onClick={desk ? () => selectItem({ kind: 'doc', code: item.code }) : undefined}
+                      onKeyDown={
+                        desk
+                          ? (event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                selectItem({ kind: 'doc', code: item.code });
+                              }
+                            }
+                          : undefined
+                      }
+                      tabIndex={desk ? 0 : undefined}
+                      role={desk ? 'button' : undefined}
                     >
                       <DocStatusMark status={item.status} ar={ar} viewer="owner" />
-                      {item.file ? (
+                      {!desk && item.file ? (
                         <DocFileThumb
                           href={fileHref(`doc-${item.code}`)}
                           label={ar ? item.labelAr : item.labelEn || item.labelAr}
@@ -2999,6 +3134,7 @@ function RequirementsReview({
                           </small>
                         ) : null}
                       </div>
+                      {desk ? null : (
                       <div className="lrw__doc-actions">
                         {canManage && item.status === 'submitted' ? (
                           <OwnerAttachmentActions
@@ -3042,6 +3178,7 @@ function RequirementsReview({
                           </button>
                         ) : null}
                       </div>
+                      )}
                     </li>
                   );
                 })}
@@ -3066,9 +3203,22 @@ function RequirementsReview({
                     <li
                       key={item.key}
                       className={`lrw__doc lrw__doc--${status}${isFocus ? ' lrw__doc--focus' : ''}`}
+                      onClick={desk ? () => selectItem({ kind: 'cheque', key: item.key }) : undefined}
+                      onKeyDown={
+                        desk
+                          ? (event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                selectItem({ kind: 'cheque', key: item.key });
+                              }
+                            }
+                          : undefined
+                      }
+                      tabIndex={desk ? 0 : undefined}
+                      role={desk ? 'button' : undefined}
                     >
                       <DocStatusMark status={status} ar={ar} viewer="owner" />
-                      {href ? (
+                      {!desk && href ? (
                         <DocFileThumb
                           href={href}
                           label={ar ? item.labelAr : item.labelEn}
@@ -3080,11 +3230,22 @@ function RequirementsReview({
                         <span className="lrw__doc-status">
                           {docStatusLabel(status, ar, 'owner')}
                         </span>
-                        {chequeFactsBlock(item, row, ar, locale)}
+                        {desk ? (
+                          <span className="lrw__doc-meta">
+                            {row?.chequeNumber ? <bdi dir="ltr">#{row.chequeNumber}</bdi> : null}
+                            {row?.chequeNumber ? ' · ' : null}
+                            <bdi dir="ltr">
+                              {formatMoney(String(item.amountMinor), item.currency, locale)}
+                            </bdi>
+                          </span>
+                        ) : (
+                          chequeFactsBlock(item, row, ar, locale)
+                        )}
                         {row?.note && status === 'rejected' ? (
                           <small className="muted">{row.note}</small>
                         ) : null}
                       </div>
+                      {desk ? null : (
                       <div className="lrw__doc-actions">
                         {canManage && status === 'submitted' && row?.file ? (
                           <OwnerAttachmentActions
@@ -3128,6 +3289,7 @@ function RequirementsReview({
                           </button>
                         ) : null}
                       </div>
+                      )}
                     </li>
                   );
                 })}
@@ -3142,6 +3304,7 @@ function RequirementsReview({
             : 'No documents yet — you can request some below.'}
         </p>
       )}
+      </div>
 
       {canManage && onAddRequirements ? (
         <form className="lrw__extra-docs" onSubmit={submitExtras}>
@@ -3201,6 +3364,7 @@ function RequirementsReview({
       ) : null}
     </div>
   );
+  return desk && full && mounted ? createPortal(tree, document.body) : tree;
 }
 
 /** What the client chose while booking, beside the unit's facts, so the contract matches it. */
