@@ -7,15 +7,9 @@ import 'server-only';
 import { and, eq, sql } from 'drizzle-orm';
 import { memberships, parties, users, type Database } from '@bhd-r/db';
 
-import { OWNER_PORTAL_ROLES, ORG_WIDE_ROLES } from '@/lib/portal-access';
+import { isOwnerSideRole } from '@/lib/portal-access';
 
 type Tx = Parameters<Parameters<Database['transaction']>[0]>[0];
-
-const OWNER_SIDE_ROLES = new Set([...OWNER_PORTAL_ROLES, ...ORG_WIDE_ROLES]);
-
-function isOwnerSideRole(role: string): boolean {
-  return OWNER_SIDE_ROLES.has(role) || role.startsWith('custom:');
-}
 
 export type OwnPropertyBooker = {
   userId: string;

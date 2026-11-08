@@ -41,6 +41,12 @@ import {
 } from '@/lib/unit-identity';
 import type { OfferingMode } from '@/lib/unit-offering-modes';
 
+function ownPropertyMessage(ar: boolean): string {
+  return ar
+    ? 'أنت المالك — لا يمكن حجز الوحدة أو تأجيرها أو شراؤها لنفسك من هذا الحساب. استخدم حساب مستأجر أو ضيف منفصل.'
+    : 'You are the owner — you cannot book, rent, or buy this unit for yourself from this account. Use a separate tenant or guest account.';
+}
+
 function defaultStayCheckIn(): string {
   const d = new Date();
   d.setDate(d.getDate() + 1);
@@ -204,6 +210,7 @@ export function PropertyDetailManager({
   stayRating = null,
   hostSummary = null,
   badges,
+  ownProperty = false,
 }: {
   property: ManagedProperty;
   locale: 'ar' | 'en';
@@ -214,6 +221,8 @@ export function PropertyDetailManager({
   focusUnitId?: string;
   /** Whether the visitor has a BHD R session (public CTAs). */
   signedIn?: boolean;
+  /** Signed-in visitor operates this listing's organization. */
+  ownProperty?: boolean;
   /** Platform stays flag — quiet setup link only. */
   staysEnabled?: boolean;
   /** Live bookings/contracts/finance for owner/developer manage hub. */
@@ -247,9 +256,11 @@ export function PropertyDetailManager({
   const isPublic = variant === 'public';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [blockedAsOwner, setBlockedAsOwner] = useState(ownProperty);
   const [stayViewingMessage, setStayViewingMessage] = useState<string | null>(null);
   const [stayViewingError, setStayViewingError] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState(0);
+  const ownerBlocked = blockedAsOwner || ownProperty;
   const initialStayIn = stayBooking?.checkInOn ?? defaultStayCheckIn();
   const [stayCheckInOn, setStayCheckInOn] = useState(initialStayIn);
   const [stayCheckOutOn, setStayCheckOutOn] = useState(
@@ -486,6 +497,48 @@ export function PropertyDetailManager({
     );
   }
 
+  async function ensureGuestMayBook(unitId: string | null | undefined): Promise<boolean> {
+    if (ownerBlocked) {
+      setBlockedAsOwner(true);
+      setStayViewingError(ownPropertyMessage(ar));
+      setStayViewingMessage(null);
+      return false;
+    }
+    if (!signedIn || !unitId) return true;
+    try {
+      const response = await fetch(
+        `/api/public/units/${encodeURIComponent(unitId)}/guest-booking-gate`,
+        { credentials: 'same-origin', headers: { accept: 'application/json' } },
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        ownProperty?: boolean;
+      } | null;
+      if (payload?.ownProperty) {
+        setBlockedAsOwner(true);
+        setStayViewingError(ownPropertyMessage(ar));
+        setStayViewingMessage(null);
+        return false;
+      }
+    } catch {
+      /* checkout still enforces the lock */
+    }
+    return true;
+  }
+
+  async function continueToBook(href: string, unitId: string | null | undefined) {
+    if (!signedIn) {
+      router.push(`/${locale}/login?next=${encodeURIComponent(href)}`);
+      return;
+    }
+    setBusy(true);
+    try {
+      if (!(await ensureGuestMayBook(unitId))) return;
+      router.push(href);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function requestStayViewing() {
     const unitId = stayBooking?.unitId ?? primaryUnit?.id;
     if (!unitId) return;
@@ -503,6 +556,7 @@ export function PropertyDetailManager({
     setStayViewingError(null);
     setStayViewingMessage(null);
     try {
+      if (!(await ensureGuestMayBook(unitId))) return;
       const response = await fetch('/api/public/viewing-requests', {
         method: 'POST',
         credentials: 'same-origin',
@@ -516,9 +570,14 @@ export function PropertyDetailManager({
       });
       const payload = (await response.json().catch(() => null)) as {
         reference?: string;
-        error?: { message?: string; code?: string };
+        error?: { message?: string; messageAr?: string; code?: string };
       } | null;
       if (!response.ok) {
+        if (payload?.error?.code === 'own_property') {
+          setBlockedAsOwner(true);
+          setStayViewingError(payload.error.messageAr ?? ownPropertyMessage(ar));
+          return;
+        }
         throw new Error(payload?.error?.message ?? payload?.error?.code ?? 'request_failed');
       }
       setStayViewingMessage(
@@ -595,22 +654,34 @@ export function PropertyDetailManager({
               </span>
             </div>
             <div className="stays-book-sticky__actions">
-              <Link className="button button--primary stays-book-sticky__cta" href={stayBookHref}>
+              <button
+                type="button"
+                className="button button--primary stays-book-sticky__cta"
+                disabled={busy || ownerBlocked}
+                onClick={() =>
+                  void continueToBook(stayBookHref, stayBooking?.unitId ?? primaryUnit?.id)
+                }
+              >
                 {ar ? 'متابعة الحجز' : 'Continue to book'}
-              </Link>
+              </button>
               {staySaleBookHref ? (
-                <Link
+                <button
+                  type="button"
                   className="button button--gold stays-book-sticky__cta"
-                  href={
-                    signedIn
-                      ? staySaleBookHref
-                      : `/${locale}/login?next=${encodeURIComponent(staySaleBookHref)}`
+                  disabled={busy || ownerBlocked}
+                  onClick={() =>
+                    void continueToBook(staySaleBookHref, primaryUnit?.id ?? stayBooking?.unitId)
                   }
                 >
                   {ar ? 'شراء الوحدة' : 'Buy unit'}
-                </Link>
+                </button>
               ) : null}
             </div>
+            {ownerBlocked ? (
+              <p className="notice notice--error stays-book-sticky__owner-alert" role="alert">
+                {ownPropertyMessage(ar)}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -643,30 +714,31 @@ export function PropertyDetailManager({
             </div>
             <div className="stays-book-sticky__actions">
               {listingRentHref ? (
-                <Link
+                <button
+                  type="button"
                   className="button button--primary stays-book-sticky__cta"
-                  href={
-                    signedIn
-                      ? listingRentHref
-                      : `/${locale}/login?next=${encodeURIComponent(listingRentHref)}`
-                  }
+                  disabled={busy || ownerBlocked}
+                  onClick={() => void continueToBook(listingRentHref, primaryUnit?.id)}
                 >
                   {ar ? 'أريد التأجير' : 'I want to rent'}
-                </Link>
+                </button>
               ) : null}
               {listingSaleHref ? (
-                <Link
+                <button
+                  type="button"
                   className="button button--gold stays-book-sticky__cta"
-                  href={
-                    signedIn
-                      ? listingSaleHref
-                      : `/${locale}/login?next=${encodeURIComponent(listingSaleHref)}`
-                  }
+                  disabled={busy || ownerBlocked}
+                  onClick={() => void continueToBook(listingSaleHref, primaryUnit?.id)}
                 >
                   {ar ? 'أريد الشراء' : 'I want to buy'}
-                </Link>
+                </button>
               ) : null}
             </div>
+            {ownerBlocked ? (
+              <p className="notice notice--error stays-book-sticky__owner-alert" role="alert">
+                {ownPropertyMessage(ar)}
+              </p>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -1436,25 +1508,34 @@ export function PropertyDetailManager({
                     : 'Pick dates on the calendar, then tap continue to book.'}
                 </p>
                 <div className="stays-book-cta__actions">
-                  <Link
+                  <button
+                    type="button"
                     className="button button--primary property-360__summary-cta"
-                    href={stayBookHref}
+                    disabled={busy || ownerBlocked}
+                    onClick={() =>
+                      void continueToBook(stayBookHref, stayBooking?.unitId ?? primaryUnit?.id)
+                    }
                   >
                     {ar ? 'متابعة الحجز' : 'Continue to book'}
-                  </Link>
+                  </button>
                   {staySaleBookHref ? (
-                    <Link
+                    <button
+                      type="button"
                       className="button button--gold property-360__summary-cta"
-                      href={
-                        signedIn
-                          ? staySaleBookHref
-                          : `/${locale}/login?next=${encodeURIComponent(staySaleBookHref)}`
+                      disabled={busy || ownerBlocked}
+                      onClick={() =>
+                        void continueToBook(staySaleBookHref, primaryUnit?.id ?? stayBooking?.unitId)
                       }
                     >
                       {ar ? 'شراء هذه الوحدة' : 'Buy this unit'}
-                    </Link>
+                    </button>
                   ) : null}
                 </div>
+                {ownerBlocked ? (
+                  <p className="notice notice--error" role="alert">
+                    {ownPropertyMessage(ar)}
+                  </p>
+                ) : null}
               </section>
             ) : null}
             <div className="property-360__qr">
@@ -1716,7 +1797,7 @@ export function PropertyDetailManager({
                     <button
                       type="button"
                       className="button button--secondary property-360__summary-cta"
-                      disabled={busy}
+                      disabled={busy || ownerBlocked}
                       onClick={() => void requestStayViewing()}
                     >
                       {ar ? 'طلب معاينة' : 'Request a viewing'}
@@ -1748,6 +1829,7 @@ export function PropertyDetailManager({
                     unitId={primaryUnit.id}
                     locale={locale}
                     signedIn={signedIn}
+                    ownProperty={ownerBlocked}
                     depositMinor={primaryUnit.depositMinor}
                     saleDepositMinor={primaryUnit.saleDepositMinor ?? null}
                     currency={primaryUnit.currency}

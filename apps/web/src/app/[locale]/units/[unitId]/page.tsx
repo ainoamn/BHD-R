@@ -14,6 +14,7 @@ import { loadPublicUnitFromNeon } from '@/lib/load-public-unit-neon';
 import { managedPropertyFromPublicUnit } from '@/lib/managed-property-from-unit';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { ApiError, isNestApiConfiguredForRuntime, publicApiFetch } from '@/lib/server-api';
+import { viewerOperatesOrganization } from '@/lib/portal-access';
 import { bilingualAlternates, unitListingJsonLd } from '@/lib/seo';
 import { getViewer } from '@/lib/viewer';
 import { withTimedResult } from '@/lib/with-timeout';
@@ -187,6 +188,8 @@ export default async function UnitPage({
   const property =
     showcaseResult.status === 'ok' && showcaseResult.value ? showcaseResult.value : liteProperty;
   const showcaseDegraded = !(showcaseResult.status === 'ok' && showcaseResult.value);
+  const viewerValue = viewer.status === 'ok' ? viewer.value : null;
+  const ownProperty = viewerOperatesOrganization(viewerValue, property.organizationId);
 
   const title = `${localizedName(locale, unit.propertyNameAr, unit.propertyNameEn)} — ${localizedName(locale, unit.unitNameAr, unit.unitNameEn)}`;
   const description = localizedName(locale, unit.descriptionAr ?? '', unit.descriptionEn ?? '');
@@ -218,7 +221,8 @@ export default async function UnitPage({
             portal="owner"
             variant="public"
             focusUnitId={unit.unitId}
-            signedIn={viewer.status === 'ok' ? Boolean(viewer.value) : false}
+            signedIn={Boolean(viewerValue)}
+            ownProperty={ownProperty}
             hostSummary={hostSummary}
             badges={badges}
           />

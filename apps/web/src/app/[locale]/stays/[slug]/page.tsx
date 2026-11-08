@@ -11,6 +11,7 @@ import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-n
 import { loadPublicStayBySlugOnNeon } from '@/lib/load-public-stays-neon';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
+import { viewerOperatesOrganization } from '@/lib/portal-access';
 import { bilingualAlternates } from '@/lib/seo';
 import { publicApiFetch } from '@/lib/server-api';
 import { getViewer } from '@/lib/viewer';
@@ -171,6 +172,7 @@ export default async function StayDetailPage({
           variant="public"
           {...(focusUnitId ? { focusUnitId } : {})}
           signedIn={Boolean(viewer)}
+          ownProperty={viewerOperatesOrganization(viewer, property.organizationId)}
           stayBooking={{
             slug,
             title,

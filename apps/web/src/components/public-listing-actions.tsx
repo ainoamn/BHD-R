@@ -10,6 +10,12 @@ import { PublicListingShare } from '@/components/public-listing-share';
 type ListingPurpose = 'rent' | 'sale' | 'both';
 type Interest = 'rent' | 'sale';
 
+function ownPropertyMessage(ar: boolean): string {
+  return ar
+    ? 'أنت المالك — لا يمكن حجز الوحدة أو تأجيرها أو شراؤها لنفسك من هذا الحساب. استخدم حساب مستأجر أو ضيف منفصل.'
+    : 'You are the owner — you cannot book, rent, or buy this unit for yourself from this account. Use a separate tenant or guest account.';
+}
+
 export function PublicListingActions({
   unitId,
   locale,
@@ -25,6 +31,7 @@ export function PublicListingActions({
   rentMinor,
   salePriceMinor,
   taken = null,
+  ownProperty = false,
 }: {
   unitId: string;
   locale: 'ar' | 'en';
@@ -41,12 +48,15 @@ export function PublicListingActions({
   salePriceMinor?: string | null;
   /** Leased or sold units stay listed until the owner hides them, but can't be booked. */
   taken?: 'leased' | 'sold' | null;
+  /** Signed-in visitor operates this listing's organization. */
+  ownProperty?: boolean;
 }) {
   const router = useRouter();
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [blockedAsOwner, setBlockedAsOwner] = useState(ownProperty);
   const needsChoice = listingPurpose === 'both';
   const [interest, setInterest] = useState<Interest | null>(
     listingPurpose === 'sale' ? 'sale' : listingPurpose === 'rent' ? 'rent' : null,
@@ -104,6 +114,34 @@ export function PublicListingActions({
     return { rent, sale };
   }, [rentMinor, salePriceMinor, currency, locale]);
 
+  async function ensureGuestMayBook(): Promise<boolean> {
+    if (blockedAsOwner || ownProperty) {
+      setBlockedAsOwner(true);
+      setError(ownPropertyMessage(ar));
+      setMessage(null);
+      return false;
+    }
+    if (!signedIn) return true;
+    try {
+      const response = await fetch(
+        `/api/public/units/${encodeURIComponent(unitId)}/guest-booking-gate`,
+        { credentials: 'same-origin', headers: { accept: 'application/json' } },
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        ownProperty?: boolean;
+      } | null;
+      if (payload?.ownProperty) {
+        setBlockedAsOwner(true);
+        setError(ownPropertyMessage(ar));
+        setMessage(null);
+        return false;
+      }
+    } catch {
+      /* server checkout still enforces the lock */
+    }
+    return true;
+  }
+
   async function requestViewing() {
     if (!signedIn) {
       router.push(loginHref);
@@ -113,6 +151,7 @@ export function PublicListingActions({
     setError(null);
     setMessage(null);
     try {
+      if (!(await ensureGuestMayBook())) return;
       const response = await fetch('/api/public/viewing-requests', {
         method: 'POST',
         credentials: 'same-origin',
@@ -130,10 +169,17 @@ export function PublicListingActions({
       });
       const payload = (await response.json().catch(() => null)) as {
         reference?: string;
-        error?: { message?: string; code?: string };
+        error?: { message?: string; messageAr?: string; code?: string };
       } | null;
       if (!response.ok) {
-        throw new Error(payload?.error?.message ?? payload?.error?.code ?? 'request_failed');
+        if (payload?.error?.code === 'own_property') {
+          setBlockedAsOwner(true);
+          setError(payload.error.messageAr ?? ownPropertyMessage(ar));
+          return;
+        }
+        throw new Error(
+          payload?.error?.messageAr ?? payload?.error?.message ?? payload?.error?.code ?? 'request_failed',
+        );
       }
       setMessage(
         ar
@@ -147,14 +193,22 @@ export function PublicListingActions({
     }
   }
 
-  function startBooking(mode: Interest) {
+  async function startBooking(mode: Interest) {
     setInterest(mode);
     const bookHref = `/${locale}/book/${unitId}?mode=${mode}`;
     if (!signedIn) {
       router.push(`/${locale}/login?next=${encodeURIComponent(bookHref)}`);
       return;
     }
-    router.push(bookHref);
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      if (!(await ensureGuestMayBook())) return;
+      router.push(bookHref);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function requestPurchase() {
@@ -166,6 +220,7 @@ export function PublicListingActions({
     setError(null);
     setMessage(null);
     try {
+      if (!(await ensureGuestMayBook())) return;
       const response = await fetch('/api/public/sale-interest', {
         method: 'POST',
         credentials: 'same-origin',
@@ -179,10 +234,17 @@ export function PublicListingActions({
       });
       const payload = (await response.json().catch(() => null)) as {
         reference?: string;
-        error?: { message?: string; code?: string };
+        error?: { message?: string; messageAr?: string; code?: string };
       } | null;
       if (!response.ok) {
-        throw new Error(payload?.error?.message ?? payload?.error?.code ?? 'request_failed');
+        if (payload?.error?.code === 'own_property') {
+          setBlockedAsOwner(true);
+          setError(payload.error.messageAr ?? ownPropertyMessage(ar));
+          return;
+        }
+        throw new Error(
+          payload?.error?.messageAr ?? payload?.error?.message ?? payload?.error?.code ?? 'request_failed',
+        );
       }
       setMessage(
         ar
@@ -220,6 +282,12 @@ export function PublicListingActions({
 
   return (
     <div className="public-listing-actions">
+      {blockedAsOwner || ownProperty ? (
+        <p className="notice notice--error" role="alert">
+          {ownPropertyMessage(ar)}
+        </p>
+      ) : null}
+
       {needsChoice ? (
         <div
           className="public-listing-actions__interest"
@@ -231,8 +299,8 @@ export function PublicListingActions({
             <button
               type="button"
               className={`button ${interest === 'rent' ? 'button--primary' : 'button--quiet'}`}
-              disabled={busy}
-              onClick={() => startBooking('rent')}
+              disabled={busy || blockedAsOwner || ownProperty}
+              onClick={() => void startBooking('rent')}
             >
               {ar ? 'أريد التأجير' : 'I want to rent'}
               {dualPrices.rent ? ` · ${dualPrices.rent}` : ''}
@@ -240,8 +308,8 @@ export function PublicListingActions({
             <button
               type="button"
               className={`button ${interest === 'sale' ? 'button--gold' : 'button--quiet'}`}
-              disabled={busy}
-              onClick={() => startBooking('sale')}
+              disabled={busy || blockedAsOwner || ownProperty}
+              onClick={() => void startBooking('sale')}
             >
               {ar ? 'أريد الشراء' : 'I want to buy'}
               {dualPrices.sale ? ` · ${dualPrices.sale}` : ''}
@@ -254,8 +322,8 @@ export function PublicListingActions({
         <button
           type="button"
           className="button button--primary property-360__summary-cta"
-          disabled={busy}
-          onClick={() => startBooking('rent')}
+          disabled={busy || blockedAsOwner || ownProperty}
+          onClick={() => void startBooking('rent')}
         >
           {ar ? 'أريد التأجير — احجز الآن' : 'I want to rent — book now'}
         </button>
@@ -265,8 +333,8 @@ export function PublicListingActions({
         <button
           type="button"
           className="button button--gold property-360__summary-cta"
-          disabled={busy}
-          onClick={() => startBooking('sale')}
+          disabled={busy || blockedAsOwner || ownProperty}
+          onClick={() => void startBooking('sale')}
         >
           {ar ? 'أريد الشراء — احجز الآن' : 'I want to buy — book now'}
         </button>
@@ -289,7 +357,7 @@ export function PublicListingActions({
       <button
         type="button"
         className="button button--quiet property-360__summary-cta"
-        disabled={busy}
+        disabled={busy || blockedAsOwner || ownProperty}
         onClick={() => void requestViewing()}
       >
         {ar ? 'طلب معاينة' : 'Request viewing'}
@@ -299,7 +367,7 @@ export function PublicListingActions({
         <button
           type="button"
           className="button button--quiet property-360__summary-cta"
-          disabled={busy}
+          disabled={busy || blockedAsOwner || ownProperty}
           onClick={() => void requestPurchase()}
         >
           {ar ? 'طلب اهتمام بالشراء' : 'Express purchase interest'}
@@ -318,7 +386,7 @@ export function PublicListingActions({
           {message}
         </p>
       ) : null}
-      {error ? (
+      {error && !(blockedAsOwner || ownProperty) ? (
         <p className="notice notice--error" role="alert">
           {error}
         </p>

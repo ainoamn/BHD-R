@@ -44,6 +44,29 @@ export const ORG_WIDE_ROLES: ReadonlySet<string> = new Set([
   'custom_member',
 ]);
 
+const OWNER_SIDE_ROLE_SET = new Set<string>([...OWNER_PORTAL_ROLES, ...ORG_WIDE_ROLES]);
+
+/** True when the role belongs on the property/owner side (not a public tenant guest). */
+export function isOwnerSideRole(role: string): boolean {
+  return OWNER_SIDE_ROLE_SET.has(role) || role.startsWith('custom:');
+}
+
+/**
+ * Session already scoped to this organization with an owner-side role —
+ * the signed-in account runs the listing and must not book it as a guest.
+ */
+export function viewerOperatesOrganization(
+  viewer: {
+    organizationId?: string | null;
+    roles?: readonly string[];
+  } | null,
+  organizationId: string | null | undefined,
+): boolean {
+  if (!viewer?.organizationId || !organizationId) return false;
+  if (viewer.organizationId !== organizationId) return false;
+  return (viewer.roles ?? []).some(isOwnerSideRole);
+}
+
 export function portalsForRoles(
   roles: readonly string[],
   { tenantForEveryone = false }: { tenantForEveryone?: boolean } = {},

@@ -18761,6 +18761,11 @@ body:has(.guest-stay-detail) #main-content {
     min-height: 2.65rem;
     padding-inline: 0.9rem;
   }
+  .stays-book-sticky__owner-alert {
+    flex: 1 1 100%;
+    margin: 0.35rem 0 0;
+    font-size: 0.85rem;
+  }
 }
 .stays-book-cta__actions {
   display: grid;

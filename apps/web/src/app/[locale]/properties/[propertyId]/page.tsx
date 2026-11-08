@@ -9,6 +9,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { loadHostSummarySafe } from '@/lib/booking-reviews-neon';
 import { loadPublicPropertyShowcaseFromNeon } from '@/lib/load-public-property-neon';
 import { buildAiTags, loadPropertyDiscoveryRails } from '@/lib/property-discovery';
+import { viewerOperatesOrganization } from '@/lib/portal-access';
 import { bilingualAlternates } from '@/lib/seo';
 import { localizedName } from '@/lib/format';
 import { getViewer } from '@/lib/viewer';
@@ -113,6 +114,7 @@ export default async function PropertyPage({
 
   const property = showcaseResult.value;
   const viewer = viewerResult.status === 'ok' ? viewerResult.value : null;
+  const ownProperty = viewerOperatesOrganization(viewer, property.organizationId);
 
   const focusUnitId =
     typeof query.unit === 'string' &&
@@ -138,6 +140,7 @@ export default async function PropertyPage({
           portal="owner"
           variant="public"
           signedIn={Boolean(viewer)}
+          ownProperty={ownProperty}
           hostSummary={hostSummary}
           badges={badges}
           {...(focusUnitId ? { focusUnitId } : {})}
