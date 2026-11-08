@@ -410,9 +410,11 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
           listingPurpose: units.listingPurpose,
           depositMinor: units.depositMinor,
           salePriceMinor: units.salePriceMinor,
+          ownerPartyId: properties.ownerPartyId,
         })
         .from(units)
         .innerJoin(listings, eq(listings.unitId, units.id))
+        .innerJoin(properties, eq(properties.id, units.propertyId))
         .where(and(eq(units.id, input.unitId), eq(listings.enabled, true)))
         .limit(1);
       const row = rows[0];
@@ -436,7 +438,15 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       userId: claims.sub,
     });
     try {
-      await assertMayBookAsGuest(transaction, claims.sub, preview.organizationId);
+      await assertMayBookAsGuest(transaction, {
+        userId: claims.sub,
+        organizationId: preview.organizationId,
+        sessionOrganizationId: claims.organizationId,
+        roles: claims.roles,
+        partyId: claims.partyId,
+        email: input.email,
+        ownerPartyId: preview.ownerPartyId,
+      });
     } catch (error) {
       if (error instanceof Error && error.message === 'own_property') fail('own_property');
       throw error;

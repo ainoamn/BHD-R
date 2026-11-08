@@ -316,9 +316,13 @@ export async function createAuthenticatedViewingRequest(
   return db.transaction(async (transaction) => {
     const preview = await withElevatedRead(transaction, async () => {
       const rows = await transaction
-        .select({ organizationId: listings.organizationId })
+        .select({
+          organizationId: listings.organizationId,
+          ownerPartyId: properties.ownerPartyId,
+        })
         .from(listings)
         .innerJoin(units, eq(units.id, listings.unitId))
+        .innerJoin(properties, eq(properties.id, units.propertyId))
         .where(and(eq(units.id, unitId), eq(listings.enabled, true)))
         .limit(1);
       return rows[0];
@@ -329,7 +333,14 @@ export async function createAuthenticatedViewingRequest(
       userId: claims.sub,
     });
     const { assertMayBookAsGuest } = await import('@/lib/own-property-booking');
-    await assertMayBookAsGuest(transaction, claims.sub, preview.organizationId);
+    await assertMayBookAsGuest(transaction, {
+      userId: claims.sub,
+      organizationId: preview.organizationId,
+      sessionOrganizationId: claims.organizationId,
+      roles: claims.roles,
+      partyId: claims.partyId,
+      ownerPartyId: preview.ownerPartyId,
+    });
 
     const idemKey =
       typeof options.idempotencyKey === 'string' && options.idempotencyKey.trim().length >= 8
@@ -458,7 +469,14 @@ export async function createAuthenticatedSaleInterest(
       userId: claims.sub,
     });
     const { assertMayBookAsGuest } = await import('@/lib/own-property-booking');
-    await assertMayBookAsGuest(transaction, claims.sub, preview.organizationId);
+    await assertMayBookAsGuest(transaction, {
+      userId: claims.sub,
+      organizationId: preview.organizationId,
+      sessionOrganizationId: claims.organizationId,
+      roles: claims.roles,
+      partyId: claims.partyId,
+      ownerPartyId: preview.ownerPartyId,
+    });
 
     const party = await ensureProspectParty(transaction, preview.organizationId, claims);
     const currency = preview.currency as keyof typeof currencyMinorUnits;
@@ -538,6 +556,14 @@ export async function createPublicBookingCheckout(
     await applyOrgScope(transaction, {
       organizationId: preview.organizationId,
       userId: claims.sub,
+    });
+    const { assertMayBookAsGuest } = await import('@/lib/own-property-booking');
+    await assertMayBookAsGuest(transaction, {
+      userId: claims.sub,
+      organizationId: preview.organizationId,
+      sessionOrganizationId: claims.organizationId,
+      roles: claims.roles,
+      partyId: claims.partyId,
     });
     const unit = await assertUnitBookable(transaction, unitId);
     if (!unit.depositMinor || unit.depositMinor <= 0n) throw new Error('deposit_not_set');

@@ -990,13 +990,21 @@ export async function createPublicStayHoldOnNeon(
     }
     assertOrgEnabled(quote.organizationId);
     if (bookedByUserId) {
-      const { userOperatesOrganization } = await import('@/lib/own-property-booking');
-      if (await userOperatesOrganization(transaction, bookedByUserId, quote.organizationId)) {
-        throw new PublicStayBookingError(
-          'own_property',
-          'Cannot book your own unit from the owner account',
-          409,
-        );
+      const { assertMayBookAsGuest } = await import('@/lib/own-property-booking');
+      try {
+        await assertMayBookAsGuest(transaction, {
+          userId: bookedByUserId,
+          organizationId: quote.organizationId,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message === 'own_property') {
+          throw new PublicStayBookingError(
+            'own_property',
+            'Cannot book your own unit from the owner account',
+            409,
+          );
+        }
+        throw error;
       }
     }
     if (quote.expiresAt.getTime() <= Date.now()) {
@@ -1206,13 +1214,22 @@ export async function createPublicStayBookingOnNeon(
 
     let guestPartyId: string | null = null;
     if (bookedBy?.userId) {
-      const { userOperatesOrganization } = await import('@/lib/own-property-booking');
-      if (await userOperatesOrganization(transaction, bookedBy.userId, hold.organizationId)) {
-        throw new PublicStayBookingError(
-          'own_property',
-          'Cannot book your own unit from the owner account',
-          409,
-        );
+      const { assertMayBookAsGuest } = await import('@/lib/own-property-booking');
+      try {
+        await assertMayBookAsGuest(transaction, {
+          userId: bookedBy.userId,
+          organizationId: hold.organizationId,
+          email: bookedBy.email,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.message === 'own_property') {
+          throw new PublicStayBookingError(
+            'own_property',
+            'Cannot book your own unit from the owner account',
+            409,
+          );
+        }
+        throw error;
       }
       const { ensureProspectParty } = await import('@/lib/public-booking-neon');
       const party = await ensureProspectParty(transaction, hold.organizationId, {
