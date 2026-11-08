@@ -132,6 +132,7 @@ const KNOWN_CODES = new Set([
   'civil_id_expiring_soon',
   'passport_required',
   'term_too_short',
+  'own_property',
   'approval_delegate_forbidden',
   'approval_bank_required',
   'approval_handover_contact_required',
@@ -262,6 +263,7 @@ export function statusForSafeCode(code: string): number {
     case 'documents_incomplete':
     case 'email_unverified':
     case 'contract_awaiting_counterparty':
+    case 'own_property':
       return 409;
     case 'requirements_invalid':
     case 'handover_invalid':

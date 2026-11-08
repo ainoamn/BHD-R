@@ -328,6 +328,8 @@ export async function createAuthenticatedViewingRequest(
       organizationId: preview.organizationId,
       userId: claims.sub,
     });
+    const { assertMayBookAsGuest } = await import('@/lib/own-property-booking');
+    await assertMayBookAsGuest(transaction, claims.sub, preview.organizationId);
 
     const idemKey =
       typeof options.idempotencyKey === 'string' && options.idempotencyKey.trim().length >= 8
@@ -455,6 +457,8 @@ export async function createAuthenticatedSaleInterest(
       organizationId: preview.organizationId,
       userId: claims.sub,
     });
+    const { assertMayBookAsGuest } = await import('@/lib/own-property-booking');
+    await assertMayBookAsGuest(transaction, claims.sub, preview.organizationId);
 
     const party = await ensureProspectParty(transaction, preview.organizationId, claims);
     const currency = preview.currency as keyof typeof currencyMinorUnits;

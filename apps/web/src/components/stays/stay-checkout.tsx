@@ -190,6 +190,10 @@ function paymentErrorMessage(error: unknown, ar: boolean, canRetry: boolean): st
         : 'This booking can no longer be paid (it may be cancelled or expired). Start a new booking.';
     case 'already_paid':
       return ar ? 'تم دفع هذا الحجز مسبقاً.' : 'This booking is already paid.';
+    case 'own_property':
+      return ar
+        ? 'لا يمكن حجز وحدتك من نفس حساب المالك — استخدم حساب ضيف منفصل.'
+        : 'You cannot book your own unit from the same owner account — use a separate guest account.';
     case 'intent_not_payable':
       return ar
         ? 'انتهت صلاحية عملية الدفع لهذا الحجز. ابدأ حجزاً جديداً.'

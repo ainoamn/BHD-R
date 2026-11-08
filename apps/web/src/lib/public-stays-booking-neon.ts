@@ -963,6 +963,7 @@ export async function createPublicStayQuoteOnNeon(slug: string, input: CreateSta
 export async function createPublicStayHoldOnNeon(
   input: CreateStayHoldInput,
   idempotencyKey: string,
+  bookedByUserId: string | null = null,
 ) {
   assertPlatformEnabled();
 
@@ -988,6 +989,16 @@ export async function createPublicStayHoldOnNeon(
       throw new PublicStayBookingError('quote_not_found', 'Stay quote not found', 404);
     }
     assertOrgEnabled(quote.organizationId);
+    if (bookedByUserId) {
+      const { userOperatesOrganization } = await import('@/lib/own-property-booking');
+      if (await userOperatesOrganization(transaction, bookedByUserId, quote.organizationId)) {
+        throw new PublicStayBookingError(
+          'own_property',
+          'Cannot book your own unit from the owner account',
+          409,
+        );
+      }
+    }
     if (quote.expiresAt.getTime() <= Date.now()) {
       throw new PublicStayBookingError('quote_expired', 'Stay quote has expired', 409);
     }
@@ -1195,6 +1206,14 @@ export async function createPublicStayBookingOnNeon(
 
     let guestPartyId: string | null = null;
     if (bookedBy?.userId) {
+      const { userOperatesOrganization } = await import('@/lib/own-property-booking');
+      if (await userOperatesOrganization(transaction, bookedBy.userId, hold.organizationId)) {
+        throw new PublicStayBookingError(
+          'own_property',
+          'Cannot book your own unit from the owner account',
+          409,
+        );
+      }
       const { ensureProspectParty } = await import('@/lib/public-booking-neon');
       const party = await ensureProspectParty(transaction, hold.organizationId, {
         sub: bookedBy.userId,

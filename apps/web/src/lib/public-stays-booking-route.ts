@@ -66,6 +66,8 @@ export function stayBookingErrorResponse(error: unknown) {
       refund_bank_required: 'اختر البنك أو اكتب اسمه.',
       refund_phone_invalid: 'رقم الهاتف غير صحيح — تحقّق منه وأعد المحاولة.',
       review_required: 'قيّم إقامتك أولاً، ثم اطلب استرداد التأمين.',
+      own_property:
+        'لا يمكن حجز وحدتك من نفس حساب المالك — استخدم حساب ضيف منفصل.',
     };
     return stayBookingJson(
       {

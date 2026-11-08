@@ -44,6 +44,7 @@ import {
   type ReservationLifecycle,
 } from '@/lib/lease-reservation-lifecycle';
 import { effectiveMinLeaseMonths } from '@/lib/lease-min-term-neon';
+import { assertMayBookAsGuest } from '@/lib/own-property-booking';
 import { ownerPartyScope } from '@/lib/portal-ops-data';
 import { loadPropertyLocation } from '@/lib/property-location-neon';
 import {
@@ -205,6 +206,11 @@ const ERRORS = {
     409,
     'الحجز يُنشأ بحساب آخر مفتوح في المتصفح — بدّل إلى الحساب الصحيح من قائمة الحسابات ثم أكّد مجدداً.',
     'This booking would be created under another signed-in account — switch to the correct account, then confirm again.',
+  ],
+  own_property: [
+    409,
+    'لا يمكن حجز وحدتك أو تأجيرها أو شراؤها من نفس حساب المالك — استخدم حساب مستأجر أو ضيف منفصل.',
+    'You cannot book, rent, or buy your own unit from the same owner account — use a separate tenant or guest account.',
   ],
   documents_incomplete: [
     400,
@@ -429,6 +435,12 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
       organizationId: preview.organizationId,
       userId: claims.sub,
     });
+    try {
+      await assertMayBookAsGuest(transaction, claims.sub, preview.organizationId);
+    } catch (error) {
+      if (error instanceof Error && error.message === 'own_property') fail('own_property');
+      throw error;
+    }
     await lockKey(transaction, input.unitId);
     const bookerParty = await ensureProspectParty(transaction, preview.organizationId, claims);
     // Multi-tab cookie leak guard: self-booking must use the signed-in account's email.

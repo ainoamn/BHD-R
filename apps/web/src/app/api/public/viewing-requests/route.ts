@@ -58,6 +58,20 @@ export async function POST(request: Request) {
     return NextResponse.json(result);
   } catch (error) {
     const code = clientSafeErrorCode(error, 'request_failed');
+    if (code === 'own_property') {
+      return NextResponse.json(
+        {
+          error: {
+            code,
+            messageAr:
+              'لا يمكن طلب معاينة لوحدتك من نفس حساب المالك — استخدم حساب زائر منفصل.',
+            message:
+              'You cannot request a viewing of your own unit from the same owner account — use a separate visitor account.',
+          },
+        },
+        { status: 409 },
+      );
+    }
     return NextResponse.json({ error: { code } }, { status: statusForSafeCode(code) });
   }
 }
