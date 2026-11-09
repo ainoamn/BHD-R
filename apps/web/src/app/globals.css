@@ -24421,6 +24421,77 @@ button.lrw__step-body:focus-visible {
   margin: 0;
   font-size: 1.05rem;
 }
+.lease-cheques__step {
+  margin-top: 0.75rem;
+}
+.lease-cheques__step-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.75rem 0;
+}
+.lease-cheques__step-meta dt {
+  font-size: 0.78rem;
+  color: var(--muted, #667);
+}
+.lease-cheques__step-meta dd {
+  margin: 0.1rem 0 0;
+  font-weight: 600;
+}
+.lease-cheques__bulk {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.75rem;
+}
+.lease-cheques__bulk-master {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d8d2c8) 80%, transparent);
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--surface, #fff) 92%, #f4efe6);
+}
+.lease-cheques__bulk-master img {
+  width: min(100%, 28rem);
+  max-height: 16rem;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  background: #111;
+}
+.lease-cheques__bulk-master-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+.lease-cheques__bulk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+.lease-cheques__bulk-list li {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d8d2c8) 85%, transparent);
+}
+.lease-cheques__bulk-list li.is-done {
+  border-color: color-mix(in srgb, #08734c 35%, var(--border, #d8d2c8));
+  background: color-mix(in srgb, #e4f6ee 55%, transparent);
+}
+.lease-cheques__bulk-row,
+.lease-cheques__bulk-row-actions,
+.lease-cheques__bulk-submit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: space-between;
+}
 .lease-cheques__payable {
   margin: 0;
 }
