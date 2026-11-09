@@ -88,16 +88,6 @@ export function LeaseCheques({
   }, [error, errorKey]);
 
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(`bhd-cheque-view:${referenceCode}`);
-      if (stored === 'table' || stored === 'step' || stored === 'bulk') setViewMode(stored);
-      else setViewMode('');
-    } catch {
-      /* private mode */
-    }
-  }, [referenceCode]);
-
-  useEffect(() => {
     if (!bulkMaster) {
       setBulkMasterUrl(null);
       return;
@@ -154,12 +144,6 @@ export function LeaseCheques({
     setViewMode(mode);
     setError(null);
     setErrorKey(null);
-    try {
-      if (mode) sessionStorage.setItem(`bhd-cheque-view:${referenceCode}`, mode);
-      else sessionStorage.removeItem(`bhd-cheque-view:${referenceCode}`);
-    } catch {
-      /* ignore */
-    }
   }
 
   function flagChequeProblem(message: string, key: string) {
@@ -898,30 +882,49 @@ export function LeaseCheques({
       {renderSharedBankFields()}
 
       {!readOnly ? (
-        <label className="field lease-cheques__mode-select">
-          {ar ? 'طريقة رفع الشيكات' : 'Cheque upload method'}
-          <select
-            className="select"
-            value={viewMode}
-            disabled={busy !== null || bulkSending}
-            onChange={(event) => chooseMode(event.target.value as ChequeViewMode | '')}
-          >
-            <option value="">{ar ? '— اختر طريقة الرفع —' : '— Choose upload method —'}</option>
-            <option value="table">{ar ? 'واحداً واحداً من الجدول' : 'One by one from the table'}</option>
-            <option value="step">{ar ? 'نافذة متتابعة (شيك ثم التالي)' : 'Step wizard (cheque then next)'}</option>
-            <option value="bulk">
-              {ar ? 'مسح الكل ثم تعيين كل شيك لشهره' : 'Scan all, then assign each cheque to its month'}
-            </option>
-          </select>
-        </label>
-      ) : null}
-
-      {!viewMode && !readOnly ? (
-        <p className="notice notice--info" role="status">
-          {ar
-            ? 'اختر طريقة الرفع من القائمة أعلاه لتظهر لك خيارات إرفاق الشيكات.'
-            : 'Choose an upload method above to show the cheque attachment options.'}
-        </p>
+        <div
+          className={`field lease-cheques__mode-select ${
+            viewMode ? 'field--ok' : 'field--missing'
+          }`}
+        >
+          <label>
+            {ar ? 'طريقة رفع الشيكات' : 'Cheque upload method'}
+            <span className="field__required" aria-hidden="true">
+              {' '}
+              *
+            </span>
+            <select
+              className="select"
+              value={viewMode}
+              required
+              aria-required="true"
+              disabled={busy !== null || bulkSending}
+              onChange={(event) => chooseMode(event.target.value as ChequeViewMode | '')}
+            >
+              <option value="">
+                {ar ? '— اختر طريقة الرفع (إجباري) —' : '— Choose upload method (required) —'}
+              </option>
+              <option value="table">
+                {ar ? 'واحداً واحداً من الجدول' : 'One by one from the table'}
+              </option>
+              <option value="step">
+                {ar ? 'نافذة متتابعة (شيك ثم التالي)' : 'Step wizard (cheque then next)'}
+              </option>
+              <option value="bulk">
+                {ar
+                  ? 'مسح الكل ثم تعيين كل شيك لشهره'
+                  : 'Scan all, then assign each cheque to its month'}
+              </option>
+            </select>
+          </label>
+          {!viewMode ? (
+            <p className="field-hint field-hint--error" role="status">
+              {ar
+                ? 'إجباري — اختر طريقة الرفع لتظهر خيارات إرفاق الشيكات.'
+                : 'Required — choose an upload method to show cheque attachment options.'}
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       {viewMode === 'step'

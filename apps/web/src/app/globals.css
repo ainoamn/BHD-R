@@ -24374,6 +24374,18 @@ button.lrw__step-body:focus-visible {
 }
 .lease-cheques__mode-select {
   margin: 0.35rem 0 0.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+}
+.lease-cheques__required {
+  color: #c0392b;
+  font-weight: 800;
+}
+.lease-cheques__mode-select .field-hint--error {
+  margin: 0.35rem 0 0;
+  color: #9b1c1c;
+  font-size: 0.82rem;
+  font-weight: 600;
 }
 .lease-docs-remaining__list {
   display: grid;
