@@ -511,12 +511,12 @@ function HandlerSelfieCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function send() {
-    if (!shot) return;
+  async function sendShot(dataUrl: string) {
+    setShot(dataUrl);
     setBusy(true);
     setError(null);
     try {
-      const data = await compressPhoto(fileFromDataUrl(shot), HANDOVER_PHOTO_MAX);
+      const data = await compressPhoto(fileFromDataUrl(dataUrl), HANDOVER_PHOTO_MAX);
       const result = await browserNextMutation<{ takenAt: string }>('/api/handover', {
         method: 'POST',
         body: JSON.stringify({
@@ -546,22 +546,22 @@ function HandlerSelfieCard({
         <div className="handover-selfie__review">
           <img src={shot} alt={ar ? 'صورتك' : 'Your selfie'} />
           <div className="handover-selfie__actions">
-            <button
-              type="button"
-              className="button button--primary"
-              disabled={busy}
-              onClick={() => void send()}
-            >
-              {busy ? (ar ? 'جارٍ الحفظ…' : 'Saving…') : ar ? 'اعتماد صورتي' : 'Use my photo'}
-            </button>
-            <button
-              type="button"
-              className="button button--quiet"
-              disabled={busy}
-              onClick={() => setShot(null)}
-            >
-              {ar ? 'إعادة الالتقاط' : 'Retake'}
-            </button>
+            {busy ? (
+              <p className="muted" role="status">
+                {ar ? 'جارٍ الحفظ…' : 'Saving…'}
+              </p>
+            ) : (
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => {
+                  setError(null);
+                  setShot(null);
+                }}
+              >
+                {ar ? 'إعادة الالتقاط' : 'Retake'}
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -569,7 +569,7 @@ function HandlerSelfieCard({
           locale={locale}
           facingMode="user"
           frame="selfie"
-          onCaptured={setShot}
+          onCaptured={(dataUrl) => void sendShot(dataUrl)}
           onError={() =>
             setError(
               ar
