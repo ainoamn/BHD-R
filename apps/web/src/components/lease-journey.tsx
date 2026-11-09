@@ -653,6 +653,7 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'step'>('list');
   const [stepIndex, setStepIndex] = useState(0);
+  const [remainingOpen, setRemainingOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -889,48 +890,64 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
         </button>
       </div>
       {remaining.length ? (
-        <div className="lease-docs-remaining" role="status">
-          <strong>
-            {pendingVerifyCount
-              ? ar
-                ? `بانتظار اعتماد المالك: ${remaining.length}`
-                : `Awaiting owner verification: ${remaining.length}`
-              : ar
-                ? `المتبقي للاعتماد: ${remaining.length}`
-                : `Still awaiting approval: ${remaining.length}`}
-          </strong>
-          <span className="muted">
-            {ar
-              ? `${fullyApprovedCount} معتمدة نهائياً من ${totalItems}`
-              : `${fullyApprovedCount} of ${totalItems} fully approved`}
-          </span>
-          <ul className="lease-docs-remaining__list">
-            {remaining.map((item) => {
-              const markStatus = item.pendingVerify ? 'submitted' : item.status;
-              return (
-                <li
-                  key={item.key}
-                  className={`lease-docs-remaining__item lease-docs-remaining__item--${markStatus}`}
-                >
-                  <DocStatusMark status={markStatus} ar={ar} viewer="tenant" />
-                  <span>{item.label}</span>
-                  <small>
-                    {item.pendingVerify
-                      ? ar
-                        ? 'قُبل إلكترونياً — قيد تحقق الفريق'
-                        : 'Accepted electronically — team verifying'
-                      : docStatusLabel(item.status, ar, 'tenant')}
-                  </small>
-                </li>
-              );
-            })}
-          </ul>
-          {pendingVerifyCount ? (
-            <p className="notice notice--info">
-              {ar
-                ? 'العقد قد يكون معتمداً وموقّعاً، لكن المستندات أعلاه ما زالت بانتظار اعتماد المالك يدوياً. إن اتضح أن المستندات أو البيانات غير صحيحة يحق للمؤجر إلغاء العقد مع تحمل المستأجر كافة التكاليف والمسؤولية.'
-                : 'The contract may already be approved and signed, but the files above still need the owner’s manual verification. If documents or details prove incorrect, the landlord may cancel and you bear all costs and responsibility.'}
-            </p>
+        <div className={`lease-docs-remaining${remainingOpen ? ' is-open' : ''}`}>
+          <button
+            type="button"
+            className="lease-docs-remaining__toggle"
+            aria-expanded={remainingOpen}
+            onClick={() => setRemainingOpen((open) => !open)}
+          >
+            <span className="lease-docs-remaining__summary">
+              <strong>
+                {pendingVerifyCount
+                  ? ar
+                    ? `بانتظار اعتماد المالك: ${remaining.length}`
+                    : `Awaiting owner verification: ${remaining.length}`
+                  : ar
+                    ? `المتبقي للاعتماد أو الرفع: ${remaining.length}`
+                    : `Still to upload or approve: ${remaining.length}`}
+              </strong>
+              <span className="muted">
+                {ar
+                  ? `${fullyApprovedCount} معتمدة نهائياً من ${totalItems} · ينقص العدد مع كل رفع أو اعتماد`
+                  : `${fullyApprovedCount} of ${totalItems} fully approved · count drops with each upload or approval`}
+              </span>
+            </span>
+            <span className="lease-docs-remaining__chevron" aria-hidden="true">
+              {remainingOpen ? (ar ? '▲' : '▴') : ar ? '▼' : '▾'}
+            </span>
+          </button>
+          {remainingOpen ? (
+            <div className="lease-docs-remaining__body" role="status">
+              <ul className="lease-docs-remaining__list">
+                {remaining.map((item) => {
+                  const markStatus = item.pendingVerify ? 'submitted' : item.status;
+                  return (
+                    <li
+                      key={item.key}
+                      className={`lease-docs-remaining__item lease-docs-remaining__item--${markStatus}`}
+                    >
+                      <DocStatusMark status={markStatus} ar={ar} viewer="tenant" />
+                      <span>{item.label}</span>
+                      <small>
+                        {item.pendingVerify
+                          ? ar
+                            ? 'قُبل إلكترونياً — قيد تحقق الفريق'
+                            : 'Accepted electronically — team verifying'
+                          : docStatusLabel(item.status, ar, 'tenant')}
+                      </small>
+                    </li>
+                  );
+                })}
+              </ul>
+              {pendingVerifyCount ? (
+                <p className="notice notice--info">
+                  {ar
+                    ? 'العقد قد يكون معتمداً وموقّعاً، لكن المستندات أعلاه ما زالت بانتظار اعتماد المالك يدوياً. إن اتضح أن المستندات أو البيانات غير صحيحة يحق للمؤجر إلغاء العقد مع تحمل المستأجر كافة التكاليف والمسؤولية.'
+                    : 'The contract may already be approved and signed, but the files above still need the owner’s manual verification. If documents or details prove incorrect, the landlord may cancel and you bear all costs and responsibility.'}
+                </p>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : (

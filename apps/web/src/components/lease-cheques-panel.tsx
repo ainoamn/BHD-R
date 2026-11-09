@@ -74,7 +74,7 @@ export function LeaseCheques({
   const errorRef = useRef<HTMLParagraphElement | null>(null);
   const [pending, setPending] = useState<{ key: string; file: File } | null>(null);
   const [preview, setPreview] = useState<PreviewFile | null>(null);
-  const [viewMode, setViewMode] = useState<ChequeViewMode>('table');
+  const [viewMode, setViewMode] = useState<ChequeViewMode | ''>('');
   const [stepIndex, setStepIndex] = useState(0);
   const [bulkMaster, setBulkMaster] = useState<File | null>(null);
   const [bulkMasterUrl, setBulkMasterUrl] = useState<string | null>(null);
@@ -91,6 +91,7 @@ export function LeaseCheques({
     try {
       const stored = sessionStorage.getItem(`bhd-cheque-view:${referenceCode}`);
       if (stored === 'table' || stored === 'step' || stored === 'bulk') setViewMode(stored);
+      else setViewMode('');
     } catch {
       /* private mode */
     }
@@ -149,12 +150,13 @@ export function LeaseCheques({
 
   if (!cheques.length) return null;
 
-  function chooseMode(mode: ChequeViewMode) {
+  function chooseMode(mode: ChequeViewMode | '') {
     setViewMode(mode);
     setError(null);
     setErrorKey(null);
     try {
-      sessionStorage.setItem(`bhd-cheque-view:${referenceCode}`, mode);
+      if (mode) sessionStorage.setItem(`bhd-cheque-view:${referenceCode}`, mode);
+      else sessionStorage.removeItem(`bhd-cheque-view:${referenceCode}`);
     } catch {
       /* ignore */
     }
@@ -884,30 +886,9 @@ export function LeaseCheques({
       ) : null}
       <p className="muted">
         {ar
-          ? 'أدخل بنك الحساب واسم صاحبه ورقم الحساب مرة واحدة، ثم اختر طريقة الرفع. في كل الحالات تصل الشيكات للمالك للاعتماد.'
-          : 'Enter bank, account holder, and account number once, then choose how to upload. In every mode the cheques go to the owner for approval.'}
+          ? 'أدخل بنك الحساب واسم صاحبه ورقم الحساب مرة واحدة، ثم اختر طريقة الرفع من القائمة. في كل الحالات تصل الشيكات للمالك للاعتماد.'
+          : 'Enter bank, account holder, and account number once, then pick an upload method from the list. In every mode the cheques go to the owner for approval.'}
       </p>
-      {!readOnly ? (
-        <div
-          className="lease-docs__modes"
-          role="group"
-          aria-label={ar ? 'طريقة رفع الشيكات' : 'Cheque upload method'}
-        >
-          <button
-            type="button"
-            aria-pressed={viewMode === 'table'}
-            onClick={() => chooseMode('table')}
-          >
-            {ar ? 'واحداً واحداً' : 'One by one'}
-          </button>
-          <button type="button" aria-pressed={viewMode === 'step'} onClick={() => chooseMode('step')}>
-            {ar ? 'نافذة متتابعة' : 'Step wizard'}
-          </button>
-          <button type="button" aria-pressed={viewMode === 'bulk'} onClick={() => chooseMode('bulk')}>
-            {ar ? 'مسح الكل ثم التعيين' : 'Scan all & assign'}
-          </button>
-        </div>
-      ) : null}
       {error ? (
         <p ref={errorRef} className="notice notice--error lease-cheques__alert" role="alert">
           {error}
@@ -916,7 +897,40 @@ export function LeaseCheques({
 
       {renderSharedBankFields()}
 
-      {viewMode === 'step' ? renderStep() : viewMode === 'bulk' ? renderBulk() : renderTable()}
+      {!readOnly ? (
+        <label className="field lease-cheques__mode-select">
+          {ar ? 'طريقة رفع الشيكات' : 'Cheque upload method'}
+          <select
+            className="select"
+            value={viewMode}
+            disabled={busy !== null || bulkSending}
+            onChange={(event) => chooseMode(event.target.value as ChequeViewMode | '')}
+          >
+            <option value="">{ar ? '— اختر طريقة الرفع —' : '— Choose upload method —'}</option>
+            <option value="table">{ar ? 'واحداً واحداً من الجدول' : 'One by one from the table'}</option>
+            <option value="step">{ar ? 'نافذة متتابعة (شيك ثم التالي)' : 'Step wizard (cheque then next)'}</option>
+            <option value="bulk">
+              {ar ? 'مسح الكل ثم تعيين كل شيك لشهره' : 'Scan all, then assign each cheque to its month'}
+            </option>
+          </select>
+        </label>
+      ) : null}
+
+      {!viewMode && !readOnly ? (
+        <p className="notice notice--info" role="status">
+          {ar
+            ? 'اختر طريقة الرفع من القائمة أعلاه لتظهر لك خيارات إرفاق الشيكات.'
+            : 'Choose an upload method above to show the cheque attachment options.'}
+        </p>
+      ) : null}
+
+      {viewMode === 'step'
+        ? renderStep()
+        : viewMode === 'bulk'
+          ? renderBulk()
+          : viewMode === 'table' || readOnly
+            ? renderTable()
+            : null}
 
       {pending ? (
         <UploadPrepareDialog
