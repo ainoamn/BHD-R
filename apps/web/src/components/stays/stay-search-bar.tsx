@@ -2,20 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
-
-const GOVERNORATES = [
-  'Muscat',
-  'Dhofar',
-  'Musandam',
-  'Al Buraimi',
-  'Ad Dakhiliyah',
-  'North Al Batinah',
-  'South Al Batinah',
-  'North Ash Sharqiyah',
-  'South Ash Sharqiyah',
-  'Al Dhahirah',
-  'Al Wusta',
-] as const;
+import { omanLocations } from '@/lib/oman-locations';
 
 function defaultCheckIn(): string {
   const d = new Date();
@@ -138,9 +125,9 @@ export function StaySearchBar({
           onChange={(event) => setDestination(event.target.value)}
         >
           <option value="">{ar ? 'كل المحافظات' : 'All governorates'}</option>
-          {GOVERNORATES.map((name) => (
-            <option key={name} value={name}>
-              {name}
+          {omanLocations.map((gov) => (
+            <option key={gov.en} value={gov.en}>
+              {ar ? gov.ar : gov.en}
             </option>
           ))}
         </select>
