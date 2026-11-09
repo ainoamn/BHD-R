@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { SelfieCaptureDialog } from '@/components/selfie-capture-dialog';
 import { compressPhoto } from '@/components/stays/stay-handover-form';
-import { EsignCameraCapture } from '@/components/stays/esign/esign-camera-capture';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { HANDOVER_PHOTO_MAX } from '@/lib/stay-handover';
 
@@ -34,12 +34,11 @@ export function HandoverSelfieCard({
   onSent: () => void;
 }) {
   const ar = locale === 'ar';
-  const [shot, setShot] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function sendShot(dataUrl: string) {
-    setShot(dataUrl);
+  async function send(dataUrl: string) {
     setBusy(true);
     setError(null);
     try {
@@ -54,6 +53,7 @@ export function HandoverSelfieCard({
           }),
         },
       );
+      setOpen(false);
       onSent();
     } catch (caught) {
       setError(
@@ -82,47 +82,37 @@ export function HandoverSelfieCard({
             ? `مسح ${scannedBy ?? 'ممثل المالك'} رمزك. التقط صورة لوجهك بكاميرا هاتفك الأمامية لتظهر له فوراً ويطابقها معك، وتُرفق بمحضر التسليم. في الوقت نفسه يلتقط ممثل المالك صورة سيلفي لنفسه، فيُوثَّق التسليم بوجه المستلم والمسلِّم معاً.`
             : `${scannedBy ?? 'The owner’s representative'} scanned your code. Take a photo of your face with your front camera; it shows on their screen at once and joins the handover record. At the same time the representative takes a selfie of themselves, so the record carries both faces.`}
       </p>
-      {shot ? (
-        <div className="handover-selfie__review">
-          <img src={shot} alt={ar ? 'صورتك' : 'Your selfie'} />
-          <div className="handover-selfie__actions">
-            {busy ? (
-              <p className="muted" role="status">
-                {ar ? 'جارٍ الإرسال…' : 'Sending…'}
-              </p>
-            ) : (
-              <button
-                type="button"
-                className="button button--quiet"
-                onClick={() => {
-                  setError(null);
-                  setShot(null);
-                }}
-              >
-                {ar ? 'إعادة الالتقاط' : 'Retake'}
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <EsignCameraCapture
-          locale={locale}
-          facingMode="user"
-          frame="selfie"
-          onCaptured={(dataUrl) => void sendShot(dataUrl)}
-          onError={() =>
-            setError(
-              ar
-                ? 'تعذّر تشغيل الكاميرا؛ اسمح بالوصول إليها أو التقط الصورة من زر الرفع.'
-                : 'The camera could not start; allow access or use the upload button.',
-            )
-          }
-        />
-      )}
-      {error ? (
+      <div className="handover-selfie__launch">
+        <button
+          type="button"
+          className="button button--primary"
+          onClick={() => {
+            setError(null);
+            setBusy(false);
+            setOpen(true);
+          }}
+        >
+          {ar ? 'التقاط / رفع صورة سيلفي' : 'Take / upload selfie'}
+        </button>
+      </div>
+      {error && !open ? (
         <p className="notice notice--error" role="alert">
           {error}
         </p>
+      ) : null}
+      {open ? (
+        <SelfieCaptureDialog
+          locale={locale}
+          title={ar ? 'صورة سيلفي للتسليم' : 'Handover selfie'}
+          busy={busy}
+          error={error}
+          onClose={() => {
+            if (busy) return;
+            setOpen(false);
+            setError(null);
+          }}
+          onSend={send}
+        />
       ) : null}
     </section>
   );

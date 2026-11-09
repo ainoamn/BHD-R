@@ -12,6 +12,7 @@ import { useStayJourney } from '@/components/stays/stay-journey';
 import { StaySendPhone } from '@/components/stays/stay-send-phone';
 import { StayTrip } from '@/components/stays/stay-trip';
 import { LeaseCheques } from '@/components/lease-cheques-panel';
+import { UploadPrepareDialog } from '@/components/upload-prepare-dialog';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { compressImageFile } from '@/lib/compress-image';
 import { leaseScreens, type LeaseJourneyProps } from '@/lib/lease-journey-screens';
@@ -201,6 +202,7 @@ function BookingDocsReturnNotice({
   const locked = (docsReturn.locked ?? []).filter(isBookingIdentityDocCode);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ code: string; file: File } | null>(null);
   const filesBase = `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files`;
   const fileOf = (code: string) => {
     if (code === 'civil_id_copy') return `${filesBase}/party-civil-id`;
@@ -223,10 +225,11 @@ function BookingDocsReturnNotice({
     event.target.value = '';
     if (!file) return;
     setError(null);
-    void send(code, file);
+    setPending({ code, file });
   }
 
   async function send(code: string, prepared: File) {
+    setPending(null);
     setBusy(code);
     setError(null);
     try {
@@ -378,6 +381,15 @@ function BookingDocsReturnNotice({
             })}
           </ul>
         </div>
+      ) : null}
+      {pending ? (
+        <UploadPrepareDialog
+          file={pending.file}
+          ar={ar}
+          title={ar ? 'معاينة المستند قبل الإرسال' : 'Preview document before sending'}
+          onCancel={() => setPending(null)}
+          onConfirm={(file) => void send(pending.code, file)}
+        />
       ) : null}
     </div>
   );
@@ -637,6 +649,7 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<{ code: string; file: File } | null>(null);
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'step'>('list');
   const [stepIndex, setStepIndex] = useState(0);
@@ -685,11 +698,12 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
       return;
     }
     setError(null);
-    void send(code, picked);
+    setPending({ code, file: picked });
   }
 
   async function send(code: string, prepared: File) {
     setBusy(code);
+    setPending(null);
     try {
       const duplicate = otherSlotUsingUploadFileName(
         prepared.name,
@@ -1032,6 +1046,15 @@ function LeaseDocuments({ lifecycle, locale, referenceCode }: LeaseJourneyProps)
           {orderedRequirements.map((item) => renderDocItem(item))}
         </ul>
       )}
+      {pending ? (
+        <UploadPrepareDialog
+          file={pending.file}
+          ar={ar}
+          title={ar ? 'معاينة المستند قبل الإرسال' : 'Preview document before sending'}
+          onCancel={() => setPending(null)}
+          onConfirm={(file) => void send(pending.code, file)}
+        />
+      ) : null}
       {preview ? (
         <FilePreviewDialog file={preview} ar={ar} onClose={() => setPreview(null)} />
       ) : null}

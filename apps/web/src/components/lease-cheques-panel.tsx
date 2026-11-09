@@ -84,6 +84,7 @@ export function LeaseCheques({
   const [error, setError] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const errorRef = useRef<HTMLParagraphElement | null>(null);
+  const [pending, setPending] = useState<{ key: string; file: File } | null>(null);
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const [viewMode, setViewMode] = useState<ChequeViewMode | ''>('');
   const [stepIndex, setStepIndex] = useState(0);
@@ -263,11 +264,12 @@ export function LeaseCheques({
     if (!assertReadyToPick(key, picked)) return;
     setError(null);
     setErrorKey(null);
-    void (viewMode === 'step' ? sendAndAdvance(key, picked) : send(key, picked));
+    setPending({ key, file: picked });
   }
 
   async function send(key: string, prepared: File, options?: { skipRefresh?: boolean }) {
     setBusy(key);
+    setPending(null);
     const chequeNumber = (numbers[key] ?? '').trim();
     const numberClash = duplicateChequeNumber(key, chequeNumber);
     if (numberClash) {
@@ -979,6 +981,17 @@ export function LeaseCheques({
               ? renderTable()
               : null}
 
+      {pending ? (
+        <UploadPrepareDialog
+          file={pending.file}
+          ar={ar}
+          title={ar ? 'معاينة صورة الشيك قبل الإرسال' : 'Preview cheque photo before sending'}
+          onCancel={() => setPending(null)}
+          onConfirm={(file) =>
+            void (viewMode === 'step' ? sendAndAdvance(pending.key, file) : send(pending.key, file))
+          }
+        />
+      ) : null}
       {bulkMaster && bulkAssignKey && bulkAssignItem ? (
         <UploadPrepareDialog
           file={bulkMaster}
