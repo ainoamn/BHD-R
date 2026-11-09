@@ -97,6 +97,10 @@ const SIGNATURE_METHODS: Record<string, Pair> = {
     'توقيع إلكتروني بخط اليد مع إثبات الهوية',
     'Handwritten e-signature with identity check',
   ],
+  reservation_contract_esign: [
+    'توقيع إلكتروني على العقد',
+    'Contract e-signature',
+  ],
 };
 
 const FILE_LABELS: Record<ContractFileKind, Pair> = {

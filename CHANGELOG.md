@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.110 — 2026-11-09
+
+- **تعريب طريقة التوقيع في العقد:** ختم التوقيع الإلكتروني يعرض «توقيع إلكتروني على العقد» بدل المفتاح التقني `reservation_contract_esign`.
+
 ## 0.8.136.109 — 2026-11-09
 
 - **رقم العقد في مساحة المستأجر:** في قائمة العقود يصبح رقم العقد (مثل CTR-…) رابطاً يفتح صفحة العقد مباشرة.
