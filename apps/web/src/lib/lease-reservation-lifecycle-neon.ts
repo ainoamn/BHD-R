@@ -1648,13 +1648,12 @@ async function ownerActionInTx(
         ) {
           fail('reservation_not_ready');
         }
-        const formNo = input.formNo.trim().slice(0, 80);
-        const contractNo = input.contractNo.trim().slice(0, 80);
+        const formNo = (input.formNo ?? '').trim().slice(0, 80);
+        const contractNo = (input.contractNo ?? '').trim().slice(0, 80);
         const electricityReading = input.electricityReading.trim().slice(0, 40);
         const waterReading = input.waterReading.trim().slice(0, 40);
         const electricityReadingPhoto = input.electricityReadingPhoto.trim();
         const waterReadingPhoto = input.waterReadingPhoto.trim();
-        if (!formNo || !contractNo) fail('municipal_registration_invalid');
         if (
           !electricityReading ||
           !waterReading ||
@@ -1663,19 +1662,26 @@ async function ownerActionInTx(
         ) {
           fail('meters_required');
         }
-        const registration = {
-          formNo,
-          contractNo,
-          at,
-          byName,
-        };
+        // Municipal numbers are optional on the first save; both or neither.
+        if (Boolean(formNo) !== Boolean(contractNo)) fail('municipal_registration_invalid');
+        const registration =
+          formNo && contractNo
+            ? {
+                formNo,
+                contractNo,
+                at,
+                byName,
+              }
+            : (row.lifecycle.municipalRegistration ?? undefined);
         const draft = row.lifecycle.contractDraft;
         let nextDraft = draft;
         if (draft?.lease && typeof draft.lease === 'object') {
           const lease = draft.lease as { terms?: Record<string, unknown> };
           const terms = lease.terms && typeof lease.terms === 'object' ? { ...lease.terms } : {};
-          terms.municipalFormNo = formNo;
-          terms.municipalContractNo = contractNo;
+          if (formNo && contractNo) {
+            terms.municipalFormNo = formNo;
+            terms.municipalContractNo = contractNo;
+          }
           terms.electricityReading = electricityReading;
           terms.waterReading = waterReading;
           terms.electricityReadingPhoto = electricityReadingPhoto;
@@ -1692,8 +1698,9 @@ async function ownerActionInTx(
             byName,
             lease: {
               terms: {
-                municipalFormNo: formNo,
-                municipalContractNo: contractNo,
+                ...(formNo && contractNo
+                  ? { municipalFormNo: formNo, municipalContractNo: contractNo }
+                  : {}),
                 electricityReading,
                 waterReading,
                 electricityReadingPhoto,
@@ -1705,7 +1712,7 @@ async function ownerActionInTx(
         const lifecycle: ReservationLifecycle = {
           ...row.lifecycle,
           ...(nextDraft ? { contractDraft: nextDraft } : {}),
-          municipalRegistration: registration,
+          ...(registration ? { municipalRegistration: registration } : {}),
           handover: {
             ...handover,
             electricityReading,
@@ -1726,12 +1733,22 @@ async function ownerActionInTx(
               payload.leaseTerms && typeof payload.leaseTerms === 'object'
                 ? { ...(payload.leaseTerms as Record<string, unknown>) }
                 : {};
-            leaseTerms.municipalFormNo = formNo;
-            leaseTerms.municipalContractNo = contractNo;
+            if (formNo && contractNo) {
+              leaseTerms.municipalFormNo = formNo;
+              leaseTerms.municipalContractNo = contractNo;
+            }
             leaseTerms.electricityReading = electricityReading;
             leaseTerms.waterReading = waterReading;
             leaseTerms.electricityReadingPhoto = electricityReadingPhoto;
             leaseTerms.waterReadingPhoto = waterReadingPhoto;
+            leaseTerms.meters = {
+              electricityReading,
+              waterReading,
+            };
+            leaseTerms.meterPhotos = {
+              electricity: electricityReadingPhoto,
+              water: waterReadingPhoto,
+            };
             payload.leaseTerms = leaseTerms;
             await tx
               .update(contracts)
@@ -1740,10 +1757,11 @@ async function ownerActionInTx(
           }
         }
         await event('reservation.municipal_registration_saved', {
-          formNo,
-          contractNo,
+          formNo: formNo || null,
+          contractNo: contractNo || null,
           electricityReading,
           waterReading,
+          metersOnly: !(formNo && contractNo),
         });
         break;
       }

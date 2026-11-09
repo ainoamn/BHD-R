@@ -356,6 +356,8 @@ export type LeaseTerms = {
   vatCheques: LeaseVatCheque[];
   adjustments: LeaseAdjustmentLine[];
   meters: { electricityReading: string | null; waterReading: string | null };
+  /** Post-handover meter photos (data URLs) when the owner saved them. */
+  meterPhotos?: { electricity: string | null; water: string | null } | null;
   notes: string | null;
   totals: LeaseTotals;
 };
@@ -830,8 +832,29 @@ export function normalizeStoredLeaseTerms(value: unknown): LeaseTerms | null {
   const municipalityFeeOnTenantMinor =
     raw.totals.municipalityFeeOnTenantMinor ?? (payer === 'tenant' ? municipalityFeeMinor : 0);
 
+  const flat = value as LeaseTerms & {
+    electricityReading?: unknown;
+    waterReading?: unknown;
+    electricityReadingPhoto?: unknown;
+    waterReadingPhoto?: unknown;
+  };
+  const electricityReading =
+    raw.meters?.electricityReading ??
+    (typeof flat.electricityReading === 'string' ? flat.electricityReading : null);
+  const waterReading =
+    raw.meters?.waterReading ??
+    (typeof flat.waterReading === 'string' ? flat.waterReading : null);
+  const electricityPhoto =
+    raw.meterPhotos?.electricity ??
+    (typeof flat.electricityReadingPhoto === 'string' ? flat.electricityReadingPhoto : null);
+  const waterPhoto =
+    raw.meterPhotos?.water ??
+    (typeof flat.waterReadingPhoto === 'string' ? flat.waterReadingPhoto : null);
+
   return {
     ...raw,
+    municipalFormNo: raw.municipalFormNo ?? null,
+    municipalContractNo: raw.municipalContractNo ?? null,
     municipalityFee: {
       enabled: Boolean(raw.municipalityFee?.enabled),
       rateBasisPoints: raw.municipalityFee?.rateBasisPoints ?? 300,
@@ -842,6 +865,17 @@ export function normalizeStoredLeaseTerms(value: unknown): LeaseTerms | null {
     vatCheques: Array.isArray(raw.vatCheques) ? raw.vatCheques : [],
     depositItems: Array.isArray(raw.depositItems) ? raw.depositItems : [],
     adjustments: Array.isArray(raw.adjustments) ? raw.adjustments : [],
+    meters: {
+      electricityReading: electricityReading?.trim() ? electricityReading : null,
+      waterReading: waterReading?.trim() ? waterReading : null,
+    },
+    meterPhotos:
+      electricityPhoto || waterPhoto
+        ? {
+            electricity: electricityPhoto?.startsWith('data:image/') ? electricityPhoto : null,
+            water: waterPhoto?.startsWith('data:image/') ? waterPhoto : null,
+          }
+        : (raw.meterPhotos ?? null),
     totals: {
       ...raw.totals,
       municipalityFeeMinor,

@@ -101,8 +101,8 @@ const ERROR_TEXT: Record<string, [string, string]> = {
   ],
   cheque_number_taken: ['رقم شيك مستخدم من قبل.', 'A cheque number is already used.'],
   meters_required: [
-    'أدخل قراءات الكهرباء والماء، أو أجّلها حتى التسليم من سياسة الاعتماد.',
-    'Enter electricity and water readings, or defer them until handover in the approval policy.',
+    'أدخل قراءتي الكهرباء والماء مع صور العدادين.',
+    'Enter electricity and water readings with both meter photos.',
   ],
   handover_required: ['أدخل تاريخ التسليم.', 'Enter the handover date.'],
   bank_account_required: [
@@ -1716,11 +1716,12 @@ function MunicipalRegistrationCard({
   const [photoBusy, setPhotoBusy] = useState(false);
   const metersComplete = Boolean(
     handover?.electricityReading?.trim() &&
-    handover?.waterReading?.trim() &&
-    draftTerms?.electricityReadingPhoto?.trim() &&
-    draftTerms?.waterReadingPhoto?.trim(),
+      handover?.waterReading?.trim() &&
+      draftTerms?.electricityReadingPhoto?.trim() &&
+      draftTerms?.waterReadingPhoto?.trim(),
   );
-  const [editing, setEditing] = useState(!registration || !metersComplete);
+  const municipalComplete = Boolean(registration?.formNo?.trim() && registration?.contractNo?.trim());
+  const [editing, setEditing] = useState(!metersComplete || !municipalComplete);
 
   useEffect(() => {
     if (registration) {
@@ -1731,8 +1732,8 @@ function MunicipalRegistrationCard({
     if (handover?.waterReading) setWater(handover.waterReading);
     if (draftTerms?.electricityReadingPhoto) setElecPhoto(draftTerms.electricityReadingPhoto);
     if (draftTerms?.waterReadingPhoto) setWaterPhoto(draftTerms.waterReadingPhoto);
-    if (registration && metersComplete) setEditing(false);
-  }, [registration, handover, draftTerms, metersComplete]);
+    if (metersComplete && municipalComplete) setEditing(false);
+  }, [registration, handover, draftTerms, metersComplete, municipalComplete]);
 
   async function readPhoto(file: File | null, setter: (value: string) => void) {
     if (!file) {
@@ -1748,24 +1749,26 @@ function MunicipalRegistrationCard({
     }
   }
 
-  const formMissing = !formNo.trim();
-  const contractMissing = !contractNo.trim();
   const electricityMissing = !electricity.trim();
   const waterMissing = !water.trim();
   const elecPhotoMissing = !elecPhoto.trim();
   const waterPhotoMissing = !waterPhoto.trim();
-  const incomplete =
-    formMissing ||
-    contractMissing ||
-    electricityMissing ||
-    waterMissing ||
-    elecPhotoMissing ||
-    waterPhotoMissing;
+  const metersIncomplete =
+    electricityMissing || waterMissing || elecPhotoMissing || waterPhotoMissing;
+  const municipalPartial = Boolean(formNo.trim()) !== Boolean(contractNo.trim());
 
-  if (registration && metersComplete && !editing) {
+  if (metersComplete && !editing) {
     return (
       <div className="lrw__card">
         <h3>{t('بيانات ما بعد التسليم', 'Post-handover details')}</h3>
+        {!municipalComplete ? (
+          <p className="notice notice--warning" role="status">
+            {t(
+              'قراءات العدادات محفوظة. أكمل رقم استمارة العقد البلدي ورقم العقد البلدي في الخطوة التالية.',
+              'Meter readings are saved. Complete the municipal form and contract numbers in the next step.',
+            )}
+          </p>
+        ) : null}
         <dl className="contract-detail__facts">
           <div>
             <dt>{t('قراءة عداد الكهرباء', 'Electricity reading')}</dt>
@@ -1793,21 +1796,25 @@ function MunicipalRegistrationCard({
               </dd>
             </div>
           ) : null}
-          <div>
-            <dt>{t('رقم استمارة العقد البلدي', 'Municipal form no.')}</dt>
-            <dd dir="ltr">{registration.formNo}</dd>
-          </div>
-          <div>
-            <dt>{t('رقم العقد البلدي', 'Municipal contract no.')}</dt>
-            <dd dir="ltr">{registration.contractNo}</dd>
-          </div>
-          <div>
-            <dt>{t('سُجّل', 'Recorded')}</dt>
-            <dd>
-              {stampText(registration.at, ar)}
-              {registration.byName ? ` · ${registration.byName}` : ''}
-            </dd>
-          </div>
+          {municipalComplete && registration ? (
+            <>
+              <div>
+                <dt>{t('رقم استمارة العقد البلدي', 'Municipal form no.')}</dt>
+                <dd dir="ltr">{registration.formNo}</dd>
+              </div>
+              <div>
+                <dt>{t('رقم العقد البلدي', 'Municipal contract no.')}</dt>
+                <dd dir="ltr">{registration.contractNo}</dd>
+              </div>
+              <div>
+                <dt>{t('سُجّل', 'Recorded')}</dt>
+                <dd>
+                  {stampText(registration.at, ar)}
+                  {registration.byName ? ` · ${registration.byName}` : ''}
+                </dd>
+              </div>
+            </>
+          ) : null}
         </dl>
         {canManage ? (
           <button
@@ -1816,7 +1823,9 @@ function MunicipalRegistrationCard({
             disabled={busy}
             onClick={() => setEditing(true)}
           >
-            {t('تعديل البيانات', 'Edit details')}
+            {municipalComplete
+              ? t('تعديل البيانات', 'Edit details')
+              : t('إكمال بيانات البلدية', 'Complete municipal details')}
           </button>
         ) : null}
       </div>
@@ -1828,15 +1837,15 @@ function MunicipalRegistrationCard({
       <h3>{t('بيانات ما بعد التسليم', 'Post-handover details')}</h3>
       <p>
         {t(
-          'بعد التسليم يُكمل المالك/الإدارة قراءات وصوَر العدادات وبيانات العقد البلدي — كلها إلزامية.',
-          'After handover the owner/admin completes meter readings, meter photos, and municipal contract details — all required.',
+          'بعد التسليم أدخل قراءات وصور عدّادي الكهرباء والماء (إلزامي). رقم استمارة البلدية ورقم العقد البلدي يمكن إكمالهما لاحقاً.',
+          'After handover enter electricity and water meter readings with photos (required). Municipal form and contract numbers can be completed later.',
         )}
       </p>
       <form
         className="form-grid"
         onSubmit={(event: FormEvent) => {
           event.preventDefault();
-          if (incomplete) return;
+          if (metersIncomplete || municipalPartial) return;
           onSave({
             formNo: formNo.trim(),
             contractNo: contractNo.trim(),
@@ -1933,65 +1942,63 @@ function MunicipalRegistrationCard({
             <img src={waterPhoto} alt="" className="lcf-meter-thumb" />
           ) : null}
         </div>
-        <div
-          className={`field field--required-mark${formMissing ? ' field--missing' : ' field--ok'}`}
-        >
+        <div className={`field${municipalPartial && !formNo.trim() ? ' field--missing' : ''}`}>
           <label htmlFor="lrw-mform">
-            {t('رقم استمارة العقد البلدي', 'Municipal form no.')}
-            <span className="field__req" aria-hidden="true">
-              *
-            </span>
+            {t('رقم استمارة العقد البلدي (لاحقاً)', 'Municipal form no. (later)')}
           </label>
           <input
             id="lrw-mform"
             className="input"
             dir="ltr"
-            required
             maxLength={80}
             disabled={busy || !canManage}
             value={formNo}
             onChange={(event) => setFormNo(event.target.value)}
           />
         </div>
-        <div
-          className={`field field--required-mark${contractMissing ? ' field--missing' : ' field--ok'}`}
-        >
+        <div className={`field${municipalPartial && !contractNo.trim() ? ' field--missing' : ''}`}>
           <label htmlFor="lrw-mcontract">
-            {t('رقم العقد البلدي', 'Municipal contract no.')}
-            <span className="field__req" aria-hidden="true">
-              *
-            </span>
+            {t('رقم العقد البلدي (لاحقاً)', 'Municipal contract no. (later)')}
           </label>
           <input
             id="lrw-mcontract"
             className="input"
             dir="ltr"
-            required
             maxLength={80}
             disabled={busy || !canManage}
             value={contractNo}
             onChange={(event) => setContractNo(event.target.value)}
           />
         </div>
+        {municipalPartial ? (
+          <p className="notice notice--error span-2" role="alert">
+            {t(
+              'أدخل رقمي الاستمارة والعقد البلدي معاً، أو اتركهما فارغين الآن.',
+              'Enter both municipal numbers together, or leave both empty for now.',
+            )}
+          </p>
+        ) : null}
         {canManage ? (
           <div className="form-actions span-2">
             <button
               type="submit"
               className="button button--primary"
-              disabled={busy || photoBusy || incomplete}
+              disabled={busy || photoBusy || metersIncomplete || municipalPartial}
             >
               {busy
                 ? t('جارٍ الحفظ…', 'Saving…')
-                : t('حفظ بيانات ما بعد التسليم', 'Save post-handover details')}
+                : formNo.trim() && contractNo.trim()
+                  ? t('حفظ بيانات ما بعد التسليم', 'Save post-handover details')
+                  : t('حفظ قراءات العدادات', 'Save meter readings')}
             </button>
-            {registration && metersComplete ? (
+            {metersComplete ? (
               <button
                 type="button"
                 className="button button--quiet"
                 disabled={busy}
                 onClick={() => {
-                  setFormNo(registration.formNo);
-                  setContractNo(registration.contractNo);
+                  setFormNo(registration?.formNo ?? '');
+                  setContractNo(registration?.contractNo ?? '');
                   setElectricity(handover?.electricityReading ?? '');
                   setWater(handover?.waterReading ?? '');
                   setElecPhoto(draftTerms?.electricityReadingPhoto ?? '');

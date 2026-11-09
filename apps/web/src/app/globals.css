@@ -30918,6 +30918,33 @@ a.contract-annex-bar__item:focus-visible {
 .contract-doc__section {
   margin-top: 1.6rem;
 }
+.contract-doc__meter-photos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.9rem;
+}
+.contract-doc__meter-photos figure {
+  margin: 0;
+  padding: 0.45rem;
+  border: 1px solid var(--doc-gold-soft, #e4d7b5);
+  border-radius: 0.55rem;
+  background: #fbfaf6;
+}
+.contract-doc__meter-photos img {
+  display: block;
+  width: 100%;
+  max-height: 11rem;
+  object-fit: contain;
+  border-radius: 0.35rem;
+  background: #0b1412;
+}
+.contract-doc__meter-photos figcaption {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--doc-muted, #5c6b64);
+  text-align: center;
+}
 .contract-doc__heading {
   display: flex;
   align-items: baseline;

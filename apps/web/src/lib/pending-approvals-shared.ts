@@ -42,6 +42,8 @@ export type PendingApprovalItem = {
   phase?: LeaseJourneyPhase | null;
   /** A `lease_reservation` whose documents the system accepted and the team still has to verify. */
   verifyDocuments?: boolean;
+  /** After handover: meters first, then optional municipal numbers. */
+  postHandoverDetails?: 'meters' | 'municipal' | null;
   /** For `sale_decision`: keep selling a leased rent-and-sale unit, or hide a leased or sold one. */
   decision?: 'keep_selling' | 'hide_leased' | 'hide_sold' | null;
   /** For `legal_message`: unread messages and updates on the case. */
@@ -179,6 +181,16 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
       return ar
         ? `${kind} — مستندات قُبلت إلكترونياً، تحقّق منها`
         : `${kind} — documents accepted electronically, verify them`;
+    }
+    if (item.postHandoverDetails === 'meters') {
+      return ar
+        ? `${kind} — أكمل قراءات وصور العدادات بعد التسليم`
+        : `${kind} — complete meter readings and photos after handover`;
+    }
+    if (item.postHandoverDetails === 'municipal') {
+      return ar
+        ? `${kind} — أكمل بيانات العقد البلدي`
+        : `${kind} — complete municipal contract details`;
     }
     switch (item.phase) {
       case 'awaiting_payment_review':

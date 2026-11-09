@@ -117,8 +117,9 @@ const bodySchema = z.discriminatedUnion('action', [
   z
     .object({
       action: z.literal('save_municipal_registration'),
-      formNo: z.string().trim().min(1).max(80),
-      contractNo: z.string().trim().min(1).max(80),
+      /** Optional until the municipal step; meters are always required. */
+      formNo: z.string().trim().max(80).optional().default(''),
+      contractNo: z.string().trim().max(80).optional().default(''),
       electricityReading: z.string().trim().min(1).max(40),
       waterReading: z.string().trim().min(1).max(40),
       electricityReadingPhoto: z.string().startsWith('data:image/').max(HANDOVER_PHOTO_MAX),

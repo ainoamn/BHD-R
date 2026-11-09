@@ -664,6 +664,38 @@ export function handoverBlockedByUnverifiedDocs(
   return !documentsPackageFullyApproved(lifecycle);
 }
 
+/** What the owner still owes after premises handover (meters first, municipal optional later). */
+export type PostHandoverGap = 'meters' | 'municipal';
+
+export function postHandoverGap(
+  lifecycle: ReservationLifecycle | null | undefined,
+): PostHandoverGap | null {
+  const handover = lifecycle?.handover;
+  if (!handover) return null;
+  const terms =
+    lifecycle?.contractDraft?.lease &&
+    typeof lifecycle.contractDraft.lease === 'object' &&
+    'terms' in lifecycle.contractDraft.lease &&
+    lifecycle.contractDraft.lease.terms &&
+    typeof lifecycle.contractDraft.lease.terms === 'object'
+      ? (lifecycle.contractDraft.lease.terms as Record<string, unknown>)
+      : null;
+  const electricityPhoto =
+    typeof terms?.electricityReadingPhoto === 'string' ? terms.electricityReadingPhoto.trim() : '';
+  const waterPhoto =
+    typeof terms?.waterReadingPhoto === 'string' ? terms.waterReadingPhoto.trim() : '';
+  const metersOk = Boolean(
+    handover.electricityReading?.trim() &&
+      handover.waterReading?.trim() &&
+      electricityPhoto.startsWith('data:image/') &&
+      waterPhoto.startsWith('data:image/'),
+  );
+  if (!metersOk) return 'meters';
+  const municipal = lifecycle?.municipalRegistration;
+  if (!municipal?.formNo?.trim() || !municipal.contractNo?.trim()) return 'municipal';
+  return null;
+}
+
 /** Any step the system approved for the owner, which the customer is told about. */
 export function approvedElectronically(lifecycle: ReservationLifecycle | null | undefined) {
   return Boolean(

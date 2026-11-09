@@ -24,6 +24,7 @@ import {
   documentsToVerify,
   leaseJourneyPhase,
   phaseWaitsOn,
+  postHandoverGap,
   type ReservationLifecycle,
 } from '@/lib/lease-reservation-lifecycle';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
@@ -262,7 +263,25 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
               eq(reservations.organizationId, orgId),
               inArray(reservations.status, ['confirmed', 'converted']),
               sql`${reservations.termsSnapshot}->>'depositPaidAt' is not null`,
-              sql`${reservations.termsSnapshot}->'lifecycle'->'handover' is null`,
+              sql`(
+                ${reservations.termsSnapshot}->'lifecycle'->'handover' is null
+                or (
+                  coalesce(${reservations.termsSnapshot}->>'mode', 'rent') <> 'sale'
+                  and (
+                    coalesce(${reservations.termsSnapshot}->'lifecycle'->'handover'->>'electricityReading', '') = ''
+                    or coalesce(${reservations.termsSnapshot}->'lifecycle'->'handover'->>'waterReading', '') = ''
+                    or ${reservations.termsSnapshot}->'lifecycle'->'municipalRegistration' is null
+                    or coalesce(
+                      ${reservations.termsSnapshot}->'lifecycle'->'contractDraft'->'lease'->'terms'->>'electricityReadingPhoto',
+                      ''
+                    ) = ''
+                    or coalesce(
+                      ${reservations.termsSnapshot}->'lifecycle'->'contractDraft'->'lease'->'terms'->>'waterReadingPhoto',
+                      ''
+                    ) = ''
+                  )
+                )
+              )`,
               ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
             ),
           )
@@ -466,12 +485,17 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
             lifecycle: row.lifecycle,
           });
           const verify = documentsToVerify(row.lifecycle).length > 0;
-          return phaseWaitsOn(phase) === 'owner' || verify ? [{ ...row, phase, verify }] : [];
+          const postHandover =
+            row.mode === 'sale' ? null : postHandoverGap(row.lifecycle ?? undefined);
+          return phaseWaitsOn(phase) === 'owner' || verify || postHandover
+            ? [{ ...row, phase, verify, postHandover }]
+            : [];
         })
         .map((row) => ({
           kind: 'lease_reservation' as const,
           phase: row.phase,
           verifyDocuments: row.verify,
+          postHandoverDetails: row.postHandover,
           id: row.id,
           reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),
           propertyId: row.propertyId,

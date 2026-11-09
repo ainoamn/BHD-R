@@ -1294,6 +1294,30 @@ export function ContractArticle({
                         String(leaseTerms.paymentDay),
                       )
                     : null}
+                  {leaseTerms?.meters?.electricityReading
+                    ? row(
+                        ['قراءة عداد الكهرباء عند التسليم', 'Electricity reading at handover'],
+                        ltr(leaseTerms.meters.electricityReading),
+                      )
+                    : null}
+                  {leaseTerms?.meters?.waterReading
+                    ? row(
+                        ['قراءة عداد الماء عند التسليم', 'Water reading at handover'],
+                        ltr(leaseTerms.meters.waterReading),
+                      )
+                    : null}
+                  {leaseTerms?.municipalFormNo
+                    ? row(
+                        ['رقم استمارة العقد البلدي', 'Municipal form no.'],
+                        ltr(leaseTerms.municipalFormNo),
+                      )
+                    : null}
+                  {leaseTerms?.municipalContractNo
+                    ? row(
+                        ['رقم العقد البلدي', 'Municipal contract no.'],
+                        ltr(leaseTerms.municipalContractNo),
+                      )
+                    : null}
                   {doc.chequeAnnex
                     ? row(
                         ['ملحق الشيكات', 'Cheque annex'],
@@ -1322,6 +1346,30 @@ export function ContractArticle({
                     ? row(['مرجع الحجز', 'Booking reference'], ltr(doc.source.referenceCode))
                     : null}
                 </dl>
+                {leaseTerms?.meterPhotos?.electricity || leaseTerms?.meterPhotos?.water ? (
+                  <div className="contract-doc__meter-photos">
+                    {leaseTerms.meterPhotos.electricity ? (
+                      <figure>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={leaseTerms.meterPhotos.electricity}
+                          alt={ar ? 'صورة عداد الكهرباء' : 'Electricity meter photo'}
+                        />
+                        <figcaption>{bi(['عداد الكهرباء', 'Electricity meter'])}</figcaption>
+                      </figure>
+                    ) : null}
+                    {leaseTerms.meterPhotos.water ? (
+                      <figure>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={leaseTerms.meterPhotos.water}
+                          alt={ar ? 'صورة عداد الماء' : 'Water meter photo'}
+                        />
+                        <figcaption>{bi(['عداد الماء', 'Water meter'])}</figcaption>
+                      </figure>
+                    ) : null}
+                  </div>
+                ) : null}
               </section>
 
               {leaseTerms?.schedule.length && !doc.chequeAnnex ? (
