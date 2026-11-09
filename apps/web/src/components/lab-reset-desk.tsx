@@ -28,6 +28,7 @@ const EMPTY: LabResetCounts = {
   legal: 0,
   sales: 0,
   approvals: 0,
+  notifications: 0,
 };
 
 /** Temporary testing desk: wipe selected transactional data, keep properties/units. */
@@ -158,8 +159,8 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
       title={ar ? 'إعادة ضبط بيانات التجارب' : 'Reset experimental data'}
       lead={
         ar
-          ? 'احذف المعاملات التجريبية التي اخترتها. العقارات والوحدات والصور وإعداد الإقامة اليومية والفريق ودليل الحسابات تبقى كما هي.'
-          : 'Delete the experimental transactions you select. Properties, units, photos, stay property setup, team, and the chart of accounts stay.'
+          ? 'احذف المعاملات التجريبية التي اخترتها. عند مسح الإيجارات أو الحجوزات يُفرَّغ أيضاً طابور الإيميل/الواتساب حتى تتوقف تذكيرات التجديد والمتأخرات. العقارات والوحدات والصور وإعداد الإقامة اليومية والفريق ودليل الحسابات تبقى كما هي.'
+          : 'Delete the experimental transactions you select. Wiping leases or bookings also clears the email/WhatsApp queue so renewal and arrears reminders stop. Properties, units, photos, stay property setup, team, and the chart of accounts stay.'
       }
       actions={
         <Link className="button button--quiet" href="/admin" prefetch={false}>

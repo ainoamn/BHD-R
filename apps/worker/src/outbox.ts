@@ -21,6 +21,8 @@ import {
 
 const BATCH_SIZE = 25;
 const MAX_OUTBOX_ATTEMPTS = 12;
+/** Align with web email-outbox: stale lab/reminder notifications must not keep retrying. */
+const NOTIFICATION_MAX_AGE_HOURS = 12;
 
 interface OutboxQueues {
   media: Queue;
@@ -106,6 +108,15 @@ export class OutboxDispatcher {
     try {
       await client.query('BEGIN');
       await client.query("SET LOCAL app.worker = 'true'");
+      // Drop stale reminder/email rows left after lab resets (same 12h window as web dispatcher).
+      await client.query(
+        `UPDATE outbox_events
+         SET published_at = now(), attempts = greatest(attempts, $1)
+         WHERE published_at IS NULL
+           AND topic IN ('notification.delivery.requested', 'notification.requested')
+           AND occurred_at <= now() - make_interval(hours => $2)`,
+        [MAX_OUTBOX_ATTEMPTS, NOTIFICATION_MAX_AGE_HOURS],
+      );
       const result = await client.query<OutboxRecord>(
         `SELECT id,
                 organization_id,

@@ -10,6 +10,7 @@ export const LAB_RESET_CATEGORIES = [
   'legal',
   'sales',
   'approvals',
+  'notifications',
 ] as const;
 
 export type LabResetCategory = (typeof LAB_RESET_CATEGORIES)[number];
@@ -39,6 +40,10 @@ export function labResetLabel(category: LabResetCategory, locale: 'ar' | 'en'): 
     legal: ['القضايا القانونية', 'Legal cases'],
     sales: ['صفقات البيع', 'Sales deals'],
     approvals: ['طلبات الاعتماد', 'Approval requests'],
+    notifications: [
+      'طابور الإيميل والواتساب (تذكير التجديد والمتأخرات والكشوفات)',
+      'Email & WhatsApp queue (renewal, arrears & statement reminders)',
+    ],
   };
   return locale === 'ar' ? copy[category][0] : copy[category][1];
 }

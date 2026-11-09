@@ -79,34 +79,50 @@ async function sumDeletes(
 export async function labResetCounts(claims: SessionClaims): Promise<LabResetCounts> {
   const orgId = requireOwnerReset(claims);
   return elevatedTx(async (tx) => {
-    const [tasks, accounting, leasing, bookings, stays, maintenance, legal, sales, approvals] =
-      await Promise.all([
-        (async () =>
-          (await countTable(tx, orgId, 'work_tasks')) +
-          (await countTable(tx, orgId, 'workflow_events')))(),
-        (async () =>
-          (await countTable(tx, orgId, 'journal_entries')) +
-          (await countTable(tx, orgId, 'expenses')) +
-          (await countTable(tx, orgId, 'cheques')))(),
-        (async () =>
-          (await countTable(tx, orgId, 'leases')) +
-          (await countTable(tx, orgId, 'invoices')) +
-          (await countTable(tx, orgId, 'payments')) +
-          (await countTable(tx, orgId, 'receipts')))(),
-        (async () =>
-          (await countTable(tx, orgId, 'reservations')) +
-          (await countTable(tx, orgId, 'contracts')) +
-          (await countTable(tx, orgId, 'holds')) +
-          (await countTable(tx, orgId, 'viewing_requests')))(),
-        countTable(tx, orgId, 'stay_bookings'),
-        (async () =>
-          (await countTable(tx, orgId, 'maintenance_tickets')) +
-          (await countTable(tx, orgId, 'maintenance_work_orders')) +
-          (await countTable(tx, orgId, 'operational_requests')))(),
-        countTable(tx, orgId, 'legal_cases'),
-        countTable(tx, orgId, 'sales_deals'),
-        countTable(tx, orgId, 'approval_requests'),
-      ]);
+    const [
+      tasks,
+      accounting,
+      leasing,
+      bookings,
+      stays,
+      maintenance,
+      legal,
+      sales,
+      approvals,
+      notifications,
+    ] = await Promise.all([
+      (async () =>
+        (await countTable(tx, orgId, 'work_tasks')) +
+        (await countTable(tx, orgId, 'workflow_events')))(),
+      (async () =>
+        (await countTable(tx, orgId, 'journal_entries')) +
+        (await countTable(tx, orgId, 'expenses')) +
+        (await countTable(tx, orgId, 'cheques')))(),
+      (async () =>
+        (await countTable(tx, orgId, 'leases')) +
+        (await countTable(tx, orgId, 'invoices')) +
+        (await countTable(tx, orgId, 'payments')) +
+        (await countTable(tx, orgId, 'receipts')))(),
+      (async () =>
+        (await countTable(tx, orgId, 'reservations')) +
+        (await countTable(tx, orgId, 'contracts')) +
+        (await countTable(tx, orgId, 'holds')) +
+        (await countTable(tx, orgId, 'viewing_requests')))(),
+      countTable(tx, orgId, 'stay_bookings'),
+      (async () =>
+        (await countTable(tx, orgId, 'maintenance_tickets')) +
+        (await countTable(tx, orgId, 'maintenance_work_orders')) +
+        (await countTable(tx, orgId, 'operational_requests')))(),
+      countTable(tx, orgId, 'legal_cases'),
+      countTable(tx, orgId, 'sales_deals'),
+      countTable(tx, orgId, 'approval_requests'),
+      countTable(
+        tx,
+        orgId,
+        'outbox_events',
+        sql`and topic in ('notification.delivery.requested', 'notification.requested')`,
+      ),
+    ]);
     return {
       tasks,
       accounting,
@@ -117,6 +133,7 @@ export async function labResetCounts(claims: SessionClaims): Promise<LabResetCou
       legal,
       sales,
       approvals,
+      notifications,
     };
   }, 20_000);
 }
@@ -359,6 +376,19 @@ async function wipeApprovals(
   return deleteTable(tx, orgId, 'approval_requests');
 }
 
+/** Pending and recent notification emails/WhatsApp so wiped leases stop nagging. */
+async function wipeNotifications(
+  tx: Parameters<Parameters<typeof elevatedTx>[0]>[0],
+  orgId: string,
+): Promise<number> {
+  return deleteTable(
+    tx,
+    orgId,
+    'outbox_events',
+    sql`and topic in ('notification.delivery.requested', 'notification.requested')`,
+  );
+}
+
 /** Permanently delete selected transactional data for this organization. */
 export async function labResetPurge(
   claims: SessionClaims,
@@ -382,8 +412,16 @@ export async function labResetPurge(
     'bookings',
     'leasing',
     'accounting',
+    'notifications',
   ];
   const sorted = order.filter((item) => selected.includes(item));
+  // Wiping leases/bookings without the queue leaves renewal/arrears messages still delivering.
+  const mustClearNotifications =
+    selected.includes('notifications') ||
+    selected.includes('leasing') ||
+    selected.includes('bookings') ||
+    selected.includes('accounting') ||
+    selected.includes('stays');
 
   // Keep under the route maxDuration (60s) so Vercel does not drop the socket as a bare network_error.
   return elevatedTx(async (tx) => {
@@ -417,9 +455,15 @@ export async function labResetPurge(
         case 'approvals':
           deleted.approvals = await wipeApprovals(tx, orgId);
           break;
+        case 'notifications':
+          deleted.notifications = await wipeNotifications(tx, orgId);
+          break;
         default:
           break;
       }
+    }
+    if (mustClearNotifications && deleted.notifications == null) {
+      deleted.notifications = await wipeNotifications(tx, orgId);
     }
     return { deleted };
   }, 50_000);
