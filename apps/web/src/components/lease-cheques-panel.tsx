@@ -142,6 +142,10 @@ export function LeaseCheques({
     () => cheques.filter((item) => item.status === 'pending' || item.status === 'rejected'),
     [cheques],
   );
+  const needsUpload = actionQueue.length > 0;
+  const packageSent = Boolean(lifecycle.customerDocumentsSentAt);
+  /** After upload/send, don't keep forcing the empty required method dropdown. */
+  const lockUploads = readOnly || packageSent || !needsUpload;
   const stepItem = actionQueue.length
     ? actionQueue[Math.min(stepIndex, actionQueue.length - 1)]!
     : null;
@@ -428,7 +432,7 @@ export function LeaseCheques({
   }
 
   function renderSharedBankFields() {
-    if (readOnly) {
+    if (lockUploads) {
       if (!(bankName || accountHolderName || accountNumber)) return null;
       return (
         <p className="lease-cheques__shared-read muted">
@@ -521,7 +525,7 @@ export function LeaseCheques({
   }
 
   function renderNumberInput(item: (typeof cheques)[number], index: number) {
-    const canEdit = !readOnly && item.status !== 'approved';
+    const canEdit = !lockUploads && item.status !== 'approved';
     if (!canEdit) {
       return <span dir="ltr">{item.chequeNumber || numbers[item.key] || '—'}</span>;
     }
@@ -551,7 +555,7 @@ export function LeaseCheques({
   }
 
   function renderFileCell(item: (typeof cheques)[number]) {
-    const canEdit = !readOnly && item.status !== 'approved';
+    const canEdit = !lockUploads && item.status !== 'approved';
     const fileHref = item.fileName
       ? `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/files/cheque-${encodeURIComponent(item.key)}`
       : null;
@@ -611,7 +615,7 @@ export function LeaseCheques({
           </thead>
           <tbody>
             {cheques.map((item, index) => {
-              const canEdit = !readOnly && item.status !== 'approved';
+              const canEdit = !lockUploads && item.status !== 'approved';
               const rowHasError = errorKey === item.key && Boolean(error);
               return (
                 <tr
@@ -753,10 +757,10 @@ export function LeaseCheques({
   }
 
   function renderBulk() {
-    if (readOnly) {
+    if (lockUploads) {
       return (
         <p className="muted">
-          {ar ? 'وضع المسح الجماعي للرفع فقط.' : 'Bulk scan mode is for uploading only.'}
+          {ar ? 'تم رفع الشيكات — لا حاجة لاختيار طريقة الرفع مجدداً.' : 'Cheques are uploaded — no need to choose an upload method again.'}
         </p>
       );
     }
@@ -896,11 +900,23 @@ export function LeaseCheques({
           ) : null}
         </p>
       ) : null}
-      <p className="muted">
-        {ar
-          ? 'أدخل بنك الحساب واسم صاحبه ورقم الحساب مرة واحدة، ثم اختر طريقة الرفع من القائمة. في كل الحالات تصل الشيكات للمالك للاعتماد.'
-          : 'Enter bank, account holder, and account number once, then pick an upload method from the list. In every mode the cheques go to the owner for approval.'}
-      </p>
+      {lockUploads ? (
+        <p className="muted">
+          {packageSent
+            ? ar
+              ? 'تم إرسال الشيكات للمراجعة — يمكنك مراجعة المرفقات أدناه.'
+              : 'Cheques were sent for review — you can review the attachments below.'
+            : ar
+              ? 'تم رفع الشيكات المطلوبة. راجع المرفقات أدناه.'
+              : 'Required cheques are uploaded. Review the attachments below.'}
+        </p>
+      ) : (
+        <p className="muted">
+          {ar
+            ? 'أدخل بنك الحساب واسم صاحبه ورقم الحساب مرة واحدة، ثم اختر طريقة الرفع من القائمة. في كل الحالات تصل الشيكات للمالك للاعتماد.'
+            : 'Enter bank, account holder, and account number once, then pick an upload method from the list. In every mode the cheques go to the owner for approval.'}
+        </p>
+      )}
       {error ? (
         <p ref={errorRef} className="notice notice--error lease-cheques__alert" role="alert">
           {error}
@@ -909,7 +925,7 @@ export function LeaseCheques({
 
       {renderSharedBankFields()}
 
-      {!readOnly ? (
+      {!lockUploads ? (
         <div
           className={`field lease-cheques__mode-select ${
             viewMode ? 'field--ok' : 'field--missing'
@@ -955,13 +971,15 @@ export function LeaseCheques({
         </div>
       ) : null}
 
-      {viewMode === 'step'
-        ? renderStep()
-        : viewMode === 'bulk'
-          ? renderBulk()
-          : viewMode === 'table' || readOnly
-            ? renderTable()
-            : null}
+      {lockUploads
+        ? renderTable()
+        : viewMode === 'step'
+          ? renderStep()
+          : viewMode === 'bulk'
+            ? renderBulk()
+            : viewMode === 'table'
+              ? renderTable()
+              : null}
 
       {pending ? (
         <UploadPrepareDialog
