@@ -23,6 +23,25 @@ export function listingPurposeCaption(
   return badges[0] ?? (locale === 'ar' ? 'متاح' : 'Available');
 }
 
+/** Short footer chip: للبيع / للتأجير / للبيع والتأجير */
+export function listingPurposeChipLabel(
+  purpose: PublicListing['listingPurpose'] | undefined,
+  locale: 'ar' | 'en',
+): string {
+  const ar = locale === 'ar';
+  if (purpose === 'sale') return ar ? 'للبيع' : 'For sale';
+  if (purpose === 'both') return ar ? 'للبيع والتأجير' : 'For sale & rent';
+  return ar ? 'للتأجير' : 'For rent';
+}
+
+export function listingPurposeChipTone(
+  purpose: PublicListing['listingPurpose'] | undefined,
+): 'rent' | 'sale' | 'both' {
+  if (purpose === 'sale') return 'sale';
+  if (purpose === 'both') return 'both';
+  return 'rent';
+}
+
 export type UnitOccupancy = 'available' | 'reserved' | 'leased' | 'sold';
 
 export function occupancyLabel(status: UnitOccupancy, locale: 'ar' | 'en'): string {

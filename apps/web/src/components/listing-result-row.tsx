@@ -17,6 +17,8 @@ import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { categoryLabel } from '@/lib/properties-browse-filters';
 import {
   listingPurposeCaption,
+  listingPurposeChipLabel,
+  listingPurposeChipTone,
   occupancyWatermarkLabel,
   occupancyWatermarkModifier,
 } from '@/lib/listing-purpose-display';
@@ -61,6 +63,8 @@ export function ListingResultRow({
   const marketStatus = listing.marketStatus ?? marketStatusFromPurpose(purpose);
   const watermark = occupancyWatermarkLabel(marketStatus, loc);
   const watermarkMod = occupancyWatermarkModifier(marketStatus);
+  const purposeChip = listingPurposeChipLabel(purpose, loc);
+  const purposeTone = listingPurposeChipTone(purpose);
 
   return (
     <article
@@ -149,16 +153,24 @@ export function ListingResultRow({
               {saleLabel ? (
                 <div>
                   <strong>{saleLabel}</strong>
-                  <small>{ar ? 'للبيع' : 'For sale'}</small>
+                  <small>{ar ? 'سعر البيع' : 'Sale price'}</small>
                 </div>
               ) : null}
+              <span
+                className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone} listing-row__purpose-chip`}
+              >
+                {purposeChip}
+              </span>
             </div>
           ) : (
             <div className="listing-row__price">
               <strong>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</strong>
-              <small>
-                {purpose === 'sale' ? (ar ? 'للبيع' : 'For sale') : ar ? 'شهرياً' : 'Monthly'}
-              </small>
+              {purpose !== 'sale' ? <small>{ar ? 'شهرياً' : 'Monthly'}</small> : null}
+              <span
+                className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone} listing-row__purpose-chip`}
+              >
+                {purposeChip}
+              </span>
             </div>
           )}
           <Link href={href} className="button button--primary listing-row__cta" prefetch>

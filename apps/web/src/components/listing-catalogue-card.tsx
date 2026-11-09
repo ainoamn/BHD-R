@@ -15,6 +15,8 @@ import { BadgeChips } from '@/components/badges/badge-chips';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import {
   listingPurposeCaption,
+  listingPurposeChipLabel,
+  listingPurposeChipTone,
   occupancyWatermarkLabel,
   occupancyWatermarkModifier,
 } from '@/lib/listing-purpose-display';
@@ -48,6 +50,8 @@ export function ListingCatalogueCard({
   const marketStatus = listing.marketStatus ?? marketStatusFromPurpose(purpose);
   const watermark = occupancyWatermarkLabel(marketStatus, loc);
   const watermarkMod = occupancyWatermarkModifier(marketStatus);
+  const purposeChip = listingPurposeChipLabel(purpose, loc);
+  const purposeTone = listingPurposeChipTone(purpose);
 
   return (
     <article
@@ -122,16 +126,22 @@ export function ListingCatalogueCard({
               {saleLabel ? (
                 <span>
                   {saleLabel}
-                  <small>{ar ? 'للبيع' : 'For sale'}</small>
+                  <small>{ar ? 'سعر البيع' : 'Sale price'}</small>
                 </span>
               ) : null}
+              <span className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone}`}>
+                {purposeChip}
+              </span>
             </div>
           ) : (
             <div className="listing-card__price listing-card__price--stack">
-              <span>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</span>
-              <small>
-                {purpose === 'sale' ? (ar ? 'للبيع' : 'For sale') : ar ? 'شهرياً' : 'Monthly'}
-              </small>
+              <span>
+                {purpose === 'sale' && saleLabel ? saleLabel : rentLabel}
+                {purpose !== 'sale' ? <small>{ar ? 'شهرياً' : 'Monthly'}</small> : null}
+              </span>
+              <span className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone}`}>
+                {purposeChip}
+              </span>
             </div>
           )}
         </div>

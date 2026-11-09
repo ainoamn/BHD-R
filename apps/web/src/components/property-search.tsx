@@ -1,20 +1,9 @@
 import { getTranslations } from 'next-intl/server';
 import { supportedCurrencyCodes } from '@bhd-r/contracts';
 import { countryPacks } from '@bhd-r/country-packs';
+import { omanLocations } from '@/lib/oman-locations';
+import { categoryLabel } from '@/lib/properties-browse-filters';
 
-const governorates = [
-  'Muscat',
-  'Dhofar',
-  'Musandam',
-  'Al Buraimi',
-  'Ad Dakhiliyah',
-  'North Al Batinah',
-  'South Al Batinah',
-  'North Ash Sharqiyah',
-  'South Ash Sharqiyah',
-  'Al Dhahirah',
-  'Al Wusta',
-];
 const categories = ['apartment', 'villa', 'building', 'office', 'shop', 'warehouse', 'land'];
 
 export async function PropertySearch({
@@ -27,80 +16,105 @@ export async function PropertySearch({
   defaults?: Record<string, string | undefined>;
 }) {
   const t = await getTranslations();
+  const ar = locale === 'ar';
+  const purpose =
+    defaults.purpose === 'rent' || defaults.purpose === 'sale' ? defaults.purpose : '';
+  const idPrefix = compact
+    ? 'filter'
+    : purpose
+      ? `home-${purpose}`
+      : 'home';
+
   return (
     <form
       action={`/${locale}/properties`}
       method="get"
       className={compact ? 'filters-bar' : 'search-card'}
       role="search"
-      aria-label={locale === 'ar' ? 'بحث عن عقار' : 'Property search'}
+      aria-label={
+        purpose === 'sale'
+          ? ar
+            ? 'بحث عن عقار للبيع'
+            : 'Search properties for sale'
+          : purpose === 'rent'
+            ? ar
+              ? 'بحث عن عقار للتأجير'
+              : 'Search properties for rent'
+            : ar
+              ? 'بحث عن عقار'
+              : 'Property search'
+      }
     >
-      {defaults.purpose === 'rent' || defaults.purpose === 'sale' ? (
-        <input type="hidden" name="purpose" value={defaults.purpose} />
-      ) : null}
-      {compact ? null : <h2>{t('Home.searchTitle')}</h2>}
+      {purpose ? <input type="hidden" name="purpose" value={purpose} /> : null}
+      {compact ? null : (
+        <h2>
+          {purpose === 'sale'
+            ? ar
+              ? 'ابحث عن عقار للبيع'
+              : 'Find a property for sale'
+            : purpose === 'rent'
+              ? ar
+                ? 'ابحث عن عقار للتأجير'
+                : 'Find a property for rent'
+              : t('Home.searchTitle')}
+        </h2>
+      )}
       <div className={compact ? 'filters-bar__grid' : 'search-grid'}>
         <div className="field">
-          <label htmlFor={compact ? 'filter-country' : 'home-country'}>
-            {locale === 'ar' ? 'الدولة' : 'Country'}
+          <label htmlFor={`${idPrefix}-country`}>
+            {ar ? 'الدولة' : 'Country'}
           </label>
           <select
             className="select"
-            id={compact ? 'filter-country' : 'home-country'}
+            id={`${idPrefix}-country`}
             name="countryCode"
-            defaultValue={defaults.countryCode ?? ''}
+            defaultValue={defaults.countryCode ?? 'OM'}
           >
-            <option value="">{locale === 'ar' ? 'كل الدول' : 'All countries'}</option>
+            <option value="">{ar ? 'كل الدول' : 'All countries'}</option>
             {Object.values(countryPacks).map((pack) => (
               <option key={pack.countryCode} value={pack.countryCode}>
-                {locale === 'ar' ? pack.name.ar : pack.name.en}
+                {ar ? pack.name.ar : pack.name.en}
               </option>
             ))}
           </select>
         </div>
         <div className="field">
-          <label htmlFor={compact ? 'filter-governorate' : 'home-governorate'}>
-            {t('Home.governorate')}
-          </label>
+          <label htmlFor={`${idPrefix}-governorate`}>{t('Home.governorate')}</label>
           <select
             className="select"
-            id={compact ? 'filter-governorate' : 'home-governorate'}
+            id={`${idPrefix}-governorate`}
             name="governorate"
             defaultValue={defaults.governorate ?? ''}
           >
             <option value="">{t('Home.allGovernorates')}</option>
-            {governorates.map((name) => (
-              <option key={name} value={name}>
-                {name}
+            {omanLocations.map((gov) => (
+              <option key={gov.en} value={gov.en}>
+                {ar ? gov.ar : gov.en}
               </option>
             ))}
           </select>
         </div>
         <div className="field">
-          <label htmlFor={compact ? 'filter-category' : 'home-category'}>
-            {t('Home.propertyType')}
-          </label>
+          <label htmlFor={`${idPrefix}-category`}>{t('Home.propertyType')}</label>
           <select
             className="select"
-            id={compact ? 'filter-category' : 'home-category'}
+            id={`${idPrefix}-category`}
             name="category"
             defaultValue={defaults.category ?? ''}
           >
             <option value="">{t('Home.allTypes')}</option>
             {categories.map((category) => (
               <option key={category} value={category}>
-                {category}
+                {categoryLabel(category, ar)}
               </option>
             ))}
           </select>
         </div>
         <div className="field">
-          <label htmlFor={compact ? 'filter-bedrooms' : 'home-bedrooms'}>
-            {t('Home.bedrooms')}
-          </label>
+          <label htmlFor={`${idPrefix}-bedrooms`}>{t('Home.bedrooms')}</label>
           <select
             className="select"
-            id={compact ? 'filter-bedrooms' : 'home-bedrooms'}
+            id={`${idPrefix}-bedrooms`}
             name="bedrooms"
             defaultValue={defaults.bedrooms ?? ''}
           >
@@ -114,16 +128,18 @@ export async function PropertySearch({
         </div>
         {compact ? (
           <div className="field">
-            <label htmlFor="filter-currency">{t('Common.currency')}</label>
+            <label htmlFor={`${idPrefix}-currency`}>{t('Common.currency')}</label>
             <select
               className="select"
-              id="filter-currency"
+              id={`${idPrefix}-currency`}
               name="currency"
               defaultValue={defaults.currency ?? ''}
             >
               <option value="">—</option>
               {supportedCurrencyCodes.map((currency) => (
-                <option key={currency}>{currency}</option>
+                <option key={currency} value={currency}>
+                  {currency}
+                </option>
               ))}
             </select>
           </div>

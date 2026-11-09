@@ -12,6 +12,8 @@ import {
 } from '@/lib/listing-market-status';
 import {
   listingPurposeCaption,
+  listingPurposeChipLabel,
+  listingPurposeChipTone,
   occupancyWatermarkLabel,
   occupancyWatermarkModifier,
 } from '@/lib/listing-purpose-display';
@@ -60,6 +62,8 @@ export async function ListingCard({
     listing.salePrice != null
       ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
       : null;
+  const purposeChip = listingPurposeChipLabel(purpose, loc);
+  const purposeTone = listingPurposeChipTone(purpose);
 
   return (
     <article
@@ -133,14 +137,22 @@ export async function ListingCard({
               {saleLabel ? (
                 <span>
                   {saleLabel}
-                  <small>{t('Property.forSale')}</small>
+                  <small>{ar ? 'سعر البيع' : 'Sale price'}</small>
                 </span>
               ) : null}
+              <span className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone}`}>
+                {purposeChip}
+              </span>
             </div>
           ) : (
             <div className="listing-card__price listing-card__price--stack">
-              <span>{purpose === 'sale' && saleLabel ? saleLabel : rentLabel}</span>
-              <small>{purpose === 'sale' ? t('Property.forSale') : t('Common.monthly')}</small>
+              <span>
+                {purpose === 'sale' && saleLabel ? saleLabel : rentLabel}
+                {purpose !== 'sale' ? <small>{t('Common.monthly')}</small> : null}
+              </span>
+              <span className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone}`}>
+                {purposeChip}
+              </span>
             </div>
           )}
         </div>

@@ -2906,9 +2906,9 @@ a.pmh-actionbar__title[aria-current='page'] {
 }
 .listing-card__price--stack {
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: flex-start;
-  gap: 0.08rem;
+  gap: 0.28rem;
 }
 .listing-card__price--stack small {
   display: block;
@@ -2919,6 +2919,37 @@ a.pmh-actionbar__title[aria-current='page'] {
   color: var(--ink-600, #44554d);
   font-weight: 600;
   font-size: 0.78rem;
+}
+.listing-card__purpose-chip {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.32rem 0.55rem;
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  border-radius: 0.45rem;
+  border: 1px solid transparent;
+}
+.listing-card__purpose-chip--rent {
+  color: #065f46;
+  background: rgb(16 185 129 / 0.16);
+  border-color: rgb(5 150 105 / 0.32);
+}
+.listing-card__purpose-chip--sale {
+  color: #7f1d1d;
+  background: rgb(185 28 28 / 0.14);
+  border-color: rgb(153 27 27 / 0.3);
+}
+.listing-card__purpose-chip--both {
+  color: #1e3a8a;
+  background: rgb(37 99 235 / 0.14);
+  border-color: rgb(29 78 216 / 0.3);
+}
+.listing-row__purpose-chip {
+  margin-top: 0.35rem;
 }
 .value-grid {
   display: grid;
