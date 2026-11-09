@@ -1077,25 +1077,26 @@ export function LeaseReservationWorkflow(serverProps: Props) {
     });
   }, [serverLifecycle]);
   const lifecycle = useMemo<ReservationLifecycle>(() => {
-    const hasDocOptimism = Object.keys(decisions).length > 0 && serverLifecycle.requirements;
-    const hasChequeOptimism =
-      Object.keys(chequeDecisions).length > 0 && serverLifecycle.chequeSubmissions;
-    if (!hasDocOptimism && !hasChequeOptimism) return serverLifecycle;
-    return {
-      ...serverLifecycle,
-      requirements: hasDocOptimism
-        ? serverLifecycle.requirements!.map((item) => {
-            const decision = decisions[item.code];
-            return decision && !decisionSettled(item, decision) ? { ...item, ...decision } : item;
-          })
-        : serverLifecycle.requirements,
-      chequeSubmissions: hasChequeOptimism
-        ? serverLifecycle.chequeSubmissions!.map((item) => {
-            const decision = chequeDecisions[item.key];
-            return decision && item.status !== decision.status ? { ...item, ...decision } : item;
-          })
-        : serverLifecycle.chequeSubmissions,
-    };
+    let next = serverLifecycle;
+    if (Object.keys(decisions).length > 0 && serverLifecycle.requirements) {
+      next = {
+        ...next,
+        requirements: serverLifecycle.requirements.map((item) => {
+          const decision = decisions[item.code];
+          return decision && !decisionSettled(item, decision) ? { ...item, ...decision } : item;
+        }),
+      };
+    }
+    if (Object.keys(chequeDecisions).length > 0 && serverLifecycle.chequeSubmissions) {
+      next = {
+        ...next,
+        chequeSubmissions: serverLifecycle.chequeSubmissions.map((item) => {
+          const decision = chequeDecisions[item.key];
+          return decision && item.status !== decision.status ? { ...item, ...decision } : item;
+        }),
+      };
+    }
+    return next;
   }, [serverLifecycle, decisions, chequeDecisions]);
   const phase =
     lifecycle !== serverLifecycle &&
@@ -1117,7 +1118,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
     ? `/${locale}/${props.portal}/contracts/${encodeURIComponent(lifecycle.contract.id)}`
     : null;
 
-  async function act(body: Record<string, unknown>): Promise<boolean> {
+  async function act(body: Record<string, unknown>): Promise<void> {
     setBusy(true);
     setError(null);
     try {
@@ -1127,10 +1128,8 @@ export function LeaseReservationWorkflow(serverProps: Props) {
       );
       setEditing(false);
       startRefresh(() => router.refresh());
-      return true;
     } catch (caught) {
       setError(errorText(caught, ar));
-      return false;
     } finally {
       setBusy(false);
     }
@@ -1146,20 +1145,33 @@ export function LeaseReservationWorkflow(serverProps: Props) {
       ...current,
       [key]: { status: decision, note: note ?? null },
     }));
-    const ok = await act({
-      action: 'review_cheque',
-      key,
-      decision,
-      ...(note ? { note } : {}),
-    });
-    if (!ok) {
+    setBusy(true);
+    try {
+      await browserNextMutation(
+        `/api/owner/bookings/${encodeURIComponent(reservationId)}/lifecycle`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'review_cheque',
+            key,
+            decision,
+            ...(note ? { note } : {}),
+          }),
+        },
+      );
+      startRefresh(() => router.refresh());
+      return true;
+    } catch (caught) {
       setChequeDecisions((current) => {
         const rest = { ...current };
         delete rest[key];
         return rest;
       });
+      setError(errorText(caught, ar));
+      return false;
+    } finally {
+      setBusy(false);
     }
-    return ok;
   }
 
   /**
