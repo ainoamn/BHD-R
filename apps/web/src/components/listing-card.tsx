@@ -85,16 +85,14 @@ export async function ListingCard({
               <BrandMark tone="onDark" />
             </div>
           )}
-          {coverSrc ? (
-            <span className="media-watermark" aria-hidden="true">
-              <BrandMark tone="onDark" />
-            </span>
-          ) : null}
           <span
             className={`listing-card__status-mark listing-card__status-mark--${watermarkMod}`}
             aria-label={watermark}
           >
-            {watermark}
+            <span className="listing-card__status-mark-brand" aria-hidden="true">
+              <BrandMark tone="onDark" />
+            </span>
+            <span className="listing-card__status-mark-label">{watermark}</span>
           </span>
         </div>
         <div className="listing-card__body">
