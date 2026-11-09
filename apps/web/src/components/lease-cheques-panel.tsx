@@ -20,6 +20,18 @@ import { OMAN_BANKS } from '@/lib/stay-deposit-refund';
 const BANK_OTHER = '__other__';
 type ChequeViewMode = 'table' | 'step' | 'bulk';
 
+function isPdfFile(file: File): boolean {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+}
+
+function isImageFile(file: File): boolean {
+  return file.type.startsWith('image/') || /\.(jpe?g|png|webp|gif)$/i.test(file.name);
+}
+
+function isChequeUploadFile(file: File): boolean {
+  return isPdfFile(file) || isImageFile(file);
+}
+
 function readAsDataUrl(file: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -217,7 +229,7 @@ export function LeaseCheques({
       );
       return false;
     }
-    if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
+    if (!isChequeUploadFile(file)) {
       flagChequeProblem(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.', key);
       return false;
     }
@@ -268,7 +280,7 @@ export function LeaseCheques({
     }
     const uniqueName =
       prepared.name.trim() ||
-      `cheque-${key}.${prepared.type === 'application/pdf' ? 'pdf' : 'jpg'}`;
+      `cheque-${key}.${isPdfFile(prepared) ? 'pdf' : 'jpg'}`;
     const duplicate = otherSlotUsingUploadFileName(
       uniqueName,
       bookingUploadFileSlots({
@@ -288,9 +300,7 @@ export function LeaseCheques({
       return false;
     }
     try {
-      const file = prepared.type.startsWith('image/')
-        ? await compressImageFile(prepared)
-        : prepared;
+      const file = isImageFile(prepared) ? await compressImageFile(prepared) : prepared;
       const dataUrl = await readAsDataUrl(file);
       if (dataUrl.length > REQUIREMENT_FILE_MAX_CHARS) {
         flagChequeProblem(
@@ -336,21 +346,26 @@ export function LeaseCheques({
     await send(key, prepared);
   }
 
+  function assignBulkFile(key: string, file: File) {
+    const ext = isPdfFile(file) ? 'pdf' : 'jpg';
+    const named = new File([file], `cheque-${key}-${Date.now()}.${ext}`, {
+      type: isPdfFile(file) ? 'application/pdf' : file.type || 'image/jpeg',
+    });
+    const advanceCrop = Boolean(bulkMaster && isImageFile(bulkMaster));
+    setBulkCrops((current) => {
+      const next = { ...current, [key]: named };
+      const nextPending = bulkQueue.find((item) => item.key !== key && !next[item.key]);
+      queueMicrotask(() => setBulkAssignKey(advanceCrop && nextPending ? nextPending.key : null));
+      return next;
+    });
+  }
+
   function pickBulkMaster(event: ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
     event.target.value = '';
     if (!picked) return;
-    if (!picked.type.startsWith('image/') && picked.type !== 'application/pdf') {
-      flagChequeProblem(ar ? 'أرسل صورة أو ملف PDF للمسح.' : 'Send an image or PDF scan.', 'bulk');
-      return;
-    }
-    if (picked.type === 'application/pdf') {
-      flagChequeProblem(
-        ar
-          ? 'للمسح الجماعي استخدم صورة واحدة تجمع الشيكات (سكان)، ثم قصّ كل شيك لشهره. ملف PDF يُرفع في الوضع العادي شيكاً بشيك.'
-          : 'For the multi-cheque scan use one photo of all cheques, then crop each cheque to its month. Upload PDFs one cheque at a time in the normal modes.',
-        'bulk',
-      );
+    if (!isChequeUploadFile(picked)) {
+      flagChequeProblem(ar ? 'أرسل صورة أو ملف PDF.' : 'Send an image or a PDF.', 'bulk');
       return;
     }
     if (!sharedBankReady()) {
@@ -372,21 +387,19 @@ export function LeaseCheques({
   function startBulkCrop(key: string) {
     if (!bulkMaster) return;
     if (!assertReadyToPick(key, bulkMaster)) return;
+    if (isPdfFile(bulkMaster)) {
+      // Full PDF linked to this month/installment — no crop needed.
+      assignBulkFile(key, bulkMaster);
+      return;
+    }
     setBulkAssignKey(key);
   }
 
   function confirmBulkCrop(file: File) {
     if (!bulkAssignKey) return;
     const key = bulkAssignKey;
-    const named = new File([file], `cheque-${key}-${Date.now()}.jpg`, {
-      type: file.type || 'image/jpeg',
-    });
-    setBulkCrops((current) => {
-      const next = { ...current, [key]: named };
-      const nextPending = bulkQueue.find((item) => item.key !== key && !next[item.key]);
-      queueMicrotask(() => setBulkAssignKey(nextPending?.key ?? null));
-      return next;
-    });
+    setBulkAssignKey(null);
+    assignBulkFile(key, file);
   }
 
   async function submitBulkAssignments() {
@@ -564,14 +577,14 @@ export function LeaseCheques({
                 : '…'
               : item.status === 'pending'
                 ? ar
-                  ? 'رفع صورة'
-                  : 'Upload'
+                  ? 'رفع صورة / PDF'
+                  : 'Upload image / PDF'
                 : ar
                   ? 'استبدال'
                   : 'Replace'}
             <input
               type="file"
-              accept="image/*,application/pdf"
+              accept="image/*,application/pdf,.pdf"
               hidden
               disabled={busy !== null || bulkSending}
               onChange={(event) => pick(item.key, event)}
@@ -752,20 +765,27 @@ export function LeaseCheques({
       <div className="lease-cheques__bulk">
         <p className="muted">
           {ar
-            ? 'صوّر كل الشيكات في صورة واحدة، ثم قصّ كل شيك وربطه بالشهر/القسط المناسب. بعدها تُرسل للمالك للاعتماد كالمعتاد.'
-            : 'Photograph all cheques in one scan, then crop each cheque and link it to its month/installment. They go to the owner for approval as usual.'}
+            ? 'ارفع صورة تجمع الشيكات ثم قصّ كل شيك لشهره، أو ارفع ملف PDF واربطه بالشهر/القسط المناسب. بعدها تُرسل للمالك للاعتماد كالمعتاد.'
+            : 'Upload one photo of all cheques and crop each to its month, or upload a PDF and link it to the matching month/installment. They go to the owner for approval as usual.'}
         </p>
         {!bulkMaster ? (
           <label className="button button--primary lease-docs__upload">
-            {ar ? 'رفع مسح كل الشيكات' : 'Upload full cheque scan'}
-            <input type="file" accept="image/*" hidden onChange={pickBulkMaster} />
+            {ar ? 'رفع مسح / PDF للشيكات' : 'Upload cheque scan / PDF'}
+            <input
+              type="file"
+              accept="image/*,application/pdf,.pdf"
+              hidden
+              onChange={pickBulkMaster}
+            />
           </label>
         ) : (
           <>
             <div className="lease-cheques__bulk-master">
-              {bulkMasterUrl ? (
+              {bulkMasterUrl && isImageFile(bulkMaster) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={bulkMasterUrl} alt="" />
+              ) : bulkMasterUrl && isPdfFile(bulkMaster) ? (
+                <iframe className="lease-cheques__bulk-pdf" title={bulkMaster.name} src={bulkMasterUrl} />
               ) : null}
               <div className="lease-cheques__bulk-master-actions">
                 <strong>{bulkMaster.name}</strong>
@@ -812,13 +832,21 @@ export function LeaseCheques({
                         disabled={bulkSending}
                         onClick={() => startBulkCrop(item.key)}
                       >
-                        {cropped
-                          ? ar
-                            ? 'إعادة القص'
-                            : 'Re-crop'
-                          : ar
-                            ? 'قصّ الشيك لهذا الشهر'
-                            : 'Crop cheque for this month'}
+                        {bulkMaster && isPdfFile(bulkMaster)
+                          ? cropped
+                            ? ar
+                              ? 'إعادة الربط'
+                              : 'Re-link'
+                            : ar
+                              ? 'ربط PDF بهذا الشهر'
+                              : 'Link PDF to this month'
+                          : cropped
+                            ? ar
+                              ? 'إعادة القص'
+                              : 'Re-crop'
+                            : ar
+                              ? 'قصّ الشيك لهذا الشهر'
+                              : 'Crop cheque for this month'}
                       </button>
                     </div>
                   </li>

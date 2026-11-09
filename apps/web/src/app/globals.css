@@ -24496,12 +24496,14 @@ button.lrw__step-body:focus-visible {
   border-radius: 0.75rem;
   background: color-mix(in srgb, var(--surface, #fff) 92%, #f4efe6);
 }
-.lease-cheques__bulk-master img {
+.lease-cheques__bulk-master img,
+.lease-cheques__bulk-pdf {
   width: min(100%, 28rem);
   max-height: 16rem;
   object-fit: contain;
   border-radius: 0.5rem;
   background: #111;
+  border: 0;
 }
 .lease-cheques__bulk-master-actions {
   display: flex;
