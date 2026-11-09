@@ -528,7 +528,9 @@ function ContractsTable({ ar, locale, data }: Ctx) {
         <span key="ref" className="tenant-table__ref">
           <span className="tenant-table__ref-head">
             <ContractKindChip kind={contract.kind} ar={ar} />
-            <bdi>{contract.reference}</bdi>
+            <Link className="tenant-table__ref-link" href={`/tenant/contracts/${contract.id}`}>
+              <bdi>{contract.reference}</bdi>
+            </Link>
           </span>
           {attachments.length ? (
             <small className="tenant-table__sub">

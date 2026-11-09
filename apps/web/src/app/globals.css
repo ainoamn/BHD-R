@@ -9607,6 +9607,17 @@ body:has(.stays-booking-receipt) #main-content {
   align-items: center;
   gap: 0.4rem;
 }
+.tenant-table__ref-link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+  text-decoration-color: rgb(8 163 159 / 0.55);
+}
+.tenant-table__ref-link:hover {
+  color: #0a7f7b;
+  text-decoration-color: currentColor;
+}
 .tenant-home__nav--finance .tenant-home__chip strong {
   font-size: 0.95rem;
   white-space: normal;
