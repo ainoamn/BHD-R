@@ -33987,9 +33987,12 @@ html.photo-viewer-open {
   overflow: hidden;
 }
 .file-preview__bar {
+  position: relative;
+  z-index: 2;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 0.75rem;
   padding: 0.7rem 1rem;
   border-bottom: 1px solid #e3ebe7;
@@ -34003,8 +34006,15 @@ html.photo-viewer-open {
 }
 .file-preview__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+}
+.file-preview__actions .button {
+  pointer-events: auto;
+  cursor: pointer;
 }
 .file-preview__button {
   padding: 0.4rem 0.95rem;

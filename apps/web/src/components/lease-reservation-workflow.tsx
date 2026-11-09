@@ -159,6 +159,10 @@ function ViewFileButton({ href, label, ar }: { href: string; label: string; ar: 
 
 /** A decision shown before the server confirms it; dropped once the page reflects it. */
 type DocumentDecision = Pick<ReservationRequirement, 'status' | 'verifiedAt' | 'note'>;
+type ChequeDecision = Pick<
+  NonNullable<ReservationLifecycle['chequeSubmissions']>[number],
+  'status' | 'note'
+>;
 
 function decisionSettled(item: ReservationRequirement, decision: DocumentDecision): boolean {
   return decision.verifiedAt ? Boolean(item.verifiedAt) : item.status === decision.status;
@@ -1053,6 +1057,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
   const setViewing = serverProps.onViewingChange ?? setLocalViewing;
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const [decisions, setDecisions] = useState<Record<string, DocumentDecision>>({});
+  const [chequeDecisions, setChequeDecisions] = useState<Record<string, ChequeDecision>>({});
 
   const serverLifecycle = serverProps.lifecycle;
   useEffect(() => {
@@ -1063,17 +1068,35 @@ export function LeaseReservationWorkflow(serverProps: Props) {
       });
       return open.length === Object.keys(current).length ? current : Object.fromEntries(open);
     });
+    setChequeDecisions((current) => {
+      const open = Object.entries(current).filter(([key, decision]) => {
+        const item = serverLifecycle.chequeSubmissions?.find((entry) => entry.key === key);
+        return item ? item.status !== decision.status : false;
+      });
+      return open.length === Object.keys(current).length ? current : Object.fromEntries(open);
+    });
   }, [serverLifecycle]);
   const lifecycle = useMemo<ReservationLifecycle>(() => {
-    if (!Object.keys(decisions).length || !serverLifecycle.requirements) return serverLifecycle;
+    const hasDocOptimism = Object.keys(decisions).length > 0 && serverLifecycle.requirements;
+    const hasChequeOptimism =
+      Object.keys(chequeDecisions).length > 0 && serverLifecycle.chequeSubmissions;
+    if (!hasDocOptimism && !hasChequeOptimism) return serverLifecycle;
     return {
       ...serverLifecycle,
-      requirements: serverLifecycle.requirements.map((item) => {
-        const decision = decisions[item.code];
-        return decision && !decisionSettled(item, decision) ? { ...item, ...decision } : item;
-      }),
+      requirements: hasDocOptimism
+        ? serverLifecycle.requirements!.map((item) => {
+            const decision = decisions[item.code];
+            return decision && !decisionSettled(item, decision) ? { ...item, ...decision } : item;
+          })
+        : serverLifecycle.requirements,
+      chequeSubmissions: hasChequeOptimism
+        ? serverLifecycle.chequeSubmissions!.map((item) => {
+            const decision = chequeDecisions[item.key];
+            return decision && item.status !== decision.status ? { ...item, ...decision } : item;
+          })
+        : serverLifecycle.chequeSubmissions,
     };
-  }, [serverLifecycle, decisions]);
+  }, [serverLifecycle, decisions, chequeDecisions]);
   const phase =
     lifecycle !== serverLifecycle &&
     (serverProps.phase === 'awaiting_documents' ||
@@ -1094,7 +1117,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
     ? `/${locale}/${props.portal}/contracts/${encodeURIComponent(lifecycle.contract.id)}`
     : null;
 
-  async function act(body: Record<string, unknown>) {
+  async function act(body: Record<string, unknown>): Promise<boolean> {
     setBusy(true);
     setError(null);
     try {
@@ -1104,11 +1127,39 @@ export function LeaseReservationWorkflow(serverProps: Props) {
       );
       setEditing(false);
       startRefresh(() => router.refresh());
+      return true;
     } catch (caught) {
       setError(errorText(caught, ar));
+      return false;
     } finally {
       setBusy(false);
     }
+  }
+
+  async function decideCheque(
+    key: string,
+    decision: 'approved' | 'rejected',
+    note?: string,
+  ): Promise<boolean> {
+    setError(null);
+    setChequeDecisions((current) => ({
+      ...current,
+      [key]: { status: decision, note: note ?? null },
+    }));
+    const ok = await act({
+      action: 'review_cheque',
+      key,
+      decision,
+      ...(note ? { note } : {}),
+    });
+    if (!ok) {
+      setChequeDecisions((current) => {
+        const rest = { ...current };
+        delete rest[key];
+        return rest;
+      });
+    }
+    return ok;
   }
 
   /**
@@ -1434,14 +1485,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                       { action: 'review_document', code, decision, ...(note ? { note } : {}) },
                     )
                   }
-                  onReviewCheque={(key, decision, note) =>
-                    act({
-                      action: 'review_cheque',
-                      key,
-                      decision,
-                      ...(note ? { note } : {}),
-                    })
-                  }
+                  onReviewCheque={(key, decision, note) => decideCheque(key, decision, note)}
                   onAddRequirements={(requirements) =>
                     void act({ action: 'add_requirements', requirements })
                   }
@@ -2440,7 +2484,11 @@ function RequirementsReview({
   busy: boolean;
   fileHref: (file: string) => string;
   onReview: (code: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
-  onReviewCheque?: (key: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
+  onReviewCheque?: (
+    key: string,
+    decision: 'approved' | 'rejected',
+    note?: string,
+  ) => Promise<boolean | void>;
   onAddRequirements?: (
     requirements: Array<{ code: string; labelAr: string; labelEn: string }>,
   ) => void;
@@ -2664,7 +2712,11 @@ function RequirementsReview({
             type="button"
             className="button button--primary"
             disabled={busy}
-            onClick={() => void decideCurrent('approved', undefined, target)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void decideCurrent('approved', undefined, target);
+            }}
           >
             {ar ? 'اعتماد المستند' : 'Approve document'}
           </button>
@@ -2672,7 +2724,11 @@ function RequirementsReview({
             type="button"
             className="button button--quiet"
             disabled={busy}
-            onClick={() => focusReject(target)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              focusReject(target);
+            }}
           >
             {ar ? 'رفض' : 'Reject'}
           </button>
@@ -2700,7 +2756,11 @@ function RequirementsReview({
             type="button"
             className="button button--primary"
             disabled={busy}
-            onClick={() => void decideCurrent('approved', undefined, target)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void decideCurrent('approved', undefined, target);
+            }}
           >
             {ar ? 'اعتماد الشيك' : 'Approve cheque'}
           </button>
@@ -2708,7 +2768,11 @@ function RequirementsReview({
             type="button"
             className="button button--quiet"
             disabled={busy}
-            onClick={() => focusReject(target)}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              focusReject(target);
+            }}
           >
             {ar ? 'رفض' : 'Reject'}
           </button>
@@ -2737,6 +2801,7 @@ function RequirementsReview({
     rejectNote?: string,
     target?: ReviewQueueItem,
   ) {
+    const fromPreview = Boolean(target);
     const current =
       target ??
       (reviewChequeItem && onReviewCheque
@@ -2747,10 +2812,27 @@ function RequirementsReview({
     if (!current) return;
     const currentIndex = queue.findIndex((item) => sameQueueItem(item, current));
     const label = queueItemLabel(current);
-    if (current.kind === 'doc') {
-      await onReview(current.code, decision, rejectNote);
-    } else {
-      await onReviewCheque?.(current.key, decision, rejectNote);
+    try {
+      if (current.kind === 'doc') {
+        await onReview(current.code, decision, rejectNote);
+      } else {
+        const ok = await onReviewCheque?.(current.key, decision, rejectNote);
+        if (ok === false) {
+          window.alert(
+            ar
+              ? 'تعذر اعتماد الشيك. أعد المحاولة أو أغلق النافذة وراجع الرسالة في الصفحة.'
+              : 'Could not approve the cheque. Try again, or close the viewer and check the page error.',
+          );
+          return;
+        }
+      }
+    } catch {
+      window.alert(
+        ar
+          ? 'تعذر إكمال المراجعة. أعد المحاولة.'
+          : 'Could not complete the review. Try again.',
+      );
+      return;
     }
     setLastDecision({ label, decision });
     // Always advance forward in the review order — never jump back to an earlier item.
@@ -2759,9 +2841,19 @@ function RequirementsReview({
         ? queue.slice(currentIndex + 1).find((item) => !sameQueueItem(item, current))
         : null;
     if (nextForward) {
+      if (desk) {
+        selectItem(nextForward);
+        // Keep the enlarged viewer moving with the decision (Approve/Reject in the preview).
+        if (fromPreview) {
+          if (nextForward.kind === 'doc') openReview(nextForward.code);
+          else openChequeReview(nextForward.key);
+        }
+        return;
+      }
       openQueueItem(nextForward);
       return;
     }
+    preview(null);
     setReviewCode(null);
     setReviewChequeKey(null);
     setRejecting(null);
