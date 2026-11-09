@@ -1058,6 +1058,9 @@ export function LeaseReservationWorkflow(serverProps: Props) {
   const [preview, setPreview] = useState<PreviewFile | null>(null);
   const [decisions, setDecisions] = useState<Record<string, DocumentDecision>>({});
   const [chequeDecisions, setChequeDecisions] = useState<Record<string, ChequeDecision>>({});
+  const previewOpenRef = useRef(false);
+  const pendingRefreshRef = useRef(false);
+  previewOpenRef.current = Boolean(preview);
 
   const serverLifecycle = serverProps.lifecycle;
   useEffect(() => {
@@ -1098,12 +1101,21 @@ export function LeaseReservationWorkflow(serverProps: Props) {
     }
     return next;
   }, [serverLifecycle, decisions, chequeDecisions]);
-  const phase =
-    lifecycle !== serverLifecycle &&
-    (serverProps.phase === 'awaiting_documents' ||
-      serverProps.phase === 'awaiting_documents_review')
-      ? documentsPhase(lifecycle)
-      : serverProps.phase;
+  // Optimistic row updates must not jump the journey stage (documentsPhase returns
+  // awaiting_contract_approval once every file is approved). That unmounted the desk
+  // and flashed the owner into another card before router.refresh landed.
+  const phase = (() => {
+    if (
+      lifecycle === serverLifecycle ||
+      (serverProps.phase !== 'awaiting_documents' &&
+        serverProps.phase !== 'awaiting_documents_review')
+    ) {
+      return serverProps.phase;
+    }
+    const next = documentsPhase(lifecycle);
+    if (next === 'awaiting_documents' || next === 'awaiting_documents_review') return next;
+    return 'awaiting_documents_review';
+  })();
   const props: Props =
     lifecycle === serverLifecycle ? serverProps : { ...serverProps, lifecycle, phase };
   const stage = leaseJourneyStageIndex(phase);
@@ -1118,6 +1130,25 @@ export function LeaseReservationWorkflow(serverProps: Props) {
     ? `/${locale}/${props.portal}/contracts/${encodeURIComponent(lifecycle.contract.id)}`
     : null;
 
+  function flushLifecycleRefresh() {
+    pendingRefreshRef.current = false;
+    startRefresh(() => router.refresh());
+  }
+
+  function scheduleLifecycleRefresh(options?: { force?: boolean }) {
+    if (!options?.force && previewOpenRef.current) {
+      pendingRefreshRef.current = true;
+      return;
+    }
+    flushLifecycleRefresh();
+  }
+
+  useEffect(() => {
+    if (preview || !pendingRefreshRef.current) return;
+    pendingRefreshRef.current = false;
+    startRefresh(() => router.refresh());
+  }, [preview, router, startRefresh]);
+
   async function act(body: Record<string, unknown>): Promise<void> {
     setBusy(true);
     setError(null);
@@ -1127,7 +1158,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
         { method: 'POST', body: JSON.stringify(body) },
       );
       setEditing(false);
-      startRefresh(() => router.refresh());
+      scheduleLifecycleRefresh({ force: true });
     } catch (caught) {
       setError(errorText(caught, ar));
     } finally {
@@ -1159,7 +1190,7 @@ export function LeaseReservationWorkflow(serverProps: Props) {
           }),
         },
       );
-      startRefresh(() => router.refresh());
+      scheduleLifecycleRefresh();
       return true;
     } catch (caught) {
       setChequeDecisions((current) => {
@@ -1186,9 +1217,9 @@ export function LeaseReservationWorkflow(serverProps: Props) {
         `/api/owner/bookings/${encodeURIComponent(reservationId)}/lifecycle`,
         { method: 'POST', body: JSON.stringify(body) },
       );
-      startRefresh(() => router.refresh());
+      scheduleLifecycleRefresh();
       if (result?.automationPending) {
-        window.setTimeout(() => startRefresh(() => router.refresh()), 2500);
+        window.setTimeout(() => scheduleLifecycleRefresh({ force: true }), 2500);
       }
     } catch (caught) {
       setDecisions((current) => {
