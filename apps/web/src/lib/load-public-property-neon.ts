@@ -190,6 +190,7 @@ export async function loadPublicPropertyShowcaseFromNeon(
                 and not (
                   r.status::text = 'pending'
                   and coalesce(r.terms_snapshot->>'depositPaidAt', '') = ''
+                  and coalesce(r.terms_snapshot->>'source', '') <> 'owner_invite'
                   and (
                     r.terms_snapshot->>'flow' = 'public_deposit_v1'
                     or coalesce(r.terms_snapshot->>'awaitingPublicDepositPayment', '') in ('true', 't')

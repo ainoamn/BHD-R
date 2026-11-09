@@ -1439,7 +1439,12 @@ async function ownerActionInTx(
           contractDraft: draft,
           requirements,
           autoFlow: {
-            contractAuto: approvalPolicy.contract === 'auto',
+            contractAuto:
+              row.snapshot.contractPreference === 'electronic'
+                ? true
+                : row.snapshot.contractPreference === 'manual'
+                  ? false
+                  : approvalPolicy.contract === 'auto',
             deferUntilHandover,
             handoverAfterSign,
             requireTenantAttestation: approvalPolicy.requireTenantAttestation,
@@ -1798,6 +1803,9 @@ export async function runReservationAutomation(
             propertyId: units.propertyId,
             flow: sql<string | null>`${reservations.termsSnapshot}->>'flow'`,
             mode: sql<string | null>`${reservations.termsSnapshot}->>'mode'`,
+            contractPreference: sql<
+              string | null
+            >`${reservations.termsSnapshot}->>'contractPreference'`,
           })
           .from(reservations)
           .innerJoin(units, eq(units.id, reservations.unitId))
@@ -1812,10 +1820,14 @@ export async function runReservationAutomation(
         base.mode === 'sale' ? 'sale' : 'rent',
       );
       const { policy, delegate } = resolved;
+      const contractAuto =
+        base.contractPreference === 'electronic'
+          ? true
+          : base.contractPreference === 'manual'
+            ? false
+            : policy.contract === 'auto';
       const signer =
-        policy.contract === 'auto' && delegate
-          ? await delegateClaims(tx, base.orgId, delegate)
-          : null;
+        contractAuto && delegate ? await delegateClaims(tx, base.orgId, delegate) : null;
       if (signer) {
         await applySessionSettings(tx, viewerTenantSettings(signer));
       } else {
@@ -1879,7 +1891,7 @@ export async function runReservationAutomation(
 
       // Prefill + save contract draft from the booking so auto-issue is not blocked on empty type/usage.
       if (
-        policy.contract === 'auto' &&
+        contractAuto &&
         row.snapshot.mode !== 'sale' &&
         lifecycle.approval &&
         !lifecycle.contractDraft &&
@@ -1910,7 +1922,7 @@ export async function runReservationAutomation(
 
       // Issue as soon as the draft is ready — documents/cheques come after the tenant signs.
       if (
-        policy.contract === 'auto' &&
+        contractAuto &&
         !lifecycle.contract &&
         lifecycle.contractDraft &&
         phase() === 'awaiting_contract_approval'

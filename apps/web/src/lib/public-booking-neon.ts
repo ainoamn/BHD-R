@@ -48,6 +48,7 @@ export function unpaidPublicDepositCheckoutSql(
   return sql`(
     ${status} = 'pending'
     and coalesce(${snapshot}->>'depositPaidAt', '') = ''
+    and coalesce(${snapshot}->>'source', '') <> 'owner_invite'
     and (
       ${snapshot}->>'flow' = ${PUBLIC_LEASE_DEPOSIT_FLOW}
       or coalesce(${snapshot}->>'awaitingPublicDepositPayment', '') in ('true', 't')

@@ -51,6 +51,7 @@ import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
 import type { OperationsSection } from './operations-workspace';
 import { LeasingConvertPanel } from './leasing-convert-panel';
+import { OwnerBookingInvitePanel } from './owner-booking-invite-panel';
 import { ModalPortal } from './modal-portal';
 import { NestReconnectButton } from './nest-reconnect-button';
 import { PropertyOpsRowKey } from './property-ops-row-key';
@@ -336,8 +337,8 @@ const definitions: Record<OperationsSection, SectionDefinition> = {
       'شاشة واحدة لكل الحجوزات والمعاينات في جميع العقارات: الإقامات اليومية، والحجز الشهري والسنوي، والمعاينات. الحجز الشهري/السنوي يبقى معلّقاً حتى يعتمد المحاسب العربون، ثم يُحوَّل لعقد إيجار.',
     introEn:
       'One control screen for the bookings and viewings of every property: daily stays, monthly and yearly reservations, and viewings. Long-term reservations stay pending until the accountant confirms the deposit, then convert to a lease.',
-    createAr: 'حجز جديد',
-    createEn: 'New booking',
+    createAr: 'حجز جديد (دعوة مستأجر)',
+    createEn: 'New booking (invite tenant)',
     columns: [
       { key: 'recordKind', ar: 'السجل', en: 'Record', format: 'kind' },
       { key: 'bookingPurpose', ar: 'الغرض', en: 'Purpose', format: 'kind' },
@@ -6144,6 +6145,30 @@ ${depositHtml}${
                   }
                   reservations={context.confirmedReservations ?? []}
                   {...(prefillReservationId ? { prefillReservationId } : {})}
+                  onDone={() => {
+                    closeCreate();
+                    refreshWorkspace();
+                  }}
+                  onCancel={closeCreate}
+                />
+              ) : section === 'bookings' ? (
+                <OwnerBookingInvitePanel
+                  portal={portal}
+                  locale={locale}
+                  initialMode={bookingPurposeTab === 'sale' ? 'sale' : 'rent'}
+                  vacantUnits={[...(context.vacantUnits ?? [])]}
+                  tenants={
+                    (context.tenants?.length ? context.tenants : context.parties) as Array<{
+                      id: string;
+                      displayName?: string;
+                      name?: string;
+                      nameAr?: string;
+                      nameEn?: string;
+                      type?: string;
+                      email?: string | null;
+                      phone?: string | null;
+                    }>
+                  }
                   onDone={() => {
                     closeCreate();
                     refreshWorkspace();

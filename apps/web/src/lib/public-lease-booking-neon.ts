@@ -95,6 +95,11 @@ export type LeaseBookingSnapshot = {
   } | null;
   awaitingPublicDepositPayment: boolean;
   capturedAt: string;
+  /** Landlord-created invite (holds the unit until tenant pays or invite expires). */
+  source?: 'owner_invite' | 'public';
+  /** Chosen when the landlord created the invite; overrides org policy for contract auto. */
+  contractPreference?: 'electronic' | 'manual';
+  tenantTermsAcceptedAt?: string | null;
   depositPaidAt?: string;
   publicDepositPaidAt?: string;
   payment?: {
