@@ -45,3 +45,29 @@ export function occupancyFromMarketStatus(status: ListingMarketStatus): UnitOccu
   if (status === 'reserved') return 'reserved';
   return 'available';
 }
+
+/** Short stamp for public browse cards (long-term rent + sale). */
+export function occupancyWatermarkLabel(
+  status: ListingMarketStatus,
+  locale: 'ar' | 'en',
+): string {
+  const ar = locale === 'ar';
+  switch (occupancyFromMarketStatus(status)) {
+    case 'leased':
+      return ar ? 'مؤجر' : 'Leased';
+    case 'sold':
+      return ar ? 'مباع' : 'Sold';
+    case 'reserved':
+      return ar ? 'محجوز' : 'Reserved';
+    default:
+      return ar ? 'شاغر' : 'Vacant';
+  }
+}
+
+export function occupancyWatermarkModifier(
+  status: ListingMarketStatus,
+): 'vacant' | 'reserved' | 'taken' {
+  if (status === 'reserved') return 'reserved';
+  if (status === 'leased' || status === 'sold') return 'taken';
+  return 'vacant';
+}

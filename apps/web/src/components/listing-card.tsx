@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { BrandMark, StatusBadge } from '@bhd-r/ui';
+import { BrandMark } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { Link } from '@/i18n/navigation';
@@ -7,12 +7,14 @@ import { formatMoney } from '@/lib/format';
 import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
   marketStatusFromPurpose,
-  marketStatusLabel,
-  marketStatusTone,
   reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
-import { listingPurposeCaption } from '@/lib/listing-purpose-display';
+import {
+  listingPurposeCaption,
+  occupancyWatermarkLabel,
+  occupancyWatermarkModifier,
+} from '@/lib/listing-purpose-display';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { PublicListing } from '@/lib/types';
 
@@ -44,8 +46,8 @@ export async function ListingCard({
     'marketStatus' in listing && listing.marketStatus
       ? listing.marketStatus
       : marketStatusFromPurpose(listing.listingPurpose);
-  const statusLabel = marketStatusLabel(marketStatus, t, listing.listingPurpose);
-  const tone = marketStatusTone(marketStatus);
+  const watermark = occupancyWatermarkLabel(marketStatus, loc);
+  const watermarkMod = occupancyWatermarkModifier(marketStatus);
   const reservedNote = reservedUntilNote(
     { marketStatus, reservedUntil: catalogue.reservedUntil ?? null },
     locale,
@@ -64,7 +66,11 @@ export async function ListingCard({
       : null;
 
   return (
-    <article className="listing-card">
+    <article
+      className={`listing-card${reservedNote ? ' listing-card--reserved' : ''}${
+        watermarkMod === 'taken' ? ' listing-card--taken' : ''
+      }`}
+    >
       <Link href={href} aria-label={headline} prefetch>
         <div className="listing-card__image">
           {coverSrc ? (
@@ -84,11 +90,11 @@ export async function ListingCard({
               <BrandMark tone="onDark" />
             </span>
           ) : null}
-          <span className={`listing-card__status listing-card__status--${marketStatus}`}>
-            <StatusBadge
-              status={tone === 'warning' ? 'warning' : tone === 'neutral' ? 'neutral' : 'positive'}
-              label={statusLabel}
-            />
+          <span
+            className={`listing-card__status-mark listing-card__status-mark--${watermarkMod}`}
+            aria-label={watermark}
+          >
+            {watermark}
           </span>
         </div>
         <div className="listing-card__body">

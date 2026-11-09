@@ -8,7 +8,6 @@ import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-car
 import {
   catalogueRating,
   marketStatusFromPurpose,
-  marketStatusLabel,
   reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
@@ -16,26 +15,11 @@ import { BadgeChips } from '@/components/badges/badge-chips';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import { categoryLabel } from '@/lib/properties-browse-filters';
-import { listingPurposeCaption } from '@/lib/listing-purpose-display';
-
-function statusCopy(listing: CatalogueListing, locale: string): string {
-  const status = listing.marketStatus ?? marketStatusFromPurpose(listing.listingPurpose);
-  const t = (key: string) => {
-    const ar = locale === 'ar';
-    const map: Record<string, [string, string]> = {
-      'Property.availableForRent': ['متاح للإيجار', 'Available for rent'],
-      'Property.availableForSale': ['متاح للبيع', 'Available for sale'],
-      'Property.availableForRentOrSale': ['متاح للإيجار أو البيع', 'Available for rent or sale'],
-      'Property.reserved': ['محجوز', 'Reserved'],
-      'Property.leased': ['مؤجّر', 'Leased'],
-      'Property.sold': ['مباع', 'Sold'],
-      'Property.available': ['متاح', 'Available'],
-    };
-    const hit = map[key];
-    return hit ? (ar ? hit[0] : hit[1]) : key;
-  };
-  return marketStatusLabel(status, t, listing.listingPurpose);
-}
+import {
+  listingPurposeCaption,
+  occupancyWatermarkLabel,
+  occupancyWatermarkModifier,
+} from '@/lib/listing-purpose-display';
 
 export function ListingResultRow({
   listing,
@@ -75,9 +59,16 @@ export function ListingResultRow({
   }
   const rating = catalogueRating(listing);
   const reservedNote = reservedUntilNote(listing, locale);
+  const marketStatus = listing.marketStatus ?? marketStatusFromPurpose(purpose);
+  const watermark = occupancyWatermarkLabel(marketStatus, loc);
+  const watermarkMod = occupancyWatermarkModifier(marketStatus);
 
   return (
-    <article className="listing-row">
+    <article
+      className={`listing-row${watermarkMod === 'taken' ? ' listing-row--taken' : ''}${
+        reservedNote ? ' listing-row--reserved' : ''
+      }`}
+    >
       <Link href={href} className="listing-row__media" aria-label={headline} prefetch>
         {coverSrc ? (
           <Image src={coverSrc} alt={headline} fill sizes="(max-width: 760px) 100vw, 280px" />
@@ -91,6 +82,12 @@ export function ListingResultRow({
             <BrandMark tone="onDark" />
           </span>
         ) : null}
+        <span
+          className={`listing-card__status-mark listing-card__status-mark--${watermarkMod}`}
+          aria-label={watermark}
+        >
+          {watermark}
+        </span>
       </Link>
 
       <div className="listing-row__body">
@@ -157,7 +154,9 @@ export function ListingResultRow({
           {rating ? (
             <StayRatingBadge rating={rating} ar={ar} className="listing-row__stay-rating" />
           ) : null}
-          <span className="listing-row__status">{statusCopy(listing, locale)}</span>
+          <span className={`listing-row__status listing-row__status--${watermarkMod}`}>
+            {watermark}
+          </span>
           {purpose === 'both' ? (
             <div className="listing-row__price listing-row__price--dual">
               <div>

@@ -549,10 +549,18 @@ export async function searchPublicListingsFromNeon(
             select 1 from sales_deals sd
             where sd.unit_id = u.id and sd.status::text = 'closed_won'
           ) then 'sold'
-          when u.listing_purpose <> 'sale' and exists (
-            select 1 from leases le
-            where le.unit_id = u.id
-              and le.status::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')
+          when u.listing_purpose <> 'sale' and (
+            exists (
+              select 1 from leases le
+              where le.unit_id = u.id
+                and le.status::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')
+            )
+            or exists (
+              select 1 from contracts c
+              where c.unit_id = u.id
+                and c.status::text = 'signed'
+                and c.kind::text in ('initial', 'renewal')
+            )
           ) then 'leased'
           when exists (
             select 1 from holds h

@@ -8,28 +8,16 @@ import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-car
 import {
   catalogueRating,
   marketStatusFromPurpose,
-  marketStatusLabel,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
 import { categoryLabel } from '@/lib/properties-browse-filters';
+import { occupancyWatermarkLabel } from '@/lib/listing-purpose-display';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 
 function statusCopy(listing: CatalogueListing, locale: string): string {
   const status = listing.marketStatus ?? marketStatusFromPurpose(listing.listingPurpose);
-  const ar = locale === 'ar';
-  const map: Record<string, [string, string]> = {
-    'Property.availableForRent': ['متاح للإيجار', 'Available for rent'],
-    'Property.availableForSale': ['متاح للبيع', 'Available for sale'],
-    'Property.reserved': ['محجوز', 'Reserved'],
-    'Property.leased': ['مؤجّر', 'Leased'],
-    'Property.sold': ['مباع', 'Sold'],
-    'Property.available': ['متاح', 'Available'],
-  };
-  return marketStatusLabel(status, (key) => {
-    const hit = map[key];
-    return hit ? (ar ? hit[0] : hit[1]) : key;
-  });
+  return occupancyWatermarkLabel(status, locale === 'ar' ? 'ar' : 'en');
 }
 
 function listingTitle(listing: CatalogueListing, locale: string): string {

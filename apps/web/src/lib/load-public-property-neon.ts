@@ -172,6 +172,12 @@ export async function loadPublicPropertyShowcaseFromNeon(
               select 1 from leases le
               where le.unit_id = u.id
                 and le.status::text in ('draft', 'active', 'cancel_requested', 'clearance_pending')
+            )
+            or exists (
+              select 1 from contracts c
+              where c.unit_id = u.id
+                and c.status::text = 'signed'
+                and c.kind::text in ('initial', 'renewal')
             ) then 'leased'
             when exists (
               select 1 from holds h

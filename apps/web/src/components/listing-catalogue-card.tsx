@@ -8,36 +8,17 @@ import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-car
 import {
   catalogueRating,
   marketStatusFromPurpose,
-  marketStatusLabel,
   reservedUntilNote,
   type CatalogueListing,
 } from '@/lib/listing-market-status';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import { StayRatingBadge } from '@/components/stays/stay-rating-badge';
-import { listingPurposeCaption } from '@/lib/listing-purpose-display';
+import {
+  listingPurposeCaption,
+  occupancyWatermarkLabel,
+  occupancyWatermarkModifier,
+} from '@/lib/listing-purpose-display';
 import { toPublicMediaSrc } from '@/lib/public-media-url';
-
-function statusCopy(listing: CatalogueListing, locale: string): string {
-  const status = listing.marketStatus ?? marketStatusFromPurpose(listing.listingPurpose);
-  const ar = locale === 'ar';
-  const map: Record<string, [string, string]> = {
-    'Property.availableForRent': ['متاح للإيجار', 'Available for rent'],
-    'Property.availableForSale': ['متاح للبيع', 'Available for sale'],
-    'Property.availableForRentOrSale': ['متاح للإيجار أو البيع', 'Available for rent or sale'],
-    'Property.reserved': ['محجوز', 'Reserved'],
-    'Property.leased': ['مؤجّر', 'Leased'],
-    'Property.sold': ['مباع', 'Sold'],
-    'Property.available': ['متاح', 'Available'],
-  };
-  return marketStatusLabel(
-    status,
-    (key) => {
-      const hit = map[key];
-      return hit ? (ar ? hit[0] : hit[1]) : key;
-    },
-    listing.listingPurpose,
-  );
-}
 
 export function ListingCatalogueCard({
   listing,
@@ -66,9 +47,16 @@ export function ListingCatalogueCard({
       : null;
   const reservedNote = reservedUntilNote(listing, locale);
   const rating = catalogueRating(listing);
+  const marketStatus = listing.marketStatus ?? marketStatusFromPurpose(purpose);
+  const watermark = occupancyWatermarkLabel(marketStatus, loc);
+  const watermarkMod = occupancyWatermarkModifier(marketStatus);
 
   return (
-    <article className={`listing-card${reservedNote ? ' listing-card--reserved' : ''}`}>
+    <article
+      className={`listing-card${reservedNote ? ' listing-card--reserved' : ''}${
+        watermarkMod === 'taken' ? ' listing-card--taken' : ''
+      }`}
+    >
       <Link href={href} aria-label={headline} prefetch>
         <div className="listing-card__image">
           {coverSrc ? (
@@ -89,9 +77,10 @@ export function ListingCatalogueCard({
             </span>
           ) : null}
           <span
-            className={`listing-card__status-mark${reservedNote ? ' listing-card__status-mark--reserved' : ''}`}
+            className={`listing-card__status-mark listing-card__status-mark--${watermarkMod}`}
+            aria-label={watermark}
           >
-            {statusCopy(listing, locale)}
+            {watermark}
           </span>
         </div>
         <div className="listing-card__body">

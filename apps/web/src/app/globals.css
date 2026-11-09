@@ -659,24 +659,45 @@ h3 {
 }
 .listing-card__status-mark {
   position: absolute;
-  inset-inline-start: 0.7rem;
-  inset-block-end: 0.7rem;
-  z-index: 2;
-  max-width: calc(100% - 5.5rem);
-  padding: 0.28rem 0.55rem;
+  top: 50%;
+  left: 50%;
+  z-index: 3;
+  width: 135%;
+  max-width: none;
+  padding: 0.42rem 0.75rem;
+  transform: translate(-50%, -50%) rotate(-22deg);
   color: #fff;
-  background: rgb(9 45 36 / 0.62);
-  border: 1px solid rgb(255 255 255 / 0.28);
-  border-radius: 0.45rem;
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1.2;
-  backdrop-filter: blur(4px);
+  text-align: center;
+  font-size: clamp(0.95rem, 3.6vw, 1.35rem);
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  line-height: 1.15;
+  border: 2px solid rgb(255 255 255 / 0.55);
+  border-radius: 0;
+  background: rgb(21 128 61 / 0.58);
+  box-shadow: 0 0.35rem 1.1rem rgb(0 0 0 / 0.28);
+  pointer-events: none;
+  text-shadow: 0 1px 6px rgb(0 0 0 / 0.35);
+}
+
+.listing-card__status-mark--vacant {
+  background: rgb(21 128 61 / 0.58);
+  border-color: rgb(220 252 231 / 0.7);
 }
 
 .listing-card__status-mark--reserved {
-  background: rgb(180 83 9 / 0.88);
-  border-color: rgb(255 237 213 / 0.55);
+  background: rgb(194 65 12 / 0.72);
+  border-color: rgb(255 237 213 / 0.7);
+}
+
+.listing-card__status-mark--taken {
+  background: rgb(127 29 29 / 0.7);
+  border-color: rgb(254 226 226 / 0.65);
+}
+
+.listing-card--taken .listing-card__image img,
+.listing-row--taken .listing-row__media img {
+  filter: grayscale(0.2) brightness(0.82);
 }
 
 .listing-reserved-note {
@@ -14362,8 +14383,14 @@ button.ops-row-key {
   color: white;
   font-size: 0.75rem;
   font-weight: 800;
-  background: var(--oman-deep);
+  background: rgb(21 128 61);
   border-radius: 0.4rem;
+}
+.listing-row__status--reserved {
+  background: rgb(194 65 12);
+}
+.listing-row__status--taken {
+  background: rgb(127 29 29);
 }
 .listing-row__price {
   display: grid;
@@ -14532,8 +14559,9 @@ button.ops-row-key {
     font-size: 0.7rem;
   }
   .props-results__grid .listing-card__status-mark {
-    font-size: 0.65rem;
-    padding: 0.2rem 0.4rem;
+    font-size: clamp(0.82rem, 3.8vw, 1.05rem);
+    padding: 0.32rem 0.5rem;
+    letter-spacing: 0.1em;
   }
 
   /* Table = stacked mobile cards; hide wide desktop table. */
