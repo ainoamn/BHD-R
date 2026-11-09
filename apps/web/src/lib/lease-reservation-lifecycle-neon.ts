@@ -34,6 +34,7 @@ import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
 import { publicWebOrigin } from '@/lib/seo';
 import {
   HANDOVER_DEFECTS_HOURS,
+  CHEQUE_FILE_MAX_CHARS,
   REQUIREMENT_FILE_MAX_CHARS,
   REQUIREMENT_FILE_TYPES,
   bookingUploadFileSlots,
@@ -2155,7 +2156,7 @@ export async function submitReservationCheque(
   if (
     !parsed ||
     !REQUIREMENT_FILE_TYPES.includes(parsed[1]!) ||
-    input.dataUrl.length > REQUIREMENT_FILE_MAX_CHARS
+    input.dataUrl.length > CHEQUE_FILE_MAX_CHARS
   ) {
     leaseBookingFail('invalid_file');
   }

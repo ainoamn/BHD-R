@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.102 — 2026-11-09
+
+- **حد حجم الشيكات:** رفع صورة أو PDF للشيكات حتى نحو 3 ميغابايت (بدل 1 ميغابايت) لاستيعاب مسح عدة شيكات في ملف واحد.
+
 ## 0.8.136.101 — 2026-11-09
 
 - **رفع شيكات PDF:** يمكن إرفاق صورة أو ملف PDF لكل شيك في الجدول والنافذة المتتابعة والمسح الجماعي.

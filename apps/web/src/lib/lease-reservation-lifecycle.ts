@@ -498,6 +498,11 @@ export const REQUIREMENT_CATALOGUE: ReadonlyArray<{
 
 /** Uploaded document limits: the data URL stays under ~1.2 MB so a request fits the body cap. */
 export const REQUIREMENT_FILE_MAX_CHARS = 1_600_000;
+/**
+ * Cheque uploads (especially multi-cheque PDF scans) may be larger.
+ * ~4M data-URL chars ≈ 3 MB file — still under the ~4.5 MB serverless body cap with JSON overhead.
+ */
+export const CHEQUE_FILE_MAX_CHARS = 4_000_000;
 export const REQUIREMENT_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
 
 /** Basename only, case-insensitive — so the same phone photo is not attached to two slots. */

@@ -11,7 +11,7 @@ import { compressImageFile } from '@/lib/compress-image';
 import { formatMoney } from '@/lib/format';
 import type { LeaseJourneyProps } from '@/lib/lease-journey-screens';
 import {
-  REQUIREMENT_FILE_MAX_CHARS,
+  CHEQUE_FILE_MAX_CHARS,
   bookingUploadFileSlots,
   otherSlotUsingUploadFileName,
 } from '@/lib/lease-reservation-lifecycle';
@@ -302,11 +302,11 @@ export function LeaseCheques({
     try {
       const file = isImageFile(prepared) ? await compressImageFile(prepared) : prepared;
       const dataUrl = await readAsDataUrl(file);
-      if (dataUrl.length > REQUIREMENT_FILE_MAX_CHARS) {
+      if (dataUrl.length > CHEQUE_FILE_MAX_CHARS) {
         flagChequeProblem(
           ar
-            ? 'الملف كبير جداً (الحد نحو 1 ميغابايت). صوّره بدقة أقل.'
-            : 'The file is too large (about 1 MB max).',
+            ? 'الملف كبير جداً (الحد نحو 3 ميغابايت). صغّر حجم الـ PDF أو صوّر بدقة أقل.'
+            : 'The file is too large (about 3 MB max). Compress the PDF or use a lower-resolution photo.',
           key,
         );
         return false;

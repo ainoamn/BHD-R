@@ -1,13 +1,14 @@
 import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking-route';
-import { REQUIREMENT_FILE_MAX_CHARS } from '@/lib/lease-reservation-lifecycle';
+import { CHEQUE_FILE_MAX_CHARS } from '@/lib/lease-reservation-lifecycle';
 import { submitReservationCheque } from '@/lib/lease-reservation-lifecycle-neon';
 import { requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 const bodySchema = z
   .object({
@@ -17,7 +18,7 @@ const bodySchema = z
     accountNumber: z.string().trim().min(4).max(64),
     chequeNumber: z.string().trim().min(1).max(80),
     fileName: z.string().max(200),
-    dataUrl: z.string().startsWith('data:').max(REQUIREMENT_FILE_MAX_CHARS),
+    dataUrl: z.string().startsWith('data:').max(CHEQUE_FILE_MAX_CHARS),
   })
   .strict();
 
