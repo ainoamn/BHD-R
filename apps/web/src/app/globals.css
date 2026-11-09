@@ -660,36 +660,39 @@ h3 {
 .listing-card__status-mark {
   position: absolute;
   inset-inline: 0;
-  inset-block-start: 0;
+  /* شريط من الصورة يظهر فوق الحزام ثم الحزام ثم بقية الصورة */
+  inset-block-start: 0.55rem;
   z-index: 3;
   width: 100%;
   max-width: none;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.4rem;
-  padding: 0.38rem 0.7rem;
+  justify-content: space-between;
+  direction: rtl; /* الشعار يميناً والنص شمالاً */
+  gap: 0.5rem;
+  padding: 0.34rem 0.7rem;
   transform: none;
   color: #fff;
-  text-align: center;
+  text-align: start;
   font-size: 0.82rem;
   font-weight: 900;
   letter-spacing: 0.06em;
   line-height: 1.15;
   border: 0;
-  border-block-end: 1px solid rgb(255 255 255 / 0.28);
+  border-block: 1px solid rgb(255 255 255 / 0.22);
   border-radius: 0;
-  background: rgb(21 128 61 / 0.82);
-  box-shadow: 0 0.25rem 0.75rem rgb(0 0 0 / 0.22);
+  background: rgb(21 128 61 / 0.38);
+  box-shadow: 0 0.2rem 0.55rem rgb(0 0 0 / 0.14);
   pointer-events: none;
-  text-shadow: 0 1px 4px rgb(0 0 0 / 0.3);
-  backdrop-filter: blur(4px);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+  backdrop-filter: blur(2px);
 }
 
 .listing-card__status-mark-brand {
   display: grid;
   place-content: center;
   flex: 0 0 auto;
+  order: 1;
 }
 
 .listing-card__status-mark-brand .logo__product img {
@@ -705,18 +708,19 @@ h3 {
 
 .listing-card__status-mark-label {
   flex: 0 1 auto;
+  order: 2;
 }
 
 .listing-card__status-mark--vacant {
-  background: rgb(21 128 61 / 0.82);
+  background: rgb(21 128 61 / 0.38);
 }
 
 .listing-card__status-mark--reserved {
-  background: rgb(194 65 12 / 0.88);
+  background: rgb(194 65 12 / 0.42);
 }
 
 .listing-card__status-mark--taken {
-  background: rgb(127 29 29 / 0.86);
+  background: rgb(127 29 29 / 0.42);
 }
 
 .listing-card--taken .listing-card__image img,
