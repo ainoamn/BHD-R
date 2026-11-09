@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.119 — 2026-11-09
+
+- **إصلاح نشر حجز الدعوة:** مسار `/api/owner/bookings/invite` يعيد `NextResponse` عند أخطاء الجلسة/CSRF حتى يمر فحص أنواع البناء على Vercel.
+
 ## 0.8.136.118 — 2026-11-09
 
 - **ترجمة محافظات بحث الإقامات:** قائمة الوجهة في شريط بحث الإقامات اليومية تعرض أسماء المحافظات بالعربية (مسقط، ظفار، …) بدل الإنجليزية عند واجهة `/ar`.

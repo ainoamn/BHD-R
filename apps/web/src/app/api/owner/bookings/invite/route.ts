@@ -33,7 +33,8 @@ export async function POST(request: Request) {
   try {
     claims = await requireLiveSession(request, { requireCsrf: true });
   } catch (error) {
-    return guardErrorResponse(error);
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
   try {
@@ -43,7 +44,8 @@ export async function POST(request: Request) {
       windowMs: 60 * 60 * 1000,
     });
   } catch (error) {
-    return guardErrorResponse(error);
+    const mapped = guardErrorResponse(error);
+    return NextResponse.json(mapped.body, { status: mapped.status });
   }
 
   let json: unknown;
