@@ -44,7 +44,6 @@ export function ListingResultRow({
     listing.salePrice != null
       ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
       : null;
-  const buildingHref = isMulti && listing.propertyId ? `/properties/${listing.propertyId}` : null;
   const highlights: string[] = [];
   if (listing.hasPool || listing.amenities?.includes('pool')) {
     highlights.push(ar ? 'مسبح' : 'Pool');
@@ -111,20 +110,6 @@ export function ListingResultRow({
           ) : null}
           {!isMulti ? (
             <p className="listing-row__purpose">{listingPurposeCaption(purpose, loc)}</p>
-          ) : null}
-          {buildingHref ? (
-            <div className="listing-card__building-cta listing-row__building-cta">
-              <p className="listing-card__building-cta-label">
-                {ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}
-              </p>
-              <Link
-                href={buildingHref}
-                className="button button--quiet listing-card__building-cta-btn"
-                prefetch
-              >
-                {ar ? 'عرض المبنى وكل وحداته' : 'View building and all units'}
-              </Link>
-            </div>
           ) : null}
           <div className={`listing-row__facts${isMulti ? ' listing-row__facts--stack' : ''}`}>
             <span>

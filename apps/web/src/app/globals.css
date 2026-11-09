@@ -7114,6 +7114,11 @@ body:has(.stays-booking-receipt) #main-content {
   margin: 0.35rem 0 0;
 }
 
+.property-360__building-cta {
+  margin: 0.65rem 0 0;
+  max-width: 22rem;
+}
+
 .property-360__unit {
   display: grid;
   gap: 0.75rem;

@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import { BrandMark } from '@bhd-r/ui';
 import { Link } from '@/i18n/navigation';
-import { formatMoney, localizedName } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
 import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
   catalogueRating,
@@ -31,13 +31,11 @@ export function ListingCatalogueCard({
   const loc = ar ? 'ar' : 'en';
   const { headline, buildingLine, isMulti } = formatListingCardTitle(listing, loc);
   const locationLine = formatListingLocation(listing);
-  const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
   const href = listing.unitId
     ? `/units/${listing.unitId}`
     : listing.propertyId
       ? `/properties/${listing.propertyId}`
       : `/units/${listing.unitId}`;
-  const buildingHref = listing.propertyId ? `/properties/${listing.propertyId}` : null;
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
   const purpose = listing.listingPurpose;
   const rentLabel = formatMoney(listing.rent.amountMinor, listing.rent.currency, locale);
@@ -138,20 +136,6 @@ export function ListingCatalogueCard({
           )}
         </div>
       </Link>
-      {isMulti && buildingHref ? (
-        <div className="listing-card__building-cta">
-          <p className="listing-card__building-cta-label">
-            {ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}
-          </p>
-          <Link
-            href={buildingHref}
-            className="button button--quiet listing-card__building-cta-btn"
-            prefetch
-          >
-            {ar ? `عرض «${propertyTitle}» وكل وحداته` : `View “${propertyTitle}” and all units`}
-          </Link>
-        </div>
-      ) : null}
     </article>
   );
 }

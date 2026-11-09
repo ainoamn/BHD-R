@@ -37,10 +37,6 @@ export async function ListingCard({
     : 'propertyId' in listing && listing.propertyId
       ? `/properties/${listing.propertyId}`
       : `/units/${listing.unitId}`;
-  const buildingHref =
-    isMulti && 'propertyId' in listing && listing.propertyId
-      ? `/properties/${listing.propertyId}`
-      : null;
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
   const marketStatus =
     'marketStatus' in listing && listing.marketStatus
@@ -149,18 +145,6 @@ export async function ListingCard({
           )}
         </div>
       </Link>
-      {buildingHref ? (
-        <div className="listing-card__building-cta">
-          <p className="listing-card__building-cta-label">{t('Property.linkedToBuilding')}</p>
-          <Link
-            href={buildingHref}
-            className="button button--quiet listing-card__building-cta-btn"
-            prefetch
-          >
-            {t('Property.viewBuilding')}
-          </Link>
-        </div>
-      ) : null}
     </article>
   );
 }

@@ -864,11 +864,20 @@ export function PropertyDetailManager({
                 </p>
               ) : null}
               {property.kind === 'multi_unit' && focusUnitId ? (
-                <p className="property-360__building-link">
-                  <Link href={publicPath}>
-                    {ar ? 'عرض المبنى كاملاً وكل وحداته' : 'View full building and all units'}
+                <div className="listing-card__building-cta property-360__building-cta">
+                  <p className="listing-card__building-cta-label">
+                    {ar ? 'وحدة مرتبطة بالمبنى' : 'Unit linked to the building'}
+                  </p>
+                  <Link
+                    href={publicPath}
+                    className="button button--quiet listing-card__building-cta-btn"
+                    prefetch
+                  >
+                    {ar
+                      ? `عرض «${buildingNameLine}» وكل وحداته`
+                      : `View “${buildingNameLine}” and all units`}
                   </Link>
-                </p>
+                </div>
               ) : null}
             </div>
             <div className="property-360__titlebar-actions">
@@ -944,16 +953,6 @@ export function PropertyDetailManager({
                 </div>
               ) : (
                 <>
-                  {property.kind === 'multi_unit' && focusUnitId && primaryUnit ? (
-                    <p className="property-360__unit-link-note">
-                      {ar
-                        ? `هذه الوحدة («${focusedUnitHeadline ?? primaryUnit.code}») مرتبطة بالمبنى «${property.nameAr}».`
-                        : `This unit (“${focusedUnitHeadline ?? primaryUnit.code}”) is linked to the building “${property.nameEn}”.`}{' '}
-                      <Link href={publicPath}>
-                        {ar ? 'عرض المبنى وكل وحداته' : 'View the building and all units'}
-                      </Link>
-                    </p>
-                  ) : null}
                   <p className="property-360__description">
                     {ar
                       ? property.descriptionAr || property.descriptionEn
