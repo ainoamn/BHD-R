@@ -5,6 +5,7 @@ import { BadgeChips } from '@/components/badges/badge-chips';
 import { ContractDocumentToolbar } from '@/components/contract-document-toolbar';
 import type { BadgeChip } from '@/lib/badges-shared';
 import { LeaseReservationStageBody } from '@/components/lease-reservation-stage-body';
+import { OwnerBookingInviteResend } from '@/components/owner-booking-invite-resend';
 import { ReservationPartyCard } from '@/components/reservation-party-card';
 import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
@@ -239,6 +240,19 @@ export function LeaseReservationDetail({
           {ar ? 'حجوزات العقار' : 'Property bookings'}
         </Link>
       </header>
+
+      {booking.inviteSource === 'owner_invite' && !booking.depositPaidAt ? (
+        <div className="notice notice--info" role="status">
+          <p>
+            {ar
+              ? 'هذه دعوة من المالك — إذا لم يصل البريد أو واتساب للمستأجر يمكنك إعادة الإرسال من هنا.'
+              : 'This is an owner invite — if the tenant did not get email or WhatsApp, resend from here.'}
+          </p>
+          {permissions.canManage ? (
+            <OwnerBookingInviteResend reservationId={booking.reservationId} locale={locale} />
+          ) : null}
+        </div>
+      ) : null}
 
       {docsReturnOpen ? (
         <p className="notice notice--warning" role="status">

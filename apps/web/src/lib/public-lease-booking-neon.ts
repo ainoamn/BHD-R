@@ -1198,6 +1198,7 @@ function leaseBookingView(match: LeaseReservationMatch) {
     esignSignedAt: snapshot.esign?.signedAt ?? null,
     reservedUntil: match.expiresAt.toISOString(),
     sessionReference: snapshot.checkoutSessionReference,
+    inviteSource: snapshot.source === 'owner_invite' ? ('owner_invite' as const) : null,
   };
 }
 

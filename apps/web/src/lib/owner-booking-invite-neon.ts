@@ -24,6 +24,7 @@ import {
   type LeaseBookingMode,
   type LeaseBookingSnapshot,
 } from '@/lib/public-lease-booking-neon';
+import { elevatedTx } from '@/lib/elevated-db';
 import {
   applyOrgScope,
   assertUnitBookable,
@@ -291,61 +292,13 @@ export async function createOwnerBookingInvite(
         : input.locale === 'ar'
           ? 'تأجير'
           : 'rent';
+    const tenantName = partyDisplayName(bookingParty) || fullName;
 
-    await notifyByEmail({
-      orgId: preview.organizationId,
-      aggregateType: 'reservation',
-      aggregateId: reservationId,
-      dedupeKey: `owner-invite:${reservationId}:email`,
-      audience: { parties: [party.id] },
-      content: () => ({
-        tone: 'booking',
-        subject:
-          input.locale === 'ar'
-            ? `دعوة لإكمال حجز ${modeLabel} — ${unitLabel}`
-            : `Complete your ${modeLabel} booking — ${unitLabel}`,
-        title:
-          input.locale === 'ar' ? 'أكمل حجزك على BHD R' : 'Complete your booking on BHD R',
-        intro:
-          input.locale === 'ar'
-            ? `دعوة من المؤجر لإكمال حجز «${unitLabel}»: الموافقة على الشروط، دفع العربون، ورفع المستندات.`
-            : `Your landlord invited you to complete “${unitLabel}”: accept terms, pay the deposit, and upload documents.`,
-        details: [
-          { label: input.locale === 'ar' ? 'المرجع' : 'Reference', value: referenceCode },
-          {
-            label: input.locale === 'ar' ? 'المستأجر' : 'Tenant',
-            value: partyDisplayName(bookingParty) || fullName,
-          },
-        ],
-        cta: {
-          label: input.locale === 'ar' ? 'متابعة الحجز والدفع' : 'Continue booking & pay',
-          url: paymentUrl,
-        },
-      }),
-    });
-
-    await notifyPartyWhatsApp({
-      orgId: preview.organizationId,
-      partyId: party.id,
-      aggregateType: 'reservation',
-      aggregateId: reservationId,
-      dedupeKey: `owner-invite:${reservationId}:whatsapp`,
-      draft: {
-        tone: 'booking',
-        recipientName: fullName,
-        titleAr: 'أكمل حجزك على BHD R',
-        titleEn: 'Complete your booking on BHD R',
-        introAr: `دعوة من المؤجر لإكمال حجز «${unitLabel}» (مرجع ${referenceCode}).`,
-        introEn: `Your landlord invited you to complete “${unitLabel}” (ref ${referenceCode}).`,
-        linesAr: ['وافق على الشروط، ادفع العربون، ثم ارفع المستندات من الرابط.'],
-        linesEn: ['Accept the terms, pay the deposit, then upload documents via the link.'],
-        linkLabelAr: 'متابعة الحجز',
-        linkLabelEn: 'Continue booking',
-        link: paymentUrl,
-      },
-    });
-
+    // Notify after commit — party/email are created in this transaction and are not
+    // visible to a separate elevated connection until it commits.
     return {
+      organizationId: preview.organizationId,
+      partyId: party.id,
       reservationId,
       referenceCode,
       sessionReference,
@@ -353,14 +306,204 @@ export async function createOwnerBookingInvite(
       currency: preview.currency,
       expiresAt: expiresAt.toISOString(),
       paymentPath,
+      paymentUrl,
+      unitLabel,
+      modeLabel,
       ownerPath: `/${input.locale}/owner/bookings/${reservationId}`,
       contractPreference: input.contractPreference,
-      tenantName: partyDisplayName(bookingParty) || fullName,
+      tenantName,
+      tenantEmail: email,
+      tenantPhone: phone,
+      locale: input.locale,
     };
   });
 
+  await notifyByEmail({
+    orgId: result.organizationId,
+    aggregateType: 'reservation',
+    aggregateId: result.reservationId,
+    dedupeKey: `owner-invite:${result.reservationId}:email`,
+    audience: {
+      parties: [result.partyId],
+      addresses: [{ email: result.tenantEmail, name: result.tenantName }],
+    },
+    content: () => ({
+      tone: 'booking',
+      subject:
+        result.locale === 'ar'
+          ? `دعوة لإكمال حجز ${result.modeLabel} — ${result.unitLabel}`
+          : `Complete your ${result.modeLabel} booking — ${result.unitLabel}`,
+      title:
+        result.locale === 'ar' ? 'أكمل حجزك على BHD R' : 'Complete your booking on BHD R',
+      intro:
+        result.locale === 'ar'
+          ? `دعوة من المؤجر لإكمال حجز «${result.unitLabel}»: الموافقة على الشروط، دفع العربون، ورفع المستندات.`
+          : `Your landlord invited you to complete “${result.unitLabel}”: accept terms, pay the deposit, and upload documents.`,
+      details: [
+        { label: result.locale === 'ar' ? 'المرجع' : 'Reference', value: result.referenceCode },
+        {
+          label: result.locale === 'ar' ? 'المستأجر' : 'Tenant',
+          value: result.tenantName,
+        },
+      ],
+      cta: {
+        label: result.locale === 'ar' ? 'متابعة الحجز والدفع' : 'Continue booking & pay',
+        url: result.paymentUrl,
+      },
+    }),
+  });
+
+  await notifyPartyWhatsApp({
+    orgId: result.organizationId,
+    partyId: result.partyId,
+    aggregateType: 'reservation',
+    aggregateId: result.reservationId,
+    dedupeKey: `owner-invite:${result.reservationId}:whatsapp`,
+    draft: {
+      tone: 'booking',
+      recipientName: result.tenantName,
+      titleAr: 'أكمل حجزك على BHD R',
+      titleEn: 'Complete your booking on BHD R',
+      introAr: `دعوة من المؤجر لإكمال حجز «${result.unitLabel}» (مرجع ${result.referenceCode}).`,
+      introEn: `Your landlord invited you to complete “${result.unitLabel}” (ref ${result.referenceCode}).`,
+      linesAr: ['وافق على الشروط، ادفع العربون، ثم ارفع المستندات من الرابط.'],
+      linesEn: ['Accept the terms, pay the deposit, then upload documents via the link.'],
+      linkLabelAr: 'متابعة الحجز',
+      linkLabelEn: 'Continue booking',
+      link: result.paymentUrl,
+    },
+  });
+
   sendQueuedEmailsSoon();
-  return result;
+  return {
+    reservationId: result.reservationId,
+    referenceCode: result.referenceCode,
+    sessionReference: result.sessionReference,
+    amountMinor: result.amountMinor,
+    currency: result.currency,
+    expiresAt: result.expiresAt,
+    paymentPath: result.paymentPath,
+    ownerPath: result.ownerPath,
+    contractPreference: result.contractPreference,
+    tenantName: result.tenantName,
+  };
+}
+
+/** Re-queue invite email/WhatsApp for an existing owner-invite reservation (ops recovery). */
+export async function resendOwnerBookingInvite(
+  claims: SessionClaims,
+  reservationId: string,
+  locale: 'ar' | 'en' = 'ar',
+) {
+  if (!hasPermission(claims, 'reservation.manage') && !hasPermission(claims, 'lease.create')) {
+    fail('forbidden', 403, 'ليست لديك صلاحية إعادة إرسال الدعوة.', 'Missing invite resend permission.');
+  }
+  const [row] = await elevatedTx((tx) =>
+    tx
+      .select({
+        organizationId: reservations.organizationId,
+        tenantPartyId: reservations.tenantPartyId,
+        status: reservations.status,
+        snapshot: reservations.termsSnapshot,
+      })
+      .from(reservations)
+      .where(
+        and(
+          eq(reservations.id, reservationId),
+          claims.organizationId
+            ? eq(reservations.organizationId, claims.organizationId)
+            : sql`true`,
+        ),
+      )
+      .limit(1),
+  );
+  if (!row) fail('not_found', 404, 'الحجز غير موجود.', 'Reservation not found.');
+  if (row.status === 'cancelled' || row.status === 'expired') {
+    fail('invite_closed', 409, 'لا يمكن إعادة إرسال دعوة لحجز مغلق.', 'Invite is closed.');
+  }
+  const snapshot = row.snapshot as LeaseBookingSnapshot & {
+    source?: string;
+    contact?: { email?: string; phone?: string; fullName?: string };
+    referenceCode?: string;
+    checkoutSessionReference?: string;
+    mode?: LeaseBookingMode;
+  };
+  if (snapshot?.source !== 'owner_invite') {
+    fail('not_owner_invite', 409, 'هذا الحجز ليس دعوة من المالك.', 'Not an owner invite.');
+  }
+  const contact = snapshot.contact ?? {};
+  const email = (contact.email ?? '').trim().toLowerCase();
+  const phone = (contact.phone ?? '').trim();
+  const fullName = (contact.fullName ?? '').trim() || 'Tenant';
+  if (!email && !row.tenantPartyId) {
+    fail('tenant_details_invalid', 400, 'لا يوجد بريد للمستأجر.', 'No tenant email.');
+  }
+  const referenceCode = snapshot.referenceCode ?? '';
+  const sessionReference = snapshot.checkoutSessionReference ?? '';
+  const mode = snapshot.mode === 'sale' ? 'sale' : 'rent';
+  const paymentPath = leasePaymentPath(locale, sessionReference, referenceCode);
+  const paymentUrl = appLink(paymentPath);
+  const unitLabel = referenceCode || reservationId.slice(0, 8);
+  const modeLabel =
+    mode === 'sale' ? (locale === 'ar' ? 'شراء' : 'purchase') : locale === 'ar' ? 'تأجير' : 'rent';
+  const stamp = Date.now();
+
+  const emailed = await notifyByEmail({
+    orgId: row.organizationId,
+    aggregateType: 'reservation',
+    aggregateId: reservationId,
+    dedupeKey: `owner-invite:${reservationId}:email:resend:${stamp}`,
+    audience: {
+      ...(row.tenantPartyId ? { parties: [row.tenantPartyId] } : {}),
+      ...(email ? { addresses: [{ email, name: fullName }] } : {}),
+    },
+    content: () => ({
+      tone: 'booking',
+      subject:
+        locale === 'ar'
+          ? `دعوة لإكمال حجز ${modeLabel} — ${unitLabel}`
+          : `Complete your ${modeLabel} booking — ${unitLabel}`,
+      title: locale === 'ar' ? 'أكمل حجزك على BHD R' : 'Complete your booking on BHD R',
+      intro:
+        locale === 'ar'
+          ? `تذكير بدعوة المؤجر لإكمال الحجز (مرجع ${referenceCode}): الموافقة على الشروط، دفع العربون، ورفع المستندات.`
+          : `Reminder to complete your landlord invite (ref ${referenceCode}): accept terms, pay the deposit, and upload documents.`,
+      details: [
+        { label: locale === 'ar' ? 'المرجع' : 'Reference', value: referenceCode },
+        { label: locale === 'ar' ? 'المستأجر' : 'Tenant', value: fullName },
+      ],
+      cta: {
+        label: locale === 'ar' ? 'متابعة الحجز والدفع' : 'Continue booking & pay',
+        url: paymentUrl,
+      },
+    }),
+  });
+
+  if (row.tenantPartyId) {
+    await notifyPartyWhatsApp({
+      orgId: row.organizationId,
+      partyId: row.tenantPartyId,
+      aggregateType: 'reservation',
+      aggregateId: reservationId,
+      dedupeKey: `owner-invite:${reservationId}:whatsapp:resend:${stamp}`,
+      draft: {
+        tone: 'booking',
+        recipientName: fullName,
+        titleAr: 'أكمل حجزك على BHD R',
+        titleEn: 'Complete your booking on BHD R',
+        introAr: `تذكير بدعوة المؤجر لإكمال الحجز (مرجع ${referenceCode}).`,
+        introEn: `Reminder to complete your landlord invite (ref ${referenceCode}).`,
+        linesAr: ['وافق على الشروط، ادفع العربون، ثم ارفع المستندات من الرابط.'],
+        linesEn: ['Accept the terms, pay the deposit, then upload documents via the link.'],
+        linkLabelAr: 'متابعة الحجز',
+        linkLabelEn: 'Continue booking',
+        link: paymentUrl,
+      },
+    });
+  }
+
+  sendQueuedEmailsSoon();
+  return { emailed, paymentPath, paymentUrl, referenceCode };
 }
 
 /** Owner-invite unpaid drafts still reserve the unit (unlike anonymous website checkouts). */
