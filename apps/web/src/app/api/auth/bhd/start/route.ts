@@ -15,10 +15,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const { issuer, clientId, redirectUri } = identitySettings(url.origin);
   const returnTo = safeReturnTo(url.searchParams.get('returnTo'));
+  const loginHint = (url.searchParams.get('login_hint') || '').trim().slice(0, 320);
+  const prompt = (url.searchParams.get('prompt') || '').trim().slice(0, 64);
   const { state, nonce, verifier, challenge } = createPkce();
 
   const authorization = new URL(`${issuer}/oauth/authorize`);
-  authorization.search = new URLSearchParams({
+  const authParams = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -27,7 +29,15 @@ export async function GET(request: Request) {
     nonce,
     code_challenge: challenge,
     code_challenge_method: 'S256',
-  }).toString();
+  });
+  // Invite / account-mismatch flows pass the intended email so SSO opens that identity.
+  if (loginHint.includes('@') && !/[\s<>]/.test(loginHint)) {
+    authParams.set('login_hint', loginHint.toLowerCase());
+  }
+  if (prompt && /^[a-z_ ]{1,64}$/i.test(prompt)) {
+    authParams.set('prompt', prompt);
+  }
+  authorization.search = authParams.toString();
 
   if (
     authorization.hostname !== 'localhost' &&

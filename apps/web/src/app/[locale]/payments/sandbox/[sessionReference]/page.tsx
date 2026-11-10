@@ -1,12 +1,17 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
-import { formatMoney, localizedName } from '@/lib/format';
+import { SandboxPaymentForm } from '@/components/sandbox-payment-form';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
+import { formatMoney, localizedName } from '@/lib/format';
+import {
+  leaseInvitePaymentReturnPath,
+  resolveOwnerInviteAccountRedirect,
+} from '@/lib/lease-invite-account-gate';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 import { lookupLeasePaymentSession } from '@/lib/public-lease-booking-neon';
 import { lookupStaySandboxSessionOnNeon } from '@/lib/public-stays-payment-neon';
-import { SandboxPaymentForm } from '@/components/sandbox-payment-form';
+import { getViewer } from '@/lib/viewer';
 
 export const metadata: Metadata = {
   title: 'Secure payment | دفع آمن',
@@ -44,6 +49,24 @@ export default async function SandboxPaymentPage({
       : null;
   if (leaseKind && leaseSession?.paid) {
     redirect(leaseSignPath(locale, leaseSession.referenceCode));
+  }
+
+  if (
+    leaseKind &&
+    leaseSession &&
+    !leaseSession.paid &&
+    leaseSession.inviteSource === 'owner_invite' &&
+    leaseSession.inviteeEmail
+  ) {
+    const viewer = await getViewer();
+    const paymentPath = leaseInvitePaymentReturnPath(locale, sessionReference, returnPath);
+    const inviteAccountRedirect = await resolveOwnerInviteAccountRedirect({
+      locale,
+      paymentPath,
+      inviteeEmail: leaseSession.inviteeEmail,
+      viewerEmail: viewer?.email,
+    });
+    if (inviteAccountRedirect) redirect(inviteAccountRedirect);
   }
 
   const nights = session
@@ -163,6 +186,12 @@ export default async function SandboxPaymentPage({
                       {localizedName(locale, leaseSession.unitNameAr, leaseSession.unitNameEn)}
                     </dd>
                   </div>
+                  {leaseSession.inviteSource === 'owner_invite' && leaseSession.inviteeEmail ? (
+                    <div>
+                      <dt>{ar ? 'حساب الدعوة' : 'Invite account'}</dt>
+                      <dd dir="ltr">{leaseSession.inviteeEmail}</dd>
+                    </div>
+                  ) : null}
                 </dl>
               </div>
             </div>

@@ -74,6 +74,8 @@ async function logout(request: Request) {
   const { issuer, clientId } = identitySettings(url.origin);
   const locale = url.searchParams.get('locale') === 'en' ? 'en' : 'ar';
   const all = url.searchParams.get('all') === '1';
+  const continueParam = url.searchParams.get('continue');
+  const continueTo = continueParam ? safeReturnTo(continueParam, '') : '';
   const cookieStore = await cookies();
   const roster = readRosterCookie(cookieStore.get(ROSTER_COOKIE)?.value);
 
@@ -85,6 +87,16 @@ async function logout(request: Request) {
   const remaining = identitySub
     ? roster.filter((item) => item.sub !== identitySub)
     : roster.slice(1);
+
+  // Invite / rebind: clear this product session then continue (e.g. OIDC start with login_hint).
+  // Do not silently switch to another roster account.
+  if (continueTo.startsWith('/')) {
+    const response = NextResponse.redirect(new URL(continueTo, url.origin), 303);
+    clearProductSessionCookies(response);
+    if (remaining.length > 0) setRosterCookie(response, remaining);
+    else clearRosterCookie(response);
+    return response;
+  }
 
   if (all) {
     const endSession = new URL(`${issuer}/oauth/end-session`);

@@ -394,6 +394,37 @@ export async function assertBookingOwner(
   if (!userEmail || !partyEmail || userEmail !== partyEmail.trim().toLowerCase()) fail('forbidden');
 }
 
+/**
+ * Owner invites must be paid/signed by the invitee email — never by the landlord
+ * `bookedBy` session that created the invite (common when opening the email link
+ * while still signed in as owner/admin).
+ */
+export function leaseInviteeEmail(snapshot: LeaseBookingSnapshot, partyEmail?: string | null): string {
+  return (
+    snapshot.contact?.email?.trim().toLowerCase() ||
+    partyEmail?.trim().toLowerCase() ||
+    ''
+  );
+}
+
+export async function assertLeaseSessionActor(
+  transaction: Tx,
+  userId: string,
+  match: { partyEmail: string | null; snapshot: LeaseBookingSnapshot },
+) {
+  const invitee = leaseInviteeEmail(match.snapshot, match.partyEmail);
+  if (match.snapshot.source === 'owner_invite') {
+    await assertBookingOwner(transaction, userId, invitee || null, null);
+    return;
+  }
+  await assertBookingOwner(
+    transaction,
+    userId,
+    match.partyEmail,
+    match.snapshot.bookedBy?.userId,
+  );
+}
+
 export type LeaseCheckoutInput = {
   unitId: string;
   mode: LeaseBookingMode;
@@ -704,7 +735,7 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
   });
 }
 
-/** Payment page summary — keyed by the unguessable session reference, no contact data. */
+/** Payment page summary — keyed by the unguessable session reference. */
 export async function lookupLeasePaymentSession(sessionReference: string) {
   const { db } = getDatabase();
   return db.transaction(async (transaction) => {
@@ -714,6 +745,11 @@ export async function lookupLeasePaymentSession(sessionReference: string) {
       sessionReference,
     );
     if (!match) return null;
+    const inviteSource = match.snapshot.source === 'owner_invite' ? ('owner_invite' as const) : null;
+    // Invite links need the invitee email so the payment page can force the correct account.
+    const inviteeEmail = inviteSource
+      ? leaseInviteeEmail(match.snapshot, match.partyEmail) || null
+      : null;
     return {
       referenceCode: match.snapshot.referenceCode,
       mode: match.snapshot.mode,
@@ -726,6 +762,10 @@ export async function lookupLeasePaymentSession(sessionReference: string) {
       propertyNameEn: match.propertyNameEn,
       paid: Boolean(match.snapshot.depositPaidAt),
       expiresAt: match.expiresAt.toISOString(),
+      status: match.status,
+      inviteSource,
+      inviteeEmail,
+      inviteeName: inviteSource ? match.snapshot.contact?.fullName?.trim() || null : null,
     };
   });
 }
@@ -743,12 +783,7 @@ export async function cancelLeaseSandboxCheckout(
       sessionReference,
     );
     if (!match) fail('not_found');
-    await assertBookingOwner(
-      transaction,
-      claims.sub,
-      match.partyEmail,
-      match.snapshot.bookedBy?.userId,
-    );
+    await assertLeaseSessionActor(transaction, claims.sub, match);
     await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
     await lockKey(transaction, match.id);
 
@@ -825,12 +860,7 @@ export async function completeLeaseSandboxPayment(
       sessionReference,
     );
     if (!match) fail('not_found');
-    await assertBookingOwner(
-      transaction,
-      claims.sub,
-      match.partyEmail,
-      match.snapshot.bookedBy?.userId,
-    );
+    await assertLeaseSessionActor(transaction, claims.sub, match);
     await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
     await lockKey(transaction, match.id);
     await lockKey(transaction, match.unitId);
@@ -1214,12 +1244,7 @@ export async function loadLeaseBookingForViewer(userId: string, referenceCode: s
   return db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) return null;
-    await assertBookingOwner(
-      transaction,
-      userId,
-      match.partyEmail,
-      match.snapshot.bookedBy?.userId,
-    );
+    await assertLeaseSessionActor(transaction, userId, match);
     const location = await withElevatedRead(transaction, () =>
       loadPropertyLocation(transaction, match.organizationId, match.propertyId),
     ).catch(() => null);
@@ -1238,12 +1263,7 @@ export async function loadLeaseBookingAgreement(userId: string, referenceCode: s
   return db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) return null;
-    await assertBookingOwner(
-      transaction,
-      userId,
-      match.partyEmail,
-      match.snapshot.bookedBy?.userId,
-    );
+    await assertLeaseSessionActor(transaction, userId, match);
     return leaseBookingAgreementData(transaction, match);
   });
 }
@@ -1459,12 +1479,7 @@ export async function completeLeaseEsign(
   return db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) fail('not_found');
-    await assertBookingOwner(
-      transaction,
-      claims.sub,
-      match.partyEmail,
-      match.snapshot.bookedBy?.userId,
-    );
+    await assertLeaseSessionActor(transaction, claims.sub, match);
     await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
     await lockKey(transaction, match.id);
 
