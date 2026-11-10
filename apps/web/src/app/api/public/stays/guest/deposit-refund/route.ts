@@ -7,6 +7,7 @@ import {
 } from '@/lib/public-stays-booking-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { REFUND_NOTE_MAX, REFUND_PAYOUT_METHODS } from '@/lib/stay-deposit-refund';
+import { getViewer } from '@/lib/viewer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -91,9 +92,11 @@ export async function POST(request: Request) {
     );
   }
   try {
+    const viewer = await getViewer().catch(() => null);
     const booking = await requestGuestDepositRefundOnNeon({
       referenceCode,
       note,
+      actorUserId: viewer?.id ?? null,
       payout: {
         method: payout.method,
         account: payout.account,

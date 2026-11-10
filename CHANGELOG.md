@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.149 — 2026-11-10
+
+- **عزل إقامة الضيف:** بعد ربط الحجز بحساب، إلغاء/تغيير التواريخ/التأمين وإيصال التحويل تتطلب جلسة ذلك الحساب؛ الحجوزات غير المربوطة تبقى بروابط المرجع.
+
 ## 0.8.136.148 — 2026-11-10
 
 - **بناء الإنتاج:** إصلاح خطأ TypeScript في نسبة `invitedBy` عند دفع دعوة المالك (`exactOptionalPropertyTypes`).

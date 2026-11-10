@@ -90,6 +90,23 @@ function assertOrgEnabled(organizationId: string): void {
   }
 }
 
+/**
+ * Unclaimed stays stay reachable by reference (email / manage link). Once claimed to a
+ * user account, only that session may cancel, reschedule, or touch deposit actions.
+ */
+export function assertStayGuestActor(
+  booking: { userId: string | null },
+  actorUserId: string | null | undefined,
+) {
+  if (!booking.userId) return;
+  if (actorUserId && actorUserId === booking.userId) return;
+  throw new PublicStayBookingError(
+    'forbidden',
+    'Sign in with the account that owns this stay booking',
+    403,
+  );
+}
+
 export type GuestStayBookingProjection = {
   id: string;
   referenceCode: string;
@@ -883,7 +900,10 @@ const GUEST_CANCELABLE = new Set([
 ]);
 
 /** Guest cancels by reference — releases hold lock and frees the day. */
-export async function cancelGuestStayBookingOnNeon(referenceCode: string) {
+export async function cancelGuestStayBookingOnNeon(
+  referenceCode: string,
+  actorUserId: string | null = null,
+) {
   assertPlatformEnabled();
   const normalized = referenceCode.trim().toUpperCase();
   if (normalized.length < 4) {
@@ -897,6 +917,7 @@ export async function cancelGuestStayBookingOnNeon(referenceCode: string) {
     if (!booking) {
       throw new PublicStayBookingError('not_found', 'Stay booking not found', 404);
     }
+    assertStayGuestActor(booking, actorUserId);
     assertOrgEnabled(booking.organizationId);
 
     if (booking.status === 'cancelled' || booking.status === 'expired') {
@@ -986,6 +1007,7 @@ export async function requestGuestDepositRefundOnNeon(input: {
   referenceCode: string;
   note?: string | undefined;
   payout: RefundRequestPayout;
+  actorUserId?: string | null;
 }) {
   assertPlatformEnabled();
   const normalized = input.referenceCode.trim().toUpperCase();
@@ -1000,6 +1022,7 @@ export async function requestGuestDepositRefundOnNeon(input: {
     if (!booking) {
       throw new PublicStayBookingError('not_found', 'Stay booking not found', 404);
     }
+    assertStayGuestActor(booking, input.actorUserId);
     assertOrgEnabled(booking.organizationId);
     try {
       await insertGuestDepositRefundRequest(transaction, booking, {
@@ -1605,6 +1628,7 @@ export async function rescheduleGuestStayBookingOnNeon(input: {
   stayType?: RescheduleStayType | undefined;
   confirm: boolean;
   locale?: 'ar' | 'en' | undefined;
+  actorUserId?: string | null;
 }): Promise<{
   quote: GuestStayRescheduleQuote;
   booking?: GuestStayBookingProjection;
@@ -1625,6 +1649,7 @@ export async function rescheduleGuestStayBookingOnNeon(input: {
     if (!found) {
       throw new PublicStayBookingError('not_found', 'Stay booking not found', 404);
     }
+    assertStayGuestActor(found, input.actorUserId);
     assertOrgEnabled(found.organizationId);
     await transaction.execute(sql`select pg_advisory_xact_lock(hashtext(${found.unitId}::text))`);
 

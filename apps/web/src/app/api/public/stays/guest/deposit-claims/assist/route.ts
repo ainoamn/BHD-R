@@ -4,6 +4,7 @@ import { assistNote, translateNote } from '@/lib/note-translate-ai';
 import { stayBookingDbGuard, stayBookingJson } from '@/lib/public-stays-booking-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { assertGuestStayReference } from '@/lib/stay-deposit-claims-neon';
+import { getViewer } from '@/lib/viewer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,7 +65,8 @@ export async function POST(request: Request) {
 
   const context = { oidcToken: request.headers.get('x-vercel-oidc-token') };
   try {
-    await assertGuestStayReference(body.referenceCode);
+    const viewer = await getViewer().catch(() => null);
+    await assertGuestStayReference(body.referenceCode, viewer?.id ?? null);
     if (body.action === 'translate') {
       return stayBookingJson(await translateNote(context, body));
     }
@@ -84,6 +86,18 @@ export async function POST(request: Request) {
           },
         },
         { status: 404 },
+      );
+    }
+    if (code === 'forbidden') {
+      return stayBookingJson(
+        {
+          error: {
+            code,
+            messageAr: 'سجّل الدخول بحساب الضيف المرتبط بهذا الحجز.',
+            message: 'Sign in with the guest account linked to this booking.',
+          },
+        },
+        { status: 403 },
       );
     }
     if (code === 'ai_failed' || code === 'ai_unconfigured') {

@@ -3,6 +3,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { readGuestDepositTransferReceipt } from '@/lib/stay-deposit-settlement-docs-neon';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
+import { getViewer } from '@/lib/viewer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,7 +33,8 @@ export async function GET(request: Request) {
     );
   }
   try {
-    const found = await readGuestDepositTransferReceipt(ref);
+    const viewer = await getViewer().catch(() => null);
+    const found = await readGuestDepositTransferReceipt(ref, viewer?.id ?? null);
     if (!found) {
       return NextResponse.json({ error: { code: 'not_found' } }, { status: 404 });
     }

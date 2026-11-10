@@ -358,6 +358,7 @@ const bookingColumns = {
   propertyId: stayBookings.propertyId,
   unitId: stayBookings.unitId,
   guestPartyId: stayBookings.guestPartyId,
+  userId: stayBookings.userId,
 };
 
 async function claimCounts(tx: Tx, bookingId: string) {
@@ -501,15 +502,19 @@ export type GuestDepositAction =
     };
 
 /** Reference-code gate for guest writing assist on deposit claims / complaints. */
-export async function assertGuestStayReference(referenceCode: string): Promise<void> {
+export async function assertGuestStayReference(
+  referenceCode: string,
+  actorUserId: string | null = null,
+): Promise<void> {
   const reference = referenceCode.trim().toUpperCase();
   await elevated(async (tx) => {
     const [found] = await tx
-      .select({ id: stayBookings.id })
+      .select({ id: stayBookings.id, userId: stayBookings.userId })
       .from(stayBookings)
       .where(eq(stayBookings.referenceCode, reference))
       .limit(1);
     if (!found) fail('booking_not_found');
+    if (found.userId && found.userId !== actorUserId) fail('forbidden');
   });
 }
 
@@ -566,6 +571,7 @@ async function alertStaffDepositNotReceived(input: {
 export async function guestDepositClaimAction(
   referenceCode: string,
   input: GuestDepositAction,
+  actorUserId: string | null = null,
 ): Promise<{ whatsapp: ComplaintWhatsapp[] }> {
   const reference = referenceCode.trim().toUpperCase();
   type Alert = Parameters<typeof alertStaffDepositNotReceived>[0];
@@ -576,6 +582,7 @@ export async function guestDepositClaimAction(
       .where(eq(stayBookings.referenceCode, reference))
       .limit(1);
     if (!booking) fail('booking_not_found');
+    if (booking.userId && booking.userId !== actorUserId) fail('forbidden');
     await lockBooking(tx, booking.id);
     const refund = await currentRefund(tx, booking);
     const now = new Date();

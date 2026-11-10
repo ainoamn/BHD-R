@@ -42,6 +42,7 @@ export function stayBookingErrorResponse(error: unknown) {
       hold_inactive: 'انتهت صلاحية الحجز المؤقت.',
       lock_failed: 'تعذّر حجز التواريخ مؤقتاً.',
       already_claimed: 'هذا الحجز مرتبط بحساب آخر.',
+      forbidden: 'سجّل الدخول بحساب الضيف المرتبط بهذا الحجز.',
       claim_failed: 'تعذّر ربط الحجز بالحساب.',
       cancel_failed: 'تعذّر إلغاء الحجز.',
       illegal_transition: 'لا يمكن تنفيذ هذا الإجراء على حالة الحجز الحالية.',

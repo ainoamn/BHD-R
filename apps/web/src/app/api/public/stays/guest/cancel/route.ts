@@ -6,6 +6,7 @@ import {
   stayBookingJson,
 } from '@/lib/public-stays-booking-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { getViewer } from '@/lib/viewer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,7 +46,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const payload = await cancelGuestStayBookingOnNeon(parsed.data.referenceCode);
+    const viewer = await getViewer().catch(() => null);
+    const payload = await cancelGuestStayBookingOnNeon(
+      parsed.data.referenceCode,
+      viewer?.id ?? null,
+    );
     return stayBookingJson(payload);
   } catch (error) {
     return stayBookingErrorResponse(error);

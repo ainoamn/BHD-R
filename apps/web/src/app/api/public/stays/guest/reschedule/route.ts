@@ -7,6 +7,7 @@ import {
 } from '@/lib/public-stays-booking-route';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { notifyOwnersOfStayBooking } from '@/lib/stay-checkin-neon';
+import { getViewer } from '@/lib/viewer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -56,7 +57,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    const payload = await rescheduleGuestStayBookingOnNeon(parsed.data);
+    const viewer = await getViewer().catch(() => null);
+    const payload = await rescheduleGuestStayBookingOnNeon({
+      ...parsed.data,
+      actorUserId: viewer?.id ?? null,
+    });
     if (payload.notifyOwner) {
       void notifyOwnersOfStayBooking(payload.notifyOwner);
     }

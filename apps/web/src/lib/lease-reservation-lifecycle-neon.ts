@@ -80,7 +80,6 @@ import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
 import { applyOrgScope, getDatabase, withElevatedRead, type Tx } from '@/lib/public-booking-neon';
 import {
   LEASE_BOOKING_FLOW,
-  assertBookingOwner,
   assertLeaseSessionActor,
   findLeaseReservation,
   leaseBookingFail,

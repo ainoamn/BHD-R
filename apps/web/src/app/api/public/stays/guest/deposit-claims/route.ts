@@ -5,6 +5,7 @@ import { announceReleasedReviews } from '@/lib/review-release-neon';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 import { CLAIM_MESSAGE_MAX, claimErrorBody } from '@/lib/stay-deposit-claims';
 import { guestDepositClaimAction } from '@/lib/stay-deposit-claims-neon';
+import { getViewer } from '@/lib/viewer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -70,8 +71,9 @@ export async function POST(request: Request) {
   }
 
   try {
+    const viewer = await getViewer().catch(() => null);
     const { referenceCode, ...action } = body;
-    const result = await guestDepositClaimAction(referenceCode, action);
+    const result = await guestDepositClaimAction(referenceCode, action, viewer?.id ?? null);
     if (action.action === 'confirm_receipt') {
       const ai = { oidcToken: request.headers.get('x-vercel-oidc-token') };
       after(() =>

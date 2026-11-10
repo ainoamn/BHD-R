@@ -83,16 +83,23 @@ export type GuestDepositSettlementDoc = {
 /** Bank slip uploaded with the accountant's transfer, by stay reference. */
 export async function readGuestDepositTransferReceipt(
   referenceCode: string,
+  actorUserId: string | null = null,
 ): Promise<{ bytes: Buffer; mimeType: string } | null> {
   const reference = referenceCode.trim().toUpperCase();
   if (reference.length < 4) return null;
   return elevated(async (tx) => {
     const [booking] = await tx
-      .select({ id: stayBookings.id, organizationId: stayBookings.organizationId })
+      .select({
+        id: stayBookings.id,
+        organizationId: stayBookings.organizationId,
+        userId: stayBookings.userId,
+      })
       .from(stayBookings)
       .where(eq(stayBookings.referenceCode, reference))
       .limit(1);
     if (!booking) return null;
+    // Claimed stays: only the linked guest session may fetch the bank slip.
+    if (booking.userId && booking.userId !== actorUserId) return null;
     const [row] = await tx
       .select({
         receipt: sql<string | null>`${stayBookingStatusHistory.metadataJson}->>'receipt'`,
