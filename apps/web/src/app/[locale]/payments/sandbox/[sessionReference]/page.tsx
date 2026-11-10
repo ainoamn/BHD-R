@@ -190,40 +190,27 @@ export default async function SandboxPaymentPage({
                       )}
                     </dd>
                   </div>
-                  <div>
-                    <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
-                    <dd>
-                      {localizedName(locale, leaseSession.unitNameAr, leaseSession.unitNameEn)}
-                    </dd>
-                  </div>
-                  {leaseSession.inviteSource === 'owner_invite' &&
-                  (leaseSession.inviteeName || leaseSession.inviteeEmail) ? (
-                    <div>
-                      <dt>{ar ? 'المدعو للدفع' : 'Invitee'}</dt>
-                      <dd>
-                        {leaseSession.inviteeName ? (
-                          <span className="pay-gateway-shell__account-name">
-                            {leaseSession.inviteeName}
-                          </span>
-                        ) : null}
-                        {leaseSession.inviteeEmail ? (
-                          <span dir="ltr">{leaseSession.inviteeEmail}</span>
-                        ) : null}
-                      </dd>
-                    </div>
-                  ) : null}
-                  {viewerEmail || viewerDisplayName ? (
-                    <div>
-                      <dt>{ar ? 'الحساب الحالي' : 'Signed-in account'}</dt>
-                      <dd>
-                        {viewerDisplayName ? (
-                          <span className="pay-gateway-shell__account-name">{viewerDisplayName}</span>
-                        ) : null}
-                        {viewerEmail ? <span dir="ltr">{viewerEmail}</span> : null}
-                      </dd>
-                    </div>
-                  ) : null}
                 </dl>
+                {viewerDisplayName ||
+                viewerEmail ||
+                leaseSession.inviteeName ||
+                leaseSession.inviteeEmail ? (
+                  <div className="pay-gateway-shell__payer">
+                    <p className="pay-gateway-shell__payer-label">
+                      {ar ? 'المستخدم' : 'User'}
+                    </p>
+                    <p className="pay-gateway-shell__payer-name">
+                      {viewerDisplayName ||
+                        leaseSession.inviteeName ||
+                        (ar ? 'مستخدم مسجّل' : 'Signed-in user')}
+                    </p>
+                    {(viewerEmail || leaseSession.inviteeEmail) ? (
+                      <p className="pay-gateway-shell__payer-email" dir="ltr">
+                        {viewerEmail || leaseSession.inviteeEmail}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : (
@@ -253,22 +240,6 @@ export default async function SandboxPaymentPage({
         <header className="pay-gateway-shell__header pay-gateway-shell__header--desktop">
           <h2>{ar ? 'بيانات البطاقة' : 'Card details'}</h2>
         </header>
-
-        {viewerDisplayName ||
-        viewerEmail ||
-        leaseSession?.inviteeName ||
-        leaseSession?.inviteeEmail ? (
-          <div className="pay-gateway-shell__account-chip" aria-live="polite">
-            <strong>
-              {viewerDisplayName ||
-                leaseSession?.inviteeName ||
-                (ar ? 'مستخدم مسجّل' : 'Signed-in user')}
-            </strong>
-            <span dir="ltr">
-              {viewerEmail || leaseSession?.inviteeEmail || ''}
-            </span>
-          </div>
-        ) : null}
 
         {inviteBlocked && inviteGate ? (
           <LeaseInviteAccountGate
