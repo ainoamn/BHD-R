@@ -95,6 +95,9 @@ export type BookingLeaseTermsSeedInput = {
   areaSquareMeters?: string | null | undefined;
   /** Contract signing day; handover defaults to the next calendar day. */
   signedOn?: string | null | undefined;
+  /** Owner-invite overrides (ISO dates). */
+  handoverOn?: string | null | undefined;
+  startsOn?: string | null | undefined;
   bank?: {
     id: string;
     bankName: string;
@@ -105,6 +108,7 @@ export type BookingLeaseTermsSeedInput = {
 /**
  * Prefill a lease draft from a website booking: usage/type and term the client chose,
  * rent/deposit from the unit/arabon, handover = signing day + 1, start = handover.
+ * Owner invites may override handover/start dates explicitly.
  */
 export function buildBookingLeaseTermsDraft(input: BookingLeaseTermsSeedInput): LeaseTermsDraft {
   const digits = minorDigitsFor(input.currency);
@@ -112,8 +116,14 @@ export function buildBookingLeaseTermsDraft(input: BookingLeaseTermsSeedInput): 
     input.signedOn && /^\d{4}-\d{2}-\d{2}$/.test(input.signedOn)
       ? input.signedOn
       : muscatTodayIso();
-  const handoverOn = addDays(signedOn, 1);
-  const startsOn = handoverOn;
+  const handoverOn =
+    input.handoverOn && /^\d{4}-\d{2}-\d{2}$/.test(input.handoverOn)
+      ? input.handoverOn
+      : addDays(signedOn, 1);
+  const startsOn =
+    input.startsOn && /^\d{4}-\d{2}-\d{2}$/.test(input.startsOn)
+      ? input.startsOn
+      : handoverOn;
   const months =
     input.termMonths && input.termMonths > 0 && input.termMonths <= 120 ? input.termMonths : 12;
   const endsOn = endDateForMonths(startsOn, months);

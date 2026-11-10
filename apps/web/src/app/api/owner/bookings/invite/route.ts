@@ -12,6 +12,9 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 45;
 
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const minorAmount = z.string().regex(/^[1-9]\d*$/);
+
 const bodySchema = z
   .object({
     unitId: z.string().uuid(),
@@ -22,6 +25,10 @@ const bodySchema = z
     email: z.string().trim().email().max(320),
     contractPreference: z.enum(['electronic', 'manual']),
     party: reservationPartySchema,
+    rentMinor: minorAmount.nullable().optional(),
+    depositMinor: minorAmount.nullable().optional(),
+    leaseStartsOn: isoDate.nullable().optional(),
+    handoverOn: isoDate.nullable().optional(),
   })
   .strict();
 

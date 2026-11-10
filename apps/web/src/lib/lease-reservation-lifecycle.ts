@@ -28,7 +28,11 @@ export type ReservationRequirement = {
   verifiedByName?: string | null;
 };
 
-export type ReservationCancelReason = 'documents_invalid' | 'payment_not_received';
+export type ReservationCancelReason =
+  | 'documents_invalid'
+  | 'payment_not_received'
+  | 'owner_cancelled'
+  | 'owner_invite_expired';
 
 export type ReservationSaleDraft = {
   signedOn: string;

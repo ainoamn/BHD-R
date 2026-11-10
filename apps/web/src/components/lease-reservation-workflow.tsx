@@ -136,6 +136,9 @@ export type LeaseReservationWorkflowProps = {
   depositMinor: string;
   depositPaidAt: string | null;
   termsAcceptedAt: string | null;
+  /** Optional dates captured on the owner invite / booking snapshot. */
+  leaseStartsOn?: string | null;
+  handoverOn?: string | null;
   hasEsign: boolean;
   canManage: boolean;
   canSign: boolean;
@@ -3663,6 +3666,8 @@ function ContractDraftEditor({
   depositLabel,
   depositMinor,
   depositPaidAt,
+  leaseStartsOn,
+  handoverOn,
   canSign,
   busy,
   onSave,
@@ -3790,6 +3795,8 @@ function ContractDraftEditor({
             accountHolderName: bankAccountPayeeName(rentBank, false),
           }
         : null,
+      ...(leaseStartsOn ? { startsOn: leaseStartsOn } : {}),
+      ...(handoverOn ? { handoverOn } : {}),
     });
   }, [
     savedLease?.terms,
@@ -3802,6 +3809,8 @@ function ContractDraftEditor({
     party?.contractType,
     party?.termMonths,
     rentBank,
+    leaseStartsOn,
+    handoverOn,
   ]);
   const [saleForm, setSaleForm] = useState({
     signedOn: lifecycle.contractDraft?.sale?.signedOn ?? todayIso(),

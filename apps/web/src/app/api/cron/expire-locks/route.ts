@@ -31,6 +31,28 @@ export async function GET(request: Request) {
         set status = 'expired', updated_at = now()
         where status = 'active' and expires_at <= now()
       `);
+      // Unpaid manual owner invites: cancel (keep the row) after 24h TTL — admin can one-click resend.
+      await transaction.execute(sql`
+        update reservations
+        set
+          status = 'cancelled',
+          updated_at = now(),
+          terms_snapshot = jsonb_set(
+            coalesce(terms_snapshot, '{}'::jsonb),
+            '{lifecycle,cancellation}',
+            jsonb_build_object(
+              'at', to_jsonb(now()),
+              'byName', null,
+              'reason', 'owner_invite_expired',
+              'note', 'انتهت مهلة الدعوة اليدوية (24 ساعة) / Owner invite TTL elapsed'
+            ),
+            true
+          )
+        where status in ('pending', 'confirmed')
+          and expires_at <= now()
+          and coalesce(terms_snapshot->>'source', '') = 'owner_invite'
+          and coalesce(terms_snapshot->>'depositPaidAt', '') = ''
+      `);
       await transaction.execute(sql`
         update reservations
         set status = 'expired', updated_at = now()

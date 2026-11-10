@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
   ReservationPartyForm,
   buildReservationParty,
@@ -11,11 +12,13 @@ import {
 import { BookingStepScene } from '@/components/stays/booking-step-scene';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
 import type { BookingStepGreeting } from '@/lib/booking-step-greeting';
+import { toMinorUnits } from '@/lib/format';
+import { fromMinor } from '@/lib/legal-case-shared';
 import { partyDisplayName } from '@/lib/reservation-party';
+import { toInternationalPhone } from '@/lib/world-countries';
 
 /** Owner invite may set any whole-month term from 1 upward (property minimum is for public booking). */
 const OWNER_INVITE_MIN_LEASE_MONTHS = 1;
-import { toInternationalPhone } from '@/lib/world-countries';
 
 type UnitOption = {
   id: string;
@@ -26,11 +29,24 @@ type UnitOption = {
   nameEn?: string;
   currency?: string;
   listingPurpose?: 'rent' | 'sale' | 'both' | string;
+  rentMinor?: string | null;
+  depositMinor?: string | null;
   propertyNameAr?: string;
   propertyNameEn?: string;
   propertySerial?: string;
   ownerName?: string;
 };
+
+function majorFromMinor(minor: string | null | undefined, currency: string): string {
+  if (!minor || !/^\d+$/.test(minor)) return '';
+  const scale = currencyMinorUnits[currency as CurrencyCode] ?? 3;
+  const raw = fromMinor(minor, scale);
+  return raw.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '');
+}
+
+function muscatTodayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
+}
 
 type TenantOption = {
   id: string;
@@ -118,6 +134,10 @@ export function OwnerBookingInvitePanel({
   const [directoryId, setDirectoryId] = useState('');
   const [contractPreference, setContractPreference] =
     useState<ContractPreference>('electronic');
+  const [rentMajor, setRentMajor] = useState('');
+  const [depositMajor, setDepositMajor] = useState('');
+  const [leaseStartsOn, setLeaseStartsOn] = useState('');
+  const [handoverOn, setHandoverOn] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,6 +163,22 @@ export function OwnerBookingInvitePanel({
     [vacantUnits, unitId],
   );
   const unitLabel = selectedUnit ? unitOptionLabel(selectedUnit, ar) : '';
+  const unitCurrency = (selectedUnit?.currency || 'OMR') as CurrencyCode;
+
+  useEffect(() => {
+    if (!selectedUnit) {
+      setRentMajor('');
+      setDepositMajor('');
+      setLeaseStartsOn('');
+      setHandoverOn('');
+      return;
+    }
+    setRentMajor(majorFromMinor(selectedUnit.rentMinor, selectedUnit.currency || 'OMR'));
+    setDepositMajor(majorFromMinor(selectedUnit.depositMinor, selectedUnit.currency || 'OMR'));
+    const today = muscatTodayIso();
+    setLeaseStartsOn(today);
+    setHandoverOn(today);
+  }, [selectedUnit]);
 
   const stepNo = STEPS.indexOf(step) + 1;
   const greeting: BookingStepGreeting =
@@ -207,6 +243,38 @@ export function OwnerBookingInvitePanel({
     return null;
   }
 
+  function commercialStepError(): string | null {
+    if (!selectedUnit) return ar ? 'اختر وحدة أولاً.' : 'Choose a unit first.';
+    try {
+      if (mode === 'rent') {
+        const rent = toMinorUnits(rentMajor.trim() || '0', unitCurrency);
+        if (!/^[1-9]\d*$/.test(rent)) {
+          return ar ? 'أدخل مبلغ الإيجار الشهري.' : 'Enter the monthly rent.';
+        }
+      }
+      const deposit = toMinorUnits(depositMajor.trim() || '0', unitCurrency);
+      if (!/^[1-9]\d*$/.test(deposit)) {
+        return ar ? 'أدخل مبلغ الضمان.' : 'Enter the deposit amount.';
+      }
+    } catch {
+      return ar ? 'أدخل مبالغ صحيحة.' : 'Enter valid amounts.';
+    }
+    if (mode === 'rent') {
+      if (!leaseStartsOn) {
+        return ar ? 'أدخل تاريخ بداية العقد.' : 'Enter the lease start date.';
+      }
+      if (!handoverOn) {
+        return ar ? 'أدخل تاريخ الاستلام.' : 'Enter the handover date.';
+      }
+      if (handoverOn > leaseStartsOn) {
+        return ar
+          ? 'تاريخ الاستلام يجب ألا يكون بعد بداية العقد.'
+          : 'Handover date must not be after the lease start date.';
+      }
+    }
+    return null;
+  }
+
   function validateStep(current: Step): string | null {
     if (current === 'unit') {
       if (!mode) return ar ? 'اختر نوع العرض.' : 'Choose the offer type.';
@@ -220,7 +288,7 @@ export function OwnerBookingInvitePanel({
           ? 'الوحدة المختارة غير متاحة لهذا النوع.'
           : 'The selected unit is not available for this offer.';
       }
-      return null;
+      return commercialStepError();
     }
     if (current === 'party') return partyStepError();
     if (current === 'contract') {
@@ -298,6 +366,19 @@ export function OwnerBookingInvitePanel({
     const email =
       party.entityType === 'company' ? party.company?.email ?? '' : party.person?.email ?? '';
 
+    let rentMinor: string | null = null;
+    let depositMinor: string;
+    try {
+      if (mode === 'rent') {
+        rentMinor = toMinorUnits(rentMajor.trim() || '0', unitCurrency);
+      }
+      depositMinor = toMinorUnits(depositMajor.trim() || '0', unitCurrency);
+    } catch {
+      setError(ar ? 'أدخل مبالغ صحيحة.' : 'Enter valid amounts.');
+      setStep('unit');
+      return;
+    }
+
     setBusy(true);
     try {
       const csrf = await fetchBrowserCsrfToken(true);
@@ -318,6 +399,14 @@ export function OwnerBookingInvitePanel({
           email,
           contractPreference,
           party,
+          ...(rentMinor ? { rentMinor } : {}),
+          depositMinor,
+          ...(mode === 'rent'
+            ? {
+                leaseStartsOn: leaseStartsOn || null,
+                handoverOn: handoverOn || null,
+              }
+            : {}),
         }),
         signal: AbortSignal.timeout(45_000),
       });
@@ -348,7 +437,7 @@ export function OwnerBookingInvitePanel({
 
   const canAdvance =
     step === 'unit'
-      ? Boolean(unitId && modeUnits.some((unit) => unit.id === unitId))
+      ? Boolean(unitId && modeUnits.some((unit) => unit.id === unitId) && !commercialStepError())
       : step === 'party'
         ? partyStepError() === null
         : step === 'contract'
@@ -454,6 +543,71 @@ export function OwnerBookingInvitePanel({
             <p className="ops-hint span-2">
               {ar ? 'لا نتائج مطابقة لبحثك.' : 'No units match your search.'}
             </p>
+          ) : null}
+
+          {selectedUnit ? (
+            <>
+              {mode === 'rent' ? (
+                <label className="field">
+                  <span>{ar ? 'الإيجار الشهري' : 'Monthly rent'}</span>
+                  <input
+                    className="input"
+                    inputMode="decimal"
+                    dir="ltr"
+                    value={rentMajor}
+                    onChange={(event) => setRentMajor(event.target.value)}
+                    required
+                  />
+                  <small className="ops-hint">
+                    {ar
+                      ? 'يُجلب من بيانات الوحدة ويمكن تعديله — يُستخدم في العقد.'
+                      : 'Prefills from the unit and can be edited — used for the contract.'}
+                  </small>
+                </label>
+              ) : null}
+              <label className="field">
+                <span>{ar ? 'مبلغ الضمان / العربون' : 'Deposit / booking fee'}</span>
+                <input
+                  className="input"
+                  inputMode="decimal"
+                  dir="ltr"
+                  value={depositMajor}
+                  onChange={(event) => setDepositMajor(event.target.value)}
+                  required
+                />
+              </label>
+              {mode === 'rent' ? (
+                <>
+                  <label className="field">
+                    <span>{ar ? 'تاريخ بداية العقد' : 'Lease start date'}</span>
+                    <input
+                      className="input"
+                      type="date"
+                      dir="ltr"
+                      value={leaseStartsOn}
+                      onChange={(event) => setLeaseStartsOn(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label className="field">
+                    <span>{ar ? 'تاريخ الاستلام' : 'Handover date'}</span>
+                    <input
+                      className="input"
+                      type="date"
+                      dir="ltr"
+                      value={handoverOn}
+                      onChange={(event) => setHandoverOn(event.target.value)}
+                      required
+                    />
+                  </label>
+                </>
+              ) : null}
+              <p className="ops-hint span-2">
+                {ar
+                  ? 'صلاحية الدعوة اليدوية 24 ساعة؛ إن لم يُكمل المستأجر تُلغى تلقائياً مع بقاء السجل لإعادة الإرسال.'
+                  : 'Manual invites are valid for 24 hours; if unfinished they auto-cancel but stay for one-click resend.'}
+              </p>
+            </>
           ) : null}
         </div>
       ) : null}
@@ -575,6 +729,32 @@ export function OwnerBookingInvitePanel({
                   {ar ? 'شهراً' : 'months'}
                 </dd>
               </div>
+            ) : null}
+            {mode === 'rent' ? (
+              <div>
+                <dt>{ar ? 'الإيجار' : 'Rent'}</dt>
+                <dd dir="ltr">
+                  {rentMajor || '—'} {unitCurrency}
+                </dd>
+              </div>
+            ) : null}
+            <div>
+              <dt>{ar ? 'الضمان' : 'Deposit'}</dt>
+              <dd dir="ltr">
+                {depositMajor || '—'} {unitCurrency}
+              </dd>
+            </div>
+            {mode === 'rent' ? (
+              <>
+                <div>
+                  <dt>{ar ? 'بداية العقد' : 'Lease start'}</dt>
+                  <dd dir="ltr">{leaseStartsOn || '—'}</dd>
+                </div>
+                <div>
+                  <dt>{ar ? 'الاستلام' : 'Handover'}</dt>
+                  <dd dir="ltr">{handoverOn || '—'}</dd>
+                </div>
+              </>
             ) : null}
             <div>
               <dt>{ar ? 'العقد' : 'Contract'}</dt>

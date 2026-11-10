@@ -305,6 +305,8 @@ export class OperationsService {
             nameEn: units.nameEn,
             currency: units.currency,
             listingPurpose: units.listingPurpose,
+            rentMinor: units.rentMinor,
+            depositMinor: units.depositMinor,
             propertyNameAr: properties.nameAr,
             propertyNameEn: properties.nameEn,
             propertySerial: properties.serialNumber,
@@ -455,6 +457,8 @@ export class OperationsService {
         .filter((row) => !blockedUnitIds.has(row.id))
         .map((row) => ({
           ...row,
+          rentMinor: row.rentMinor?.toString() ?? null,
+          depositMinor: row.depositMinor?.toString() ?? null,
           propertySerial: row.propertySerial ?? '',
           ownerName: row.ownerName ?? '',
           listingPurpose: row.listingPurpose as 'rent' | 'sale' | 'both',

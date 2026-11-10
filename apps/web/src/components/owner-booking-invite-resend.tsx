@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
 
@@ -12,6 +13,7 @@ export function OwnerBookingInviteResend({
   locale: 'ar' | 'en';
 }) {
   const ar = locale === 'ar';
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,11 @@ export function OwnerBookingInviteResend({
         },
       );
       const payload = (await response.json().catch(() => null)) as
-        | { emailed?: number; error?: { code?: string; message?: string; messageAr?: string } }
+        | {
+            emailed?: number;
+            reopened?: boolean;
+            error?: { code?: string; message?: string; messageAr?: string };
+          }
         | null;
       if (!response.ok) {
         throw new ApiError(
@@ -47,10 +53,15 @@ export function OwnerBookingInviteResend({
         );
       }
       setMessage(
-        ar
-          ? 'أُعيد إرسال الدعوة بالبريد وواتساب للمستأجر.'
-          : 'Invite email and WhatsApp were resent to the tenant.',
+        payload?.reopened
+          ? ar
+            ? 'أُعيد فتح الحجز وإرسال الدعوة للمستأجر (صلاحية 24 ساعة).'
+            : 'Booking reopened and invite resent (valid for 24 hours).'
+          : ar
+            ? 'أُعيد إرسال الدعوة بالبريد وواتساب للمستأجر.'
+            : 'Invite email and WhatsApp were resent to the tenant.',
       );
+      router.refresh();
     } catch (err) {
       setError(humanizeBrowserError(err, ar));
     } finally {

@@ -140,6 +140,8 @@ async function autoPrepareLeaseContractDraft(
     contractType: party.contractType,
     termMonths: party.termMonths,
     bank,
+    ...(row.snapshot.leaseStartsOn ? { startsOn: row.snapshot.leaseStartsOn } : {}),
+    ...(row.snapshot.handoverOn ? { handoverOn: row.snapshot.handoverOn } : {}),
   });
   const effectiveDefer = handoverAfterSign
     ? deferUntilHandover.filter((item) => item !== 'handoverOn')

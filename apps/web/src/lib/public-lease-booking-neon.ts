@@ -99,6 +99,9 @@ export type LeaseBookingSnapshot = {
   source?: 'owner_invite' | 'public';
   /** Chosen when the landlord created the invite; overrides org policy for contract auto. */
   contractPreference?: 'electronic' | 'manual';
+  /** Owner-invite commercial terms (ISO dates); used when drafting the lease. */
+  leaseStartsOn?: string | null;
+  handoverOn?: string | null;
   tenantTermsAcceptedAt?: string | null;
   depositPaidAt?: string;
   publicDepositPaidAt?: string;
@@ -1199,6 +1202,8 @@ function leaseBookingView(match: LeaseReservationMatch) {
     reservedUntil: match.expiresAt.toISOString(),
     sessionReference: snapshot.checkoutSessionReference,
     inviteSource: snapshot.source === 'owner_invite' ? ('owner_invite' as const) : null,
+    leaseStartsOn: snapshot.leaseStartsOn ?? null,
+    handoverOn: snapshot.handoverOn ?? null,
   };
 }
 
@@ -1276,15 +1281,18 @@ export async function loadLeaseBookingForStaff(claims: SessionClaims, reservatio
       formUnit: {
         id: match.unitId,
         code: match.unitCode,
-        rentMinor: match.unitRentMinor?.toString() ?? null,
-        salePriceMinor: match.unitSalePriceMinor?.toString() ?? null,
-        depositMinor: match.unitDepositMinor?.toString() ?? null,
+        // Prefer booking snapshot amounts so the contract draft follows invite overrides.
+        rentMinor: match.snapshot.rentMinor ?? match.unitRentMinor?.toString() ?? null,
+        salePriceMinor: match.snapshot.salePriceMinor ?? match.unitSalePriceMinor?.toString() ?? null,
+        depositMinor: match.snapshot.depositMinor ?? match.unitDepositMinor?.toString() ?? null,
         currency: match.unitCurrency,
         floor: match.unitFloor,
         areaSquareMeters: match.unitAreaSquareMeters,
         electricityMeter: null,
         waterMeter: null,
       },
+      leaseStartsOn: match.snapshot.leaseStartsOn ?? null,
+      handoverOn: match.snapshot.handoverOn ?? null,
       formTenant: {
         id: match.tenantPartyId,
         displayName: match.partyName,
