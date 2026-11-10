@@ -133,8 +133,8 @@ function fieldHint(path: string, ar: boolean): string {
 
 /**
  * Progressive contract-party form: one field (or small group) at a time.
- * Completing the current step reveals the next and moves focus there.
- * Use `layout="flat"` (owner invite) to show every field at once without auto-advance.
+ * By default, completing a step auto-advances. Set `autoAdvance={false}` (owner invite)
+ * to keep the current field until the user presses Next/Continue.
  */
 export function ReservationPartyForm({
   value,
@@ -143,7 +143,7 @@ export function ReservationPartyForm({
   mode,
   minMonths,
   locale,
-  layout = 'progressive',
+  autoAdvance = true,
 }: {
   value: PartyForm;
   onChange: (next: PartyForm) => void;
@@ -151,9 +151,9 @@ export function ReservationPartyForm({
   mode: 'rent' | 'sale';
   minMonths: number;
   locale: 'ar' | 'en';
-  layout?: 'progressive' | 'flat';
+  /** When false, stay on the completed field until the user presses Next. */
+  autoAdvance?: boolean;
 }) {
-  const flat = layout === 'flat';
   const ar = locale === 'ar';
   const sale = mode === 'sale';
   const role = sale ? (ar ? 'المشتري' : 'buyer') : ar ? 'المستأجر' : 'tenant';
@@ -333,7 +333,7 @@ export function ReservationPartyForm({
         {
           id: 'nationality',
           label: ar ? 'الجنسية' : 'Nationality',
-          done: (flat || nationalityConfirmed) && Boolean(person.nationality),
+          done: nationalityConfirmed && Boolean(person.nationality),
           focusId: 'party-nationality',
           body: (
             <div className="field">
@@ -356,7 +356,7 @@ export function ReservationPartyForm({
                   </option>
                 ))}
               </select>
-              {!flat && !nationalityConfirmed ? (
+              {!nationalityConfirmed ? (
                 <button
                   type="button"
                   className="button button--primary party-form__next"
@@ -1061,7 +1061,6 @@ export function ReservationPartyForm({
     countries,
     locale,
     nationalityConfirmed,
-    flat,
   ]);
 
   const firstIncomplete = steps.findIndex((step) => !step.done);
@@ -1083,15 +1082,18 @@ export function ReservationPartyForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- entity switch only
   }, [entityType]);
 
-  // Only jump forward when a new step unlocks — keep Back navigation intact.
+  // Auto mode: jump forward when a new step unlocks. Manual mode waits for Next.
   useEffect(() => {
-    if (flat) return;
+    if (!autoAdvance) {
+      prevFrontier.current = frontier;
+      return;
+    }
     if (frontier > prevFrontier.current) setViewIndex(frontier);
     prevFrontier.current = frontier;
-  }, [frontier, flat]);
+  }, [frontier, autoAdvance]);
 
   useEffect(() => {
-    if (flat) return;
+    if (!autoAdvance) return;
     const current = steps[frontier];
     if (!current?.done || frontier >= steps.length - 1) return;
     const timer = window.setTimeout(() => {
@@ -1105,16 +1107,16 @@ export function ReservationPartyForm({
       }
     }, current.id.toLowerCase().includes('copy') ? 650 : 240);
     return () => window.clearTimeout(timer);
-  }, [frontier, steps, flat]);
+  }, [frontier, steps, autoAdvance]);
 
   useEffect(() => {
-    if (flat) return;
+    if (!autoAdvance) return;
     const current = steps[viewIndex];
     if (!current?.focusId || current.done) return;
     if (lastFocused.current === `${viewIndex}:${current.focusId}`) return;
     lastFocused.current = `${viewIndex}:${current.focusId}`;
     focusStepField(current.focusId);
-  }, [viewIndex, steps, flat]);
+  }, [viewIndex, steps, autoAdvance]);
 
   const missing =
     entityType === 'person' ? missingPersonFields(person) : missingCompanyFields(company);
@@ -1122,7 +1124,10 @@ export function ReservationPartyForm({
   const safeIndex = Math.min(Math.max(viewIndex, 0), frontier);
   const currentStep = steps[safeIndex];
   const canGoBack = safeIndex > 0;
-  const canGoNext = safeIndex < frontier && Boolean(currentStep?.done);
+  const canGoNext =
+    Boolean(currentStep?.done) &&
+    safeIndex < steps.length - 1 &&
+    (autoAdvance ? safeIndex < frontier : true);
 
   function goBack() {
     if (!canGoBack) return;
@@ -1133,41 +1138,14 @@ export function ReservationPartyForm({
   function goNext() {
     if (!canGoNext) return;
     lastFocused.current = null;
-    setViewIndex(safeIndex + 1);
-  }
-
-  if (flat) {
-    return (
-      <div className="party-form party-form--flat">
-        {missing.length ? <MissingFieldsBanner locale={locale} fields={missing} /> : null}
-        {civilIdWarn ? (
-          <p className="tenant-alert tenant-alert--warn" role="status">
-            {civilIdExpiryWarningText(ar)}
-          </p>
-        ) : null}
-        <div className="party-form__steps">
-          {steps.map((step, index) => (
-            <div
-              key={step.id}
-              className={`party-form__step${step.done ? ' is-done' : ''}`}
-            >
-              <div className="party-form__step-head">
-                <span className="party-form__step-index" aria-hidden="true">
-                  {step.done ? '✓' : index + 1}
-                </span>
-                <span>{step.label}</span>
-              </div>
-              <div className="party-form__step-body">{step.body}</div>
-            </div>
-          ))}
-        </div>
-        <p className="muted stays-checkout__hint">
-          {ar
-            ? 'أكمل كل الحقول ثم اضغط «التالي» أسفل النافذة.'
-            : 'Complete every field, then press “Next” below.'}
-        </p>
-      </div>
-    );
+    const next = safeIndex + 1;
+    setUnlocked((currentUnlock) => Math.max(currentUnlock, next));
+    setViewIndex(next);
+    const nextStep = steps[next];
+    if (nextStep?.focusId) {
+      lastFocused.current = `${next}:${nextStep.focusId}`;
+      focusStepField(nextStep.focusId);
+    }
   }
 
   return (
@@ -1180,8 +1158,12 @@ export function ReservationPartyForm({
         </strong>
         <span>
           {ar
-            ? `${progressDone} مكتملة — عبّئ حقلاً واحداً في كل مرة`
-            : `${progressDone} done — fill one field at a time`}
+            ? autoAdvance
+              ? `${progressDone} مكتملة — عبّئ حقلاً واحداً في كل مرة`
+              : `${progressDone} مكتملة — أكمل الحقل ثم اضغط التالي`
+            : autoAdvance
+              ? `${progressDone} done — fill one field at a time`
+              : `${progressDone} done — finish the field, then press Next`}
         </span>
         <div className="party-form__progress-track" aria-hidden="true">
           <div
@@ -1224,7 +1206,7 @@ export function ReservationPartyForm({
             )}
             {canGoNext ? (
               <button type="button" className="button button--primary" onClick={goNext}>
-                {ar ? 'متابعة' : 'Continue'}
+                {ar ? 'التالي' : 'Next'}
               </button>
             ) : null}
           </div>

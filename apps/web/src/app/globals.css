@@ -16073,16 +16073,6 @@ button.ops-row-key {
   padding: 0;
   list-style: none;
 }
-.party-form--flat {
-  display: grid;
-  gap: 0.85rem;
-}
-.party-form--flat .party-form__steps {
-  gap: 0.75rem;
-}
-.party-form--flat .party-form__step-body {
-  animation: none;
-}
 .party-form__step {
   border: 1px solid rgb(9 45 36 / 0.1);
   border-radius: 0.95rem;
