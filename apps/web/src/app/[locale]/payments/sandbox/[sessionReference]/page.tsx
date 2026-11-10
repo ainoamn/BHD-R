@@ -55,6 +55,13 @@ export default async function SandboxPaymentPage({
 
   let inviteGate: OwnerInviteAccountGate | null = null;
   let viewerEmail: string | null = null;
+  let viewerDisplayName: string | null = null;
+  const viewer =
+    leaseKind && leaseSession && !leaseSession.paid ? await getViewer() : null;
+  if (viewer) {
+    viewerEmail = viewer.email ?? null;
+    viewerDisplayName = viewer.displayName?.trim() || viewer.username?.trim() || null;
+  }
   if (
     leaseKind &&
     leaseSession &&
@@ -62,8 +69,6 @@ export default async function SandboxPaymentPage({
     leaseSession.inviteSource === 'owner_invite' &&
     leaseSession.inviteeEmail
   ) {
-    const viewer = await getViewer();
-    viewerEmail = viewer?.email ?? null;
     const paymentPath = leaseInvitePaymentReturnPath(locale, sessionReference, returnPath);
     inviteGate = await resolveOwnerInviteAccountGate({
       locale,
@@ -191,9 +196,19 @@ export default async function SandboxPaymentPage({
                       {localizedName(locale, leaseSession.unitNameAr, leaseSession.unitNameEn)}
                     </dd>
                   </div>
-                  {leaseSession.inviteSource === 'owner_invite' && leaseSession.inviteeEmail ? (
+                  {viewerEmail ? (
                     <div>
-                      <dt>{ar ? 'حساب الدعوة' : 'Invite account'}</dt>
+                      <dt>{ar ? 'الحساب الحالي' : 'Signed-in account'}</dt>
+                      <dd>
+                        {viewerDisplayName ? (
+                          <span className="pay-gateway-shell__account-name">{viewerDisplayName}</span>
+                        ) : null}
+                        <span dir="ltr">{viewerEmail}</span>
+                      </dd>
+                    </div>
+                  ) : leaseSession.inviteSource === 'owner_invite' && leaseSession.inviteeEmail ? (
+                    <div>
+                      <dt>{ar ? 'حساب الدعوة المطلوب' : 'Required invite account'}</dt>
                       <dd dir="ltr">{leaseSession.inviteeEmail}</dd>
                     </div>
                   ) : null}

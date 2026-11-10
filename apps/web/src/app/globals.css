@@ -3791,6 +3791,10 @@ body:has(.stays-booking-receipt) #main-content {
   );
   pointer-events: none;
 }
+.pay-gateway-shell__account-name {
+  display: block;
+  font-weight: 600;
+}
 .pay-gateway-shell__summary-body {
   position: relative;
   z-index: 2;
