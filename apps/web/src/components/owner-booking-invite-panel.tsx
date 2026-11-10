@@ -187,6 +187,7 @@ export function OwnerBookingInvitePanel({
       mode,
       minMonths: DEFAULT_MIN_LEASE_MONTHS,
       ar,
+      deferTenantCompletion: true,
     });
     if ('error' in built) return built.error;
     const party = built.party;
@@ -280,6 +281,7 @@ export function OwnerBookingInvitePanel({
       mode,
       minMonths: DEFAULT_MIN_LEASE_MONTHS,
       ar,
+      deferTenantCompletion: true,
     });
     if ('error' in built) {
       setError(built.error);
@@ -481,6 +483,7 @@ export function OwnerBookingInvitePanel({
               onChange={setPartyForm}
               holder="other"
               autoAdvance={false}
+              deferTenantCompletion
             />
           </div>
           <p className="ops-hint span-2">

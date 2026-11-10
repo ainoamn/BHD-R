@@ -162,6 +162,8 @@ export async function createOwnerBookingInvite(
         preview.propertyId,
       ),
       today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date()),
+      // Tenant verifies email, uploads ID copies, and adds alt phone on the invite link.
+      deferTenantCompletion: true,
     });
     if (partyError) fail(partyError, 400, partyError, partyError);
 

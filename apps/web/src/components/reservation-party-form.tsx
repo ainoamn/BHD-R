@@ -74,7 +74,14 @@ export function muscatToday(): string {
 /** The form as the API expects it, or the first problem in the customer's language. */
 export function buildReservationParty(
   form: PartyForm,
-  options: { holder: 'self' | 'other'; mode: 'rent' | 'sale'; minMonths: number; ar: boolean },
+  options: {
+    holder: 'self' | 'other';
+    mode: 'rent' | 'sale';
+    minMonths: number;
+    ar: boolean;
+    /** Owner invite: skip OTP / ID copies / alternate phone until the tenant continues. */
+    deferTenantCompletion?: boolean;
+  },
 ): { party: ReservationParty } | { error: string } {
   const entityType = options.holder === 'self' ? 'person' : form.entityType;
   const draft = {
@@ -103,6 +110,7 @@ export function buildReservationParty(
     mode: options.mode,
     minMonths: options.minMonths,
     today: muscatToday(),
+    ...(options.deferTenantCompletion ? { deferTenantCompletion: true } : {}),
   });
   return code ? { error: partyErrorText(code, options.ar) } : { party: parsed.data };
 }
@@ -144,6 +152,7 @@ export function ReservationPartyForm({
   minMonths,
   locale,
   autoAdvance = true,
+  deferTenantCompletion = false,
 }: {
   value: PartyForm;
   onChange: (next: PartyForm) => void;
@@ -153,9 +162,12 @@ export function ReservationPartyForm({
   locale: 'ar' | 'en';
   /** When false, stay on the completed field until the user presses Next. */
   autoAdvance?: boolean;
+  /** Owner invite: tenant attaches ID copies, alt phone, and OTP later. */
+  deferTenantCompletion?: boolean;
 }) {
   const ar = locale === 'ar';
   const sale = mode === 'sale';
+  const defer = deferTenantCompletion;
   const role = sale ? (ar ? 'المشتري' : 'buyer') : ar ? 'المستأجر' : 'tenant';
   const entityType = holder === 'self' ? 'person' : value.entityType;
   const countries = useMemo(() => sortedCountries(locale), [locale]);
@@ -426,7 +438,9 @@ export function ReservationPartyForm({
             </div>
           ),
         },
-        {
+      );
+      if (!defer) {
+        list.push({
           id: 'civilCopy',
           label: ar ? 'نسخة البطاقة' : 'Civil ID copy',
           done: Boolean(person.civilIdCopy),
@@ -441,8 +455,8 @@ export function ReservationPartyForm({
               onChange={(civilIdCopy) => setPerson({ civilIdCopy })}
             />
           ),
-        },
-      );
+        });
+      }
 
       if (!omani) {
         list.push(
@@ -492,7 +506,9 @@ export function ReservationPartyForm({
               </div>
             ),
           },
-          {
+        );
+        if (!defer) {
+          list.push({
             id: 'passportCopy',
             label: ar ? 'نسخة الجواز' : 'Passport copy',
             done: Boolean(person.passportCopy),
@@ -507,28 +523,28 @@ export function ReservationPartyForm({
                 onChange={(passportCopy) => setPerson({ passportCopy })}
               />
             ),
-          },
-        );
+          });
+        }
       }
 
-      list.push(
-        {
-          id: 'phone',
-          label: ar ? 'رقم الجوال' : 'Mobile',
-          done: isInternationalPhone(person.phone),
-          focusId: 'party-phone',
-          body: (
-            <InternationalPhoneField
-              id="party-phone"
-              label={ar ? 'رقم الجوال' : 'Mobile'}
-              value={person.phone}
-              onChange={(phone) => setPerson({ phone })}
-              locale={locale}
-              required
-            />
-          ),
-        },
-        {
+      list.push({
+        id: 'phone',
+        label: ar ? 'رقم الجوال' : 'Mobile',
+        done: isInternationalPhone(person.phone),
+        focusId: 'party-phone',
+        body: (
+          <InternationalPhoneField
+            id="party-phone"
+            label={ar ? 'رقم الجوال' : 'Mobile'}
+            value={person.phone}
+            onChange={(phone) => setPerson({ phone })}
+            locale={locale}
+            required
+          />
+        ),
+      });
+      if (!defer) {
+        list.push({
           id: 'altPhone',
           label: ar ? 'رقم هاتف بديل' : 'Alternate phone',
           done:
@@ -557,34 +573,43 @@ export function ReservationPartyForm({
               }
             />
           ),
-        },
-        {
-          id: 'email',
-          label: ar ? 'البريد الإلكتروني' : 'Email',
-          done: emailOk(person.email),
-          focusId: 'party-email',
-          body: (
-            <div className="field">
-              <label htmlFor="party-email">
-                {ar ? 'البريد الإلكتروني' : 'Email'}
-                <span aria-hidden="true"> *</span>
-              </label>
-              <input
-                id="party-email"
-                className="input"
-                type="email"
-                dir="ltr"
-                required
-                maxLength={254}
-                value={person.email}
-                onChange={(event) =>
-                  setPerson({ email: event.target.value, emailVerified: false })
-                }
-              />
-            </div>
-          ),
-        },
-        {
+        });
+      }
+      list.push({
+        id: 'email',
+        label: ar ? 'البريد الإلكتروني' : 'Email',
+        done: emailOk(person.email),
+        focusId: 'party-email',
+        body: (
+          <div className="field">
+            <label htmlFor="party-email">
+              {ar ? 'البريد الإلكتروني' : 'Email'}
+              <span aria-hidden="true"> *</span>
+            </label>
+            <input
+              id="party-email"
+              className="input"
+              type="email"
+              dir="ltr"
+              required
+              maxLength={254}
+              value={person.email}
+              onChange={(event) =>
+                setPerson({ email: event.target.value, emailVerified: false })
+              }
+            />
+            {defer ? (
+              <p className="field__hint muted">
+                {ar
+                  ? 'سيصل المستأجر رابط الدعوة على هذا البريد لإكمال الدفع والمستندات — دون رمز OTP هنا.'
+                  : 'The tenant gets the invite on this email to finish payment and documents — no OTP here.'}
+              </p>
+            ) : null}
+          </div>
+        ),
+      });
+      if (!defer) {
+        list.push({
           id: 'emailOtp',
           label: ar ? 'تأكيد البريد' : 'Verify email',
           done: person.emailVerified,
@@ -596,8 +621,8 @@ export function ReservationPartyForm({
               onVerified={(emailVerified) => setPerson({ emailVerified })}
             />
           ),
-        },
-      );
+        });
+      }
     } else {
       list.push(
         {
@@ -692,7 +717,9 @@ export function ReservationPartyForm({
             </div>
           ),
         },
-        {
+      );
+      if (!defer) {
+        list.push({
           id: 'crCopy',
           label: ar ? 'نسخة السجل' : 'CR copy',
           done: Boolean(company.crCopy),
@@ -707,7 +734,9 @@ export function ReservationPartyForm({
               onChange={(crCopy) => setCompany({ crCopy })}
             />
           ),
-        },
+        });
+      }
+      list.push(
         {
           id: 'companyEmail',
           label: ar ? 'بريد الشركة' : 'Company email',
@@ -731,10 +760,19 @@ export function ReservationPartyForm({
                   setCompany({ email: event.target.value, emailVerified: false })
                 }
               />
+              {defer ? (
+                <p className="field__hint muted">
+                  {ar
+                    ? 'سيصل المستأجر رابط الدعوة على هذا البريد لإكمال الدفع والمستندات — دون رمز OTP هنا.'
+                    : 'The tenant gets the invite on this email to finish payment and documents — no OTP here.'}
+                </p>
+              ) : null}
             </div>
           ),
         },
-        {
+      );
+      if (!defer) {
+        list.push({
           id: 'companyEmailOtp',
           label: ar ? 'تأكيد البريد' : 'Verify email',
           done: company.emailVerified,
@@ -746,24 +784,26 @@ export function ReservationPartyForm({
               onVerified={(emailVerified) => setCompany({ emailVerified })}
             />
           ),
-        },
-        {
-          id: 'companyPhone',
-          label: ar ? 'هاتف الشركة' : 'Company phone',
-          done: isInternationalPhone(company.phone),
-          focusId: 'party-company-phone',
-          body: (
-            <InternationalPhoneField
-              id="party-company-phone"
-              label={ar ? 'رقم التواصل' : 'Contact number'}
-              value={company.phone}
-              onChange={(phone) => setCompany({ phone })}
-              locale={locale}
-              required
-            />
-          ),
-        },
-        {
+        });
+      }
+      list.push({
+        id: 'companyPhone',
+        label: ar ? 'هاتف الشركة' : 'Company phone',
+        done: isInternationalPhone(company.phone),
+        focusId: 'party-company-phone',
+        body: (
+          <InternationalPhoneField
+            id="party-company-phone"
+            label={ar ? 'رقم التواصل' : 'Contact number'}
+            value={company.phone}
+            onChange={(phone) => setCompany({ phone })}
+            locale={locale}
+            required
+          />
+        ),
+      });
+      if (!defer) {
+        list.push({
           id: 'companyAltPhone',
           label: ar ? 'هاتف بديل' : 'Alternate phone',
           done:
@@ -792,7 +832,9 @@ export function ReservationPartyForm({
               }
             />
           ),
-        },
+        });
+      }
+      list.push(
         {
           id: 'crAddress',
           label: ar ? 'عنوان السجل' : 'CR address',
@@ -885,12 +927,12 @@ export function ReservationPartyForm({
             filled(firstSig.name) &&
             filled(firstSig.civilId, 4) &&
             Boolean(firstSig.civilIdExpiresOn) &&
-            Boolean(firstSig.civilIdCopy) &&
+            (defer || Boolean(firstSig.civilIdCopy)) &&
             (company.signingMode !== 'single' || isInternationalPhone(firstSig.phone)) &&
             (firstSig.nationality === 'OM' ||
               (filled(firstSig.passport || '', 4) &&
                 Boolean(firstSig.passportExpiresOn) &&
-                Boolean(firstSig.passportCopy))),
+                (defer || Boolean(firstSig.passportCopy)))),
           focusId: 'party-sig-name-0',
           body: (
             <div className="party-form__signatory party-form__signatory--solo">
@@ -968,14 +1010,16 @@ export function ReservationPartyForm({
                   </p>
                 ) : null}
               </div>
-              <PartyDocAttachField
-                id="party-sig-civil-copy-0"
-                label={ar ? 'نسخة البطاقة' : 'ID copy'}
-                locale={locale}
-                required
-                value={firstSig.civilIdCopy}
-                onChange={(civilIdCopy) => setSignatory(0, { civilIdCopy })}
-              />
+              {!defer ? (
+                <PartyDocAttachField
+                  id="party-sig-civil-copy-0"
+                  label={ar ? 'نسخة البطاقة' : 'ID copy'}
+                  locale={locale}
+                  required
+                  value={firstSig.civilIdCopy}
+                  onChange={(civilIdCopy) => setSignatory(0, { civilIdCopy })}
+                />
+              ) : null}
               {firstSig.nationality && firstSig.nationality !== 'OM' ? (
                 <>
                   <div className="field">
@@ -1008,14 +1052,16 @@ export function ReservationPartyForm({
                       }
                     />
                   </div>
-                  <PartyDocAttachField
-                    id="party-sig-passport-copy-0"
-                    label={ar ? 'نسخة الجواز' : 'Passport copy'}
-                    locale={locale}
-                    required
-                    value={firstSig.passportCopy}
-                    onChange={(passportCopy) => setSignatory(0, { passportCopy })}
-                  />
+                  {!defer ? (
+                    <PartyDocAttachField
+                      id="party-sig-passport-copy-0"
+                      label={ar ? 'نسخة الجواز' : 'Passport copy'}
+                      locale={locale}
+                      required
+                      value={firstSig.passportCopy}
+                      onChange={(passportCopy) => setSignatory(0, { passportCopy })}
+                    />
+                  ) : null}
                 </>
               ) : null}
               <InternationalPhoneField
@@ -1061,6 +1107,7 @@ export function ReservationPartyForm({
     countries,
     locale,
     nationalityConfirmed,
+    defer,
   ]);
 
   const firstIncomplete = steps.findIndex((step) => !step.done);
@@ -1119,7 +1166,9 @@ export function ReservationPartyForm({
   }, [viewIndex, steps, autoAdvance]);
 
   const missing =
-    entityType === 'person' ? missingPersonFields(person) : missingCompanyFields(company);
+    entityType === 'person'
+      ? missingPersonFields(person, { deferTenantCompletion: defer })
+      : missingCompanyFields(company, { deferTenantCompletion: defer });
   const progressDone = steps.filter((step) => step.done).length;
   const safeIndex = Math.min(Math.max(viewIndex, 0), frontier);
   const currentStep = steps[safeIndex];

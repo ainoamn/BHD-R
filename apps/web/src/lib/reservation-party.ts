@@ -109,6 +109,11 @@ const optionalIso = z.preprocess(
   isoDate.optional(),
 );
 const phone = z.string().trim().refine(isInternationalPhone);
+/** Primary phone stays required; alternate may be empty until the tenant completes later. */
+const optionalAltPhone = z
+  .string()
+  .trim()
+  .refine((value) => value === '' || isInternationalPhone(value));
 const email = z.string().trim().max(254).email();
 const optionalDoc = docAttachSchema.optional();
 
@@ -120,7 +125,7 @@ const personSchema = z
     civilId: z.string().trim().min(4).max(32),
     passport: text(32),
     phone,
-    altPhone: phone,
+    altPhone: optionalAltPhone,
     email,
     civilIdExpiresOn: optionalIso,
     passportExpiresOn: optionalIso,
@@ -156,7 +161,7 @@ const companySchema = z
     crExpiry: isoDate,
     email,
     phone,
-    altPhone: phone,
+    altPhone: optionalAltPhone,
     crAddress: required(300),
     activity: required(200),
     signingMode: z.enum(['single', 'joint']),
@@ -239,8 +244,18 @@ function rentCivilIdError(
  */
 export function reservationPartyError(
   party: ReservationParty,
-  options: { mode: 'rent' | 'sale'; minMonths: number; today: string },
+  options: {
+    mode: 'rent' | 'sale';
+    minMonths: number;
+    today: string;
+    /**
+     * Owner invite draft: tenant will verify email, upload ID copies, and add
+     * alternate phone later on the public payment/docs path.
+     */
+    deferTenantCompletion?: boolean;
+  },
 ): ReservationPartyError | null {
+  const defer = Boolean(options.deferTenantCompletion);
   if (options.mode === 'rent') {
     if (!party.contractType || !party.termMonths) return 'tenant_details_invalid';
     if (party.termMonths < options.minMonths) return 'term_too_short';
@@ -252,9 +267,14 @@ export function reservationPartyError(
     if (person.nationality !== 'OM' && person.passport.trim().length < 4) {
       return 'passport_required';
     }
-    if (isSamePhone(person.phone, person.altPhone)) return 'tenant_details_invalid';
-    if (!person.emailVerified) return 'email_unverified';
-    if (missingPersonFields(person).length) return 'documents_incomplete';
+    if (person.altPhone && isSamePhone(person.phone, person.altPhone)) {
+      return 'tenant_details_invalid';
+    }
+    if (!defer && !person.emailVerified) return 'email_unverified';
+    if (!defer && missingPersonFields(person).length) return 'documents_incomplete';
+    if (defer && missingPersonFields(person, { deferTenantCompletion: true }).length) {
+      return 'tenant_details_invalid';
+    }
     if (options.mode === 'rent') {
       const civilError = rentCivilIdError(person.civilIdExpiresOn, options.today);
       if (civilError) return civilError;
@@ -270,12 +290,17 @@ export function reservationPartyError(
   if (company.crIssuedOn >= company.crExpiry || company.crIssuedOn > options.today) {
     return 'tenant_details_invalid';
   }
-  if (isSamePhone(company.phone, company.altPhone)) return 'tenant_details_invalid';
+  if (company.altPhone && isSamePhone(company.phone, company.altPhone)) {
+    return 'tenant_details_invalid';
+  }
   if (company.signingMode === 'joint' && company.signatories.length < 2) {
     return 'tenant_details_invalid';
   }
-  if (!company.emailVerified) return 'email_unverified';
-  if (missingCompanyFields(company).length) return 'documents_incomplete';
+  if (!defer && !company.emailVerified) return 'email_unverified';
+  if (!defer && missingCompanyFields(company).length) return 'documents_incomplete';
+  if (defer && missingCompanyFields(company, { deferTenantCompletion: true }).length) {
+    return 'tenant_details_invalid';
+  }
   if (options.mode === 'rent') {
     for (const row of company.signatories) {
       const civilError = rentCivilIdError(row.civilIdExpiresOn, options.today);
