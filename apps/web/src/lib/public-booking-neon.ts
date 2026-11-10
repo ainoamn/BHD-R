@@ -1,6 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, eq, gt, inArray, isNotNull, notExists, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray, isNotNull, ne, notExists, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
   createDatabase,
@@ -134,6 +134,7 @@ export async function assertUnitBookable(
   transaction: Tx,
   unitId: string,
   mode: 'rent' | 'sale' = 'rent',
+  options?: { ignoreReservationId?: string },
 ) {
   await expireTimedOutLocks(transaction, unitId);
   const now = new Date();
@@ -175,6 +176,10 @@ export async function assertUnitBookable(
                 inArray(reservations.status, ['pending', 'confirmed']),
                 gt(reservations.expiresAt, now),
                 sql`not ${unpaidPublicDepositCheckoutSql()}`,
+                // Completing payment for this invite/checkout must not treat itself as a blocker.
+                ...(options?.ignoreReservationId
+                  ? [ne(reservations.id, options.ignoreReservationId)]
+                  : []),
               ),
             ),
         ),
@@ -794,7 +799,9 @@ export async function completePublicBookingPayment(
     const party = await ensureProspectParty(transaction, match.organizationId, claims);
     if (party.id !== match.tenantPartyId) throw new Error('forbidden');
 
-    await assertUnitBookable(transaction, match.unitId).catch((error: unknown) => {
+    await assertUnitBookable(transaction, match.unitId, 'rent', {
+      ignoreReservationId: match.id,
+    }).catch((error: unknown) => {
       if (error instanceof Error && error.message === 'unit_unavailable') {
         throw new Error('unit_unavailable');
       }

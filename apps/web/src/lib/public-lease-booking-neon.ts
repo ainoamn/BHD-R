@@ -890,14 +890,16 @@ export async function completeLeaseSandboxPayment(
     if (fresh.status !== 'pending' || fresh.expiresAt <= now) fail('booking_expired');
 
     // Reserve the unit only now — unpaid OTP / checkout drafts never held it.
-    await assertUnitBookable(transaction, match.unitId, snapshot.mode).catch(
-      (error: unknown) => {
-        if (error instanceof Error && error.message === 'unit_unavailable') {
-          fail('unit_unavailable');
-        }
-        throw error;
-      },
-    );
+    // Ignore this reservation: owner_invite rows intentionally block others, but
+    // must not block the invitee completing their own deposit payment.
+    await assertUnitBookable(transaction, match.unitId, snapshot.mode, {
+      ignoreReservationId: match.id,
+    }).catch((error: unknown) => {
+      if (error instanceof Error && error.message === 'unit_unavailable') {
+        fail('unit_unavailable');
+      }
+      throw error;
+    });
 
     let salesDealId: string | undefined;
     if (snapshot.mode === 'sale') {
