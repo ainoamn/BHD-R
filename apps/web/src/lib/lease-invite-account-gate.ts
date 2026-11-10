@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { ROSTER_COOKIE, readRosterCookie } from '@/lib/bhd/account-roster';
+import { stripAuFromReturnPath } from '@/lib/bhd/oauth';
 
 /** Relative payment URL the invitee should return to after switch / login. */
 export function leaseInvitePaymentReturnPath(
@@ -9,15 +10,22 @@ export function leaseInvitePaymentReturnPath(
 ): string {
   const qs = new URLSearchParams({ kind: 'lease' });
   if (returnPath) qs.set('return', returnPath);
-  return `/${locale}/payments/sandbox/${encodeURIComponent(sessionReference)}?${qs.toString()}`;
+  // Never carry a stale ?au= from the owner's tab into the invitee return.
+  return stripAuFromReturnPath(
+    `/${locale}/payments/sandbox/${encodeURIComponent(sessionReference)}?${qs.toString()}`,
+  );
 }
 
 export type OwnerInviteAccountGate = {
   matched: boolean;
   inviteeEmail: string;
+  /** Identity subject when the invitee is already on this browser roster. */
+  inviteeSub: string | null;
   rosterHasInvitee: boolean;
   /** User-initiated only — never auto-followed (prevents OAuth thrash / slow_down). */
   continueHref: string;
+  /** Payment page path (no stale au) for post-switch navigation. */
+  paymentPath: string;
 };
 
 /**
@@ -32,13 +40,16 @@ export async function resolveOwnerInviteAccountGate(input: {
 }): Promise<OwnerInviteAccountGate | null> {
   const invitee = input.inviteeEmail.trim().toLowerCase();
   if (!invitee || !invitee.includes('@')) return null;
+  const paymentPath = stripAuFromReturnPath(input.paymentPath);
   const current = (input.viewerEmail || '').trim().toLowerCase();
   if (current && current === invitee) {
     return {
       matched: true,
       inviteeEmail: invitee,
+      inviteeSub: null,
       rosterHasInvitee: true,
-      continueHref: input.paymentPath,
+      continueHref: paymentPath,
+      paymentPath,
     };
   }
 
@@ -50,13 +61,15 @@ export async function resolveOwnerInviteAccountGate(input: {
     const switchUrl = new URLSearchParams({
       sub: rosterMatch.sub,
       locale: input.locale,
-      returnTo: input.paymentPath,
+      returnTo: paymentPath,
     });
     return {
       matched: false,
       inviteeEmail: invitee,
+      inviteeSub: rosterMatch.sub,
       rosterHasInvitee: true,
       continueHref: `/api/auth/switch?${switchUrl.toString()}`,
+      paymentPath,
     };
   }
 
@@ -64,13 +77,15 @@ export async function resolveOwnerInviteAccountGate(input: {
   // then returns to the payment page via /api/auth/bhd/start.
   const loginQs = new URLSearchParams({
     locale: input.locale,
-    returnTo: input.paymentPath,
+    returnTo: paymentPath,
     email: invitee,
   });
   return {
     matched: false,
     inviteeEmail: invitee,
+    inviteeSub: null,
     rosterHasInvitee: false,
     continueHref: `/api/auth/bhd/invite-login?${loginQs.toString()}`,
+    paymentPath,
   };
 }

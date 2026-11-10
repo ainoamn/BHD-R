@@ -10,7 +10,12 @@ import {
   setRosterCookie,
 } from '@/lib/bhd/account-roster';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import { identitySettings, safeReturnTo, secureCookies } from '@/lib/bhd/oauth';
+import {
+  identitySettings,
+  safeReturnTo,
+  secureCookies,
+  stripAuFromReturnPath,
+} from '@/lib/bhd/oauth';
 import { requireSessionSecret } from '@/lib/runtime-env';
 
 export const runtime = 'nodejs';
@@ -44,7 +49,9 @@ function clearProductSessionCookies(response: NextResponse) {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const locale = url.searchParams.get('locale') === 'en' ? 'en' : 'ar';
-  const returnTo = safeReturnTo(url.searchParams.get('returnTo'), `/${locale}`);
+  const returnTo = stripAuFromReturnPath(
+    safeReturnTo(url.searchParams.get('returnTo'), `/${locale}`),
+  );
   const email = (url.searchParams.get('email') || '').trim().toLowerCase().slice(0, 320);
   if (!email.includes('@') || /[\s<>]/.test(email)) {
     return NextResponse.redirect(new URL(`/${locale}`, url.origin), 303);

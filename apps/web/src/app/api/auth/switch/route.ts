@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import { verifySessionToken } from '@bhd-r/authz';
 import {
   ROSTER_COOKIE,
   readRosterCookie,
@@ -9,7 +10,7 @@ import {
   type RosterAccount,
 } from '@/lib/bhd/account-roster';
 import { hasDatabaseUrl, switchIdentityAccountSession } from '@/lib/bhd/identity-session';
-import { identitySettings, safeReturnTo } from '@/lib/bhd/oauth';
+import { bindAuToReturnPath, identitySettings, safeReturnTo } from '@/lib/bhd/oauth';
 import {
   ORGANIZATION_COOKIE,
   rememberedOrganization,
@@ -18,6 +19,7 @@ import {
 import { clientSafeErrorCode, statusForSafeCode } from '@/lib/client-safe-error';
 import { guardErrorResponse, requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
+import { requireSessionSecret } from '@/lib/runtime-env';
 import { clientSecurityContext } from '@/lib/security-protection';
 
 export const runtime = 'nodejs';
@@ -124,25 +126,65 @@ export async function POST(request: Request) {
 }
 
 /**
- * GET kept as a top-level bridge when fetch/CORS is unavailable.
- * Prefer POST + JSON for no-flash header updates.
+ * GET kept as a top-level bridge for invite / logout hops.
+ * Prefer product-local rebind when the target is already in the roster; otherwise open
+ * Identity's HTML /auth/switch page (never GET /api/auth/switch — that is POST-only → 405).
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const sub = (url.searchParams.get('sub') || '').trim();
   const locale = url.searchParams.get('locale') === 'en' ? 'en' : 'ar';
   const returnPath = safeReturnTo(url.searchParams.get('returnTo'), `/${locale}/portal`);
+  const boundReturn = bindAuToReturnPath(returnPath, sub);
 
   if (!sub || sub.length < 8) {
     return NextResponse.redirect(new URL(`/${locale}/portal`, url.origin), 303);
   }
 
   const { issuer } = identitySettings(url.origin);
-  const productWorkspace = new URL(returnPath, url.origin);
+  const destination = new URL(boundReturn, url.origin);
 
-  const identitySwitch = new URL(`${issuer}/api/auth/switch`);
+  if (hasDatabaseUrl()) {
+    try {
+      const cookieStore = await cookies();
+      const token = cookieStore.get('bhd_r_session')?.value;
+      const roster = readRosterCookie(cookieStore.get(ROSTER_COOKIE)?.value);
+      const target = roster.find((item) => item.sub === sub);
+      if (token && target) {
+        const claims = await verifySessionToken(token, requireSessionSecret());
+        const preferredOrganizationId = rememberedOrganization(
+          cookieStore.get(ORGANIZATION_COOKIE)?.value,
+        );
+        const ctx = clientSecurityContext(request);
+        const issued = await switchIdentityAccountSession({
+          identitySubject: sub,
+          previousSessionId: claims.sid,
+          previousUserId: claims.sub,
+          ...(preferredOrganizationId ? { preferredOrganizationId } : {}),
+          client: {
+            ipHash: ctx.ipHash,
+            userAgentHash: ctx.userAgentHash,
+            countryCode: ctx.countryCode,
+            deviceKind: ctx.deviceKind,
+            deviceLabel: ctx.deviceLabel,
+            region: ctx.region,
+            city: ctx.city,
+            ipAddress: ctx.ipAddress,
+          },
+        });
+        const account: RosterAccount = issued.rosterAccount || target;
+        const response = NextResponse.redirect(destination, 303);
+        setSessionCookies(response, issued);
+        setRosterCookie(response, upsertRoster(roster, account));
+        return response;
+      }
+    } catch {
+      /* fall through to Identity HTML switch */
+    }
+  }
+
+  const identitySwitch = new URL(`${issuer}/auth/switch`);
   identitySwitch.searchParams.set('sub', sub);
-  identitySwitch.searchParams.set('return_to', productWorkspace.toString());
-
+  identitySwitch.searchParams.set('next', destination.toString());
   return NextResponse.redirect(identitySwitch.toString(), 303);
 }

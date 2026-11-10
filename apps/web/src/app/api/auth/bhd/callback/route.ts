@@ -1,7 +1,12 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { identitySettings, openOidcState, secureCookies } from '@/lib/bhd/oauth';
+import {
+  bindAuToReturnPath,
+  identitySettings,
+  openOidcState,
+  secureCookies,
+} from '@/lib/bhd/oauth';
 import {
   hasDatabaseUrl,
   issueIdentitySession,
@@ -218,7 +223,33 @@ export async function GET(request: Request) {
     return clearAndRedirect(`/ar/login?bhd=${classified.code}`);
   }
 
-  const response = clearAndRedirect(saved.returnTo);
+  const inviteEmail = (cookieStore.get('bhd_invite_login')?.value || '').trim().toLowerCase();
+  const loggedEmail = (issued.rosterAccount?.email || '').trim().toLowerCase();
+  const identitySub = issued.rosterAccount?.sub?.trim() || null;
+
+  // Invite payment hops: refuse a wrong SSO account so Silent SSO cannot keep the owner tab.
+  if (inviteEmail && loggedEmail && inviteEmail !== loggedEmail) {
+    const retry = new URL('/api/auth/bhd/invite-login', url.origin);
+    retry.searchParams.set('locale', saved.returnTo.startsWith('/en') ? 'en' : 'ar');
+    retry.searchParams.set('returnTo', saved.returnTo);
+    retry.searchParams.set('email', inviteEmail);
+    const retryResponse = clearAndRedirect(`${retry.pathname}${retry.search}`, 303);
+    retryResponse.cookies.set({
+      name: 'bhd_invite_login',
+      value: inviteEmail,
+      httpOnly: true,
+      secure: secureCookies(),
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 600,
+    });
+    return retryResponse;
+  }
+
+  // Always pin ?au= to the account just issued — otherwise sessionStorage keeps the prior tab
+  // binding and Silent SSO reclaims the wrong product cookie after invite login.
+  const destination = bindAuToReturnPath(saved.returnTo, identitySub);
+  const response = clearAndRedirect(destination);
   response.cookies.set({
     name: 'bhd_r_session',
     value: '',
@@ -234,6 +265,15 @@ export async function GET(request: Request) {
     httpOnly: false,
     secure: secureCookies(),
     sameSite: 'strict',
+    path: '/',
+    maxAge: 0,
+  });
+  response.cookies.set({
+    name: 'bhd_invite_login',
+    value: '',
+    httpOnly: true,
+    secure: secureCookies(),
+    sameSite: 'lax',
     path: '/',
     maxAge: 0,
   });

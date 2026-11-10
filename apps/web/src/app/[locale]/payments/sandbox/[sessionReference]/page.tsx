@@ -233,7 +233,9 @@ export default async function SandboxPaymentPage({
             locale={ar ? 'ar' : 'en'}
             inviteeEmail={inviteGate.inviteeEmail}
             continueHref={inviteGate.continueHref}
+            paymentPath={inviteGate.paymentPath}
             rosterHasInvitee={inviteGate.rosterHasInvitee}
+            {...(inviteGate.inviteeSub ? { inviteeSub: inviteGate.inviteeSub } : {})}
             {...(leaseSession?.inviteeName ? { inviteeName: leaseSession.inviteeName } : {})}
             {...(viewerEmail ? { currentEmail: viewerEmail } : {})}
           />

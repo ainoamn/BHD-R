@@ -83,6 +83,36 @@ export function safeReturnTo(raw: string | null | undefined, fallback = '/ar/por
   return raw;
 }
 
+/** Drop a stale ?au= so a later login can pin the correct identity. */
+export function stripAuFromReturnPath(returnTo: string): string {
+  const safe = safeReturnTo(returnTo);
+  try {
+    const url = new URL(safe, 'https://r.bhd-om.com');
+    url.searchParams.delete('au');
+    url.searchParams.delete('_bhd');
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return safe;
+  }
+}
+
+/** Pin ?au=<identitySub> so Silent SSO does not reclaim a stale tab binding. */
+export function bindAuToReturnPath(
+  returnTo: string,
+  identitySub: string | null | undefined,
+): string {
+  const safe = stripAuFromReturnPath(returnTo);
+  const sub = (identitySub || '').trim();
+  if (!sub) return safe;
+  try {
+    const url = new URL(safe, 'https://r.bhd-om.com');
+    url.searchParams.set('au', sub);
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return safe;
+  }
+}
+
 export function secureCookies(): boolean {
   return (
     process.env.COOKIE_SECURE === 'true' ||
