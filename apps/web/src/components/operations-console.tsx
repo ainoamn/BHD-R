@@ -1004,6 +1004,11 @@ function displayCell(
   );
 }
 
+function leasingRowExpiryBand(row: DataRow): LeaseExpiryBand | null {
+  if (safeString(row.state) !== 'active' && safeString(row.status) !== 'active') return null;
+  return leaseExpiryBand(safeString(row.endsOn), muscatToday());
+}
+
 function displayCellValue(
   row: DataRow,
   column: Column,
@@ -1055,11 +1060,6 @@ function displayCellValue(
     }
     return formatted;
   }
-
-function leasingRowExpiryBand(row: DataRow): LeaseExpiryBand | null {
-  if (safeString(row.state) !== 'active' && safeString(row.status) !== 'active') return null;
-  return leaseExpiryBand(safeString(row.endsOn), muscatToday());
-}
   if (column.format === 'term' || column.format === 'usage') {
     const key = safeString(value);
     const labels: Record<string, { ar: string; en: string }> =
