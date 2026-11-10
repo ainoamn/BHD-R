@@ -27,6 +27,14 @@ export interface PortalOverview {
   currency?: string;
   openTickets: number | null;
   expiringContracts: number | null;
+  /** Leases ended or terminated (or past end date). */
+  expiredContracts?: number | null;
+  /** Distinct tenants on active leases. */
+  tenants?: number | null;
+  /** Overdue invoices count. */
+  arrears?: number | null;
+  /** Open legal cases (not settled/closed/cancelled). */
+  legalCases?: number | null;
   properties?: number | null;
   units?: number | null;
   activeLeases?: number | null;

@@ -65,6 +65,14 @@ function alertCopy(
       return locale === 'ar'
         ? `${count} مبنى/عقار ببيانات ناقصة (اسم، موقع، خريطة)`
         : `${count} building${count === 1 ? '' : 's'} with incomplete details (name, location, map)`;
+    case 'arrears':
+      return locale === 'ar'
+        ? `${count} فاتورة متأخرة`
+        : `${count} overdue invoice${count === 1 ? '' : 's'}`;
+    case 'legal_cases':
+      return locale === 'ar'
+        ? `${count} قضية قانونية مفتوحة`
+        : `${count} open legal case${count === 1 ? '' : 's'}`;
     default:
       return `${code}: ${count}`;
   }
@@ -77,11 +85,14 @@ function alertHref(portal: PortalRole, code: string, resourceId?: string): strin
     case 'expiring_leases':
       return `/${portal}/leasing`;
     case 'open_invoices':
+    case 'arrears':
       return `/${portal}/invoices`;
     case 'vacant_units':
       return `/${portal}/bookings`;
     case 'stay_bookings':
       return `/${portal}/bookings?tab=daily`;
+    case 'legal_cases':
+      return `/${portal}/legal`;
     case 'incomplete_owner_profile': {
       const params = new URLSearchParams({ gaps: 'owner' });
       if (resourceId) params.set('focus', resourceId);
@@ -238,6 +249,13 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       }).format(new Date(overview.generatedAt))
     : null;
 
+  const collectedLabel =
+    collected.length > 0
+      ? collected
+          .map((amount) => formatMoney(amount.amountMinor, amount.currency, locale))
+          .join(' · ')
+      : '—';
+
   const metrics: Array<{
     key: string;
     label: string;
@@ -246,60 +264,46 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
     tone: number;
   }> = [
     {
-      key: 'occupancy',
-      label: t('Portal.occupancy'),
-      value: value(overview.occupancyPercent, '%'),
-      href: `/${portal}/reports`,
+      key: 'expired',
+      label: ar ? 'عقود منتهية' : 'Expired contracts',
+      value: value(overview.expiredContracts ?? null),
+      href: portal === 'tenant' ? `/${portal}/leases` : `/${portal}/leasing`,
       tone: 1,
     },
     {
-      key: 'properties',
-      label: t('Portal.propertiesCount'),
-      value: value(overview.properties ?? null),
-      href: `/${portal}/properties`,
+      key: 'tenants',
+      label: ar ? 'المستأجرون' : 'Tenants',
+      value: value(overview.tenants ?? null),
+      href: `/${portal}/contacts`,
       tone: 2,
     },
     {
-      key: 'units',
-      label: t('Portal.unitsCount'),
-      value: value(overview.units ?? null),
-      href: `/${portal}/properties`,
+      key: 'collected',
+      label: t('Portal.collected'),
+      value: collectedLabel,
+      href: `/${portal}/payments`,
       tone: 3,
     },
     {
-      key: 'leases',
-      label: t('Portal.activeLeases'),
-      value: value(overview.activeLeases ?? null),
-      href: portal === 'tenant' ? `/${portal}/leases` : `/${portal}/leasing`,
+      key: 'arrears',
+      label: ar ? 'المتأخرات' : 'Arrears',
+      value: value(overview.arrears ?? null),
+      href: `/${portal}/invoices`,
       tone: 4,
     },
     {
-      key: 'vacant',
-      label: t('Portal.vacantUnits'),
-      value: value(overview.vacantUnits ?? null),
-      href: `/${portal}/bookings`,
+      key: 'tickets',
+      label: ar ? 'طلبات الصيانة' : 'Maintenance',
+      value: value(overview.openTickets),
+      href: `/${portal}/maintenance`,
       tone: 5,
     },
     {
-      key: 'tickets',
-      label: t('Portal.openTickets'),
-      value: value(overview.openTickets),
-      href: `/${portal}/maintenance`,
+      key: 'legal',
+      label: ar ? 'القضايا' : 'Legal cases',
+      value: value(overview.legalCases ?? null),
+      href: `/${portal}/legal`,
       tone: 6,
-    },
-    {
-      key: 'expiring',
-      label: t('Portal.expiringContracts'),
-      value: value(overview.expiringContracts),
-      href: portal === 'tenant' ? `/${portal}/leases` : `/${portal}/leasing`,
-      tone: 7,
-    },
-    {
-      key: 'invoices',
-      label: t('Portal.openInvoices'),
-      value: value(overview.openInvoices ?? null),
-      href: `/${portal}/invoices`,
-      tone: 8,
     },
   ];
   const financeLinks = [
@@ -395,8 +399,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
     },
   ];
 
-  const figureKeys = new Set(['properties', 'units', 'tickets', 'expiring', 'invoices']);
-  const figures = metrics.filter((metric) => figureKeys.has(metric.key));
+  const figures = metrics;
 
   function renderRing(ring: (typeof rings)[number]) {
     const pct = Math.max(0, Math.min(100, Number.isFinite(ring.percent) ? ring.percent : 0));
@@ -542,16 +545,18 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           <h2>{ar ? 'الاشغال والوحدات' : 'Occupancy & units'}</h2>
           <p className="dash-section-hint">
             {ar
-              ? 'نسب مئوية وأرقام مبنية على اشغال محفظتك.'
-              : 'Percentages and counts from your portfolio occupancy.'}
+              ? 'إشغال مختصر · عقود ومستأجرون وتحصيل ومتأخرات وصيانة وقضايا في صف واحد.'
+              : 'Compact occupancy · contracts, tenants, collections, arrears, maintenance, and cases in one row.'}
           </p>
         </div>
-        <div className="dash-rings">{rings.map((ring) => renderRing(ring))}</div>
-        {figures.length ? (
-          <div className="dash-figures" aria-label={t('Portal.liveStats')}>
-            {figures.map((metric) => renderFigure(metric))}
-          </div>
-        ) : null}
+        <div className="dash-occupancy__strip">
+          <div className="dash-rings">{rings.map((ring) => renderRing(ring))}</div>
+          {figures.length ? (
+            <div className="dash-figures" aria-label={t('Portal.liveStats')}>
+              {figures.map((metric) => renderFigure(metric))}
+            </div>
+          ) : null}
+        </div>
       </section>
 
       <section

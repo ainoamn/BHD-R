@@ -8,6 +8,7 @@ import {
   contracts,
   invoices,
   leases,
+  legalCases,
   maintenanceTickets,
   payments,
   properties,
@@ -159,6 +160,32 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
           liveExpiry,
         );
 
+    const openLegalStatuses = [
+      'assessment',
+      'notice',
+      'filed',
+      'hearing',
+      'judgment',
+      'enforcement',
+    ] as const;
+
+    const expiredFilter = ownerPartyId
+      ? and(
+          eq(leases.organizationId, orgId),
+          eq(leases.ownerPartyId, ownerPartyId),
+          or(
+            inArray(leases.status, ['ended', 'terminated']),
+            and(eq(leases.status, 'active'), sql`${leases.endsOn} < ${today}`),
+          ),
+        )
+      : and(
+          eq(leases.organizationId, orgId),
+          or(
+            inArray(leases.status, ['ended', 'terminated']),
+            and(eq(leases.status, 'active'), sql`${leases.endsOn} < ${today}`),
+          ),
+        );
+
     const countsQuery = Promise.all([
       transaction.select({ value: count() }).from(properties).where(propertyFilter),
       transaction.select({ value: count() }).from(units).where(unitFilter),
@@ -186,6 +213,49 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
               ),
             ),
       transaction.select({ value: count() }).from(leases).where(expiringFilter),
+      transaction.select({ value: count() }).from(leases).where(expiredFilter),
+      transaction
+        .select({ value: sql<number>`count(distinct ${leases.tenantPartyId})::int` })
+        .from(leases)
+        .where(leaseFilter),
+      ownerPartyId
+        ? transaction
+            .select({ value: count() })
+            .from(invoices)
+            .innerJoin(leases, eq(invoices.leaseId, leases.id))
+            .where(
+              and(
+                eq(invoices.organizationId, orgId),
+                eq(invoices.status, 'overdue'),
+                eq(leases.ownerPartyId, ownerPartyId),
+              ),
+            )
+        : transaction
+            .select({ value: count() })
+            .from(invoices)
+            .where(and(eq(invoices.organizationId, orgId), eq(invoices.status, 'overdue'))),
+      ownerPartyId
+        ? transaction
+            .select({ value: count() })
+            .from(legalCases)
+            .leftJoin(properties, eq(legalCases.propertyId, properties.id))
+            .leftJoin(leases, eq(legalCases.leaseId, leases.id))
+            .where(
+              and(
+                eq(legalCases.organizationId, orgId),
+                inArray(legalCases.status, [...openLegalStatuses]),
+                or(eq(properties.ownerPartyId, ownerPartyId), eq(leases.ownerPartyId, ownerPartyId)),
+              ),
+            )
+        : transaction
+            .select({ value: count() })
+            .from(legalCases)
+            .where(
+              and(
+                eq(legalCases.organizationId, orgId),
+                inArray(legalCases.status, [...openLegalStatuses]),
+              ),
+            ),
     ]);
 
     const totalsQuery = Promise.all([
@@ -267,7 +337,17 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
 
     // One pipelined batch: both groups are independent.
     const [
-      [propertyCount, unitCount, activeLeaseCount, openMaintenanceCount, expiringContracts],
+      [
+        propertyCount,
+        unitCount,
+        activeLeaseCount,
+        openMaintenanceCount,
+        expiringContracts,
+        expiredContractsRows,
+        tenantCountRows,
+        arrearsRows,
+        legalCaseRows,
+      ],
       [collected, activity, openInvoicesRows, stayBookingRows],
     ] = await Promise.all([countsQuery, totalsQuery]);
 
@@ -275,6 +355,10 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
     const occupied = Number(activeLeaseCount[0]?.value ?? 0);
     const openTickets = Number(openMaintenanceCount[0]?.value ?? 0);
     const expiring = Number(expiringContracts[0]?.value ?? 0);
+    const expired = Number(expiredContractsRows[0]?.value ?? 0);
+    const tenants = Number(tenantCountRows[0]?.value ?? 0);
+    const arrears = Number(arrearsRows[0]?.value ?? 0);
+    const legalCaseCount = Number(legalCaseRows[0]?.value ?? 0);
     const propertiesTotal = Number(propertyCount[0]?.value ?? 0);
     const vacantUnits = Math.max(0, activeUnits - occupied);
     const openInvoices = Number(openInvoicesRows[0]?.value ?? 0);
@@ -287,10 +371,13 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
       alerts.push({ severity: 'warning', code: 'expiring_leases', count: expiring });
     if (openInvoices > 0)
       alerts.push({ severity: 'warning', code: 'open_invoices', count: openInvoices });
+    if (arrears > 0) alerts.push({ severity: 'danger', code: 'arrears', count: arrears });
     if (vacantUnits > 0)
       alerts.push({ severity: 'info', code: 'vacant_units', count: vacantUnits });
     if (stayBookingCount > 0)
       alerts.push({ severity: 'info', code: 'stay_bookings', count: stayBookingCount });
+    if (legalCaseCount > 0)
+      alerts.push({ severity: 'warning', code: 'legal_cases', count: legalCaseCount });
 
     return {
       properties: propertiesTotal,
@@ -302,6 +389,10 @@ async function organizationOverviewFromDb(claims: SessionClaims): Promise<Portal
       collected,
       openTickets,
       expiringContracts: expiring,
+      expiredContracts: expired,
+      tenants,
+      arrears,
+      legalCases: legalCaseCount,
       alerts,
       recentActivity: activity.map((row) => ({
         id: row.id,
@@ -487,7 +578,10 @@ function withoutFinanceFor(claims: SessionClaims, overview: PortalOverview): Por
     ...overview,
     collected: [],
     openInvoices: null,
-    alerts: (overview.alerts ?? []).filter((alert) => alert.code !== 'open_invoices'),
+    arrears: null,
+    alerts: (overview.alerts ?? []).filter(
+      (alert) => alert.code !== 'open_invoices' && alert.code !== 'arrears',
+    ),
   };
 }
 
