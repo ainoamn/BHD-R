@@ -407,7 +407,11 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         </div>
       </header>
 
-      {tenancy ? (
+      {tenancy &&
+      (tenancy.bookings > 0 ||
+        tenancy.contracts > 0 ||
+        tenancy.leases > 0 ||
+        tenancy.openInvoices > 0) ? (
         <Link href="/tenant" className="dash-tenancy" prefetch>
           <span className="dash-tenancy__copy">
             <strong>

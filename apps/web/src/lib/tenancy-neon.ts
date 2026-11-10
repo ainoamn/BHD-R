@@ -198,6 +198,20 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
       join organizations o on o.id = p.organization_id and o.status = 'active'
       where u.id = ${userId}
         and u.disabled_at is null
+        -- Landlord/staff address-book party is never a "tenant space" for this account.
+        and not exists (
+          select 1 from memberships m
+          where m.user_id = u.id
+            and m.status = 'active'
+            and m.party_id = p.id
+            and m.role_key in (
+              'organization_owner',
+              'organization_admin',
+              'property_owner',
+              'property_manager',
+              'finance_manager'
+            )
+        )
         and (
           exists (select 1 from contracts c
                   where c.organization_id = p.organization_id and c.tenant_party_id = p.id)
