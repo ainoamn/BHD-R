@@ -974,11 +974,11 @@ export async function completeLeaseSandboxPayment(
               displayName: inviteeAttribution.displayName || 'Tenant',
               email: inviteeAttribution.email,
             },
-            invitedBy:
-              snapshot.invitedBy ??
-              (snapshot.bookedBy && snapshot.bookedBy.userId !== claims.sub
-                ? snapshot.bookedBy
-                : undefined),
+            ...(snapshot.invitedBy
+              ? { invitedBy: snapshot.invitedBy }
+              : snapshot.bookedBy && snapshot.bookedBy.userId !== claims.sub
+                ? { invitedBy: snapshot.bookedBy }
+                : {}),
           }
         : {}),
     };

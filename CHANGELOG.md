@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.148 — 2026-11-10
+
+- **بناء الإنتاج:** إصلاح خطأ TypeScript في نسبة `invitedBy` عند دفع دعوة المالك (`exactOptionalPropertyTypes`).
+
 ## 0.8.136.147 — 2026-11-10
 
 - **عزل بيانات المستأجر:** حجوزات وحدات المالك لا تُحتسب في مساحة المستأجر لديه؛ دعوات المالك لا تُنسب إليه كـ `bookedBy`؛ ملفات التسليم وإجراءات العميل تُقيَّد بالمدعو/المستأجر فقط دون تداخل مع حساب المؤجر.
