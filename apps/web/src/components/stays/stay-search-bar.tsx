@@ -136,7 +136,7 @@ export function StaySearchBar({
       return;
     }
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => runSearch(false), 320);
+    timerRef.current = setTimeout(() => runSearch(false), 80);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };

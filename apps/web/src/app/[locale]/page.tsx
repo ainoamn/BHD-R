@@ -4,10 +4,8 @@ import '../home.css';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { BadgeShowcaseSection } from '@/components/badges/badge-showcase';
-import { HomeFeaturedByPurpose } from '@/components/home/home-featured-by-purpose';
 import {
-  HomeFeaturedGate,
-  HomeLiveResults,
+  HomeFeaturedPanel,
   HomeLiveSearchProvider,
 } from '@/components/home/home-live-search';
 import { HomeLeaderboardsSection } from '@/components/home/home-leaderboards';
@@ -184,7 +182,7 @@ async function HomeDeferredBody({ locale, copy }: { locale: string; copy: HomeCo
         </div>
       ) : null}
 
-      <HomeFeaturedByPurpose
+      <HomeFeaturedPanel
         locale={locale}
         rent={rent.data as CatalogueListing[]}
         sale={sale.data as CatalogueListing[]}
@@ -295,13 +293,9 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </div>
       </section>
 
-      <HomeLiveResults />
-
-      <HomeFeaturedGate>
-        <Suspense fallback={<HomeBodySkeleton locale={locale} />}>
-          <HomeDeferredBody locale={locale} copy={copy} />
-        </Suspense>
-      </HomeFeaturedGate>
+      <Suspense fallback={<HomeBodySkeleton locale={locale} />}>
+        <HomeDeferredBody locale={locale} copy={copy} />
+      </Suspense>
     </HomeLiveSearchProvider>
   );
 }

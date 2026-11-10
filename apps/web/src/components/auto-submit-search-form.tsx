@@ -14,7 +14,7 @@ export function AutoSubmitSearchForm({
   role,
   'aria-label': ariaLabel,
   children,
-  debounceMs = 280,
+  debounceMs = 80,
 }: {
   action: string;
   className?: string;
