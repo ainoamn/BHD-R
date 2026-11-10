@@ -34740,6 +34740,20 @@ button.handover-shots__item {
   align-items: center;
   gap: 0.75rem;
 }
+.lrw__handover-ref {
+  margin: 0.65rem 0 0.35rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.65rem;
+  background: #eef5f1;
+  border: 1px solid #d5e3dc;
+  color: var(--oman-deep, #0f2922);
+  font-size: 0.9rem;
+}
+.lrw__handover-ref strong {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
 .lrw__handover-steps {
   display: grid;
   gap: 0.4rem;

@@ -379,6 +379,7 @@ function PassEntry({
             autoComplete="one-time-code"
             value={code}
             maxLength={7}
+            autoFocus={Boolean(initialReference?.trim())}
             onChange={(event) => setCode(event.target.value.replace(/[^\d ]/g, ''))}
           />
         </label>

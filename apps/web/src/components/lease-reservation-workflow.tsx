@@ -1046,7 +1046,7 @@ function VerificationPanel({
  * tenant to sign, then record the handover.
  */
 export function LeaseReservationWorkflow(serverProps: Props) {
-  const { reservationId, locale, mode, canManage, canSign } = serverProps;
+  const { reservationId, locale, mode, canManage, canSign, referenceCode } = serverProps;
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
   const sale = mode === 'sale';
@@ -1239,10 +1239,10 @@ export function LeaseReservationWorkflow(serverProps: Props) {
 
   return (
     <PreviewContext.Provider value={setPreview}>
-      <section className="ops-panel lrw" aria-label={t('مراحل الحجز', 'Booking stages')}>
-        <header className="lrw__head">
-          <div>
-            <span className="ops-kicker">{t('مسار الحجز', 'Booking journey')}</span>
+    <section className="ops-panel lrw" aria-label={t('مراحل الحجز', 'Booking stages')}>
+      <header className="lrw__head">
+        <div>
+          <span className="ops-kicker">{t('مسار الحجز', 'Booking journey')}</span>
             <h2>
               {leasePhaseLabel(phase, ar, {
                 docsReturnOpen: bookingDocsReturnOpen(lifecycle),
@@ -1250,85 +1250,85 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 viewer: 'owner',
               })}
             </h2>
-          </div>
+        </div>
           <p className="lrw__head-hint muted">
             {t(
               'اضغط مرحلة مكتملة لمراجعتها، أو ابقَ على المرحلة الحالية للمتابعة.',
               'Open a completed stage to review it, or stay on the current stage to continue.',
             )}
           </p>
-        </header>
-        <ol className="lrw__steps">
-          {labels.map((label, index) => {
-            const state = index < stage ? 'done' : index === stage ? 'current' : 'upcoming';
-            const shown = reviewing === null ? index === stage : index === reviewing;
-            const content = (
-              <>
-                <span className="lrw__dot">{index < stage ? '✓' : index + 1}</span>
-                <span>{label}</span>
-              </>
-            );
-            return (
-              <li
-                key={label}
-                className={`lrw__step lrw__step--${state}${shown ? ' lrw__step--shown' : ''}`}
-                aria-current={index === stage ? 'step' : undefined}
-              >
-                {state === 'upcoming' ? (
-                  <span
-                    className="lrw__step-body"
-                    aria-disabled="true"
-                    title={t('لم تصل إلى هذه المرحلة بعد', 'Not reached yet')}
-                  >
-                    {content}
-                  </span>
-                ) : (
-                  <button
-                    type="button"
-                    className="lrw__step-body"
-                    aria-pressed={shown}
-                    title={
-                      state === 'done'
-                        ? t('عرض تفاصيل هذه المرحلة', 'View this stage')
-                        : t('العودة إلى المرحلة الحالية', 'Back to the current stage')
-                    }
-                    onClick={() => setViewing(state === 'done' ? index : null)}
-                  >
-                    {content}
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ol>
+      </header>
+      <ol className="lrw__steps">
+        {labels.map((label, index) => {
+          const state = index < stage ? 'done' : index === stage ? 'current' : 'upcoming';
+          const shown = reviewing === null ? index === stage : index === reviewing;
+          const content = (
+            <>
+              <span className="lrw__dot">{index < stage ? '✓' : index + 1}</span>
+              <span>{label}</span>
+            </>
+          );
+          return (
+            <li
+              key={label}
+              className={`lrw__step lrw__step--${state}${shown ? ' lrw__step--shown' : ''}`}
+              aria-current={index === stage ? 'step' : undefined}
+            >
+              {state === 'upcoming' ? (
+                <span
+                  className="lrw__step-body"
+                  aria-disabled="true"
+                  title={t('لم تصل إلى هذه المرحلة بعد', 'Not reached yet')}
+                >
+                  {content}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="lrw__step-body"
+                  aria-pressed={shown}
+                  title={
+                    state === 'done'
+                      ? t('عرض تفاصيل هذه المرحلة', 'View this stage')
+                      : t('العودة إلى المرحلة الحالية', 'Back to the current stage')
+                  }
+                  onClick={() => setViewing(state === 'done' ? index : null)}
+                >
+                  {content}
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ol>
 
-        {error ? (
-          <p className="notice notice--error" role="alert">
-            {error}
-          </p>
-        ) : null}
+      {error ? (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      ) : null}
 
-        {reviewing !== null ? (
-          <CompletedStage
-            {...props}
-            index={reviewing}
-            label={labels[reviewing] ?? ''}
-            contractHref={contractHref}
-            fileHref={fileHref}
-            onBack={() => setViewing(null)}
-          />
-        ) : null}
+      {reviewing !== null ? (
+        <CompletedStage
+          {...props}
+          index={reviewing}
+          label={labels[reviewing] ?? ''}
+          contractHref={contractHref}
+          fileHref={fileHref}
+          onBack={() => setViewing(null)}
+        />
+      ) : null}
 
-        {reviewing === null ? (
-          <>
-            {phase === 'awaiting_terms_signature' ? (
-              <p className="notice notice--info">
-                {t(
-                  'دفع العميل العربون ولم يوقّع اتفاقية الحجز بعد. ستتمكن من اعتماد الحجز بعد توقيعه.',
-                  'The client paid the deposit but has not signed the booking agreement yet.',
-                )}
-              </p>
-            ) : null}
+      {reviewing === null ? (
+        <>
+          {phase === 'awaiting_terms_signature' ? (
+            <p className="notice notice--info">
+              {t(
+                'دفع العميل العربون ولم يوقّع اتفاقية الحجز بعد. ستتمكن من اعتماد الحجز بعد توقيعه.',
+                'The client paid the deposit but has not signed the booking agreement yet.',
+              )}
+            </p>
+          ) : null}
 
             {phase === 'awaiting_payment_review' ? (
               <PaymentReviewCard
@@ -1394,53 +1394,53 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               />
             ) : null}
 
-            {phase === 'awaiting_owner_approval' ? (
-              <div className="lrw__card lrw__card--action">
-                <h3>{t('اعتماد الحجز', 'Approve the booking')}</h3>
-                <p>
-                  {t(
-                    'دفع العميل العربون ووقّع اتفاقية الحجز إلكترونياً مع صور هويته. راجع البيانات ثم اعتمد الحجز ليفتح لك نافذة إعداد العقد، ويظهر للعميل أن حجزه معتمد.',
-                    'The client paid the deposit and e-signed the booking agreement with their ID. Review, then approve to open the contract step; the client will see the booking as approved.',
-                  )}
-                </p>
-                {canManage ? (
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    disabled={busy}
-                    onClick={() => void act({ action: 'approve' })}
-                  >
+          {phase === 'awaiting_owner_approval' ? (
+            <div className="lrw__card lrw__card--action">
+              <h3>{t('اعتماد الحجز', 'Approve the booking')}</h3>
+              <p>
+                {t(
+                  'دفع العميل العربون ووقّع اتفاقية الحجز إلكترونياً مع صور هويته. راجع البيانات ثم اعتمد الحجز ليفتح لك نافذة إعداد العقد، ويظهر للعميل أن حجزه معتمد.',
+                  'The client paid the deposit and e-signed the booking agreement with their ID. Review, then approve to open the contract step; the client will see the booking as approved.',
+                )}
+              </p>
+              {canManage ? (
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={busy}
+                  onClick={() => void act({ action: 'approve' })}
+                >
                     {busy
                       ? t('جارٍ الاعتماد…', 'Approving…')
                       : t('اعتماد الحجز', 'Approve booking')}
-                  </button>
-                ) : (
-                  <p className="muted">
-                    {t(
-                      'يعتمد الحجز المالك أو من يمثله.',
-                      'The owner or their representative approves.',
-                    )}
-                  </p>
-                )}
-              </div>
-            ) : null}
+                </button>
+              ) : (
+                <p className="muted">
+                  {t(
+                    'يعتمد الحجز المالك أو من يمثله.',
+                    'The owner or their representative approves.',
+                  )}
+                </p>
+              )}
+            </div>
+          ) : null}
 
-            {draftOpen && canManage ? (
-              <ContractDraftEditor
-                {...props}
-                busy={busy}
-                onSave={act}
-                onCancel={() => setEditing(false)}
-              />
-            ) : null}
+          {draftOpen && canManage ? (
+            <ContractDraftEditor
+              {...props}
+              busy={busy}
+              onSave={act}
+              onCancel={() => setEditing(false)}
+            />
+          ) : null}
 
             {!draftOpen && phase === 'awaiting_contract_approval' ? (
               <div className="lrw__card lrw__desk">
                 <div className="lrw__desk-head">
                   <div>
-                    <h3>
-                      {sale ? t('عقد البيع', 'Sale contract') : t('عقد الإيجار', 'Lease contract')}
-                    </h3>
+                <h3>
+                  {sale ? t('عقد البيع', 'Sale contract') : t('عقد الإيجار', 'Lease contract')}
+                </h3>
                     <p className="muted">
                       {t(
                         'راجع ملخص العقد واعتمده للتوقيع. المستندات والشيكات تُطلب من العميل بعد توقيعه.',
@@ -1448,23 +1448,23 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                       )}
                     </p>
                   </div>
-                  {canManage ? (
-                    <button
-                      type="button"
-                      className="button button--quiet"
-                      onClick={() => setEditing(true)}
-                      disabled={busy}
-                    >
-                      {t('تعديل العقد والمستندات', 'Edit contract & documents')}
-                    </button>
-                  ) : null}
-                </div>
-                <DraftSummary {...props} />
-                <RequirementsReview
-                  {...props}
-                  busy={busy}
-                  fileHref={fileHref}
-                  onReview={(code, decision, note) =>
+                {canManage ? (
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    onClick={() => setEditing(true)}
+                    disabled={busy}
+                  >
+                    {t('تعديل العقد والمستندات', 'Edit contract & documents')}
+                  </button>
+                ) : null}
+              </div>
+              <DraftSummary {...props} />
+              <RequirementsReview
+                {...props}
+                busy={busy}
+                fileHref={fileHref}
+                onReview={(code, decision, note) =>
                     decide(
                       code,
                       { status: decision, ...(note ? { note } : {}) },
@@ -1473,36 +1473,36 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                   }
                   onAddRequirements={(requirements) =>
                     void act({ action: 'add_requirements', requirements })
-                  }
-                />
-                <div className="lrw__approve">
-                  <p className="muted">
+                }
+              />
+              <div className="lrw__approve">
+                <p className="muted">
                     {t(
                       'باعتمادك يوقَّع العقد باسم المالك ويُرسل للعميل ليوقّعه إلكترونياً، ثم يرفع المستندات والشيكات.',
                       'Approving signs for the owner and sends the contract to the client to e-sign; they then upload documents and cheques.',
+                      )}
+                </p>
+                <button
+                  type="button"
+                  className="button button--primary"
+                    disabled={busy || !canSign}
+                  onClick={() => void act({ action: 'issue_contract' })}
+                >
+                  {busy
+                    ? t('جارٍ الاعتماد…', 'Approving…')
+                    : t('اعتماد العقد وإرساله للتوقيع', 'Approve contract & send for signature')}
+                </button>
+                {!canSign ? (
+                  <p className="muted">
+                    {t(
+                      'اعتماد العقد يحتاج صلاحية توقيع العقود (المالك أو مدير المؤسسة).',
+                      'Approving the contract needs contract-signing permission.',
                     )}
                   </p>
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    disabled={busy || !canSign}
-                    onClick={() => void act({ action: 'issue_contract' })}
-                  >
-                    {busy
-                      ? t('جارٍ الاعتماد…', 'Approving…')
-                      : t('اعتماد العقد وإرساله للتوقيع', 'Approve contract & send for signature')}
-                  </button>
-                  {!canSign ? (
-                    <p className="muted">
-                      {t(
-                        'اعتماد العقد يحتاج صلاحية توقيع العقود (المالك أو مدير المؤسسة).',
-                        'Approving the contract needs contract-signing permission.',
-                      )}
-                    </p>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
-            ) : null}
+            </div>
+          ) : null}
 
             {!draftOpen &&
             Boolean(lifecycle.tenantSignature) &&
@@ -1540,10 +1540,10 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               </div>
             ) : null}
 
-            {phase === 'awaiting_tenant_signature' ? (
-              <div className="lrw__card">
-                <h3>{t('بانتظار توقيع الطرف الثاني', 'Awaiting the second party')}</h3>
-                <p>
+          {phase === 'awaiting_tenant_signature' ? (
+            <div className="lrw__card">
+              <h3>{t('بانتظار توقيع الطرف الثاني', 'Awaiting the second party')}</h3>
+              <p>
                   {lifecycle.contract?.automatic
                     ? t(
                         `اعتمد النظام العقد ${lifecycle.contract.reference} نيابةً عنك ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً؛ بعد التوقيع يرفع المستندات والشيكات.`,
@@ -1552,15 +1552,15 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                     : t(
                         `اعتمدت العقد ${lifecycle.contract?.reference ?? ''} ووُقّع باسم المالك. ينتظر الآن توقيع ${sale ? 'المشتري' : 'المستأجر'} إلكترونياً؛ بعد التوقيع يرفع المستندات والشيكات.`,
                         `You approved contract ${lifecycle.contract?.reference ?? ''}; it is signed for the owner and awaits the ${sale ? 'buyer' : 'tenant'}'s e-signature. After signing they upload documents and cheques.`,
-                      )}
-                </p>
-                {contractHref ? (
-                  <a className="button button--quiet" href={contractHref}>
-                    {t('عرض العقد', 'View contract')}
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+                )}
+              </p>
+              {contractHref ? (
+                <a className="button button--quiet" href={contractHref}>
+                  {t('عرض العقد', 'View contract')}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
 
             {phase === 'awaiting_handover' && !lifecycle.handover ? (
               <div className="lrw__card lrw__card--action">
@@ -1596,6 +1596,10 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                     )}
                   </li>
                 </ol>
+                <p className="lrw__handover-ref" role="status">
+                  {t('رقم الحجز', 'Booking reference')}:{' '}
+                  <strong dir="ltr">{referenceCode}</strong>
+                </p>
                 <div className="lrw__handover-actions">
                   {handoverBlockedByUnverifiedDocs(lifecycle) ? (
                     <button type="button" className="button button--primary" disabled>
@@ -1605,7 +1609,10 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                       )}
                     </button>
                   ) : (
-                    <a className="button button--primary" href={`/${locale}/handover`}>
+                    <a
+                      className="button button--primary"
+                      href={`/${locale}/handover?ref=${encodeURIComponent(referenceCode)}`}
+                    >
                       {t('فتح شاشة التسليم', 'Open the handover screen')}
                     </a>
                   )}
@@ -1622,25 +1629,25 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                   )}
                 </p>
               </div>
-            ) : null}
+          ) : null}
 
-            {phase === 'handed_over' && lifecycle.handover ? (
-              <div className="lrw__card">
-                <h3>{t('تم تسليم العقار', 'Premises handed over')}</h3>
-                <HandoverFacts handover={lifecycle.handover} ar={ar} />
+          {phase === 'handed_over' && lifecycle.handover ? (
+            <div className="lrw__card">
+              <h3>{t('تم تسليم العقار', 'Premises handed over')}</h3>
+              <HandoverFacts handover={lifecycle.handover} ar={ar} />
                 <HandoverPhotos
                   handover={lifecycle.handover}
                   ar={ar}
                   fileHref={fileHref}
                   showRecipient={canManage}
                 />
-                {contractHref ? (
-                  <a className="button button--quiet" href={contractHref}>
-                    {t('عرض العقد الموقّع', 'View signed contract')}
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+              {contractHref ? (
+                <a className="button button--quiet" href={contractHref}>
+                  {t('عرض العقد الموقّع', 'View signed contract')}
+                </a>
+              ) : null}
+            </div>
+          ) : null}
 
             {!sale &&
             phase === 'handed_over' &&
@@ -1666,13 +1673,13 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 }
               />
             ) : null}
-          </>
-        ) : null}
+        </>
+      ) : null}
 
         {showBookingStageDetails && props.hasEsign && canManage ? (
           <IdentityGallery ar={ar} fileHref={fileHref} />
         ) : null}
-      </section>
+    </section>
       {preview ? (
         <FilePreviewDialog file={preview} ar={ar} onClose={() => setPreview(null)} />
       ) : null}
@@ -3009,8 +3016,8 @@ function RequirementsReview({
                   ? 'ملء الشاشة'
                   : 'Full screen'}
             </button>
-          ) : null}
-        </div>
+              ) : null}
+            </div>
       </header>
 
       {includeCheques && lifecycle.chequePayableTo ? (
@@ -3159,7 +3166,7 @@ function RequirementsReview({
             {stageHref ? (
               <button
                 type="button"
-                className="button button--quiet"
+                  className="button button--quiet"
                 onClick={() =>
                   reviewChequeItem
                     ? openChequeReview(reviewChequeItem.key)
@@ -3174,12 +3181,12 @@ function RequirementsReview({
                     ? 'عرض الملف'
                     : 'View file'}
               </button>
-            ) : null}
+              ) : null}
             {canDecide ? (
-              <button
-                type="button"
-                className="button button--primary"
-                disabled={busy}
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    disabled={busy}
                 onClick={() => void decideCurrent('approved')}
               >
                 {reviewChequeItem
@@ -3189,14 +3196,14 @@ function RequirementsReview({
                   : ar
                     ? 'اعتماد المستند'
                     : 'Approve document'}
-              </button>
+                  </button>
             ) : null}
             {canDecide ? (
-              <button
-                type="button"
-                className="button button--quiet"
-                disabled={busy}
-                onClick={() => {
+                  <button
+                    type="button"
+                    className="button button--quiet"
+                    disabled={busy}
+                    onClick={() => {
                   if (reviewChequeItem) focusReject({ kind: 'cheque', key: reviewChequeItem.key });
                   else if (reviewItem) focusReject({ kind: 'doc', code: reviewItem.code });
                 }}
@@ -3227,30 +3234,30 @@ function RequirementsReview({
                   }}
                 >
                   {ar ? 'التالي' : 'Next'}
-                </button>
-              </>
-            ) : null}
-          </div>
+                  </button>
+                </>
+              ) : null}
+            </div>
           {rejecting && (rejecting === reviewItem?.code || rejecting === reviewChequeItem?.key) ? (
-            <form
-              className="lrw__reject"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!note.trim()) return;
+              <form
+                className="lrw__reject"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!note.trim()) return;
                 void decideCurrent('rejected', note.trim());
-              }}
-            >
+                }}
+              >
               <label htmlFor={`reject-focus-${rejecting}`}>
-                {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
-              </label>
+                  {ar ? 'سبب الرفض (يظهر للعميل)' : 'Reason (shown to the client)'}
+                </label>
               <textarea
                 id={`reject-focus-${rejecting}`}
                 className="textarea"
                 rows={2}
-                value={note}
+                  value={note}
                 maxLength={BOOKING_NOTE_MAX}
-                required
-                onChange={(event) => setNote(event.target.value)}
+                  required
+                  onChange={(event) => setNote(event.target.value)}
                 placeholder={
                   ar
                     ? 'مثال: الصورة غير واضحة — أعد الرفع بدقة أعلى'
@@ -3264,20 +3271,20 @@ function RequirementsReview({
                 max={BOOKING_NOTE_MAX}
                 disabled={busy}
                 service={OWNER_NOTE_SERVICE}
-              />
-              <button type="submit" className="button button--primary" disabled={busy}>
+                />
+                <button type="submit" className="button button--primary" disabled={busy}>
                 {ar ? 'تأكيد الرفض وإظهار الملاحظة للعميل' : 'Confirm reject & show note to client'}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet"
-                onClick={() => setRejecting(null)}
-              >
-                {ar ? 'إلغاء' : 'Cancel'}
-              </button>
-            </form>
-          ) : null}
-        </div>
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  onClick={() => setRejecting(null)}
+                >
+                  {ar ? 'إلغاء' : 'Cancel'}
+                </button>
+              </form>
+            ) : null}
+    </div>
       ) : null}
 
       {requirements.length || includeCheques ? (
@@ -3401,7 +3408,7 @@ function RequirementsReview({
                   const status = row?.status ?? 'pending';
                   const href = row?.file ? fileHref(`cheque-${item.key}`) : null;
                   const isFocus = reviewChequeKey === item.key;
-                  return (
+  return (
                     <li
                       key={item.key}
                       data-item={`cheque-${item.key}`}
@@ -3502,8 +3509,8 @@ function RequirementsReview({
           ) : null}
         </div>
       ) : (
-        <p className="muted">
-          {ar
+      <p className="muted">
+        {ar
             ? 'لا مستندات بعد — يمكنك طلب مستندات أدناه.'
             : 'No documents yet — you can request some below.'}
         </p>
@@ -3544,9 +3551,9 @@ function RequirementsReview({
           ) : null}
           <label>
             {ar ? 'أو اكتب مستنداً مخصصاً' : 'Or type a custom document'}
-            <input
-              className="input"
-              maxLength={120}
+        <input
+          className="input"
+          maxLength={120}
               value={customLabel}
               disabled={busy || requirements.length >= 12}
               placeholder={ar ? 'مثال: عقد عمل / كشف راتب حديث' : 'e.g. Employment contract'}
@@ -3563,10 +3570,10 @@ function RequirementsReview({
             }
           >
             {ar ? 'إضافة وإظهار للعميل' : 'Add & show to client'}
-          </button>
+        </button>
         </form>
       ) : null}
-    </div>
+      </div>
   );
   return desk && full && mounted ? createPortal(tree, document.body) : tree;
 }
@@ -3822,15 +3829,15 @@ function ContractDraftEditor({
     : 'Saved as a draft; the client sees the contract is being prepared with the documents list.';
 
   const clientRequest = (
-    <ClientRequest
-      ar={ar}
-      sale={sale}
-      party={party}
-      unit={unit}
-      currency={currency}
-      salePriceMinor={salePriceMinor}
-      locale={locale}
-    />
+      <ClientRequest
+        ar={ar}
+        sale={sale}
+        party={party}
+        unit={unit}
+        currency={currency}
+        salePriceMinor={salePriceMinor}
+        locale={locale}
+      />
   );
 
   const saleIntro = (
@@ -3955,8 +3962,8 @@ function ContractDraftEditor({
               onClick={onCancel}
               disabled={busy}
             >
-              {ar ? 'إلغاء' : 'Cancel'}
-            </button>
+                {ar ? 'إلغاء' : 'Cancel'}
+              </button>
           </div>
         </form>
       </>
