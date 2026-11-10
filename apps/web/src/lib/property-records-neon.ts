@@ -709,14 +709,13 @@ async function loadBookings(
     }),
     ...reservationRows.map((row) => {
       const paidAt = row.depositPaidAt;
-      const phase = paidAt
-        ? leaseJourneyPhase({
-            status: row.status,
-            depositPaidAt: paidAt,
-            esignSignedAt: row.signedAt,
-            lifecycle: row.lifecycle,
-          })
-        : null;
+      // Always derive journey phase — unpaid invites are awaiting_payment, not a closed contract.
+      const phase = leaseJourneyPhase({
+        status: row.status,
+        depositPaidAt: paidAt ?? null,
+        esignSignedAt: row.signedAt,
+        lifecycle: row.lifecycle,
+      });
       return {
         id: row.id,
         kind: 'reservation',
@@ -731,6 +730,7 @@ async function loadBookings(
         amountMinor: row.depositMinor ?? minor(row.rentMinor),
         currency: row.currency,
         status: row.status,
+        // Keep closed as null so the badge falls back to cancelled/expired labels.
         stage: phase && phase !== 'closed' ? phase : null,
         bookingMode: row.mode,
         termsAcceptedOn: row.signedAt ? row.signedAt.slice(0, 10) : null,

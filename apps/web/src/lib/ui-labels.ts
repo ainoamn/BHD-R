@@ -50,6 +50,7 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
     en: 'With the accountant for transfer',
   },
   deposit_paid: { ar: 'عربون مدفوع — جهّز العقد', en: 'Deposit paid — prepare the contract' },
+  awaiting_payment: { ar: 'بانتظار دفع العربون', en: 'Awaiting deposit payment' },
   awaiting_terms_signature: {
     ar: 'بانتظار توقيع العميل على الشروط',
     en: 'Awaiting client terms signature',

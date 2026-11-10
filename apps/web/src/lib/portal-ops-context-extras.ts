@@ -107,6 +107,7 @@ export async function loadOpsContextExtras(
         unitId: reservations.unitId,
         tenantPartyId: reservations.tenantPartyId,
         status: reservations.status,
+        depositPaidAt: sql<string | null>`${reservations.termsSnapshot}->>'depositPaidAt'`,
       })
       .from(reservations)
       .where(
@@ -211,8 +212,10 @@ export async function loadOpsContextExtras(
       ...row,
       name: `${row.id.slice(0, 8)} · ${row.status}`,
     })),
+    // Accountant queue: deposit already paid by the guest, still pending owner/accountant confirm.
+    // Unpaid owner invites stay out of this queue (they wait on the tenant payment link).
     pendingDepositReservations: reservationRows
-      .filter((row) => row.status === 'pending')
+      .filter((row) => row.status === 'pending' && Boolean(row.depositPaidAt))
       .map((row) => ({ ...row, name: `${row.id.slice(0, 8)} · pending deposit` })),
     confirmedReservations: reservationRows
       .filter((row) => row.status === 'confirmed')

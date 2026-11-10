@@ -490,6 +490,11 @@ function formatStamp(value: string, locale: 'ar' | 'en'): string {
 function displayStatus(row: PropertyRecordRow): string | null {
   if (row.kind === 'viewing' && row.status === 'requested') return 'viewing_requested';
   if (row.kind === 'viewing' && row.status === 'scheduled') return 'viewing_scheduled';
+  // Rent/sale deposit bookings: journey stage (e.g. awaiting_payment), never the
+  // four-state contract lifecycle — unpaid invites were wrongly shown as معلق/مغلق.
+  if (row.kind === 'reservation') {
+    return row.stage ?? row.status ?? null;
+  }
   if (row.kind === 'stay') {
     return ownerLifecycleState({
       contractStatus: row.contractStatus,
