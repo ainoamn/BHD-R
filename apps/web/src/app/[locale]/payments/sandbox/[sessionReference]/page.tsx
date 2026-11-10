@@ -196,20 +196,31 @@ export default async function SandboxPaymentPage({
                       {localizedName(locale, leaseSession.unitNameAr, leaseSession.unitNameEn)}
                     </dd>
                   </div>
-                  {viewerEmail ? (
+                  {leaseSession.inviteSource === 'owner_invite' &&
+                  (leaseSession.inviteeName || leaseSession.inviteeEmail) ? (
+                    <div>
+                      <dt>{ar ? 'المدعو للدفع' : 'Invitee'}</dt>
+                      <dd>
+                        {leaseSession.inviteeName ? (
+                          <span className="pay-gateway-shell__account-name">
+                            {leaseSession.inviteeName}
+                          </span>
+                        ) : null}
+                        {leaseSession.inviteeEmail ? (
+                          <span dir="ltr">{leaseSession.inviteeEmail}</span>
+                        ) : null}
+                      </dd>
+                    </div>
+                  ) : null}
+                  {viewerEmail || viewerDisplayName ? (
                     <div>
                       <dt>{ar ? 'الحساب الحالي' : 'Signed-in account'}</dt>
                       <dd>
                         {viewerDisplayName ? (
                           <span className="pay-gateway-shell__account-name">{viewerDisplayName}</span>
                         ) : null}
-                        <span dir="ltr">{viewerEmail}</span>
+                        {viewerEmail ? <span dir="ltr">{viewerEmail}</span> : null}
                       </dd>
-                    </div>
-                  ) : leaseSession.inviteSource === 'owner_invite' && leaseSession.inviteeEmail ? (
-                    <div>
-                      <dt>{ar ? 'حساب الدعوة المطلوب' : 'Required invite account'}</dt>
-                      <dd dir="ltr">{leaseSession.inviteeEmail}</dd>
                     </div>
                   ) : null}
                 </dl>
@@ -243,6 +254,22 @@ export default async function SandboxPaymentPage({
           <h2>{ar ? 'بيانات البطاقة' : 'Card details'}</h2>
         </header>
 
+        {viewerDisplayName ||
+        viewerEmail ||
+        leaseSession?.inviteeName ||
+        leaseSession?.inviteeEmail ? (
+          <div className="pay-gateway-shell__account-chip" aria-live="polite">
+            <strong>
+              {viewerDisplayName ||
+                leaseSession?.inviteeName ||
+                (ar ? 'مستخدم مسجّل' : 'Signed-in user')}
+            </strong>
+            <span dir="ltr">
+              {viewerEmail || leaseSession?.inviteeEmail || ''}
+            </span>
+          </div>
+        ) : null}
+
         {inviteBlocked && inviteGate ? (
           <LeaseInviteAccountGate
             locale={ar ? 'ar' : 'en'}
@@ -253,6 +280,7 @@ export default async function SandboxPaymentPage({
             {...(inviteGate.inviteeSub ? { inviteeSub: inviteGate.inviteeSub } : {})}
             {...(leaseSession?.inviteeName ? { inviteeName: leaseSession.inviteeName } : {})}
             {...(viewerEmail ? { currentEmail: viewerEmail } : {})}
+            {...(viewerDisplayName ? { currentName: viewerDisplayName } : {})}
           />
         ) : (
           <SandboxPaymentForm
@@ -261,6 +289,15 @@ export default async function SandboxPaymentPage({
             leaseKind={leaseKind}
             homeHref={`/${locale}`}
             {...(returnPath ? { returnPath } : {})}
+            {...(viewerDisplayName || leaseSession?.inviteeName
+              ? {
+                  defaultCardholderName: (
+                    viewerDisplayName ||
+                    leaseSession?.inviteeName ||
+                    ''
+                  ).toUpperCase(),
+                }
+              : {})}
             {...(leaseSession
               ? {
                   amountMinor: leaseSession.amountMinor,

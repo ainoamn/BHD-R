@@ -204,6 +204,7 @@ export function SandboxPaymentForm({
   referenceCode,
   rebookHref,
   homeHref,
+  defaultCardholderName,
 }: {
   sessionReference: string;
   returnPath?: string;
@@ -216,6 +217,8 @@ export function SandboxPaymentForm({
   /** When payment fails because the day was taken — link back to the same stay book flow. */
   rebookHref?: string;
   homeHref?: string;
+  /** Prefill cardholder from the signed-in / invitee name. */
+  defaultCardholderName?: string;
 }) {
   const locale = useLocale();
   const ar = locale === 'ar';
@@ -224,7 +227,7 @@ export function SandboxPaymentForm({
   const [cancelling, setCancelling] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
-  const [cardName, setCardName] = useState('');
+  const [cardName, setCardName] = useState(() => (defaultCardholderName || '').trim());
   const [cardNumber, setCardNumber] = useState('');
   const [expiry, setExpiry] = useState(DEMO_EXPIRY);
   const [cvc, setCvc] = useState('');
@@ -233,7 +236,7 @@ export function SandboxPaymentForm({
   const cardDigits = digitsOnly(cardNumber);
   const brand = detectBrand(cardDigits);
   const amountLabel = amountMinor && currency ? formatMoney(amountMinor, currency, locale) : null;
-  const nameHint = 'ABDUL HAMID AL RAWAHI';
+  const nameHint = defaultCardholderName?.trim() || 'ABDUL HAMID AL RAWAHI';
   const numberHint = DEMO_CARD_NUMBER;
 
   const errors = useMemo(() => {

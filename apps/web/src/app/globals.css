@@ -3762,7 +3762,8 @@ body:has(.stays-booking-receipt) #main-content {
   display: grid;
   width: min(100%, 26rem);
   margin: 0.5rem auto 0;
-  aspect-ratio: 1 / 1;
+  /* Auto height so account name / extra rows are never clipped by a square crop. */
+  min-height: 18rem;
   border-radius: 1.1rem;
   overflow: hidden;
   color: #f5fbf8;
@@ -3793,16 +3794,35 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .pay-gateway-shell__account-name {
   display: block;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+.pay-gateway-shell__account-chip {
+  display: grid;
+  gap: 0.15rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.75rem;
+  background: #eef5f1;
+  border: 1px solid #d5e3dc;
+  color: var(--oman-deep, #0f2922);
+}
+.pay-gateway-shell__account-chip strong {
+  font-size: 1rem;
+  font-weight: 700;
+}
+.pay-gateway-shell__account-chip span {
+  font-size: 0.84rem;
+  color: var(--muted, #5c6b64);
 }
 .pay-gateway-shell__summary-body {
   position: relative;
   z-index: 2;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto 1fr;
   gap: 0.9rem;
-  align-content: space-between;
-  height: 100%;
+  align-content: start;
+  min-height: 100%;
   padding: 1.2rem 1.15rem 1rem;
 }
 .pay-gateway-shell__summary .muted {

@@ -13,6 +13,7 @@ export function LeaseInviteAccountGate({
   inviteeEmail,
   inviteeName,
   currentEmail,
+  currentName,
   continueHref,
   rosterHasInvitee,
 }: {
@@ -21,6 +22,7 @@ export function LeaseInviteAccountGate({
   inviteeName?: string | null | undefined;
   inviteeSub?: string | null | undefined;
   currentEmail?: string | null | undefined;
+  currentName?: string | null | undefined;
   continueHref: string;
   paymentPath?: string;
   rosterHasInvitee: boolean;
@@ -40,10 +42,12 @@ export function LeaseInviteAccountGate({
         {ar ? 'هذه الدعوة موجّهة إلى' : 'This invite is for'}{' '}
         {inviteeName ? <strong>{inviteeName} · </strong> : null}
         <bdi dir="ltr">{inviteeEmail}</bdi>
-        {currentEmail ? (
+        {currentEmail || currentName ? (
           <>
             {ar ? '، وأنت مسجّل الآن كـ' : ', but you are signed in as'}{' '}
-            <bdi dir="ltr">{currentEmail}</bdi>.
+            {currentName ? <strong>{currentName}</strong> : null}
+            {currentName && currentEmail ? ' · ' : null}
+            {currentEmail ? <bdi dir="ltr">{currentEmail}</bdi> : null}.
           </>
         ) : (
           <>{ar ? '.' : '.'}</>
