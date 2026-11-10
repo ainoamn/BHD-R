@@ -134,6 +134,7 @@ function fieldHint(path: string, ar: boolean): string {
 /**
  * Progressive contract-party form: one field (or small group) at a time.
  * Completing the current step reveals the next and moves focus there.
+ * Use `layout="flat"` (owner invite) to show every field at once without auto-advance.
  */
 export function ReservationPartyForm({
   value,
@@ -142,6 +143,7 @@ export function ReservationPartyForm({
   mode,
   minMonths,
   locale,
+  layout = 'progressive',
 }: {
   value: PartyForm;
   onChange: (next: PartyForm) => void;
@@ -149,7 +151,9 @@ export function ReservationPartyForm({
   mode: 'rent' | 'sale';
   minMonths: number;
   locale: 'ar' | 'en';
+  layout?: 'progressive' | 'flat';
 }) {
+  const flat = layout === 'flat';
   const ar = locale === 'ar';
   const sale = mode === 'sale';
   const role = sale ? (ar ? 'المشتري' : 'buyer') : ar ? 'المستأجر' : 'tenant';
@@ -329,7 +333,7 @@ export function ReservationPartyForm({
         {
           id: 'nationality',
           label: ar ? 'الجنسية' : 'Nationality',
-          done: nationalityConfirmed && Boolean(person.nationality),
+          done: (flat || nationalityConfirmed) && Boolean(person.nationality),
           focusId: 'party-nationality',
           body: (
             <div className="field">
@@ -352,7 +356,7 @@ export function ReservationPartyForm({
                   </option>
                 ))}
               </select>
-              {!nationalityConfirmed ? (
+              {!flat && !nationalityConfirmed ? (
                 <button
                   type="button"
                   className="button button--primary party-form__next"
@@ -1057,6 +1061,7 @@ export function ReservationPartyForm({
     countries,
     locale,
     nationalityConfirmed,
+    flat,
   ]);
 
   const firstIncomplete = steps.findIndex((step) => !step.done);
@@ -1080,11 +1085,13 @@ export function ReservationPartyForm({
 
   // Only jump forward when a new step unlocks — keep Back navigation intact.
   useEffect(() => {
+    if (flat) return;
     if (frontier > prevFrontier.current) setViewIndex(frontier);
     prevFrontier.current = frontier;
-  }, [frontier]);
+  }, [frontier, flat]);
 
   useEffect(() => {
+    if (flat) return;
     const current = steps[frontier];
     if (!current?.done || frontier >= steps.length - 1) return;
     const timer = window.setTimeout(() => {
@@ -1098,15 +1105,16 @@ export function ReservationPartyForm({
       }
     }, current.id.toLowerCase().includes('copy') ? 650 : 240);
     return () => window.clearTimeout(timer);
-  }, [frontier, steps]);
+  }, [frontier, steps, flat]);
 
   useEffect(() => {
+    if (flat) return;
     const current = steps[viewIndex];
     if (!current?.focusId || current.done) return;
     if (lastFocused.current === `${viewIndex}:${current.focusId}`) return;
     lastFocused.current = `${viewIndex}:${current.focusId}`;
     focusStepField(current.focusId);
-  }, [viewIndex, steps]);
+  }, [viewIndex, steps, flat]);
 
   const missing =
     entityType === 'person' ? missingPersonFields(person) : missingCompanyFields(company);
@@ -1126,6 +1134,40 @@ export function ReservationPartyForm({
     if (!canGoNext) return;
     lastFocused.current = null;
     setViewIndex(safeIndex + 1);
+  }
+
+  if (flat) {
+    return (
+      <div className="party-form party-form--flat">
+        {missing.length ? <MissingFieldsBanner locale={locale} fields={missing} /> : null}
+        {civilIdWarn ? (
+          <p className="tenant-alert tenant-alert--warn" role="status">
+            {civilIdExpiryWarningText(ar)}
+          </p>
+        ) : null}
+        <div className="party-form__steps">
+          {steps.map((step, index) => (
+            <div
+              key={step.id}
+              className={`party-form__step${step.done ? ' is-done' : ''}`}
+            >
+              <div className="party-form__step-head">
+                <span className="party-form__step-index" aria-hidden="true">
+                  {step.done ? '✓' : index + 1}
+                </span>
+                <span>{step.label}</span>
+              </div>
+              <div className="party-form__step-body">{step.body}</div>
+            </div>
+          ))}
+        </div>
+        <p className="muted stays-checkout__hint">
+          {ar
+            ? 'أكمل كل الحقول ثم اضغط «التالي» أسفل النافذة.'
+            : 'Complete every field, then press “Next” below.'}
+        </p>
+      </div>
+    );
   }
 
   return (

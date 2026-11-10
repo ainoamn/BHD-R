@@ -480,6 +480,7 @@ export function OwnerBookingInvitePanel({
               value={partyForm}
               onChange={setPartyForm}
               holder="other"
+              layout="flat"
             />
           </div>
           <p className="ops-hint span-2">
