@@ -5,6 +5,11 @@ import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { BadgeShowcaseSection } from '@/components/badges/badge-showcase';
 import { HomeFeaturedByPurpose } from '@/components/home/home-featured-by-purpose';
+import {
+  HomeFeaturedGate,
+  HomeLiveResults,
+  HomeLiveSearchProvider,
+} from '@/components/home/home-live-search';
 import { HomeLeaderboardsSection } from '@/components/home/home-leaderboards';
 import { HomeTopRatedSection } from '@/components/home/home-top-rated';
 import { HomeServicesSection } from '@/components/marketplace/home-services';
@@ -247,7 +252,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
   const signInHref = `/api/auth/bhd/start?returnTo=${encodeURIComponent(workspaceHref)}`;
 
   return (
-    <>
+    <HomeLiveSearchProvider locale={locale}>
       <link rel="preload" as="image" href="/images/oman/fort-bg.webp" fetchPriority="high" />
       <section className="home-hero">
         <Image
@@ -290,9 +295,13 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
         </div>
       </section>
 
-      <Suspense fallback={<HomeBodySkeleton locale={locale} />}>
-        <HomeDeferredBody locale={locale} copy={copy} />
-      </Suspense>
-    </>
+      <HomeLiveResults />
+
+      <HomeFeaturedGate>
+        <Suspense fallback={<HomeBodySkeleton locale={locale} />}>
+          <HomeDeferredBody locale={locale} copy={copy} />
+        </Suspense>
+      </HomeFeaturedGate>
+    </HomeLiveSearchProvider>
   );
 }

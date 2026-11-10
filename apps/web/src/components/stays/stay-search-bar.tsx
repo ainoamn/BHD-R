@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import { useHomeLiveSearch } from '@/components/home/home-live-search';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { omanLocations } from '@/lib/oman-locations';
 
@@ -65,6 +66,7 @@ export function StaySearchBar({
   const ar = locale === 'ar';
   const router = useRouter();
   const pathname = usePathname();
+  const liveHome = useHomeLiveSearch();
   const guestsPanelId = useId();
   const guestsRef = useRef<HTMLDivElement>(null);
   const skipAutoRef = useRef(true);
@@ -109,6 +111,18 @@ export function StaySearchBar({
       if (showErrors) {
         setError(ar ? 'تاريخ المغادرة يجب أن يكون بعد الوصول' : 'Check-out must be after check-in');
       }
+      return;
+    }
+    // Home hero: filter in place — never leave `/` for catalogue results.
+    if (liveHome) {
+      liveHome.setQuery({
+        kind: 'stay',
+        destination,
+        checkInOn,
+        checkOutOn,
+        adults,
+        children,
+      });
       return;
     }
     const href = buildStaysHref({ destination, checkInOn, checkOutOn, adults, children });

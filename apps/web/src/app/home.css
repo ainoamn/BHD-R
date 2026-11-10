@@ -390,6 +390,35 @@
   text-align: center;
 }
 
+/* Live home search results (filter without leaving /) */
+.home-live-results {
+  scroll-margin-top: 1rem;
+}
+.home-live-results__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+}
+.home-live-results__skeleton {
+  pointer-events: none;
+}
+.home-live-results__skel-card {
+  min-height: 11.5rem;
+  border-radius: 0.85rem;
+  background: linear-gradient(90deg, #eef3f0 0%, #f7faf8 50%, #eef3f0 100%);
+  background-size: 200% 100%;
+  animation: home-live-skel 1.2s ease-in-out infinite;
+}
+@keyframes home-live-skel {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 /* Featured listings: tighter grid */
 .home-featured {
   padding-block-start: clamp(0.85rem, 2vw, 1.35rem);
