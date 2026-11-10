@@ -335,7 +335,14 @@ const INFO = new Set([
   'viewing_scheduled',
   'scheduled',
 ]);
-const ATTENTION = new Set(['viewing_requested', 'requested', 'request_pending', 'pending']);
+const ATTENTION = new Set([
+  'viewing_requested',
+  'requested',
+  'request_pending',
+  'pending',
+  'awaiting_payment',
+  'awaiting_payment_review',
+]);
 const CHECK_IN_READY = new Set(['confirmed', 'pre_arrival']);
 const STAY_DEPARTED = new Set(['checked_out', 'closed']);
 const LIFECYCLE_STATES = new Set<string>(['active', 'ended', 'cancelled', 'pending']);
