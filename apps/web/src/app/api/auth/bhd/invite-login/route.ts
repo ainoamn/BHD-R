@@ -10,13 +10,7 @@ import {
   setRosterCookie,
 } from '@/lib/bhd/account-roster';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
-import {
-  createPkce,
-  identitySettings,
-  safeReturnTo,
-  sealOidcState,
-  secureCookies,
-} from '@/lib/bhd/oauth';
+import { identitySettings, safeReturnTo, secureCookies } from '@/lib/bhd/oauth';
 import { requireSessionSecret } from '@/lib/runtime-env';
 
 export const runtime = 'nodejs';
@@ -40,8 +34,12 @@ function clearProductSessionCookies(response: NextResponse) {
 }
 
 /**
- * One-shot invite login: revoke the current product session (if any), then start
- * OIDC with login_hint for the invitee. Does not cycle other roster accounts.
+ * One-shot invite login: revoke the current product session (if any), then open
+ * Identity's login page (add-account) so the invitee can sign in. Continues to
+ * /api/auth/bhd/start with returnTo = the payment page.
+ *
+ * Going through /login?add=1 avoids silently reusing the wrong SSO session
+ * (authorize+prompt=login alone can bounce back without a visible login form).
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -89,35 +87,25 @@ export async function GET(request: Request) {
     ? roster.filter((item) => item.sub !== currentIdentitySub)
     : roster;
 
-  const { issuer, clientId, redirectUri } = identitySettings(url.origin);
-  const { state, nonce, verifier, challenge } = createPkce();
-  const authorization = new URL(`${issuer}/oauth/authorize`);
-  authorization.search = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    scope: 'openid profile email',
-    state,
-    nonce,
-    code_challenge: challenge,
-    code_challenge_method: 'S256',
-    login_hint: email,
-    prompt: 'login',
-  }).toString();
+  const { issuer } = identitySettings(url.origin);
 
-  const response = NextResponse.redirect(authorization.toString(), 303);
+  // After Identity login, continue into product OIDC start → callback → payment page.
+  const start = new URL('/api/auth/bhd/start', url.origin);
+  start.searchParams.set('returnTo', returnTo);
+  start.searchParams.set('login_hint', email);
+  start.searchParams.set('prompt', 'login');
+
+  const login = new URL(`${issuer}/login`);
+  login.searchParams.set('add', '1');
+  login.searchParams.set('login_hint', email);
+  login.searchParams.set('hint', email);
+  login.searchParams.set('return_to', start.toString());
+  login.searchParams.set('next', `/auth/continue?to=${encodeURIComponent(start.toString())}`);
+
+  const response = NextResponse.redirect(login.toString(), 303);
   clearProductSessionCookies(response);
   if (remaining.length > 0) setRosterCookie(response, remaining);
   else clearRosterCookie(response);
-  response.cookies.set({
-    name: 'bhd_oauth_state',
-    value: sealOidcState({ state, nonce, verifier, returnTo, redirectUri }),
-    httpOnly: true,
-    secure: secureCookies(),
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 300,
-  });
   // Mark this payment return so a wrong account does not auto-loop.
   response.cookies.set({
     name: 'bhd_invite_login',

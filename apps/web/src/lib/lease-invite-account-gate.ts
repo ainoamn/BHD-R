@@ -60,8 +60,8 @@ export async function resolveOwnerInviteAccountGate(input: {
     };
   }
 
-  // Dedicated one-shot login — clears product session once, then OIDC with login_hint.
-  // Avoids logout→next-roster-account thrashing that caused slow_down.
+  // Dedicated one-shot login — clears product session, opens Identity login (add account),
+  // then returns to the payment page via /api/auth/bhd/start.
   const loginQs = new URLSearchParams({
     locale: input.locale,
     returnTo: input.paymentPath,

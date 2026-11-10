@@ -1,6 +1,11 @@
+'use client';
+
+import type { MouseEvent } from 'react';
+
 /**
  * Manual account gate for owner-invite payment links.
  * Never auto-redirects — that caused OAuth account thrashing / slow_down.
+ * Uses location.assign so auth API redirects are not swallowed by soft navigation.
  */
 export function LeaseInviteAccountGate({
   locale,
@@ -18,6 +23,12 @@ export function LeaseInviteAccountGate({
   rosterHasInvitee: boolean;
 }) {
   const ar = locale === 'ar';
+
+  const onContinue = (event: MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    window.location.assign(continueHref);
+  };
+
   return (
     <div className="notice notice--warning" role="status">
       <p>
@@ -43,7 +54,7 @@ export function LeaseInviteAccountGate({
             : 'That email is not in this session. Sign in with it once — do not cycle other accounts.'}
       </p>
       <p>
-        <a className="button button--primary" href={continueHref}>
+        <a className="button button--primary" href={continueHref} onClick={onContinue}>
           {rosterHasInvitee
             ? ar
               ? 'التبديل إلى حساب الدعوة'
