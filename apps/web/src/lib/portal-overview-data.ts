@@ -617,7 +617,7 @@ export const loadPortalOverview = cache(async (portal: PortalRole): Promise<Port
           organizationOverviewFromDb(claims).then((row) =>
             withProfileCompletenessAlerts(claims, row),
           ),
-          4_000,
+          6_500,
           emptyOverview(),
           'org-overview-neon',
         );
