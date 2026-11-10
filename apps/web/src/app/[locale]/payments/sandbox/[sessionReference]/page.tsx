@@ -232,10 +232,10 @@ export default async function SandboxPaymentPage({
           <LeaseInviteAccountGate
             locale={ar ? 'ar' : 'en'}
             inviteeEmail={inviteGate.inviteeEmail}
-            inviteeName={leaseSession?.inviteeName}
-            currentEmail={viewerEmail}
             continueHref={inviteGate.continueHref}
             rosterHasInvitee={inviteGate.rosterHasInvitee}
+            {...(leaseSession?.inviteeName ? { inviteeName: leaseSession.inviteeName } : {})}
+            {...(viewerEmail ? { currentEmail: viewerEmail } : {})}
           />
         ) : (
           <SandboxPaymentForm

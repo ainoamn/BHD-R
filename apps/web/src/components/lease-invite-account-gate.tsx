@@ -12,8 +12,8 @@ export function LeaseInviteAccountGate({
 }: {
   locale: 'ar' | 'en';
   inviteeEmail: string;
-  inviteeName?: string | null;
-  currentEmail?: string | null;
+  inviteeName?: string | null | undefined;
+  currentEmail?: string | null | undefined;
   continueHref: string;
   rosterHasInvitee: boolean;
 }) {

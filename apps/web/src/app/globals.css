@@ -598,8 +598,8 @@ h3 {
 }
 .listing-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.85rem;
 }
 .listing-card {
   overflow: hidden;
@@ -617,9 +617,43 @@ h3 {
 }
 .listing-card__image {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 4 / 3;
   overflow: hidden;
   background: linear-gradient(135deg, var(--maroon-900), var(--maroon-700));
+}
+.listing-card__serial-overlay {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  z-index: 2;
+  padding: 1.4rem 0.65rem 0.45rem;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
+  background: linear-gradient(transparent, rgb(0 0 0 / 0.66));
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
+.listing-card--compact .listing-card__body {
+  padding: 0.65rem 0.7rem 0.7rem;
+  gap: 0.45rem;
+}
+.listing-card--compact .listing-card__body h3 {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 800;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.listing-card--compact .listing-card__purpose-chip {
+  margin-top: 0.15rem;
+  padding: 0.42rem 0.55rem;
+  font-size: 0.78rem;
 }
 .listing-card__image img {
   width: 100%;
@@ -8162,9 +8196,14 @@ body:has(.stays-booking-receipt) #main-content {
   margin: 0;
 }
 
+@media (max-width: 1280px) {
+  .listing-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
 @media (max-width: 960px) {
   .listing-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .metric-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -8238,7 +8277,9 @@ body:has(.stays-booking-receipt) #main-content {
   .hero-panel {
     padding: 0.7rem;
   }
-  .listing-grid,
+  .listing-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .value-grid {
     grid-template-columns: 1fr;
   }

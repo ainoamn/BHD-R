@@ -1,9 +1,6 @@
 import Image from 'next/image';
 import { BrandMark } from '@bhd-r/ui';
-import { getTranslations } from 'next-intl/server';
-import { BadgeChips } from '@/components/badges/badge-chips';
 import { Link } from '@/i18n/navigation';
-import { formatMoney } from '@/lib/format';
 import { formatListingCardTitle, formatListingLocation } from '@/lib/listing-card-copy';
 import {
   marketStatusFromPurpose,
@@ -11,7 +8,6 @@ import {
   type CatalogueListing,
 } from '@/lib/listing-market-status';
 import {
-  listingPurposeCaption,
   listingPurposeChipLabel,
   listingPurposeChipTone,
   occupancyWatermarkLabel,
@@ -20,6 +16,10 @@ import {
 import { toPublicMediaSrc } from '@/lib/public-media-url';
 import type { PublicListing } from '@/lib/types';
 
+/**
+ * Compact public card: cover + occupancy strip, serial on the image,
+ * address under it, then a single rent/sale CTA.
+ */
 export async function ListingCard({
   listing,
   locale,
@@ -27,13 +27,12 @@ export async function ListingCard({
   listing: PublicListing | CatalogueListing;
   locale: string;
 }) {
-  const t = await getTranslations();
   const ar = locale === 'ar';
   const loc = ar ? 'ar' : 'en';
   const catalogue = listing as CatalogueListing;
-  const badges = catalogue.badges;
-  const { headline, buildingLine, isMulti } = formatListingCardTitle(catalogue, loc);
+  const { headline } = formatListingCardTitle(catalogue, loc);
   const locationLine = formatListingLocation(catalogue);
+  const address = locationLine || headline;
   const href = listing.unitId
     ? `/units/${listing.unitId}`
     : 'propertyId' in listing && listing.propertyId
@@ -56,18 +55,12 @@ export async function ListingCard({
       : 'propertySerial' in listing
         ? listing.propertySerial
         : null;
-  const purpose = listing.listingPurpose;
-  const rentLabel = formatMoney(listing.rent.amountMinor, listing.rent.currency, locale);
-  const saleLabel =
-    listing.salePrice != null
-      ? formatMoney(listing.salePrice.amountMinor, listing.salePrice.currency, locale)
-      : null;
-  const purposeChip = listingPurposeChipLabel(purpose, loc);
-  const purposeTone = listingPurposeChipTone(purpose);
+  const purposeChip = listingPurposeChipLabel(listing.listingPurpose, loc);
+  const purposeTone = listingPurposeChipTone(listing.listingPurpose);
 
   return (
     <article
-      className={`listing-card${reservedNote ? ' listing-card--reserved' : ''}${
+      className={`listing-card listing-card--compact${reservedNote ? ' listing-card--reserved' : ''}${
         watermarkMod === 'taken' ? ' listing-card--taken' : ''
       }`}
     >
@@ -78,7 +71,7 @@ export async function ListingCard({
               src={coverSrc}
               alt={headline}
               fill
-              sizes="(max-width: 760px) 100vw, (max-width: 960px) 50vw, 33vw"
+              sizes="(max-width: 720px) 50vw, (max-width: 1280px) 25vw, 20vw"
             />
           ) : (
             <div className="listing-card__placeholder" aria-hidden="true">
@@ -94,6 +87,11 @@ export async function ListingCard({
             </span>
             <span className="listing-card__status-mark-label">{watermark}</span>
           </span>
+          {serial ? (
+            <span className="listing-card__serial-overlay" dir="ltr">
+              {serial}
+            </span>
+          ) : null}
         </div>
         <div className="listing-card__body">
           {reservedNote ? (
@@ -101,60 +99,10 @@ export async function ListingCard({
               {reservedNote}
             </p>
           ) : null}
-          <h3 className={badges?.length ? 'name-with-mark' : undefined}>
-            {headline}
-            <BadgeChips badges={badges} locale={locale} linked={false} />
-          </h3>
-          {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
-          {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
-          {serial ? (
-            <p className="listing-card__serial" dir="ltr">
-              {serial}
-            </p>
-          ) : null}
-          {!isMulti ? (
-            <p className="listing-card__purpose">{listingPurposeCaption(purpose, loc)}</p>
-          ) : null}
-          <div className={`listing-card__facts${isMulti ? ' listing-card__facts--stack' : ''}`}>
-            <span>
-              {listing.bedrooms} {t('Property.beds')}
-            </span>
-            <span>
-              {listing.bathrooms} {t('Property.baths')}
-            </span>
-            {listing.areaSquareMeters ? (
-              <span>
-                {listing.areaSquareMeters} {t('Property.area')}
-              </span>
-            ) : null}
-          </div>
-          {purpose === 'both' ? (
-            <div className="listing-card__price listing-card__price--dual listing-card__price--stack">
-              <span>
-                {rentLabel}
-                <small>{t('Common.monthly')}</small>
-              </span>
-              {saleLabel ? (
-                <span>
-                  {saleLabel}
-                  <small>{ar ? 'سعر البيع' : 'Sale price'}</small>
-                </span>
-              ) : null}
-              <span className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone}`}>
-                {purposeChip}
-              </span>
-            </div>
-          ) : (
-            <div className="listing-card__price listing-card__price--stack">
-              <span>
-                {purpose === 'sale' && saleLabel ? saleLabel : rentLabel}
-                {purpose !== 'sale' ? <small>{t('Common.monthly')}</small> : null}
-              </span>
-              <span className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone}`}>
-                {purposeChip}
-              </span>
-            </div>
-          )}
+          <h3>{address}</h3>
+          <span className={`listing-card__purpose-chip listing-card__purpose-chip--${purposeTone}`}>
+            {purposeChip}
+          </span>
         </div>
       </Link>
     </article>
