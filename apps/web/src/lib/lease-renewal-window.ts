@@ -29,6 +29,38 @@ export function leaseDaysRemaining(endsOn: string, today: string): number {
   return daysBetweenIso(today, endsOn.slice(0, 10));
 }
 
+/**
+ * Visual urgency for leases still in force:
+ * - d30: ≤ 30 days (red)
+ * - d60: ≤ 60 days (orange)
+ * - d90: ≤ 90 days (amber/yellow)
+ */
+export type LeaseExpiryBand = 'd30' | 'd60' | 'd90';
+
+export function leaseExpiryBand(
+  endsOn: string | null | undefined,
+  today: string,
+): LeaseExpiryBand | null {
+  if (!endsOn) return null;
+  const remaining = leaseDaysRemaining(endsOn, today);
+  if (remaining < 0) return null;
+  if (remaining <= 30) return 'd30';
+  if (remaining <= 60) return 'd60';
+  if (remaining <= 90) return 'd90';
+  return null;
+}
+
+export function leaseExpiryBandLabel(band: LeaseExpiryBand, locale: 'ar' | 'en'): string {
+  if (locale === 'ar') {
+    if (band === 'd30') return 'خلال 30 يوماً';
+    if (band === 'd60') return 'خلال 60 يوماً';
+    return 'خلال 90 يوماً';
+  }
+  if (band === 'd30') return 'Within 30 days';
+  if (band === 'd60') return 'Within 60 days';
+  return 'Within 90 days';
+}
+
 /** True when the normal renewal window is open (≤ 90 days left). */
 export function isLeaseRenewalWindowOpen(endsOn: string, today: string): boolean {
   const remaining = leaseDaysRemaining(endsOn, today);

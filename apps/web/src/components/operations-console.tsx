@@ -45,7 +45,13 @@ import { formatMoney, toMinorUnits } from '@/lib/format';
 import { invalidateOpsCache } from '@/lib/portal-ops-client-cache';
 import { leaseContractTemplateOptions } from '@/lib/contract-template-labels';
 import { hasRenewalDraft } from '@/lib/lease-renewal-draft';
-import { isLeaseRenewalWindowOpen, leaseDaysRemaining } from '@/lib/lease-renewal-window';
+import {
+  isLeaseRenewalWindowOpen,
+  leaseDaysRemaining,
+  leaseExpiryBand,
+  leaseExpiryBandLabel,
+  type LeaseExpiryBand,
+} from '@/lib/lease-renewal-window';
 import { replaceSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { domainStatusLabel } from '@/lib/ui-labels';
 import type { PortalRole } from '@/lib/types';
@@ -1025,13 +1031,35 @@ function displayCellValue(
   if (column.format === 'date') {
     const raw = safeString(value);
     const date = new Date(raw);
-    return Number.isNaN(date.valueOf())
+    const formatted = Number.isNaN(date.valueOf())
       ? raw
       : new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
           dateStyle: 'medium',
           timeZone: /^\d{4}-\d{2}-\d{2}$/.test(raw) ? 'UTC' : 'Asia/Muscat',
         }).format(date);
+    if (column.key === 'endsOn' && !Number.isNaN(date.valueOf())) {
+      const active =
+        safeString(row.state) === 'active' || safeString(row.status) === 'active';
+      const band = active ? leaseExpiryBand(raw, muscatToday()) : null;
+      if (band) {
+        return (
+          <span
+            className={`ops-expiry ops-expiry--${band}`}
+            title={leaseExpiryBandLabel(band, locale)}
+          >
+            <span className="ops-expiry__date">{formatted}</span>
+            <span className="ops-expiry__mark">{leaseExpiryBandLabel(band, locale)}</span>
+          </span>
+        );
+      }
+    }
+    return formatted;
   }
+
+function leasingRowExpiryBand(row: DataRow): LeaseExpiryBand | null {
+  if (safeString(row.state) !== 'active' && safeString(row.status) !== 'active') return null;
+  return leaseExpiryBand(safeString(row.endsOn), muscatToday());
+}
   if (column.format === 'term' || column.format === 'usage') {
     const key = safeString(value);
     const labels: Record<string, { ar: string; en: string }> =
@@ -3790,6 +3818,25 @@ ${depositHtml}${
               <p>{ar ? definition.introAr : definition.introEn}</p>
             </>
           )}
+          {section === 'leasing' && !leasingIntroCollapsed ? (
+            <ul
+              className="ops-expiry-legend"
+              aria-label={ar ? 'دليل ألوان الانتهاء' : 'Expiry colour key'}
+            >
+              <li className="ops-expiry-legend__item ops-expiry-legend__item--d90">
+                <span />
+                {ar ? 'ينتهي خلال 90 يوماً' : 'Ends within 90 days'}
+              </li>
+              <li className="ops-expiry-legend__item ops-expiry-legend__item--d60">
+                <span />
+                {ar ? 'ينتهي خلال 60 يوماً' : 'Ends within 60 days'}
+              </li>
+              <li className="ops-expiry-legend__item ops-expiry-legend__item--d30">
+                <span />
+                {ar ? 'ينتهي خلال 30 يوماً' : 'Ends within 30 days'}
+              </li>
+            </ul>
+          ) : null}
           {section === 'api-keys' ? (
             <div className="notice notice--info api-keys-guide" role="note">
               <p>
@@ -4945,6 +4992,7 @@ ${depositHtml}${
                       const bookingApproval =
                         section === 'bookings' &&
                         bookingNeedsApproval(safeString(row.status), safeString(row.recordKind));
+                      const expiryBand = section === 'leasing' ? leasingRowExpiryBand(row) : null;
                       return (
                         <tr
                           key={safeString(row.id ?? row.reference) || String(index)}
@@ -4953,6 +5001,7 @@ ${depositHtml}${
                               isChildUnit ? 'ops-table__child-row' : '',
                               bookingTone ? `ops-table__row--${bookingTone}` : '',
                               bookingApproval ? 'ops-table__row--approval' : '',
+                              expiryBand ? `ops-table__row--expiry-${expiryBand}` : '',
                             ]
                               .filter(Boolean)
                               .join(' ') || undefined
@@ -5425,6 +5474,7 @@ ${depositHtml}${
                   const bookingApproval =
                     section === 'bookings' &&
                     bookingNeedsApproval(safeString(row.status), safeString(row.recordKind));
+                  const expiryBand = section === 'leasing' ? leasingRowExpiryBand(row) : null;
                   return (
                     <article
                       className={
@@ -5434,6 +5484,7 @@ ${depositHtml}${
                           bookingApproval ? 'ops-mobile-card--approval' : '',
                           contractTone === 'renewal' ? 'ops-mobile-card--contract-renewal' : '',
                           contractTone === 'new' ? 'ops-mobile-card--contract-new' : '',
+                          expiryBand ? `ops-mobile-card--expiry-${expiryBand}` : '',
                         ]
                           .filter(Boolean)
                           .join(' ')
