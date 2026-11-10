@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { useRouter } from '@/i18n/navigation';
+import { usePathname, useRouter } from '@/i18n/navigation';
 import { omanLocations } from '@/lib/oman-locations';
 
 function defaultCheckIn(): string {
@@ -29,6 +29,24 @@ function formatDateLabel(value: string, locale: string): string {
   }
 }
 
+function buildStaysHref(input: {
+  destination: string;
+  checkInOn: string;
+  checkOutOn: string;
+  adults: string;
+  children: string;
+}): string | null {
+  if (!input.checkInOn || !input.checkOutOn) return null;
+  if (input.checkOutOn <= input.checkInOn) return null;
+  const params = new URLSearchParams();
+  if (input.destination) params.set('destination', input.destination);
+  params.set('checkInOn', input.checkInOn);
+  params.set('checkOutOn', input.checkOutOn);
+  params.set('adults', input.adults);
+  params.set('children', input.children);
+  return `/stays?${params.toString()}`;
+}
+
 export function StaySearchBar({
   locale,
   variant = 'hero',
@@ -46,8 +64,11 @@ export function StaySearchBar({
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
+  const pathname = usePathname();
   const guestsPanelId = useId();
   const guestsRef = useRef<HTMLDivElement>(null);
+  const skipAutoRef = useRef(true);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const initialIn = defaults.checkInOn || defaultCheckIn();
   const [destination, setDestination] = useState(defaults.destination ?? '');
@@ -69,6 +90,45 @@ export function StaySearchBar({
     return () => document.removeEventListener('mousedown', onPointer);
   }, [guestsOpen]);
 
+  function navigateToSearch(href: string) {
+    const onStaysIndex =
+      pathname === '/stays' || pathname.endsWith('/stays') || /\/stays\/?$/.test(pathname);
+    if (onStaysIndex) router.replace(href);
+    else router.push(href);
+  }
+
+  function runSearch(showErrors: boolean) {
+    setError(null);
+    if (!checkInOn || !checkOutOn) {
+      if (showErrors) {
+        setError(ar ? 'اختر تاريخ الوصول والمغادرة' : 'Select check-in and check-out dates');
+      }
+      return;
+    }
+    if (checkOutOn <= checkInOn) {
+      if (showErrors) {
+        setError(ar ? 'تاريخ المغادرة يجب أن يكون بعد الوصول' : 'Check-out must be after check-in');
+      }
+      return;
+    }
+    const href = buildStaysHref({ destination, checkInOn, checkOutOn, adults, children });
+    if (href) navigateToSearch(href);
+  }
+
+  // Live filter: any control change navigates after a short debounce.
+  useEffect(() => {
+    if (skipAutoRef.current) {
+      skipAutoRef.current = false;
+      return;
+    }
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => runSearch(false), 320);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional field watchers
+  }, [destination, checkInOn, checkOutOn, adults, children]);
+
   function guestSummary(): string {
     const a = Number.parseInt(adults, 10) || 1;
     const c = Number.parseInt(children, 10) || 0;
@@ -82,22 +142,8 @@ export function StaySearchBar({
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    setError(null);
-    if (!checkInOn || !checkOutOn) {
-      setError(ar ? 'اختر تاريخ الوصول والمغادرة' : 'Select check-in and check-out dates');
-      return;
-    }
-    if (checkOutOn <= checkInOn) {
-      setError(ar ? 'تاريخ المغادرة يجب أن يكون بعد الوصول' : 'Check-out must be after check-in');
-      return;
-    }
-    const params = new URLSearchParams();
-    if (destination) params.set('destination', destination);
-    params.set('checkInOn', checkInOn);
-    params.set('checkOutOn', checkOutOn);
-    params.set('adults', adults);
-    params.set('children', children);
-    router.push(`/stays?${params.toString()}`);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    runSearch(true);
   }
 
   const dateSummary =
@@ -116,7 +162,7 @@ export function StaySearchBar({
     >
       <div className="booking-bar__segment booking-bar__segment--destination">
         <label className="booking-bar__label" htmlFor="booking-bar-dest">
-          {ar ? 'الوجهة' : 'Destination'}
+          {ar ? 'المدينة' : 'City'}
         </label>
         <select
           id="booking-bar-dest"

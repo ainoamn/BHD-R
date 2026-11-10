@@ -1,6 +1,7 @@
 import { getTranslations } from 'next-intl/server';
 import { supportedCurrencyCodes } from '@bhd-r/contracts';
 import { countryPacks } from '@bhd-r/country-packs';
+import { AutoSubmitSearchForm } from '@/components/auto-submit-search-form';
 import { omanLocations } from '@/lib/oman-locations';
 import { categoryLabel } from '@/lib/properties-browse-filters';
 
@@ -26,9 +27,8 @@ export async function PropertySearch({
       : 'home';
 
   return (
-    <form
-      action={`/${locale}/properties`}
-      method="get"
+    <AutoSubmitSearchForm
+      action="/properties"
       className={compact ? 'filters-bar' : 'search-card'}
       role="search"
       aria-label={
@@ -148,6 +148,6 @@ export async function PropertySearch({
           {t('Common.search')}
         </button>
       </div>
-    </form>
+    </AutoSubmitSearchForm>
   );
 }
