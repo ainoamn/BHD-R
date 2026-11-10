@@ -4864,24 +4864,16 @@ body:has(.stays-booking-receipt) #main-content {
   font-size: 0.7rem;
   line-height: 1.3;
 }
-.dash-hero--classic .dash-hero__actions .button {
-  border-radius: 0.25rem;
-  min-height: 2rem;
-  padding-inline: 0.7rem;
-  font-size: 0.78rem;
-}
 .dash-hero__toolbar {
   display: flex;
   flex: 1 1 18rem;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.35rem;
-  max-width: min(100%, 42rem);
-}
-.dash-hero__toolbar .dash-hero__actions {
   gap: 0.3rem;
+  max-width: min(100%, 48rem);
 }
+.dash-hero__toolbar .dash-hero__actions,
 .dash-hero__nav {
   display: flex;
   flex-wrap: wrap;
@@ -4889,26 +4881,50 @@ body:has(.stays-booking-receipt) #main-content {
   justify-content: flex-end;
   gap: 0.3rem;
 }
-.dash-hero__nav-link {
+/* One shared chip size for primary + quiet + nav links (avoids uneven height/weight). */
+.dash-hero__toolbar :is(.button, .dash-hero__nav-link) {
+  box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2rem;
-  padding: 0.25rem 0.65rem;
-  border: 1px solid rgb(9 45 36 / 0.14);
-  border-radius: 0.25rem;
-  background: #fff;
-  color: var(--bhd-navy);
-  font-size: 0.74rem;
-  font-weight: 750;
-  text-decoration: none;
+  height: 2.05rem;
+  min-height: 2.05rem;
+  max-height: 2.05rem;
+  padding: 0 0.7rem;
+  border-radius: 0.28rem;
+  border: 1px solid rgb(9 45 36 / 0.16);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
   white-space: nowrap;
+  text-decoration: none;
+  transform: none;
+  box-shadow: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition:
     background 120ms ease,
     border-color 120ms ease,
     color 120ms ease;
 }
-.dash-hero__nav-link:hover {
+.dash-hero__toolbar .button:hover,
+.dash-hero__toolbar .dash-hero__nav-link:hover {
+  transform: none;
+}
+.dash-hero__toolbar .button--primary {
+  color: #fff;
+  background: var(--maroon-800);
+  border-color: transparent;
+}
+.dash-hero__toolbar .button--primary:hover {
+  background: var(--maroon-700);
+}
+.dash-hero__toolbar :is(.button--quiet, .dash-hero__nav-link) {
+  color: var(--bhd-navy);
+  background: #fff;
+}
+.dash-hero__toolbar :is(.button--quiet, .dash-hero__nav-link):hover {
   background: color-mix(in srgb, var(--bhd-teal) 10%, #fff);
   border-color: color-mix(in srgb, var(--bhd-teal) 40%, transparent);
   color: var(--oman-deep);
