@@ -307,7 +307,8 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
     { href: `/${portal}/payments`, label: t('Common.payments') },
     { href: `/${portal}/expenses`, label: t('Common.expenses') },
   ].filter((link) => opens(link.href));
-  const shortcuts = [
+  /** Primary quick links shown in the hero toolbar (next to add / calendar / reports). */
+  const toolbarShortcuts = [
     {
       href: portal === 'tenant' ? `/${portal}/leases` : `/${portal}/leasing`,
       label: t('Common.leasing'),
@@ -324,13 +325,6 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
       label: t('Common.bookings'),
     },
     { href: `/${portal}/maintenance`, label: t('Common.maintenance') },
-    ...(portal === 'tenant'
-      ? []
-      : [
-          { href: `/${portal}/stays/calendar`, label: t('Stays.calendar') },
-          { href: `/${portal}/bookings?tab=daily`, label: t('Portal.viewStayBookings') },
-          { href: `/${portal}/contacts`, label: t('Common.contacts') },
-        ]),
   ].filter((link) => opens(link.href));
 
   // Approvals panel already lists actionable items — keep operational alerts only here.
@@ -344,8 +338,6 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
     (managesProperties && approvals.total > 0) ||
     approvalAlerts.length > 0 ||
     operationalAlerts.length > 0;
-  const showShortcuts =
-    (portal === 'owner' || portal === 'developer' || portal === 'tenant') && shortcuts.length > 0;
   const showFinance = financeLinks.length > 0 || opens(`/${portal}/accounting`);
   const hasActivity = overview.recentActivity.length > 0;
 
@@ -467,26 +459,37 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
             <p className="dash-hero__lede">{t('Portal.dashboardIntro')}</p>
           )}
         </div>
-        <div className="dash-hero__actions">
-          {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/properties/new`) ? (
-            <Link href={`/${portal}/properties/new`} className="button button--primary" prefetch>
-              ＋ {t('Portal.addProperty')}
-            </Link>
-          ) : null}
-          {portal === 'tenant' ? (
-            <Link href="/tenant/maintenance/new" className="button button--primary">
-              {t('Maintenance.new')}
-            </Link>
-          ) : null}
-          {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/stays/calendar`) ? (
-            <Link href={`/${portal}/stays/calendar`} className="button button--quiet" prefetch>
-              {t('Portal.openCalendar')}
-            </Link>
-          ) : null}
-          {opens(`/${portal}/reports`) ? (
-            <Link href={`/${portal}/reports`} className="button button--quiet">
-              {t('Common.reports')}
-            </Link>
+        <div className="dash-hero__toolbar" aria-label={t('Portal.quickNav')}>
+          <div className="dash-hero__actions">
+            {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/properties/new`) ? (
+              <Link href={`/${portal}/properties/new`} className="button button--primary" prefetch>
+                ＋ {t('Portal.addProperty')}
+              </Link>
+            ) : null}
+            {portal === 'tenant' ? (
+              <Link href="/tenant/maintenance/new" className="button button--primary">
+                {t('Maintenance.new')}
+              </Link>
+            ) : null}
+            {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/stays/calendar`) ? (
+              <Link href={`/${portal}/stays/calendar`} className="button button--quiet" prefetch>
+                {t('Portal.openCalendar')}
+              </Link>
+            ) : null}
+            {opens(`/${portal}/reports`) ? (
+              <Link href={`/${portal}/reports`} className="button button--quiet">
+                {t('Common.reports')}
+              </Link>
+            ) : null}
+          </div>
+          {toolbarShortcuts.length ? (
+            <nav className="dash-hero__nav" aria-label={t('Portal.quickNav')}>
+              {toolbarShortcuts.map((link) => (
+                <Link key={link.href} href={link.href} className="dash-hero__nav-link" prefetch>
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
           ) : null}
         </div>
       </header>
@@ -621,59 +624,37 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         </div>
       </section>
 
-      {(showFinance || showShortcuts) && (
-        <div className="dash-mid dash-mid--classic">
-          {showFinance ? (
-            <section className="dash-finance" aria-label={t('Portal.accountingPulse')}>
-              <div className="dash-section-head dash-section-head--classic">
-                <h2>{t('Portal.accountingPulse')}</h2>
-                {opens(`/${portal}/accounting`) ? (
-                  <Link
-                    href={`/${portal}/accounting`}
-                    className="button button--quiet button--tiny"
-                  >
-                    {t('Common.accounting')}
-                  </Link>
-                ) : null}
-              </div>
-              <div className="dash-finance__card dash-finance__card--classic">
-                <p>{t('Portal.collected')}</p>
-                <strong className="metric-money-stack">
-                  {collected.length
-                    ? collected.map((amount) => (
-                        <span key={amount.currency}>
-                          {formatMoney(amount.amountMinor, amount.currency, locale)}
-                        </span>
-                      ))
-                    : '—'}
-                </strong>
-                <div className="dash-finance__links">
-                  {financeLinks.map((link) => (
-                    <Link key={link.href} href={link.href}>
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-          {showShortcuts ? (
-            <nav className="dash-shortcuts dash-shortcuts--classic" aria-label={t('Portal.quickNav')}>
-              <div className="dash-section-head dash-section-head--classic">
-                <h2>{t('Portal.quickNav')}</h2>
-              </div>
-              <div className="dash-shortcuts__grid">
-                {shortcuts.slice(0, 6).map((link) => (
-                  <Link key={link.href} href={link.href}>
-                    {link.label}
-                  </Link>
-                ))}
-              </div>
-            </nav>
-          ) : null}
-        </div>
-      )}
+      {showFinance ? (
+        <section className="dash-finance dash-finance--classic-solo" aria-label={t('Portal.accountingPulse')}>
+          <div className="dash-section-head dash-section-head--classic">
+            <h2>{t('Portal.accountingPulse')}</h2>
+            {opens(`/${portal}/accounting`) ? (
+              <Link href={`/${portal}/accounting`} className="button button--quiet button--tiny">
+                {t('Common.accounting')}
+              </Link>
+            ) : null}
+          </div>
+          <div className="dash-finance__card dash-finance__card--classic">
+            <p>{t('Portal.collected')}</p>
+            <strong className="metric-money-stack">
+              {collected.length
+                ? collected.map((amount) => (
+                    <span key={amount.currency}>
+                      {formatMoney(amount.amountMinor, amount.currency, locale)}
+                    </span>
+                  ))
+                : '—'}
+            </strong>
+            <div className="dash-finance__links">
+              {financeLinks.map((link) => (
+                <Link key={link.href} href={link.href}>
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       {hasActivity ? (
         <details className="dash-activity-fold">
