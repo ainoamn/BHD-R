@@ -1,4 +1,3 @@
-import { EmptyState } from '@bhd-r/ui';
 import { getTranslations } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { PortalPendingApprovalsPanel } from '@/components/portal-pending-approvals-panel';
@@ -333,18 +332,56 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         ]),
   ].filter((link) => opens(link.href));
 
+  const primaryMetricKeys = new Set(['occupancy', 'vacant', 'tickets', 'invoices']);
+  const primaryMetrics = metrics.filter((metric) => primaryMetricKeys.has(metric.key));
+  const secondaryMetrics = metrics.filter((metric) => !primaryMetricKeys.has(metric.key));
+  // Approvals panel already lists actionable items — keep operational alerts only here.
+  const operationalAlerts = alerts.filter(
+    (alert) =>
+      !['contracts_approval', 'contracts_approval_new', 'contracts_approval_renewal'].includes(
+        alert.code,
+      ),
+  );
+  const hasAttention =
+    (managesProperties && approvals.total > 0) ||
+    approvalAlerts.length > 0 ||
+    operationalAlerts.length > 0;
+  const showShortcuts =
+    (portal === 'owner' || portal === 'developer' || portal === 'tenant') && shortcuts.length > 0;
+  const showFinance = financeLinks.length > 0 || opens(`/${portal}/accounting`);
+  const hasActivity = overview.recentActivity.length > 0;
+
+  function renderMetric(metric: (typeof metrics)[number], compact = false) {
+    const className = `dash-metric dash-metric--${metric.tone}${compact ? ' dash-metric--compact' : ''}`;
+    if (opens(metric.href)) {
+      return (
+        <Link key={metric.key} href={metric.href} className={className} prefetch>
+          <span>{metric.label}</span>
+          <strong>{metric.value}</strong>
+        </Link>
+      );
+    }
+    return (
+      <div key={metric.key} className={className}>
+        <span>{metric.label}</span>
+        <strong>{metric.value}</strong>
+      </div>
+    );
+  }
+
   return (
-    <div className="dash-shell">
+    <div className="dash-shell dash-shell--tidy">
       <header className="dash-hero">
         <div className="dash-hero__copy">
           <p className="dash-hero__kicker">{t(`Portal.${portal}`)}</p>
           <h1>{t('Portal.welcome', { name: viewer.displayName })}</h1>
-          <p className="dash-hero__lede">{t('Portal.dashboardIntro')}</p>
           {updatedLabel ? (
             <p className="dash-hero__meta">
               {t('Portal.updatedAt')}: {updatedLabel}
             </p>
-          ) : null}
+          ) : (
+            <p className="dash-hero__lede">{t('Portal.dashboardIntro')}</p>
+          )}
         </div>
         <div className="dash-hero__actions">
           {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/properties/new`) ? (
@@ -357,11 +394,11 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
               {t('Maintenance.new')}
             </Link>
           ) : null}
-          {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/stays/calendar`) && (
+          {(portal === 'owner' || portal === 'developer') && opens(`/${portal}/stays/calendar`) ? (
             <Link href={`/${portal}/stays/calendar`} className="button button--quiet" prefetch>
               {t('Portal.openCalendar')}
             </Link>
-          )}
+          ) : null}
           {opens(`/${portal}/reports`) ? (
             <Link href={`/${portal}/reports`} className="button button--quiet">
               {t('Common.reports')}
@@ -409,52 +446,33 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
         </Link>
       ) : null}
 
-      {managesProperties ? (
-        <PortalPendingApprovalsPanel
-          portal={portal}
-          locale={locale}
-          initial={approvals}
-          title={t('Portal.approvalsTitle')}
-          hint={t('Portal.approvalsHint')}
-          openLabel={t('Portal.approvalsOpen')}
-          moreLabel={t('Portal.approvalsMore', { count: '{count}' })}
-        />
-      ) : null}
-
-      <section className="dash-metrics-block" aria-label={t('Portal.liveStats')}>
+      <section
+        className="dash-attention"
+        aria-label={ar ? 'يحتاج انتباهك' : 'Needs your attention'}
+      >
         <div className="dash-section-head dash-section-head--compact">
-          <h2>{t('Portal.liveStats')}</h2>
-          <p className="dash-section-hint">{t('Portal.metricsHint')}</p>
+          <h2>{ar ? 'يحتاج انتباهك' : 'Needs your attention'}</h2>
+          <p className="dash-section-hint">
+            {ar
+              ? 'الموافقات والتنبيهات المهمة في مكان واحد.'
+              : 'Approvals and important alerts in one place.'}
+          </p>
         </div>
-        <div className="dash-metrics">
-          {metrics.map((metric) =>
-            opens(metric.href) ? (
-              <Link
-                key={metric.key}
-                href={metric.href}
-                className={`dash-metric dash-metric--${metric.tone}`}
-                prefetch
-              >
-                <span>{metric.label}</span>
-                <strong>{metric.value}</strong>
-              </Link>
-            ) : (
-              <div key={metric.key} className={`dash-metric dash-metric--${metric.tone}`}>
-                <span>{metric.label}</span>
-                <strong>{metric.value}</strong>
-              </div>
-            ),
-          )}
-        </div>
-      </section>
 
-      <section className="dash-alerts" aria-label={t('Portal.alertsTitle')}>
-        <div className="dash-section-head dash-section-head--compact">
-          <h2>{t('Portal.alertsTitle')}</h2>
-          <p className="dash-section-hint">{t('Portal.alertsHint')}</p>
-        </div>
-        {alerts.length || approvalAlerts.length ? (
-          <ul className="dash-alerts__list">
+        {managesProperties ? (
+          <PortalPendingApprovalsPanel
+            portal={portal}
+            locale={locale}
+            initial={approvals}
+            title={t('Portal.approvalsTitle')}
+            hint={t('Portal.approvalsHint')}
+            openLabel={t('Portal.approvalsOpen')}
+            moreLabel={t('Portal.approvalsMore', { count: '{count}' })}
+          />
+        ) : null}
+
+        {approvalAlerts.length || operationalAlerts.length ? (
+          <ul className="dash-alerts__list dash-attention__alerts">
             {approvalAlerts.map((alert) => (
               <li
                 key={alert.code}
@@ -472,7 +490,7 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
                 </Link>
               </li>
             ))}
-            {alerts.map((alert) => {
+            {operationalAlerts.map((alert) => {
               const href = alertHref(portal, alert.code, alert.resourceId);
               return (
                 <li key={alert.code} className={`dash-alert dash-alert--${alert.severity}`}>
@@ -491,164 +509,127 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
               );
             })}
           </ul>
-        ) : (
+        ) : !hasAttention ? (
           <p className="dash-alerts__empty">{t('Portal.noAlerts')}</p>
-        )}
+        ) : null}
       </section>
 
-      <div className="dash-mid">
-        {financeLinks.length || opens(`/${portal}/accounting`) ? (
-          <section className="dash-finance" aria-label={t('Portal.accountingPulse')}>
-            <div className="dash-section-head dash-section-head--compact">
-              <h2>{t('Portal.accountingPulse')}</h2>
-              {opens(`/${portal}/accounting`) ? (
-                <Link href={`/${portal}/accounting`} className="button button--quiet button--tiny">
-                  {t('Common.accounting')}
-                </Link>
-              ) : null}
-            </div>
-            <div className="dash-finance__card">
-              <p>{t('Portal.collected')}</p>
-              <strong className="metric-money-stack">
-                {collected.length
-                  ? collected.map((amount) => (
-                      <span key={amount.currency}>
-                        {formatMoney(amount.amountMinor, amount.currency, locale)}
-                      </span>
-                    ))
-                  : '—'}
-              </strong>
-              <div className="dash-finance__links">
-                {financeLinks.map((link) => (
+      <section className="dash-metrics-block" aria-label={t('Portal.liveStats')}>
+        <div className="dash-section-head dash-section-head--compact">
+          <h2>{t('Portal.liveStats')}</h2>
+          <p className="dash-section-hint">{t('Portal.metricsHint')}</p>
+        </div>
+        <div className="dash-metrics dash-metrics--primary">
+          {primaryMetrics.map((metric) => renderMetric(metric))}
+        </div>
+        {secondaryMetrics.length ? (
+          <div className="dash-metrics dash-metrics--secondary" aria-label={t('Portal.liveStats')}>
+            {secondaryMetrics.map((metric) => renderMetric(metric, true))}
+          </div>
+        ) : null}
+      </section>
+
+      {(showFinance || showShortcuts) && (
+        <div className="dash-mid">
+          {showFinance ? (
+            <section className="dash-finance" aria-label={t('Portal.accountingPulse')}>
+              <div className="dash-section-head dash-section-head--compact">
+                <h2>{t('Portal.accountingPulse')}</h2>
+                {opens(`/${portal}/accounting`) ? (
+                  <Link
+                    href={`/${portal}/accounting`}
+                    className="button button--quiet button--tiny"
+                  >
+                    {t('Common.accounting')}
+                  </Link>
+                ) : null}
+              </div>
+              <div className="dash-finance__card">
+                <p>{t('Portal.collected')}</p>
+                <strong className="metric-money-stack">
+                  {collected.length
+                    ? collected.map((amount) => (
+                        <span key={amount.currency}>
+                          {formatMoney(amount.amountMinor, amount.currency, locale)}
+                        </span>
+                      ))
+                    : '—'}
+                </strong>
+                <div className="dash-finance__links">
+                  {financeLinks.map((link) => (
+                    <Link key={link.href} href={link.href}>
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {showShortcuts ? (
+            <nav className="dash-shortcuts" aria-label={t('Portal.quickNav')}>
+              <div className="dash-section-head dash-section-head--compact">
+                <h2>{t('Portal.quickNav')}</h2>
+              </div>
+              <div className="dash-shortcuts__grid">
+                {shortcuts.slice(0, 6).map((link) => (
                   <Link key={link.href} href={link.href}>
                     {link.label}
                   </Link>
                 ))}
               </div>
-            </div>
-          </section>
-        ) : null}
+            </nav>
+          ) : null}
+        </div>
+      )}
 
-        {(portal === 'owner' || portal === 'developer' || portal === 'tenant') &&
-        shortcuts.length ? (
-          <nav className="dash-shortcuts" aria-label={t('Portal.quickNav')}>
-            <div className="dash-section-head dash-section-head--compact">
-              <h2>{t('Portal.quickNav')}</h2>
-              <p className="dash-section-hint">{t('Portal.quickNavHint')}</p>
-            </div>
-            <div className="dash-shortcuts__grid">
-              {shortcuts.map((link) => (
-                <Link key={link.href} href={link.href}>
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </nav>
-        ) : null}
-      </div>
-
-      <div className="dash-grid">
-        <section className="dash-panel">
+      {hasActivity ? (
+        <section className="dash-panel dash-panel--activity">
           <div className="dash-section-head dash-section-head--compact">
             <h2>{t('Portal.recentActivity')}</h2>
           </div>
-          {overview.recentActivity.length ? (
-            <ul className="dash-activity">
-              {overview.recentActivity.map((item) => {
-                const managed = portal === 'owner' || portal === 'developer';
-                const href =
-                  item.resourceType === 'stay_booking' && item.resourceId && managed
-                    ? `/${portal}/stays/bookings/${item.resourceId}`
-                    : item.resourceType === 'reservation' && managed
-                      ? `/${portal}/bookings`
-                      : null;
-                const body = (
-                  <>
-                    <div>
-                      <strong>{localizeWorkflowLabel(item.title, 'event', locale)}</strong>
-                      {item.status ? (
-                        <span className="dash-activity__status">
-                          {localizeWorkflowLabel(item.status, 'status', locale)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <time dateTime={item.occurredAt}>
-                      {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                      }).format(new Date(item.occurredAt))}
-                    </time>
-                  </>
-                );
-                return (
-                  <li key={item.id}>
-                    {href ? (
-                      <Link href={href} className="dash-activity__link" prefetch>
-                        {body}
-                      </Link>
-                    ) : (
-                      body
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          ) : (
-            <EmptyState title={t('Portal.noData')} />
-          )}
-        </section>
-        <section className="dash-panel">
-          <div className="dash-section-head dash-section-head--compact">
-            <h2>{t('Portal.quickActions')}</h2>
-            <p className="dash-section-hint">{t('Portal.actionsHint')}</p>
-          </div>
-          <div className="dash-actions">
-            {portal === 'owner' || portal === 'developer'
-              ? [
-                  { href: `/${portal}/properties/new`, label: t('Portal.addProperty') },
-                  { href: `/${portal}/bookings?tab=daily`, label: t('Portal.viewStayBookings') },
-                  { href: `/${portal}/properties`, label: t('Common.properties') },
-                  { href: `/${portal}/approvals`, label: t('Common.approvals') },
-                  { href: `/${portal}/team`, label: t('Common.team') },
-                ]
-                  .filter((link) => opens(link.href))
-                  .map((link) => (
-                    <Link
-                      key={link.href}
-                      className={
-                        link.href.endsWith('/properties/new')
-                          ? 'button button--primary'
-                          : 'button button--quiet'
-                      }
-                      href={link.href}
-                    >
-                      {link.label}
+          <ul className="dash-activity">
+            {overview.recentActivity.map((item) => {
+              const managed = portal === 'owner' || portal === 'developer';
+              const href =
+                item.resourceType === 'stay_booking' && item.resourceId && managed
+                  ? `/${portal}/stays/bookings/${item.resourceId}`
+                  : item.resourceType === 'reservation' && managed
+                    ? `/${portal}/bookings`
+                    : null;
+              const body = (
+                <>
+                  <div>
+                    <strong>{localizeWorkflowLabel(item.title, 'event', locale)}</strong>
+                    {item.status ? (
+                      <span className="dash-activity__status">
+                        {localizeWorkflowLabel(item.status, 'status', locale)}
+                      </span>
+                    ) : null}
+                  </div>
+                  <time dateTime={item.occurredAt}>
+                    {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    }).format(new Date(item.occurredAt))}
+                  </time>
+                </>
+              );
+              return (
+                <li key={item.id}>
+                  {href ? (
+                    <Link href={href} className="dash-activity__link" prefetch>
+                      {body}
                     </Link>
-                  ))
-              : null}
-            {portal === 'tenant' ? (
-              <>
-                <Link className="button button--primary" href="/tenant/maintenance/new">
-                  {t('Maintenance.new')}
-                </Link>
-                <Link className="button button--quiet" href="/tenant/invoices">
-                  {t('Common.invoices')}
-                </Link>
-              </>
-            ) : null}
-            {portal === 'platform' ? (
-              <>
-                <Link className="button button--quiet" href="/platform/organizations">
-                  {t('Common.organizations')}
-                </Link>
-                <Link className="button button--quiet" href="/platform/users">
-                  {t('Common.users')}
-                </Link>
-              </>
-            ) : null}
-          </div>
+                  ) : (
+                    body
+                  )}
+                </li>
+              );
+            })}
+          </ul>
         </section>
-      </div>
+      ) : null}
     </div>
   );
 }
