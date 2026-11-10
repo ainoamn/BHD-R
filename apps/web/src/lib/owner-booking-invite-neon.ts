@@ -57,13 +57,13 @@ export type OwnerBookingInviteInput = {
   /** electronic = auto contract draft when ready; manual = owner fills then sends. */
   contractPreference: 'electronic' | 'manual';
   /** Override unit list rent (minor units). */
-  rentMinor?: string | null;
+  rentMinor?: string | null | undefined;
   /** Override booking/security deposit (minor units). */
-  depositMinor?: string | null;
+  depositMinor?: string | null | undefined;
   /** Contract start date (ISO). */
-  leaseStartsOn?: string | null;
+  leaseStartsOn?: string | null | undefined;
   /** Premises handover / receipt date (ISO). */
-  handoverOn?: string | null;
+  handoverOn?: string | null | undefined;
 };
 
 function requireIsoDate(value: string | null | undefined, field: string): string | null {
@@ -557,10 +557,10 @@ export async function updateOwnerBookingInviteTerms(
   claims: SessionClaims,
   reservationId: string,
   input: {
-    rentMinor?: string | null;
-    depositMinor?: string | null;
-    leaseStartsOn?: string | null;
-    handoverOn?: string | null;
+    rentMinor?: string | null | undefined;
+    depositMinor?: string | null | undefined;
+    leaseStartsOn?: string | null | undefined;
+    handoverOn?: string | null | undefined;
   },
 ) {
   assertOwnerInviteManage(claims);
