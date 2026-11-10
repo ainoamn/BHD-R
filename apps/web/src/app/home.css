@@ -125,6 +125,8 @@
 }
 .home-hero .hero-search__booking-wrap,
 .home-hero .hero-search .search-card {
+  max-width: 52rem;
+  margin-inline: auto;
   padding: 0.5rem 0.55rem 0.55rem;
   border-radius: 0.85rem;
   box-shadow: 0 12px 32px rgb(0 0 0 / 0.2);
