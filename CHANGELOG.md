@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.120 — 2026-11-10
+
+- **تحسين حجز الدعوة من المالك:** لا انتقال للخطوة التالية قبل إكمال الحقول. الوحدات الشاغرة تُصفّى حسب تأجير/بيع، مع بحث باسم المالك أو العقار أو رقم العقار. بعد الإرسال يُحفظ المحجوز له في دفتر العناوين تلقائياً.
+
 ## 0.8.136.119 — 2026-11-09
 
 - **إصلاح نشر حجز الدعوة:** مسار `/api/owner/bookings/invite` يعيد `NextResponse` عند أخطاء الجلسة/CSRF حتى يمر فحص أنواع البناء على Vercel.

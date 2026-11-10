@@ -287,7 +287,12 @@ export class OperationsService {
         accountRows,
       ] = await Promise.all([
         transaction
-          .select({ id: properties.id, nameAr: properties.nameAr, nameEn: properties.nameEn })
+          .select({
+            id: properties.id,
+            nameAr: properties.nameAr,
+            nameEn: properties.nameEn,
+            serialNumber: properties.serialNumber,
+          })
           .from(properties)
           .where(eq(properties.organizationId, claims.organizationId!))
           .orderBy(asc(properties.nameAr)),
@@ -299,8 +304,15 @@ export class OperationsService {
             nameAr: units.nameAr,
             nameEn: units.nameEn,
             currency: units.currency,
+            listingPurpose: units.listingPurpose,
+            propertyNameAr: properties.nameAr,
+            propertyNameEn: properties.nameEn,
+            propertySerial: properties.serialNumber,
+            ownerName: parties.displayName,
           })
           .from(units)
+          .innerJoin(properties, eq(properties.id, units.propertyId))
+          .innerJoin(parties, eq(parties.id, properties.ownerPartyId))
           .where(eq(units.organizationId, claims.organizationId!))
           .orderBy(asc(units.code)),
         transaction
@@ -443,6 +455,9 @@ export class OperationsService {
         .filter((row) => !blockedUnitIds.has(row.id))
         .map((row) => ({
           ...row,
+          propertySerial: row.propertySerial ?? '',
+          ownerName: row.ownerName ?? '',
+          listingPurpose: row.listingPurpose as 'rent' | 'sale' | 'both',
           name: `${row.code} · ${row.nameAr}`,
         }));
       const roleRows = await transaction

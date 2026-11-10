@@ -114,7 +114,16 @@ interface OptionRow {
 export interface OperationsContext {
   properties?: OptionRow[];
   units?: Array<OptionRow & { propertyId?: string }>;
-  vacantUnits?: Array<OptionRow & { propertyId?: string }>;
+  vacantUnits?: Array<
+    OptionRow & {
+      propertyId?: string;
+      listingPurpose?: 'rent' | 'sale' | 'both';
+      propertyNameAr?: string;
+      propertyNameEn?: string;
+      propertySerial?: string;
+      ownerName?: string;
+    }
+  >;
   parties?: OptionRow[];
   owners?: OptionRow[];
   tenants?: OptionRow[];

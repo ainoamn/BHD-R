@@ -751,9 +751,15 @@ export async function loadOpsContextFromDb(
             nameAr: units.nameAr,
             nameEn: units.nameEn,
             currency: units.currency,
+            listingPurpose: units.listingPurpose,
+            propertyNameAr: properties.nameAr,
+            propertyNameEn: properties.nameEn,
+            propertySerial: properties.serialNumber,
+            ownerName: parties.displayName,
           })
           .from(units)
           .innerJoin(properties, eq(properties.id, units.propertyId))
+          .innerJoin(parties, eq(parties.id, properties.ownerPartyId))
           .where(
             and(
               eq(units.organizationId, orgId),
@@ -823,6 +829,11 @@ export async function loadOpsContextFromDb(
         nameAr: row.nameAr,
         nameEn: row.nameEn,
         currency: row.currency,
+        listingPurpose: row.listingPurpose as 'rent' | 'sale' | 'both',
+        propertyNameAr: row.propertyNameAr,
+        propertyNameEn: row.propertyNameEn,
+        propertySerial: row.propertySerial ?? '',
+        ownerName: row.ownerName ?? '',
         name: `${row.code} · ${row.nameAr}`,
       }));
 
