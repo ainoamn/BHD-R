@@ -290,9 +290,13 @@ export function ReservationPartyForm({
               ))}
             </datalist>
             <p className="field__hint muted">
-              {ar
-                ? `أقل مدة يقبلها المالك ${minMonths} شهراً.`
-                : `Owner minimum: ${minMonths} months.`}
+              {defer
+                ? ar
+                  ? 'دعوة يدوية: يمكن اختيار أي مدة من شهر واحد فأكثر.'
+                  : 'Manual invite: any term from 1 month upward is allowed.'
+                : ar
+                  ? `أقل مدة يقبلها المالك ${minMonths} شهراً.`
+                  : `Owner minimum: ${minMonths} months.`}
             </p>
           </div>
         ),

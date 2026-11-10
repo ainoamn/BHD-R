@@ -14,7 +14,6 @@ import { depositForMode } from '@/lib/booking-deposit';
 import { resolveBookingTerms } from '@/lib/booking-terms-neon';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { sendQueuedEmailsSoon } from '@/lib/email-outbox';
-import { effectiveMinLeaseMonths } from '@/lib/lease-min-term-neon';
 import {
   LEASE_BOOKING_FLOW,
   LEASE_BOOKING_TERMS_VERSION,
@@ -154,13 +153,10 @@ export async function createOwnerBookingInvite(
     });
     await lockKey(transaction, input.unitId);
 
+    // Owner invite may use any whole-month term from 1 (property minimum applies to public booking only).
     const partyError = reservationPartyError(input.party, {
       mode: input.mode,
-      minMonths: await effectiveMinLeaseMonths(
-        transaction,
-        preview.organizationId,
-        preview.propertyId,
-      ),
+      minMonths: 1,
       today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date()),
       // Tenant verifies email, uploads ID copies, and adds alt phone on the invite link.
       deferTenantCompletion: true,

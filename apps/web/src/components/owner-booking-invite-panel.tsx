@@ -11,7 +11,10 @@ import {
 import { BookingStepScene } from '@/components/stays/booking-step-scene';
 import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
 import type { BookingStepGreeting } from '@/lib/booking-step-greeting';
-import { DEFAULT_MIN_LEASE_MONTHS, partyDisplayName } from '@/lib/reservation-party';
+import { partyDisplayName } from '@/lib/reservation-party';
+
+/** Owner invite may set any whole-month term from 1 upward (property minimum is for public booking). */
+const OWNER_INVITE_MIN_LEASE_MONTHS = 1;
 import { toInternationalPhone } from '@/lib/world-countries';
 
 type UnitOption = {
@@ -110,7 +113,7 @@ export function OwnerBookingInvitePanel({
   const [mode, setMode] = useState<Mode>(initialMode);
   const [unitQuery, setUnitQuery] = useState('');
   const [partyForm, setPartyForm] = useState<PartyForm>(() =>
-    emptyPartyForm(DEFAULT_MIN_LEASE_MONTHS),
+    emptyPartyForm(OWNER_INVITE_MIN_LEASE_MONTHS),
   );
   const [directoryId, setDirectoryId] = useState('');
   const [contractPreference, setContractPreference] =
@@ -185,7 +188,7 @@ export function OwnerBookingInvitePanel({
     const built = buildReservationParty(partyForm, {
       holder: 'other',
       mode,
-      minMonths: DEFAULT_MIN_LEASE_MONTHS,
+      minMonths: OWNER_INVITE_MIN_LEASE_MONTHS,
       ar,
       deferTenantCompletion: true,
     });
@@ -279,7 +282,7 @@ export function OwnerBookingInvitePanel({
     const built = buildReservationParty(partyForm, {
       holder: 'other',
       mode,
-      minMonths: DEFAULT_MIN_LEASE_MONTHS,
+      minMonths: OWNER_INVITE_MIN_LEASE_MONTHS,
       ar,
       deferTenantCompletion: true,
     });
@@ -478,7 +481,7 @@ export function OwnerBookingInvitePanel({
             <ReservationPartyForm
               locale={locale}
               mode={mode}
-              minMonths={DEFAULT_MIN_LEASE_MONTHS}
+              minMonths={OWNER_INVITE_MIN_LEASE_MONTHS}
               value={partyForm}
               onChange={setPartyForm}
               holder="other"
@@ -568,7 +571,8 @@ export function OwnerBookingInvitePanel({
               <div>
                 <dt>{ar ? 'المدة' : 'Term'}</dt>
                 <dd>
-                  {partyForm.termMonths || DEFAULT_MIN_LEASE_MONTHS} {ar ? 'شهراً' : 'months'}
+                  {partyForm.termMonths || OWNER_INVITE_MIN_LEASE_MONTHS}{' '}
+                  {ar ? 'شهراً' : 'months'}
                 </dd>
               </div>
             ) : null}
