@@ -12,20 +12,35 @@ export function leaseInvitePaymentReturnPath(
   return `/${locale}/payments/sandbox/${encodeURIComponent(sessionReference)}?${qs.toString()}`;
 }
 
+export type OwnerInviteAccountGate = {
+  matched: boolean;
+  inviteeEmail: string;
+  rosterHasInvitee: boolean;
+  /** User-initiated only — never auto-followed (prevents OAuth thrash / slow_down). */
+  continueHref: string;
+};
+
 /**
- * When an owner-invite payment link is opened under the wrong browser account,
- * redirect to the invitee account (roster switch) or force login with that email.
+ * Build a one-click continue link for the invitee account.
+ * Callers must show this as a button — do not server-redirect automatically.
  */
-export async function resolveOwnerInviteAccountRedirect(input: {
+export async function resolveOwnerInviteAccountGate(input: {
   locale: string;
   paymentPath: string;
   inviteeEmail: string;
   viewerEmail: string | null | undefined;
-}): Promise<string | null> {
+}): Promise<OwnerInviteAccountGate | null> {
   const invitee = input.inviteeEmail.trim().toLowerCase();
   if (!invitee || !invitee.includes('@')) return null;
   const current = (input.viewerEmail || '').trim().toLowerCase();
-  if (current && current === invitee) return null;
+  if (current && current === invitee) {
+    return {
+      matched: true,
+      inviteeEmail: invitee,
+      rosterHasInvitee: true,
+      continueHref: input.paymentPath,
+    };
+  }
 
   const cookieStore = await cookies();
   const roster = readRosterCookie(cookieStore.get(ROSTER_COOKIE)?.value);
@@ -37,20 +52,25 @@ export async function resolveOwnerInviteAccountRedirect(input: {
       locale: input.locale,
       returnTo: input.paymentPath,
     });
-    return `/api/auth/switch?${switchUrl.toString()}`;
+    return {
+      matched: false,
+      inviteeEmail: invitee,
+      rosterHasInvitee: true,
+      continueHref: `/api/auth/switch?${switchUrl.toString()}`,
+    };
   }
 
-  const startQs = new URLSearchParams({
-    returnTo: input.paymentPath,
-    login_hint: invitee,
-    prompt: 'login',
-  });
-  const startPath = `/api/auth/bhd/start?${startQs.toString()}`;
-  if (!current) return startPath;
-
-  const logoutQs = new URLSearchParams({
+  // Dedicated one-shot login — clears product session once, then OIDC with login_hint.
+  // Avoids logout→next-roster-account thrashing that caused slow_down.
+  const loginQs = new URLSearchParams({
     locale: input.locale,
-    continue: startPath,
+    returnTo: input.paymentPath,
+    email: invitee,
   });
-  return `/api/auth/bhd/logout?${logoutQs.toString()}`;
+  return {
+    matched: false,
+    inviteeEmail: invitee,
+    rosterHasInvitee: false,
+    continueHref: `/api/auth/bhd/invite-login?${loginQs.toString()}`,
+  };
 }

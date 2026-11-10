@@ -1,12 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { isPaymentSandboxPilotEnabled } from '@bhd-r/config';
+import { LeaseInviteAccountGate } from '@/components/lease-invite-account-gate';
 import { SandboxPaymentForm } from '@/components/sandbox-payment-form';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { formatMoney, localizedName } from '@/lib/format';
 import {
   leaseInvitePaymentReturnPath,
-  resolveOwnerInviteAccountRedirect,
+  resolveOwnerInviteAccountGate,
+  type OwnerInviteAccountGate,
 } from '@/lib/lease-invite-account-gate';
 import { leaseSignPath } from '@/lib/lease-booking-paths';
 import { lookupLeasePaymentSession } from '@/lib/public-lease-booking-neon';
@@ -51,6 +53,8 @@ export default async function SandboxPaymentPage({
     redirect(leaseSignPath(locale, leaseSession.referenceCode));
   }
 
+  let inviteGate: OwnerInviteAccountGate | null = null;
+  let viewerEmail: string | null = null;
   if (
     leaseKind &&
     leaseSession &&
@@ -59,15 +63,16 @@ export default async function SandboxPaymentPage({
     leaseSession.inviteeEmail
   ) {
     const viewer = await getViewer();
+    viewerEmail = viewer?.email ?? null;
     const paymentPath = leaseInvitePaymentReturnPath(locale, sessionReference, returnPath);
-    const inviteAccountRedirect = await resolveOwnerInviteAccountRedirect({
+    inviteGate = await resolveOwnerInviteAccountGate({
       locale,
       paymentPath,
       inviteeEmail: leaseSession.inviteeEmail,
-      viewerEmail: viewer?.email,
+      viewerEmail,
     });
-    if (inviteAccountRedirect) redirect(inviteAccountRedirect);
   }
+  const inviteBlocked = Boolean(inviteGate && !inviteGate.matched);
 
   const nights = session
     ? Math.max(
@@ -223,39 +228,50 @@ export default async function SandboxPaymentPage({
           <h2>{ar ? 'بيانات البطاقة' : 'Card details'}</h2>
         </header>
 
-        <SandboxPaymentForm
-          sessionReference={sessionReference}
-          stayKind={stayKind}
-          leaseKind={leaseKind}
-          homeHref={`/${locale}`}
-          {...(returnPath ? { returnPath } : {})}
-          {...(leaseSession
-            ? {
-                amountMinor: leaseSession.amountMinor,
-                currency: leaseSession.currency,
-                referenceCode: leaseSession.referenceCode,
-                rebookHref: `/${locale}/book/${leaseSession.unitId}?mode=${leaseSession.mode}`,
-              }
-            : {})}
-          {...(session
-            ? {
-                amountMinor: session.amountMinor,
-                currency: session.currency,
-                referenceCode: session.referenceCode,
-                ...(session.listingSlug
-                  ? {
-                      rebookHref: (() => {
-                        const qs = new URLSearchParams();
-                        if (session.unitId) qs.set('unit', session.unitId);
-                        if (session.stayType) qs.set('stayType', session.stayType);
-                        const q = qs.toString();
-                        return `/${locale}/stays/${encodeURIComponent(session.listingSlug)}/book${q ? `?${q}` : ''}`;
-                      })(),
-                    }
-                  : {}),
-              }
-            : {})}
-        />
+        {inviteBlocked && inviteGate ? (
+          <LeaseInviteAccountGate
+            locale={ar ? 'ar' : 'en'}
+            inviteeEmail={inviteGate.inviteeEmail}
+            inviteeName={leaseSession?.inviteeName}
+            currentEmail={viewerEmail}
+            continueHref={inviteGate.continueHref}
+            rosterHasInvitee={inviteGate.rosterHasInvitee}
+          />
+        ) : (
+          <SandboxPaymentForm
+            sessionReference={sessionReference}
+            stayKind={stayKind}
+            leaseKind={leaseKind}
+            homeHref={`/${locale}`}
+            {...(returnPath ? { returnPath } : {})}
+            {...(leaseSession
+              ? {
+                  amountMinor: leaseSession.amountMinor,
+                  currency: leaseSession.currency,
+                  referenceCode: leaseSession.referenceCode,
+                  rebookHref: `/${locale}/book/${leaseSession.unitId}?mode=${leaseSession.mode}`,
+                }
+              : {})}
+            {...(session
+              ? {
+                  amountMinor: session.amountMinor,
+                  currency: session.currency,
+                  referenceCode: session.referenceCode,
+                  ...(session.listingSlug
+                    ? {
+                        rebookHref: (() => {
+                          const qs = new URLSearchParams();
+                          if (session.unitId) qs.set('unit', session.unitId);
+                          if (session.stayType) qs.set('stayType', session.stayType);
+                          const q = qs.toString();
+                          return `/${locale}/stays/${encodeURIComponent(session.listingSlug)}/book${q ? `?${q}` : ''}`;
+                        })(),
+                      }
+                    : {}),
+                }
+              : {})}
+          />
+        )}
       </div>
     </section>
   );
