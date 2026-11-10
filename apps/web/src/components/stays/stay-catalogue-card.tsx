@@ -15,10 +15,13 @@ export function StayCatalogueCard({
   listing,
   locale,
   stayDates,
+  compact = false,
 }: {
   listing: StayCatalogueListing;
   locale: string;
   stayDates?: Record<string, string | undefined>;
+  /** Home / dense grids: image + serial + address + stay CTA only. */
+  compact?: boolean;
 }) {
   const ar = locale === 'ar';
   const loc = ar ? 'ar' : 'en';
@@ -28,12 +31,62 @@ export function StayCatalogueCard({
     loc,
   );
   const locationLine = formatListingLocation(cardShape);
+  const address = locationLine || headline;
   const href = stayDetailHref(listing, stayDates);
   const coverSrc = toPublicMediaSrc(listing.coverImageUrl);
   const priceLabel =
     listing.nightlyMinor && listing.currency
       ? formatMoney(listing.nightlyMinor, listing.currency, locale)
       : null;
+  const serial = listing.unitSerial || null;
+
+  if (compact) {
+    return (
+      <article className="listing-card listing-card--compact stay-card">
+        <Link href={href} className="stay-card__link" aria-label={headline} prefetch>
+          <div className="listing-card__image">
+            {coverSrc ? (
+              <Image
+                src={coverSrc}
+                alt={headline}
+                fill
+                sizes="(max-width: 720px) 50vw, (max-width: 1280px) 25vw, 20vw"
+              />
+            ) : (
+              <div className="listing-card__placeholder" aria-hidden="true">
+                <BrandMark tone="onDark" />
+              </div>
+            )}
+            <span className="listing-card__status-mark listing-card__status-mark--open">
+              <span className="listing-card__status-mark-brand" aria-hidden="true">
+                <BrandMark tone="onDark" />
+              </span>
+              <span className="listing-card__status-mark-label">
+                {ar ? 'إقامة يومية' : 'Daily stay'}
+              </span>
+            </span>
+            {serial ? (
+              <span className="listing-card__serial-overlay" dir="ltr">
+                {serial}
+              </span>
+            ) : null}
+          </div>
+          <div className="listing-card__body">
+            <h3>{address}</h3>
+            <span className="listing-card__purpose-chip listing-card__purpose-chip--rent">
+              {ar ? 'حجز يومي' : 'Book stay'}
+              {priceLabel ? (
+                <>
+                  {' · '}
+                  <bdi dir="ltr">{priceLabel}</bdi>
+                </>
+              ) : null}
+            </span>
+          </div>
+        </Link>
+      </article>
+    );
+  }
 
   return (
     <article className="listing-card stay-card">
@@ -65,9 +118,9 @@ export function StayCatalogueCard({
           </h3>
           {buildingLine ? <p className="listing-card__building-name">{buildingLine}</p> : null}
           {locationLine ? <p className="listing-card__location">{locationLine}</p> : null}
-          {listing.unitSerial ? (
+          {serial ? (
             <p className="listing-card__serial" dir="ltr">
-              {listing.unitSerial}
+              {serial}
             </p>
           ) : null}
           <StayRatingBadge rating={listing.rating} ar={ar} />

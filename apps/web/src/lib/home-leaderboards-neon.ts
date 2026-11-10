@@ -264,6 +264,85 @@ async function platformStats(): Promise<HomeStats> {
   });
 }
 
+/** Fast path when the heavy metrics loop times out — published buildings by review strength. */
+async function fastPropertyBoard(): Promise<LeaderboardEntry[]> {
+  return elevatedTx(async (tx) => {
+    const rows = rowsOf<{
+      id: string;
+      name_ar: string;
+      name_en: string | null;
+      place: string | null;
+      units: number;
+      rating_avg: string | null;
+      rating_n: number;
+    }>(
+      await tx.execute(sql`
+        with listed as (
+          select p.id, p.name_ar, p.name_en,
+            coalesce(nullif(a.wilayat, ''), nullif(a.governorate, ''), a.city) as place,
+            count(u.id)::int as units
+          from properties p
+            join addresses a on a.id = p.address_id
+            join units u on u.property_id = p.id and u.publish_when_available = true
+              and u.status in ('active', 'draft', 'inactive')
+            join organizations o on o.id = p.organization_id and o.status = 'active'
+          where p.status = 'active'
+          group by p.id, p.name_ar, p.name_en, a.wilayat, a.governorate, a.city
+        ),
+        rated as (
+          select target_id as property_id,
+            avg(rating::numeric) as rating_avg,
+            count(*)::int as rating_n
+          from reviews
+          where target_type = 'property' and status = 'published'
+          group by target_id
+        )
+        select l.id::text, l.name_ar, l.name_en, l.place, l.units,
+          r.rating_avg::text, coalesce(r.rating_n, 0)::int as rating_n
+        from listed l
+          left join rated r on r.property_id = l.id
+        order by coalesce(r.rating_n, 0) desc,
+          coalesce(r.rating_avg, 0) desc,
+          l.units desc,
+          l.name_ar
+        limit ${PER_BOARD}
+      `),
+    );
+    return rows.map((row) => {
+      const count = Number(row.rating_n ?? 0);
+      const avg =
+        row.rating_avg !== null && row.rating_avg !== undefined ? Number(row.rating_avg) : null;
+      const score = propertyScore(
+        {
+          rating_avg: avg,
+          rating_count: count,
+          occupancy_pct: null,
+          resolution_days: null,
+          open_maintenance: null,
+          owner_verified: 0,
+          active_months: null,
+        },
+        [],
+      );
+      return {
+        key: `property:${row.id}`,
+        name: row.name_ar,
+        nameEn: row.name_en,
+        detailAr: [row.place, `${row.units} وحدة معروضة`].filter(Boolean).join(' · '),
+        detailEn: [row.place, `${row.units} listed unit${row.units === 1 ? '' : 's'}`]
+          .filter(Boolean)
+          .join(' · '),
+        score,
+        stars: typeof avg === 'number' && count > 0 ? Math.round(avg * 10) / 10 : null,
+        ratings: count,
+        verified: false,
+        href: `/properties/${row.id}`,
+        badges: [],
+      } satisfies LeaderboardEntry;
+    });
+  }, 6_000);
+}
+
 /**
  * Platform-wide leaderboards for the home page, ranked from ratings and each organization's own
  * operating record over the last year. Only published buildings link out; people keep their
@@ -271,12 +350,23 @@ async function platformStats(): Promise<HomeStats> {
  */
 export async function computeHomeLeaderboards(): Promise<HomeLeaderboards> {
   const started = Date.now();
+  // Orgs with live catalogue inventory first — empty orgs used to burn the whole budget.
   const organizations = await elevatedTx(async (tx) =>
     rowsOf<Organization>(
       await tx.execute(sql`
-        select id::text, type::text, display_name_ar as name_ar, display_name_en as name_en
-        from organizations where status = 'active'
-        order by updated_at desc nulls last limit ${MAX_ORGANIZATIONS}
+        select o.id::text, o.type::text, o.display_name_ar as name_ar, o.display_name_en as name_en
+        from organizations o
+        left join lateral (
+          select count(*)::int as n
+          from units u
+            join properties p on p.id = u.property_id
+          where p.organization_id = o.id
+            and p.status = 'active'
+            and u.publish_when_available = true
+        ) pub on true
+        where o.status = 'active'
+        order by coalesce(pub.n, 0) desc, o.updated_at desc nulls last
+        limit ${MAX_ORGANIZATIONS}
       `),
     ),
   );
@@ -287,14 +377,13 @@ export async function computeHomeLeaderboards(): Promise<HomeLeaderboards> {
       candidates.push(
         ...(await elevatedTx(async (tx) => {
           const listed = await publicProperties(tx, organization.id);
-          const [property, owner, tenant, partner] = [
-            listed.size
-              ? await computeMetrics(tx, organization.id, 'property', WINDOW_DAYS)
-              : new Map<string, SubjectMetrics>(),
-            await computeMetrics(tx, organization.id, 'owner', WINDOW_DAYS),
-            await computeMetrics(tx, organization.id, 'tenant', WINDOW_DAYS),
-            await computeMetrics(tx, organization.id, 'worker', WINDOW_DAYS),
-          ];
+          if (!listed.size) return [];
+          const [property, owner, tenant, partner] = await Promise.all([
+            computeMetrics(tx, organization.id, 'property', WINDOW_DAYS),
+            computeMetrics(tx, organization.id, 'owner', WINDOW_DAYS),
+            computeMetrics(tx, organization.id, 'tenant', WINDOW_DAYS),
+            computeMetrics(tx, organization.id, 'worker', WINDOW_DAYS),
+          ]);
           const named = owner.size ? await namedOwners(tx, organization.id) : new Set<string>();
           const categories = partner.size
             ? await vendorCategories(tx, organization.id)
@@ -306,7 +395,7 @@ export async function computeHomeLeaderboards(): Promise<HomeLeaderboards> {
             named,
             categories,
           );
-        }, 10_000)),
+        }, 8_000)),
       );
     } catch (error) {
       if (!isMissingTable(error)) console.error('home leaderboards', organization.id, error);
@@ -325,21 +414,24 @@ export async function computeHomeLeaderboards(): Promise<HomeLeaderboards> {
       PER_BOARD,
     );
   }
+  if (!boards.property.length) {
+    boards.property = await fastPropertyBoard().catch(() => []);
+  }
   const stats = await platformStats().catch(() => EMPTY_LEADERBOARDS.stats);
   return { boards, stats, updatedAt: new Date().toISOString() };
 }
 
-const cachedLeaderboards = unstable_cache(computeHomeLeaderboards, ['home-leaderboards-v1'], {
-  revalidate: 1800,
+const cachedLeaderboards = unstable_cache(computeHomeLeaderboards, ['home-leaderboards-v2'], {
+  revalidate: 900,
   tags: ['home-leaderboards'],
 });
 
-/** Cached for half an hour, so rankings follow new ratings and activity on their own. */
+/** Cached briefly so rankings follow new ratings without starving the home page. */
 export async function loadHomeLeaderboardsSafe(): Promise<HomeLeaderboards> {
   try {
     return await withTimeoutFallback(
       cachedLeaderboards(),
-      9_000,
+      12_000,
       EMPTY_LEADERBOARDS,
       'home-leaderboards',
     );

@@ -1,19 +1,21 @@
 import { Suspense } from 'react';
 import Image from 'next/image';
-import { EmptyState } from '@bhd-r/ui';
 import '../home.css';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { BadgeShowcaseSection } from '@/components/badges/badge-showcase';
+import { HomeFeaturedByPurpose } from '@/components/home/home-featured-by-purpose';
 import { HomeLeaderboardsSection } from '@/components/home/home-leaderboards';
+import { HomeTopRatedSection } from '@/components/home/home-top-rated';
 import { HomeServicesSection } from '@/components/marketplace/home-services';
-import { ListingCard } from '@/components/listing-card';
 import { PropertySearch } from '@/components/property-search';
 import { HomeSearchTabs } from '@/components/stays/home-search-tabs';
 import { StaySearch } from '@/components/stays/stay-search';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { EMPTY_LEADERBOARDS, type HomeLeaderboards } from '@/lib/leaderboards-shared';
+import type { CatalogueListing } from '@/lib/listing-market-status';
 import { isStaysPublicSurfaceEnabled } from '@/lib/stays-flags';
+import type { StayCatalogueCollection, StayCatalogueListing } from '@/lib/stays-catalogue-listing';
 import { getShellViewer } from '@/lib/viewer';
 import { withTimeoutFallback } from '@/lib/with-timeout';
 import type { BadgeShowcase } from '@/lib/badges-neon';
@@ -88,28 +90,20 @@ function HomeBodySkeleton({ locale }: { locale: string }) {
   );
 }
 
-async function HomeDeferredBody({
-  locale,
-  copy,
-  featuredTitle,
-  featuredHint,
-  availableNow,
-  viewAll,
-  noResults,
-}: {
-  locale: string;
-  copy: HomeCopy;
-  featuredTitle: string;
-  featuredHint: string;
-  availableNow: string;
-  viewAll: string;
-  noResults: string;
-}) {
-  const emptyListings = { data: [], pagination: { nextCursor: null, hasMore: false } };
+async function HomeDeferredBody({ locale, copy }: { locale: string; copy: HomeCopy }) {
+  const emptyListings = {
+    data: [] as CatalogueListing[],
+    pagination: { nextCursor: null, hasMore: false },
+  };
+  const emptyStays: StayCatalogueCollection = {
+    data: [] as StayCatalogueListing[],
+    pagination: { nextCursor: null, hasMore: false },
+  };
   const emptyShowcase: BadgeShowcase = { awards: [], activeCount: 0, holderCount: 0 };
   const database = hasDatabaseUrl();
+  const showStays = isStaysPublicSurfaceEnabled();
 
-  const [viewer, showcase, leaders, listings] = await Promise.all([
+  const [viewer, showcase, leaders, rent, sale, stays] = await Promise.all([
     getShellViewer().catch(() => null),
     database
       ? import('@/lib/badges-neon')
@@ -125,14 +119,38 @@ async function HomeDeferredBody({
       ? import('@/lib/search-public-listings-neon')
           .then(({ searchPublicListingsFromNeon }) =>
             withTimeoutFallback(
-              searchPublicListingsFromNeon({ limit: 6 }),
+              searchPublicListingsFromNeon({ limit: 5, purpose: 'rent' }),
               8_000,
               emptyListings as ListingCollection,
-              'home-neon',
+              'home-rent',
             ),
           )
           .catch(() => emptyListings as ListingCollection)
       : (emptyListings as ListingCollection),
+    database
+      ? import('@/lib/search-public-listings-neon')
+          .then(({ searchPublicListingsFromNeon }) =>
+            withTimeoutFallback(
+              searchPublicListingsFromNeon({ limit: 5, purpose: 'sale' }),
+              8_000,
+              emptyListings as ListingCollection,
+              'home-sale',
+            ),
+          )
+          .catch(() => emptyListings as ListingCollection)
+      : (emptyListings as ListingCollection),
+    database && showStays
+      ? import('@/lib/search-stays-catalogue-neon')
+          .then(({ searchStaysCatalogueFromNeon }) =>
+            withTimeoutFallback(
+              searchStaysCatalogueFromNeon({ limit: 5 }),
+              8_000,
+              emptyStays,
+              'home-stays',
+            ),
+          )
+          .catch(() => emptyStays)
+      : emptyStays,
   ]);
   const signedIn = Boolean(viewer);
   const workspaceHref = `/${locale}/portal`;
@@ -161,33 +179,19 @@ async function HomeDeferredBody({
         </div>
       ) : null}
 
+      <HomeFeaturedByPurpose
+        locale={locale}
+        rent={rent.data as CatalogueListing[]}
+        sale={sale.data as CatalogueListing[]}
+        stays={stays.data}
+        showStays={showStays}
+      />
+
+      <HomeTopRatedSection locale={locale} entries={leaders.boards.property} />
+
       <HomeServicesSection locale={locale} />
 
       <HomeLeaderboardsSection data={leaders} locale={locale} />
-
-      <section className="home-section" aria-labelledby="featured-title">
-        <div className="container">
-          <header className="home-head">
-            <div>
-              <span className="home-head__kicker">{availableNow}</span>
-              <h2 id="featured-title">{featuredTitle}</h2>
-              <p>{featuredHint}</p>
-            </div>
-            <Link className="home-head__link" href="/properties">
-              {viewAll}
-            </Link>
-          </header>
-          {listings.data.length ? (
-            <div className="listing-grid home-listings">
-              {listings.data.map((listing) => (
-                <ListingCard key={listing.id} listing={listing} locale={locale} />
-              ))}
-            </div>
-          ) : (
-            <EmptyState title={noResults} description={featuredHint} />
-          )}
-        </div>
-      </section>
 
       <div className="home-showcase">
         <BadgeShowcaseSection showcase={showcase} locale={locale} />
@@ -287,15 +291,7 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
       </section>
 
       <Suspense fallback={<HomeBodySkeleton locale={locale} />}>
-        <HomeDeferredBody
-          locale={locale}
-          copy={copy}
-          featuredTitle={t('Home.featured')}
-          featuredHint={t('Home.featuredHint')}
-          availableNow={t('Home.availableNow')}
-          viewAll={t('Common.viewAll')}
-          noResults={t('Common.noResults')}
-        />
+        <HomeDeferredBody locale={locale} copy={copy} />
       </Suspense>
     </>
   );
