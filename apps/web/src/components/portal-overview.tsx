@@ -562,65 +562,71 @@ export async function PortalOverview({ locale, portal }: { locale: string; porta
           <h2>{ar ? 'المواعيد والتنبيهات' : 'Approvals & alerts'}</h2>
           <p className="dash-section-hint">
             {ar
-              ? 'الموافقات أولاً، ثم التنبيهات التشغيلية.'
-              : 'Approvals first, then operational alerts.'}
+              ? 'التنبيهات يميناً · بانتظار اعتمادك يساراً.'
+              : 'Alerts on one side · approvals awaiting you on the other.'}
           </p>
         </div>
 
-        <div className="dash-attention__stack">
-          {managesProperties ? (
-            <PortalPendingApprovalsPanel
-              portal={portal}
-              locale={locale}
-              initial={approvals}
-              title={t('Portal.approvalsTitle')}
-              hint={t('Portal.approvalsHint')}
-              openLabel={t('Portal.approvalsOpen')}
-              moreLabel={
-                ar ? 'عرض {count} إضافية' : 'Show {count} more'
+        <div className="dash-attention__grid">
+          <div className="dash-attention__col dash-attention__col--alerts">
+            <div className="dash-attention__col-head">
+              <h3>{ar ? 'التنبيهات' : 'Alerts'}</h3>
+            </div>
+            <DashAttentionAlerts
+              emptyLabel={
+                !hasAttention && !managesProperties
+                  ? t('Portal.noAlerts')
+                  : !hasAttention
+                    ? t('Portal.noAlerts')
+                    : ''
               }
+              expandMoreLabel={ar ? 'عرض {count} إضافية' : 'Show {count} more'}
+              collapseLabel={ar ? 'عرض أقل' : 'Show less'}
               allHref={`/${portal}/bookings`}
               allLabel={ar ? 'فتح الصفحة كاملة' : 'Open full page'}
-            />
-          ) : null}
-
-          <DashAttentionAlerts
-            emptyLabel={
-              !hasAttention && !managesProperties
-                ? t('Portal.noAlerts')
-                : !hasAttention
-                  ? t('Portal.noAlerts')
-                  : ''
-            }
-            expandMoreLabel={ar ? 'عرض {count} إضافية' : 'Show {count} more'}
-            collapseLabel={ar ? 'عرض أقل' : 'Show less'}
-            allHref={`/${portal}/bookings`}
-            allLabel={ar ? 'فتح الصفحة كاملة' : 'Open full page'}
-            items={[
-              ...approvalAlerts.map((alert) => ({
-                key: alert.code,
-                count: alert.count,
-                label: alertCopy(alert.code, alert.count, t, locale),
-                href: alert.href,
-                tone:
-                  alert.code === 'contracts_approval_new'
-                    ? ('contract-new' as const)
-                    : alert.code === 'contracts_approval_renewal'
-                      ? ('contract-renewal' as const)
-                      : ('approval' as const),
-              })),
-              ...operationalAlerts.map((alert) => {
-                const href = alertHref(portal, alert.code, alert.resourceId);
-                return {
+              items={[
+                ...approvalAlerts.map((alert) => ({
                   key: alert.code,
                   count: alert.count,
                   label: alertCopy(alert.code, alert.count, t, locale),
-                  href: opens(href) ? href : null,
-                  tone: alert.severity,
-                };
-              }),
-            ]}
-          />
+                  href: alert.href,
+                  tone:
+                    alert.code === 'contracts_approval_new'
+                      ? ('contract-new' as const)
+                      : alert.code === 'contracts_approval_renewal'
+                        ? ('contract-renewal' as const)
+                        : ('approval' as const),
+                })),
+                ...operationalAlerts.map((alert) => {
+                  const href = alertHref(portal, alert.code, alert.resourceId);
+                  return {
+                    key: alert.code,
+                    count: alert.count,
+                    label: alertCopy(alert.code, alert.count, t, locale),
+                    href: opens(href) ? href : null,
+                    tone: alert.severity,
+                  };
+                }),
+              ]}
+            />
+          </div>
+          <div className="dash-attention__col dash-attention__col--approvals">
+            {managesProperties ? (
+              <PortalPendingApprovalsPanel
+                portal={portal}
+                locale={locale}
+                initial={approvals}
+                title={t('Portal.approvalsTitle')}
+                hint={t('Portal.approvalsHint')}
+                openLabel={t('Portal.approvalsOpen')}
+                moreLabel={ar ? 'عرض {count} إضافية' : 'Show {count} more'}
+                allHref={`/${portal}/bookings`}
+                allLabel={ar ? 'فتح الصفحة كاملة' : 'Open full page'}
+              />
+            ) : (
+              <p className="dash-alerts__empty">{t('Portal.noAlerts')}</p>
+            )}
+          </div>
         </div>
       </section>
 
