@@ -12,6 +12,8 @@ import {
 } from '@/lib/pending-approvals-shared';
 import type { PortalRole } from '@/lib/types';
 
+const PREVIEW_ROWS = 5;
+
 /**
  * Dashboard pending list that refetches on live-sync pulses, so a new booking
  * appears without a full page reload even when RSC refresh is slow or skipped.
@@ -25,6 +27,8 @@ export function PortalPendingApprovalsPanel({
   openLabel,
   /** Template with `{count}` — must be a string (server→client safe). */
   moreLabel,
+  allHref,
+  allLabel,
 }: {
   portal: PortalRole;
   locale: string;
@@ -33,9 +37,12 @@ export function PortalPendingApprovalsPanel({
   hint: string;
   openLabel: string;
   moreLabel: string;
+  allHref?: string;
+  allLabel?: string;
 }) {
   const ar = locale === 'ar';
   const [data, setData] = useState<PendingApprovals>(initial);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     setData(initial);
@@ -68,11 +75,12 @@ export function PortalPendingApprovalsPanel({
 
   if (!data.total) return null;
 
-  const moreCount = data.total - 6;
-  const moreText = moreCount > 0 ? moreLabel.replace('{count}', String(moreCount)) : null;
+  const hiddenCount = Math.max(0, data.items.length - PREVIEW_ROWS);
+  const visible = expanded ? data.items : data.items.slice(0, PREVIEW_ROWS);
+  const moreText = hiddenCount > 0 ? moreLabel.replace('{count}', String(hiddenCount)) : null;
 
   return (
-    <section id="pending-approvals" className="dash-approvals" aria-label={title}>
+    <section id="pending-approvals" className="dash-approvals dash-approvals--rows" aria-label={title}>
       <div className="dash-section-head dash-section-head--compact">
         <h2>
           {title}
@@ -80,8 +88,8 @@ export function PortalPendingApprovalsPanel({
         </h2>
         <p className="dash-section-hint">{hint}</p>
       </div>
-      <ul className="dash-approvals__list">
-        {data.items.slice(0, 6).map((item) => {
+      <ul className="dash-approvals__rows">
+        {visible.map((item) => {
           const kindTone =
             item.kind === 'contract' || item.kind === 'renewal_term'
               ? contractKindTone(
@@ -90,51 +98,75 @@ export function PortalPendingApprovalsPanel({
               : null;
           const linkTone =
             kindTone === 'renewal'
-              ? 'dash-approvals__link--contract-renewal'
+              ? 'dash-approvals__row--renewal'
               : kindTone === 'new'
-                ? 'dash-approvals__link--contract-new'
+                ? 'dash-approvals__row--new'
                 : '';
+          const amount = pendingApprovalAmount(item, ar ? 'ar' : 'en');
+          const meta = [
+            ar ? item.propertyNameAr : item.propertyNameEn || item.propertyNameAr,
+            item.unitCode,
+            item.party,
+            item.fromOn,
+          ]
+            .filter(Boolean)
+            .join(' · ');
           return (
             <li key={`${item.kind}:${item.id}`}>
               <Link
                 href={pendingApprovalHref(portal, item)}
                 prefetch
-                className={linkTone || undefined}
+                className={`dash-approvals__row ${linkTone}`.trim()}
               >
-                <span className="dash-approvals__title">
-                  {kindTone === 'new' || kindTone === 'renewal' ? (
-                    <ContractKindChip
-                      kind={item.contractKind ?? (kindTone === 'renewal' ? 'renewal' : 'initial')}
-                      ar={ar}
-                    />
-                  ) : null}{' '}
-                  {pendingApprovalTitle(item, ar)}
+                <span className="dash-approvals__row-main">
+                  <span className="dash-approvals__title">
+                    {kindTone === 'new' || kindTone === 'renewal' ? (
+                      <ContractKindChip
+                        kind={item.contractKind ?? (kindTone === 'renewal' ? 'renewal' : 'initial')}
+                        ar={ar}
+                      />
+                    ) : null}{' '}
+                    {pendingApprovalTitle(item, ar)}
+                  </span>
+                  <span className="dash-approvals__meta">{meta}</span>
                 </span>
-                <span className="dash-approvals__ref" dir="ltr">
-                  {item.reference}
+                <span className="dash-approvals__row-side">
+                  <span className="dash-approvals__ref" dir="ltr">
+                    {item.reference}
+                  </span>
+                  {amount ? <strong className="dash-approvals__amount">{amount}</strong> : null}
+                  <em className="dash-approvals__open">{openLabel}</em>
                 </span>
-                <span className="dash-approvals__meta">
-                  {[
-                    ar ? item.propertyNameAr : item.propertyNameEn || item.propertyNameAr,
-                    item.unitCode,
-                    item.party,
-                    item.fromOn,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-                {pendingApprovalAmount(item, ar ? 'ar' : 'en') ? (
-                  <strong className="dash-approvals__meta">
-                    {pendingApprovalAmount(item, ar ? 'ar' : 'en')}
-                  </strong>
-                ) : null}
-                <em className="dash-approvals__open">{openLabel}</em>
               </Link>
             </li>
           );
         })}
       </ul>
-      {moreText ? <p className="dash-section-hint">{moreText}</p> : null}
+      {moreText || allHref ? (
+        <div className="dash-approvals__footer">
+          {moreText ? (
+            <button
+              type="button"
+              className="dash-approvals__expand"
+              onClick={() => setExpanded((value) => !value)}
+              aria-expanded={expanded}
+            >
+              {expanded
+                ? ar
+                  ? 'عرض أقل'
+                  : 'Show less'
+                : moreText}
+            </button>
+          ) : (
+            <span />
+          )}
+          {allHref && allLabel ? (
+            <Link href={allHref} className="dash-approvals__all" prefetch>
+              {allLabel}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -5346,6 +5346,180 @@ body:has(.stays-booking-receipt) #main-content {
   font-style: normal;
   font-weight: 800;
 }
+.dash-approvals--rows {
+  padding: 0.75rem 0.85rem 0.9rem;
+  border-radius: 0.3rem;
+  box-shadow: none;
+}
+.dash-approvals__rows {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid #f0d2bc;
+  border-radius: 0.3rem;
+  overflow: hidden;
+  background: #fff;
+}
+.dash-approvals__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  padding: 0.7rem 0.85rem;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid rgb(9 45 36 / 0.08);
+  background: #fff;
+  transition: background 120ms ease;
+}
+.dash-approvals__rows > li:last-child .dash-approvals__row {
+  border-bottom: 0;
+}
+.dash-approvals__row:hover {
+  background: #fff7f1;
+}
+.dash-approvals__row-main {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+.dash-approvals__row-side {
+  display: grid;
+  justify-items: end;
+  gap: 0.15rem;
+  text-align: end;
+}
+.dash-approvals__amount {
+  color: var(--oman-deep);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+.dash-approvals__row--new {
+  border-inline-start: 3px solid #c8102e;
+}
+.dash-approvals__row--renewal {
+  border-inline-start: 3px solid #c2410c;
+  background: #fffaf4;
+}
+.dash-approvals__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem;
+  margin-top: 0.65rem;
+}
+.dash-approvals__expand {
+  appearance: none;
+  border: 1px solid rgb(9 45 36 / 0.16);
+  background: #fff;
+  color: var(--bhd-navy);
+  border-radius: 0.25rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.7rem;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.dash-approvals__expand:hover {
+  background: rgb(23 75 112 / 0.06);
+}
+.dash-approvals__all {
+  color: var(--bhd-navy);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+.dash-attention__stack {
+  display: grid;
+  gap: 0.85rem;
+}
+.dash-alert-rows__list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid rgb(9 45 36 / 0.12);
+  border-radius: 0.3rem;
+  overflow: hidden;
+  background: #fff;
+}
+.dash-alert-rows__link {
+  display: grid;
+  grid-template-columns: 2.4rem minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.65rem 0.85rem;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid rgb(9 45 36 / 0.08);
+  transition: background 120ms ease;
+}
+.dash-alert-rows__list > li:last-child .dash-alert-rows__link {
+  border-bottom: 0;
+}
+.dash-alert-rows__link:hover {
+  background: #f7f6f2;
+}
+.dash-alert-rows__link--static {
+  cursor: default;
+}
+.dash-alert-rows__link strong {
+  font-size: 1rem;
+  font-weight: 850;
+  line-height: 1;
+  text-align: center;
+}
+.dash-alert-rows__link span {
+  font-size: 0.82rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+.dash-alert-rows__item--danger .dash-alert-rows__link {
+  background: #fff5f3;
+  color: #7a1f1a;
+}
+.dash-alert-rows__item--warning .dash-alert-rows__link {
+  background: #fff8eb;
+  color: #7a4a08;
+}
+.dash-alert-rows__item--info .dash-alert-rows__link {
+  background: rgb(8 163 159 / 0.08);
+  color: #0b3a2f;
+}
+.dash-alert-rows__item--approval .dash-alert-rows__link {
+  background: #fff4ed;
+  color: #9a3412;
+}
+.dash-alert-rows__item--contract-new .dash-alert-rows__link {
+  background: #f5faff;
+  color: #0f3d66;
+  border-inline-start: 3px solid #c8102e;
+}
+.dash-alert-rows__item--contract-renewal .dash-alert-rows__link {
+  background: #fff6eb;
+  color: #7a3b00;
+  border-inline-start: 3px solid #c8102e;
+}
+@media (max-width: 720px) {
+  .dash-approvals__row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+  .dash-approvals__row-side {
+    justify-items: start;
+    text-align: start;
+    grid-auto-flow: column;
+    grid-auto-columns: max-content;
+    gap: 0.55rem;
+    align-items: center;
+  }
+}
 .dash-metrics-block {
   min-width: 0;
 }
