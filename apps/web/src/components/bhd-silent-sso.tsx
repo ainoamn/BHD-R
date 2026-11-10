@@ -96,7 +96,6 @@ export function BhdSilentSso() {
       path.includes('/viewing-gate') ||
       path.includes('/handover') ||
       path.includes('/verify/') ||
-      path.includes('/payments/') ||
       /\/book\//.test(path)
     ) {
       signalPrivacyVeilReady();

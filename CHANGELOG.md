@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.135 — 2026-11-10
+
+- **تبديل حساب الدعوة على الدفع:** الزر يعيد كتابة جلسة المنتج فعلياً؛ إن فشل التبديل المحلي يمر عبر Identity ثم `/api/auth/bhd/start` حتى لا تبقى كوكي الحساب السابق وتعود بوابة الدعوة.
+
 ## 0.8.136.134 — 2026-11-10
 
 - **دعوة الحجز / تبديل الحساب:** بعد تسجيل الدخول بحساب الدعوة يُثبَّت `?au=` على الحساب الجديد فلا يعود Silent SSO للحساب السابق. زر التبديل يستخدم تبديل المنتج محلياً أو صفحة Identity `/auth/switch` بدل `/api/auth/switch` الذي كان يعيد 405.

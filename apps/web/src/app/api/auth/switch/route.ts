@@ -10,7 +10,12 @@ import {
   type RosterAccount,
 } from '@/lib/bhd/account-roster';
 import { hasDatabaseUrl, switchIdentityAccountSession } from '@/lib/bhd/identity-session';
-import { bindAuToReturnPath, identitySettings, safeReturnTo } from '@/lib/bhd/oauth';
+import {
+  bindAuToReturnPath,
+  identitySettings,
+  safeReturnTo,
+  stripAuFromReturnPath,
+} from '@/lib/bhd/oauth';
 import {
   ORGANIZATION_COOKIE,
   rememberedOrganization,
@@ -143,13 +148,13 @@ export async function GET(request: Request) {
 
   const { issuer } = identitySettings(url.origin);
   const destination = new URL(boundReturn, url.origin);
+  const cookieStore = await cookies();
+  const roster = readRosterCookie(cookieStore.get(ROSTER_COOKIE)?.value);
+  const target = roster.find((item) => item.sub === sub);
 
   if (hasDatabaseUrl()) {
     try {
-      const cookieStore = await cookies();
       const token = cookieStore.get('bhd_r_session')?.value;
-      const roster = readRosterCookie(cookieStore.get(ROSTER_COOKIE)?.value);
-      const target = roster.find((item) => item.sub === sub);
       if (token && target) {
         const claims = await verifySessionToken(token, requireSessionSecret());
         const preferredOrganizationId = rememberedOrganization(
@@ -178,13 +183,32 @@ export async function GET(request: Request) {
         setRosterCookie(response, upsertRoster(roster, account));
         return response;
       }
-    } catch {
-      /* fall through to Identity HTML switch */
+    } catch (error) {
+      console.error('[auth/switch GET] product rebind failed', error);
+      /* fall through */
     }
   }
 
+  const hint = (target?.email || url.searchParams.get('email') || '').trim().toLowerCase();
+
+  // Invite payment gates pass email — clear product session and open Identity login
+  // for that address, then mint a fresh product cookie via start (no stale owner cookie).
+  if (hint.includes('@')) {
+    const inviteLogin = new URL('/api/auth/bhd/invite-login', url.origin);
+    inviteLogin.searchParams.set('locale', locale);
+    inviteLogin.searchParams.set('returnTo', stripAuFromReturnPath(returnPath));
+    inviteLogin.searchParams.set('email', hint);
+    return NextResponse.redirect(inviteLogin, 303);
+  }
+
+  // Generic account switch: Identity HTML switch, then product SSO start so the
+  // product cookie is rewritten (never return straight to the app URL).
+  const start = new URL('/api/auth/bhd/start', url.origin);
+  start.searchParams.set('returnTo', boundReturn);
+  start.searchParams.set('prompt', 'none');
+
   const identitySwitch = new URL(`${issuer}/auth/switch`);
   identitySwitch.searchParams.set('sub', sub);
-  identitySwitch.searchParams.set('next', destination.toString());
+  identitySwitch.searchParams.set('next', start.toString());
   return NextResponse.redirect(identitySwitch.toString(), 303);
 }

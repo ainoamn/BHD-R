@@ -1,26 +1,19 @@
 'use client';
 
 import type { MouseEvent } from 'react';
-import {
-  accountBoundPath,
-  applyAccountIsolation,
-  switchWindowAccount,
-} from '@/lib/identity/client';
-import { tokenForAccount } from '@/lib/identity/window-session';
 
 /**
  * Manual account gate for owner-invite payment links.
  * Never auto-redirects — that caused OAuth account thrashing / slow_down.
- * Uses location.assign so auth API redirects are not swallowed by soft navigation.
+ * Hard-navigates to product /api/auth/switch (or invite-login) so the product
+ * session cookie is rewritten before returning to payment.
  */
 export function LeaseInviteAccountGate({
   locale,
   inviteeEmail,
   inviteeName,
-  inviteeSub,
   currentEmail,
   continueHref,
-  paymentPath,
   rosterHasInvitee,
 }: {
   locale: 'ar' | 'en';
@@ -29,32 +22,15 @@ export function LeaseInviteAccountGate({
   inviteeSub?: string | null | undefined;
   currentEmail?: string | null | undefined;
   continueHref: string;
-  paymentPath: string;
+  paymentPath?: string;
   rosterHasInvitee: boolean;
 }) {
   const ar = locale === 'ar';
 
-  const onContinue = async (event: MouseEvent<HTMLAnchorElement>) => {
+  const onContinue = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    const sub = (inviteeSub || '').trim();
-    if (rosterHasInvitee && sub) {
-      const switched = await switchWindowAccount(sub);
-      if (switched.ok) {
-        const nextSub = switched.userId || sub;
-        const token = switched.token || tokenForAccount(nextSub);
-        const dest = accountBoundPath(paymentPath, nextSub);
-        if (token) {
-          await applyAccountIsolation(token, { force: true, sub: nextSub });
-          window.location.assign(dest);
-          return;
-        }
-        // Identity switched but no bearer — bind product via SSO start (same as app switcher).
-        window.location.assign(
-          `/api/auth/bhd/start?returnTo=${encodeURIComponent(dest)}&login_hint=${encodeURIComponent(inviteeEmail)}&prompt=login`,
-        );
-        return;
-      }
-    }
+    // Full navigation only — client identity switch left the product cookie on the
+    // wrong account and bounced back to this gate with a loading veil.
     window.location.assign(continueHref);
   };
 

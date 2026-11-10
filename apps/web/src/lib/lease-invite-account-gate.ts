@@ -62,12 +62,14 @@ export async function resolveOwnerInviteAccountGate(input: {
       sub: rosterMatch.sub,
       locale: input.locale,
       returnTo: paymentPath,
+      email: invitee,
     });
     return {
       matched: false,
       inviteeEmail: invitee,
       inviteeSub: rosterMatch.sub,
       rosterHasInvitee: true,
+      // Product GET switch rewrites bhd_r_session (or Identity switch → /api/auth/bhd/start).
       continueHref: `/api/auth/switch?${switchUrl.toString()}`,
       paymentPath,
     };
