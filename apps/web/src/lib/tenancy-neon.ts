@@ -169,10 +169,16 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
           (u.email not like '%@identity.bhd-om.local' and lower(p.email) = lower(u.email))
           or (p.metadata->>'userId') = u.id::text
           -- Website bookings attributed to this user even if party email drifted.
+          -- Owner invites store the landlord in invitedBy (or legacy bookedBy); only the
+          -- invitee contact email may claim those via bookedBy.
           or exists (
             select 1 from reservations r
             where r.tenant_party_id = p.id
               and r.terms_snapshot->'bookedBy'->>'userId' = u.id::text
+              and (
+                coalesce(r.terms_snapshot->>'source', '') <> 'owner_invite'
+                or lower(coalesce(r.terms_snapshot->'contact'->>'email', '')) = lower(u.email)
+              )
           )
         )
       join organizations o on o.id = p.organization_id and o.status = 'active'
@@ -187,7 +193,13 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
                   where r.organization_id = p.organization_id
                     and (
                       r.tenant_party_id = p.id
-                      or r.terms_snapshot->'bookedBy'->>'userId' = u.id::text
+                      or (
+                        r.terms_snapshot->'bookedBy'->>'userId' = u.id::text
+                        and (
+                          coalesce(r.terms_snapshot->>'source', '') <> 'owner_invite'
+                          or lower(coalesce(r.terms_snapshot->'contact'->>'email', '')) = lower(u.email)
+                        )
+                      )
                     ))
           or exists (select 1 from invoices i
                   where i.organization_id = p.organization_id and i.tenant_party_id = p.id)
@@ -245,7 +257,15 @@ export const loadTenancySummary = cache(async (userId: string): Promise<TenancyS
             where status in ('pending', 'confirmed')
               and (
                 tenant_party_id in (${partyIds})
-                or terms_snapshot->'bookedBy'->>'userId' = ${userId}
+                or (
+                  terms_snapshot->'bookedBy'->>'userId' = ${userId}
+                  and (
+                    coalesce(terms_snapshot->>'source', '') <> 'owner_invite'
+                    or lower(coalesce(terms_snapshot->'contact'->>'email', '')) = (
+                      select lower(email) from users where id = ${userId}::uuid
+                    )
+                  )
+                )
               ))
           + (select count(*)::int from viewing_requests
             where prospect_party_id in (${partyIds})
@@ -649,7 +669,15 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
             eq(reservations.organizationId, org),
             sql`(
               ${reservations.tenantPartyId} = ${party}::uuid
-              or ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${userId}
+              or (
+                ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${userId}
+                and (
+                  coalesce(${reservations.termsSnapshot}->>'source', '') <> 'owner_invite'
+                  or lower(coalesce(${reservations.termsSnapshot}->'contact'->>'email', '')) = (
+                    select lower(email) from users where id = ${userId}::uuid
+                  )
+                )
+              )
             )`,
           ),
         )

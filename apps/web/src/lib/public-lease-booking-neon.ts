@@ -82,7 +82,10 @@ export type LeaseBookingSnapshot = {
   party?: ReservationParty;
   /** `other` when the account holder books on behalf of the person in `contact`. */
   bookingFor?: 'self' | 'other';
+  /** Account that completed (or will complete) the booking as the guest/tenant. */
   bookedBy?: { userId: string; displayName: string; email: string | null };
+  /** Landlord who created an owner invite — never used for tenant-portal matching. */
+  invitedBy?: { userId: string; displayName: string; email: string | null };
   termsVersion: string;
   termsAcceptedAt: string;
   /** Owner-written terms the customer accepted; null means platform defaults were shown. */
@@ -934,6 +937,15 @@ export async function completeLeaseSandboxPayment(
       snapshot.mode === 'sale' ? 'sale' : 'rent',
     );
     const lifecycle = lifecycleOf(snapshot);
+    const inviteeAttribution =
+      snapshot.source === 'owner_invite'
+        ? await withElevatedRead(transaction, () =>
+            transaction.query.users.findFirst({
+              where: eq(users.id, claims.sub),
+              columns: { id: true, displayName: true, email: true },
+            }),
+          )
+        : null;
     const nextSnapshot: LeaseBookingSnapshot = {
       ...snapshot,
       ...(policy.payment === 'manual'
@@ -951,7 +963,49 @@ export async function completeLeaseSandboxPayment(
         ...(card.cardBrand ? { cardBrand: card.cardBrand } : {}),
       },
       ...(salesDealId ? { salesDealId } : {}),
+      ...(inviteeAttribution
+        ? {
+            bookingFor: 'self' as const,
+            bookedBy: {
+              userId: inviteeAttribution.id,
+              displayName: inviteeAttribution.displayName || 'Tenant',
+              email: inviteeAttribution.email,
+            },
+            invitedBy:
+              snapshot.invitedBy ??
+              (snapshot.bookedBy && snapshot.bookedBy.userId !== claims.sub
+                ? snapshot.bookedBy
+                : undefined),
+          }
+        : {}),
     };
+
+    if (inviteeAttribution && match.tenantPartyId) {
+      const tenantParty = await transaction.query.parties.findFirst({
+        where: eq(parties.id, match.tenantPartyId),
+        columns: { id: true, metadata: true },
+      });
+      if (tenantParty) {
+        const meta =
+          tenantParty.metadata &&
+          typeof tenantParty.metadata === 'object' &&
+          !Array.isArray(tenantParty.metadata)
+            ? { ...(tenantParty.metadata as Record<string, unknown>) }
+            : {};
+        await transaction
+          .update(parties)
+          .set({
+            metadata: {
+              ...meta,
+              userId: inviteeAttribution.id,
+              bookedByUserId: inviteeAttribution.id,
+              holder: 'self',
+            },
+            updatedAt: now,
+          })
+          .where(eq(parties.id, tenantParty.id));
+      }
+    }
 
     await transaction
       .update(reservations)

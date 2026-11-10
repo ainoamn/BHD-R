@@ -277,8 +277,9 @@ export async function createOwnerBookingInvite(
       salePriceMinor: preview.salePriceMinor?.toString() ?? null,
       contact,
       party: bookingParty,
+      // Invitee becomes the booker on deposit payment — landlord is invitedBy only.
       bookingFor: 'other',
-      bookedBy: {
+      invitedBy: {
         userId: claims.sub,
         displayName: actor?.displayName ?? 'Owner',
         email: actor?.email ?? null,

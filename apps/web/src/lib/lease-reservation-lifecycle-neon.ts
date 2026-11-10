@@ -81,6 +81,7 @@ import { applyOrgScope, getDatabase, withElevatedRead, type Tx } from '@/lib/pub
 import {
   LEASE_BOOKING_FLOW,
   assertBookingOwner,
+  assertLeaseSessionActor,
   findLeaseReservation,
   leaseBookingFail,
   lockKey,
@@ -2977,12 +2978,8 @@ export async function tenantHandoverPass(
     let isBookingTenant = false;
     for (const userId of ownerCandidates) {
       try {
-        await assertBookingOwner(
-          transaction,
-          userId,
-          match.partyEmail,
-          match.snapshot.bookedBy?.userId,
-        );
+        // Owner invites must match the invitee email — never the landlord bookedBy/invitedBy.
+        await assertLeaseSessionActor(transaction, userId, match);
         isBookingTenant = true;
         break;
       } catch {

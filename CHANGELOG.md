@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.146 — 2026-11-10
+
+- **دعوة المالك:** المستأجر المدفوع يظهر فقط في حساب المدعو (مثل AH@SFG.OM) وليس كمُستأجر في لوحة المالك — المالك يُحفظ كـ `invitedBy`، و`bookedBy` يُنسب للمدعو عند الدفع.
+
 ## 0.8.136.145 — 2026-11-10
 
 - **شاشة التسليم:** من صفحة الحجز يُفتح زر التسليم مع رقم الحجز معبّأ مسبقاً ويظهر الرمز مباشرة في مسار التسليم.
