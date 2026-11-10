@@ -89,11 +89,20 @@ export async function upsertOwnerPartyFromReservation(
     bookingFor: 'self' | 'other';
     bookerPartyId: string;
     bookerUserId: string;
+    /**
+     * `inviter` = landlord owner-invite (do not stamp bookedByUserId — that would make the
+     * landlord look like the guest in tenancy matching). `booker` = public booking-for-other.
+     */
+    actorRole?: 'booker' | 'inviter';
   },
 ): Promise<PersistedOwnerParty> {
   const fields = ownerPartyFieldsFromReservation(input.party);
   const now = new Date();
   const roleKey = input.bookingFor === 'self' ? 'prospect' : 'tenant';
+  const otherActorMeta =
+    input.actorRole === 'inviter'
+      ? { holder: 'other' as const, invitedByUserId: input.bookerUserId }
+      : { holder: 'other' as const, bookedByUserId: input.bookerUserId };
 
   if (input.bookingFor === 'self') {
     const [existing] = await transaction
@@ -194,8 +203,7 @@ export async function upsertOwnerPartyFromReservation(
     const nextMeta = {
       ...metaOf(existing!),
       ...fields.metadataPatch,
-      holder: 'other',
-      bookedByUserId: input.bookerUserId,
+      ...otherActorMeta,
     };
     const [updated] = await transaction
       .update(parties)
@@ -238,8 +246,7 @@ export async function upsertOwnerPartyFromReservation(
       phone: fields.phone,
       metadata: {
         ...fields.metadataPatch,
-        holder: 'other',
-        bookedByUserId: input.bookerUserId,
+        ...otherActorMeta,
       },
     })
     .returning({

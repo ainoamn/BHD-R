@@ -221,6 +221,7 @@ export async function createOwnerBookingInvite(
       bookingFor: 'other',
       bookerPartyId: bookerParty.id,
       bookerUserId: claims.sub,
+      actorRole: 'inviter',
     });
 
     const resolvedTerms = await resolveBookingTerms(

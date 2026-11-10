@@ -2018,7 +2018,8 @@ async function customerReservation(transaction: Tx, userId: string, referenceCod
   if (!normalized) leaseBookingFail('not_found');
   const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
   if (!match) leaseBookingFail('not_found');
-  await assertBookingOwner(transaction, userId, match.partyEmail);
+  // Invitee email for owner_invite; party email or bookedBy for public bookings — never the landlord.
+  await assertLeaseSessionActor(transaction, userId, match);
   await applyOrgScope(transaction, { organizationId: match.organizationId, userId });
   await lockKey(transaction, match.id);
   const [fresh] = await transaction
@@ -3628,7 +3629,7 @@ export async function readHandoverPhotoForTenant(
   const dataUrl = await db.transaction(async (transaction) => {
     const match = await findLeaseReservation(transaction, 'referenceCode', normalized);
     if (!match) return null;
-    await assertBookingOwner(transaction, claims.sub, match.partyEmail);
+    await assertLeaseSessionActor(transaction, claims.sub, match);
     await applyOrgScope(transaction, { organizationId: match.organizationId, userId: claims.sub });
     return handoverPhotoDataUrl(
       transaction,

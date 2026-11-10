@@ -153,6 +153,12 @@ async function withinTenant<T>(
  * Landlord organizations where the account appears as tenant or guest. The match is the
  * account's verified BHD email against the party email the landlord recorded, the same
  * rule lease bookings use to prove ownership.
+ *
+ * Isolation rules:
+ * - Owner invites attribute the landlord as `invitedBy` only; `bookedBy` is the invitee.
+ * - Legacy invites that still have the landlord in `bookedBy` match only when the contact
+ *   email equals the signed-in user (the invitee).
+ * - A property owner never gets a tenancy link from reservations on their own units.
  */
 export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLink[]> => {
   if (!hasDatabaseUrl()) return [];
@@ -169,8 +175,6 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
           (u.email not like '%@identity.bhd-om.local' and lower(p.email) = lower(u.email))
           or (p.metadata->>'userId') = u.id::text
           -- Website bookings attributed to this user even if party email drifted.
-          -- Owner invites store the landlord in invitedBy (or legacy bookedBy); only the
-          -- invitee contact email may claim those via bookedBy.
           or exists (
             select 1 from reservations r
             where r.tenant_party_id = p.id
@@ -178,6 +182,16 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
               and (
                 coalesce(r.terms_snapshot->>'source', '') <> 'owner_invite'
                 or lower(coalesce(r.terms_snapshot->'contact'->>'email', '')) = lower(u.email)
+              )
+              and not exists (
+                select 1 from units un
+                join properties pr on pr.id = un.property_id
+                join memberships m
+                  on m.user_id = u.id
+                 and m.status = 'active'
+                 and m.party_id is not null
+                 and m.party_id = pr.owner_party_id
+                where un.id = r.unit_id
               )
           )
         )
@@ -189,18 +203,30 @@ export const loadTenancyLinks = cache(async (userId: string): Promise<TenancyLin
                   where c.organization_id = p.organization_id and c.tenant_party_id = p.id)
           or exists (select 1 from leases l
                   where l.organization_id = p.organization_id and l.tenant_party_id = p.id)
-          or exists (select 1 from reservations r
-                  where r.organization_id = p.organization_id
-                    and (
-                      r.tenant_party_id = p.id
-                      or (
-                        r.terms_snapshot->'bookedBy'->>'userId' = u.id::text
-                        and (
-                          coalesce(r.terms_snapshot->>'source', '') <> 'owner_invite'
-                          or lower(coalesce(r.terms_snapshot->'contact'->>'email', '')) = lower(u.email)
-                        )
-                      )
-                    ))
+          or exists (
+            select 1 from reservations r
+            where r.organization_id = p.organization_id
+              and (
+                r.tenant_party_id = p.id
+                or (
+                  r.terms_snapshot->'bookedBy'->>'userId' = u.id::text
+                  and (
+                    coalesce(r.terms_snapshot->>'source', '') <> 'owner_invite'
+                    or lower(coalesce(r.terms_snapshot->'contact'->>'email', '')) = lower(u.email)
+                  )
+                )
+              )
+              and not exists (
+                select 1 from units un
+                join properties pr on pr.id = un.property_id
+                join memberships m
+                  on m.user_id = u.id
+                 and m.status = 'active'
+                 and m.party_id is not null
+                 and m.party_id = pr.owner_party_id
+                where un.id = r.unit_id
+              )
+          )
           or exists (select 1 from invoices i
                   where i.organization_id = p.organization_id and i.tenant_party_id = p.id)
           or exists (select 1 from stay_bookings b
@@ -253,19 +279,29 @@ export const loadTenancySummary = cache(async (userId: string): Promise<TenancyS
               and coalesce(c.payload_snapshot->'source'->>'type', '') <> 'stay_booking') as "leases",
           (select count(*)::int from stay_bookings
             where guest_party_id in (${partyIds}) or user_id = ${userId}::uuid)
-          + (select count(*)::int from reservations
-            where status in ('pending', 'confirmed')
+          + (select count(*)::int from reservations r
+            where r.status in ('pending', 'confirmed')
               and (
-                tenant_party_id in (${partyIds})
+                r.tenant_party_id in (${partyIds})
                 or (
-                  terms_snapshot->'bookedBy'->>'userId' = ${userId}
+                  r.terms_snapshot->'bookedBy'->>'userId' = ${userId}
                   and (
-                    coalesce(terms_snapshot->>'source', '') <> 'owner_invite'
-                    or lower(coalesce(terms_snapshot->'contact'->>'email', '')) = (
+                    coalesce(r.terms_snapshot->>'source', '') <> 'owner_invite'
+                    or lower(coalesce(r.terms_snapshot->'contact'->>'email', '')) = (
                       select lower(email) from users where id = ${userId}::uuid
                     )
                   )
                 )
+              )
+              and not exists (
+                select 1 from units un
+                join properties pr on pr.id = un.property_id
+                join memberships m
+                  on m.user_id = ${userId}::uuid
+                 and m.status = 'active'
+                 and m.party_id is not null
+                 and m.party_id = pr.owner_party_id
+                where un.id = r.unit_id
               ))
           + (select count(*)::int from viewing_requests
             where prospect_party_id in (${partyIds})
@@ -668,15 +704,27 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
           and(
             eq(reservations.organizationId, org),
             sql`(
-              ${reservations.tenantPartyId} = ${party}::uuid
-              or (
-                ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${userId}
-                and (
-                  coalesce(${reservations.termsSnapshot}->>'source', '') <> 'owner_invite'
-                  or lower(coalesce(${reservations.termsSnapshot}->'contact'->>'email', '')) = (
-                    select lower(email) from users where id = ${userId}::uuid
+              (
+                ${reservations.tenantPartyId} = ${party}::uuid
+                or (
+                  ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${userId}
+                  and (
+                    coalesce(${reservations.termsSnapshot}->>'source', '') <> 'owner_invite'
+                    or lower(coalesce(${reservations.termsSnapshot}->'contact'->>'email', '')) = (
+                      select lower(email) from users where id = ${userId}::uuid
+                    )
                   )
                 )
+              )
+              and not exists (
+                select 1 from units un
+                join properties pr on pr.id = un.property_id
+                join memberships m
+                  on m.user_id = ${userId}::uuid
+                 and m.status = 'active'
+                 and m.party_id is not null
+                 and m.party_id = pr.owner_party_id
+                where un.id = ${reservations.unitId}
               )
             )`,
           ),

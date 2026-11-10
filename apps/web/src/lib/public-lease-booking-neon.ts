@@ -582,7 +582,10 @@ export async function createLeaseBookingCheckout(claims: SessionClaims, input: L
             sql`${reservations.termsSnapshot}->>'flow' = ${LEASE_BOOKING_FLOW}`,
             sql`(
               ${reservations.tenantPartyId} in (${bookerParty.id}::uuid, ${party.id}::uuid)
-              or ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${claims.sub}
+              or (
+                ${reservations.termsSnapshot}->'bookedBy'->>'userId' = ${claims.sub}
+                and coalesce(${reservations.termsSnapshot}->>'source', '') <> 'owner_invite'
+              )
             )`,
           ),
         )
