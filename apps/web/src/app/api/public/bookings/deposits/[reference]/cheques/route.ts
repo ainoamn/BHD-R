@@ -2,7 +2,10 @@ import { z } from 'zod';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { leaseBookingErrorResponse, leaseBookingJson } from '@/lib/lease-booking-route';
 import { CHEQUE_FILE_MAX_CHARS } from '@/lib/lease-reservation-lifecycle';
-import { submitReservationCheque } from '@/lib/lease-reservation-lifecycle-neon';
+import {
+  submitReservationCheque,
+  submitReservationChequesBatch,
+} from '@/lib/lease-reservation-lifecycle-neon';
 import { requireLiveSession } from '@/lib/next-route-guard';
 import { assertRouteRateLimit, clientIp, hashRateKey } from '@/lib/route-rate-limit';
 
@@ -10,9 +13,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const bodySchema = z
+const keySchema = z.string().regex(/^(rent|vat|deposit)-\d{1,3}$/);
+
+const singleSchema = z
   .object({
-    key: z.string().regex(/^(rent|vat|deposit)-\d{1,3}$/),
+    key: keySchema,
     bankName: z.string().trim().min(2).max(160),
     accountHolderName: z.string().trim().min(2).max(160),
     accountNumber: z.string().trim().min(4).max(64),
@@ -22,7 +27,28 @@ const bodySchema = z
   })
   .strict();
 
-/** POST — tenant sends one cheque (number + image/PDF) required for a cheque-payment lease. */
+const batchSchema = z
+  .object({
+    bankName: z.string().trim().min(2).max(160),
+    accountHolderName: z.string().trim().min(2).max(160),
+    accountNumber: z.string().trim().min(4).max(64),
+    dataUrl: z.string().startsWith('data:').max(CHEQUE_FILE_MAX_CHARS),
+    items: z
+      .array(
+        z
+          .object({
+            key: keySchema,
+            chequeNumber: z.string().trim().min(1).max(80),
+            fileName: z.string().max(200),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(36),
+  })
+  .strict();
+
+/** POST — one cheque, or one shared PDF/scan attached to many months in one request. */
 export async function POST(request: Request, context: { params: Promise<{ reference: string }> }) {
   if (!hasDatabaseUrl()) {
     return leaseBookingJson({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -47,8 +73,20 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     );
   }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) {
+  const body = await request.json().catch(() => null);
+  const { reference } = await context.params;
+
+  const batch = batchSchema.safeParse(body);
+  if (batch.success) {
+    try {
+      return leaseBookingJson(await submitReservationChequesBatch(claims, reference, batch.data));
+    } catch (error) {
+      return leaseBookingErrorResponse(error, 'request_failed');
+    }
+  }
+
+  const single = singleSchema.safeParse(body);
+  if (!single.success) {
     return leaseBookingJson(
       {
         error: {
@@ -60,9 +98,8 @@ export async function POST(request: Request, context: { params: Promise<{ refere
     );
   }
 
-  const { reference } = await context.params;
   try {
-    return leaseBookingJson(await submitReservationCheque(claims, reference, parsed.data));
+    return leaseBookingJson(await submitReservationCheque(claims, reference, single.data));
   } catch (error) {
     return leaseBookingErrorResponse(error, 'request_failed');
   }

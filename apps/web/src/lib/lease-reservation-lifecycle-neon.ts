@@ -2346,6 +2346,148 @@ export async function submitReservationCheque(
   return { submitted: true as const, key: input.key };
 }
 
+/**
+ * One PDF/scan linked to many months: store the file once and attach every key in a single
+ * transaction (avoids N sequential uploads of the same payload).
+ */
+export async function submitReservationChequesBatch(
+  claims: SessionClaims,
+  referenceCode: string,
+  input: {
+    bankName: string;
+    accountHolderName: string;
+    accountNumber: string;
+    dataUrl: string;
+    items: Array<{ key: string; chequeNumber: string; fileName: string }>;
+  },
+) {
+  if (!input.items.length || input.items.length > 36) leaseBookingFail('invalid_file');
+  const parsed = DATA_URL.exec(input.dataUrl);
+  if (
+    !parsed ||
+    !REQUIREMENT_FILE_TYPES.includes(parsed[1]!) ||
+    input.dataUrl.length > CHEQUE_FILE_MAX_CHARS
+  ) {
+    leaseBookingFail('invalid_file');
+  }
+  const bankName = input.bankName.trim().slice(0, 160);
+  const accountHolderName = input.accountHolderName.trim().slice(0, 160);
+  const accountNumber = input.accountNumber.trim().replace(/\s+/g, '').slice(0, 64);
+  if (bankName.length < 2 || accountHolderName.length < 2 || accountNumber.length < 4) {
+    leaseBookingFail('tenant_details_invalid');
+  }
+  const mime = parsed[1]!;
+  const size = Math.floor((parsed[2]!.length * 3) / 4);
+  const normalizedItems = input.items.map((item, index) => {
+    const key = item.key.trim();
+    const chequeNumber = item.chequeNumber.trim().slice(0, 80);
+    const fileName =
+      item.fileName.trim().slice(0, 120) || `cheque-${key}-${index}.${mime === 'application/pdf' ? 'pdf' : 'jpg'}`;
+    if (!/^(rent|vat|deposit)-\d{1,3}$/.test(key) || chequeNumber.length < 1) {
+      leaseBookingFail('tenant_details_invalid');
+    }
+    return { key, chequeNumber, fileName };
+  });
+  const numbers = normalizedItems.map((item) => item.chequeNumber.toLowerCase());
+  if (new Set(numbers).size !== numbers.length) leaseBookingFail('duplicate_cheque_number');
+  if (new Set(normalizedItems.map((item) => item.key)).size !== normalizedItems.length) {
+    leaseBookingFail('invalid_file');
+  }
+
+  const { db } = getDatabase();
+  const reservationId = await db.transaction(async (transaction) => {
+    const current = await customerReservation(transaction, claims.sub, referenceCode);
+    if (current.phase !== 'awaiting_documents' && current.phase !== 'awaiting_documents_review') {
+      leaseBookingFail('not_ready');
+    }
+    const instructions = current.lifecycle.chequeInstructions ?? [];
+    const existingRows = current.lifecycle.chequeSubmissions ?? [];
+    for (const item of normalizedItems) {
+      if (!instructions.some((row) => row.key === item.key)) leaseBookingFail('requirement_not_found');
+      const existing = existingRows.find((row) => row.key === item.key);
+      if (existing?.status === 'approved') leaseBookingFail('not_ready');
+      const numberTaken = existingRows.some(
+        (row) =>
+          !normalizedItems.some((mine) => mine.key === row.key) &&
+          row.status !== 'rejected' &&
+          row.chequeNumber.trim().toLowerCase() === item.chequeNumber.toLowerCase(),
+      );
+      if (numberTaken) leaseBookingFail('duplicate_cheque_number');
+      if (
+        otherSlotUsingUploadFileName(
+          item.fileName,
+          bookingUploadFileSlots({
+            requirements: current.lifecycle.requirements,
+            chequeSubmissions: existingRows,
+          }),
+          `cheque:${item.key}`,
+        )
+      ) {
+        leaseBookingFail('duplicate_file_name');
+      }
+    }
+
+    const submittedAt = new Date().toISOString();
+    // One shared blob — every month/installment points at the same event.
+    const [stored] = await transaction
+      .insert(workflowEvents)
+      .values({
+        organizationId: current.match.organizationId,
+        actorUserId: claims.sub,
+        resourceType: 'reservation_cheque',
+        resourceId: current.match.id,
+        eventType: 'reservation.cheque_file',
+        metadata: {
+          referenceCode: current.snapshot.referenceCode,
+          keys: normalizedItems.map((item) => item.key),
+          name: normalizedItems[0]!.fileName,
+          mime,
+          size,
+          bankName,
+          accountHolderName,
+          accountNumber,
+          dataUrl: input.dataUrl,
+          batch: true,
+        },
+      })
+      .returning({ id: workflowEvents.id });
+
+    const nextByKey = new Map(existingRows.map((row) => [row.key, row]));
+    for (const item of normalizedItems) {
+      nextByKey.set(item.key, {
+        key: item.key,
+        bankName,
+        accountHolderName,
+        accountNumber,
+        chequeNumber: item.chequeNumber,
+        file: { eventId: stored!.id, name: item.fileName, mime, size, submittedAt },
+        status: 'submitted',
+        note: null,
+      });
+    }
+    await saveLifecycle(
+      transaction,
+      { id: current.match.id, snapshot: current.snapshot },
+      { ...current.lifecycle, chequeSubmissions: [...nextByKey.values()] },
+    );
+    await logEvent(transaction, {
+      orgId: current.match.organizationId,
+      actorUserId: claims.sub,
+      reservationId: current.match.id,
+      eventType: 'reservation.cheques_batch_submitted',
+      status: current.status,
+      metadata: {
+        referenceCode: current.snapshot.referenceCode,
+        keys: normalizedItems.map((item) => item.key),
+        count: normalizedItems.length,
+      },
+    });
+    return current.match.id;
+  });
+  await runReservationAutomation(reservationId, claims.sub);
+  return { submitted: true as const, count: normalizedItems.length };
+}
+
 /** The customer sends one of the documents the owner asked for (image or PDF as a data URL). */
 export async function submitReservationDocument(
   claims: SessionClaims,

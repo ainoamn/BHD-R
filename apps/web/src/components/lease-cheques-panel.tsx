@@ -450,17 +450,91 @@ export function LeaseCheques({
       );
       return;
     }
+    for (const key of keys) {
+      const chequeNumber = (numbers[key] ?? '').trim();
+      if (!chequeNumber) {
+        flagChequeProblem(
+          ar ? 'أدخل رقم كل شيك قبل الإرسال.' : 'Enter every cheque number before sending.',
+          key,
+        );
+        return;
+      }
+      const clash = duplicateChequeNumber(key, chequeNumber);
+      if (clash) {
+        flagChequeProblem(
+          ar
+            ? `رقم الشيك «${chequeNumber}» مكرر مع «${clash}».`
+            : `Cheque number “${chequeNumber}” is already used on “${clash}”.`,
+          key,
+        );
+        return;
+      }
+    }
+    if (!sharedBankReady()) {
+      flagChequeProblem(
+        ar
+          ? 'أدخل البنك واسم صاحب الحساب ورقم الحساب أولاً.'
+          : 'Enter bank, account holder, and account number first.',
+        'bulk',
+      );
+      return;
+    }
+
     setBulkSending(true);
     try {
-      for (const key of keys) {
-        const crop = bulkCrops[key];
-        if (!crop) continue;
-        const ok = await send(key, crop, { skipRefresh: true });
-        if (!ok) return;
+      // Same PDF linked to every month → one upload, one request (not N sequential posts).
+      const sharedPdf =
+        bulkMaster && isPdfFile(bulkMaster) && keys.every((key) => Boolean(bulkCrops[key]))
+          ? bulkMaster
+          : null;
+      if (sharedPdf) {
+        const dataUrl = await readAsDataUrl(sharedPdf);
+        if (dataUrl.length > CHEQUE_FILE_MAX_CHARS) {
+          flagChequeProblem(
+            ar
+              ? 'الملف كبير جداً (الحد نحو 3 ميغابايت). صغّر حجم الـ PDF.'
+              : 'The file is too large (about 3 MB max). Compress the PDF.',
+            'bulk',
+          );
+          return;
+        }
+        await browserNextMutation(
+          `/api/public/bookings/deposits/${encodeURIComponent(referenceCode)}/cheques`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              bankName: bankName.trim(),
+              accountHolderName: accountHolderName.trim(),
+              accountNumber: accountNumber.trim().replace(/\s+/g, ''),
+              dataUrl,
+              items: keys.map((key) => ({
+                key,
+                chequeNumber: (numbers[key] ?? '').trim(),
+                fileName: (bulkCrops[key]?.name || `cheque-${key}.pdf`).slice(0, 200),
+              })),
+            }),
+          },
+        );
+      } else {
+        // Distinct crops: still parallelize instead of waiting on each round-trip.
+        const jobs = keys.map(async (key) => {
+          const crop = bulkCrops[key];
+          if (!crop) return false;
+          return send(key, crop, { skipRefresh: true });
+        });
+        const results = await Promise.all(jobs);
+        if (results.some((ok) => !ok)) return;
       }
       setBulkCrops({});
       setBulkMaster(null);
+      setError(null);
+      setErrorKey(null);
       router.refresh();
+    } catch (caught) {
+      flagChequeProblem(
+        caught instanceof ApiError ? errorText(caught, ar) : (caught as Error).message,
+        'bulk',
+      );
     } finally {
       setBulkSending(false);
     }
