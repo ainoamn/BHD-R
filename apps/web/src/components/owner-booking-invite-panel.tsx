@@ -140,8 +140,8 @@ function unitOptionLabel(unit: UnitOption, ar: boolean): string {
 export function OwnerBookingInvitePanel({
   portal,
   locale,
-  vacantUnits,
-  tenants,
+  vacantUnits: vacantUnitsProp,
+  tenants: tenantsProp,
   initialMode = 'rent',
   onDone,
   onCancel,
@@ -156,6 +156,9 @@ export function OwnerBookingInvitePanel({
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
+  const [vacantUnits, setVacantUnits] = useState<UnitOption[]>(vacantUnitsProp);
+  const [tenants, setTenants] = useState<TenantOption[]>(tenantsProp);
+  const [unitsLoading, setUnitsLoading] = useState(vacantUnitsProp.length === 0);
   const [unitId, setUnitId] = useState('');
   const [mode, setMode] = useState<Mode>(initialMode);
   const [unitQuery, setUnitQuery] = useState('');
@@ -190,6 +193,49 @@ export function OwnerBookingInvitePanel({
     if (!needle) return modeUnits;
     return modeUnits.filter((unit) => unitSearchHaystack(unit).includes(needle));
   }, [modeUnits, unitQuery]);
+
+  useEffect(() => {
+    setVacantUnits(vacantUnitsProp);
+    setTenants(tenantsProp);
+  }, [vacantUnitsProp, tenantsProp]);
+
+  // SSR context for bookings often times out empty — reload vacant units for this tab's account.
+  useEffect(() => {
+    let live = true;
+    setUnitsLoading(vacantUnitsProp.length === 0);
+    void (async () => {
+      try {
+        const { claimProductSessionForActiveAu } = await import('@/lib/identity/client');
+        await claimProductSessionForActiveAu().catch(() => ({ ok: false }));
+        const { tabBoundAuthHeaders } = await import('@/lib/identity/window-session');
+        const response = await fetch('/api/owner/vacant-units', {
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: tabBoundAuthHeaders({ accept: 'application/json' }),
+          signal: AbortSignal.timeout(20_000),
+        });
+        if (!response.ok) return;
+        const body = (await response.json().catch(() => null)) as {
+          vacantUnits?: UnitOption[];
+          tenants?: TenantOption[];
+        } | null;
+        if (!live || !body) return;
+        if (Array.isArray(body.vacantUnits) && body.vacantUnits.length) {
+          setVacantUnits(body.vacantUnits);
+        }
+        if (Array.isArray(body.tenants) && body.tenants.length) {
+          setTenants(body.tenants);
+        }
+      } catch {
+        /* keep SSR list */
+      } finally {
+        if (live) setUnitsLoading(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [vacantUnitsProp.length]);
 
   useEffect(() => {
     if (unitId && !modeUnits.some((unit) => unit.id === unitId)) {
@@ -622,6 +668,7 @@ export function OwnerBookingInvitePanel({
           <select
             className="select"
             value={unitId}
+            disabled={unitsLoading && !modeUnits.length}
             onChange={(event) => {
               const next = event.target.value;
               setUnitId(next);
@@ -631,7 +678,15 @@ export function OwnerBookingInvitePanel({
             }}
             required
           >
-            <option value="">{ar ? 'اختر وحدة…' : 'Choose a unit…'}</option>
+            <option value="">
+              {unitsLoading && !modeUnits.length
+                ? ar
+                  ? 'جارٍ التحميل…'
+                  : 'Loading…'
+                : ar
+                  ? 'اختر وحدة…'
+                  : 'Choose a unit…'}
+            </option>
             {filteredUnits.map((unit) => (
               <option key={unit.id} value={unit.id}>
                 {unitOptionLabel(unit, ar)}
@@ -639,7 +694,11 @@ export function OwnerBookingInvitePanel({
             ))}
           </select>
         </label>
-        {!modeUnits.length ? (
+        {unitsLoading && !modeUnits.length ? (
+          <p className="ops-hint span-2" role="status">
+            {ar ? 'جارٍ تحميل الوحدات الشاغرة لحسابك…' : 'Loading vacant units for your account…'}
+          </p>
+        ) : !modeUnits.length ? (
           <p className="ops-hint span-2">
             {mode === 'sale'
               ? ar

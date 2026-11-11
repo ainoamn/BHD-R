@@ -583,15 +583,16 @@ export async function loadOperationsWorkspacePayload(
   }
 
   // Skip heavy ops context on list pages that do not need create-form dropdowns
-  // on first paint. Bookings still wants vacantUnits when available, but must not
-  // wait on a cold context load (was up to ~1.8s).
+  // on first paint. Bookings/leasing need vacantUnits for invite/convert — give Neon
+  // enough time (350ms was dropping the list to empty on cold starts).
   const needsOpsContext =
     portal !== 'tenant' &&
     section !== 'properties' &&
     section !== 'approvals' &&
     section !== 'team' &&
     section !== 'api-keys';
-  const contextBudgetMs = section === 'bookings' ? 350 : 1_800;
+  const contextBudgetMs =
+    section === 'bookings' || section === 'leasing' ? 4_500 : 1_800;
   const neonContextPromise: Promise<Record<string, unknown> | null> = needsOpsContext
     ? Promise.race([
         loadOpsContextFromDb(portal).catch(() => null),

@@ -699,11 +699,12 @@ export function clearOpsContextDbCache(): void {
  */
 export async function loadOpsContextFromDb(
   portal: PortalRole,
+  claimsOverride?: SessionClaims | null,
 ): Promise<Record<string, unknown> | null> {
   if (!hasDatabaseUrl()) return null;
   if (portal !== 'owner' && portal !== 'developer') return null;
 
-  const claims = await readClaims();
+  const claims = claimsOverride ?? (await readClaims());
   if (!claims?.organizationId) return null;
 
   // Owner-scoped viewers see only their own properties, so the key includes the viewer.
