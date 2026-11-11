@@ -153,6 +153,7 @@ export function ReservationPartyForm({
   locale,
   autoAdvance = true,
   deferTenantCompletion = false,
+  omitTermMonths = false,
 }: {
   value: PartyForm;
   onChange: (next: PartyForm) => void;
@@ -164,6 +165,8 @@ export function ReservationPartyForm({
   autoAdvance?: boolean;
   /** Owner invite: tenant attaches ID copies, alt phone, and OTP later. */
   deferTenantCompletion?: boolean;
+  /** Term months collected earlier (owner invite commercial dates). */
+  omitTermMonths?: boolean;
 }) {
   const ar = locale === 'ar';
   const sale = mode === 'sale';
@@ -261,46 +264,48 @@ export function ReservationPartyForm({
           </div>
         ),
       });
-      list.push({
-        id: 'termMonths',
-        label: ar ? 'مدة العقد' : 'Contract term',
-        done: Number(value.termMonths) >= minMonths,
-        focusId: 'party-term',
-        body: (
-          <div className="field">
-            <label htmlFor="party-term">
-              {ar ? 'مدة العقد (بالأشهر)' : 'Contract term (months)'}
-            </label>
-            <input
-              id="party-term"
-              className="input"
-              type="number"
-              inputMode="numeric"
-              list="party-term-options"
-              min={minMonths}
-              max={MAX_LEASE_MONTHS}
-              dir="ltr"
-              required
-              value={value.termMonths}
-              onChange={(event) => onChange({ ...value, termMonths: event.target.value })}
-            />
-            <datalist id="party-term-options">
-              {termOptions.map((months) => (
-                <option key={months} value={months} />
-              ))}
-            </datalist>
-            <p className="field__hint muted">
-              {defer
-                ? ar
-                  ? 'دعوة يدوية: يمكن اختيار أي مدة من شهر واحد فأكثر.'
-                  : 'Manual invite: any term from 1 month upward is allowed.'
-                : ar
-                  ? `أقل مدة يقبلها المالك ${minMonths} شهراً.`
-                  : `Owner minimum: ${minMonths} months.`}
-            </p>
-          </div>
-        ),
-      });
+      if (!omitTermMonths) {
+        list.push({
+          id: 'termMonths',
+          label: ar ? 'مدة العقد' : 'Contract term',
+          done: Number(value.termMonths) >= minMonths,
+          focusId: 'party-term',
+          body: (
+            <div className="field">
+              <label htmlFor="party-term">
+                {ar ? 'مدة العقد (بالأشهر)' : 'Contract term (months)'}
+              </label>
+              <input
+                id="party-term"
+                className="input"
+                type="number"
+                inputMode="numeric"
+                list="party-term-options"
+                min={minMonths}
+                max={MAX_LEASE_MONTHS}
+                dir="ltr"
+                required
+                value={value.termMonths}
+                onChange={(event) => onChange({ ...value, termMonths: event.target.value })}
+              />
+              <datalist id="party-term-options">
+                {termOptions.map((months) => (
+                  <option key={months} value={months} />
+                ))}
+              </datalist>
+              <p className="field__hint muted">
+                {defer
+                  ? ar
+                    ? 'دعوة يدوية: يمكن اختيار أي مدة من شهر واحد فأكثر.'
+                    : 'Manual invite: any term from 1 month upward is allowed.'
+                  : ar
+                    ? `أقل مدة يقبلها المالك ${minMonths} شهراً.`
+                    : `Owner minimum: ${minMonths} months.`}
+              </p>
+            </div>
+          ),
+        });
+      }
     }
 
     if (holder === 'other') {
@@ -1112,6 +1117,7 @@ export function ReservationPartyForm({
     locale,
     nationalityConfirmed,
     defer,
+    omitTermMonths,
   ]);
 
   const firstIncomplete = steps.findIndex((step) => !step.done);

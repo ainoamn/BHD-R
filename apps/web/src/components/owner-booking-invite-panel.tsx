@@ -14,11 +14,25 @@ import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api
 import type { BookingStepGreeting } from '@/lib/booking-step-greeting';
 import { toMinorUnits } from '@/lib/format';
 import { fromMinor } from '@/lib/legal-case-shared';
-import { partyDisplayName } from '@/lib/reservation-party';
+import { contractPeriod, endDateForMonths, isIsoDate } from '@/lib/lease-terms';
+import { MAX_LEASE_MONTHS, partyDisplayName } from '@/lib/reservation-party';
 import { toInternationalPhone } from '@/lib/world-countries';
 
 /** Owner invite may set any whole-month term from 1 upward (property minimum is for public booking). */
 const OWNER_INVITE_MIN_LEASE_MONTHS = 1;
+
+function clampTermMonths(raw: number): number {
+  if (!Number.isFinite(raw)) return OWNER_INVITE_MIN_LEASE_MONTHS;
+  return Math.min(MAX_LEASE_MONTHS, Math.max(OWNER_INVITE_MIN_LEASE_MONTHS, Math.trunc(raw)));
+}
+
+function termMonthsFromDates(startsOn: string, endsOn: string): number {
+  if (!isIsoDate(startsOn) || !isIsoDate(endsOn) || endsOn < startsOn) {
+    return OWNER_INVITE_MIN_LEASE_MONTHS;
+  }
+  const { months, extraDays } = contractPeriod(startsOn, endsOn);
+  return clampTermMonths(extraDays > 0 ? months + 1 : Math.max(months, 1));
+}
 
 type UnitOption = {
   id: string;
@@ -78,6 +92,7 @@ type Stage =
   | 'deposit'
   | 'leaseStart'
   | 'handover'
+  | 'term'
   | 'party'
   | 'contract'
   | 'review';
@@ -217,12 +232,30 @@ export function OwnerBookingInvitePanel({
         'deposit',
         'leaseStart',
         'handover',
+        'term',
         'party',
         'contract',
         'review',
       ];
       return order.indexOf(next) > order.indexOf(current) ? next : current;
     });
+  }
+
+  const termMonthsValue = clampTermMonths(Number(partyForm.termMonths));
+  const leaseEndsOn =
+    mode === 'rent' && isIsoDate(leaseStartsOn)
+      ? endDateForMonths(leaseStartsOn, termMonthsValue)
+      : '';
+
+  function setTermMonths(raw: string) {
+    const next = clampTermMonths(Number(raw));
+    setPartyForm((prev) => ({ ...prev, termMonths: String(next) }));
+  }
+
+  function setLeaseEndsOn(nextEndsOn: string) {
+    if (!isIsoDate(leaseStartsOn) || !isIsoDate(nextEndsOn)) return;
+    const months = termMonthsFromDates(leaseStartsOn, nextEndsOn);
+    setPartyForm((prev) => ({ ...prev, termMonths: String(months) }));
   }
 
   function partyStepError(): string | null {
@@ -276,6 +309,12 @@ export function OwnerBookingInvitePanel({
           ? 'تاريخ الاستلام يجب ألا يكون بعد بداية العقد.'
           : 'Handover date must not be after the lease start date.';
       }
+      if (termMonthsValue < OWNER_INVITE_MIN_LEASE_MONTHS) {
+        return ar ? 'أدخل مدة العقد بالأشهر.' : 'Enter the contract term in months.';
+      }
+      if (!leaseEndsOn || leaseEndsOn < leaseStartsOn) {
+        return ar ? 'أدخل تاريخ انتهاء عقد صالح.' : 'Enter a valid lease end date.';
+      }
     }
     return null;
   }
@@ -285,6 +324,11 @@ export function OwnerBookingInvitePanel({
   const leaseStartOk = mode === 'sale' || Boolean(leaseStartsOn);
   const handoverOk =
     mode === 'sale' || (Boolean(handoverOn) && (!leaseStartsOn || handoverOn <= leaseStartsOn));
+  const termOk =
+    mode === 'sale' ||
+    (termMonthsValue >= OWNER_INVITE_MIN_LEASE_MONTHS &&
+      Boolean(leaseEndsOn) &&
+      (!leaseStartsOn || leaseEndsOn >= leaseStartsOn));
   const commercialOk = Boolean(unitId) && !commercialStepError();
   const partyOk = partyStepError() === null;
 
@@ -293,12 +337,16 @@ export function OwnerBookingInvitePanel({
     Boolean(unitId) &&
     (mode === 'sale'
       ? stage !== 'unit'
-      : ['deposit', 'leaseStart', 'handover', 'party', 'contract', 'review'].includes(stage));
+      : ['deposit', 'leaseStart', 'handover', 'term', 'party', 'contract', 'review'].includes(
+          stage,
+        ));
   const showLeaseStart =
     mode === 'rent' &&
-    ['leaseStart', 'handover', 'party', 'contract', 'review'].includes(stage);
+    ['leaseStart', 'handover', 'term', 'party', 'contract', 'review'].includes(stage);
   const showHandover =
-    mode === 'rent' && ['handover', 'party', 'contract', 'review'].includes(stage);
+    mode === 'rent' && ['handover', 'term', 'party', 'contract', 'review'].includes(stage);
+  const showTerm =
+    mode === 'rent' && ['term', 'party', 'contract', 'review'].includes(stage);
   const showParty = ['party', 'contract', 'review'].includes(stage);
   const showContract = ['contract', 'review'].includes(stage);
   const showReview = stage === 'review';
@@ -336,9 +384,7 @@ export function OwnerBookingInvitePanel({
         ? {
             kind: 'details',
             status: ar ? 'بيانات المستأجر' : 'Tenant details',
-            heading: ar
-              ? 'أدخل بيانات المحجوز له ومدة التأجير'
-              : 'Enter the guest details and lease term',
+            heading: ar ? 'أدخل بيانات المحجوز له' : 'Enter the guest details',
             body: ar
               ? 'بعد الإرسال يُضاف تلقائياً إلى دفتر العناوين.'
               : 'After send they are added to the address book automatically.',
@@ -360,9 +406,10 @@ export function OwnerBookingInvitePanel({
         deposit: 3,
         leaseStart: 4,
         handover: 5,
-        party: 6,
-        contract: 7,
-        review: 8,
+        term: 6,
+        party: 7,
+        contract: 8,
+        review: 9,
       } as const
     )[stage] ?? 1;
 
@@ -508,7 +555,7 @@ export function OwnerBookingInvitePanel({
         greeting={greeting}
         label={ar ? 'حجز من المالك' : 'Owner booking'}
         stepNo={stageNo}
-        stepCount={8}
+        stepCount={mode === 'rent' ? 9 : 6}
       />
 
       <div className="form-grid">
@@ -716,17 +763,81 @@ export function OwnerBookingInvitePanel({
                 const next = event.target.value;
                 setHandoverOn(next);
                 setError(null);
-                if (next && (!leaseStartsOn || next <= leaseStartsOn)) unlock('party');
+                if (next && (!leaseStartsOn || next <= leaseStartsOn)) unlock('term');
               }}
               onFocus={() => {
-                if (handoverOk) unlock('party');
+                if (handoverOk) unlock('term');
               }}
               onBlur={() => {
-                if (handoverOk && !commercialStepError()) unlock('party');
+                if (handoverOk) unlock('term');
               }}
               required
             />
           </label>
+        ) : null}
+
+        {showTerm ? (
+          <>
+            <label
+              className="field owner-booking-invite__reveal"
+              ref={bindReveal(stage === 'term')}
+            >
+              <span>{ar ? 'مدة العقد (بالأشهر)' : 'Contract term (months)'}</span>
+              <input
+                className="input"
+                type="number"
+                inputMode="numeric"
+                list="owner-invite-term-options"
+                min={OWNER_INVITE_MIN_LEASE_MONTHS}
+                max={MAX_LEASE_MONTHS}
+                dir="ltr"
+                value={partyForm.termMonths}
+                onChange={(event) => {
+                  setTermMonths(event.target.value);
+                  setError(null);
+                  unlock('party');
+                }}
+                onFocus={() => {
+                  if (termOk) unlock('party');
+                }}
+                onBlur={() => {
+                  setTermMonths(partyForm.termMonths || String(OWNER_INVITE_MIN_LEASE_MONTHS));
+                  if (termOk) unlock('party');
+                }}
+                required
+              />
+              <datalist id="owner-invite-term-options">
+                {[1, 3, 6, 12, 24, 36, 48, 60].map((months) => (
+                  <option key={months} value={months} />
+                ))}
+              </datalist>
+            </label>
+            <label className="field owner-booking-invite__reveal">
+              <span>{ar ? 'تاريخ انتهاء العقد' : 'Lease end date'}</span>
+              <input
+                className="input"
+                type="date"
+                dir="ltr"
+                min={leaseStartsOn || undefined}
+                value={leaseEndsOn}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setLeaseEndsOn(next);
+                  setError(null);
+                  if (next) unlock('party');
+                }}
+                onFocus={() => {
+                  if (termOk) unlock('party');
+                }}
+                required
+              />
+              <small className="field__hint muted">
+                {ar
+                  ? 'يُحسب تلقائياً من البداية والمدة، ويمكن تعديله لضبط عدد الأشهر.'
+                  : 'Calculated from start and term; edit it to adjust the month count.'}
+              </small>
+            </label>
+          </>
         ) : null}
 
         {showParty ? (
@@ -755,6 +866,7 @@ export function OwnerBookingInvitePanel({
               locale={locale}
               mode={mode}
               minMonths={OWNER_INVITE_MIN_LEASE_MONTHS}
+              omitTermMonths
               value={partyForm}
               onChange={(next) => {
                 setPartyForm(next);
@@ -858,8 +970,7 @@ export function OwnerBookingInvitePanel({
                 <div>
                   <dt>{ar ? 'المدة' : 'Term'}</dt>
                   <dd>
-                    {partyForm.termMonths || OWNER_INVITE_MIN_LEASE_MONTHS}{' '}
-                    {ar ? 'شهراً' : 'months'}
+                    {termMonthsValue} {ar ? 'شهراً' : 'months'}
                   </dd>
                 </div>
               ) : null}
@@ -886,6 +997,10 @@ export function OwnerBookingInvitePanel({
                   <div>
                     <dt>{ar ? 'الاستلام' : 'Handover'}</dt>
                     <dd dir="ltr">{handoverOn || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'انتهاء العقد' : 'Lease end'}</dt>
+                    <dd dir="ltr">{leaseEndsOn || '—'}</dd>
                   </div>
                 </>
               ) : null}
