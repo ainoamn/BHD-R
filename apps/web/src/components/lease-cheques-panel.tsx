@@ -364,6 +364,35 @@ export function LeaseCheques({
     });
   }
 
+  /** Same PDF scan covers every pending month — assign once instead of linking row by row. */
+  function linkPdfToAllCheques(file: File): boolean {
+    if (!isPdfFile(file)) return false;
+    if (!sharedBankReady()) {
+      flagChequeProblem(
+        ar
+          ? 'أدخل البنك واسم صاحب الحساب ورقم الحساب أولاً.'
+          : 'Enter bank, account holder, and account number first.',
+        'bulk',
+      );
+      return false;
+    }
+    for (const item of bulkQueue) {
+      if (!assertReadyToPick(item.key, file)) return false;
+    }
+    const stamp = Date.now();
+    const next: Record<string, File> = {};
+    bulkQueue.forEach((item, index) => {
+      next[item.key] = new File([file], `cheque-${item.key}-${stamp + index}.pdf`, {
+        type: 'application/pdf',
+      });
+    });
+    setBulkCrops(next);
+    setBulkAssignKey(null);
+    setError(null);
+    setErrorKey(null);
+    return true;
+  }
+
   function pickBulkMaster(event: ChangeEvent<HTMLInputElement>) {
     const picked = event.target.files?.[0];
     event.target.value = '';
@@ -386,6 +415,12 @@ export function LeaseCheques({
     setBulkAssignKey(null);
     setError(null);
     setErrorKey(null);
+    // PDF: link every pending cheque automatically (no per-month click).
+    if (isPdfFile(picked)) {
+      queueMicrotask(() => {
+        linkPdfToAllCheques(picked);
+      });
+    }
   }
 
   function startBulkCrop(key: string) {

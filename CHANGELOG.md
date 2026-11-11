@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.164 — 2026-11-11
+
+- **إصلاح البناء:** إكمال دالة ربط PDF لكل الشيكات دفعة واحدة بعد رفع المسح.
+
 ## 0.8.136.163 — 2026-11-11
 
 - **شيكات الحجز:** عند رفع PDF يُربط تلقائياً بكل الأشهر/الأقساط، مع زر «ربط كل الشيكات بهذا الملف» إن لزم.
