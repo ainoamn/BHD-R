@@ -1765,6 +1765,9 @@ export async function issueReservationSaleInTx(
 /**
  * The tenant or buyer signs a contract the owner already signed: the contract is complete,
  * its lease starts and a sale deal closes. Runs in the caller's organization-scoped transaction.
+ *
+ * Reservation bookings that still need documents/cheques after signature should pass
+ * `deferInForceEmails: true` so the “contract is in force” mail waits until that package is sent.
  */
 export async function completeCounterpartySignatureInTx(
   tx: Tx,
@@ -1773,6 +1776,10 @@ export async function completeCounterpartySignatureInTx(
     contractId: string;
     actorUserId: string;
     signature: CounterpartySignature;
+    /** Skip “ساري المفعول” emails — caller will send them after documents/cheques. */
+    deferInForceEmails?: boolean;
+    /** Confirmed-booking URL for the soft “upload documents next” mail. */
+    bookingConfirmedPath?: string;
   },
 ): Promise<{ contractReference: string; leaseId: string | null; alreadySigned: boolean }> {
   const [contract] = await tx
@@ -1873,6 +1880,47 @@ export async function completeCounterpartySignatureInTx(
     { label: 'رقم العقد', value: reference },
     { label: 'تاريخ التوقيع', value: arDate(now.toISOString()) },
   ];
+  if (input.deferInForceEmails) {
+    // Soft notice only — “in force” mail is deferred until documents/cheques are sent.
+    await notifyByEmail({
+      orgId: input.orgId,
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      audience: {
+        parties: [owner?.ownerPartyId],
+        managersOf: { orgId: input.orgId, propertyId: owner?.propertyId },
+      },
+      content: () => ({
+        tone: 'contract',
+        subject: `✍️ وقّع ${signer} ${kind} ${reference} — بانتظار المستندات`,
+        title: `توقيع ${signer} وصل على ${kind}`,
+        intro: `وقّع ${signer} ${kind} إلكترونياً. الخطوة التالية رفع المستندات والشيكات ثم مراجعتكم.`,
+        details,
+        cta: { label: 'فتح الحجز', url: appLink(`/ar/owner/contracts/${contract.id}`) },
+      }),
+    });
+    await notifyByEmail({
+      orgId: input.orgId,
+      aggregateType: 'contract',
+      aggregateId: contract.id,
+      audience: { parties: [contract.tenantPartyId] },
+      content: () => ({
+        tone: 'contract',
+        subject: `✍️ تم استلام توقيعك على ${kind} ${reference}`,
+        title: 'توقيعك وصل — أكمل المستندات',
+        intro: `شكراً لتوقيعك. لإكمال ${kind} ارفع المستندات والشيكات المطلوبة من صفحة الحجز، ثم أكّد الإرسال. يصل إشعار سريان العقد بعد ذلك.`,
+        details,
+        cta: {
+          label: 'رفع المستندات',
+          url: appLink(
+            input.bookingConfirmedPath ??
+              (contract.type === 'sale' ? '/ar/account' : `/ar/tenant/contracts/${contract.id}`),
+          ),
+        },
+      }),
+    });
+    return { contractReference: reference, leaseId: lease?.id ?? null, alreadySigned: false };
+  }
   await notifyByEmail({
     orgId: input.orgId,
     aggregateType: 'contract',

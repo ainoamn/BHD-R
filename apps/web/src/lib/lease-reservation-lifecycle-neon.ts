@@ -2126,6 +2126,13 @@ export async function sendReservationDocumentsPackage(
         at: current.lifecycle.customerDocumentsSentAt,
         reservationId: current.match.id,
         alreadySent: true as const,
+        orgId: current.match.organizationId,
+        tenantPartyId: current.match.tenantPartyId,
+        referenceCode: current.snapshot.referenceCode,
+        propertyName: null as string | null,
+        mode: current.snapshot.mode,
+        contractId: current.lifecycle.contract?.id ?? null,
+        contractReference: current.lifecycle.contract?.reference ?? null,
       };
     }
     const attested =
@@ -2158,6 +2165,13 @@ export async function sendReservationDocumentsPackage(
       at,
       reservationId: current.match.id,
       alreadySent: false as const,
+      orgId: current.match.organizationId,
+      tenantPartyId: current.match.tenantPartyId,
+      referenceCode: current.snapshot.referenceCode,
+      propertyName: null as string | null,
+      mode: current.snapshot.mode,
+      contractId: current.lifecycle.contract?.id ?? null,
+      contractReference: current.lifecycle.contract?.reference ?? null,
     };
   });
   if (!result.alreadySent) {
@@ -2166,6 +2180,36 @@ export async function sendReservationDocumentsPackage(
       title: 'مستندات الحجز جاهزة للمراجعة',
       line: 'أكمل العميل رفع كل المستندات والشيكات المطلوبة بعد توقيع العقد وأكّد إرسالها. راجعها واعتمدها يدوياً قبل التسليم.',
     });
+    // Deferred from tenant signature: “in force” only after documents/cheques are sent.
+    if (result.tenantPartyId && result.contractId) {
+      const reference =
+        result.contractReference ?? result.contractId.slice(0, 8).toUpperCase();
+      const kind = result.mode === 'sale' ? 'عقد البيع' : 'عقد الإيجار';
+      const facts = await reservationFacts(result.reservationId);
+      await notifyByEmail({
+        orgId: result.orgId,
+        aggregateType: 'contract',
+        aggregateId: result.contractId,
+        audience: { parties: [result.tenantPartyId] },
+        content: () => ({
+          tone: 'contract',
+          subject: `🎉 شكراً لتوقيعك — ${kind} ${reference} ساري الآن`,
+          title: 'توقيعك وصل، والعقد ساري المفعول',
+          intro: `اكتمل رفع المستندات والشيكات بعد توقيعك على ${kind}، ونسخته محفوظة في حسابك متى احتجتها.`,
+          details: [
+            { label: 'رقم العقد', value: reference },
+            ...(result.referenceCode ? [{ label: 'رقم الحجز', value: result.referenceCode }] : []),
+            ...(facts?.propertyName ? [{ label: 'العقار', value: facts.propertyName }] : []),
+          ],
+          cta: {
+            label: 'متابعة الحجز',
+            url: result.referenceCode
+              ? appLink(`/ar/book/confirmed?ref=${encodeURIComponent(result.referenceCode)}`)
+              : appLink('/ar/tenant/reservations'),
+          },
+        }),
+      });
+    }
   }
   await runReservationAutomation(result.reservationId, claims.sub);
   return { sent: true as const, at: result.at };
@@ -2556,6 +2600,9 @@ export async function signReservationContract(
         },
       })
       .returning({ id: workflowEvents.id });
+    const needsDocumentsAfterSign =
+      (current.lifecycle.requirements?.length ?? 0) > 0 ||
+      (current.lifecycle.chequeInstructions?.length ?? 0) > 0;
     const result = await completeCounterpartySignatureInTx(transaction, {
       orgId,
       contractId: contract.id,
@@ -2571,6 +2618,13 @@ export async function signReservationContract(
         },
         signedAt,
       },
+      // Docs/cheques still follow on /book/confirmed — don't claim “in force” yet.
+      ...(needsDocumentsAfterSign
+        ? {
+            deferInForceEmails: true,
+            bookingConfirmedPath: `/ar/book/confirmed?ref=${encodeURIComponent(current.snapshot.referenceCode)}`,
+          }
+        : {}),
     });
     const lifecycle: ReservationLifecycle = {
       ...current.lifecycle,
