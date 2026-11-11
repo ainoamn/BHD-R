@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.163 — 2026-11-11
+
+- **شيكات الحجز:** عند رفع PDF يُربط تلقائياً بكل الأشهر/الأقساط، مع زر «ربط كل الشيكات بهذا الملف» إن لزم.
+
 ## 0.8.136.162 — 2026-11-11
 
 - **إصلاح البناء:** تصحيح أنواع `ref` في نموذج دعوة المستأجر حتى يمرّ `next build`.

@@ -769,8 +769,8 @@ export function LeaseCheques({
       <div className="lease-cheques__bulk">
         <p className="muted">
           {ar
-            ? 'ارفع صورة تجمع الشيكات ثم قصّ كل شيك لشهره، أو ارفع ملف PDF واربطه بالشهر/القسط المناسب. بعدها تُرسل للمالك للاعتماد كالمعتاد.'
-            : 'Upload one photo of all cheques and crop each to its month, or upload a PDF and link it to the matching month/installment. They go to the owner for approval as usual.'}
+            ? 'ارفع صورة تجمع الشيكات ثم قصّ كل شيك لشهره، أو ارفع ملف PDF فيُربط تلقائياً بكل الأشهر/الأقساط. بعدها أرسل للمالك للاعتماد.'
+            : 'Upload one photo of all cheques and crop each to its month, or upload a PDF and it links to every month/installment automatically. Then send to the owner for approval.'}
         </p>
         {!bulkMaster ? (
           <label className="button button--primary lease-docs__upload">
@@ -793,6 +793,21 @@ export function LeaseCheques({
               ) : null}
               <div className="lease-cheques__bulk-master-actions">
                 <strong>{bulkMaster.name}</strong>
+                {isPdfFile(bulkMaster) && assignedCount < bulkQueue.length ? (
+                  <button
+                    type="button"
+                    className="button button--primary"
+                    disabled={bulkSending}
+                    onClick={() => linkPdfToAllCheques(bulkMaster)}
+                  >
+                    {ar ? 'ربط كل الشيكات بهذا الملف' : 'Link all cheques to this file'}
+                  </button>
+                ) : null}
+                {isPdfFile(bulkMaster) && assignedCount === bulkQueue.length ? (
+                  <span className="notice notice--success">
+                    {ar ? 'رُبطت كل الشيكات تلقائياً بهذا الملف' : 'All cheques linked to this file'}
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   className="button button--quiet"
@@ -827,31 +842,35 @@ export function LeaseCheques({
                     <div className="lease-cheques__bulk-row-actions">
                       {cropped ? (
                         <span className="notice notice--success">
-                          {ar ? 'تم القص لهذا الشهر' : 'Cropped for this month'}
+                          {bulkMaster && isPdfFile(bulkMaster)
+                            ? ar
+                              ? 'مرتبط بهذا الملف'
+                              : 'Linked to this file'
+                            : ar
+                              ? 'تم القص لهذا الشهر'
+                              : 'Cropped for this month'}
                         </span>
                       ) : null}
-                      <button
-                        type="button"
-                        className="button button--quiet"
-                        disabled={bulkSending}
-                        onClick={() => startBulkCrop(item.key)}
-                      >
-                        {bulkMaster && isPdfFile(bulkMaster)
-                          ? cropped
+                      {!(bulkMaster && isPdfFile(bulkMaster) && cropped) ? (
+                        <button
+                          type="button"
+                          className="button button--quiet"
+                          disabled={bulkSending}
+                          onClick={() => startBulkCrop(item.key)}
+                        >
+                          {bulkMaster && isPdfFile(bulkMaster)
                             ? ar
-                              ? 'إعادة الربط'
-                              : 'Re-link'
-                            : ar
                               ? 'ربط PDF بهذا الشهر'
                               : 'Link PDF to this month'
-                          : cropped
-                            ? ar
-                              ? 'إعادة القص'
-                              : 'Re-crop'
-                            : ar
-                              ? 'قصّ الشيك لهذا الشهر'
-                              : 'Crop cheque for this month'}
-                      </button>
+                            : cropped
+                              ? ar
+                                ? 'إعادة القص'
+                                : 'Re-crop'
+                              : ar
+                                ? 'قصّ الشيك لهذا الشهر'
+                                : 'Crop cheque for this month'}
+                        </button>
+                      ) : null}
                     </div>
                   </li>
                 );
