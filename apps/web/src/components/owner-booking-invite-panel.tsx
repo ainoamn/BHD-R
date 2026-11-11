@@ -158,7 +158,12 @@ export function OwnerBookingInvitePanel({
   const [error, setError] = useState<string | null>(null);
   /** Furthest stage unlocked; earlier stages stay visible above. */
   const [stage, setStage] = useState<Stage>('unit');
-  const revealRef = useRef<HTMLElement | null>(null);
+  const revealNode = useRef<HTMLElement | null>(null);
+  const bindReveal =
+    (active: boolean) =>
+    (el: HTMLElement | null): void => {
+      if (active) revealNode.current = el;
+    };
 
   const modeUnits = useMemo(
     () => vacantUnits.filter((unit) => unitMatchesMode(unit, mode)),
@@ -201,7 +206,7 @@ export function OwnerBookingInvitePanel({
   }, [selectedUnit]);
 
   useEffect(() => {
-    revealRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    revealNode.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [stage]);
 
   function unlock(next: Stage) {
@@ -557,7 +562,7 @@ export function OwnerBookingInvitePanel({
           />
         </label>
 
-        <label className="field span-2" ref={stage === 'unit' ? revealRef : undefined}>
+        <label className="field span-2" ref={bindReveal(stage === 'unit')}>
           <span>
             {mode === 'sale'
               ? ar
@@ -606,7 +611,7 @@ export function OwnerBookingInvitePanel({
         {showRent ? (
           <label
             className="field span-2 owner-booking-invite__reveal"
-            ref={stage === 'rent' ? revealRef : undefined}
+            ref={bindReveal(stage === 'rent')}
           >
             <span>{ar ? 'الإيجار الشهري' : 'Monthly rent'}</span>
             <input
@@ -639,7 +644,7 @@ export function OwnerBookingInvitePanel({
         {showDeposit ? (
           <label
             className="field span-2 owner-booking-invite__reveal"
-            ref={stage === 'deposit' ? revealRef : undefined}
+            ref={bindReveal(stage === 'deposit')}
           >
             <span>{ar ? 'مبلغ الضمان / العربون' : 'Deposit / booking fee'}</span>
             <input
@@ -671,7 +676,7 @@ export function OwnerBookingInvitePanel({
         {showLeaseStart ? (
           <label
             className="field span-2 owner-booking-invite__reveal"
-            ref={stage === 'leaseStart' ? revealRef : undefined}
+            ref={bindReveal(stage === 'leaseStart')}
           >
             <span>{ar ? 'تاريخ بداية العقد' : 'Lease start date'}</span>
             <input
@@ -699,7 +704,7 @@ export function OwnerBookingInvitePanel({
         {showHandover ? (
           <label
             className="field span-2 owner-booking-invite__reveal"
-            ref={stage === 'handover' ? revealRef : undefined}
+            ref={bindReveal(stage === 'handover')}
           >
             <span>{ar ? 'تاريخ الاستلام' : 'Handover date'}</span>
             <input
@@ -727,7 +732,7 @@ export function OwnerBookingInvitePanel({
         {showParty ? (
           <div
             className="span-2 owner-booking-invite__reveal"
-            ref={stage === 'party' ? revealRef : undefined}
+            ref={bindReveal(stage === 'party')}
           >
             {tenants.length ? (
               <label className="field span-2">
@@ -770,7 +775,7 @@ export function OwnerBookingInvitePanel({
         {showContract ? (
           <div
             className="span-2 form-grid owner-booking-invite__reveal"
-            ref={stage === 'contract' ? revealRef : undefined}
+            ref={bindReveal(stage === 'contract')}
           >
             <label className="field span-2 owner-booking-invite__choice">
               <input
@@ -816,7 +821,7 @@ export function OwnerBookingInvitePanel({
         {showReview ? (
           <div
             className="span-2 owner-booking-invite__review owner-booking-invite__reveal"
-            ref={revealRef}
+            ref={bindReveal(true)}
           >
             <dl>
               <div>

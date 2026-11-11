@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.162 — 2026-11-11
+
+- **إصلاح البناء:** تصحيح أنواع `ref` في نموذج دعوة المستأجر حتى يمرّ `next build`.
+
 ## 0.8.136.161 — 2026-11-11
 
 - **حجز جديد (دعوة مستأجر):** الحقول تظهر تدريجياً في نفس الصفحة عند تعبئة كل حقل (بدون زر التالي)، حتى اكتمال المراجعة وإرسال الدعوة.
