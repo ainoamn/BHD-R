@@ -516,24 +516,36 @@ export async function silentRebind(
 }
 
 /**
- * Before authenticated reads/writes: bind this tab's ?au= and cache its product JWT.
- * Multi-tab browsers share one cookie — API calls must send the tab-bound product session.
+ * Before authenticated reads/writes: bind this tab's ?au= and cache its product JWT when possible.
+ * Multi-tab browsers share one cookie — prefer the tab-bound product session header when cached.
  */
 export async function claimProductSessionForActiveAu(): Promise<{ ok: boolean }> {
   if (typeof window === 'undefined') return { ok: true };
   const au = readActiveAu();
   if (!au) return { ok: true };
   try {
-    const { boundProductSessionToken } = await import('@/lib/identity/window-session');
+    const { boundProductSessionToken, tokenForAccount, boundWindowToken } = await import(
+      '@/lib/identity/window-session'
+    );
     const matches = await productSessionMatchesTab();
+    const hasIdentity = Boolean(tokenForAccount(au) || boundWindowToken());
     // Cookie already matches and this tab has a cached product JWT — skip rebind.
     if (matches && boundProductSessionToken()) return { ok: true };
-    // Rebind (or unchanged hand-back) so sessionStorage holds this tab's product JWT + CSRF.
-    const result = await silentRebind(null, au);
-    if (!result.ok) return { ok: false };
-    clearHostileProductCookie();
-    broadcastProductCookieOwner(result.userId || au);
-    return { ok: true };
+    // Best-effort: hand back / mint a tab-scoped product JWT when an identity token exists.
+    if (hasIdentity) {
+      const result = await silentRebind(null, au);
+      if (result.ok) {
+        clearHostileProductCookie();
+        broadcastProductCookieOwner(result.userId || au);
+        return { ok: true };
+      }
+      // Cookie already matched this au — do not block the page if rebind blipped.
+      if (matches) return { ok: true };
+      return { ok: false };
+    }
+    // No identity bearer in this tab: cookie path only. OK when it already matches ?au=.
+    if (matches) return { ok: true };
+    return { ok: false };
   } catch {
     return { ok: false };
   }

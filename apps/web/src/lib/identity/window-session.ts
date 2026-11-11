@@ -160,17 +160,37 @@ export function boundProductCsrfToken(): string {
 /**
  * Headers that pin API auth to this tab's account.
  * Server prefers `x-bhd-product-session` over the shared `bhd_r_session` cookie.
+ * Only attach au/identity pins when a product JWT is cached — otherwise a stale identity
+ * bearer can reject a still-valid cookie session (lab-reset / admin reads).
  */
 export function tabBoundAuthHeaders(init?: HeadersInit): Headers {
   const headers = new Headers(init);
   if (typeof window === 'undefined') return headers;
+  const product = boundProductSessionToken();
+  if (!product) return headers;
   const au = readActiveAu();
   if (au) headers.set('x-bhd-active-au', au);
   const identity = boundWindowToken();
   if (identity) headers.set('x-bhd-identity-bearer', identity);
-  const product = boundProductSessionToken();
-  if (product) headers.set('x-bhd-product-session', product);
+  headers.set('x-bhd-product-session', product);
   const csrf = boundProductCsrfToken();
   if (csrf && !headers.has('x-csrf-token')) headers.set('x-csrf-token', csrf);
   return headers;
+}
+
+/** Drop a revoked / mismatched cached product JWT so the next claim can mint a fresh one. */
+export function clearProductSession(sub?: string | null) {
+  if (typeof window === 'undefined') return;
+  const au = (sub || readActiveAu() || '').trim();
+  if (!au) return;
+  const sessions = readNamedTokenMap(PRODUCT_SESSION_TOKENS_KEY);
+  if (sessions[au]) {
+    delete sessions[au];
+    writeNamedTokenMap(PRODUCT_SESSION_TOKENS_KEY, sessions);
+  }
+  const csrfs = readNamedTokenMap(PRODUCT_CSRF_TOKENS_KEY);
+  if (csrfs[au]) {
+    delete csrfs[au];
+    writeNamedTokenMap(PRODUCT_CSRF_TOKENS_KEY, csrfs);
+  }
 }

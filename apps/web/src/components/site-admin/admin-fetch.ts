@@ -1,5 +1,5 @@
 import { ApiError } from '@/lib/api';
-import { tabBoundAuthHeaders } from '@/lib/identity/window-session';
+import { clearProductSession, readActiveAu, tabBoundAuthHeaders } from '@/lib/identity/window-session';
 
 export type AdminNotice = { tone: 'success' | 'error'; text: string };
 
@@ -20,21 +20,31 @@ async function claimActiveAuIfNeeded(): Promise<void> {
   }
 }
 
-export async function adminGet<T>(path: string): Promise<T> {
-  await claimActiveAuIfNeeded();
-  const response = await fetch(path, {
+async function adminFetchOnce(path: string): Promise<Response> {
+  return fetch(path, {
     credentials: 'same-origin',
     cache: 'no-store',
     headers: tabBoundAuthHeaders({ accept: 'application/json' }),
   });
+}
+
+export async function adminGet<T>(path: string): Promise<T> {
+  await claimActiveAuIfNeeded();
+  let response = await adminFetchOnce(path);
+  // Cached product JWT may have been revoked by another tab's rebind — clear and retry once.
+  if (response.status === 401 || response.status === 403) {
+    clearProductSession(readActiveAu());
+    await claimActiveAuIfNeeded();
+    response = await adminFetchOnce(path);
+  }
   const payload = (await response.json().catch(() => null)) as
-    | (T & { error?: { code?: string; messageAr?: string } })
+    | (T & { error?: { code?: string; messageAr?: string; message?: string } })
     | null;
   if (!response.ok || !payload) {
     throw new ApiError(
       response.status,
       payload?.error?.code ?? 'request_failed',
-      payload?.error?.messageAr ?? 'تعذّر التحميل.',
+      payload?.error?.messageAr ?? payload?.error?.message ?? 'تعذّر التحميل.',
     );
   }
   return payload;

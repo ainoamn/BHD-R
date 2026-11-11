@@ -46,11 +46,19 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
       const body = await adminGet<{ counts: LabResetCounts }>('/api/site-admin/lab-reset');
       setCounts(body.counts ?? EMPTY);
       setFailed(false);
-    } catch {
+      setMessage(null);
+    } catch (error) {
       setFailed(true);
       setCounts(EMPTY);
+      setMessage(
+        error instanceof ApiError && error.message
+          ? error.message
+          : ar
+            ? 'تعذر تحميل العدادات. تأكد أن لديك صلاحية كتابة المنظمة.'
+            : 'Could not load counts. You need organization write access.',
+      );
     }
-  }, []);
+  }, [ar]);
 
   useEffect(() => {
     void load();
@@ -170,15 +178,24 @@ export function LabResetDesk({ locale }: { locale: 'ar' | 'en' }) {
     >
       <SiteAdminBanner
         notice={
-          failed
+          message
             ? {
-                tone: 'error',
-                text: ar
-                  ? 'تعذر تحميل العدادات. تأكد أن لديك صلاحية كتابة المنظمة.'
-                  : 'Could not load counts. You need organization write access.',
+                tone:
+                  message.startsWith('تم') ||
+                  message.startsWith('Deleted') ||
+                  message.startsWith('لا') ||
+                  message.startsWith('Nothing')
+                    ? 'success'
+                    : 'error',
+                text: message,
               }
-            : message
-              ? { tone: message.startsWith('تم') || message.startsWith('Deleted') || message.startsWith('لا') || message.startsWith('Nothing') ? 'success' : 'error', text: message }
+            : failed
+              ? {
+                  tone: 'error',
+                  text: ar
+                    ? 'تعذر تحميل العدادات. تأكد أن لديك صلاحية كتابة المنظمة.'
+                    : 'Could not load counts. You need organization write access.',
+                }
               : null
         }
       />
