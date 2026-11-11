@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { pushSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { siteAdminSoftSectionFromPath } from '@/lib/site-admin-soft-nav';
 import {
@@ -12,6 +12,8 @@ import {
   type SiteConsoleNavGroup,
 } from '@/lib/site-admin-shared';
 import type { Viewer } from '@/lib/types';
+import { identityMe } from '@/lib/identity/client';
+import { readActiveAu } from '@/lib/identity/window-session';
 
 const BhdAppSwitcher = dynamic(
   () => import('@/components/bhd-app-switcher').then((mod) => mod.BhdAppSwitcher),
@@ -53,14 +55,42 @@ export function SiteAdminNav({
     label: SITE_CONSOLE_NAV_GROUPS[group],
     items: sections.filter((section) => section.group === group),
   })).filter((entry) => entry.items.length > 0);
+  // SSR footer can lag the shared cookie; prefer this tab's ?au= identity face.
+  const [tabFace, setTabFace] = useState<{ name: string; email: string } | null>(null);
+  useEffect(() => {
+    let live = true;
+    const au = readActiveAu();
+    void identityMe()
+      .then((payload) => {
+        if (!live || !payload) return;
+        const accounts = Array.isArray(payload.accounts) ? payload.accounts : [];
+        const match =
+          (au && accounts.find((item) => item.id === au)) ||
+          accounts.find((item) => item.id === payload.user?.id) ||
+          null;
+        const email =
+          (typeof match?.email === 'string' && match.email.trim()) ||
+          (typeof payload.user?.email === 'string' && payload.user.email.trim()) ||
+          '';
+        const name =
+          (typeof match?.name === 'string' && match.name.trim()) ||
+          (typeof payload.user?.name === 'string' && payload.user.name.trim()) ||
+          email;
+        if (email || name) setTabFace({ name: name || email, email });
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [pathname]);
   const accountLabel = useMemo(() => {
-    const name = viewer.displayName?.trim();
-    const email = viewer.email?.trim();
+    const name = (tabFace?.name || viewer.displayName)?.trim();
+    const email = (tabFace?.email || viewer.email)?.trim();
     if (name && email && name.toLowerCase() !== email.toLowerCase()) {
       return { primary: name, secondary: email };
     }
     return { primary: name || email || (ar ? 'الحساب' : 'Account'), secondary: null };
-  }, [viewer.displayName, viewer.email, ar]);
+  }, [tabFace, viewer.displayName, viewer.email, ar]);
 
   return (
     <aside

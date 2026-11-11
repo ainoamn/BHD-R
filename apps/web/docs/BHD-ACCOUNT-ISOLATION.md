@@ -9,7 +9,9 @@
 ## القاعدة (نموذج جوجل)
 
 - ربط التبويب: `?au=<sub>` + خريطة `bhd_account_tokens` في `sessionStorage`.
-- انحراف خلفي: `POST /api/auth/bhd/rebind` مع `Accept: application/json` (silent).
+- جلسة المنتج لكل حساب: `bhd_product_session_tokens` + `bhd_product_csrf_tokens` — طلبات `/api/*` ترسل `x-bhd-product-session` و`x-bhd-active-au` و`x-bhd-identity-bearer` ولا تعتمد على الكوكي المشتركة وحدها.
+- `requireLiveSession` يفضّل JWT المنتج المربوط بالتبويب ويرفض `account_mismatch` عند تعارض `?au=`.
+- انحراف خلفي: `POST /api/auth/bhd/rebind` مع `Accept: application/json` (silent) ويعيد `sessionToken`/`csrf` للتبويب.
 - تبديل صريح: غطاء فارغ + `X-BHD-Persist-Cookie: 1` + form rebind.
 - `BhdSilentSso`: فحص عند التركيز — `silent: true` فقط؛ الغطاء يبقى حتى `currentSub === ?au=` بعد `router.refresh()`.
 - Bootstrap في `layout`: إن وُجد `?au=` يُفعَّل `data-bhd-switching` فوراً قبل رسم SSR الخاطئ (كوكي تبويب آخر).

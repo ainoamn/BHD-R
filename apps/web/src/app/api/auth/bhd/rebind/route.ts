@@ -76,7 +76,13 @@ function redirectHome(origin: string, returnTo: string) {
 }
 
 function jsonOk(
-  payload: { ok: true; unchanged?: boolean; user: { id: string; email: string; name: string } },
+  payload: {
+    ok: true;
+    unchanged?: boolean;
+    user: { id: string; email: string; name: string };
+    sessionToken?: string;
+    csrf?: string;
+  },
   applyCookies?: (response: NextResponse) => void,
 ) {
   const response = NextResponse.json(payload, {
@@ -154,6 +160,10 @@ async function rebind(request: Request) {
         });
         if (row?.identitySubject?.trim() === profile.sub) {
           if (json) {
+            // Hand the existing product JWT back so this tab can isolate API calls
+            // even after another tab rewrites the shared cookie.
+            const existingToken = cookieStore.get('bhd_r_session')?.value || '';
+            const existingCsrf = cookieStore.get('bhd_r_csrf')?.value || '';
             return jsonOk({
               ok: true,
               unchanged: true,
@@ -162,6 +172,8 @@ async function rebind(request: Request) {
                 email: profile.email,
                 name: row.displayName || profile.name,
               },
+              ...(existingToken.length > 20 ? { sessionToken: existingToken } : {}),
+              ...(existingCsrf.length > 20 ? { csrf: existingCsrf } : {}),
             });
           }
           const response = redirectHome(origin, bindReturnPath(returnTo, profile.sub));
@@ -194,7 +206,12 @@ async function rebind(request: Request) {
 
     if (json) {
       return jsonOk(
-        { ok: true, user: { id: profile.sub, email: profile.email, name: profile.name } },
+        {
+          ok: true,
+          user: { id: profile.sub, email: profile.email, name: profile.name },
+          sessionToken: issued.token,
+          csrf: issued.csrf,
+        },
         (response) => setSessionCookies(response, issued),
       );
     }

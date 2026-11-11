@@ -3,6 +3,7 @@ import { getCachedCatalogApps } from '@/lib/bhd/catalog';
 import {
   boundWindowToken,
   captureAccountToken,
+  captureProductSession,
   captureWindowToken,
   readActiveAu,
   setActiveAu,
@@ -490,6 +491,8 @@ export async function silentRebind(
       ok?: boolean;
       unchanged?: boolean;
       user?: { id?: string } | null;
+      sessionToken?: string | null;
+      csrf?: string | null;
     };
     if (!response.ok || !body.ok) return { ok: false };
     // Keep the tab's identity ?au= — product user.id is a different id space and must not
@@ -497,8 +500,10 @@ export async function silentRebind(
     if (boundSub) {
       setActiveAu(boundSub);
       ensureAuInUrl(boundSub);
+      captureProductSession(boundSub, body.sessionToken, body.csrf);
     } else if (body.user?.id) {
       setActiveAu(body.user.id);
+      captureProductSession(body.user.id, body.sessionToken, body.csrf);
     }
     return {
       ok: true,
@@ -511,16 +516,19 @@ export async function silentRebind(
 }
 
 /**
- * Before authenticated writes: bind the shared product cookie to this tab's ?au=.
- * Multi-tab browsers share one cookie — without this, booking/payment lands on the other account.
+ * Before authenticated reads/writes: bind this tab's ?au= and cache its product JWT.
+ * Multi-tab browsers share one cookie — API calls must send the tab-bound product session.
  */
 export async function claimProductSessionForActiveAu(): Promise<{ ok: boolean }> {
   if (typeof window === 'undefined') return { ok: true };
   const au = readActiveAu();
   if (!au) return { ok: true };
   try {
+    const { boundProductSessionToken } = await import('@/lib/identity/window-session');
     const matches = await productSessionMatchesTab();
-    if (matches) return { ok: true };
+    // Cookie already matches and this tab has a cached product JWT — skip rebind.
+    if (matches && boundProductSessionToken()) return { ok: true };
+    // Rebind (or unchanged hand-back) so sessionStorage holds this tab's product JWT + CSRF.
     const result = await silentRebind(null, au);
     if (!result.ok) return { ok: false };
     clearHostileProductCookie();

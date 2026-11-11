@@ -112,12 +112,19 @@ async function getNextCsrfToken(force = false): Promise<string> {
       } catch (error) {
         if (error instanceof ApiError) throw error;
       }
+      const { tabBoundAuthHeaders, captureProductSession, readActiveAu, boundProductCsrfToken } =
+        await import('@/lib/identity/window-session');
+      const cachedCsrf = boundProductCsrfToken();
+      if (!force && cachedCsrf) {
+        cachedNextCsrfToken = cachedCsrf;
+        return cachedCsrf;
+      }
       let response: Response;
       try {
         // Hobby cold starts often exceed 12s; keep aligned with Nest CSRF budget.
         response = await fetch('/api/auth/csrf', {
           credentials: 'same-origin',
-          headers: { accept: 'application/json' },
+          headers: tabBoundAuthHeaders({ accept: 'application/json' }),
           signal: AbortSignal.timeout(40_000),
           cache: 'no-store',
         });
@@ -150,6 +157,7 @@ async function getNextCsrfToken(force = false): Promise<string> {
         throw new ApiError(500, 'csrf_unavailable', 'تعذر إنشاء رمز الحماية.');
       }
       cachedNextCsrfToken = payload.token;
+      captureProductSession(readActiveAu(), null, payload.token);
       return payload.token;
     };
     try {
@@ -363,17 +371,18 @@ export async function browserNextMutation<T>(path: string, init: RequestInit): P
     let response: Response;
     try {
       const isFormData = typeof FormData !== 'undefined' && init.body instanceof FormData;
+      const { tabBoundAuthHeaders } = await import('@/lib/identity/window-session');
       response = await fetch(path, {
         ...init,
         credentials: 'same-origin',
-        headers: {
+        headers: tabBoundAuthHeaders({
           accept: 'application/json',
           // Let the browser set multipart boundary for FormData uploads.
           ...(isFormData ? {} : { 'content-type': 'application/json' }),
           'x-csrf-token': csrfToken,
           'idempotency-key': crypto.randomUUID(),
-          ...init.headers,
-        },
+          ...Object.fromEntries(new Headers(init.headers).entries()),
+        }),
         signal: init.signal ?? AbortSignal.timeout(45_000),
       });
     } catch (error) {

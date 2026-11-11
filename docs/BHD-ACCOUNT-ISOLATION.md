@@ -55,6 +55,7 @@ POST /api/auth/switch مع Bearer
 5. أخفِ واجهة الحساب السابق فوراً.
 6. الرأس = جلسة المنتج عند اختلاف `sub`.
 7. `start` يمسح كوكي جلسة المنتج قبل OAuth.
+8. **عزل API بين التبويبات:** خزّن JWT المنتج لكل `au` في `sessionStorage` وأرسله في `x-bhd-product-session` مع `x-bhd-active-au` — لا تعتمد على الكوكي المشتركة وحدها لقراءات/كتابات المالك والإدارة.
 
 تفاصيل الأمر للوكيل: [`BHD-CURSOR-PRODUCT-WIRE.md`](BHD-CURSOR-PRODUCT-WIRE.md) §3.
 

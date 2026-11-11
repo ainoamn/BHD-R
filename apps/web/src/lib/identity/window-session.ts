@@ -2,14 +2,17 @@ export const WINDOW_TOKEN_KEY = 'bhd_window_token';
 export const WINDOW_SIGNED_OUT_KEY = 'bhd_window_signed_out';
 /** Google-style per-account tokens so tabs can bind via ?au=<sub>. */
 export const ACCOUNT_TOKENS_KEY = 'bhd_account_tokens';
+/** Product JWT + CSRF per identity sub — API calls must not rely on the shared cookie alone. */
+export const PRODUCT_SESSION_TOKENS_KEY = 'bhd_product_session_tokens';
+export const PRODUCT_CSRF_TOKENS_KEY = 'bhd_product_csrf_tokens';
 export const ACTIVE_AU_KEY = 'bhd_active_au';
 
 type TokenMap = Record<string, string>;
 
-function readTokenMap(): TokenMap {
+function readNamedTokenMap(storageKey: string): TokenMap {
   if (typeof sessionStorage === 'undefined') return {};
   try {
-    const raw = sessionStorage.getItem(ACCOUNT_TOKENS_KEY);
+    const raw = sessionStorage.getItem(storageKey);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== 'object') return {};
@@ -24,9 +27,17 @@ function readTokenMap(): TokenMap {
   }
 }
 
-function writeTokenMap(map: TokenMap) {
+function writeNamedTokenMap(storageKey: string, map: TokenMap) {
   if (typeof sessionStorage === 'undefined') return;
-  sessionStorage.setItem(ACCOUNT_TOKENS_KEY, JSON.stringify(map));
+  sessionStorage.setItem(storageKey, JSON.stringify(map));
+}
+
+function readTokenMap(): TokenMap {
+  return readNamedTokenMap(ACCOUNT_TOKENS_KEY);
+}
+
+function writeTokenMap(map: TokenMap) {
+  writeNamedTokenMap(ACCOUNT_TOKENS_KEY, map);
 }
 
 /** JWT this browser window uses. Other windows keep their own copy. */
@@ -99,5 +110,67 @@ export function windowFetchHeaders(init?: HeadersInit): Headers {
   } else {
     headers.set('X-BHD-Window-Bootstrap', '1');
   }
+  return headers;
+}
+
+/** Persist the product session that belongs to this tab's identity account. */
+export function captureProductSession(
+  sub: string | null | undefined,
+  sessionToken?: string | null,
+  csrf?: string | null,
+) {
+  if (typeof window === 'undefined') return;
+  const au = (sub || readActiveAu() || '').trim();
+  if (!au) return;
+  if (sessionToken && sessionToken.length > 20) {
+    const map = readNamedTokenMap(PRODUCT_SESSION_TOKENS_KEY);
+    map[au] = sessionToken;
+    writeNamedTokenMap(PRODUCT_SESSION_TOKENS_KEY, map);
+  }
+  if (csrf && csrf.length > 20) {
+    const map = readNamedTokenMap(PRODUCT_CSRF_TOKENS_KEY);
+    map[au] = csrf;
+    writeNamedTokenMap(PRODUCT_CSRF_TOKENS_KEY, map);
+  }
+}
+
+export function productSessionForAccount(sub?: string | null): string {
+  if (typeof window === 'undefined' || !sub) return '';
+  return readNamedTokenMap(PRODUCT_SESSION_TOKENS_KEY)[sub] || '';
+}
+
+export function productCsrfForAccount(sub?: string | null): string {
+  if (typeof window === 'undefined' || !sub) return '';
+  return readNamedTokenMap(PRODUCT_CSRF_TOKENS_KEY)[sub] || '';
+}
+
+/** Bound product JWT for this tab (?au=), independent of whichever account owns the shared cookie. */
+export function boundProductSessionToken(): string {
+  if (typeof window === 'undefined') return '';
+  if (sessionStorage.getItem(WINDOW_SIGNED_OUT_KEY) === '1') return '';
+  return productSessionForAccount(readActiveAu());
+}
+
+export function boundProductCsrfToken(): string {
+  if (typeof window === 'undefined') return '';
+  if (sessionStorage.getItem(WINDOW_SIGNED_OUT_KEY) === '1') return '';
+  return productCsrfForAccount(readActiveAu());
+}
+
+/**
+ * Headers that pin API auth to this tab's account.
+ * Server prefers `x-bhd-product-session` over the shared `bhd_r_session` cookie.
+ */
+export function tabBoundAuthHeaders(init?: HeadersInit): Headers {
+  const headers = new Headers(init);
+  if (typeof window === 'undefined') return headers;
+  const au = readActiveAu();
+  if (au) headers.set('x-bhd-active-au', au);
+  const identity = boundWindowToken();
+  if (identity) headers.set('x-bhd-identity-bearer', identity);
+  const product = boundProductSessionToken();
+  if (product) headers.set('x-bhd-product-session', product);
+  const csrf = boundProductCsrfToken();
+  if (csrf && !headers.has('x-csrf-token')) headers.set('x-csrf-token', csrf);
   return headers;
 }

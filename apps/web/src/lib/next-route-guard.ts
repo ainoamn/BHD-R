@@ -5,6 +5,10 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { verifySessionToken, type Permission, type SessionClaims } from '@bhd-r/authz';
 import { createDatabase, sessions, users, type Database } from '@bhd-r/db';
 import { verifyCsrfToken } from '@bhd-r/security';
+import {
+  identityBearerFromRequest,
+  productUserIdFromIdentityBearer,
+} from '@/lib/identity/tab-product-user';
 import { scopedOwnerParty } from '@/lib/portal-access';
 import { requireCsrfSecret, requireSessionSecret } from '@/lib/runtime-env';
 
@@ -62,24 +66,7 @@ function assertBrowserOrigin(request: Request): void {
   }
 }
 
-/**
- * Live session for Next Route Handlers (P0-02 interim):
- * JWT + DB user.sessionVersion + non-revoked sessions row + optional CSRF double-submit.
- */
-export async function requireLiveSession(
-  request: Request,
-  options: {
-    requireCsrf?: boolean;
-    /** Holding any one of these is enough. */
-    anyPermission?: readonly Permission[];
-    /** Refuse building owners, whose access stops at their own properties. */
-    orgWide?: boolean;
-  } = {},
-): Promise<SessionClaims> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('bhd_r_session')?.value;
-  if (!token) throw new RouteGuardError(401, 'unauthorized');
-
+async function liveClaimsFromToken(token: string): Promise<SessionClaims> {
   let claims: SessionClaims;
   try {
     claims = await verifySessionToken(token, requireSessionSecret());
@@ -90,7 +77,7 @@ export async function requireLiveSession(
   const { db } = getDatabase();
   const user = await db.query.users.findFirst({
     where: eq(users.id, claims.sub),
-    columns: { id: true, disabledAt: true, sessionVersion: true },
+    columns: { id: true, disabledAt: true, sessionVersion: true, identitySubject: true },
   });
   if (!user || user.disabledAt || user.sessionVersion !== claims.sessionVersion) {
     throw new RouteGuardError(401, 'unauthorized');
@@ -111,16 +98,64 @@ export async function requireLiveSession(
     throw new RouteGuardError(401, 'unauthorized');
   }
 
+  return claims;
+}
+
+/**
+ * Live session for Next Route Handlers.
+ * Prefers the tab-bound product JWT (`x-bhd-product-session`) so another tab's cookie
+ * rewrite cannot serve the wrong owner's data. Cookie remains the SSR/legacy fallback.
+ */
+export async function requireLiveSession(
+  request: Request,
+  options: {
+    requireCsrf?: boolean;
+    /** Holding any one of these is enough. */
+    anyPermission?: readonly Permission[];
+    /** Refuse building owners, whose access stops at their own properties. */
+    orgWide?: boolean;
+  } = {},
+): Promise<SessionClaims> {
+  const cookieStore = await cookies();
+  const headerSession = request.headers.get('x-bhd-product-session')?.trim() || '';
+  const cookieToken = cookieStore.get('bhd_r_session')?.value || '';
+  const token = headerSession.length > 20 ? headerSession : cookieToken;
+  if (!token) throw new RouteGuardError(401, 'unauthorized');
+  const fromTabHeader = headerSession.length > 20 && token === headerSession;
+
+  const claims = await liveClaimsFromToken(token);
+
+  // Pin the principal to this tab's identity account when the client sends one.
+  const activeAu = request.headers.get('x-bhd-active-au')?.trim() || '';
+  const identityBearer = identityBearerFromRequest(request);
+  if (activeAu || identityBearer) {
+    const { db } = getDatabase();
+    const row = await db.query.users.findFirst({
+      where: eq(users.id, claims.sub),
+      columns: { identitySubject: true },
+    });
+    const subject = row?.identitySubject?.trim() || '';
+    if (activeAu && subject && activeAu !== subject) {
+      throw new RouteGuardError(401, 'account_mismatch');
+    }
+    if (identityBearer) {
+      const tabUserId = await productUserIdFromIdentityBearer(identityBearer);
+      if (tabUserId && tabUserId !== claims.sub) {
+        throw new RouteGuardError(401, 'account_mismatch');
+      }
+    }
+  }
+
   if (options.requireCsrf) {
     assertBrowserOrigin(request);
     const header = request.headers.get('x-csrf-token');
     const cookie = cookieStore.get('bhd_r_csrf')?.value;
-    if (
-      !header ||
-      !cookie ||
-      header !== cookie ||
-      !verifyCsrfToken(header, claims.sid, requireCsrfSecret())
-    ) {
+    const csrfOk = Boolean(
+      header && verifyCsrfToken(header, claims.sid, requireCsrfSecret()),
+    );
+    // Tab-bound product JWT: CSRF is signed to that session id (cookie may belong to another tab).
+    // Cookie path: keep classic double-submit (header === cookie).
+    if (!csrfOk || (!fromTabHeader && (!cookie || header !== cookie))) {
       throw new RouteGuardError(403, 'csrf_rejected');
     }
   }
@@ -143,6 +178,10 @@ export function guardErrorResponse(error: unknown): {
   if (error instanceof RouteGuardError) {
     const messages: Record<string, { en: string; ar: string }> = {
       unauthorized: { en: 'Sign in required', ar: 'يلزم تسجيل الدخول' },
+      account_mismatch: {
+        en: 'This tab’s account does not match the product session — switch account and retry',
+        ar: 'حساب هذه النافذة لا يطابق جلسة المنتج — بدّل الحساب ثم أعد المحاولة',
+      },
       csrf_rejected: {
         en: 'Security token rejected — refresh the page and retry',
         ar: 'رمز الحماية مرفوض — حدّث الصفحة وأعد المحاولة',
