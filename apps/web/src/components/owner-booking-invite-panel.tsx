@@ -270,7 +270,6 @@ export function OwnerBookingInvitePanel({
     () => vacantUnits.find((row) => row.id === unitId) ?? null,
     [vacantUnits, unitId],
   );
-  const unitLabel = selectedUnit ? unitOptionLabel(selectedUnit, ar) : '';
   const unitCurrency = (selectedUnit?.currency || 'OMR') as CurrencyCode;
 
   useEffect(() => {
