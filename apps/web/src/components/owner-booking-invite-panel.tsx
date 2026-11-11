@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
@@ -48,6 +48,15 @@ function muscatTodayIso(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
 }
 
+function positiveMajor(raw: string, currency: CurrencyCode): boolean {
+  try {
+    const minor = toMinorUnits(raw.trim() || '0', currency);
+    return /^[1-9]\d*$/.test(minor);
+  } catch {
+    return false;
+  }
+}
+
 type TenantOption = {
   id: string;
   displayName?: string;
@@ -60,10 +69,18 @@ type TenantOption = {
 };
 
 type Mode = 'rent' | 'sale';
-type Step = 'unit' | 'party' | 'contract' | 'review';
 type ContractPreference = 'electronic' | 'manual';
 
-const STEPS: Step[] = ['unit', 'party', 'contract', 'review'];
+/** Progressive reveal stages on one page (no Next wizard). */
+type Stage =
+  | 'unit'
+  | 'rent'
+  | 'deposit'
+  | 'leaseStart'
+  | 'handover'
+  | 'party'
+  | 'contract'
+  | 'review';
 
 function unitMatchesMode(unit: UnitOption, mode: Mode): boolean {
   const purpose = (unit.listingPurpose || 'both').toLowerCase();
@@ -102,8 +119,8 @@ function unitOptionLabel(unit: UnitOption, ar: boolean): string {
 }
 
 /**
- * Landlord-facing booking create — same step scenes as public /book, but the
- * owner fills the tenant and lease details then invites them by email + WhatsApp.
+ * Landlord-facing booking create — progressive single page: each completed field
+ * reveals the next below it (no Next-step navigation).
  */
 export function OwnerBookingInvitePanel({
   portal,
@@ -124,7 +141,6 @@ export function OwnerBookingInvitePanel({
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
-  const [step, setStep] = useState<Step>('unit');
   const [unitId, setUnitId] = useState('');
   const [mode, setMode] = useState<Mode>(initialMode);
   const [unitQuery, setUnitQuery] = useState('');
@@ -140,6 +156,9 @@ export function OwnerBookingInvitePanel({
   const [handoverOn, setHandoverOn] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Furthest stage unlocked; earlier stages stay visible above. */
+  const [stage, setStage] = useState<Stage>('unit');
+  const revealRef = useRef<HTMLElement | null>(null);
 
   const modeUnits = useMemo(
     () => vacantUnits.filter((unit) => unitMatchesMode(unit, mode)),
@@ -155,6 +174,7 @@ export function OwnerBookingInvitePanel({
   useEffect(() => {
     if (unitId && !modeUnits.some((unit) => unit.id === unitId)) {
       setUnitId('');
+      setStage('unit');
     }
   }, [modeUnits, unitId]);
 
@@ -180,45 +200,25 @@ export function OwnerBookingInvitePanel({
     setHandoverOn(today);
   }, [selectedUnit]);
 
-  const stepNo = STEPS.indexOf(step) + 1;
-  const greeting: BookingStepGreeting =
-    step === 'unit'
-      ? {
-          kind: 'review',
-          status: ar ? 'حجز جديد' : 'New booking',
-          heading: ar ? 'اختر نوع العرض والوحدة' : 'Choose offer type and unit',
-          body: ar
-            ? 'اختر تأجير أو بيع أولاً، ثم ابحث عن العقار واختر وحدة شاغرة متاحة لهذا النوع.'
-            : 'Pick rent or sale first, then search and choose a vacant unit for that offer.',
-        }
-      : step === 'party'
-        ? {
-            kind: 'details',
-            status: ar ? 'بيانات المستأجر' : 'Tenant details',
-            heading: ar
-              ? 'أدخل بيانات المحجوز له ومدة التأجير'
-              : 'Enter the guest details and lease term',
-            body: ar
-              ? 'بعد الإرسال يُضاف تلقائياً إلى دفتر العناوين.'
-              : 'After send they are added to the address book automatically.',
-          }
-        : step === 'contract'
-          ? {
-              kind: 'terms',
-              status: ar ? 'طريقة العقد' : 'Contract method',
-              heading: ar ? 'إلكتروني أم يدوي؟' : 'Electronic or manual?',
-              body: ar
-                ? 'بعد دفع المستأجر ورفع المستندات يُنشأ العقد تلقائياً أو تنتظر إدخالها يدوياً.'
-                : 'After the tenant pays and uploads docs, auto-issue or enter the contract yourself.',
-            }
-          : {
-              kind: 'payment',
-              status: ar ? 'إرسال الدعوة' : 'Send invite',
-              heading: ar ? 'راجع وأرسل للمستأجر' : 'Review and send to the tenant',
-              body: ar
-                ? 'سيصله رابط بالبريد وواتساب، ويُحفظ في دفتر العناوين.'
-                : 'They get email and WhatsApp links, and are saved to the address book.',
-            };
+  useEffect(() => {
+    revealRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [stage]);
+
+  function unlock(next: Stage) {
+    setStage((current) => {
+      const order: Stage[] = [
+        'unit',
+        'rent',
+        'deposit',
+        'leaseStart',
+        'handover',
+        'party',
+        'contract',
+        'review',
+      ];
+      return order.indexOf(next) > order.indexOf(current) ? next : current;
+    });
+  }
 
   function partyStepError(): string | null {
     const built = buildReservationParty(partyForm, {
@@ -275,40 +275,91 @@ export function OwnerBookingInvitePanel({
     return null;
   }
 
-  function validateStep(current: Step): string | null {
-    if (current === 'unit') {
-      if (!mode) return ar ? 'اختر نوع العرض.' : 'Choose the offer type.';
-      if (!unitId) {
-        return ar
-          ? 'اختر وحدة شاغرة متاحة لهذا النوع.'
-          : 'Choose a vacant unit available for this offer.';
-      }
-      if (!modeUnits.some((unit) => unit.id === unitId)) {
-        return ar
-          ? 'الوحدة المختارة غير متاحة لهذا النوع.'
-          : 'The selected unit is not available for this offer.';
-      }
-      return commercialStepError();
-    }
-    if (current === 'party') return partyStepError();
-    if (current === 'contract') {
-      if (contractPreference !== 'electronic' && contractPreference !== 'manual') {
-        return ar ? 'اختر طريقة العقد.' : 'Choose the contract method.';
-      }
-      return null;
-    }
-    return null;
-  }
+  const rentOk = mode === 'sale' || positiveMajor(rentMajor, unitCurrency);
+  const depositOk = positiveMajor(depositMajor, unitCurrency);
+  const leaseStartOk = mode === 'sale' || Boolean(leaseStartsOn);
+  const handoverOk =
+    mode === 'sale' || (Boolean(handoverOn) && (!leaseStartsOn || handoverOn <= leaseStartsOn));
+  const commercialOk = Boolean(unitId) && !commercialStepError();
+  const partyOk = partyStepError() === null;
 
-  function goNext() {
-    setError(null);
-    const problem = validateStep(step);
-    if (problem) {
-      setError(problem);
-      return;
-    }
-    setStep(step === 'unit' ? 'party' : step === 'party' ? 'contract' : 'review');
-  }
+  const showRent = mode === 'rent' && Boolean(unitId) && stage !== 'unit';
+  const showDeposit =
+    Boolean(unitId) &&
+    (mode === 'sale'
+      ? stage !== 'unit'
+      : ['deposit', 'leaseStart', 'handover', 'party', 'contract', 'review'].includes(stage));
+  const showLeaseStart =
+    mode === 'rent' &&
+    ['leaseStart', 'handover', 'party', 'contract', 'review'].includes(stage);
+  const showHandover =
+    mode === 'rent' && ['handover', 'party', 'contract', 'review'].includes(stage);
+  const showParty = ['party', 'contract', 'review'].includes(stage);
+  const showContract = ['contract', 'review'].includes(stage);
+  const showReview = stage === 'review';
+
+  // When party becomes complete, open contract; when contract chosen, open review.
+  useEffect(() => {
+    if (!showParty) return;
+    if (partyOk) unlock('contract');
+  }, [showParty, partyOk]);
+
+  useEffect(() => {
+    if (!showContract) return;
+    if (contractPreference) unlock('review');
+  }, [showContract, contractPreference]);
+
+  const greeting: BookingStepGreeting = showReview
+    ? {
+        kind: 'payment',
+        status: ar ? 'إرسال الدعوة' : 'Send invite',
+        heading: ar ? 'راجع وأرسل للمستأجر' : 'Review and send to the tenant',
+        body: ar
+          ? 'سيصله رابط بالبريد وواتساب، ويُحفظ في دفتر العناوين.'
+          : 'They get email and WhatsApp links, and are saved to the address book.',
+      }
+    : showContract
+      ? {
+          kind: 'terms',
+          status: ar ? 'طريقة العقد' : 'Contract method',
+          heading: ar ? 'إلكتروني أم يدوي؟' : 'Electronic or manual?',
+          body: ar
+            ? 'بعد دفع المستأجر ورفع المستندات يُنشأ العقد تلقائياً أو تنتظر إدخالها يدوياً.'
+            : 'After the tenant pays and uploads docs, auto-issue or enter the contract yourself.',
+        }
+      : showParty
+        ? {
+            kind: 'details',
+            status: ar ? 'بيانات المستأجر' : 'Tenant details',
+            heading: ar
+              ? 'أدخل بيانات المحجوز له ومدة التأجير'
+              : 'Enter the guest details and lease term',
+            body: ar
+              ? 'بعد الإرسال يُضاف تلقائياً إلى دفتر العناوين.'
+              : 'After send they are added to the address book automatically.',
+          }
+        : {
+            kind: 'review',
+            status: ar ? 'حجز جديد' : 'New booking',
+            heading: ar ? 'أكمل الحقول واحداً تلو الآخر' : 'Complete each field in turn',
+            body: ar
+              ? 'عند تعبئة حقل يظهر الحقل التالي أسفله في نفس الصفحة.'
+              : 'When you fill a field, the next one appears below it on this same page.',
+          };
+
+  const stageNo =
+    (
+      {
+        unit: 1,
+        rent: 2,
+        deposit: 3,
+        leaseStart: 4,
+        handover: 5,
+        party: 6,
+        contract: 7,
+        review: 8,
+      } as const
+    )[stage] ?? 1;
 
   function applyDirectoryTenant(id: string) {
     setDirectoryId(id);
@@ -337,14 +388,23 @@ export function OwnerBookingInvitePanel({
 
   async function submitInvite() {
     setError(null);
-    for (const gate of STEPS) {
-      if (gate === 'review') continue;
-      const problem = validateStep(gate);
-      if (problem) {
-        setError(problem);
-        setStep(gate);
-        return;
-      }
+    if (!unitId || !modeUnits.some((unit) => unit.id === unitId)) {
+      setError(
+        ar ? 'اختر وحدة شاغرة متاحة لهذا النوع.' : 'Choose a vacant unit available for this offer.',
+      );
+      setStage('unit');
+      return;
+    }
+    const commercial = commercialStepError();
+    if (commercial) {
+      setError(commercial);
+      return;
+    }
+    const partyProblem = partyStepError();
+    if (partyProblem) {
+      setError(partyProblem);
+      setStage('party');
+      return;
     }
 
     const built = buildReservationParty(partyForm, {
@@ -356,7 +416,7 @@ export function OwnerBookingInvitePanel({
     });
     if ('error' in built) {
       setError(built.error);
-      setStep('party');
+      setStage('party');
       return;
     }
     const party = built.party;
@@ -375,7 +435,6 @@ export function OwnerBookingInvitePanel({
       depositMinor = toMinorUnits(depositMajor.trim() || '0', unitCurrency);
     } catch {
       setError(ar ? 'أدخل مبالغ صحيحة.' : 'Enter valid amounts.');
-      setStep('unit');
       return;
     }
 
@@ -435,347 +494,417 @@ export function OwnerBookingInvitePanel({
     }
   }
 
-  const canAdvance =
-    step === 'unit'
-      ? Boolean(unitId && modeUnits.some((unit) => unit.id === unitId) && !commercialStepError())
-      : step === 'party'
-        ? partyStepError() === null
-        : step === 'contract'
-          ? Boolean(contractPreference)
-          : true;
+  const canSend = commercialOk && partyOk && Boolean(contractPreference) && showReview;
 
   return (
-    <div className="owner-booking-invite">
+    <div className="owner-booking-invite owner-booking-invite--progressive">
       <BookingStepScene
         ar={ar}
         greeting={greeting}
         label={ar ? 'حجز من المالك' : 'Owner booking'}
-        stepNo={stepNo}
-        stepCount={STEPS.length}
+        stepNo={stageNo}
+        stepCount={8}
       />
 
-      {step === 'unit' ? (
-        <div className="form-grid">
-          <fieldset className="field span-2">
-            <legend>{ar ? 'نوع العرض' : 'Offer type'}</legend>
-            <div className="purpose-tabs" role="radiogroup">
-              <button
-                type="button"
-                className={mode === 'rent' ? 'purpose-tabs__item is-active' : 'purpose-tabs__item'}
-                onClick={() => {
-                  setMode('rent');
-                  setError(null);
-                }}
-              >
-                {ar ? 'تأجير طويل' : 'Long-term rent'}
-              </button>
-              <button
-                type="button"
-                className={mode === 'sale' ? 'purpose-tabs__item is-active' : 'purpose-tabs__item'}
-                onClick={() => {
-                  setMode('sale');
-                  setError(null);
-                }}
-              >
-                {ar ? 'بيع' : 'Sale'}
-              </button>
-            </div>
-          </fieldset>
-
-          <label className="field span-2">
-            <span>
-              {ar
-                ? 'بحث (المالك / اسم العقار / رقم العقار)'
-                : 'Search (owner / property name / property no.)'}
-            </span>
-            <input
-              className="input"
-              type="search"
-              value={unitQuery}
-              onChange={(event) => setUnitQuery(event.target.value)}
-              placeholder={
-                ar
-                  ? 'اكتب اسم المالك أو العقار أو الرقم…'
-                  : 'Type owner, property name, or number…'
-              }
-              autoComplete="off"
-            />
-          </label>
-
-          <label className="field span-2">
-            <span>
-              {mode === 'sale'
-                ? ar
-                  ? 'الوحدة الشاغرة للبيع'
-                  : 'Vacant unit for sale'
-                : ar
-                  ? 'الوحدة الشاغرة للتأجير'
-                  : 'Vacant unit for rent'}
-            </span>
-            <select
-              className="select"
-              value={unitId}
-              onChange={(event) => {
-                setUnitId(event.target.value);
+      <div className="form-grid">
+        <fieldset className="field span-2">
+          <legend>{ar ? 'نوع العرض' : 'Offer type'}</legend>
+          <div className="purpose-tabs" role="radiogroup">
+            <button
+              type="button"
+              className={mode === 'rent' ? 'purpose-tabs__item is-active' : 'purpose-tabs__item'}
+              onClick={() => {
+                setMode('rent');
+                setUnitId('');
+                setStage('unit');
                 setError(null);
               }}
-              required
             >
-              <option value="">{ar ? 'اختر وحدة…' : 'Choose a unit…'}</option>
-              {filteredUnits.map((unit) => (
-                <option key={unit.id} value={unit.id}>
-                  {unitOptionLabel(unit, ar)}
-                </option>
-              ))}
-            </select>
+              {ar ? 'تأجير طويل' : 'Long-term rent'}
+            </button>
+            <button
+              type="button"
+              className={mode === 'sale' ? 'purpose-tabs__item is-active' : 'purpose-tabs__item'}
+              onClick={() => {
+                setMode('sale');
+                setUnitId('');
+                setStage('unit');
+                setError(null);
+              }}
+            >
+              {ar ? 'بيع' : 'Sale'}
+            </button>
+          </div>
+        </fieldset>
+
+        <label className="field span-2">
+          <span>
+            {ar
+              ? 'بحث (المالك / اسم العقار / رقم العقار)'
+              : 'Search (owner / property name / property no.)'}
+          </span>
+          <input
+            className="input"
+            type="search"
+            value={unitQuery}
+            onChange={(event) => setUnitQuery(event.target.value)}
+            placeholder={
+              ar
+                ? 'اكتب اسم المالك أو العقار أو الرقم…'
+                : 'Type owner, property name, or number…'
+            }
+            autoComplete="off"
+          />
+        </label>
+
+        <label className="field span-2" ref={stage === 'unit' ? revealRef : undefined}>
+          <span>
+            {mode === 'sale'
+              ? ar
+                ? 'الوحدة الشاغرة للبيع'
+                : 'Vacant unit for sale'
+              : ar
+                ? 'الوحدة الشاغرة للتأجير'
+                : 'Vacant unit for rent'}
+          </span>
+          <select
+            className="select"
+            value={unitId}
+            onChange={(event) => {
+              const next = event.target.value;
+              setUnitId(next);
+              setError(null);
+              if (next) unlock(mode === 'rent' ? 'rent' : 'deposit');
+              else setStage('unit');
+            }}
+            required
+          >
+            <option value="">{ar ? 'اختر وحدة…' : 'Choose a unit…'}</option>
+            {filteredUnits.map((unit) => (
+              <option key={unit.id} value={unit.id}>
+                {unitOptionLabel(unit, ar)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {!modeUnits.length ? (
+          <p className="ops-hint span-2">
+            {mode === 'sale'
+              ? ar
+                ? 'لا توجد وحدات شاغرة متاحة للبيع حالياً.'
+                : 'No vacant units available for sale right now.'
+              : ar
+                ? 'لا توجد وحدات شاغرة متاحة للتأجير حالياً.'
+                : 'No vacant units available for rent right now.'}
+          </p>
+        ) : filteredUnits.length === 0 ? (
+          <p className="ops-hint span-2">
+            {ar ? 'لا نتائج مطابقة لبحثك.' : 'No units match your search.'}
+          </p>
+        ) : null}
+
+        {showRent ? (
+          <label
+            className="field span-2 owner-booking-invite__reveal"
+            ref={stage === 'rent' ? revealRef : undefined}
+          >
+            <span>{ar ? 'الإيجار الشهري' : 'Monthly rent'}</span>
+            <input
+              className="input"
+              inputMode="decimal"
+              dir="ltr"
+              value={rentMajor}
+              onChange={(event) => {
+                const next = event.target.value;
+                setRentMajor(next);
+                setError(null);
+                if (positiveMajor(next, unitCurrency)) unlock('deposit');
+              }}
+              onFocus={() => {
+                if (rentOk) unlock('deposit');
+              }}
+              onBlur={() => {
+                if (rentOk) unlock('deposit');
+              }}
+              required
+            />
+            <small className="ops-hint">
+              {ar
+                ? 'يُجلب من بيانات الوحدة ويمكن تعديله — يُستخدم في العقد.'
+                : 'Prefills from the unit and can be edited — used for the contract.'}
+            </small>
           </label>
-          {!modeUnits.length ? (
-            <p className="ops-hint span-2">
-              {mode === 'sale'
-                ? ar
-                  ? 'لا توجد وحدات شاغرة متاحة للبيع حالياً.'
-                  : 'No vacant units available for sale right now.'
-                : ar
-                  ? 'لا توجد وحدات شاغرة متاحة للتأجير حالياً.'
-                  : 'No vacant units available for rent right now.'}
-            </p>
-          ) : filteredUnits.length === 0 ? (
-            <p className="ops-hint span-2">
-              {ar ? 'لا نتائج مطابقة لبحثك.' : 'No units match your search.'}
-            </p>
-          ) : null}
+        ) : null}
 
-          {selectedUnit ? (
-            <>
-              {mode === 'rent' ? (
-                <label className="field">
-                  <span>{ar ? 'الإيجار الشهري' : 'Monthly rent'}</span>
-                  <input
-                    className="input"
-                    inputMode="decimal"
-                    dir="ltr"
-                    value={rentMajor}
-                    onChange={(event) => setRentMajor(event.target.value)}
-                    required
-                  />
-                  <small className="ops-hint">
-                    {ar
-                      ? 'يُجلب من بيانات الوحدة ويمكن تعديله — يُستخدم في العقد.'
-                      : 'Prefills from the unit and can be edited — used for the contract.'}
-                  </small>
-                </label>
-              ) : null}
-              <label className="field">
-                <span>{ar ? 'مبلغ الضمان / العربون' : 'Deposit / booking fee'}</span>
-                <input
-                  className="input"
-                  inputMode="decimal"
-                  dir="ltr"
-                  value={depositMajor}
-                  onChange={(event) => setDepositMajor(event.target.value)}
-                  required
-                />
+        {showDeposit ? (
+          <label
+            className="field span-2 owner-booking-invite__reveal"
+            ref={stage === 'deposit' ? revealRef : undefined}
+          >
+            <span>{ar ? 'مبلغ الضمان / العربون' : 'Deposit / booking fee'}</span>
+            <input
+              className="input"
+              inputMode="decimal"
+              dir="ltr"
+              value={depositMajor}
+              onChange={(event) => {
+                const next = event.target.value;
+                setDepositMajor(next);
+                setError(null);
+                if (positiveMajor(next, unitCurrency)) {
+                  unlock(mode === 'rent' ? 'leaseStart' : 'party');
+                }
+              }}
+              onFocus={() => {
+                if (!depositOk) return;
+                unlock(mode === 'rent' ? 'leaseStart' : 'party');
+              }}
+              onBlur={() => {
+                if (!depositOk) return;
+                unlock(mode === 'rent' ? 'leaseStart' : 'party');
+              }}
+              required
+            />
+          </label>
+        ) : null}
+
+        {showLeaseStart ? (
+          <label
+            className="field span-2 owner-booking-invite__reveal"
+            ref={stage === 'leaseStart' ? revealRef : undefined}
+          >
+            <span>{ar ? 'تاريخ بداية العقد' : 'Lease start date'}</span>
+            <input
+              className="input"
+              type="date"
+              dir="ltr"
+              value={leaseStartsOn}
+              onChange={(event) => {
+                const next = event.target.value;
+                setLeaseStartsOn(next);
+                setError(null);
+                if (next) unlock('handover');
+              }}
+              onFocus={() => {
+                if (leaseStartOk) unlock('handover');
+              }}
+              onBlur={() => {
+                if (leaseStartOk) unlock('handover');
+              }}
+              required
+            />
+          </label>
+        ) : null}
+
+        {showHandover ? (
+          <label
+            className="field span-2 owner-booking-invite__reveal"
+            ref={stage === 'handover' ? revealRef : undefined}
+          >
+            <span>{ar ? 'تاريخ الاستلام' : 'Handover date'}</span>
+            <input
+              className="input"
+              type="date"
+              dir="ltr"
+              value={handoverOn}
+              onChange={(event) => {
+                const next = event.target.value;
+                setHandoverOn(next);
+                setError(null);
+                if (next && (!leaseStartsOn || next <= leaseStartsOn)) unlock('party');
+              }}
+              onFocus={() => {
+                if (handoverOk) unlock('party');
+              }}
+              onBlur={() => {
+                if (handoverOk && !commercialStepError()) unlock('party');
+              }}
+              required
+            />
+          </label>
+        ) : null}
+
+        {showParty ? (
+          <div
+            className="span-2 owner-booking-invite__reveal"
+            ref={stage === 'party' ? revealRef : undefined}
+          >
+            {tenants.length ? (
+              <label className="field span-2">
+                <span>{ar ? 'من سجل العناوين (اختياري)' : 'From address book (optional)'}</span>
+                <select
+                  className="select"
+                  value={directoryId}
+                  onChange={(event) => applyDirectoryTenant(event.target.value)}
+                >
+                  <option value="">{ar ? 'إدخال يدوي…' : 'Enter manually…'}</option>
+                  {tenants.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.displayName || row.name || row.nameAr || row.id.slice(0, 8)}
+                    </option>
+                  ))}
+                </select>
               </label>
-              {mode === 'rent' ? (
-                <>
-                  <label className="field">
-                    <span>{ar ? 'تاريخ بداية العقد' : 'Lease start date'}</span>
-                    <input
-                      className="input"
-                      type="date"
-                      dir="ltr"
-                      value={leaseStartsOn}
-                      onChange={(event) => setLeaseStartsOn(event.target.value)}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>{ar ? 'تاريخ الاستلام' : 'Handover date'}</span>
-                    <input
-                      className="input"
-                      type="date"
-                      dir="ltr"
-                      value={handoverOn}
-                      onChange={(event) => setHandoverOn(event.target.value)}
-                      required
-                    />
-                  </label>
-                </>
-              ) : null}
-              <p className="ops-hint span-2">
-                {ar
-                  ? 'صلاحية الدعوة اليدوية 24 ساعة؛ إن لم يُكمل المستأجر تُلغى تلقائياً مع بقاء السجل لإعادة الإرسال.'
-                  : 'Manual invites are valid for 24 hours; if unfinished they auto-cancel but stay for one-click resend.'}
-              </p>
-            </>
-          ) : null}
-        </div>
-      ) : null}
-
-      {step === 'party' ? (
-        <div className="form-grid">
-          {tenants.length ? (
-            <label className="field span-2">
-              <span>{ar ? 'من سجل العناوين (اختياري)' : 'From address book (optional)'}</span>
-              <select
-                className="select"
-                value={directoryId}
-                onChange={(event) => applyDirectoryTenant(event.target.value)}
-              >
-                <option value="">{ar ? 'إدخال يدوي…' : 'Enter manually…'}</option>
-                {tenants.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {row.displayName || row.name || row.nameAr || row.id.slice(0, 8)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ) : null}
-          <div className="span-2">
+            ) : null}
             <ReservationPartyForm
               locale={locale}
               mode={mode}
               minMonths={OWNER_INVITE_MIN_LEASE_MONTHS}
               value={partyForm}
-              onChange={setPartyForm}
+              onChange={(next) => {
+                setPartyForm(next);
+                setError(null);
+              }}
               holder="other"
-              autoAdvance={false}
+              autoAdvance
               deferTenantCompletion
             />
+            <p className="ops-hint">
+              {ar
+                ? 'بعد إرسال الدعوة يُحفظ المحجوز له في دفتر العناوين تلقائياً.'
+                : 'After the invite is sent, the guest is saved to the address book automatically.'}
+            </p>
           </div>
-          <p className="ops-hint span-2">
-            {ar
-              ? 'بعد إرسال الدعوة يُحفظ المحجوز له في دفتر العناوين تلقائياً.'
-              : 'After the invite is sent, the guest is saved to the address book automatically.'}
-          </p>
-        </div>
-      ) : null}
+        ) : null}
 
-      {step === 'contract' ? (
-        <div className="form-grid">
-          <label className="field span-2 owner-booking-invite__choice">
-            <input
-              type="radio"
-              name="contractPreference"
-              checked={contractPreference === 'electronic'}
-              onChange={() => setContractPreference('electronic')}
-            />
-            <span>
-              <strong>{ar ? 'عقد إلكتروني' : 'Electronic contract'}</strong>
-              <small>
-                {ar
-                  ? 'بعد اكتمال الدفع والمستندات يُجهَّز العقد تلقائياً من بيانات الحجز.'
-                  : 'After payment and documents, the contract is prepared automatically from the booking.'}
-              </small>
-            </span>
-          </label>
-          <label className="field span-2 owner-booking-invite__choice">
-            <input
-              type="radio"
-              name="contractPreference"
-              checked={contractPreference === 'manual'}
-              onChange={() => setContractPreference('manual')}
-            />
-            <span>
-              <strong>{ar ? 'عقد يدوي' : 'Manual contract'}</strong>
-              <small>
-                {ar
-                  ? 'بعد دفع المستأجر تدخل بيانات العقد يدوياً ثم ترسلها له للاعتماد.'
-                  : 'After the tenant pays, you enter the contract yourself and send it for approval.'}
-              </small>
-            </span>
-          </label>
-        </div>
-      ) : null}
+        {showContract ? (
+          <div
+            className="span-2 form-grid owner-booking-invite__reveal"
+            ref={stage === 'contract' ? revealRef : undefined}
+          >
+            <label className="field span-2 owner-booking-invite__choice">
+              <input
+                type="radio"
+                name="contractPreference"
+                checked={contractPreference === 'electronic'}
+                onChange={() => {
+                  setContractPreference('electronic');
+                  unlock('review');
+                }}
+              />
+              <span>
+                <strong>{ar ? 'عقد إلكتروني' : 'Electronic contract'}</strong>
+                <small>
+                  {ar
+                    ? 'بعد اكتمال الدفع والمستندات يُجهَّز العقد تلقائياً من بيانات الحجز.'
+                    : 'After payment and documents, the contract is prepared automatically from the booking.'}
+                </small>
+              </span>
+            </label>
+            <label className="field span-2 owner-booking-invite__choice">
+              <input
+                type="radio"
+                name="contractPreference"
+                checked={contractPreference === 'manual'}
+                onChange={() => {
+                  setContractPreference('manual');
+                  unlock('review');
+                }}
+              />
+              <span>
+                <strong>{ar ? 'عقد يدوي' : 'Manual contract'}</strong>
+                <small>
+                  {ar
+                    ? 'بعد دفع المستأجر تدخل بيانات العقد يدوياً ثم ترسلها له للاعتماد.'
+                    : 'After the tenant pays, you enter the contract yourself and send it for approval.'}
+                </small>
+              </span>
+            </label>
+          </div>
+        ) : null}
 
-      {step === 'review' ? (
-        <div className="owner-booking-invite__review">
-          <dl>
-            <div>
-              <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
-              <dd>{unitLabel || '—'}</dd>
-            </div>
-            <div>
-              <dt>{ar ? 'النوع' : 'Type'}</dt>
-              <dd>
-                {mode === 'sale' ? (ar ? 'بيع' : 'Sale') : ar ? 'تأجير طويل' : 'Long-term rent'}
-              </dd>
-            </div>
-            <div>
-              <dt>{ar ? 'المحجوز له' : 'Guest'}</dt>
-              <dd>
-                {partyForm.entityType === 'company'
-                  ? partyForm.company.nameAr || partyForm.company.nameEn || '—'
-                  : partyForm.person.nameAr || partyForm.person.nameEn || '—'}
-              </dd>
-            </div>
-            <div>
-              <dt>{ar ? 'التواصل' : 'Contact'}</dt>
-              <dd dir="ltr">
-                {(partyForm.entityType === 'company'
-                  ? partyForm.company.phone
-                  : partyForm.person.phone) || '—'}
-                {' · '}
-                {(partyForm.entityType === 'company'
-                  ? partyForm.company.email
-                  : partyForm.person.email) || '—'}
-              </dd>
-            </div>
-            {mode === 'rent' ? (
+        {showReview ? (
+          <div
+            className="span-2 owner-booking-invite__review owner-booking-invite__reveal"
+            ref={revealRef}
+          >
+            <dl>
               <div>
-                <dt>{ar ? 'المدة' : 'Term'}</dt>
+                <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
+                <dd>{unitLabel || '—'}</dd>
+              </div>
+              <div>
+                <dt>{ar ? 'النوع' : 'Type'}</dt>
                 <dd>
-                  {partyForm.termMonths || OWNER_INVITE_MIN_LEASE_MONTHS}{' '}
-                  {ar ? 'شهراً' : 'months'}
+                  {mode === 'sale' ? (ar ? 'بيع' : 'Sale') : ar ? 'تأجير طويل' : 'Long-term rent'}
                 </dd>
               </div>
-            ) : null}
-            {mode === 'rent' ? (
               <div>
-                <dt>{ar ? 'الإيجار' : 'Rent'}</dt>
-                <dd dir="ltr">
-                  {rentMajor || '—'} {unitCurrency}
+                <dt>{ar ? 'المحجوز له' : 'Guest'}</dt>
+                <dd>
+                  {partyForm.entityType === 'company'
+                    ? partyForm.company.nameAr || partyForm.company.nameEn || '—'
+                    : partyForm.person.nameAr || partyForm.person.nameEn || '—'}
                 </dd>
               </div>
-            ) : null}
-            <div>
-              <dt>{ar ? 'الضمان' : 'Deposit'}</dt>
-              <dd dir="ltr">
-                {depositMajor || '—'} {unitCurrency}
-              </dd>
-            </div>
-            {mode === 'rent' ? (
-              <>
+              <div>
+                <dt>{ar ? 'التواصل' : 'Contact'}</dt>
+                <dd dir="ltr">
+                  {(partyForm.entityType === 'company'
+                    ? partyForm.company.phone
+                    : partyForm.person.phone) || '—'}
+                  {' · '}
+                  {(partyForm.entityType === 'company'
+                    ? partyForm.company.email
+                    : partyForm.person.email) || '—'}
+                </dd>
+              </div>
+              {mode === 'rent' ? (
                 <div>
-                  <dt>{ar ? 'بداية العقد' : 'Lease start'}</dt>
-                  <dd dir="ltr">{leaseStartsOn || '—'}</dd>
+                  <dt>{ar ? 'المدة' : 'Term'}</dt>
+                  <dd>
+                    {partyForm.termMonths || OWNER_INVITE_MIN_LEASE_MONTHS}{' '}
+                    {ar ? 'شهراً' : 'months'}
+                  </dd>
                 </div>
+              ) : null}
+              {mode === 'rent' ? (
                 <div>
-                  <dt>{ar ? 'الاستلام' : 'Handover'}</dt>
-                  <dd dir="ltr">{handoverOn || '—'}</dd>
+                  <dt>{ar ? 'الإيجار' : 'Rent'}</dt>
+                  <dd dir="ltr">
+                    {rentMajor || '—'} {unitCurrency}
+                  </dd>
                 </div>
-              </>
-            ) : null}
-            <div>
-              <dt>{ar ? 'العقد' : 'Contract'}</dt>
-              <dd>
-                {contractPreference === 'electronic'
-                  ? ar
-                    ? 'إلكتروني'
-                    : 'Electronic'
-                  : ar
-                    ? 'يدوي'
-                    : 'Manual'}
-              </dd>
-            </div>
-          </dl>
-          <p className="ops-hint">
-            {ar
-              ? 'بعد الإرسال تُحجز الوحدة، يُضاف المستأجر لدفتر العناوين، ويصله رابط لإكمال الدفع والمستندات.'
-              : 'After send, the unit is held, the guest is added to the address book, and they receive a link to pay and upload documents.'}
-          </p>
-        </div>
-      ) : null}
+              ) : null}
+              <div>
+                <dt>{ar ? 'الضمان' : 'Deposit'}</dt>
+                <dd dir="ltr">
+                  {depositMajor || '—'} {unitCurrency}
+                </dd>
+              </div>
+              {mode === 'rent' ? (
+                <>
+                  <div>
+                    <dt>{ar ? 'بداية العقد' : 'Lease start'}</dt>
+                    <dd dir="ltr">{leaseStartsOn || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>{ar ? 'الاستلام' : 'Handover'}</dt>
+                    <dd dir="ltr">{handoverOn || '—'}</dd>
+                  </div>
+                </>
+              ) : null}
+              <div>
+                <dt>{ar ? 'العقد' : 'Contract'}</dt>
+                <dd>
+                  {contractPreference === 'electronic'
+                    ? ar
+                      ? 'إلكتروني'
+                      : 'Electronic'
+                    : ar
+                      ? 'يدوي'
+                      : 'Manual'}
+                </dd>
+              </div>
+            </dl>
+            <p className="ops-hint">
+              {ar
+                ? 'صلاحية الدعوة 24 ساعة. بعد الإرسال تُحجز الوحدة ويصله رابط لإكمال الدفع والمستندات.'
+                : 'Invite is valid 24 hours. After send, the unit is held and they receive a link to pay and upload documents.'}
+            </p>
+          </div>
+        ) : null}
+      </div>
 
       {error ? (
         <div className="notice notice--error" role="alert">
@@ -787,33 +916,11 @@ export function OwnerBookingInvitePanel({
         <button className="button button--quiet" type="button" onClick={onCancel} disabled={busy}>
           {ar ? 'إلغاء' : 'Cancel'}
         </button>
-        {step !== 'unit' ? (
-          <button
-            className="button button--quiet"
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setError(null);
-              setStep(step === 'party' ? 'unit' : step === 'contract' ? 'party' : 'contract');
-            }}
-          >
-            {ar ? 'رجوع' : 'Back'}
-          </button>
-        ) : null}
-        {step !== 'review' ? (
+        {showReview ? (
           <button
             className="button button--primary"
             type="button"
-            disabled={busy || !canAdvance}
-            onClick={goNext}
-          >
-            {ar ? 'التالي' : 'Next'}
-          </button>
-        ) : (
-          <button
-            className="button button--primary"
-            type="button"
-            disabled={busy}
+            disabled={busy || !canSend}
             onClick={() => void submitInvite()}
           >
             {busy
@@ -824,7 +931,7 @@ export function OwnerBookingInvitePanel({
                 ? 'إرسال الدعوة للمستأجر'
                 : 'Send invite to tenant'}
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   );
