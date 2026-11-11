@@ -282,7 +282,15 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
 
   let handover: LeaseJourneyScreen | null = null;
   if (current >= 4) {
-    handover = lifecycle.handover
+    const needsRecipientPhoto =
+      lifecycle.handover?.status === 'awaiting_tenant' && !lifecycle.handover.hasRecipientPhoto;
+    const handoverFinal =
+      Boolean(lifecycle.handover) &&
+      !needsRecipientPhoto &&
+      (lifecycle.handover?.status === 'accepted' ||
+        lifecycle.handover?.hasRecipientPhoto ||
+        Boolean(lifecycle.handover?.acceptedAt));
+    handover = handoverFinal && lifecycle.handover
       ? {
           headline: sale
             ? t('مبروك تملّك عقارك الجديد 🏡', 'Congratulations on your new property 🏡')
@@ -297,7 +305,24 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
           sceneStatus: t('تم التسليم', 'Handed over'),
           action: 'view_contract',
         }
-      : {
+      : needsRecipientPhoto
+        ? {
+            headline: t('التقط صورة سيلفي لإتمام التسليم 📸', 'Take a selfie to finish handover 📸'),
+            body: t(
+              'سجّل ممثل المالك محضر التسليم من جهته. ارفع صورة وجهك الآن — إلزامية — ثم يظهر لك محضر التسليم ويُعتبر العقار مسلَّماً، وتبدأ مهلة الاعتراض.',
+              'The owner’s representative filed their side. Upload your face photo now — required — then the handover report appears, the premises count as handed over, and the objection window starts.',
+            ),
+            guide: [
+              t(
+                'استخدم الكاميرا الأمامية لهاتفك؛ الصورة تُرفق بمحضر التسليم كإثبات لاستلامك المفتاح.',
+                'Use your phone’s front camera; the photo joins the handover record as proof you received the key.',
+              ),
+            ],
+            scene: 'handover',
+            sceneStatus: t('بانتظار صورة المستلم', 'Awaiting recipient photo'),
+            action: 'view_contract',
+          }
+        : {
           headline: t('اقتربت لحظة استلام المفاتيح 🔑', 'Almost time for the keys 🔑'),
           body:
             requirements.some(
@@ -311,8 +336,8 @@ export function leaseScreens(props: LeaseJourneyProps): Array<LeaseJourneyScreen
                   'The contract is signed by both parties, but documents still await owner verification. Handover cannot complete until then (unless the property policy allows a bypass). Check the documents stage list.',
                 )
               : t(
-                  'العقد موقّع من الطرفين. عند الاستلام اعرض رمز التسليم الظاهر في هذه الصفحة على المالك أو ممثله أو حارس المبنى ليمسحه؛ يُسجَّل المحضر ويصبح نافذاً دون حاجة لموافقتك، ويحق لك الاعتراض لاحقاً.',
-                  'The contract is signed by both parties. At handover, show the code on this page to be scanned; the record is filed and takes effect without a separate approval, and you may object afterwards.',
+                  'العقد موقّع من الطرفين. عند الاستلام اعرض رمز التسليم الظاهر في هذه الصفحة على المالك أو ممثله أو حارس المبنى ليمسحه؛ بعد تسجيل المحضر ارفع صورة سيلفي إلزامية ثم يظهر المحضر وتبدأ مهلة الاعتراض.',
+                  'The contract is signed by both parties. At handover, show the code on this page to be scanned; after the record is filed, upload a mandatory selfie, then the report appears and the objection window starts.',
                 ),
           guide: [
             t(

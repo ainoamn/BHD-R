@@ -277,7 +277,9 @@ export default async function LeaseBookingConfirmedPage({
             {!closed &&
             ((booking.phase === 'awaiting_handover' &&
               documentsPackageFullyApproved(booking.lifecycle)) ||
-              booking.lifecycle.handover?.scanned) ? (
+              booking.phase === 'handed_over' ||
+              booking.lifecycle.handover?.scanned ||
+              booking.lifecycle.handover?.status === 'awaiting_tenant') ? (
               <LeaseHandoverPanel
                 locale={locale}
                 referenceCode={booking.referenceCode}

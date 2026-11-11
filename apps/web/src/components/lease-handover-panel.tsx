@@ -31,7 +31,7 @@ function errorMessage(error: unknown, ar: boolean): string {
 
 /**
  * The tenant's side of the handover on their booking page: the sealed pass to show at the door,
- * then the staff record to view (no approval step) and three hours to file an objection.
+ * a mandatory recipient selfie once staff files the record, then the report + objection window.
  */
 export function LeaseHandoverPanel({
   locale,
@@ -43,8 +43,20 @@ export function LeaseHandoverPanel({
   handover: HandoverView | null;
 }) {
   const ar = locale === 'ar';
+  const router = useRouter();
   if (!handover) return <HandoverPass ar={ar} locale={locale} referenceCode={referenceCode} />;
-  // Effective on staff send — including legacy records that once waited for accept.
+  // Staff filed — recipient selfie is mandatory before the handed-over report appears.
+  if (handover.status === 'awaiting_tenant' && !handover.hasRecipientPhoto) {
+    return (
+      <HandoverSelfieCard
+        locale={locale}
+        referenceCode={referenceCode}
+        scannedBy={handover.byName}
+        owed
+        onSent={() => router.refresh()}
+      />
+    );
+  }
   if (handover.status === 'awaiting_tenant' || handover.scanned || handover.status === 'accepted') {
     return <HandoverAfter ar={ar} referenceCode={referenceCode} handover={handover} />;
   }

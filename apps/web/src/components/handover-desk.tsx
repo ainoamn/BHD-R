@@ -112,7 +112,10 @@ export function HandoverDesk({
   const ar = locale === 'ar';
   const [key, setKey] = useState<Key | null>(initialToken ? { token: initialToken } : null);
   const [preview, setPreview] = useState<Preview | null>(null);
-  const [done, setDone] = useState<string | null>(null);
+  const [done, setDone] = useState<{
+    referenceCode: string;
+    awaitingRecipientPhoto: boolean;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -180,9 +183,13 @@ export function HandoverDesk({
       <section className="handover-desk handover-desk--done" role="status">
         <h2>{ar ? 'تم تسجيل محضر التسليم ✅' : 'Handover record filed ✅'}</h2>
         <p>
-          {ar
-            ? `أُبلِغ المستأجر في حجز ${done} بأن المحضر نافذ. يطّلع عليه من صفحة حجزه ويحق له الاعتراض مع صور خلال 3 ساعات، وإلا يُعتبر أنه استلمه بدون عيوب وفي حالة جيدة.`
-            : `The tenant of booking ${done} was told the record is in effect. They can view it on their booking page and object with photos within 3 hours, or the premises count as received in good condition without defects.`}
+          {done.awaitingRecipientPhoto
+            ? ar
+              ? `أُبلِغ المستأجر في حجز ${done.referenceCode} برفع صورة سيلفي إلزامية من صفحة حجزه. يظهر له محضر التسليم ويُعتبر العقار مسلَّماً فقط بعد إرسال صورته.`
+              : `The tenant of booking ${done.referenceCode} was asked to upload a mandatory selfie from their booking page. The handover report appears and the premises count as handed over only after they send their photo.`
+            : ar
+              ? `أُبلِغ المستأجر في حجز ${done.referenceCode} بأن المحضر نافذ. يطّلع عليه من صفحة حجزه ويحق له الاعتراض مع صور خلال 3 ساعات، وإلا يُعتبر أنه استلمه بدون عيوب وفي حالة جيدة.`
+              : `The tenant of booking ${done.referenceCode} was told the record is in effect. They can view it on their booking page and object with photos within 3 hours, or the premises count as received in good condition without defects.`}
         </p>
         <button
           type="button"
@@ -216,9 +223,12 @@ export function HandoverDesk({
           onHandlerSelfie={(takenAt) =>
             setPreview((current) => (current ? { ...current, handlerSelfieAt: takenAt } : current))
           }
-          onDone={() => {
+          onDone={(awaitingRecipientPhoto) => {
             writeDeskSession(null);
-            setDone(preview.referenceCode);
+            setDone({
+              referenceCode: preview.referenceCode,
+              awaitingRecipientPhoto,
+            });
           }}
           onBack={() => {
             setPreview(null);
@@ -591,7 +601,7 @@ function HandoverForm({
   handoverKey: Key;
   preview: Preview;
   onHandlerSelfie: (takenAt: string) => void;
-  onDone: () => void;
+  onDone: (awaitingRecipientPhoto: boolean) => void;
   onBack: () => void;
 }) {
   const [recipientName, setRecipientName] = useState(preview.tenantName);
@@ -610,18 +620,21 @@ function HandoverForm({
     setBusy(true);
     setError(null);
     try {
-      await browserNextMutation('/api/handover', {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'offer',
-          key: handoverKey,
-          recipientName: recipientName.trim(),
-          keys: keys.trim() || undefined,
-          notes: notes.trim() || undefined,
-          photos,
-        }),
-      });
-      onDone();
+      const result = await browserNextMutation<{ awaitingRecipientPhoto?: boolean }>(
+        '/api/handover',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'offer',
+            key: handoverKey,
+            recipientName: recipientName.trim(),
+            keys: keys.trim() || undefined,
+            notes: notes.trim() || undefined,
+            photos,
+          }),
+        },
+      );
+      onDone(Boolean(result.awaitingRecipientPhoto));
     } catch (caught) {
       setError(errorMessage(caught, ar));
     } finally {
@@ -718,8 +731,8 @@ function HandoverForm({
           {preview.awaitingTenant ? (
             <p className="notice notice--info">
               {ar
-                ? 'يوجد محضر سابق لم يُغلق بعد؛ إرسال هذا المحضر يستبدله ويصبح نافذاً فوراً.'
-                : 'A prior record is still open; sending this one replaces it and takes effect immediately.'}
+                ? 'يوجد محضر بانتظار صورة سيلفي من المستأجر؛ إرسال محضر جديد يستبدل السابق، ويبقى ظهوره للمستأجر مشروطاً برفع صورته.'
+                : 'A record is waiting for the tenant’s selfie; sending a new one replaces it, and it still appears to them only after they upload their photo.'}
             </p>
           ) : null}
           <div className="handover-desk__fields">
@@ -805,8 +818,12 @@ function HandoverForm({
             ) : (
               <small className="muted">
                 {ar
-                  ? 'بمجرد التسجيل يصبح المحضر نافذاً؛ يطّلع عليه المستأجر ويحق له الاعتراض خلال 3 ساعات.'
-                  : 'Once filed the record is in effect; the tenant can view it and object within 3 hours.'}
+                  ? preview.liveSelfieAt
+                    ? 'بمجرد التسجيل يصبح المحضر نافذاً لأن صورة المستلم وصلت؛ يحق له الاعتراض خلال 3 ساعات.'
+                    : 'بعد التسجيل يطلب من المستأجر رفع صورة سيلفي إلزامية؛ يظهر له المحضر ويُعتبر التسليم نافذاً فقط بعد إرسال صورته.'
+                  : preview.liveSelfieAt
+                    ? 'Once filed the record is in effect because the recipient photo already arrived; they may object within 3 hours.'
+                    : 'After filing, the tenant must upload a mandatory selfie; the report appears and handover takes effect only after they send their photo.'}
               </small>
             )}
           </div>

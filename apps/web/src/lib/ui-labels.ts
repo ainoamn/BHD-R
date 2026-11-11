@@ -224,6 +224,10 @@ const WORKFLOW_EVENTS: Record<string, { ar: string; en: string }> = {
     en: 'Client signed the contract — booking converted',
   },
   'reservation.handed_over': { ar: 'تسليم العقار للعميل', en: 'Premises handed over' },
+  'reservation.handover_offered': {
+    ar: 'تسجيل محضر بانتظار صورة المستلم',
+    en: 'Handover filed, awaiting recipient photo',
+  },
   'reservation.handover_evidence': {
     ar: 'إثبات تسليم العقار',
     en: 'Handover evidence recorded',

@@ -26,7 +26,7 @@ import { badgePrestige, type BadgeChip } from '@/lib/badges-shared';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { applySessionSettings, viewerTenantSettings } from '@/lib/db-session-settings';
 import {
-  handoverAwaitingTenant,
+  handoverNeedsRecipientPhoto,
   handoverDefectsOpen,
   lifecycleOf,
 } from '@/lib/lease-reservation-lifecycle';
@@ -935,9 +935,10 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
         referenceCode: str(terms.referenceCode),
         mode,
         status: row.status,
-        // No separate accept step — alert only while the objection window is open (incl. legacy).
-        handover:
-          handoverDefectsOpen(lifecycle) || handoverAwaitingTenant(lifecycle)
+        // Selfie still owed, or objection window open after the record is finalized.
+        handover: handoverNeedsRecipientPhoto(lifecycle)
+          ? 'awaiting_acceptance'
+          : handoverDefectsOpen(lifecycle)
             ? 'defects_open'
             : null,
         expiresAt: iso(row.expiresAt),

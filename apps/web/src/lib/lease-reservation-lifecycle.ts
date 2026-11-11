@@ -107,7 +107,7 @@ export type ReservationLifecycle = {
     /** Recorded by scanning the tenant's pass; older records were typed in by the owner. */
     method?: 'scan';
     byUserId?: string | null;
-    /** Scanned handovers wait for the tenant to accept the premises; older ones count as accepted. */
+    /** Awaits the mandatory recipient selfie before the report is shown; then `accepted`. */
     status?: 'awaiting_tenant' | 'accepted';
     evidenceEventId?: string;
     recipientPhoto?: HandoverPhotoMeta | null;
@@ -365,23 +365,32 @@ export function handoverHandlerSelfie(
 
 /**
  * Where the selfie stands for the tenant's page: asked for after a recent scan, already sent,
- * or still owed while a scan is open; null once the handover record is filed.
+ * or still owed while the staff record is waiting on the recipient photo.
  */
 export function handoverSelfieState(
   lifecycle: ReservationLifecycle | null | undefined,
   now: Date = new Date(),
 ): 'requested' | 'sent' | null {
   const handover = lifecycle?.handover;
-  if (handover && handover.status !== 'awaiting_tenant') return null;
-  // Legacy records waiting on an accept step: do not keep blocking on selfie.
-  if (handover?.status === 'awaiting_tenant') return null;
-  if (handover?.recipientPhoto || handoverLiveSelfie(lifecycle, now)) return 'sent';
-  if (handover) return 'requested';
+  // Staff filed the record but recipient photo is still required before the report is shown.
+  if (handover?.status === 'awaiting_tenant') {
+    return handover.recipientPhoto ? 'sent' : 'requested';
+  }
+  if (handover) return null;
+  if (handoverLiveSelfie(lifecycle, now)) return 'sent';
   const scan = lifecycle?.handoverScan;
   if (!scan) return null;
   return now.getTime() - Date.parse(scan.at) < HANDOVER_SELFIE_REQUEST_MINUTES * 60_000
     ? 'requested'
     : null;
+}
+
+/** Staff filed handover but the tenant has not yet attached the mandatory recipient selfie. */
+export function handoverNeedsRecipientPhoto(
+  lifecycle: ReservationLifecycle | null | undefined,
+): boolean {
+  const handover = lifecycle?.handover;
+  return Boolean(handover?.status === 'awaiting_tenant' && !handover.recipientPhoto);
 }
 
 /** The tenant may still attach defect photos: record filed, inside the window, none sent yet. */
@@ -391,10 +400,8 @@ export function handoverDefectsOpen(
 ): boolean {
   const handover = lifecycle?.handover;
   if (!handover || handover.defects) return false;
-  // Effective on staff send; legacy `awaiting_tenant` counts the same (no approval step).
-  if (handover.status && handover.status !== 'accepted' && handover.status !== 'awaiting_tenant') {
-    return false;
-  }
+  // Objection window opens only after the recipient selfie finalizes the record.
+  if (handover.status !== 'accepted' || !handover.recipientPhoto) return false;
   const until = handover.defectsUntil ?? handoverDefectsUntilFrom(handover.at, now);
   return new Date(until) > now;
 }
@@ -743,7 +750,6 @@ export function packageHasRejected(
 export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   const life = input.lifecycle ?? {};
   // Staff filing the record completes handover — tenant may view and object, not approve.
-  if (life.handover) return 'handed_over';
   if (life.cancellation) return 'closed';
   if (input.status === 'cancelled' || input.status === 'expired') return 'closed';
   if (!input.depositPaidAt) return input.status === 'pending' ? 'awaiting_payment' : 'closed';
@@ -758,6 +764,13 @@ export function leaseJourneyPhase(input: LeaseJourneyInput): LeaseJourneyPhase {
   const docs = documentsPhase(life);
   if (docs === 'awaiting_documents' || docs === 'awaiting_documents_review') {
     return docs;
+  }
+  // Staff may have filed the record; without the recipient selfie the journey stays on handover.
+  if (life.handover) {
+    if (life.handover.status === 'awaiting_tenant' && !life.handover.recipientPhoto) {
+      return 'awaiting_handover';
+    }
+    return 'handed_over';
   }
   return 'awaiting_handover';
 }
