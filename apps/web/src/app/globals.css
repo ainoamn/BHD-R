@@ -7922,26 +7922,135 @@ body:has(.stays-booking-receipt) #main-content {
   color: var(--ink-600, #44554d);
   line-height: 1.4;
 }
-.owner-booking-invite__review dl {
+.owner-booking-invite__review {
   display: grid;
-  gap: 0.55rem;
-  margin: 0;
+  gap: 0.85rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid color-mix(in srgb, var(--border, #d8e0db) 88%, #1f6f5b 12%);
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, #1f6f5b 6%, #fff) 0%, #fff 42%);
 }
-.owner-booking-invite__review div {
-  display: grid;
-  grid-template-columns: 7rem minmax(0, 1fr);
-  gap: 0.5rem;
-  align-items: baseline;
+.owner-booking-invite__review-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
-.owner-booking-invite__review dt {
+.owner-booking-invite__review-kicker {
+  margin: 0 0 0.2rem;
+  color: #1f6f5b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+.owner-booking-invite__review-head h3 {
   margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  font-weight: 800;
+}
+.owner-booking-invite__review-meta {
+  margin: 0.25rem 0 0;
   color: var(--ink-600, #44554d);
   font-size: 0.78rem;
+}
+.owner-booking-invite__review-badge {
+  flex: 0 0 auto;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, #1f6f5b 12%, #fff);
+  color: #145544;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.owner-booking-invite__review-block {
+  display: grid;
+  gap: 0.35rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid color-mix(in srgb, var(--border, #d8e0db) 80%, transparent);
+}
+.owner-booking-invite__review-block h4 {
+  margin: 0;
+  color: var(--ink-600, #44554d);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.owner-booking-invite__review-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+}
+.owner-booking-invite__review-contact {
+  margin: 0;
+  color: var(--ink-600, #44554d);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.owner-booking-invite__review-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+.owner-booking-invite__review-grid > div {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--surface, #f4f7f5) 88%, #fff);
+}
+.owner-booking-invite__review-grid span {
+  color: var(--ink-600, #44554d);
+  font-size: 0.7rem;
   font-weight: 700;
 }
-.owner-booking-invite__review dd {
-  margin: 0;
+.owner-booking-invite__review-grid strong {
+  font-size: 0.92rem;
   font-weight: 800;
+}
+.owner-booking-invite__review-dates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.owner-booking-invite__review-dates li {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, #1f6f5b 7%, #fff);
+}
+.owner-booking-invite__review-dates span {
+  color: var(--ink-600, #44554d);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.owner-booking-invite__review-dates strong {
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+.owner-booking-invite__review-note {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, #c4a35a 14%, #fff);
+  color: #4a3b1d;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .owner-booking-invite__review-grid,
+  .owner-booking-invite__review-dates {
+    grid-template-columns: 1fr;
+  }
+  .owner-booking-invite__review-head {
+    flex-direction: column;
+  }
 }
 
 .property-360__unit {

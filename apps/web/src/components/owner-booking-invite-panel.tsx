@@ -120,17 +120,39 @@ function unitSearchHaystack(unit: UnitOption): string {
 }
 
 function unitOptionLabel(unit: UnitOption, ar: boolean): string {
-  const unitName = unit.name || unit.nameAr || unit.nameEn || unit.code || unit.id.slice(0, 8);
+  const code = unit.code?.trim() || '';
+  const unitName = (unit.nameAr || unit.nameEn || unit.name || '').trim();
   const property =
     (ar ? unit.propertyNameAr || unit.propertyNameEn : unit.propertyNameEn || unit.propertyNameAr) ||
     '';
   const serial = unit.propertySerial?.trim() || '';
   const owner = unit.ownerName?.trim() || '';
-  const bits = [unitName];
-  if (property) bits.push(property);
+  // Prefer code + property; skip unit name when it repeats the property title.
+  const title =
+    unitName && property && unitName !== property
+      ? `${code || unitName} · ${unitName} · ${property}`
+      : code && property
+        ? `${code} · ${property}`
+        : code || unitName || property || unit.id.slice(0, 8);
+  const bits = [title];
   if (serial) bits.push(serial);
   if (owner) bits.push(owner);
   return bits.join(' · ');
+}
+
+function unitReviewParts(unit: UnitOption | null, ar: boolean) {
+  if (!unit) return { title: '—', meta: '' };
+  const code = unit.code?.trim() || '';
+  const property =
+    (ar ? unit.propertyNameAr || unit.propertyNameEn : unit.propertyNameEn || unit.propertyNameAr) ||
+    '';
+  const unitName = (ar ? unit.nameAr || unit.nameEn : unit.nameEn || unit.nameAr || unit.name) || '';
+  const title =
+    code && property
+      ? `${code} · ${property}`
+      : code || property || unitName || unit.id.slice(0, 8);
+  const meta = [unit.propertySerial?.trim(), unit.ownerName?.trim()].filter(Boolean).join(' · ');
+  return { title, meta };
 }
 
 /**
@@ -593,6 +615,17 @@ export function OwnerBookingInvitePanel({
   }
 
   const canSend = commercialOk && partyOk && Boolean(contractPreference) && showReview;
+  const reviewUnit = unitReviewParts(selectedUnit, ar);
+  const reviewGuestName =
+    partyForm.entityType === 'company'
+      ? partyForm.company.nameAr || partyForm.company.nameEn || '—'
+      : partyForm.person.nameAr || partyForm.person.nameEn || '—';
+  const reviewGuestContact = [
+    (partyForm.entityType === 'company' ? partyForm.company.phone : partyForm.person.phone) || '',
+    (partyForm.entityType === 'company' ? partyForm.company.email : partyForm.person.email) || '',
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <div className="owner-booking-invite owner-booking-invite--progressive">
@@ -994,89 +1027,90 @@ export function OwnerBookingInvitePanel({
             className="span-2 owner-booking-invite__review owner-booking-invite__reveal"
             ref={bindReveal(true)}
           >
-            <dl>
+            <header className="owner-booking-invite__review-head">
               <div>
-                <dt>{ar ? 'الوحدة' : 'Unit'}</dt>
-                <dd>{unitLabel || '—'}</dd>
-              </div>
-              <div>
-                <dt>{ar ? 'النوع' : 'Type'}</dt>
-                <dd>
-                  {mode === 'sale' ? (ar ? 'بيع' : 'Sale') : ar ? 'تأجير طويل' : 'Long-term rent'}
-                </dd>
-              </div>
-              <div>
-                <dt>{ar ? 'المحجوز له' : 'Guest'}</dt>
-                <dd>
-                  {partyForm.entityType === 'company'
-                    ? partyForm.company.nameAr || partyForm.company.nameEn || '—'
-                    : partyForm.person.nameAr || partyForm.person.nameEn || '—'}
-                </dd>
-              </div>
-              <div>
-                <dt>{ar ? 'التواصل' : 'Contact'}</dt>
-                <dd dir="ltr">
-                  {(partyForm.entityType === 'company'
-                    ? partyForm.company.phone
-                    : partyForm.person.phone) || '—'}
-                  {' · '}
-                  {(partyForm.entityType === 'company'
-                    ? partyForm.company.email
-                    : partyForm.person.email) || '—'}
-                </dd>
-              </div>
-              {mode === 'rent' ? (
-                <div>
-                  <dt>{ar ? 'المدة' : 'Term'}</dt>
-                  <dd>
-                    {termMonthsValue} {ar ? 'شهراً' : 'months'}
-                  </dd>
-                </div>
-              ) : null}
-              {mode === 'rent' ? (
-                <div>
-                  <dt>{ar ? 'الإيجار' : 'Rent'}</dt>
-                  <dd dir="ltr">
-                    {rentMajor || '—'} {unitCurrency}
-                  </dd>
-                </div>
-              ) : null}
-              <div>
-                <dt>{ar ? 'الضمان' : 'Deposit'}</dt>
-                <dd dir="ltr">
-                  {depositMajor || '—'} {unitCurrency}
-                </dd>
-              </div>
-              {mode === 'rent' ? (
-                <>
-                  <div>
-                    <dt>{ar ? 'بداية العقد' : 'Lease start'}</dt>
-                    <dd dir="ltr">{leaseStartsOn || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>{ar ? 'الاستلام' : 'Handover'}</dt>
-                    <dd dir="ltr">{handoverOn || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>{ar ? 'انتهاء العقد' : 'Lease end'}</dt>
-                    <dd dir="ltr">{leaseEndsOn || '—'}</dd>
-                  </div>
-                </>
-              ) : null}
-              <div>
-                <dt>{ar ? 'العقد' : 'Contract'}</dt>
-                <dd>
-                  {contractPreference === 'electronic'
+                <p className="owner-booking-invite__review-kicker">
+                  {mode === 'sale'
                     ? ar
-                      ? 'إلكتروني'
-                      : 'Electronic'
+                      ? 'دعوة بيع'
+                      : 'Sale invite'
                     : ar
-                      ? 'يدوي'
-                      : 'Manual'}
-                </dd>
+                      ? 'دعوة تأجير'
+                      : 'Lease invite'}
+                </p>
+                <h3>{reviewUnit.title}</h3>
+                {reviewUnit.meta ? (
+                  <p className="owner-booking-invite__review-meta">{reviewUnit.meta}</p>
+                ) : null}
               </div>
-            </dl>
-            <p className="ops-hint">
+              <span className="owner-booking-invite__review-badge">
+                {contractPreference === 'electronic'
+                  ? ar
+                    ? 'عقد إلكتروني'
+                    : 'E-contract'
+                  : ar
+                    ? 'عقد يدوي'
+                    : 'Manual contract'}
+              </span>
+            </header>
+
+            <section className="owner-booking-invite__review-block">
+              <h4>{ar ? 'المستأجر' : 'Tenant'}</h4>
+              <p className="owner-booking-invite__review-name">{reviewGuestName}</p>
+              <p className="owner-booking-invite__review-contact" dir="ltr">
+                {reviewGuestContact || '—'}
+              </p>
+            </section>
+
+            <section className="owner-booking-invite__review-block">
+              <h4>{ar ? 'المبالغ' : 'Amounts'}</h4>
+              <div className="owner-booking-invite__review-grid">
+                {mode === 'rent' ? (
+                  <div>
+                    <span>{ar ? 'الإيجار الشهري' : 'Monthly rent'}</span>
+                    <strong dir="ltr">
+                      {rentMajor || '—'} {unitCurrency}
+                    </strong>
+                  </div>
+                ) : null}
+                <div>
+                  <span>{ar ? 'الضمان / العربون' : 'Deposit'}</span>
+                  <strong dir="ltr">
+                    {depositMajor || '—'} {unitCurrency}
+                  </strong>
+                </div>
+                {mode === 'rent' ? (
+                  <div>
+                    <span>{ar ? 'مدة العقد' : 'Term'}</span>
+                    <strong>
+                      {termMonthsValue} {ar ? 'شهراً' : 'months'}
+                    </strong>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            {mode === 'rent' ? (
+              <section className="owner-booking-invite__review-block">
+                <h4>{ar ? 'التواريخ' : 'Dates'}</h4>
+                <ol className="owner-booking-invite__review-dates">
+                  <li>
+                    <span>{ar ? 'الاستلام' : 'Handover'}</span>
+                    <strong dir="ltr">{handoverOn || '—'}</strong>
+                  </li>
+                  <li>
+                    <span>{ar ? 'بداية العقد' : 'Lease start'}</span>
+                    <strong dir="ltr">{leaseStartsOn || '—'}</strong>
+                  </li>
+                  <li>
+                    <span>{ar ? 'انتهاء العقد' : 'Lease end'}</span>
+                    <strong dir="ltr">{leaseEndsOn || '—'}</strong>
+                  </li>
+                </ol>
+              </section>
+            ) : null}
+
+            <p className="owner-booking-invite__review-note" role="note">
               {ar
                 ? 'صلاحية الدعوة 24 ساعة. بعد الإرسال تُحجز الوحدة ويصله رابط لإكمال الدفع والمستندات.'
                 : 'Invite is valid 24 hours. After send, the unit is held and they receive a link to pay and upload documents.'}
