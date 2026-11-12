@@ -771,7 +771,14 @@ export async function loadOpsContextFromDb(
           )
           .orderBy(asc(units.code)),
         transaction
-          .select({ id: parties.id, name: parties.displayName, type: parties.type })
+          .select({
+            id: parties.id,
+            name: parties.displayName,
+            displayName: parties.displayName,
+            type: parties.type,
+            email: parties.email,
+            phone: parties.phone,
+          })
           .from(parties)
           .where(eq(parties.organizationId, orgId))
           .orderBy(asc(parties.displayName)),

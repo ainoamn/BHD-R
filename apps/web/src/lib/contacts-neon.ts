@@ -220,6 +220,7 @@ function propertyScope(claims: SessionClaims, alias: string): SQL {
 function partyScope(claims: SessionClaims, party: SQL): SQL {
   const scope = ownerPartyScope(claims);
   if (!scope) return sql``;
+  // Building owners see their own row, anyone linked to their units, and tenants they invited.
   return sql`and (
     ${party} = ${scope}
     or exists (select 1 from leases l join units u on u.id = l.unit_id join properties pr on pr.id = u.property_id
@@ -230,6 +231,12 @@ function partyScope(claims: SessionClaims, party: SQL): SQL {
       where r.tenant_party_id = ${party} and pr.owner_party_id = ${scope})
     or exists (select 1 from stay_bookings b join properties pr on pr.id = b.property_id
       where b.guest_party_id = ${party} and pr.owner_party_id = ${scope})
+    or exists (
+      select 1 from parties px
+      where px.id = ${party}
+        and px.organization_id = ${claims.organizationId}::uuid
+        and px.metadata->>'invitedByUserId' = ${claims.sub}
+    )
   )`;
 }
 

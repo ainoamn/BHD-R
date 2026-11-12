@@ -10,7 +10,7 @@ import {
   type PartyForm,
 } from '@/components/reservation-party-form';
 import { BookingStepScene } from '@/components/stays/booking-step-scene';
-import { ApiError, fetchBrowserCsrfToken, humanizeBrowserError } from '@/lib/api';
+import { ApiError, humanizeBrowserError } from '@/lib/api';
 import type { BookingStepGreeting } from '@/lib/booking-step-greeting';
 import { toMinorUnits } from '@/lib/format';
 import { fromMinor } from '@/lib/legal-case-shared';
@@ -196,9 +196,11 @@ export function OwnerBookingInvitePanel({
   const [handoverOn, setHandoverOn] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [contactSavedHint, setContactSavedHint] = useState(false);
   /** Furthest stage unlocked; earlier stages stay visible above. */
   const [stage, setStage] = useState<Stage>('unit');
   const revealNode = useRef<HTMLElement | null>(null);
+  const contactFingerprintRef = useRef('');
   const bindReveal =
     (active: boolean) =>
     (el: HTMLElement | null): void => {
@@ -429,14 +431,87 @@ export function OwnerBookingInvitePanel({
     if (contractPreference) unlock('review');
   }, [showContract, contractPreference]);
 
+  // Persist invitee to the address book as soon as details are complete (keep for next booking).
+  useEffect(() => {
+    if (!showParty || !partyOk) {
+      setContactSavedHint(false);
+      return;
+    }
+    const built = buildReservationParty(partyForm, {
+      holder: 'other',
+      mode,
+      minMonths: OWNER_INVITE_MIN_LEASE_MONTHS,
+      ar,
+      deferTenantCompletion: true,
+    });
+    if ('error' in built) return;
+    const party = built.party;
+    const fingerprint = JSON.stringify({
+      mode,
+      entityType: party.entityType,
+      person: party.person,
+      company: party.company,
+    });
+    if (fingerprint === contactFingerprintRef.current) {
+      setContactSavedHint(true);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const { browserNextMutation } = await import('@/lib/api');
+          const result = await browserNextMutation<{
+            ok?: boolean;
+            contact?: {
+              partyId: string;
+              displayName: string;
+              email: string | null;
+              phone: string | null;
+              type: string;
+            };
+          }>('/api/owner/bookings/invite-contact', {
+            method: 'POST',
+            body: JSON.stringify({ mode, party }),
+          });
+          if (cancelled || !result?.contact?.partyId) return;
+          contactFingerprintRef.current = fingerprint;
+          const saved = result.contact;
+          setTenants((prev) => {
+            const next = prev.filter((row) => row.id !== saved.partyId);
+            next.unshift({
+              id: saved.partyId,
+              displayName: saved.displayName,
+              name: saved.displayName,
+              email: saved.email,
+              phone: saved.phone,
+              type: saved.type,
+            });
+            return next;
+          });
+          setDirectoryId(saved.partyId);
+          setContactSavedHint(true);
+        } catch {
+          /* Invite send still upserts; keep the form usable offline of this save. */
+        }
+      })();
+    }, 700);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [showParty, partyOk, partyForm, mode, ar]);
+
   const greeting: BookingStepGreeting = showReview
     ? {
         kind: 'payment',
         status: ar ? 'إرسال الدعوة' : 'Send invite',
         heading: ar ? 'راجع وأرسل للمستأجر' : 'Review and send to the tenant',
         body: ar
-          ? 'سيصله رابط بالبريد وواتساب، ويُحفظ في دفتر العناوين.'
-          : 'They get email and WhatsApp links, and are saved to the address book.',
+          ? 'سيصله رابط بالبريد وواتساب — وبياناته محفوظة في سجل العناوين.'
+          : 'They get email and WhatsApp links — and stay in your address book.',
       }
     : showContract
       ? {
@@ -453,8 +528,8 @@ export function OwnerBookingInvitePanel({
             status: ar ? 'بيانات المستأجر' : 'Tenant details',
             heading: ar ? 'أدخل بيانات المحجوز له' : 'Enter the guest details',
             body: ar
-              ? 'بعد الإرسال يُضاف تلقائياً إلى دفتر العناوين.'
-              : 'After send they are added to the address book automatically.',
+              ? 'عند اكتمال البيانات يُحفظ المستأجر تلقائياً في سجل العناوين.'
+              : 'When the details are complete, the tenant is saved to the address book automatically.',
           }
         : {
             kind: 'review',
@@ -559,15 +634,12 @@ export function OwnerBookingInvitePanel({
 
     setBusy(true);
     try {
-      const csrf = await fetchBrowserCsrfToken(true);
-      const response = await fetch('/api/owner/bookings/invite', {
+      const { browserNextMutation } = await import('@/lib/api');
+      const payload = await browserNextMutation<{
+        reservationId?: string;
+        ownerPath?: string;
+      }>('/api/owner/bookings/invite', {
         method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          'x-csrf-token': csrf,
-        },
         body: JSON.stringify({
           unitId,
           mode,
@@ -586,21 +658,9 @@ export function OwnerBookingInvitePanel({
               }
             : {}),
         }),
-        signal: AbortSignal.timeout(45_000),
       });
-      const payload = (await response.json().catch(() => null)) as
-        | {
-            reservationId?: string;
-            ownerPath?: string;
-            error?: { code?: string; message?: string; messageAr?: string };
-          }
-        | null;
-      if (!response.ok || !payload?.reservationId) {
-        throw new ApiError(
-          response.status,
-          payload?.error?.code ?? 'invite_failed',
-          payload?.error?.messageAr ?? payload?.error?.message ?? 'invite_failed',
-        );
+      if (!payload?.reservationId) {
+        throw new ApiError(500, 'invite_failed', 'invite_failed');
       }
       onDone();
       router.push(
@@ -962,11 +1022,19 @@ export function OwnerBookingInvitePanel({
               onChange={(next) => {
                 setPartyForm(next);
                 setError(null);
+                setContactSavedHint(false);
               }}
               holder="other"
               autoAdvance
               deferTenantCompletion
             />
+            {contactSavedHint ? (
+              <p className="muted span-2" role="status">
+                {ar
+                  ? 'تم الحفظ في سجل العناوين — سيظهر في الحجوزات القادمة.'
+                  : 'Saved to the address book — available for future bookings.'}
+              </p>
+            ) : null}
             <p className="ops-hint">
               {ar
                 ? 'بعد إرسال الدعوة يُحفظ المحجوز له في دفتر العناوين تلقائياً.'

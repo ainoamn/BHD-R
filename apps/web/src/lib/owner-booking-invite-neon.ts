@@ -843,3 +843,55 @@ export function isOwnerInviteSnapshot(snapshot: unknown): boolean {
       (snapshot as { source?: string }).source === 'owner_invite',
   );
 }
+
+/**
+ * Persist invitee details into the owner address book as soon as the landlord completes them,
+ * even before the invite is sent — so the contact is kept for the next booking.
+ */
+export async function saveOwnerInviteContact(
+  claims: SessionClaims,
+  input: { mode: LeaseBookingMode; party: ReservationParty },
+) {
+  if (!hasPermission(claims, 'reservation.manage') && !hasPermission(claims, 'lease.create')) {
+    fail('forbidden', 403, 'ليست لديك صلاحية إنشاء حجز.', 'Missing booking create permission.');
+  }
+  if (!claims.organizationId) {
+    fail('forbidden', 403, 'المنظمة غير محددة.', 'Organization missing.');
+  }
+  const partyError = reservationPartyError(input.party, {
+    mode: input.mode,
+    minMonths: 1,
+    today: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date()),
+    deferTenantCompletion: true,
+  });
+  if (partyError) fail(partyError, 400, partyError, partyError);
+
+  const bookingParty: ReservationParty =
+    input.mode === 'sale'
+      ? { ...input.party, contractType: null, termMonths: null }
+      : input.party;
+
+  const { db } = getDatabase();
+  return db.transaction(async (transaction) => {
+    await applyOrgScope(transaction, {
+      organizationId: claims.organizationId!,
+      userId: claims.sub,
+    });
+    const bookerParty = await ensureProspectParty(transaction, claims.organizationId!, claims);
+    const party = await upsertOwnerPartyFromReservation(transaction, {
+      organizationId: claims.organizationId!,
+      party: bookingParty,
+      bookingFor: 'other',
+      bookerPartyId: bookerParty.id,
+      bookerUserId: claims.sub,
+      actorRole: 'inviter',
+    });
+    return {
+      partyId: party.id,
+      displayName: party.displayName,
+      email: party.email,
+      phone: party.phone,
+      type: party.type,
+    };
+  });
+}

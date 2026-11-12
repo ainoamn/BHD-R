@@ -162,7 +162,10 @@ export async function upsertOwnerPartyFromReservation(
         partyId: existing.id,
         roleKey: 'tenant',
       })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+        set: { status: 'active', updatedAt: now },
+      });
 
     if (fields.displayName) {
       await transaction
@@ -226,7 +229,10 @@ export async function upsertOwnerPartyFromReservation(
     await transaction
       .insert(partyRoles)
       .values({ organizationId: input.organizationId, partyId: targetId, roleKey })
-      .onConflictDoNothing();
+      .onConflictDoUpdate({
+        target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+        set: { status: 'active', updatedAt: now },
+      });
     return {
       id: updated!.id,
       displayName: updated!.displayName,
@@ -256,11 +262,17 @@ export async function upsertOwnerPartyFromReservation(
       phone: parties.phone,
       type: parties.type,
     });
-  await transaction.insert(partyRoles).values({
-    organizationId: input.organizationId,
-    partyId: created!.id,
-    roleKey,
-  });
+  await transaction
+    .insert(partyRoles)
+    .values({
+      organizationId: input.organizationId,
+      partyId: created!.id,
+      roleKey,
+    })
+    .onConflictDoUpdate({
+      target: [partyRoles.organizationId, partyRoles.partyId, partyRoles.roleKey],
+      set: { status: 'active', updatedAt: now },
+    });
   return {
     id: created!.id,
     displayName: created!.displayName,
