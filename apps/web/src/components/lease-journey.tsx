@@ -136,10 +136,12 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
           ))}
         </ol>
       ) : null}
-      {screen.action === 'sign_terms' ? (
+      {screen.action === 'sign_terms' && props.interactive !== false ? (
         <Link
           className="button button--primary guest-stay-detail__rebook"
-          href={`/book/sign?ref=${encodeURIComponent(plate)}`}
+          href={`/book/sign?ref=${encodeURIComponent(plate)}${
+            props.inviteeAu ? `&au=${encodeURIComponent(props.inviteeAu)}` : ''
+          }`}
         >
           {props.lifecycle.bookingDocsReturn
             ? ar
@@ -150,29 +152,51 @@ export function LeaseJourneyCard(props: LeaseJourneyProps) {
               : 'Sign the booking agreement'}
         </Link>
       ) : null}
+      {screen.action === 'sign_terms' && props.interactive === false ? (
+        <Link
+          className="button button--quiet guest-stay-detail__rebook"
+          href={`/book/sign?ref=${encodeURIComponent(plate)}&view=1${
+            props.inviteeAu ? `&au=${encodeURIComponent(props.inviteeAu)}` : ''
+          }`}
+        >
+          {ar ? 'عرض اتفاقية الحجز' : 'View booking agreement'}
+        </Link>
+      ) : null}
       {screen.action === 'view_terms' ? (
         <Link
           className="button button--quiet guest-stay-detail__rebook"
-          href={`/book/sign?ref=${encodeURIComponent(plate)}&view=1`}
+          href={`/book/sign?ref=${encodeURIComponent(plate)}&view=1${
+            props.inviteeAu ? `&au=${encodeURIComponent(props.inviteeAu)}` : ''
+          }`}
         >
           {ar ? 'عرض اتفاقية الحجز الموقّعة' : 'View signed booking agreement'}
         </Link>
       ) : null}
-      {screen.action === 'documents' && (!past || needsReplace) ? (
-        <>
-          <DocumentsNeededNotice {...props} />
-          <LeaseDocuments {...props} />
-          <LeaseCheques {...props} />
-          <DocumentsSendPanel {...props} />
-        </>
+      {screen.action === 'documents' && props.interactive !== false && (!past || needsReplace) ? (
+          <>
+            <DocumentsNeededNotice {...props} />
+            <LeaseDocuments {...props} />
+            <LeaseCheques {...props} />
+            <DocumentsSendPanel {...props} />
+          </>
+        ) : null}
+        {screen.action === 'documents' &&
+        (props.interactive === false || (past && !needsReplace)) ? (
+          <>
+            <LeaseDocuments {...props} />
+            <LeaseCheques {...props} readOnly />
+          </>
+        ) : null}
+      {screen.action === 'sign_contract' && !past && props.interactive !== false ? (
+        <LeaseContractSign {...props} />
       ) : null}
-      {screen.action === 'documents' && past && !needsReplace ? (
-        <>
-          <LeaseDocuments {...props} />
-          <LeaseCheques {...props} readOnly />
-        </>
+      {screen.action === 'sign_contract' && !past && props.interactive === false ? (
+        <p className="notice notice--warning" role="status">
+          {ar
+            ? 'توقيع العقد متاح لحساب المستأجر المدعو فقط. بدّل الحساب أعلاه ثم أعد المحاولة.'
+            : 'Contract signing is only available to the invited tenant account. Switch accounts above, then try again.'}
+        </p>
       ) : null}
-      {screen.action === 'sign_contract' && !past ? <LeaseContractSign {...props} /> : null}
       {screen.action === 'view_contract' && props.lifecycle.contract ? (
         <Link
           className="button button--quiet guest-stay-detail__rebook"

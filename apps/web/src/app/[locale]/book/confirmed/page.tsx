@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { Link } from '@/i18n/navigation';
 import { LeaseHandoverPanel } from '@/components/lease-handover-panel';
+import { LeaseInviteAccountGate } from '@/components/lease-invite-account-gate';
 import { LeaseJourneyAccount } from '@/components/lease-journey-account';
 import { LeaseJourneyCard } from '@/components/lease-journey';
 import { PropertyLocationMap } from '@/components/property-location-map';
@@ -11,6 +12,7 @@ import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { formatMoney, localizedName } from '@/lib/format';
 import { leaseContractTitle } from '@/lib/lease-booking-contract';
 import { leaseConfirmedPath } from '@/lib/lease-booking-paths';
+import { resolveOwnerInviteAccountGate } from '@/lib/lease-invite-account-gate';
 import {
   journeyStamp,
   leaseJourneyInitialStep,
@@ -27,6 +29,7 @@ import {
 } from '@/lib/lease-reservation-lifecycle';
 import { readClaims } from '@/lib/portal-ops-data';
 import {
+  leaseInviteeIdentitySubject,
   leasePaymentPath,
   leaseReservationIdForStaff,
   loadLeaseBookingForStaff,
@@ -74,9 +77,42 @@ export default async function LeaseBookingConfirmedPage({
       : null;
   let booking = own ?? staff;
   if (!booking) notFound();
+  const asTenantActor = Boolean(own);
   if (!booking.depositPaidAt && booking.status === 'pending') {
     redirect(leasePaymentPath(locale, booking.sessionReference, booking.referenceCode));
   }
+
+  // Owner-invite: contact.email is the tenant actor — never bookedByEmail first.
+  const inviteeEmail =
+    booking.inviteSource === 'owner_invite'
+      ? (booking.contact?.email || '').trim().toLowerCase()
+      : (booking.bookedByEmail || booking.contact?.email || '').trim().toLowerCase();
+  const viewerEmail = (viewer.email || '').trim().toLowerCase();
+  const inviteMismatch =
+    booking.inviteSource === 'owner_invite' && Boolean(inviteeEmail) && viewerEmail !== inviteeEmail;
+  const inviteeAu = await leaseInviteeIdentitySubject(booking.bookedByUserId);
+
+  // Invitee session with stale landlord ?au= — pin payer identity like /book/sign.
+  if (!inviteMismatch && booking.inviteSource === 'owner_invite' && inviteeAu) {
+    const auRaw = query.au;
+    const au =
+      typeof auRaw === 'string' ? auRaw.trim() : Array.isArray(auRaw) ? auRaw[0]?.trim() : '';
+    if (au !== inviteeAu) {
+      redirect(leaseConfirmedPath(locale, booking.referenceCode, { au: inviteeAu }));
+    }
+  }
+
+  const inviteGate =
+    inviteMismatch && inviteeEmail
+      ? await resolveOwnerInviteAccountGate({
+          locale,
+          paymentPath: leaseConfirmedPath(locale, booking.referenceCode, {
+            ...(inviteeAu ? { au: inviteeAu } : {}),
+          }),
+          inviteeEmail,
+          viewerEmail: viewer.email,
+        })
+      : null;
   // Seed missing rent PDCs / docs after sign when auto-issue used a no-bank transfer fallback.
   // Only the booking owner triggers automation — staff is a read-through of the same URL.
   if (
@@ -110,6 +146,7 @@ export default async function LeaseBookingConfirmedPage({
     (ar ? 'العميل الكريم' : 'valued customer');
   const firstName = name.split(/\s+/)[0] ?? name;
   const closed = booking.phase === 'closed';
+  const tenantInteractive = asTenantActor && !inviteMismatch;
   const journey: LeaseJourneyProps = {
     locale,
     referenceCode: booking.referenceCode,
@@ -118,6 +155,8 @@ export default async function LeaseBookingConfirmedPage({
     lifecycle: booking.lifecycle,
     deposit,
     propertyName,
+    interactive: tenantInteractive,
+    ...(inviteeAu ? { inviteeAu } : {}),
   };
   const steps = closed ? [] : leaseJourneySteps(journey);
   const initialStep = leaseJourneyInitialStep(booking.phase);
@@ -126,8 +165,9 @@ export default async function LeaseBookingConfirmedPage({
   const otherLocale = ar ? 'en' : 'ar';
   const auRaw = query.au;
   const au = typeof auRaw === 'string' ? auRaw : Array.isArray(auRaw) ? auRaw[0] : undefined;
+  const stickyAu = inviteeAu || au;
   const samePageHref = `/book/confirmed?ref=${encodeURIComponent(booking.referenceCode)}${
-    au ? `&au=${encodeURIComponent(au)}` : ''
+    stickyAu ? `&au=${encodeURIComponent(stickyAu)}` : ''
   }`;
 
   return (
@@ -271,10 +311,44 @@ export default async function LeaseBookingConfirmedPage({
                 </Link>
               </section>
             ) : (
-              <LeaseJourneyCard {...journey} />
+              <>
+                {inviteGate && !inviteGate.matched ? (
+                  <section className="guest-stay-detail__greeting" style={{ marginBottom: '1rem' }}>
+                    <h2 style={{ fontSize: '1.15rem', marginBottom: '0.75rem' }}>
+                      {ar ? 'أكمل الرحلة بحساب الدعوة' : 'Continue with the invite account'}
+                    </h2>
+                    <p className="muted" style={{ marginBottom: '1rem' }}>
+                      {ar
+                        ? 'أنت على حساب آخر. بدّل إلى حساب المستأجر لإتمام التوقيع والمستندات — لا يُفقد شيء.'
+                        : 'You are on a different account. Switch to the tenant account to finish signing and documents — nothing is lost.'}
+                    </p>
+                    <LeaseInviteAccountGate
+                      locale={ar ? 'ar' : 'en'}
+                      purpose="sign"
+                      inviteeEmail={inviteGate.inviteeEmail}
+                      continueHref={inviteGate.continueHref}
+                      paymentPath={inviteGate.paymentPath}
+                      rosterHasInvitee={inviteGate.rosterHasInvitee}
+                      {...(inviteGate.inviteeSub ? { inviteeSub: inviteGate.inviteeSub } : {})}
+                      {...(booking.contact?.fullName
+                        ? { inviteeName: booking.contact.fullName }
+                        : {})}
+                      {...(viewer.email ? { currentEmail: viewer.email } : {})}
+                      {...(viewer.displayName || viewer.username
+                        ? {
+                            currentName:
+                              viewer.displayName?.trim() || viewer.username?.trim() || null,
+                          }
+                        : {})}
+                    />
+                  </section>
+                ) : null}
+                <LeaseJourneyCard {...journey} />
+              </>
             )}
 
-            {!closed &&
+            {tenantInteractive &&
+            !closed &&
             ((booking.phase === 'awaiting_handover' &&
               documentsPackageFullyApproved(booking.lifecycle)) ||
               booking.phase === 'handed_over' ||
@@ -409,18 +483,26 @@ export default async function LeaseBookingConfirmedPage({
                 <Link
                   className="button button--quiet"
                   href={
-                    booking.esignSignedAt
-                      ? `/book/sign?ref=${encodeURIComponent(booking.referenceCode)}&view=1`
-                      : `/book/sign?ref=${encodeURIComponent(booking.referenceCode)}`
+                    booking.esignSignedAt || !tenantInteractive
+                      ? `/book/sign?ref=${encodeURIComponent(booking.referenceCode)}&view=1${
+                          inviteeAu ? `&au=${encodeURIComponent(inviteeAu)}` : ''
+                        }`
+                      : `/book/sign?ref=${encodeURIComponent(booking.referenceCode)}${
+                          inviteeAu ? `&au=${encodeURIComponent(inviteeAu)}` : ''
+                        }`
                   }
                 >
                   {booking.esignSignedAt
                     ? ar
                       ? 'اتفاقية الحجز الموقّعة'
                       : 'Signed booking agreement'
-                    : ar
-                      ? 'توقيع اتفاقية الحجز'
-                      : 'Sign booking agreement'}
+                    : !tenantInteractive
+                      ? ar
+                        ? 'عرض اتفاقية الحجز'
+                        : 'View booking agreement'
+                      : ar
+                        ? 'توقيع اتفاقية الحجز'
+                        : 'Sign booking agreement'}
                 </Link>
               ) : null}
               {contract && !tenantLeaseContractDetailsLocked(booking.phase) ? (

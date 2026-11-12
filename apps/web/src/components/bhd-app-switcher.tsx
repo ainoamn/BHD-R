@@ -25,7 +25,12 @@ import {
   signalPrivacyVeilReady,
   switchWindowAccount,
 } from '@/lib/identity/client';
-import { readActiveAu, setActiveAu, tokenForAccount } from '@/lib/identity/window-session';
+import {
+  keepUrlAuOverCookie,
+  readActiveAu,
+  setActiveAu,
+  tokenForAccount,
+} from '@/lib/identity/window-session';
 import { useBhdCatalog } from '@/lib/identity/use-bhd-catalog';
 import { roleLabel, type OrganizationChoice } from '@/lib/team-shared';
 import type { Viewer } from '@/lib/types';
@@ -334,7 +339,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
       }
       const au = readActiveAu();
       const cookieSub = (payload.currentSub || '').trim();
-      // Keep chip + panel on one face: prefer live cookie when ?au= cannot be claimed.
+      // Keep chip + panel on one face. On book/pay, never steal ?au= for the cookie.
       if (au && cookieSub && au !== cookieSub) {
         void claimProductSessionForActiveAu()
           .then((claimed) => {
@@ -343,12 +348,22 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
               setCurrentSub(readActiveAu() || au);
               return;
             }
+            if (keepUrlAuOverCookie()) {
+              ensureAuInUrl(au);
+              setCurrentSub(au);
+              return;
+            }
             setActiveAu(cookieSub);
             ensureAuInUrl(cookieSub);
             setCurrentSub(cookieSub);
           })
           .catch(() => {
             if (!live) return;
+            if (keepUrlAuOverCookie()) {
+              ensureAuInUrl(au);
+              setCurrentSub(au);
+              return;
+            }
             setActiveAu(cookieSub);
             ensureAuInUrl(cookieSub);
             setCurrentSub(cookieSub);

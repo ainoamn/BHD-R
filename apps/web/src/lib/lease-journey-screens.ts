@@ -13,6 +13,10 @@ export type LeaseJourneyProps = {
   lifecycle: LeaseLifecycleView;
   deposit: string;
   propertyName: string;
+  /** When false (staff / wrong account), hide tenant submit actions. */
+  interactive?: boolean;
+  /** Invitee identity ?au= to keep on sign links. */
+  inviteeAu?: string | null;
 };
 
 export function journeyStamp(iso: string | null, ar: boolean): string {

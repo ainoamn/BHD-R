@@ -79,6 +79,21 @@ export function setActiveAu(sub: string) {
   sessionStorage.setItem(ACTIVE_AU_KEY, sub);
 }
 
+/**
+ * Guest book / pay URLs carry the intended actor in ?au=.
+ * Never replace that with the shared cookie account when rebind fails —
+ * that flipped landlord chips onto invitee links and broke sign/pay.
+ */
+export function keepUrlAuOverCookie(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const path = window.location.pathname;
+    return /\/(ar|en)\/(book|payments)(\/|$)/.test(path) || /\/(book|payments)(\/|$)/.test(path);
+  } catch {
+    return false;
+  }
+}
+
 /** Token for this tab's bound account (URL ?au= → map → window token). */
 export function boundWindowToken(): string {
   if (typeof window === 'undefined') return '';

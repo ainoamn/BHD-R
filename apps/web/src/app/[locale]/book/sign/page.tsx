@@ -93,18 +93,23 @@ export default async function LeaseBookingSignPage({
     notFound();
   }
 
-  // Gate by email (not only staff fallback) — cookie may be invitee while ?au= is still owner.
+  // Owner-invite actor is always contact.email (never prefer bookedByEmail — can lag / mismatch).
   const inviteeEmail =
-    (booking.bookedByEmail || booking.contact?.email || '').trim().toLowerCase();
+    booking.inviteSource === 'owner_invite'
+      ? (booking.contact?.email || '').trim().toLowerCase()
+      : (booking.bookedByEmail || booking.contact?.email || '').trim().toLowerCase();
   const viewerEmail = (viewer.email || '').trim().toLowerCase();
   const inviteMismatch =
     !viewOnly &&
     booking.inviteSource === 'owner_invite' &&
     Boolean(inviteeEmail) &&
     viewerEmail !== inviteeEmail;
+  const inviteeAu =
+    booking.inviteSource === 'owner_invite'
+      ? await leaseInviteeIdentitySubject(booking.bookedByUserId)
+      : null;
 
   if (inviteMismatch) {
-    const inviteeAu = await leaseInviteeIdentitySubject(booking.bookedByUserId);
     const signBase = stripAuFromReturnPath(leaseSignPath(locale, booking.referenceCode));
     const paymentPath = inviteeAu
       ? `${signBase}${signBase.includes('?') ? '&' : '?'}au=${encodeURIComponent(inviteeAu)}`
@@ -168,14 +173,11 @@ export default async function LeaseBookingSignPage({
     inviteeEmail &&
     viewerEmail === inviteeEmail
   ) {
-    const inviteeAu = await leaseInviteeIdentitySubject(booking.bookedByUserId);
     const auRaw = query.au;
     const au =
       typeof auRaw === 'string' ? auRaw.trim() : Array.isArray(auRaw) ? auRaw[0]?.trim() : '';
     if (inviteeAu && au !== inviteeAu) {
-      redirect(
-        `/${locale}/book/sign?ref=${encodeURIComponent(booking.referenceCode)}&au=${encodeURIComponent(inviteeAu)}`,
-      );
+      redirect(leaseSignPath(locale, booking.referenceCode, { au: inviteeAu }));
     }
   }
 
@@ -191,7 +193,11 @@ export default async function LeaseBookingSignPage({
   const signature = booking.signature;
   // After the booking agreement is signed, the journey lives on /book/confirmed.
   if (signature && !viewOnly) {
-    redirect(leaseConfirmedPath(locale, booking.referenceCode));
+    redirect(
+      leaseConfirmedPath(locale, booking.referenceCode, {
+        ...(inviteeAu ? { au: inviteeAu } : {}),
+      }),
+    );
   }
   const links: ContractArticleLinks = {
     file: () => signature?.png ?? '',
@@ -235,7 +241,11 @@ export default async function LeaseBookingSignPage({
         <div className="lease-approved-banner" role="status">
           <span aria-hidden="true">✅</span>
           <p>{statusText}</p>
-          <Link href={`/book/confirmed?ref=${encodeURIComponent(booking.referenceCode)}`}>
+          <Link
+            href={`/book/confirmed?ref=${encodeURIComponent(booking.referenceCode)}${
+              inviteeAu ? `&au=${encodeURIComponent(inviteeAu)}` : ''
+            }`}
+          >
             {ar ? 'تابع مراحل حجزك' : 'Follow your booking'}
           </Link>
         </div>
@@ -266,7 +276,9 @@ export default async function LeaseBookingSignPage({
         signatureSerial={signature?.serial ?? null}
         initiallyComplete={Boolean(signature)}
         submitUrl={`/api/public/bookings/deposits/${encodeURIComponent(booking.referenceCode)}/esign`}
-        continuePath={leaseConfirmedPath(locale, booking.referenceCode)}
+        continuePath={leaseConfirmedPath(locale, booking.referenceCode, {
+          ...(inviteeAu ? { au: inviteeAu } : {}),
+        })}
         contractTitle={title}
         requireCsrf
         expectedAccountEmail={inviteeEmail || null}

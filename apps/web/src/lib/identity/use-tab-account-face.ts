@@ -6,7 +6,7 @@ import {
   ensureAuInUrl,
   identityMe,
 } from '@/lib/identity/client';
-import { readActiveAu, setActiveAu } from '@/lib/identity/window-session';
+import { keepUrlAuOverCookie, readActiveAu, setActiveAu } from '@/lib/identity/window-session';
 
 export type TabAccountFace = {
   sub: string;
@@ -23,8 +23,8 @@ type MePayload = {
 
 /**
  * Single source of truth for the visible tab account.
- * Prefers a live product/cookie session; when ?au= disagrees, rebind or rewrite au
- * so the chip and switcher never show two different emails.
+ * Prefers a live product/cookie session; on book/pay journeys keeps ?au=
+ * sticky when rebind fails so invite links never flip to the landlord cookie.
  */
 export function useTabAccountFace(seed?: { email?: string | null; name?: string | null }) {
   const [face, setFace] = useState<TabAccountFace>(() => ({
@@ -80,13 +80,13 @@ export function useTabAccountFace(seed?: { email?: string | null; name?: string 
 
       const cookieSub = (me?.currentSub || '').trim();
       const roster = me?.accounts ?? [];
+      const stickyAu = keepUrlAuOverCookie();
 
-      // ?au= disagrees with the live cookie session — rebind, else adopt the cookie (truth for API).
+      // ?au= disagrees with the live cookie session — rebind; on book/pay keep au.
       if (au && cookieSub && au !== cookieSub) {
         const claimed = await claimProductSessionForActiveAu().catch(() => ({ ok: false }));
         if (cancelled) return;
         if (claimed.ok) {
-          // Re-read after rebind.
           try {
             const response = await fetch('/api/auth/me', {
               credentials: 'same-origin',
@@ -103,10 +103,20 @@ export function useTabAccountFace(seed?: { email?: string | null; name?: string 
             apply(faceFromAccounts(au, nextRoster, me?.email, me?.displayName));
             return;
           }
-          // Still mismatched — show the live cookie account and fix the URL.
+          if (stickyAu) {
+            // Cookie still wrong — show the URL account from the roster, do not steal au.
+            apply(faceFromAccounts(au, nextRoster, seed?.email, seed?.name));
+            ensureAuInUrl(au);
+            return;
+          }
           setActiveAu(nextCookie);
           ensureAuInUrl(nextCookie);
           apply(faceFromAccounts(nextCookie, nextRoster, me?.email, me?.displayName));
+          return;
+        }
+        if (stickyAu) {
+          apply(faceFromAccounts(au, roster, seed?.email, seed?.name));
+          ensureAuInUrl(au);
           return;
         }
         setActiveAu(cookieSub);
@@ -117,7 +127,14 @@ export function useTabAccountFace(seed?: { email?: string | null; name?: string 
 
       const sub = au || cookieSub;
       if (sub) {
-        apply(faceFromAccounts(sub, roster, me?.email, me?.displayName));
+        apply(
+          faceFromAccounts(
+            sub,
+            roster,
+            au && au === cookieSub ? me?.email : au ? seed?.email : me?.email,
+            au && au === cookieSub ? me?.displayName : au ? seed?.name : me?.displayName,
+          ),
+        );
       } else if (me?.email) {
         apply({ sub: '', email: me.email, name: me.displayName || '' });
       }
