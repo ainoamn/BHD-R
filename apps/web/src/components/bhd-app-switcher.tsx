@@ -156,17 +156,30 @@ function ProviderMarks({ providers, ar }: { providers: AuthProvider[]; ar: boole
   );
 }
 
+/** صورة جوجل دائرية مضغوطة — نفس أسلوب خمسات/حسوب. */
+function googleAvatarSrc(picture: string | null | undefined) {
+  if (!picture) return undefined;
+  try {
+    if (!picture.includes('googleusercontent.com')) return picture;
+    if (/=s\d+/.test(picture)) return picture.replace(/=s\d+(-c)?/, '=s96-c');
+    return `${picture}${picture.includes('?') ? '&' : '?'}sz=96`;
+  } catch {
+    return picture;
+  }
+}
+
 /** Circular photo only — provider badge sits beside the email (BHD-ACCOUNT-SWITCHER §1). */
 function Face({ user, large = false }: { user: SwitcherPerson; large?: boolean }) {
   const [broken, setBroken] = useState(false);
-  const show = Boolean(user.picture) && !broken;
+  const src = googleAvatarSrc(user.picture);
+  const show = Boolean(src) && !broken;
   const initial = (user.name || user.email || 'B').trim().slice(0, 1).toUpperCase();
   return (
     <span className={large ? 'bhd-switcher-face is-large' : 'bhd-switcher-face'}>
       {show ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={user.picture || undefined}
+          src={src}
           alt=""
           width={large ? 56 : 40}
           height={large ? 56 : 40}
@@ -283,7 +296,7 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   const router = useRouter();
   const ar = locale === 'ar';
   const catalogApps = useBhdCatalog();
-  const apps = catalogApps.filter((app) => app.enabled);
+  const apps = catalogApps.filter((app) => app.enabled && app.id !== 'account');
   const [origin, setOrigin] = useState('');
   const [siteAdmin, setSiteAdmin] = useState<boolean | null>(null);
   const [accounts, setAccounts] = useState<RosterAccount[]>([]);
@@ -403,7 +416,8 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
     .trim()
     .slice(0, 1)
     .toUpperCase();
-  const showAvatarPicture = Boolean(activePerson?.picture) && !avatarBroken;
+  const avatarSrc = googleAvatarSrc(activePerson?.picture);
+  const showAvatarPicture = Boolean(avatarSrc) && !avatarBroken;
 
   useEffect(() => {
     setAvatarBroken(false);
@@ -543,6 +557,30 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
 
   return (
     <div className="bhd-switcher-slot" ref={rootRef}>
+      {/* ترتيب خمسات/حسوب: الصورة ثم شبكة التطبيقات */}
+      <button
+        type="button"
+        className="bhd-switcher-avatar"
+        aria-label={ar ? 'الحساب' : 'Account'}
+        aria-haspopup="dialog"
+        aria-expanded={panel === 'account'}
+        aria-controls={panel === 'account' ? accountId : undefined}
+        onClick={() => setPanel((currentPanel) => (currentPanel === 'account' ? null : 'account'))}
+      >
+        {showAvatarPicture && avatarSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarSrc}
+            alt=""
+            width={32}
+            height={32}
+            referrerPolicy="no-referrer"
+            onError={() => setAvatarBroken(true)}
+          />
+        ) : (
+          <span>{avatarInitial}</span>
+        )}
+      </button>
       <button
         type="button"
         className="bhd-switcher-grid"
@@ -557,29 +595,6 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
             <i key={index} />
           ))}
         </span>
-      </button>
-      <button
-        type="button"
-        className="bhd-switcher-avatar"
-        aria-label={ar ? 'الحساب' : 'Account'}
-        aria-haspopup="dialog"
-        aria-expanded={panel === 'account'}
-        aria-controls={panel === 'account' ? accountId : undefined}
-        onClick={() => setPanel((currentPanel) => (currentPanel === 'account' ? null : 'account'))}
-      >
-        {showAvatarPicture && activePerson?.picture ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={activePerson.picture}
-            alt=""
-            width={32}
-            height={32}
-            referrerPolicy="no-referrer"
-            onError={() => setAvatarBroken(true)}
-          />
-        ) : (
-          <span>{avatarInitial}</span>
-        )}
       </button>
 
       {panel === 'apps' ? (

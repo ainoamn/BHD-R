@@ -11483,12 +11483,15 @@ body:has(.stays-booking-receipt) #main-content {
   color: var(--oman-deep);
   background: transparent;
   border: 0;
-  border-radius: 0.7rem;
+  border-radius: 999px;
   cursor: pointer;
 }
 .bhd-switcher-grid:hover,
-.bhd-switcher-avatar:hover {
-  background: #edf3f0;
+.bhd-switcher-avatar:hover,
+.bhd-switcher-grid:focus-visible,
+.bhd-switcher-avatar:focus-visible {
+  background: rgba(127, 127, 127, 0.12);
+  outline: none;
 }
 .bhd-switcher-grid > span {
   display: grid;
@@ -11507,6 +11510,7 @@ body:has(.stays-booking-receipt) #main-content {
   height: 2rem;
   border-radius: 50%;
   object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 .bhd-switcher-avatar > span {
   display: grid;
