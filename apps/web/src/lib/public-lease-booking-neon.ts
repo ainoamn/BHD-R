@@ -417,7 +417,12 @@ export async function assertLeaseSessionActor(
 ) {
   const invitee = leaseInviteeEmail(match.snapshot, match.partyEmail);
   if (match.snapshot.source === 'owner_invite') {
-    await assertBookingOwner(transaction, userId, invitee || null, null);
+    // Before pay: invitee email only (never the landlord who created the invite).
+    // After pay: also accept the userId that completed deposit (bookedBy).
+    const payerId = match.snapshot.depositPaidAt
+      ? match.snapshot.bookedBy?.userId ?? null
+      : null;
+    await assertBookingOwner(transaction, userId, invitee || null, payerId);
     return;
   }
   await assertBookingOwner(
@@ -883,7 +888,17 @@ export async function completeLeaseSandboxPayment(
     const fresh = freshRows[0];
     if (!fresh) fail('not_found');
     const snapshot = fresh.termsSnapshot as unknown as LeaseBookingSnapshot;
-    const returnPath = leaseSignPath(snapshot.locale, snapshot.referenceCode);
+    const payerIdentity = await withElevatedRead(transaction, () =>
+      transaction.query.users.findFirst({
+        where: eq(users.id, claims.sub),
+        columns: { identitySubject: true },
+      }),
+    );
+    const signBase = leaseSignPath(snapshot.locale, snapshot.referenceCode);
+    const payerAu = payerIdentity?.identitySubject?.trim() || '';
+    const returnPath = payerAu
+      ? `${signBase}${signBase.includes('?') ? '&' : '?'}au=${encodeURIComponent(payerAu)}`
+      : signBase;
     if (snapshot.depositPaidAt) {
       return {
         completed: true as const,

@@ -3,11 +3,13 @@ import { notFound, redirect } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
 import { ContractArticle, type ContractArticleLinks } from '@/components/contract-document-view';
 import { ContractDocumentToolbar } from '@/components/contract-document-toolbar';
+import { LeaseInviteAccountGate } from '@/components/lease-invite-account-gate';
 import { StayEsignWizard } from '@/components/stays/stay-esign-wizard';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { formatMoney } from '@/lib/format';
 import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-contract';
 import { leaseConfirmedPath, leaseSignPath } from '@/lib/lease-booking-paths';
+import { resolveOwnerInviteAccountGate } from '@/lib/lease-invite-account-gate';
 import { readClaims } from '@/lib/portal-ops-data';
 import {
   leasePaymentPath,
@@ -18,6 +20,7 @@ import {
 } from '@/lib/public-lease-booking-neon';
 import { getViewer } from '@/lib/viewer';
 import { Link } from '@/i18n/navigation';
+import { stripAuFromReturnPath } from '@/lib/bhd/oauth';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +57,8 @@ export default async function LeaseBookingSignPage({
   const viewOnly =
     query.view === '1' || (Array.isArray(query.view) ? query.view[0] === '1' : false);
 
+  /** True when the signed-in user is the invitee/booker — not landlord staff peeking. */
+  let asTenantActor = true;
   let booking = await loadLeaseBookingAgreement(viewer.id, referenceCode).catch(() => null);
   if (!booking) {
     // Agreement enrichment can fail while the booking itself is fine — recover via the
@@ -77,12 +82,77 @@ export default async function LeaseBookingSignPage({
         ? await loadLeaseBookingForStaff(claims, reservationId).catch(() => null)
         : null;
     if (!booking) notFound();
+    asTenantActor = false;
   }
   if (!booking.depositPaidAt) {
     if (booking.status === 'pending') {
       redirect(leasePaymentPath(locale, booking.sessionReference, booking.referenceCode));
     }
     notFound();
+  }
+
+  // Owner/staff opened the invitee's sign link — do not let them fill the wizard then fail.
+  const inviteeEmail = booking.contact?.email?.trim() || '';
+  if (
+    !asTenantActor &&
+    !viewOnly &&
+    booking.inviteSource === 'owner_invite' &&
+    inviteeEmail
+  ) {
+    const signReturn = stripAuFromReturnPath(leaseSignPath(locale, booking.referenceCode));
+    const inviteGate = await resolveOwnerInviteAccountGate({
+      locale,
+      paymentPath: signReturn,
+      inviteeEmail,
+      viewerEmail: viewer.email,
+    });
+    if (inviteGate && !inviteGate.matched) {
+      return (
+        <main className="stay-esign-shell">
+          <div className="panel" style={{ maxWidth: 520, margin: '2rem auto', padding: '1.5rem' }}>
+            <h1 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>
+              {ar ? 'التوقيع بحساب الدعوة' : 'Sign with the invite account'}
+            </h1>
+            <p className="muted" style={{ marginBottom: '1rem' }}>
+              {ar
+                ? 'الدفع تم بنجاح — أكمل التوقيع بعد التبديل إلى حساب المستأجر. لا تحتاج إعادة رفع المستندات بعد التبديل.'
+                : 'Payment succeeded — switch to the tenant account to finish signing. You do not need to re-upload documents after switching.'}
+            </p>
+            <LeaseInviteAccountGate
+              locale={ar ? 'ar' : 'en'}
+              purpose="sign"
+              inviteeEmail={inviteGate.inviteeEmail}
+              continueHref={inviteGate.continueHref}
+              paymentPath={inviteGate.paymentPath}
+              rosterHasInvitee={inviteGate.rosterHasInvitee}
+              {...(inviteGate.inviteeSub ? { inviteeSub: inviteGate.inviteeSub } : {})}
+              {...(booking.contact?.fullName
+                ? { inviteeName: booking.contact.fullName }
+                : {})}
+              {...(viewer.email ? { currentEmail: viewer.email } : {})}
+              {...(viewer.displayName || viewer.username
+                ? { currentName: viewer.displayName?.trim() || viewer.username?.trim() || null }
+                : {})}
+            />
+            <p style={{ marginTop: '1rem' }}>
+              <Link
+                className="button button--quiet"
+                href={`/book/sign?ref=${encodeURIComponent(booking.referenceCode)}&view=1`}
+              >
+                {ar ? 'عرض المستند فقط' : 'View document only'}
+              </Link>
+            </p>
+          </div>
+        </main>
+      );
+    }
+  }
+
+  // Staff may inspect the agreement, but must not run the tenant e-sign submit path.
+  if (!asTenantActor && !viewOnly) {
+    redirect(
+      `/${locale}/book/sign?ref=${encodeURIComponent(booking.referenceCode)}&view=1`,
+    );
   }
 
   const { head, doc } = leaseBookingAgreement(booking);

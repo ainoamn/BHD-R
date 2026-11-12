@@ -3,10 +3,10 @@
 import type { MouseEvent } from 'react';
 
 /**
- * Manual account gate for owner-invite payment links.
+ * Manual account gate for owner-invite payment / signing links.
  * Never auto-redirects — that caused OAuth account thrashing / slow_down.
  * Hard-navigates to product /api/auth/switch (or invite-login) so the product
- * session cookie is rewritten before returning to payment.
+ * session cookie is rewritten before returning.
  */
 export function LeaseInviteAccountGate({
   locale,
@@ -16,6 +16,7 @@ export function LeaseInviteAccountGate({
   currentName,
   continueHref,
   rosterHasInvitee,
+  purpose = 'pay',
 }: {
   locale: 'ar' | 'en';
   inviteeEmail: string;
@@ -26,8 +27,18 @@ export function LeaseInviteAccountGate({
   continueHref: string;
   paymentPath?: string;
   rosterHasInvitee: boolean;
+  /** pay = deposit checkout; sign = electronic signature after payment. */
+  purpose?: 'pay' | 'sign';
 }) {
   const ar = locale === 'ar';
+  const nextStep =
+    purpose === 'sign'
+      ? ar
+        ? 'أكمل التوقيع'
+        : 'complete signing'
+      : ar
+        ? 'أكمل الدفع'
+        : 'complete payment';
 
   const onContinue = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -56,8 +67,8 @@ export function LeaseInviteAccountGate({
       <p className="ops-hint">
         {rosterHasInvitee
           ? ar
-            ? 'اضغط مرة واحدة للتبديل إلى حساب الدعوة، ثم أكمل الدفع.'
-            : 'Click once to switch to the invite account, then complete payment.'
+            ? `اضغط مرة واحدة للتبديل إلى حساب الدعوة، ثم ${nextStep}. مستنداتك المحفوظة تبقى كما هي.`
+            : `Click once to switch to the invite account, then ${nextStep}. Saved documents stay in place.`
           : ar
             ? 'هذا البريد غير مسجّل في هذه الجلسة. سجّل الدخول به مرة واحدة دون التبديل بين الحسابات الأخرى.'
             : 'That email is not in this session. Sign in with it once — do not cycle other accounts.'}
