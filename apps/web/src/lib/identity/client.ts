@@ -635,14 +635,14 @@ export async function applyAccountIsolation(
   const windowToken =
     token ||
     (sub ? tokenForAccount(sub) : '') ||
-    boundWindowToken() ||
-    sessionStorage.getItem('bhd_window_token') ||
+    (sub ? '' : boundWindowToken()) ||
+    (sub ? '' : sessionStorage.getItem('bhd_window_token')) ||
     '';
 
   if (options?.silent) {
     if (!tabMayClaimProductCookie()) return;
     // Never paint the branded veil here — it flickered on every page with ?au=.
-    const result = await silentRebind(windowToken, sub);
+    const result = await silentRebind(windowToken || null, sub);
     if (result.ok) {
       scrubCacheBustFromUrl();
       // Cookie fixed in-place — never hard-navigate (stops blink + tab wars).
