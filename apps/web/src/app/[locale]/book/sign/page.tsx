@@ -119,6 +119,7 @@ export default async function LeaseBookingSignPage({
       paymentPath,
       inviteeEmail,
       viewerEmail: viewer.email,
+      ...(inviteeAu ? { inviteeSub: inviteeAu } : {}),
     });
     if (inviteGate && !inviteGate.matched) {
       return (

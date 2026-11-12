@@ -111,6 +111,7 @@ export default async function LeaseBookingConfirmedPage({
           }),
           inviteeEmail,
           viewerEmail: viewer.email,
+          ...(inviteeAu ? { inviteeSub: inviteeAu } : {}),
         })
       : null;
   // Seed missing rent PDCs / docs after sign when auto-issue used a no-bank transfer fallback.

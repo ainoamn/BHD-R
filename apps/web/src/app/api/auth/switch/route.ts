@@ -191,24 +191,23 @@ export async function GET(request: Request) {
 
   const hint = (target?.email || url.searchParams.get('email') || '').trim().toLowerCase();
 
-  // Invite payment gates pass email — clear product session and open Identity login
-  // for that address, then mint a fresh product cookie via start (no stale owner cookie).
-  if (hint.includes('@')) {
-    const inviteLogin = new URL('/api/auth/bhd/invite-login', url.origin);
-    inviteLogin.searchParams.set('locale', locale);
-    inviteLogin.searchParams.set('returnTo', stripAuFromReturnPath(returnPath));
-    inviteLogin.searchParams.set('email', hint);
-    return NextResponse.redirect(inviteLogin, 303);
+  // Roster account: never wipe via invite-login — that bounced landlords back to the
+  // gate on every refresh. Prefer Identity HTML switch + product SSO start.
+  if (target || !hint.includes('@')) {
+    const start = new URL('/api/auth/bhd/start', url.origin);
+    start.searchParams.set('returnTo', boundReturn);
+    start.searchParams.set('prompt', 'none');
+
+    const identitySwitch = new URL(`${issuer}/auth/switch`);
+    identitySwitch.searchParams.set('sub', sub);
+    identitySwitch.searchParams.set('next', start.toString());
+    return NextResponse.redirect(identitySwitch.toString(), 303);
   }
 
-  // Generic account switch: Identity HTML switch, then product SSO start so the
-  // product cookie is rewritten (never return straight to the app URL).
-  const start = new URL('/api/auth/bhd/start', url.origin);
-  start.searchParams.set('returnTo', boundReturn);
-  start.searchParams.set('prompt', 'none');
-
-  const identitySwitch = new URL(`${issuer}/auth/switch`);
-  identitySwitch.searchParams.set('sub', sub);
-  identitySwitch.searchParams.set('next', start.toString());
-  return NextResponse.redirect(identitySwitch.toString(), 303);
+  // Invitee not on this browser roster — one-shot login for that email only.
+  const inviteLogin = new URL('/api/auth/bhd/invite-login', url.origin);
+  inviteLogin.searchParams.set('locale', locale);
+  inviteLogin.searchParams.set('returnTo', stripAuFromReturnPath(returnPath));
+  inviteLogin.searchParams.set('email', hint);
+  return NextResponse.redirect(inviteLogin, 303);
 }

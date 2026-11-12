@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { ROSTER_COOKIE, readRosterCookie } from '@/lib/bhd/account-roster';
-import { stripAuFromReturnPath } from '@/lib/bhd/oauth';
+import { bindAuToReturnPath, stripAuFromReturnPath } from '@/lib/bhd/oauth';
 
 /** Relative payment URL the invitee should return to after switch / login. */
 export function leaseInvitePaymentReturnPath(
@@ -24,7 +24,7 @@ export type OwnerInviteAccountGate = {
   rosterHasInvitee: boolean;
   /** User-initiated only — never auto-followed (prevents OAuth thrash / slow_down). */
   continueHref: string;
-  /** Payment page path (no stale au) for post-switch navigation. */
+  /** Destination after switch / login (pinned with invitee ?au= when known). */
   paymentPath: string;
 };
 
@@ -37,16 +37,20 @@ export async function resolveOwnerInviteAccountGate(input: {
   paymentPath: string;
   inviteeEmail: string;
   viewerEmail: string | null | undefined;
+  /** Known identity subject for the invitee (from bookedBy) — prefer over roster email only. */
+  inviteeSub?: string | null;
 }): Promise<OwnerInviteAccountGate | null> {
   const invitee = input.inviteeEmail.trim().toLowerCase();
   if (!invitee || !invitee.includes('@')) return null;
-  const paymentPath = stripAuFromReturnPath(input.paymentPath);
+  const knownSub = (input.inviteeSub || '').trim() || null;
+  const cleaned = stripAuFromReturnPath(input.paymentPath);
   const current = (input.viewerEmail || '').trim().toLowerCase();
   if (current && current === invitee) {
+    const paymentPath = bindAuToReturnPath(cleaned, knownSub);
     return {
       matched: true,
       inviteeEmail: invitee,
-      inviteeSub: null,
+      inviteeSub: knownSub,
       rosterHasInvitee: true,
       continueHref: paymentPath,
       paymentPath,
@@ -55,21 +59,25 @@ export async function resolveOwnerInviteAccountGate(input: {
 
   const cookieStore = await cookies();
   const roster = readRosterCookie(cookieStore.get(ROSTER_COOKIE)?.value);
-  const rosterMatch = roster.find((item) => (item.email || '').trim().toLowerCase() === invitee);
+  const rosterMatch =
+    roster.find((item) => (item.email || '').trim().toLowerCase() === invitee) ||
+    (knownSub ? roster.find((item) => item.sub === knownSub) : undefined);
+  const inviteeSub = rosterMatch?.sub || knownSub;
 
   if (rosterMatch?.sub) {
+    const paymentPath = bindAuToReturnPath(cleaned, rosterMatch.sub);
     const switchUrl = new URLSearchParams({
       sub: rosterMatch.sub,
       locale: input.locale,
       returnTo: paymentPath,
-      email: invitee,
     });
     return {
       matched: false,
       inviteeEmail: invitee,
       inviteeSub: rosterMatch.sub,
       rosterHasInvitee: true,
-      // Product GET switch rewrites bhd_r_session (or Identity switch → /api/auth/bhd/start).
+      // Product GET switch rebinds cookie, or Identity HTML switch + /api/auth/bhd/start.
+      // Do not pass email here — that used to fall through to invite-login and wipe the session.
       continueHref: `/api/auth/switch?${switchUrl.toString()}`,
       paymentPath,
     };
@@ -77,6 +85,7 @@ export async function resolveOwnerInviteAccountGate(input: {
 
   // Dedicated one-shot login — clears product session, opens Identity login (add account),
   // then returns to the payment page via /api/auth/bhd/start.
+  const paymentPath = bindAuToReturnPath(cleaned, inviteeSub);
   const loginQs = new URLSearchParams({
     locale: input.locale,
     returnTo: paymentPath,
@@ -85,7 +94,7 @@ export async function resolveOwnerInviteAccountGate(input: {
   return {
     matched: false,
     inviteeEmail: invitee,
-    inviteeSub: null,
+    inviteeSub,
     rosterHasInvitee: false,
     continueHref: `/api/auth/bhd/invite-login?${loginQs.toString()}`,
     paymentPath,

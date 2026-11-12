@@ -1,20 +1,29 @@
 'use client';
 
-import type { MouseEvent } from 'react';
+import { useState, type MouseEvent } from 'react';
+import { browserNextMutation } from '@/lib/api';
+import {
+  applyAccountIsolation,
+  paintPrivacyVeil,
+  signalPrivacyVeilReady,
+  switchWindowAccount,
+} from '@/lib/identity/client';
+import { tokenForAccount } from '@/lib/identity/window-session';
 
 /**
  * Manual account gate for owner-invite payment / signing links.
  * Never auto-redirects — that caused OAuth account thrashing / slow_down.
- * Hard-navigates to product /api/auth/switch (or invite-login) so the product
- * session cookie is rewritten before returning.
+ * Roster path mirrors the account switcher (identity switch → product rebind).
  */
 export function LeaseInviteAccountGate({
   locale,
   inviteeEmail,
   inviteeName,
+  inviteeSub,
   currentEmail,
   currentName,
   continueHref,
+  paymentPath,
   rosterHasInvitee,
   purpose = 'pay',
 }: {
@@ -31,6 +40,8 @@ export function LeaseInviteAccountGate({
   purpose?: 'pay' | 'sign';
 }) {
   const ar = locale === 'ar';
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const nextStep =
     purpose === 'sign'
       ? ar
@@ -39,12 +50,57 @@ export function LeaseInviteAccountGate({
       : ar
         ? 'أكمل الدفع'
         : 'complete payment';
+  const destination =
+    (paymentPath && paymentPath.startsWith('/') ? paymentPath : '') || continueHref;
+
+  const finishOnDestination = (sub: string) => {
+    const returnTo = destination.includes('au=')
+      ? destination
+      : `${destination}${destination.includes('?') ? '&' : '?'}au=${encodeURIComponent(sub)}`;
+    window.location.assign(
+      `/api/auth/bhd/start?returnTo=${encodeURIComponent(returnTo)}&prompt=none`,
+    );
+  };
 
   const onContinue = (event: MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    // Full navigation only — client identity switch left the product cookie on the
-    // wrong account and bounced back to this gate with a loading veil.
-    window.location.assign(continueHref);
+    if (busy) return;
+
+    // Not on roster — hard navigate to invite-login / continueHref only.
+    if (!rosterHasInvitee || !inviteeSub) {
+      window.location.assign(continueHref);
+      return;
+    }
+
+    setBusy(true);
+    setError(null);
+    paintPrivacyVeil();
+    void (async () => {
+      try {
+        const switched = await switchWindowAccount(inviteeSub);
+        if (switched.ok) {
+          const nextSub = switched.userId || inviteeSub;
+          const token = switched.token || tokenForAccount(nextSub);
+          if (token) {
+            await applyAccountIsolation(token, { force: true, sub: nextSub });
+            return;
+          }
+          finishOnDestination(nextSub);
+          return;
+        }
+        await browserNextMutation('/api/auth/switch', {
+          method: 'POST',
+          body: JSON.stringify({ sub: inviteeSub }),
+        });
+        finishOnDestination(inviteeSub);
+      } catch {
+        // Last resort: GET switch (roster path — no invite-login wipe).
+        window.location.assign(continueHref);
+      } finally {
+        setBusy(false);
+        signalPrivacyVeilReady();
+      }
+    })();
   };
 
   return (
@@ -73,15 +129,29 @@ export function LeaseInviteAccountGate({
             ? 'هذا البريد غير مسجّل في هذه الجلسة. سجّل الدخول به مرة واحدة دون التبديل بين الحسابات الأخرى.'
             : 'That email is not in this session. Sign in with it once — do not cycle other accounts.'}
       </p>
+      {error ? (
+        <p className="notice notice--error" role="alert">
+          {error}
+        </p>
+      ) : null}
       <p>
-        <a className="button button--primary" href={continueHref} onClick={onContinue}>
-          {rosterHasInvitee
+        <a
+          className="button button--primary"
+          href={continueHref}
+          onClick={onContinue}
+          aria-disabled={busy || undefined}
+        >
+          {busy
             ? ar
-              ? 'التبديل إلى حساب الدعوة'
-              : 'Switch to invite account'
-            : ar
-              ? 'تسجيل الدخول بحساب الدعوة'
-              : 'Sign in with invite account'}
+              ? 'جارٍ التبديل…'
+              : 'Switching…'
+            : rosterHasInvitee
+              ? ar
+                ? 'التبديل إلى حساب الدعوة'
+                : 'Switch to invite account'
+              : ar
+                ? 'تسجيل الدخول بحساب الدعوة'
+                : 'Sign in with invite account'}
         </a>
       </p>
     </div>
