@@ -469,8 +469,13 @@ export async function silentRebind(
   if (typeof window === 'undefined') return { ok: false };
   const boundSub = (sub || readActiveAu() || '').trim();
   if (boundSub) setActiveAu(boundSub);
+  // When rebinding a specific ?au=, only that account's identity token is valid.
+  // Falling back to another account's window token stores the wrong product JWT under au.
   const windowToken =
-    token || (boundSub ? tokenForAccount(boundSub) : '') || boundWindowToken() || '';
+    token ||
+    (boundSub ? tokenForAccount(boundSub) : '') ||
+    (boundSub ? '' : boundWindowToken()) ||
+    '';
   if (!windowToken) return { ok: false };
 
   try {
@@ -524,16 +529,16 @@ export async function claimProductSessionForActiveAu(): Promise<{ ok: boolean }>
   const au = readActiveAu();
   if (!au) return { ok: true };
   try {
-    const { boundProductSessionToken, tokenForAccount, boundWindowToken } = await import(
+    const { boundProductSessionToken, clearProductSession, tokenForAccount } = await import(
       '@/lib/identity/window-session'
     );
     const matches = await productSessionMatchesTab();
-    const hasIdentity = Boolean(tokenForAccount(au) || boundWindowToken());
+    const identityForAu = tokenForAccount(au);
     // Cookie already matches and this tab has a cached product JWT — skip rebind.
     if (matches && boundProductSessionToken()) return { ok: true };
-    // Best-effort: hand back / mint a tab-scoped product JWT when an identity token exists.
-    if (hasIdentity) {
-      const result = await silentRebind(null, au);
+    // Best-effort: hand back / mint a tab-scoped product JWT when THIS au's identity exists.
+    if (identityForAu) {
+      const result = await silentRebind(identityForAu, au);
       if (result.ok) {
         clearHostileProductCookie();
         broadcastProductCookieOwner(result.userId || au);
@@ -543,7 +548,8 @@ export async function claimProductSessionForActiveAu(): Promise<{ ok: boolean }>
       if (matches) return { ok: true };
       return { ok: false };
     }
-    // No identity bearer in this tab: cookie path only. OK when it already matches ?au=.
+    // No identity for this au: drop any poisoned product JWT and use the cookie when it matches.
+    if (boundProductSessionToken()) clearProductSession(au);
     if (matches) return { ok: true };
     return { ok: false };
   } catch {

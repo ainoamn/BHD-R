@@ -9,23 +9,31 @@ async function completeLeaseSandboxPayment(
   sessionReference: string,
   card: { cardLast4: string; cardBrand: string; cardholderName: string },
 ): Promise<{ completed: boolean; returnPath: string | null; kind?: string }> {
+  const { clearBrowserCsrfCache } = await import('@/lib/api');
+  const { clearProductSession, readActiveAu, tabBoundAuthHeaders } = await import(
+    '@/lib/identity/window-session'
+  );
   const send = async (csrf: string) =>
     fetch(
       `/api/public/bookings/payment-sessions/${encodeURIComponent(sessionReference)}/sandbox-complete`,
       {
         method: 'POST',
         credentials: 'same-origin',
-        headers: {
+        headers: tabBoundAuthHeaders({
           accept: 'application/json',
           'content-type': 'application/json',
           'x-csrf-token': csrf,
-        },
+        }),
         body: JSON.stringify(card),
         signal: AbortSignal.timeout(45_000),
       },
     );
-  let response = await send(await fetchBrowserCsrfToken());
-  if (response.status === 403) response = await send(await fetchBrowserCsrfToken(true));
+  let response = await send(await fetchBrowserCsrfToken(true));
+  if (response.status === 403 || response.status === 401) {
+    clearBrowserCsrfCache();
+    clearProductSession(readActiveAu());
+    response = await send(await fetchBrowserCsrfToken(true));
+  }
   const payload = (await response.json().catch(() => null)) as {
     error?: { code?: string; messageAr?: string; message?: string };
     completed?: boolean;
@@ -141,23 +149,31 @@ async function cancelLeaseSandboxCheckout(sessionReference: string): Promise<{
   homePath?: string;
   unitPath?: string;
 }> {
+  const { clearBrowserCsrfCache } = await import('@/lib/api');
+  const { clearProductSession, readActiveAu, tabBoundAuthHeaders } = await import(
+    '@/lib/identity/window-session'
+  );
   const send = async (csrf: string) =>
     fetch(
       `/api/public/bookings/payment-sessions/${encodeURIComponent(sessionReference)}/cancel`,
       {
         method: 'POST',
         credentials: 'same-origin',
-        headers: {
+        headers: tabBoundAuthHeaders({
           accept: 'application/json',
           'content-type': 'application/json',
           'x-csrf-token': csrf,
-        },
+        }),
         body: '{}',
         signal: AbortSignal.timeout(30_000),
       },
     );
-  let response = await send(await fetchBrowserCsrfToken());
-  if (response.status === 403) response = await send(await fetchBrowserCsrfToken(true));
+  let response = await send(await fetchBrowserCsrfToken(true));
+  if (response.status === 403 || response.status === 401) {
+    clearBrowserCsrfCache();
+    clearProductSession(readActiveAu());
+    response = await send(await fetchBrowserCsrfToken(true));
+  }
   const payload = (await response.json().catch(() => null)) as {
     error?: { code?: string; messageAr?: string; message?: string };
     cancelled?: boolean;

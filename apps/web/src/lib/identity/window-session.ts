@@ -85,8 +85,9 @@ export function boundWindowToken(): string {
   if (sessionStorage.getItem(WINDOW_SIGNED_OUT_KEY) === '1') return '';
   const au = readActiveAu();
   if (au) {
-    const mapped = tokenForAccount(au);
-    if (mapped) return mapped;
+    // Never fall back to another account's window token while ?au= is set — that
+    // poisons product JWT capture and triggers account_mismatch on CSRF/pay.
+    return tokenForAccount(au) || '';
   }
   return sessionStorage.getItem(WINDOW_TOKEN_KEY) || '';
 }
@@ -170,7 +171,8 @@ export function tabBoundAuthHeaders(init?: HeadersInit): Headers {
   if (!product) return headers;
   const au = readActiveAu();
   if (au) headers.set('x-bhd-active-au', au);
-  const identity = boundWindowToken();
+  // Pin identity only when we have a bearer for this exact au (not a sibling account).
+  const identity = au ? tokenForAccount(au) : boundWindowToken();
   if (identity) headers.set('x-bhd-identity-bearer', identity);
   headers.set('x-bhd-product-session', product);
   const csrf = boundProductCsrfToken();

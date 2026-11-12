@@ -110,23 +110,27 @@ async function getNextCsrfToken(force = false): Promise<string> {
       }
       // Bind cookie to this tab's ?au= before minting CSRF — shared cookie otherwise
       // signs the write as the account active in another tab.
+      let cookieOnlyCsrf = dropStaleProduct;
       try {
         const { claimProductSessionForActiveAu } = await import('@/lib/identity/client');
         const claimed = await claimProductSessionForActiveAu();
         if (!claimed.ok) {
-          throw new ApiError(
-            401,
-            'account_mismatch',
-            'الحساب النشط في هذه النافذة لا يطابق جلسة المنتج — بدّل الحساب من الرأس ثم أعد المحاولة.',
+          // Do not hard-block public pay/checkout: drop poisoned tab JWT and mint against cookie.
+          const { clearProductSession, readActiveAu } = await import(
+            '@/lib/identity/window-session'
           );
+          clearProductSession(readActiveAu());
+          cachedNextCsrfToken = null;
+          cookieOnlyCsrf = true;
         }
-      } catch (error) {
-        if (error instanceof ApiError) throw error;
+      } catch {
+        cookieOnlyCsrf = true;
       }
       const { tabBoundAuthHeaders, captureProductSession, readActiveAu, boundProductCsrfToken } =
         await import('@/lib/identity/window-session');
       // Never reuse a cached product CSRF after we just dropped a stale JWT.
-      const cachedCsrf = !dropStaleProduct && !force ? boundProductCsrfToken() : '';
+      const cachedCsrf =
+        !cookieOnlyCsrf && !dropStaleProduct && !force ? boundProductCsrfToken() : '';
       if (cachedCsrf) {
         cachedNextCsrfToken = cachedCsrf;
         return cachedCsrf;
@@ -136,7 +140,9 @@ async function getNextCsrfToken(force = false): Promise<string> {
         // Hobby cold starts often exceed 12s; keep aligned with Nest CSRF budget.
         response = await fetch('/api/auth/csrf', {
           credentials: 'same-origin',
-          headers: tabBoundAuthHeaders({ accept: 'application/json' }),
+          headers: cookieOnlyCsrf
+            ? { accept: 'application/json' }
+            : tabBoundAuthHeaders({ accept: 'application/json' }),
           signal: AbortSignal.timeout(40_000),
           cache: 'no-store',
         });
