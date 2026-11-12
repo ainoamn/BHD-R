@@ -410,6 +410,21 @@ export function leaseInviteeEmail(snapshot: LeaseBookingSnapshot, partyEmail?: s
   );
 }
 
+/** Identity ?au= for the user who paid / must sign an owner invite. */
+export async function leaseInviteeIdentitySubject(
+  bookedByUserId: string | null | undefined,
+): Promise<string | null> {
+  const id = bookedByUserId?.trim() || '';
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const { db } = getDatabase();
+  const row = await db.query.users.findFirst({
+    where: eq(users.id, id),
+    columns: { identitySubject: true },
+  });
+  const subject = row?.identitySubject?.trim() || '';
+  return subject || null;
+}
+
 export async function assertLeaseSessionActor(
   transaction: Tx,
   userId: string,
@@ -1298,6 +1313,8 @@ function leaseBookingView(match: LeaseReservationMatch) {
     party: partyWithoutEmbeddedFiles(parseReservationParty(snapshot.party)),
     bookingFor: snapshot.bookingFor ?? 'self',
     bookedByName: snapshot.bookedBy?.displayName ?? null,
+    bookedByUserId: snapshot.bookedBy?.userId ?? null,
+    bookedByEmail: snapshot.bookedBy?.email ?? null,
     termsAcceptedAt: snapshot.termsAcceptedAt,
     ownerTerms: snapshot.ownerTerms ?? null,
     depositPaidAt: snapshot.depositPaidAt ?? null,

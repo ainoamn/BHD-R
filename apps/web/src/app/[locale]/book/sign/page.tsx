@@ -11,7 +11,9 @@ import { leaseBookingAgreement, leaseContractTitle } from '@/lib/lease-booking-c
 import { leaseConfirmedPath, leaseSignPath } from '@/lib/lease-booking-paths';
 import { resolveOwnerInviteAccountGate } from '@/lib/lease-invite-account-gate';
 import { readClaims } from '@/lib/portal-ops-data';
+import { ActiveAccountChip } from '@/components/active-account-chip';
 import {
+  leaseInviteeIdentitySubject,
   leasePaymentPath,
   leaseReservationIdForStaff,
   loadLeaseBookingAgreement,
@@ -91,32 +93,42 @@ export default async function LeaseBookingSignPage({
     notFound();
   }
 
-  // Owner/staff opened the invitee's sign link — do not let them fill the wizard then fail.
-  const inviteeEmail = booking.contact?.email?.trim() || '';
-  if (
-    !asTenantActor &&
+  // Gate by email (not only staff fallback) — cookie may be invitee while ?au= is still owner.
+  const inviteeEmail =
+    (booking.bookedByEmail || booking.contact?.email || '').trim().toLowerCase();
+  const viewerEmail = (viewer.email || '').trim().toLowerCase();
+  const inviteMismatch =
     !viewOnly &&
     booking.inviteSource === 'owner_invite' &&
-    inviteeEmail
-  ) {
-    const signReturn = stripAuFromReturnPath(leaseSignPath(locale, booking.referenceCode));
+    Boolean(inviteeEmail) &&
+    viewerEmail !== inviteeEmail;
+
+  if (inviteMismatch) {
+    const inviteeAu = await leaseInviteeIdentitySubject(booking.bookedByUserId);
+    const signBase = stripAuFromReturnPath(leaseSignPath(locale, booking.referenceCode));
+    const paymentPath = inviteeAu
+      ? `${signBase}${signBase.includes('?') ? '&' : '?'}au=${encodeURIComponent(inviteeAu)}`
+      : signBase;
     const inviteGate = await resolveOwnerInviteAccountGate({
       locale,
-      paymentPath: signReturn,
+      paymentPath,
       inviteeEmail,
       viewerEmail: viewer.email,
     });
     if (inviteGate && !inviteGate.matched) {
       return (
         <main className="stay-esign-shell">
+          <div className="stay-esign-shell__account">
+            <ActiveAccountChip viewer={viewer} locale={locale} compact />
+          </div>
           <div className="panel" style={{ maxWidth: 520, margin: '2rem auto', padding: '1.5rem' }}>
             <h1 style={{ fontSize: '1.25rem', marginBottom: '0.75rem' }}>
               {ar ? 'التوقيع بحساب الدعوة' : 'Sign with the invite account'}
             </h1>
             <p className="muted" style={{ marginBottom: '1rem' }}>
               {ar
-                ? 'الدفع تم بنجاح — أكمل التوقيع بعد التبديل إلى حساب المستأجر. لا تحتاج إعادة رفع المستندات بعد التبديل.'
-                : 'Payment succeeded — switch to the tenant account to finish signing. You do not need to re-upload documents after switching.'}
+                ? 'أنت الآن على حساب آخر. بدّل إلى حساب المستأجر لإتمام التوقيع — المستندات المحفوظة لا تُفقد.'
+                : 'You are on a different account. Switch to the tenant account to finish signing — saved documents are kept.'}
             </p>
             <LeaseInviteAccountGate
               locale={ar ? 'ar' : 'en'}
@@ -144,6 +156,25 @@ export default async function LeaseBookingSignPage({
             </p>
           </div>
         </main>
+      );
+    }
+  }
+
+  // Invitee session but wrong ?au= (owner id left in the URL) — pin the payer identity.
+  if (
+    !viewOnly &&
+    booking.inviteSource === 'owner_invite' &&
+    viewerEmail &&
+    inviteeEmail &&
+    viewerEmail === inviteeEmail
+  ) {
+    const inviteeAu = await leaseInviteeIdentitySubject(booking.bookedByUserId);
+    const auRaw = query.au;
+    const au =
+      typeof auRaw === 'string' ? auRaw.trim() : Array.isArray(auRaw) ? auRaw[0]?.trim() : '';
+    if (inviteeAu && au !== inviteeAu) {
+      redirect(
+        `/${locale}/book/sign?ref=${encodeURIComponent(booking.referenceCode)}&au=${encodeURIComponent(inviteeAu)}`,
       );
     }
   }
@@ -197,6 +228,9 @@ export default async function LeaseBookingSignPage({
 
   return (
     <main className="stay-esign-shell">
+      <div className="stay-esign-shell__account">
+        <ActiveAccountChip viewer={viewer} locale={locale} compact />
+      </div>
       {statusText ? (
         <div className="lease-approved-banner" role="status">
           <span aria-hidden="true">✅</span>
@@ -235,6 +269,7 @@ export default async function LeaseBookingSignPage({
         continuePath={leaseConfirmedPath(locale, booking.referenceCode)}
         contractTitle={title}
         requireCsrf
+        expectedAccountEmail={inviteeEmail || null}
         docsReturn={
           booking.lifecycle.bookingDocsReturn
             ? {

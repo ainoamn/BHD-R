@@ -59,6 +59,7 @@ export function StayEsignWizard({
   contractTitle,
   requireCsrf = false,
   docsReturn = null,
+  expectedAccountEmail = null,
 }: {
   locale: string;
   referenceCode: string;
@@ -76,6 +77,8 @@ export function StayEsignWizard({
   requireCsrf?: boolean;
   /** Owner asked for selective document fixes; locked captures stay read-only. */
   docsReturn?: StayEsignDocsReturn | null;
+  /** When set, forbidden responses mention switching to this invitee email. */
+  expectedAccountEmail?: string | null;
 }) {
   const ar = locale === 'ar';
   const router = useRouter();
@@ -218,34 +221,109 @@ export function StayEsignWizard({
     setBusy(true);
     setError(null);
     try {
-      const csrf = requireCsrf ? await fetchBrowserCsrfToken() : null;
-      const response = await fetch(
-        submitUrl ?? `/api/public/stays/bookings/${encodeURIComponent(referenceCode)}/esign`,
-        {
-          method: 'POST',
-          credentials: 'same-origin',
-          signal: AbortSignal.timeout(55_000),
-          headers: {
-            accept: 'application/json',
-            'content-type': 'application/json',
-            'x-requested-with': 'BHD-R',
-            ...(csrf ? { 'x-csrf-token': csrf } : {}),
+      // Drop a poisoned tab product JWT (wrong ?au=) so CSRF/submit use the cookie invitee session.
+      if (requireCsrf) {
+        const { clearBrowserCsrfCache } = await import('@/lib/api');
+        const { clearProductSession, readActiveAu, tabBoundAuthHeaders } = await import(
+          '@/lib/identity/window-session'
+        );
+        const { claimProductSessionForActiveAu } = await import('@/lib/identity/client');
+        const claimed = await claimProductSessionForActiveAu().catch(() => ({ ok: false }));
+        if (!claimed.ok) {
+          clearProductSession(readActiveAu());
+          clearBrowserCsrfCache();
+        }
+        const csrf = await fetchBrowserCsrfToken(true);
+        const body = JSON.stringify({
+          ...(needSignature ? { signaturePng: signatureDataUrl } : {}),
+          ...(needFront ? { idFrontPng: idFront } : {}),
+          ...(needBack ? { idBackPng: idBack } : {}),
+          ...(needSelfie ? { selfiePng: selfie } : {}),
+        });
+        const post = async () =>
+          fetch(
+            submitUrl ?? `/api/public/stays/bookings/${encodeURIComponent(referenceCode)}/esign`,
+            {
+              method: 'POST',
+              credentials: 'same-origin',
+              signal: AbortSignal.timeout(55_000),
+              headers: tabBoundAuthHeaders({
+                accept: 'application/json',
+                'content-type': 'application/json',
+                'x-requested-with': 'BHD-R',
+                'x-csrf-token': csrf,
+              }),
+              body,
+            },
+          );
+        let response = await post();
+        if (response.status === 401 || response.status === 403) {
+          clearProductSession(readActiveAu());
+          clearBrowserCsrfCache();
+          const freshCsrf = await fetchBrowserCsrfToken(true);
+          response = await fetch(
+            submitUrl ?? `/api/public/stays/bookings/${encodeURIComponent(referenceCode)}/esign`,
+            {
+              method: 'POST',
+              credentials: 'same-origin',
+              signal: AbortSignal.timeout(55_000),
+              headers: {
+                accept: 'application/json',
+                'content-type': 'application/json',
+                'x-requested-with': 'BHD-R',
+                'x-csrf-token': freshCsrf,
+              },
+              body,
+            },
+          );
+        }
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { code?: string; messageAr?: string; message?: string };
+          completed?: boolean;
+          signedAt?: string;
+        } | null;
+        if (!response.ok) {
+          const forbidden =
+            response.status === 403 ||
+            payload?.error?.code === 'forbidden' ||
+            /مرتبط بحساب آخر|another account/i.test(
+              `${payload?.error?.messageAr ?? ''} ${payload?.error?.message ?? ''}`,
+            );
+          if (forbidden && expectedAccountEmail) {
+            throw new Error(
+              ar
+                ? `هذا الحجز لحساب ${expectedAccountEmail} — بدّل الحساب من أعلى الصفحة ثم أعد التوقيع.`
+                : `This booking belongs to ${expectedAccountEmail} — switch account at the top, then sign again.`,
+            );
+          }
+          throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? 'esign_failed');
+        }
+      } else {
+        const response = await fetch(
+          submitUrl ?? `/api/public/stays/bookings/${encodeURIComponent(referenceCode)}/esign`,
+          {
+            method: 'POST',
+            credentials: 'same-origin',
+            signal: AbortSignal.timeout(55_000),
+            headers: {
+              accept: 'application/json',
+              'content-type': 'application/json',
+              'x-requested-with': 'BHD-R',
+            },
+            body: JSON.stringify({
+              ...(needSignature ? { signaturePng: signatureDataUrl } : {}),
+              ...(needFront ? { idFrontPng: idFront } : {}),
+              ...(needBack ? { idBackPng: idBack } : {}),
+              ...(needSelfie ? { selfiePng: selfie } : {}),
+            }),
           },
-          body: JSON.stringify({
-            ...(needSignature ? { signaturePng: signatureDataUrl } : {}),
-            ...(needFront ? { idFrontPng: idFront } : {}),
-            ...(needBack ? { idBackPng: idBack } : {}),
-            ...(needSelfie ? { selfiePng: selfie } : {}),
-          }),
-        },
-      );
-      const payload = (await response.json().catch(() => null)) as {
-        error?: { messageAr?: string; message?: string };
-        completed?: boolean;
-        signedAt?: string;
-      } | null;
-      if (!response.ok) {
-        throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? 'esign_failed');
+        );
+        const payload = (await response.json().catch(() => null)) as {
+          error?: { messageAr?: string; message?: string };
+        } | null;
+        if (!response.ok) {
+          throw new Error(payload?.error?.messageAr ?? payload?.error?.message ?? 'esign_failed');
+        }
       }
       const nextPath = continuePath ?? stayConfirmedReturnPath(locale, referenceCode);
       // Hard navigate so /book/sign server-redirects to the confirmed journey immediately.

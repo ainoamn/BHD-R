@@ -23746,6 +23746,61 @@ body:has(.stays-book-shell) #main-content {
   padding: 0;
   background: #0b1c1a;
 }
+.stay-esign-shell__account {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.65rem 0.85rem;
+  background: rgb(11 28 26 / 0.92);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgb(244 240 232 / 0.08);
+}
+.active-account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: min(100%, 22rem);
+  padding: 0.2rem 0.35rem 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: rgb(244 240 232 / 0.1);
+  color: #f4f0e8;
+}
+.active-account-chip__text {
+  display: grid;
+  gap: 0.05rem;
+  min-width: 0;
+  line-height: 1.15;
+}
+.active-account-chip__name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.9;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.active-account-chip__email {
+  font-size: 0.78rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.active-account-chip--compact .active-account-chip__email {
+  font-size: 0.75rem;
+}
+.site-header .active-account-chip {
+  background: #edf5f1;
+  color: var(--oman-deep);
+  max-width: min(100%, 16rem);
+}
+.portal-chrome .active-account-chip {
+  background: rgb(255 255 255 / 0.12);
+  color: inherit;
+  max-width: min(100%, 14rem);
+}
 body:has(.stay-esign-shell) .site-header,
 body:has(.stay-esign-shell) .site-footer {
   display: none;

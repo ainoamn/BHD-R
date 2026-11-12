@@ -1,17 +1,12 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { Logo } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { useEffect, useState } from 'react';
 import { Link, usePathname } from '@/i18n/navigation';
+import { ActiveAccountChip } from '@/components/active-account-chip';
 import { HeaderStayAlerts } from '@/components/header-stay-alerts';
 import type { Viewer } from '@/lib/types';
-
-const BhdAppSwitcher = dynamic(
-  () => import('@/components/bhd-app-switcher').then((mod) => mod.BhdAppSwitcher),
-  { ssr: false },
-);
 
 type AuthState =
   { status: 'loading' } | { status: 'anonymous' } | { status: 'signed-in'; viewer: Viewer };
@@ -150,7 +145,7 @@ export function SiteHeader() {
                   >
                     {locale === 'ar' ? 'مساحتي' : 'Workspace'}
                   </Link>
-                  <BhdAppSwitcher viewer={auth.viewer} locale={locale} />
+                  <ActiveAccountChip viewer={auth.viewer} locale={locale} />
                 </>
               ) : (
                 <a

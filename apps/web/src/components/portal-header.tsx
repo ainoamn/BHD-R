@@ -3,7 +3,7 @@
 import { Logo } from '@bhd-r/ui';
 import { useLocale, useTranslations } from 'next-intl';
 import { Link, usePathname } from '@/i18n/navigation';
-import { BhdAppSwitcher } from '@/components/bhd-app-switcher';
+import { ActiveAccountChip } from '@/components/active-account-chip';
 import { HeaderStayAlerts } from '@/components/header-stay-alerts';
 import { PortalApprovalsBell } from '@/components/portal-approvals-bell';
 import { lawyerParty } from '@/lib/portal-access';
@@ -122,7 +122,7 @@ export function PortalHeader({
           ) : null}
           {portal === 'tenant' ? <HeaderStayAlerts locale={locale} signedIn /> : null}
 
-          <BhdAppSwitcher viewer={viewer} locale={locale} />
+          <ActiveAccountChip viewer={viewer} locale={locale} compact />
         </div>
       </div>
     </header>
