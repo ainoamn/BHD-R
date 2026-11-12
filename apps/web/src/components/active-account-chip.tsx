@@ -1,10 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
 import type { Viewer } from '@/lib/types';
-import { ensureAuInUrl, identityMe } from '@/lib/identity/client';
-import { readActiveAu } from '@/lib/identity/window-session';
+import { useTabAccountFace } from '@/lib/identity/use-tab-account-face';
 
 const BhdAppSwitcher = dynamic(
   () => import('@/components/bhd-app-switcher').then((mod) => mod.BhdAppSwitcher),
@@ -12,8 +10,8 @@ const BhdAppSwitcher = dynamic(
 );
 
 /**
- * Always-visible tab account: email (and name) for the active ?au=, plus the switcher.
- * Prefer identity Bearer over the shared product cookie so multi-account tabs stay honest.
+ * Always-visible tab account. Label comes from the same face as the switcher
+ * (live session after ?au= reconcile) so outside and inside never disagree.
  */
 export function ActiveAccountChip({
   viewer,
@@ -23,72 +21,16 @@ export function ActiveAccountChip({
 }: {
   viewer: Viewer;
   locale: 'ar' | 'en';
-  /** Shorter label for tight chrome (esign / portal). */
   compact?: boolean;
   className?: string;
 }) {
   const ar = locale === 'ar';
-  const [email, setEmail] = useState(() => viewer.email?.trim() || '');
-  const [name, setName] = useState(() => viewer.displayName?.trim() || '');
-
-  useEffect(() => {
-    const au = readActiveAu();
-    if (au) ensureAuInUrl(au);
-    let cancelled = false;
-
-    const apply = (nextEmail?: string | null, nextName?: string | null) => {
-      const e = nextEmail?.trim() || '';
-      const n = nextName?.trim() || '';
-      if (e) setEmail(e);
-      if (n) setName(n);
-    };
-
-    void identityMe()
-      .then((payload) => {
-        if (cancelled || !payload) return;
-        const identitySub = payload.user?.id?.trim();
-        if (identitySub) ensureAuInUrl(identitySub);
-        const tabSub = readActiveAu() || identitySub || '';
-        const fromRoster = payload.accounts?.find((item) => (item.id || '').trim() === tabSub);
-        apply(
-          fromRoster?.email || payload.user?.email,
-          fromRoster?.name || payload.user?.name,
-        );
-      })
-      .catch(() => undefined);
-
-    void fetch('/api/auth/me', {
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: { accept: 'application/json' },
-    })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return (await response.json()) as {
-          email?: string;
-          displayName?: string;
-          currentSub?: string | null;
-          accounts?: Array<{ sub: string; email?: string; name?: string }>;
-        };
-      })
-      .then((me) => {
-        if (cancelled || !me) return;
-        const tabSub = readActiveAu();
-        if (!tabSub) {
-          apply(me.email, me.displayName);
-          return;
-        }
-        const match = me.accounts?.find((item) => item.sub === tabSub);
-        if (match) apply(match.email, match.name);
-        else if (me.currentSub === tabSub) apply(me.email, me.displayName);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, [viewer.displayName, viewer.email]);
-
+  const face = useTabAccountFace({
+    email: viewer.email,
+    name: viewer.displayName,
+  });
+  const email = face.email || viewer.email?.trim() || '';
+  const name = face.name || viewer.displayName?.trim() || '';
   const primary = email || name || (ar ? 'حسابي' : 'Account');
   const showName = Boolean(name && email && name.toLowerCase() !== email.toLowerCase());
   const title = showName ? `${name} · ${email}` : primary;
@@ -110,7 +52,7 @@ export function ActiveAccountChip({
           </>
         ) : (
           <span className="active-account-chip__email" dir="ltr">
-            {compact && email.includes('@') ? email.slice(0, email.indexOf('@') + 1) + '…' : primary}
+            {compact && email.includes('@') ? `${email.slice(0, email.indexOf('@') + 1)}…` : primary}
           </span>
         )}
       </span>

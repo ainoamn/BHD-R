@@ -17,13 +17,15 @@ import {
   accountBoundPath,
   addAccountUrl,
   applyAccountIsolation,
+  claimProductSessionForActiveAu,
   currentReturnPath,
+  ensureAuInUrl,
   identityMe,
   paintPrivacyVeil,
   signalPrivacyVeilReady,
   switchWindowAccount,
 } from '@/lib/identity/client';
-import { readActiveAu, tokenForAccount } from '@/lib/identity/window-session';
+import { readActiveAu, setActiveAu, tokenForAccount } from '@/lib/identity/window-session';
 import { useBhdCatalog } from '@/lib/identity/use-bhd-catalog';
 import { roleLabel, type OrganizationChoice } from '@/lib/team-shared';
 import type { Viewer } from '@/lib/types';
@@ -318,10 +320,6 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
   }, [panel, origin, catalogApps]);
 
   useEffect(() => {
-    // Prefer this tab's ?au= binding over the shared cookie (other tabs may have switched).
-    const au = readActiveAu();
-    if (au) setCurrentSub(au);
-
     let live = true;
     const applyMe = (payload: {
       currentSub?: string | null;
@@ -334,8 +332,30 @@ export function BhdAppSwitcher({ viewer, locale }: { viewer: Viewer; locale: 'ar
       if (Array.isArray(payload.accounts) && payload.accounts.length) {
         setAccounts(payload.accounts);
       }
-      // Never let cookie currentSub overwrite this tab's ?au=.
-      if (!au && payload.currentSub) setCurrentSub(payload.currentSub);
+      const au = readActiveAu();
+      const cookieSub = (payload.currentSub || '').trim();
+      // Keep chip + panel on one face: prefer live cookie when ?au= cannot be claimed.
+      if (au && cookieSub && au !== cookieSub) {
+        void claimProductSessionForActiveAu()
+          .then((claimed) => {
+            if (!live) return;
+            if (claimed.ok) {
+              setCurrentSub(readActiveAu() || au);
+              return;
+            }
+            setActiveAu(cookieSub);
+            ensureAuInUrl(cookieSub);
+            setCurrentSub(cookieSub);
+          })
+          .catch(() => {
+            if (!live) return;
+            setActiveAu(cookieSub);
+            ensureAuInUrl(cookieSub);
+            setCurrentSub(cookieSub);
+          });
+        return;
+      }
+      setCurrentSub(au || cookieSub || null);
     };
 
     void fetch('/api/auth/me', {
