@@ -26,8 +26,8 @@ export function ActiveAccountChip({
 }) {
   const ar = locale === 'ar';
   const face = useTabAccountFace({
-    email: viewer.email,
-    name: viewer.displayName,
+    ...(viewer.email ? { email: viewer.email } : {}),
+    ...(viewer.displayName ? { name: viewer.displayName } : {}),
   });
   const email = face.email || viewer.email?.trim() || '';
   const name = face.name || viewer.displayName?.trim() || '';

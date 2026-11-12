@@ -137,8 +137,8 @@ export function useTabAccountFace(seed?: { email?: string | null; name?: string 
         if (hit?.email || hit?.name) {
           apply({
             sub: tabSub,
-            email: hit.email || undefined,
-            name: hit.name || undefined,
+            ...(hit.email ? { email: hit.email } : {}),
+            ...(hit.name ? { name: hit.name } : {}),
           });
         } else if (!readActiveAu() && identity.user?.email) {
           apply({
