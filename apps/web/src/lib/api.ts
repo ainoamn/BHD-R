@@ -96,7 +96,18 @@ async function getNextCsrfToken(force = false): Promise<string> {
   if (!force && cachedNextCsrfToken) return cachedNextCsrfToken;
   if (!force && nextCsrfInflight) return nextCsrfInflight;
   nextCsrfInflight = (async () => {
-    const attempt = async (): Promise<string> => {
+    const attempt = async (dropStaleProduct = false): Promise<string> => {
+      if (dropStaleProduct) {
+        cachedNextCsrfToken = null;
+        try {
+          const { clearProductSession, readActiveAu } = await import(
+            '@/lib/identity/window-session'
+          );
+          clearProductSession(readActiveAu());
+        } catch {
+          /* ignore */
+        }
+      }
       // Bind cookie to this tab's ?au= before minting CSRF — shared cookie otherwise
       // signs the write as the account active in another tab.
       try {
@@ -114,8 +125,9 @@ async function getNextCsrfToken(force = false): Promise<string> {
       }
       const { tabBoundAuthHeaders, captureProductSession, readActiveAu, boundProductCsrfToken } =
         await import('@/lib/identity/window-session');
-      const cachedCsrf = boundProductCsrfToken();
-      if (!force && cachedCsrf) {
+      // Never reuse a cached product CSRF after we just dropped a stale JWT.
+      const cachedCsrf = !dropStaleProduct && !force ? boundProductCsrfToken() : '';
+      if (cachedCsrf) {
         cachedNextCsrfToken = cachedCsrf;
         return cachedCsrf;
       }
@@ -161,15 +173,25 @@ async function getNextCsrfToken(force = false): Promise<string> {
       return payload.token;
     };
     try {
-      return await attempt();
+      return await attempt(false);
     } catch (error) {
+      // Stale tab product JWT → clear and mint against cookie / fresh rebind once.
+      if (
+        error instanceof ApiError &&
+        error.status === 401 &&
+        (error.code === 'unauthorized' ||
+          error.code === 'account_mismatch' ||
+          /تسجيل الدخول|sign in|unauthorized/i.test(`${error.code} ${error.message}`))
+      ) {
+        return attempt(true);
+      }
       // One retry after a cold-start miss / blip before surfacing to the desk.
       if (
         error instanceof ApiError &&
         (error.code === 'network_error' || error.code === 'csrf_timeout')
       ) {
         await new Promise((resolve) => setTimeout(resolve, 800));
-        return attempt();
+        return attempt(false);
       }
       throw error;
     }
@@ -418,20 +440,34 @@ export async function browserNextMutation<T>(path: string, init: RequestInit): P
     return response.json() as Promise<T>;
   };
 
-  // Prefer a warmed token; force-refresh only after a CSRF rejection.
+  // Prefer a warmed token; force-refresh after CSRF rejection or a stale tab product JWT.
   const token = await getNextCsrfToken(false);
   try {
     return await run(token);
   } catch (error) {
-    if (
-      error instanceof ApiError &&
-      error.status === 403 &&
-      /csrf/i.test(`${error.code} ${error.message}`)
-    ) {
-      clearBrowserCsrfCache();
-      return run(await getNextCsrfToken(true));
+    if (!(error instanceof ApiError)) throw error;
+    const csrfish =
+      error.status === 403 && /csrf/i.test(`${error.code} ${error.message}`);
+    const sessionStale =
+      error.status === 401 &&
+      (error.code === 'unauthorized' ||
+        error.code === 'account_mismatch' ||
+        /تسجيل الدخول|sign in|account_mismatch|unauthorized/i.test(
+          `${error.code} ${error.message}`,
+        ));
+    if (!csrfish && !sessionStale) throw error;
+    clearBrowserCsrfCache();
+    if (sessionStale) {
+      try {
+        const { clearProductSession, readActiveAu } = await import(
+          '@/lib/identity/window-session'
+        );
+        clearProductSession(readActiveAu());
+      } catch {
+        /* ignore */
+      }
     }
-    throw error;
+    return run(await getNextCsrfToken(true));
   }
 }
 

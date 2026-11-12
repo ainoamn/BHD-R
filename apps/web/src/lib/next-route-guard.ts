@@ -119,11 +119,27 @@ export async function requireLiveSession(
   const cookieStore = await cookies();
   const headerSession = request.headers.get('x-bhd-product-session')?.trim() || '';
   const cookieToken = cookieStore.get('bhd_r_session')?.value || '';
-  const token = headerSession.length > 20 ? headerSession : cookieToken;
-  if (!token) throw new RouteGuardError(401, 'unauthorized');
-  const fromTabHeader = headerSession.length > 20 && token === headerSession;
+  const preferHeader = headerSession.length > 20;
+  if (!preferHeader && !cookieToken) throw new RouteGuardError(401, 'unauthorized');
 
-  const claims = await liveClaimsFromToken(token);
+  let fromTabHeader = preferHeader;
+  let claims: SessionClaims;
+  try {
+    claims = await liveClaimsFromToken(preferHeader ? headerSession : cookieToken);
+  } catch (error) {
+    // Stale tab product JWT must not block a still-valid cookie for the same ?au=.
+    if (
+      !(error instanceof RouteGuardError) ||
+      error.code !== 'unauthorized' ||
+      !preferHeader ||
+      !cookieToken ||
+      cookieToken === headerSession
+    ) {
+      throw error;
+    }
+    claims = await liveClaimsFromToken(cookieToken);
+    fromTabHeader = false;
+  }
 
   // Pin the principal to this tab's identity account when the client sends one.
   const activeAu = request.headers.get('x-bhd-active-au')?.trim() || '';
