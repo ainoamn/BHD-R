@@ -820,7 +820,56 @@ export async function loadContractDetailFromNeon(
 function renewalRequirementsFromSnapshot(
   snapshot: Record<string, unknown>,
 ): ContractDetail['renewalRequirements'] {
-  if (!Array.isArray(snapshot.requirements) || !snapshot.requirements.length) return undefined;
+  const base = Array.isArray(snapshot.requirements)
+    ? (snapshot.requirements as Array<{ code?: string; labelAr?: string; labelEn?: string }>)
+    : [];
+  const requirements = [...base];
+  const method =
+    typeof snapshot.paymentMethod === 'string'
+      ? snapshot.paymentMethod
+      : snapshot.leaseTerms &&
+          typeof snapshot.leaseTerms === 'object' &&
+          typeof (snapshot.leaseTerms as { paymentMethod?: unknown }).paymentMethod === 'string'
+        ? (snapshot.leaseTerms as { paymentMethod: string }).paymentMethod
+        : null;
+  const wantsCheques =
+    method === 'cheque' ||
+    method === 'bank_transfer' ||
+    (Array.isArray(snapshot.cheques) && snapshot.cheques.length > 0) ||
+    (Array.isArray(snapshot.chequeInstructions) && snapshot.chequeInstructions.length > 0);
+  if (wantsCheques && method !== 'cash') {
+    const hasChequeSlot = requirements.some(
+      (row) => typeof row.code === 'string' && row.code.startsWith('rent_cheque_'),
+    );
+    if (!hasChequeSlot) {
+      const rows = (
+        Array.isArray(snapshot.cheques) && snapshot.cheques.length
+          ? snapshot.cheques
+          : Array.isArray(snapshot.chequeInstructions)
+            ? snapshot.chequeInstructions
+            : []
+      ) as Array<{
+        dueOn?: string;
+        chequeNumber?: string;
+        suggestedChequeNumber?: string;
+      }>;
+      rows.slice(0, 48).forEach((row, index) => {
+        const n = index + 1;
+        const due = typeof row.dueOn === 'string' ? row.dueOn : '';
+        const number = (row.chequeNumber || row.suggestedChequeNumber || '').trim();
+        requirements.push({
+          code: `rent_cheque_${n}`,
+          labelAr: number
+            ? `صورة شيك الإيجار #${n} (رقم ${number}${due ? ` · استحقاق ${due}` : ''})`
+            : `صورة شيك الإيجار #${n}${due ? ` (استحقاق ${due})` : ''}`,
+          labelEn: number
+            ? `Rent cheque photo #${n} (no. ${number}${due ? ` · due ${due}` : ''})`
+            : `Rent cheque photo #${n}${due ? ` (due ${due})` : ''}`,
+        });
+      });
+    }
+  }
+  if (!requirements.length) return undefined;
   const uploads = Array.isArray(snapshot.renewalDocuments)
     ? (snapshot.renewalDocuments as Array<{
         code?: string;
@@ -833,7 +882,7 @@ function renewalRequirementsFromSnapshot(
       .filter((row) => typeof row.code === 'string')
       .map((row) => [row.code as string, row] as const),
   );
-  return snapshot.requirements
+  return requirements
     .map((row) => {
       if (!row || typeof row !== 'object') return null;
       const item = row as { code?: string; labelAr?: string; labelEn?: string };

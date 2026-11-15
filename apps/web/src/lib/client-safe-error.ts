@@ -65,6 +65,7 @@ const KNOWN_CODES = new Set([
   'renewal_term_pending',
   'renewal_consent_required',
   'renewal_documents_incomplete',
+  'renewal_cheques_required',
   'deliver_failed',
   'invalid_dates',
   'invalid_amount',
@@ -230,6 +231,7 @@ export function statusForSafeCode(code: string): number {
     case 'renewal_term_pending':
     case 'renewal_consent_required':
     case 'renewal_documents_incomplete':
+    case 'renewal_cheques_required':
       return 400;
     case 'tenant_request_closed':
     case 'tenant_request_duplicate':

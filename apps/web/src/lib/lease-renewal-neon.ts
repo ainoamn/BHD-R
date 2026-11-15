@@ -25,7 +25,12 @@ import {
 import { appLink, notifyInTx } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { buildRenewalTermsDraft, type RenewalPreviousMeters } from '@/lib/lease-terms-draft-from';
-import type { LeaseTermsDraft, PaymentFrequency, PaymentMethod } from '@/lib/lease-terms';
+import {
+  buildRentSchedule,
+  type LeaseTermsDraft,
+  type PaymentFrequency,
+  type PaymentMethod,
+} from '@/lib/lease-terms';
 import type { PropertyRecordTenant, PropertyRecordUnit } from '@/lib/property-records-neon';
 import {
   canRenewLeaseEarlyException,
@@ -141,6 +146,13 @@ export type RenewalRequirement = {
   labelEn: string;
 };
 
+type RenewalChequeInput = {
+  bankName: string;
+  chequeNumber: string;
+  amount: { amountMinor: string; currency: string };
+  dueOn: string;
+};
+
 /** One photo upload slot per rent/VAT PDC on cheque renewals. */
 function chequePhotoRequirements(
   cheques: ReadonlyArray<{ dueOn: string; amount?: { amountMinor?: string }; chequeNumber?: string }>,
@@ -159,6 +171,139 @@ function chequePhotoRequirements(
         : `Rent cheque photo #${n} (due ${row.dueOn})`,
     };
   });
+}
+
+/** Renewals default to cheque PDCs unless the term is explicitly cash. */
+function effectiveRenewalPaymentMethod(
+  raw: string | null | undefined,
+): 'cheque' | 'cash' | 'bank_transfer' {
+  if (raw === 'cash') return 'cash';
+  if (raw === 'cheque' || raw === 'bank_transfer' || !raw) return 'cheque';
+  return 'cheque';
+}
+
+function deriveRenewalChequeInputs(input: {
+  cheques?: RenewalChequeInput[] | undefined;
+  leaseTerms?: unknown;
+  chequeBankName?: string | null | undefined;
+  startsOn: string;
+  endsOn: string;
+  rentMinor: string;
+  currency: string;
+  billingDay: number;
+  paymentFrequency?: string | null | undefined;
+}): RenewalChequeInput[] {
+  const fromInput = [...(input.cheques ?? [])].filter(
+    (row) => row?.dueOn && /^\d{4}-\d{2}-\d{2}$/.test(row.dueOn),
+  );
+  if (fromInput.length) return fromInput.slice(0, 48);
+
+  const terms =
+    input.leaseTerms && typeof input.leaseTerms === 'object'
+      ? (input.leaseTerms as {
+          schedule?: Array<{
+            dueOn?: string;
+            rent?: string;
+            chequeNumber?: string;
+            bankName?: string;
+            totalMinor?: number;
+          }>;
+          chequeBankName?: string;
+          paymentFrequency?: string;
+          paymentDay?: string | number;
+        })
+      : null;
+  const schedule = Array.isArray(terms?.schedule) ? terms.schedule : [];
+  const defaultBank = (input.chequeBankName || terms?.chequeBankName || 'Bank').trim() || 'Bank';
+  const fromSchedule: RenewalChequeInput[] = [];
+  for (const row of schedule) {
+    if (!row?.dueOn || !/^\d{4}-\d{2}-\d{2}$/.test(row.dueOn)) continue;
+    const amountMinor =
+      typeof row.totalMinor === 'number' && Number.isFinite(row.totalMinor)
+        ? String(Math.round(row.totalMinor))
+        : typeof row.rent === 'string' && /^\d+$/.test(row.rent.replace(/\D/g, ''))
+          ? row.rent.replace(/\D/g, '')
+          : input.rentMinor;
+    fromSchedule.push({
+      bankName: (row.bankName || defaultBank).trim() || defaultBank,
+      chequeNumber: (row.chequeNumber || '').trim() || `RNW-${fromSchedule.length + 1}`,
+      amount: { amountMinor, currency: input.currency },
+      dueOn: row.dueOn,
+    });
+  }
+  if (fromSchedule.length) return fromSchedule.slice(0, 48);
+
+  const rawFrequency = input.paymentFrequency || terms?.paymentFrequency || 'monthly';
+  const frequency: PaymentFrequency =
+    rawFrequency === 'bimonthly'
+      ? 'bimonthly'
+      : rawFrequency === 'quarterly'
+        ? 'quarterly'
+        : rawFrequency === 'semiannual' || rawFrequency === 'semi_annual'
+          ? 'semiannual'
+          : rawFrequency === 'annual'
+            ? 'annual'
+            : 'monthly';
+  const paymentDay = Number(terms?.paymentDay ?? input.billingDay) || input.billingDay || 5;
+  const built = buildRentSchedule({
+    startsOn: input.startsOn,
+    endsOn: input.endsOn,
+    monthlyRentMinor: Number(input.rentMinor) || 0,
+    paymentDay,
+    frequency,
+  });
+  return built.slice(0, 48).map((row, index) => ({
+    bankName: defaultBank,
+    chequeNumber: `RNW-${String(index + 1).padStart(2, '0')}`,
+    amount: { amountMinor: String(row.rentMinor), currency: input.currency },
+    dueOn: row.dueOn,
+  }));
+}
+
+/** Ensure cheque renewals always require rent cheque photo uploads before e-sign. */
+function requirementsWithChequePhotos(
+  base: RenewalRequirement[],
+  snapshot: Record<string, unknown>,
+): RenewalRequirement[] {
+  const method = effectiveRenewalPaymentMethod(
+    typeof snapshot.paymentMethod === 'string'
+      ? snapshot.paymentMethod
+      : snapshot.leaseTerms &&
+          typeof snapshot.leaseTerms === 'object' &&
+          typeof (snapshot.leaseTerms as { paymentMethod?: unknown }).paymentMethod === 'string'
+        ? ((snapshot.leaseTerms as { paymentMethod: string }).paymentMethod)
+        : null,
+  );
+  if (method === 'cash') return base;
+
+  const cheques = Array.isArray(snapshot.cheques) ? snapshot.cheques : [];
+  const instructions = Array.isArray(snapshot.chequeInstructions)
+    ? snapshot.chequeInstructions
+    : [];
+  const rows =
+    cheques.length > 0
+      ? cheques
+      : instructions.map((row) => {
+          const item = row as {
+            dueOn?: string;
+            suggestedChequeNumber?: string;
+            amountMinor?: number;
+          };
+          return {
+            dueOn: item.dueOn || '',
+            chequeNumber: item.suggestedChequeNumber,
+            amount: { amountMinor: String(item.amountMinor ?? 0) },
+          };
+        });
+  const usable = rows.filter(
+    (row) =>
+      row &&
+      typeof row === 'object' &&
+      typeof (row as { dueOn?: unknown }).dueOn === 'string' &&
+      /^\d{4}-\d{2}-\d{2}$/.test((row as { dueOn: string }).dueOn),
+  ) as Array<{ dueOn: string; chequeNumber?: string; amount?: { amountMinor?: string } }>;
+  if (!usable.length) return base;
+  return mergeRenewalRequirements(base, chequePhotoRequirements(usable));
 }
 
 function mergeRenewalRequirements(
@@ -880,49 +1025,35 @@ export async function createLeaseRenewalOnNeon(
       input.leaseTerms &&
       typeof input.leaseTerms === 'object' &&
       (input.leaseTerms as { paymentMethod?: unknown }).paymentMethod;
-    const paymentMethod =
+    // Renewals use cheque PDCs unless explicitly cash — do not inherit bank_transfer from
+    // the previous term or tenants can complete without uploading rent cheque photos.
+    const paymentMethod = effectiveRenewalPaymentMethod(
       input.paymentMethod ||
-      (leaseTermsMethod === 'cheque' ||
-      leaseTermsMethod === 'cash' ||
-      leaseTermsMethod === 'bank_transfer'
-        ? leaseTermsMethod
-        : null);
-    let chequeInputs = [...(input.cheques ?? [])];
-    // If owner chose cheque but left cheques empty, derive rows from leaseTerms.schedule.
-    if (paymentMethod === 'cheque' && chequeInputs.length === 0 && input.leaseTerms) {
-      const terms = input.leaseTerms as {
-        schedule?: Array<{
-          dueOn?: string;
-          rent?: string;
-          chequeNumber?: string;
-          bankName?: string;
-          totalMinor?: number;
-        }>;
-        chequeBankName?: string;
-      };
-      const schedule = Array.isArray(terms.schedule) ? terms.schedule : [];
-      for (const row of schedule) {
-        if (!row?.dueOn || !/^\d{4}-\d{2}-\d{2}$/.test(row.dueOn)) continue;
-        const amountMinor =
-          typeof row.totalMinor === 'number' && Number.isFinite(row.totalMinor)
-            ? String(Math.round(row.totalMinor))
-            : typeof row.rent === 'string' && /^\d+$/.test(row.rent.replace(/\D/g, ''))
-              ? row.rent.replace(/\D/g, '')
-              : rentMinor;
-        chequeInputs.push({
-          bankName: (row.bankName || input.chequeBankName || terms.chequeBankName || 'Bank').trim(),
-          chequeNumber: (row.chequeNumber || '').trim() || `RNW-${chequeInputs.length + 1}`,
-          amount: { amountMinor, currency: lease.currency },
-          dueOn: row.dueOn,
-        });
-      }
+        (typeof leaseTermsMethod === 'string' ? leaseTermsMethod : null),
+    );
+    const chequeInputs =
+      paymentMethod === 'cheque'
+        ? deriveRenewalChequeInputs({
+            cheques: input.cheques as RenewalChequeInput[] | undefined,
+            leaseTerms: input.leaseTerms,
+            chequeBankName: input.chequeBankName ?? chequeBankName,
+            startsOn,
+            endsOn: input.endsOn,
+            rentMinor,
+            currency: lease.currency,
+            billingDay: lease.billingDay,
+            paymentFrequency: input.paymentFrequency,
+          })
+        : [];
+    if (paymentMethod === 'cheque' && chequeInputs.length === 0) {
+      fail('renewal_cheques_required');
     }
     // Tenant proposals always wait for the landlord; owners with sign rights deliver immediately.
     const ownerSignsNow = !asTenant && hasPermission(claims, 'contract.sign');
     const now = new Date();
     const baseRequirements = normalizeRenewalRequirements(input.requirements);
     const requirements =
-      paymentMethod === 'cheque' && chequeInputs.length
+      paymentMethod === 'cheque'
         ? mergeRenewalRequirements(baseRequirements, chequePhotoRequirements(chequeInputs))
         : baseRequirements;
     const [viewer] = await tx
@@ -952,7 +1083,7 @@ export async function createLeaseRenewalOnNeon(
       graceAsDiscount,
       graceAmount: { amountMinor: graceAmountMinor, currency: lease.currency },
       adjustments,
-      paymentMethod: paymentMethod ?? input.paymentMethod ?? null,
+      paymentMethod,
       paymentFrequency: input.paymentFrequency ?? null,
       months: input.months ?? null,
       additionalTerms: input.additionalTerms ? sanitizeRichText(input.additionalTerms) : null,
@@ -1004,7 +1135,25 @@ export async function createLeaseRenewalOnNeon(
           }
         : {}),
       ...(input.leaseTerms && typeof input.leaseTerms === 'object'
-        ? { leaseTerms: input.leaseTerms }
+        ? {
+            leaseTerms: {
+              ...(input.leaseTerms as Record<string, unknown>),
+              paymentMethod,
+              ...(paymentMethod === 'cheque'
+                ? {
+                    chequeAccountName:
+                      chequeAccountName ??
+                      (input.leaseTerms as { chequeAccountName?: string }).chequeAccountName,
+                    chequeBankName:
+                      chequeBankName ??
+                      (input.leaseTerms as { chequeBankName?: string }).chequeBankName,
+                    rentBankAccountId:
+                      rentBankAccountId ??
+                      (input.leaseTerms as { rentBankAccountId?: string }).rentBankAccountId,
+                  }
+                : {}),
+            },
+          }
         : {}),
     };
 
@@ -1204,7 +1353,7 @@ function normalizeRenewalRequirements(
     const labelAr = (row.labelAr ?? '').trim().slice(0, 120) || code;
     const labelEn = (row.labelEn ?? '').trim().slice(0, 120) || code;
     out.push({ code, labelAr, labelEn });
-    if (out.length >= 20) break;
+    if (out.length >= 48) break;
   }
   return out.length ? out : DEFAULT_RENEWAL_REQUIREMENTS;
 }
@@ -1545,11 +1694,72 @@ export async function completeTenantRenewalPackageOnNeon(
     }
 
     const snapshot = { ...(contract.payloadSnapshot as Record<string, unknown>) };
-    const requirements = normalizeRenewalRequirements(
-      Array.isArray(snapshot.requirements)
-        ? (snapshot.requirements as RenewalRequirement[])
-        : undefined,
+    // Backfill cheque photo slots if an older renewal was saved as bank_transfer without them.
+    let requirements = requirementsWithChequePhotos(
+      normalizeRenewalRequirements(
+        Array.isArray(snapshot.requirements)
+          ? (snapshot.requirements as RenewalRequirement[])
+          : undefined,
+      ),
+      snapshot,
     );
+    if (
+      effectiveRenewalPaymentMethod(
+        typeof snapshot.paymentMethod === 'string' ? snapshot.paymentMethod : null,
+      ) === 'cheque' &&
+      !requirements.some((row) => row.code.startsWith('rent_cheque_'))
+    ) {
+      const startsOn =
+        typeof snapshot.startsOn === 'string' ? snapshot.startsOn : muscatToday();
+      const endsOn =
+        typeof snapshot.endsOn === 'string' ? snapshot.endsOn : muscatToday();
+      const rentMinor =
+        typeof (snapshot.rent as { amountMinor?: unknown } | undefined)?.amountMinor === 'string'
+          ? (snapshot.rent as { amountMinor: string }).amountMinor
+          : '0';
+      const currency =
+        typeof (snapshot.rent as { currency?: unknown } | undefined)?.currency === 'string'
+          ? (snapshot.rent as { currency: string }).currency
+          : 'OMR';
+      const derived = deriveRenewalChequeInputs({
+        cheques: Array.isArray(snapshot.cheques)
+          ? (snapshot.cheques as RenewalChequeInput[])
+          : undefined,
+        leaseTerms: snapshot.leaseTerms,
+        chequeBankName:
+          typeof snapshot.chequeBankName === 'string' ? snapshot.chequeBankName : null,
+        startsOn,
+        endsOn,
+        rentMinor,
+        currency,
+        billingDay: Number(snapshot.billingDay) || 5,
+        paymentFrequency:
+          typeof snapshot.paymentFrequency === 'string' ? snapshot.paymentFrequency : null,
+      });
+      if (derived.length) {
+        requirements = mergeRenewalRequirements(
+          requirements,
+          chequePhotoRequirements(derived),
+        );
+        snapshot.paymentMethod = 'cheque';
+        snapshot.cheques = derived;
+        snapshot.chequeInstructions = derived.map((row, index) => ({
+          key: `rent-${index}`,
+          kind: 'rent' as const,
+          labelAr: `شيك إيجار #${index + 1}`,
+          labelEn: `Rent cheque #${index + 1}`,
+          dueOn: row.dueOn,
+          amountMinor: Number(row.amount.amountMinor) || 0,
+          currency: row.amount.currency,
+          suggestedChequeNumber: row.chequeNumber,
+        }));
+        snapshot.requirements = requirements;
+        await tx
+          .update(contracts)
+          .set({ payloadSnapshot: snapshot, updatedAt: new Date() })
+          .where(and(eq(contracts.id, contract.id), eq(contracts.organizationId, orgId)));
+      }
+    }
     const uploads = Array.isArray(snapshot.renewalDocuments)
       ? (snapshot.renewalDocuments as RenewalDocumentUpload[])
       : [];
