@@ -177,12 +177,15 @@ export type LeaseRenewalContext = {
     version: number;
     language: string;
   }>;
-  /** Incomplete sibling renewal — continue or void before creating another. */
+  /** Incomplete sibling renewal — continue editing fields or void before creating another. */
   pendingRenewal: {
     id: string;
     reference: string | null;
     status: string;
     updatedAt: string;
+    templateVersionId: string | null;
+    /** Terms saved on the incomplete addendum — used to reopen the renewal form. */
+    initialTerms: LeaseTermsDraft;
   } | null;
 };
 
@@ -406,9 +409,117 @@ export async function loadLeaseRenewalContext(
         reference: true,
         status: true,
         updatedAt: true,
+        templateVersionId: true,
+        payloadSnapshot: true,
       },
       orderBy: [desc(contracts.updatedAt)],
     });
+    let pendingRenewal: LeaseRenewalContext['pendingRenewal'] = null;
+    if (pendingRenewalRow) {
+      const pendingSnap =
+        pendingRenewalRow.payloadSnapshot && typeof pendingRenewalRow.payloadSnapshot === 'object'
+          ? (pendingRenewalRow.payloadSnapshot as Record<string, unknown>)
+          : {};
+      const pendingNested =
+        pendingSnap.leaseTerms && typeof pendingSnap.leaseTerms === 'object'
+          ? pendingSnap.leaseTerms
+          : pendingSnap.terms && typeof pendingSnap.terms === 'object'
+            ? pendingSnap.terms
+            : null;
+      const pendingNestedObj =
+        pendingNested && typeof pendingNested === 'object'
+          ? (pendingNested as Record<string, unknown>)
+          : null;
+      const pendingAdjustments: Array<{
+        kind: 'add' | 'discount';
+        title: string;
+        amountMinor: string;
+      }> = [];
+      const pendingRawAdjustments = Array.isArray(pendingSnap.adjustments)
+        ? pendingSnap.adjustments
+        : [];
+      for (const row of pendingRawAdjustments) {
+        if (!row || typeof row !== 'object') continue;
+        const item = row as Record<string, unknown>;
+        const kind = item.kind === 'discount' ? 'discount' : item.kind === 'add' ? 'add' : null;
+        const title = snapshotText(item.title);
+        const amountMinor =
+          snapshotText((item.amount as { amountMinor?: unknown } | undefined)?.amountMinor) ??
+          (typeof item.amountMinor === 'string' || typeof item.amountMinor === 'number'
+            ? String(item.amountMinor)
+            : null);
+        if (!kind || !title || !amountMinor) continue;
+        pendingAdjustments.push({ kind, title, amountMinor });
+      }
+      const pendingEndsOn =
+        snapshotText(pendingSnap.endsOn) ||
+        snapshotText(pendingNestedObj?.endsOn) ||
+        initialTerms.endsOn;
+      const pendingStartsOn =
+        snapshotText(pendingSnap.startsOn) ||
+        snapshotText(pendingNestedObj?.startsOn) ||
+        renewalStartsOn;
+      const pendingRent =
+        snapshotText((pendingSnap.rent as { amountMinor?: unknown } | undefined)?.amountMinor) ||
+        snapshotText(pendingNestedObj?.monthlyRent) ||
+        lease.rentMinor.toString();
+      const pendingMonths =
+        pendingStartsOn && pendingEndsOn && pendingStartsOn < pendingEndsOn
+          ? Math.max(
+              1,
+              Math.round(
+                (Date.parse(`${pendingEndsOn}T00:00:00.000Z`) -
+                  Date.parse(`${pendingStartsOn}T00:00:00.000Z`)) /
+                  (30.4375 * 86_400_000),
+              ),
+            )
+          : 12;
+      const { draft: pendingTerms } = buildRenewalTermsDraft({
+        currency: lease.currency,
+        renewalStartsOn: pendingStartsOn,
+        months: pendingMonths,
+        rentMinor: pendingRent,
+        depositMinor: lease.depositMinor?.toString() ?? null,
+        billingDay: lease.billingDay,
+        leaseTermsRaw: pendingNested ?? nestedTerms,
+        fallbackAdjustments: pendingAdjustments.length ? pendingAdjustments : fallbackAdjustments,
+        fallbackPaymentMethod:
+          asPaymentMethod(pendingSnap.paymentMethod) ??
+          asPaymentMethod(pendingNestedObj?.paymentMethod) ??
+          asPaymentMethod(snapshot.paymentMethod),
+        fallbackPaymentFrequency:
+          asPaymentFrequency(pendingSnap.paymentFrequency) ??
+          asPaymentFrequency(pendingNestedObj?.paymentFrequency),
+        fallbackVatEnabled:
+          typeof pendingNestedObj?.vat === 'object' && pendingNestedObj.vat
+            ? Boolean((pendingNestedObj.vat as { enabled?: unknown }).enabled)
+            : typeof pendingNestedObj?.vatEnabled === 'boolean'
+              ? pendingNestedObj.vatEnabled
+              : null,
+        fallbackContractType:
+          pendingNestedObj?.contractType === 'commercial' ||
+          pendingNestedObj?.contractType === 'residential'
+            ? pendingNestedObj.contractType
+            : '',
+        fallbackChequeBankName:
+          snapshotText(pendingNestedObj?.chequeBankName) ??
+          snapshotText(pendingSnap.chequeBankName),
+        fallbackChequeAccountName:
+          snapshotText(pendingNestedObj?.chequeAccountName) ??
+          snapshotText(pendingSnap.chequeAccountName),
+        fallbackRentBankAccountId:
+          snapshotText(pendingNestedObj?.rentBankAccountId) ??
+          snapshotText(pendingSnap.rentBankAccountId),
+      });
+      pendingRenewal = {
+        id: pendingRenewalRow.id,
+        reference: pendingRenewalRow.reference,
+        status: pendingRenewalRow.status,
+        updatedAt: pendingRenewalRow.updatedAt.toISOString(),
+        templateVersionId: pendingRenewalRow.templateVersionId,
+        initialTerms: { ...pendingTerms, endsOn: pendingEndsOn, startsOn: pendingStartsOn },
+      };
+    }
     return {
       renewalWindow: {
         open: isLeaseRenewalWindowOpen(lease.endsOn, today),
@@ -459,14 +570,7 @@ export async function loadLeaseRenewalContext(
         version: row.version,
         language: row.language,
       })),
-      pendingRenewal: pendingRenewalRow
-        ? {
-            id: pendingRenewalRow.id,
-            reference: pendingRenewalRow.reference,
-            status: pendingRenewalRow.status,
-            updatedAt: pendingRenewalRow.updatedAt.toISOString(),
-          }
-        : null,
+      pendingRenewal,
     };
   });
 }

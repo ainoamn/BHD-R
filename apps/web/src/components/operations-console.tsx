@@ -4438,12 +4438,12 @@ ${depositHtml}${
                 <div className="ops-vacant-strip__actions">
                   {row.resumeHref ? (
                     <Link className="ops-action" href={row.resumeHref}>
-                      {ar ? 'متابعة' : 'Resume'}
+                      {ar ? 'تعديل الحقول' : 'Edit fields'}
                     </Link>
                   ) : null}
                   {row.href ? (
                     <Link className="ops-action" href={row.href}>
-                      {ar ? 'فتح الملحق' : 'Open'}
+                      {ar ? 'عرض المستند' : 'View document'}
                     </Link>
                   ) : null}
                 </div>

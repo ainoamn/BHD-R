@@ -95,7 +95,10 @@ export function LeaseRenewalForm({
   const [voidBusy, setVoidBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [earlyExceptionAck, setEarlyExceptionAck] = useState(false);
+  /** Reopen renewal field form (seeded from incomplete addendum) instead of contract document. */
+  const [editingPending, setEditingPending] = useState(false);
   const pendingRenewal = context.pendingRenewal;
+  const showCreateForm = !pendingRenewal || editingPending;
   const [bankAccounts, setBankAccounts] = useState<LeaseBankAccountOption[]>([]);
   const [requirements, setRequirements] = useState<
     Array<{ code: string; labelAr: string; labelEn: string }>
@@ -302,6 +305,21 @@ export function LeaseRenewalForm({
         body.earlyException = true;
       }
 
+      // Replace incomplete addendum first so create is not blocked by renewal_pending.
+      if (pendingRenewal) {
+        await browserNextMutation(
+          `/api/owner/contracts/${encodeURIComponent(pendingRenewal.id)}/void-renewal-docs`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              note: ar
+                ? 'استبدال ملحق غير مكتمل بعد تعديل الحقول'
+                : 'Replaced incomplete addendum after field edits',
+            }),
+          },
+        );
+      }
+
       // Save on Vercel → Neon (no Nest/Render). Same-origin Next CSRF.
       // Owner with sign permission delivers the addendum to the tenant immediately.
       await browserNextMutation(
@@ -471,7 +489,7 @@ export function LeaseRenewalForm({
         </Link>
       </header>
 
-      {pendingRenewal ? (
+      {pendingRenewal && !editingPending ? (
         <div className="notice notice--warning" role="status">
           <p style={{ margin: 0 }}>
             {ar ? 'الملحق:' : 'Addendum:'}{' '}
@@ -481,8 +499,8 @@ export function LeaseRenewalForm({
           </p>
           <p className="ops-hint" style={{ marginTop: '0.5rem' }}>
             {ar
-              ? 'غالباً أُنشئ عند محاولة سابقة (حتى لو لم تُكمل الخطوات). اختر المتابعة أو الإلغاء.'
-              : 'Usually created on an earlier attempt (even if steps were not finished). Continue or void it.'}
+              ? 'أكمل تعديل حقول التجديد هنا، أو ألغِ الملحق غير المكتمل. مستند العقد للعرض فقط.'
+              : 'Continue editing renewal fields here, or void the incomplete addendum. The contract page is view-only.'}
           </p>
           {error ? (
             <p className="notice notice--error" role="alert" style={{ marginTop: '0.75rem' }}>
@@ -493,11 +511,26 @@ export function LeaseRenewalForm({
             className="ops-vacant-strip__actions"
             style={{ marginTop: '0.85rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}
           >
-            <Link
+            <button
+              type="button"
               className="button button--primary"
+              onClick={() => {
+                setTerms(pendingRenewal.initialTerms);
+                if (pendingRenewal.templateVersionId) {
+                  setTemplateVersionId(pendingRenewal.templateVersionId);
+                }
+                setRestoredDraft(true);
+                setEditingPending(true);
+                setError(null);
+              }}
+            >
+              {ar ? 'متابعة تعديل الحقول' : 'Continue editing fields'}
+            </button>
+            <Link
+              className="button button--quiet"
               href={`/${portal}/contracts/${encodeURIComponent(pendingRenewal.id)}`}
             >
-              {ar ? 'متابعة الملحق' : 'Continue addendum'}
+              {ar ? 'عرض مستند الملحق' : 'View addendum document'}
             </Link>
             <button
               type="button"
@@ -517,7 +550,36 @@ export function LeaseRenewalForm({
         </div>
       ) : null}
 
-      {!pendingRenewal ? (
+      {pendingRenewal && editingPending ? (
+        <div className="notice" role="status">
+          <p style={{ margin: 0 }}>
+            {ar
+              ? `تعدّل حقول الملحق ${pendingRenewal.reference || ''} — عند الحفظ يُستبدل الملحق غير المكتمل بالنسخة الجديدة.`
+              : `Editing fields for ${pendingRenewal.reference || ''} — saving replaces the incomplete addendum.`}
+          </p>
+          <div style={{ marginTop: '0.65rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => {
+                setEditingPending(false);
+                setTerms(context.initialTerms);
+                setRestoredDraft(false);
+              }}
+            >
+              {ar ? 'رجوع' : 'Back'}
+            </button>
+            <Link
+              className="button button--quiet"
+              href={`/${portal}/contracts/${encodeURIComponent(pendingRenewal.id)}`}
+            >
+              {ar ? 'عرض المستند' : 'View document'}
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      {showCreateForm ? (
         <>
       {formBlocked ? (
         <div className="notice notice--warning" role="status">
@@ -645,11 +707,23 @@ export function LeaseRenewalForm({
         requirements={requirements}
         onRequirementsChange={setRequirements}
         heading={ar ? 'بيانات عقد التجديد' : 'Renewal contract details'}
-        submitLabel={ar ? 'إنشاء ملحق التجديد' : 'Create renewal addendum'}
+        submitLabel={
+          pendingRenewal && editingPending
+            ? ar
+              ? 'حفظ التعديلات وإرسال الملحق'
+              : 'Save edits and send addendum'
+            : ar
+              ? 'إنشاء ملحق التجديد'
+              : 'Create renewal addendum'
+        }
         footnote={
-          ar
-            ? 'بعد الإنشاء يُرسل الملحق فوراً إلى المستأجر للتوقيع ورفع المستندات المطلوبة. لن يتغير العقد الحالي حتى يكتمل توقيع الطرفين. الشيكات تُكتب بالاسم الظاهر من الحساب البنكي.'
-            : 'On create, the addendum is sent to the tenant immediately for e-sign and required documents. The current lease stays unchanged until both parties have signed. Cheques use the bank-account payee name.'
+          pendingRenewal && editingPending
+            ? ar
+              ? 'الحفظ يلغي الملحق غير المكتمل ويستبدله بهذه الحقول، ثم يُرسل للمستأجر للتوقيع.'
+              : 'Saving voids the incomplete addendum, replaces it with these fields, then sends it to the tenant to sign.'
+            : ar
+              ? 'بعد الإنشاء يُرسل الملحق فوراً إلى المستأجر للتوقيع ورفع المستندات المطلوبة. لن يتغير العقد الحالي حتى يكتمل توقيع الطرفين. الشيكات تُكتب بالاسم الظاهر من الحساب البنكي.'
+              : 'On create, the addendum is sent to the tenant immediately for e-sign and required documents. The current lease stays unchanged until both parties have signed. Cheques use the bank-account payee name.'
         }
         lead={
           <div className="form-grid lease-renewal__template">
