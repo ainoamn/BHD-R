@@ -99,11 +99,21 @@ export function LeaseRenewalForm({
     () => context.defaultTemplateVersionId || templates[0]?.id || '',
   );
   // Oman rent renewals default to cheque PDCs unless the previous term was cash.
-  const [terms, setTerms] = useState<LeaseTermsDraft>(() => ({
-    ...context.initialTerms,
-    paymentMethod:
-      context.initialTerms.paymentMethod === 'cash' ? 'cash' : 'cheque',
-  }));
+  const [terms, setTerms] = useState<LeaseTermsDraft>(() => {
+    const base = {
+      ...context.initialTerms,
+      paymentMethod:
+        context.initialTerms.paymentMethod === 'cash' ? ('cash' as const) : ('cheque' as const),
+    };
+    if (base.paymentMethod !== 'cheque') return base;
+    return {
+      ...base,
+      chequeAccountName:
+        base.chequeAccountName?.trim() || context.rentChequePayee.accountName || '',
+      chequeBankName: base.chequeBankName?.trim() || context.rentChequePayee.bankName || '',
+      rentBankAccountId: base.rentBankAccountId?.trim() || context.initialTerms.rentBankAccountId || '',
+    };
+  });
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [busy, setBusy] = useState(false);
   const [voidBusy, setVoidBusy] = useState(false);
@@ -148,11 +158,19 @@ export function LeaseRenewalForm({
           ? {
               ...restored,
               rentBankAccountId:
-                restored.rentBankAccountId?.trim() || context.initialTerms.rentBankAccountId || '',
+                restored.rentBankAccountId?.trim() ||
+                context.initialTerms.rentBankAccountId ||
+                '',
               chequeBankName:
-                restored.chequeBankName?.trim() || context.initialTerms.chequeBankName || '',
+                restored.chequeBankName?.trim() ||
+                context.initialTerms.chequeBankName ||
+                context.rentChequePayee.bankName ||
+                '',
               chequeAccountName:
-                restored.chequeAccountName?.trim() || context.initialTerms.chequeAccountName || '',
+                restored.chequeAccountName?.trim() ||
+                context.initialTerms.chequeAccountName ||
+                context.rentChequePayee.accountName ||
+                '',
             }
           : restored;
       setTerms(merged);
@@ -162,7 +180,7 @@ export function LeaseRenewalForm({
     }
     // Drop legacy v1 drafts so we do not mix shapes.
     clearRenewalDraft(context.lease.id);
-  }, [context.lease.id, context.initialTerms]);
+  }, [context.lease.id, context.initialTerms, context.rentChequePayee]);
 
   useEffect(() => {
     if (isTenant) return;

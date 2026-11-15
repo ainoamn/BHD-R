@@ -46,7 +46,11 @@ function fail(code: string): never {
   throw new Error(code);
 }
 
-/** Owner rent bank for cheque payee — used when previous lease terms omit the link. */
+/**
+ * Owner rent bank for cheque payee — used when previous lease terms omit the link.
+ * Accounting settings live in workflow_events with staff-only RLS (`NOT is_tenant()`),
+ * so we briefly elevate platform_admin for this read only. Only payee fields leave this helper.
+ */
 async function loadOrgRentBankForProperty(
   tx: Parameters<Parameters<typeof withinViewerTenant>[1]>[0],
   orgId: string,
@@ -57,42 +61,50 @@ async function loadOrgRentBankForProperty(
   accountHolderName: string;
   complete: boolean;
 } | null> {
-  const latest = await tx
-    .select({ metadata: workflowEvents.metadata })
-    .from(workflowEvents)
-    .where(
-      and(
-        eq(workflowEvents.organizationId, orgId),
-        eq(workflowEvents.resourceType, 'accounting_settings'),
-        eq(workflowEvents.eventType, 'settings.updated'),
-      ),
-    )
-    .orderBy(desc(workflowEvents.occurredAt))
-    .limit(1);
-  const settings = normalizeAccountingSettings(latest[0]?.metadata);
-  const bank = resolveRentBankAccount(settings.bankAccounts, propertyId);
-  if (!bank) return null;
-  return {
-    id: bank.id,
-    bankName: bank.bankName,
-    accountHolderName: bankAccountPayeeName(bank, false),
-    complete: isRentBankAccountComplete(bank),
-  };
+  const priorRows = (await tx.execute(
+    sql`select current_setting('app.platform_admin', true) as value`,
+  )) as unknown as Array<{ value?: string }> | { rows?: Array<{ value?: string }> };
+  const priorList = Array.isArray(priorRows) ? priorRows : (priorRows.rows ?? []);
+  const priorAdmin = priorList[0]?.value ?? 'false';
+  await tx.execute(sql`select set_config('app.platform_admin', 'true', true)`);
+  try {
+    const latest = await tx
+      .select({ metadata: workflowEvents.metadata })
+      .from(workflowEvents)
+      .where(
+        and(
+          eq(workflowEvents.organizationId, orgId),
+          eq(workflowEvents.resourceType, 'accounting_settings'),
+          eq(workflowEvents.eventType, 'settings.updated'),
+        ),
+      )
+      .orderBy(desc(workflowEvents.occurredAt))
+      .limit(1);
+    const settings = normalizeAccountingSettings(latest[0]?.metadata);
+    const bank = resolveRentBankAccount(settings.bankAccounts, propertyId);
+    if (!bank) return null;
+    return {
+      id: bank.id,
+      bankName: bank.bankName,
+      accountHolderName: bankAccountPayeeName(bank, false),
+      complete: isRentBankAccountComplete(bank),
+    };
+  } finally {
+    await tx.execute(sql`select set_config('app.platform_admin', ${priorAdmin}, true)`);
+  }
 }
 
 function applyRentBankToDraft(
   draft: LeaseTermsDraft,
   bank: { id: string; bankName: string; accountHolderName: string } | null,
+  options?: { forceCheque?: boolean },
 ): LeaseTermsDraft {
   if (!bank) return draft;
-  if (draft.paymentMethod !== 'cheque') return draft;
-  const needsBank =
-    !draft.rentBankAccountId?.trim() ||
-    !draft.chequeBankName?.trim() ||
-    !draft.chequeAccountName?.trim();
-  if (!needsBank) return draft;
+  const forceCheque = Boolean(options?.forceCheque) && draft.paymentMethod !== 'cash';
+  if (draft.paymentMethod !== 'cheque' && !forceCheque) return draft;
   return {
     ...draft,
+    paymentMethod: 'cheque',
     rentBankAccountId: draft.rentBankAccountId?.trim() || bank.id,
     chequeBankName: draft.chequeBankName?.trim() || bank.bankName,
     chequeAccountName: draft.chequeAccountName?.trim() || bank.accountHolderName,
@@ -509,7 +521,9 @@ export async function loadLeaseRenewalContext(
         snapshotText(snapshot.rentBankAccountId),
     });
     const orgRentBank = await loadOrgRentBankForProperty(tx, orgId, property.id);
-    const initialTerms = applyRentBankToDraft(seededTerms, orgRentBank);
+    // Oman renewals default to cheque PDCs unless the prior term was cash — seed payee even
+    // when the previous contract used bank_transfer and left cheque fields empty.
+    const initialTerms = applyRentBankToDraft(seededTerms, orgRentBank, { forceCheque: true });
 
     const leaseTemplates = templateRows.filter(
       (row) =>
@@ -645,6 +659,7 @@ export async function loadLeaseRenewalContext(
         initialTerms: applyRentBankToDraft(
           { ...pendingTerms, endsOn: pendingEndsOn, startsOn: pendingStartsOn },
           orgRentBank,
+          { forceCheque: true },
         ),
         initiatedByTenant: pendingSnap.initiatedBy === 'tenant',
       };
@@ -692,12 +707,16 @@ export async function loadLeaseRenewalContext(
       initialTerms,
       rentChequePayee: {
         accountName:
-          initialTerms.chequeAccountName?.trim() || orgRentBank?.accountHolderName || '',
-        bankName: initialTerms.chequeBankName?.trim() || orgRentBank?.bankName || '',
+          initialTerms.chequeAccountName?.trim() ||
+          orgRentBank?.accountHolderName?.trim() ||
+          '',
+        bankName:
+          initialTerms.chequeBankName?.trim() || orgRentBank?.bankName?.trim() || '',
         complete: Boolean(
-          orgRentBank?.complete &&
-            (initialTerms.chequeAccountName?.trim() || orgRentBank.accountHolderName) &&
-            (initialTerms.chequeBankName?.trim() || orgRentBank.bankName),
+          orgRentBank?.complete ||
+            (initialTerms.chequeAccountName?.trim() &&
+              initialTerms.chequeBankName?.trim() &&
+              initialTerms.rentBankAccountId?.trim()),
         ),
       },
       previousMeters,
