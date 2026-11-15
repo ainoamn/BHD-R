@@ -890,8 +890,8 @@ export function LeaseRenewalForm({
                 ? 'الحفظ يلغي الملحق غير المكتمل ويستبدله بهذه الحقول، ثم يُرسل للمستأجر للتوقيع.'
                 : 'Saving voids the incomplete addendum, replaces it with these fields, then sends it to the tenant to sign.'
               : ar
-                ? 'بعد الإنشاء يُرسل الملحق فوراً إلى المستأجر للتوقيع ورفع المستندات المطلوبة. لن يتغير العقد الحالي حتى يكتمل توقيع الطرفين. الشيكات تُكتب بالاسم الظاهر من الحساب البنكي.'
-                : 'On create, the addendum is sent to the tenant immediately for e-sign and required documents. The current lease stays unchanged until both parties have signed. Cheques use the bank-account payee name.'
+                ? 'بعد الإنشاء: إن كان إصدار العقد تلقائياً في الضبط يُرسل الملحق فوراً للمستأجر؛ وإن كان يدوياً يبقى مسودة حتى تصدره أنت من العقود. الشيكات تُكتب بالاسم الظاهر من الحساب البنكي.'
+                : 'On create: if contract issue is automatic in Settings the addendum goes to the tenant at once; if manual it stays a draft until you issue it from Contracts. Cheques use the bank-account payee name.'
         }
         lead={
           isTenant ? undefined : (

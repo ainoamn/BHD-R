@@ -266,8 +266,8 @@ export function approvalStepLabel(step: ApprovalStep, ar: boolean): string {
   const labels: Record<ApprovalStep, [string, string]> = {
     booking: ['اعتماد الحجز بعد الدفع', 'Booking approval after payment'],
     contract: [
-      'إنشاء العقد إلكترونياً أو يدوياً',
-      'Create the contract electronically or manually',
+      'إصدار العقد للمستأجر بعد الاعتماد الإلكتروني (عقد جديد أو تجديد)',
+      'Issue the contract to the tenant after electronic approval (new or renewal)',
     ],
     payment: ['تأكيد استلام مبلغ العربون أو الضمان', 'Confirming the deposit was received'],
     reschedule: [
@@ -292,12 +292,12 @@ export function approvalStepHelp(step: ApprovalStep, mode: ApprovalMode, ar: boo
     },
     contract: {
       auto: [
-        'ينشئ النظام العقد ويوقّعه باسمك فور جاهزية المسودة؛ يطلب المستندات والشيكات من المستأجر بعد توقيعه.',
-        'The system creates and signs the contract in your name once the draft is ready; documents and cheques are requested after the tenant signs.',
+        'بعد الاعتماد الإلكتروني يظهر العقد أو ملحق التجديد للمستأجر مباشرة كمعتمد، ويُرسل للتوقيع ورفع المستندات/الشيكات.',
+        'After electronic approval the new contract or renewal appears to the tenant at once as approved, and is sent for signature and document/cheque uploads.',
       ],
       manual: [
-        'لا يُنشأ العقد تلقائياً — تنشئه أو تعتمده بنفسك من الحجوزات أو العقود.',
-        'No automatic contract — you issue or approve it yourself from bookings or contracts.',
+        'بعد الاعتماد الإلكتروني يبقى العقد أو ملحق التجديد بانتظار موافقتك اليدوية قبل إصداره للمستأجر من العقود أو الحجوزات.',
+        'After electronic approval the new contract or renewal waits for your manual OK before it is issued to the tenant from contracts or bookings.',
       ],
     },
     payment: {

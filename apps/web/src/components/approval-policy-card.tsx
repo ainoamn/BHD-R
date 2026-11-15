@@ -300,12 +300,22 @@ function KindEditor({
                     />
                     <span>
                       <strong>
-                        {mode === 'auto'
-                          ? t(
-                              'تلقائي — يعتمده النظام نيابةً عني',
-                              'Automatic — the system approves for me',
-                            )
-                          : t('يدوي — أعتمده بنفسي', 'Manual — I approve it')}
+                        {step === 'contract'
+                          ? mode === 'auto'
+                            ? t(
+                                'تلقائي — يظهر للمستأجر معتمداً مباشرة',
+                                'Automatic — appears to the tenant as approved at once',
+                              )
+                            : t(
+                                'يدوي — موافقتي مطلوبة قبل الإصدار للمستأجر',
+                                'Manual — my OK is required before issuing to the tenant',
+                              )
+                          : mode === 'auto'
+                            ? t(
+                                'تلقائي — يعتمده النظام نيابةً عني',
+                                'Automatic — the system approves for me',
+                              )
+                            : t('يدوي — أعتمده بنفسي', 'Manual — I approve it')}
                       </strong>
                       <small>
                         {contractAutoLocked
@@ -550,27 +560,39 @@ function KindEditor({
       ) : null}
 
       {draft.contract === 'auto' ? (
-        <p className="notice notice--info">
+        <p className="notice notice--info" role="status">
           {signer && saved?.contract === 'auto'
             ? t(
-                `يوقَّع العقد تلقائياً باسم ${signer} الذي فعّل هذه السياسة.`,
-                `Contracts are signed automatically in the name of ${signer}, who enabled this policy.`,
+                `العقد الجديد وملحق التجديد يُصدران للمستأجر مباشرة بعد الاعتماد الإلكتروني، ويوقَّعان باسم ${signer}.`,
+                `New contracts and renewal addenda are issued to the tenant right after electronic approval, signed as ${signer}.`,
               )
             : t(
-                'يوقَّع العقد تلقائياً باسمك أنت عند الحفظ.',
-                'Contracts will be signed automatically in your name.',
+                'العقد الجديد وملحق التجديد يظهران للمستأجر مباشرة كمعتمدين بعد الاعتماد الإلكتروني، ويوقَّعان باسمك عند الحفظ.',
+                'New contracts and renewal addenda appear to the tenant as approved right after electronic approval, signed in your name when saved.',
               )}
         </p>
-      ) : null}
+      ) : (
+        <p className="notice notice--warning" role="status">
+          {t(
+            'بعد الاعتماد الإلكتروني لن يظهر العقد أو ملحق التجديد للمستأجر حتى توافق يدوياً على إصداره من العقود أو الحجوزات.',
+            'After electronic approval the contract or renewal will not appear to the tenant until you manually approve issuing it from contracts or bookings.',
+          )}
+        </p>
+      )}
 
       {anyAuto ? (
         <div className="approval-policy__preview">
           <strong>{t('ما يراه العميل عند الاعتماد الإلكتروني', 'What the client sees')}</strong>
           <p>
-            {t(
-              'تنبيه: تم الاعتماد إلكترونياً؛ قد تُراجع المستندات يدوياً قبل التسليم.',
-              'Notice: approved electronically; documents may still be reviewed manually before handover.',
-            )}
+            {draft.contract === 'auto'
+              ? t(
+                  'يرى عقده معتمداً ويُطلب منه التوقيع ورفع المستندات/الشيكات. قد تُراجع المستندات يدوياً قبل التسليم.',
+                  'They see the contract as approved and are asked to sign and upload documents/cheques. Documents may still be reviewed manually before handover.',
+                )
+              : t(
+                  'لا يرى العقد معتمداً كلياً حتى تصدره أنت يدوياً بعد مراجعتك.',
+                  'They do not see the contract as fully approved until you issue it manually after your review.',
+                )}
           </p>
         </div>
       ) : null}

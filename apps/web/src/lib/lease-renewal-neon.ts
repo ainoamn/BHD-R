@@ -44,6 +44,7 @@ import {
   normalizeAccountingSettings,
   resolveRentBankAccount,
 } from '@/lib/accounting-integrity';
+import { resolveApprovalPolicy } from '@/lib/approval-policy-neon';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
 import { muscatToday } from '@/lib/tenant-charges-neon';
 
@@ -1048,8 +1049,15 @@ export async function createLeaseRenewalOnNeon(
     if (paymentMethod === 'cheque' && chequeInputs.length === 0) {
       fail('renewal_cheques_required');
     }
-    // Tenant proposals always wait for the landlord; owners with sign rights deliver immediately.
-    const ownerSignsNow = !asTenant && hasPermission(claims, 'contract.sign');
+    // Tenant proposals always wait for the landlord. Owners deliver immediately only when
+    // rent approval policy.contract is auto (settings → issue to tenant after e-approval).
+    const rentPolicy = asTenant
+      ? null
+      : await resolveApprovalPolicy(tx, orgId, property.id, 'rent');
+    const ownerSignsNow =
+      !asTenant &&
+      hasPermission(claims, 'contract.sign') &&
+      rentPolicy?.policy.contract === 'auto';
     const now = new Date();
     const baseRequirements = normalizeRenewalRequirements(input.requirements);
     const requirements =
