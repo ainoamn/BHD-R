@@ -259,11 +259,26 @@ export function TenantRenewalWorkspace({
       </Card>
 
       {requirements.length ? (
-        <RenewalDocumentsPanel
-          contractId={contract.id}
-          requirements={requirements}
-          locale={locale}
-        />
+        <Card>
+          <CardContent>
+            <h2>{ar ? '2) المستندات والشيكات' : '2) Documents & cheques'}</h2>
+            <p className="muted">
+              {requirements.some((row) => row.code.startsWith('rent_cheque_'))
+                ? ar
+                  ? 'ارفع البطاقة/المستندات المطلوبة وصور شيكات الإيجار حسب الجدول قبل التوثيق.'
+                  : 'Upload the required ID/documents and rent cheque photos from the schedule before documenting.'
+                : ar
+                  ? 'ارفع المستندات أدناه قبل أو مع توقيع ملحق التجديد.'
+                  : 'Upload the documents below before or with signing the renewal addendum.'}
+            </p>
+            <RenewalDocumentsPanel
+              contractId={contract.id}
+              requirements={requirements}
+              locale={locale}
+              hideHeading
+            />
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent>

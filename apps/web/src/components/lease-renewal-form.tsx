@@ -89,7 +89,12 @@ export function LeaseRenewalForm({
   const [templateVersionId, setTemplateVersionId] = useState(
     () => context.defaultTemplateVersionId || templates[0]?.id || '',
   );
-  const [terms, setTerms] = useState<LeaseTermsDraft>(context.initialTerms);
+  // Oman rent renewals default to cheque PDCs unless the previous term was cash.
+  const [terms, setTerms] = useState<LeaseTermsDraft>(() => ({
+    ...context.initialTerms,
+    paymentMethod:
+      context.initialTerms.paymentMethod === 'cash' ? 'cash' : 'cheque',
+  }));
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [busy, setBusy] = useState(false);
   const [voidBusy, setVoidBusy] = useState(false);

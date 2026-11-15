@@ -66,6 +66,40 @@ export type RenewalRequirement = {
   labelEn: string;
 };
 
+/** One photo upload slot per rent/VAT PDC on cheque renewals. */
+function chequePhotoRequirements(
+  cheques: ReadonlyArray<{ dueOn: string; amount?: { amountMinor?: string }; chequeNumber?: string }>,
+): RenewalRequirement[] {
+  return cheques.slice(0, 48).map((row, index) => {
+    const n = index + 1;
+    const due = arDate(row.dueOn);
+    const number = (row.chequeNumber || '').trim();
+    return {
+      code: `rent_cheque_${n}`,
+      labelAr: number
+        ? `صورة شيك الإيجار #${n} (رقم ${number} · استحقاق ${due})`
+        : `صورة شيك الإيجار #${n} (استحقاق ${due})`,
+      labelEn: number
+        ? `Rent cheque photo #${n} (no. ${number} · due ${row.dueOn})`
+        : `Rent cheque photo #${n} (due ${row.dueOn})`,
+    };
+  });
+}
+
+function mergeRenewalRequirements(
+  base: RenewalRequirement[],
+  extra: RenewalRequirement[],
+): RenewalRequirement[] {
+  const seen = new Set(base.map((row) => row.code));
+  const out = [...base];
+  for (const row of extra) {
+    if (seen.has(row.code) || out.length >= 48) continue;
+    seen.add(row.code);
+    out.push(row);
+  }
+  return out;
+}
+
 export type RenewalDocumentUpload = {
   code: string;
   fileName: string;
@@ -706,10 +740,54 @@ export async function createLeaseRenewalOnNeon(
       title: row.title,
       amount: row.amount,
     }));
-    const chequeInputs = input.cheques ?? [];
+    const leaseTermsMethod =
+      input.leaseTerms &&
+      typeof input.leaseTerms === 'object' &&
+      (input.leaseTerms as { paymentMethod?: unknown }).paymentMethod;
+    const paymentMethod =
+      input.paymentMethod ||
+      (leaseTermsMethod === 'cheque' ||
+      leaseTermsMethod === 'cash' ||
+      leaseTermsMethod === 'bank_transfer'
+        ? leaseTermsMethod
+        : null);
+    let chequeInputs = [...(input.cheques ?? [])];
+    // If owner chose cheque but left cheques empty, derive rows from leaseTerms.schedule.
+    if (paymentMethod === 'cheque' && chequeInputs.length === 0 && input.leaseTerms) {
+      const terms = input.leaseTerms as {
+        schedule?: Array<{
+          dueOn?: string;
+          rent?: string;
+          chequeNumber?: string;
+          bankName?: string;
+          totalMinor?: number;
+        }>;
+        chequeBankName?: string;
+      };
+      const schedule = Array.isArray(terms.schedule) ? terms.schedule : [];
+      for (const row of schedule) {
+        if (!row?.dueOn || !/^\d{4}-\d{2}-\d{2}$/.test(row.dueOn)) continue;
+        const amountMinor =
+          typeof row.totalMinor === 'number' && Number.isFinite(row.totalMinor)
+            ? String(Math.round(row.totalMinor))
+            : typeof row.rent === 'string' && /^\d+$/.test(row.rent.replace(/\D/g, ''))
+              ? row.rent.replace(/\D/g, '')
+              : rentMinor;
+        chequeInputs.push({
+          bankName: (row.bankName || input.chequeBankName || terms.chequeBankName || 'Bank').trim(),
+          chequeNumber: (row.chequeNumber || '').trim() || `RNW-${chequeInputs.length + 1}`,
+          amount: { amountMinor, currency: lease.currency },
+          dueOn: row.dueOn,
+        });
+      }
+    }
     const ownerSignsNow = hasPermission(claims, 'contract.sign');
     const now = new Date();
-    const requirements = normalizeRenewalRequirements(input.requirements);
+    const baseRequirements = normalizeRenewalRequirements(input.requirements);
+    const requirements =
+      paymentMethod === 'cheque' && chequeInputs.length
+        ? mergeRenewalRequirements(baseRequirements, chequePhotoRequirements(chequeInputs))
+        : baseRequirements;
     const [viewer] = await tx
       .select({ displayName: users.displayName, email: users.email })
       .from(users)
@@ -737,7 +815,7 @@ export async function createLeaseRenewalOnNeon(
       graceAsDiscount,
       graceAmount: { amountMinor: graceAmountMinor, currency: lease.currency },
       adjustments,
-      paymentMethod: input.paymentMethod ?? null,
+      paymentMethod: paymentMethod ?? input.paymentMethod ?? null,
       paymentFrequency: input.paymentFrequency ?? null,
       months: input.months ?? null,
       additionalTerms: input.additionalTerms ? sanitizeRichText(input.additionalTerms) : null,
@@ -747,6 +825,22 @@ export async function createLeaseRenewalOnNeon(
       cheques: chequeInputs,
       requirements,
       renewalDocuments: [] as RenewalDocumentUpload[],
+      ...(paymentMethod === 'cheque' && chequeInputs.length
+        ? {
+            chequeInstructions: chequeInputs.map((row, index) => ({
+              key: `rent-${index}`,
+              kind: 'rent' as const,
+              labelAr: `شيك إيجار #${index + 1}`,
+              labelEn: `Rent cheque #${index + 1}`,
+              dueOn: row.dueOn,
+              amountMinor: Number(row.amount.amountMinor) || 0,
+              currency: row.amount.currency,
+              suggestedChequeNumber: row.chequeNumber,
+            })),
+            chequePayableTo: input.chequeAccountName ?? null,
+            chequeBankNameHint: input.chequeBankName ?? null,
+          }
+        : {}),
       electronicNotice: {
         version: ELECTRONIC_RENEWAL_NOTICE.version,
         titleAr: ELECTRONIC_RENEWAL_NOTICE.titleAr,
@@ -931,7 +1025,8 @@ function normalizeRenewalRequirements(
   const out: RenewalRequirement[] = [];
   for (const row of source) {
     const code = (row.code ?? '').trim().toLowerCase();
-    if (!/^[a-z0-9_]{2,40}$/.test(code) || seen.has(code)) continue;
+    // Allow rent_cheque_12 style codes (longer when many PDCs).
+    if (!/^[a-z0-9_]{2,48}$/.test(code) || seen.has(code)) continue;
     seen.add(code);
     const labelAr = (row.labelAr ?? '').trim().slice(0, 120) || code;
     const labelEn = (row.labelEn ?? '').trim().slice(0, 120) || code;
