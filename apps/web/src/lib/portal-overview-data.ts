@@ -431,6 +431,13 @@ async function withProfileCompletenessAlerts(
         count: completeness.buildingsMissing,
       });
     }
+    if (completeness.rentBankMissing > 0) {
+      alerts.push({
+        severity: 'warning',
+        code: 'missing_rent_bank',
+        count: completeness.rentBankMissing,
+      });
+    }
     return { ...overview, alerts };
   } catch (error) {
     console.error('profile completeness alerts', error);

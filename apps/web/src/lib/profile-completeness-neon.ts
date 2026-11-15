@@ -1,5 +1,5 @@
 import 'server-only';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
   addresses,
@@ -8,7 +8,13 @@ import {
   partyRoles,
   properties,
   representationAuthorities,
+  workflowEvents,
 } from '@bhd-r/db';
+import {
+  isRentBankAccountComplete,
+  normalizeAccountingSettings,
+  resolveRentBankAccount,
+} from '@/lib/accounting-integrity';
 import {
   missingBuildingFields,
   missingOwnerFields,
@@ -21,6 +27,8 @@ export type ProfileCompletenessSummary = {
   ownerPartyId: string | null;
   ownerMissing: number;
   buildingsMissing: number;
+  /** Properties without a complete rent cheque payee / bank account. */
+  rentBankMissing: number;
   ownerFields: ReturnType<typeof missingOwnerFields>;
   buildings: Array<{
     propertyId: string;
@@ -151,6 +159,7 @@ export async function loadProfileCompletenessSummary(
       ownerPartyId: null,
       ownerMissing: 0,
       buildingsMissing: 0,
+      rentBankMissing: 0,
       ownerFields: [],
       buildings: [],
     };
@@ -202,10 +211,29 @@ export async function loadProfileCompletenessSummary(
       }
     }
 
+    const latestSettings = await tx
+      .select({ metadata: workflowEvents.metadata })
+      .from(workflowEvents)
+      .where(
+        and(
+          eq(workflowEvents.organizationId, orgId),
+          eq(workflowEvents.resourceType, 'accounting_settings'),
+          eq(workflowEvents.eventType, 'settings.updated'),
+        ),
+      )
+      .orderBy(desc(workflowEvents.occurredAt))
+      .limit(1);
+    const bankAccounts = normalizeAccountingSettings(latestSettings[0]?.metadata).bankAccounts;
+    const rentBankMissing = propertyRows.filter((row) => {
+      const bank = resolveRentBankAccount(bankAccounts, row.id);
+      return !isRentBankAccountComplete(bank);
+    }).length;
+
     return {
       ownerPartyId,
       ownerMissing: ownerFields.length,
       buildingsMissing: buildings.length,
+      rentBankMissing,
       ownerFields,
       buildings,
     };

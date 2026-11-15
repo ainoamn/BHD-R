@@ -65,6 +65,10 @@ function alertCopy(
       return locale === 'ar'
         ? `${count} مبنى/عقار ببيانات ناقصة (اسم، موقع، خريطة)`
         : `${count} building${count === 1 ? '' : 's'} with incomplete details (name, location, map)`;
+    case 'missing_rent_bank':
+      return locale === 'ar'
+        ? `${count} عقار بلا حساب بنكي مكتمل لمستفيد شيكات الإيجار (اسم المستفيد، البنك، رقم الحساب)`
+        : `${count} propert${count === 1 ? 'y' : 'ies'} missing a complete rent cheque payee bank account`;
     case 'arrears':
       return locale === 'ar'
         ? `${count} فاتورة متأخرة`
@@ -100,6 +104,8 @@ function alertHref(portal: PortalRole, code: string, resourceId?: string): strin
     }
     case 'incomplete_buildings':
       return `/${portal}/properties`;
+    case 'missing_rent_bank':
+      return `/${portal}/accounting?tab=settings`;
     default:
       return `/${portal}`;
   }

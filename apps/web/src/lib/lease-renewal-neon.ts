@@ -35,6 +35,7 @@ import {
 } from '@/lib/lease-renewal-window';
 import {
   bankAccountPayeeName,
+  isRentBankAccountComplete,
   normalizeAccountingSettings,
   resolveRentBankAccount,
 } from '@/lib/accounting-integrity';
@@ -50,7 +51,12 @@ async function loadOrgRentBankForProperty(
   tx: Parameters<Parameters<typeof withinViewerTenant>[1]>[0],
   orgId: string,
   propertyId: string,
-): Promise<{ id: string; bankName: string; accountHolderName: string } | null> {
+): Promise<{
+  id: string;
+  bankName: string;
+  accountHolderName: string;
+  complete: boolean;
+} | null> {
   const latest = await tx
     .select({ metadata: workflowEvents.metadata })
     .from(workflowEvents)
@@ -70,6 +76,7 @@ async function loadOrgRentBankForProperty(
     id: bank.id,
     bankName: bank.bankName,
     accountHolderName: bankAccountPayeeName(bank, false),
+    complete: isRentBankAccountComplete(bank),
   };
 }
 
@@ -257,6 +264,12 @@ export type LeaseRenewalContext = {
   initialTenant: LeaseRenewalTenantSeed;
   /** Prefill for LeaseContractForm — VAT, extras, payee, deposit from previous contract. */
   initialTerms: LeaseTermsDraft;
+  /** Landlord cheque payee for this property (tenant sees name to write PDCs). */
+  rentChequePayee: {
+    accountName: string;
+    bankName: string;
+    complete: boolean;
+  };
   /** Prior meter readings kept on the renewal form while optional new ones can be added. */
   previousMeters: RenewalPreviousMeters;
   defaultTemplateVersionId: string;
@@ -677,6 +690,16 @@ export async function loadLeaseRenewalContext(
       tenant: tenantRecord,
       initialTenant,
       initialTerms,
+      rentChequePayee: {
+        accountName:
+          initialTerms.chequeAccountName?.trim() || orgRentBank?.accountHolderName || '',
+        bankName: initialTerms.chequeBankName?.trim() || orgRentBank?.bankName || '',
+        complete: Boolean(
+          orgRentBank?.complete &&
+            (initialTerms.chequeAccountName?.trim() || orgRentBank.accountHolderName) &&
+            (initialTerms.chequeBankName?.trim() || orgRentBank.bankName),
+        ),
+      },
       previousMeters,
       defaultTemplateVersionId,
       renewalStartsOn,

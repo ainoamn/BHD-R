@@ -23,6 +23,11 @@ import { depositForMode } from '@/lib/booking-deposit';
 import { offeringModesFromListingPurpose } from '@/lib/unit-offering-modes';
 import { Icon, type IconName } from '@/components/pmh-icon';
 import type { ManagedProperty } from '@/components/property-detail-manager';
+import type { AccountingSettings } from '@/lib/accounting-integrity';
+import {
+  isRentBankAccountComplete,
+  resolveRentBankAccount,
+} from '@/lib/accounting-integrity';
 import type { PropertyOpsPulse } from '@/lib/property-ops-pulse-neon';
 
 type HubUnit = ManagedProperty['units'][number];
@@ -184,7 +189,24 @@ export function PropertyManageHub({
   const ar = locale === 'ar';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [rentBankMissing, setRentBankMissing] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch('/api/owner/accounting/settings', { credentials: 'same-origin' })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const data = (await response.json()) as { settings?: AccountingSettings };
+        if (cancelled || !data.settings) return;
+        const bank = resolveRentBankAccount(data.settings.bankAccounts, property.id);
+        setRentBankMissing(!isRentBankAccountComplete(bank));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [property.id]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -356,6 +378,14 @@ export function PropertyManageHub({
         href: editHref,
       });
     }
+    if (rentBankMissing) {
+      items.push({
+        text: ar
+          ? 'نقص في بيانات العقار: أضف حساباً بنكياً مكتملًا لمستفيد شيكات الإيجار (الاسم، البنك، رقم الحساب) من الحسابات واربطه بهذا العقار.'
+          : 'Property data gap: add a complete rent cheque payee bank account (name, bank, account number) in Accounting and link it to this property.',
+        href: `${base}/accounting?tab=settings`,
+      });
+    }
     if (liveStayCount > 0) {
       items.push({
         text: ar
@@ -401,12 +431,14 @@ export function PropertyManageHub({
     access,
     accountingHref,
     ar,
+    base,
     bookingsHref,
     contractsHref,
     editHref,
     liveStayCount,
     property,
     pulse,
+    rentBankMissing,
     unpublishedUnits,
   ]);
 

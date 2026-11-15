@@ -3431,14 +3431,37 @@ export function LeaseContractForm({
           )}
         </p>
         {slim ? (
-          isCheque &&
-          ((draft.chequeAccountName ?? '').trim() || (draft.chequeBankName ?? '').trim()) ? (
-            <p className="muted lcf-help" role="status">
-              {t(
-                `الشيكات تُكتب باسم ${(draft.chequeAccountName ?? '').trim() || '—'} · ${(draft.chequeBankName ?? '').trim() || '—'} (من بيانات المالك).`,
-                `Cheques payable to ${(draft.chequeAccountName ?? '').trim() || '—'} · ${(draft.chequeBankName ?? '').trim() || '—'} (from landlord records).`,
-              )}
-            </p>
+          isCheque ? (
+            (draft.chequeAccountName ?? '').trim() || (draft.chequeBankName ?? '').trim() ? (
+              <div className="lcf-bank-bind">
+                <Field
+                  id="lcf-rent-bank-slim"
+                  label={t('الشيكات تكتب باسم', 'Cheques payable to')}
+                >
+                  <div className="lcf-payee-locked">
+                    <output id="lcf-rent-bank-slim" className="input lcf-output" aria-live="polite">
+                      <strong>{(draft.chequeAccountName ?? '').trim() || '—'}</strong>
+                      {(draft.chequeBankName ?? '').trim() ? (
+                        <small dir="auto">{(draft.chequeBankName ?? '').trim()}</small>
+                      ) : null}
+                    </output>
+                  </div>
+                </Field>
+                <p className="muted lcf-help">
+                  {t(
+                    'حرّر الشيكات بهذا الاسم كما يظهر أعلاه (من بيانات المالك).',
+                    'Write cheques to this name exactly as shown (from landlord records).',
+                  )}
+                </p>
+              </div>
+            ) : (
+              <div className="notice notice--warning" role="status">
+                {t(
+                  'اسم مستفيد الشيكات غير مكتمل لدى المالك. أكمل المالك الحساب البنكي للعقار من الحسابات قبل متابعة التجديد.',
+                  'Cheque payee is incomplete on the landlord side. The landlord must complete the property rent bank account in Accounting before renewal can continue.',
+                )}
+              </div>
+            )
           ) : null
         ) : (
         <div className="lcf-bank-bind">

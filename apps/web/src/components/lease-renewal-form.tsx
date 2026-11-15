@@ -702,6 +702,38 @@ export function LeaseRenewalForm({
         </div>
       ) : null}
 
+      {!isTenant &&
+      showCreateForm &&
+      terms.paymentMethod === 'cheque' &&
+      !context.rentChequePayee.complete ? (
+        <div className="notice notice--warning" role="status">
+          <p style={{ margin: 0 }}>
+            {ar
+              ? 'نقص في بيانات العقار: حساب بنكي مكتمل لمستفيد شيكات الإيجار (الاسم، البنك، رقم الحساب/IBAN). أكمله قبل التأجير أو التجديد حتى يظهر الاسم للمستأجر عند تحرير الشيكات.'
+              : 'Property data gap: complete rent cheque payee bank account (name, bank, account/IBAN) before leasing or renewing so the tenant sees the payee when writing cheques.'}
+          </p>
+          <p style={{ margin: '0.65rem 0 0' }}>
+            <Link className="button button--quiet button--sm" href="/owner/accounting?tab=settings">
+              {ar ? 'إكمال الحساب البنكي من الحسابات' : 'Complete bank account in Accounting'}
+            </Link>
+          </p>
+        </div>
+      ) : null}
+
+      {isTenant &&
+      showCreateForm &&
+      terms.paymentMethod === 'cheque' &&
+      !(
+        context.rentChequePayee.accountName.trim() ||
+        (terms.chequeAccountName ?? '').trim()
+      ) ? (
+        <div className="notice notice--warning" role="status">
+          {ar
+            ? 'اسم مستفيد الشيكات غير ظاهر بعد — بانتظار إكمال المالك للحساب البنكي للعقار. يمكنك متابعة بقية الحقول، والإرسال يتوقف حتى يكتمل الاسم.'
+            : 'Cheque payee name is not available yet — waiting for the landlord to complete the property bank account. You can fill other fields; submit waits until the payee name is set.'}
+        </div>
+      ) : null}
+
       {restoredDraft ? (
         <div className="notice" role="status">
           {ar
