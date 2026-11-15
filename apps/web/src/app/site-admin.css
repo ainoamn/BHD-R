@@ -15,8 +15,9 @@ body:has(.site-admin-shell) #main-content {
   max-height: 100dvh;
   overflow: hidden;
   background:
-    radial-gradient(ellipse 65% 50% at 100% -10%, rgb(8 163 159 / 0.14), transparent 55%),
-    linear-gradient(160deg, #edf3f2 0%, #e4eceb 55%, #dfe8e7 100%);
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.07), transparent 28rem),
+    radial-gradient(circle at 0% 12%, rgb(15 92 107 / 0.06), transparent 22rem),
+    linear-gradient(180deg, #f3f7fa 0%, #f7fafc 42%, #f5f8fb 100%);
 }
 
 .site-admin-frame {
@@ -40,8 +41,8 @@ body:has(.site-admin-shell) #main-content {
   border-inline-end: none;
   color: #e8f2f1;
   background:
-    radial-gradient(ellipse 90% 55% at 0% 0%, rgb(8 163 159 / 0.28), transparent 55%),
-    linear-gradient(185deg, #0f3a52 0%, #12324a 48%, #0c283a 100%);
+    radial-gradient(ellipse 90% 55% at 0% 0%, rgb(15 92 107 / 0.34), transparent 55%),
+    linear-gradient(185deg, #0e3548 0%, #12324a 48%, #0c283a 100%);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -149,9 +150,9 @@ body:has(.site-admin-shell) #main-content {
 
 .site-admin-nav__list a.is-current {
   color: #042f2e;
-  background: linear-gradient(135deg, #5eead4, #2dd4bf);
+  background: linear-gradient(135deg, #7dd3c7, #2bb7ad);
   border-color: transparent;
-  box-shadow: 0 8px 18px rgb(45 212 191 / 0.22);
+  box-shadow: 0 8px 18px rgb(43 183 173 / 0.22);
   font-weight: 800;
 }
 
@@ -251,14 +252,15 @@ body:has(.site-admin-shell) #main-content {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  padding: clamp(1.25rem, 2.6vw, 1.75rem);
-  border: none;
+  padding: clamp(1.15rem, 2.4vw, 1.55rem);
+  border: 1px solid rgb(26 90 138 / 0.12);
   border-radius: 1.3rem;
-  color: #f3fffd;
+  color: #0f2f4a;
   background:
-    radial-gradient(ellipse 70% 100% at 100% 0%, rgb(45 212 191 / 0.28), transparent 55%),
-    linear-gradient(135deg, #0f3a52 0%, #14506a 50%, #0d7370 100%);
-  box-shadow: 0 16px 36px rgb(15 58 82 / 0.18);
+    radial-gradient(circle at 0% 0%, rgb(15 92 107 / 0.08), transparent 14rem),
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.14), transparent 18rem),
+    linear-gradient(145deg, #e7f1f7 0%, #f7fbfd 42%, #fff 72%);
+  box-shadow: 0 12px 30px rgb(15 47 74 / 0.05);
 }
 
 .sa-page__intro {
@@ -270,9 +272,9 @@ body:has(.site-admin-shell) #main-content {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  margin: 0 0 0.55rem;
-  color: #99f6e4;
-  font-size: 0.74rem;
+  margin: 0 0 0.45rem;
+  color: #1a5a8a;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -282,39 +284,40 @@ body:has(.site-admin-shell) #main-content {
   width: 0.62rem;
   height: 0.62rem;
   border-radius: 0.18rem;
-  background: linear-gradient(135deg, #5eead4, #fff);
+  background: linear-gradient(135deg, #7dd3c7, #0f5c6b);
 }
 
 .sa-page__title {
   margin: 0;
-  color: #fff;
-  font-size: clamp(1.45rem, 2.8vw, 1.95rem);
+  color: #0f2f4a;
+  font-size: clamp(1.35rem, 2.6vw, 1.85rem);
   font-weight: 800;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.02em;
   line-height: 1.25;
 }
 
 .sa-page__lead {
-  margin: 0.55rem 0 0;
-  color: rgb(243 255 253 / 0.88);
-  font-size: 0.98rem;
-  line-height: 1.65;
+  margin: 0.5rem 0 0;
+  color: #5a7188;
+  font-size: 0.94rem;
+  line-height: 1.6;
   max-width: 42rem;
 }
 
 .sa-page__actions .button {
-  box-shadow: 0 8px 18px rgb(0 0 0 / 0.12);
+  box-shadow: 0 8px 18px rgb(15 47 74 / 0.08);
 }
 
-.sa-page__actions .button--quiet {
-  color: #042f2e;
-  background: #ecfeff;
-  border-color: transparent;
+.sa-page__actions .button--quiet,
+.sa-page__actions .button--secondary {
+  color: #0f2f4a;
+  background: #fff;
+  border-color: rgb(26 90 138 / 0.18);
 }
 
 .sa-page__actions .button--primary {
-  color: #042f2e;
-  background: linear-gradient(135deg, #5eead4, #2dd4bf);
+  color: #fff;
+  background: linear-gradient(135deg, #1a5a8a, #0f5c6b);
   border-color: transparent;
 }
 
@@ -1147,51 +1150,52 @@ body:has(.site-admin-shell) #main-content {
 .sa-hub__hero {
   position: relative;
   overflow: hidden;
-  padding: clamp(1.6rem, 3.4vw, 2.4rem);
-  border: none;
-  border-radius: 1.4rem;
-  color: #f3fffd;
+  padding: clamp(1.35rem, 2.8vw, 1.85rem) clamp(1.25rem, 2.6vw, 1.7rem);
+  border: 1px solid rgb(26 90 138 / 0.12);
+  border-radius: 1.35rem;
+  color: #0f2f4a;
   background:
-    radial-gradient(ellipse 70% 90% at 100% 0%, rgb(45 212 191 / 0.35), transparent 55%),
-    linear-gradient(135deg, #0f3a52 0%, #14506a 42%, #0b8f8a 100%);
-  box-shadow: 0 18px 40px rgb(15 58 82 / 0.22);
+    radial-gradient(circle at 0% 0%, rgb(15 92 107 / 0.1), transparent 14rem),
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.16), transparent 18rem),
+    linear-gradient(145deg, #e7f1f7 0%, #f7fbfd 42%, #fff 72%);
+  box-shadow: 0 14px 36px rgb(15 47 74 / 0.06);
 }
 
 .sa-hub__brand {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  margin: 0 0 0.75rem;
-  color: #99f6e4;
-  font-size: 0.8rem;
+  margin: 0 0 0.55rem;
+  color: #1a5a8a;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .sa-hub__mark {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: 0.7rem;
+  height: 0.7rem;
   border-radius: 0.2rem;
-  background: linear-gradient(135deg, #5eead4, #fff);
+  background: linear-gradient(135deg, #7dd3c7, #0f5c6b);
 }
 
 .sa-hub__hero h1 {
   margin: 0;
-  color: #fff;
-  font-size: clamp(1.85rem, 4vw, 2.55rem);
+  color: #0f2f4a;
+  font-size: clamp(1.45rem, 3vw, 2rem);
   font-weight: 800;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   line-height: 1.18;
-  max-width: 14ch;
+  max-width: 18ch;
 }
 
 .sa-hub__lead {
-  margin: 0.8rem 0 0;
-  max-width: 42rem;
-  color: rgb(243 255 253 / 0.86);
-  font-size: 1.05rem;
-  line-height: 1.65;
+  margin: 0.55rem 0 0;
+  max-width: 44rem;
+  color: #5a7188;
+  font-size: 0.96rem;
+  line-height: 1.6;
 }
 
 .sa-hub__pulse {
@@ -1213,14 +1217,15 @@ body:has(.site-admin-shell) #main-content {
   display: grid;
   gap: 0.4rem;
   padding: 1.05rem 1.1rem;
-  border: 1px solid rgb(15 58 82 / 0.08);
+  border: 1px solid rgb(26 90 138 / 0.1);
+  border-inline-start: 3px solid #0f5c6b;
   border-radius: 1.1rem;
-  background: #fff;
-  box-shadow: 0 10px 24px rgb(15 58 82 / 0.06);
+  background: linear-gradient(180deg, #f4f8fb, #fff 70%);
+  box-shadow: 0 8px 20px rgb(15 47 74 / 0.04);
 }
 
 .sa-hub__stat span {
-  color: #5b7c78;
+  color: #5a7188;
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.04em;
@@ -1228,8 +1233,8 @@ body:has(.site-admin-shell) #main-content {
 }
 
 .sa-hub__stat strong {
-  color: #0f3a52;
-  font-size: 1.7rem;
+  color: #0f2f4a;
+  font-size: 1.65rem;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
 }
@@ -1243,18 +1248,18 @@ body:has(.site-admin-shell) #main-content {
   display: grid;
   gap: 0.85rem;
   padding: 1.15rem 1.15rem 1.25rem;
-  border: 1px solid rgb(15 58 82 / 0.08);
+  border: 1px solid rgb(26 90 138 / 0.1);
   border-radius: 1.25rem;
-  background: #fff;
-  box-shadow: 0 12px 28px rgb(15 58 82 / 0.05);
+  background: linear-gradient(180deg, #fbfdfe 0%, #fff 48%);
+  box-shadow: 0 8px 20px rgb(15 47 74 / 0.04);
 }
 
 .sa-hub__module-head h2 {
   margin: 0;
-  color: #0f3a52;
-  font-size: 0.82rem;
+  color: #0f5c6b;
+  font-size: 0.78rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -1268,9 +1273,9 @@ body:has(.site-admin-shell) #main-content {
   display: grid;
   gap: 0.4rem;
   padding: 1.05rem 1.1rem;
-  border: 1px solid rgb(15 58 82 / 0.1);
+  border: 1px solid rgb(26 90 138 / 0.12);
   border-radius: 1rem;
-  background: linear-gradient(180deg, #f8fbfb, #fff);
+  background: linear-gradient(180deg, #f4f8fb, #fff 70%);
   color: inherit;
   text-decoration: none;
   transition:
@@ -1281,21 +1286,21 @@ body:has(.site-admin-shell) #main-content {
 }
 
 .sa-hub__tile:hover {
-  border-color: #2dd4bf;
-  transform: translateY(-2px);
-  background: #fff;
-  box-shadow: 0 14px 28px rgb(15 58 82 / 0.1);
+  border-color: rgb(15 92 107 / 0.35);
+  transform: translateY(-1px);
+  background: #e8f5f7;
+  box-shadow: 0 12px 26px rgb(15 47 74 / 0.08);
 }
 
 .sa-hub__tile strong {
-  color: #0f3a52;
-  font-size: 1.05rem;
+  color: #0f2f4a;
+  font-size: 1.02rem;
   font-weight: 800;
 }
 
 .sa-hub__tile span {
-  color: #5b7c78;
-  font-size: 0.88rem;
+  color: #5a7188;
+  font-size: 0.86rem;
   line-height: 1.45;
 }
 
