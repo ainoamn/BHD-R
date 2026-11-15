@@ -209,6 +209,22 @@ export function TenantRenewalIntentList({
                         {ar ? 'تغير التواريخ' : 'Change dates'}
                       </button>
                     </>
+                  ) : item.phase === 'renewed_pending' ? (
+                    <>
+                      <span className="muted" style={{ fontSize: '0.85rem' }}>
+                        {ar
+                          ? `تم اعتماد التجديد حتى ${formatDay(item.systemEndsOn, true)}`
+                          : `Renewal already accepted until ${formatDay(item.systemEndsOn, false)}`}
+                      </span>
+                      {item.renewalContractId ? (
+                        <Link
+                          href={`/tenant/contracts/${item.renewalContractId}?view=full`}
+                          className="button button--quiet button--sm"
+                        >
+                          {ar ? 'عرض الملحق' : 'View addendum'}
+                        </Link>
+                      ) : null}
+                    </>
                   ) : (
                     <>
                       <span className="muted" style={{ fontSize: '0.85rem' }}>

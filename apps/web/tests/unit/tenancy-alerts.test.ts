@@ -169,9 +169,11 @@ describe('tenancy alerts', () => {
       },
       today,
     );
-    expect(alerts.map((alert) => alert.id)).toEqual(['ending']);
+    expect(alerts.map((alert) => alert.id)).toEqual(['ending', 'already-renewed']);
     expect(alerts[0]?.action).toBe(true);
     expect(alerts[0]?.href).toBe('/tenant/contracts?focus=renewal');
+    expect(alerts[1]?.action).toBe(false);
+    expect(alerts[1]?.href).toBe('/tenant/contracts?focus=renewal&renewal=renew-1');
   });
 
   it('points ending-soon continue at an open renewal addendum when present', () => {

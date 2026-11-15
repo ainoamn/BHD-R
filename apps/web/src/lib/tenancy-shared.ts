@@ -329,25 +329,27 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
   for (const lease of data.leases) {
     if (lease.fromStay || !LIVE_LEASE.has(lease.status)) continue;
     if (lease.endsOn < today || lease.endsOn > expiryCutoff) continue;
-    // Already renewed (signed) and waiting for the new term to start — not an action item.
-    if (lease.renewalPendingContractId) continue;
     const openRenewal = data.contracts.find(
       (contract) =>
         contract.kind === 'renewal' &&
         contract.parentContractId === lease.contractId &&
         SIGNABLE_CONTRACT.has(contract.status),
     );
+    // Still surface ending-soon when a signed renewal is pending clearance — Continue
+    // opens the renewal list (shows accepted term or next choices).
     alerts.push({
       kind: 'lease_expiring',
       id: lease.id,
       reference: lease.unitCode ?? lease.id.slice(0, 8),
       href: openRenewal
         ? `/tenant/contracts?focus=renewal&renewal=${encodeURIComponent(openRenewal.id)}`
-        : '/tenant/contracts?focus=renewal',
+        : lease.renewalPendingContractId
+          ? `/tenant/contracts?focus=renewal&renewal=${encodeURIComponent(lease.renewalPendingContractId)}`
+          : '/tenant/contracts?focus=renewal',
       date: lease.endsOn,
       amountMinor: null,
       currency: null,
-      action: true,
+      action: !lease.renewalPendingContractId || Boolean(openRenewal),
     });
   }
   for (const reservation of data.reservations) {
@@ -526,8 +528,8 @@ export function tenancyLandlordName(landlord: TenancyLandlord, ar: boolean): str
 /** Open renewal addendum the tenant can complete or adjust. */
 export type TenancyRenewalIntent = {
   key: string;
-  /** Open addendum ready for the tenant, or lease still waiting for one. */
-  phase: 'open_renewal' | 'awaiting_offer';
+  /** Open addendum, waiting for owner offer, or signed renewal awaiting clearance. */
+  phase: 'open_renewal' | 'awaiting_offer' | 'renewed_pending';
   leaseId: string;
   leaseEndsOn: string;
   renewalContractId: string | null;
@@ -576,7 +578,24 @@ export function buildRenewalIntentItems(
   for (const lease of data.leases) {
     if (lease.fromStay || !LIVE_LEASE.has(lease.status)) continue;
     if (lease.endsOn < today || lease.endsOn > expiryCutoff) continue;
-    if (lease.renewalPendingContractId || coveredLeaseIds.has(lease.id)) continue;
+    if (coveredLeaseIds.has(lease.id)) continue;
+    if (lease.renewalPendingContractId) {
+      const pending = data.contracts.find((row) => row.id === lease.renewalPendingContractId);
+      items.push({
+        key: `pending:${lease.id}`,
+        phase: 'renewed_pending',
+        leaseId: lease.id,
+        leaseEndsOn: lease.endsOn,
+        renewalContractId: lease.renewalPendingContractId,
+        reference: pending?.reference ?? lease.unitCode ?? lease.id.slice(0, 8).toUpperCase(),
+        systemEndsOn: lease.renewalPendingEndsOn,
+        landlord: lease.landlord,
+        unitCode: lease.unitCode,
+        unitAr: lease.unitAr,
+        unitEn: lease.unitEn,
+      });
+      continue;
+    }
     items.push({
       key: `lease:${lease.id}`,
       phase: 'awaiting_offer',
