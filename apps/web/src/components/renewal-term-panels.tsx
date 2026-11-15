@@ -69,8 +69,8 @@ export function TenantRenewalTermPanel({
         <h2>{ar ? 'تاريخ نهاية التجديد' : 'Renewal end date'}</h2>
         <p className="muted">
           {ar
-            ? 'التاريخ أدناه هو ما حدده النظام. للاعتراض اقترح تاريخاً آخر.'
-            : 'The date below is set by the system. Object if you need a different date.'}
+            ? 'التاريخ أدناه هو ما حدده النظام حسب ضبط المالك. لتجديد أقصر استخدم «تغير التواريخ».'
+            : 'The date below is set by the system from the landlord’s settings. Use “Change dates” for a shorter term.'}
         </p>
         <p>
           {ar ? 'تاريخ نهاية التجديد: ' : 'Renewal end date: '}
@@ -93,7 +93,7 @@ export function TenantRenewalTermPanel({
               setObjectOpen(true);
             }}
           >
-            {ar ? 'اعتراض على التاريخ' : 'Object to this date'}
+            {ar ? 'تغير التواريخ' : 'Change dates'}
           </Button>
         ) : null}
 
@@ -107,8 +107,13 @@ export function TenantRenewalTermPanel({
                 onClick={(event) => event.stopPropagation()}
               >
                 <header className="ops-modal__head">
-                  <h2>{ar ? 'اعتراض على تاريخ النهاية' : 'Object to end date'}</h2>
+                  <h2>{ar ? 'تغير تواريخ التجديد' : 'Change renewal dates'}</h2>
                 </header>
+                <p className="muted">
+                  {ar
+                    ? 'إن كانت المدة ضمن نطاق ضبط المالك تُعتمد تلقائياً؛ وإن كانت أقصر تُرسل لموافقة المالك.'
+                    : 'Within the landlord’s range it is auto-approved; a shorter term needs landlord approval.'}
+                </p>
                 <Field
                   id="renewal-object-ends"
                   label={ar ? 'التاريخ المقترح' : 'Proposed end date'}

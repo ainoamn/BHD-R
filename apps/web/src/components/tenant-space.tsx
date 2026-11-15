@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { formatMoney } from '@/lib/format';
 import { BadgeChips } from '@/components/badges/badge-chips';
 import {
@@ -15,6 +16,7 @@ import {
   contractKindTone,
 } from '@/components/contract-kind-chip';
 import { SoftPortalLink as Link } from '@/components/soft-portal-link';
+import { TenantRenewalIntentList } from '@/components/tenant-renewal-intent-list';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
 import { TenantRequestsList } from '@/components/tenant-requests-list';
 import {
@@ -971,9 +973,13 @@ function AlertsList({ ar, locale, data }: Ctx) {
           ? ar
             ? 'رفع وتوقيع'
             : 'Upload & sign'
-          : ar
-            ? 'متابعة'
-            : 'Continue',
+          : alert.kind === 'lease_expiring'
+            ? ar
+              ? 'متابعة التجديد'
+              : 'Continue renewal'
+            : ar
+              ? 'متابعة'
+              : 'Continue',
     };
   });
   return (
@@ -1378,6 +1384,8 @@ export function TenantSpaceContent({
 }) {
   const ar = locale === 'ar';
   const ctx: Ctx = { ar, locale, data };
+  const searchParams = useSearchParams();
+  const focusRenewal = searchParams.get('focus') === 'renewal';
 
   const notice = failed ? (
     <p className="tenant-notice" role="status">
@@ -1411,6 +1419,9 @@ export function TenantSpaceContent({
           </div>
         </header>
         {notice}
+        {view === 'contracts' ? (
+          <TenantRenewalIntentList data={data} locale={locale} forceShow={focusRenewal} />
+        ) : null}
         {view === 'bookings' ? <BookingsTable ar={ar} locale={locale} data={data} /> : null}
         {view === 'contracts' ? <ContractsTable ar={ar} locale={locale} data={data} /> : null}
         {view === 'leases' ? <LeasesTable ar={ar} locale={locale} data={data} /> : null}
@@ -1720,6 +1731,8 @@ export function TenantSpaceContent({
           <AlertsList {...ctx} />
         </section>
       ) : null}
+
+      <TenantRenewalIntentList data={data} locale={locale} forceShow={focusRenewal} />
 
       <nav className="tenant-home__nav" aria-label={ar ? 'ملخص سريع' : 'Quick summary'}>
         {metrics.map((metric) => (

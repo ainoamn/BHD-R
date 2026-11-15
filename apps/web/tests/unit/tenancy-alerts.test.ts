@@ -87,6 +87,8 @@ function lease(patch: Partial<TenancyLease>): TenancyLease {
     unitAr: null,
     unitEn: null,
     fromStay: false,
+    renewalPendingContractId: null,
+    renewalPendingEndsOn: null,
     ...patch,
   };
 }
@@ -157,12 +159,42 @@ describe('tenancy alerts', () => {
           lease({ id: 'ending' }),
           lease({ id: 'stay', fromStay: true, endsOn: '2026-10-14' }),
           lease({ id: 'later', endsOn: '2027-06-30' }),
+          lease({
+            id: 'already-renewed',
+            endsOn: '2026-10-20',
+            renewalPendingContractId: 'renew-1',
+            renewalPendingEndsOn: '2027-10-20',
+          }),
         ],
       },
       today,
     );
     expect(alerts.map((alert) => alert.id)).toEqual(['ending']);
-    expect(alerts[0]?.action).toBe(false);
+    expect(alerts[0]?.action).toBe(true);
+    expect(alerts[0]?.href).toBe('/tenant/contracts?focus=renewal');
+  });
+
+  it('points ending-soon continue at an open renewal addendum when present', () => {
+    const alerts = buildTenancyAlerts(
+      {
+        ...EMPTY_TENANCY,
+        leases: [lease({ id: 'ending', contractId: 'parent' })],
+        contracts: [
+          contract({
+            id: 'renew-open',
+            kind: 'renewal',
+            parentContractId: 'parent',
+            status: 'sent',
+            reference: 'CTR-1-02',
+          }),
+        ],
+      },
+      today,
+    );
+    expect(alerts.map((alert) => alert.kind)).toEqual(['contract_sign', 'lease_expiring']);
+    expect(alerts.find((alert) => alert.kind === 'lease_expiring')?.href).toBe(
+      '/tenant/contracts?focus=renewal&renewal=renew-open',
+    );
   });
 
   it('turns stay states into actions with the guest booking link', () => {

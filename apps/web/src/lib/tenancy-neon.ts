@@ -648,6 +648,8 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
           unitCode: units.code,
           unitAr: units.nameAr,
           unitEn: units.nameEn,
+          renewalPendingContractId: leases.renewalPendingContractId,
+          renewalPendingEndsOn: leases.renewalPendingEndsOn,
           sourceType: sql<string | null>`${contracts.payloadSnapshot}->'source'->>'type'`,
           contractReference: contracts.reference,
           leaseTerms: sql<unknown>`${contracts.payloadSnapshot}->'leaseTerms'`,
@@ -898,6 +900,10 @@ async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkT
       unitAr: row.unitAr,
       unitEn: row.unitEn,
       fromStay: row.sourceType === 'stay_booking',
+      renewalPendingContractId: row.renewalPendingContractId ?? null,
+      renewalPendingEndsOn: row.renewalPendingEndsOn
+        ? String(row.renewalPendingEndsOn).slice(0, 10)
+        : null,
     }));
     const invoiceItems: TenancyInvoice[] = invoiceRows.map((row) => ({
       id: row.id,

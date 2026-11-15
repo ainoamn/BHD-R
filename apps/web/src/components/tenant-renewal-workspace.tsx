@@ -206,8 +206,8 @@ export function TenantRenewalWorkspace({
           <h2>{ar ? '1) تاريخ نهاية التجديد' : '1) Renewal end date'}</h2>
           <p className="muted">
             {ar
-              ? 'التاريخ أدناه هو ما حدده النظام حسب مدة التجديد. إن لم يناسبك يمكنك الاعتراض باقتراح تاريخ آخر.'
-              : 'The date below is set by the system for this renewal. If it does not suit you, object with another proposed date.'}
+              ? 'التاريخ أدناه هو ما حدده النظام حسب مدة التجديد من ضبط المالك. لتجديد أقصر اضغط «تغير التواريخ».'
+              : 'The date below is set by the system from the landlord’s renewal settings. Use “Change dates” for a shorter term.'}
           </p>
           <dl className="lease-renewal__facts">
             <div>
@@ -251,7 +251,7 @@ export function TenantRenewalWorkspace({
                   setObjectOpen(true);
                 }}
               >
-                {ar ? 'اعتراض على التاريخ' : 'Object to this date'}
+                {ar ? 'تغير التواريخ' : 'Change dates'}
               </Button>
             </div>
           ) : null}
@@ -365,7 +365,7 @@ export function TenantRenewalWorkspace({
             >
               <header className="ops-modal__head">
                 <h2 id="renewal-object-title">
-                  {ar ? 'اعتراض على تاريخ النهاية' : 'Object to end date'}
+                  {ar ? 'تغير تواريخ التجديد' : 'Change renewal dates'}
                 </h2>
                 <button
                   type="button"
@@ -378,8 +378,8 @@ export function TenantRenewalWorkspace({
               </header>
               <p className="muted">
                 {ar
-                  ? 'أدخل التاريخ الذي تقترحه. إن كان ضمن الأشهر التي ضبطها المؤجر يُعتمد تلقائياً؛ وإلا يُرسل للمؤجر للموافقة اليدوية.'
-                  : 'Enter your proposed date. If it falls within the landlord’s allowed months it is auto-approved; otherwise it goes to the landlord for manual approval.'}
+                  ? 'أدخل تاريخ النهاية الذي ترغب به. إن كانت المدة ضمن نطاق ضبط المالك تُعتمد تلقائياً؛ وإن كانت أقصر تُرسل لموافقة المالك.'
+                  : 'Enter the end date you want. Within the landlord’s allowed range it is auto-approved; a shorter term needs landlord approval.'}
               </p>
               <Field
                 id="tenant-object-ends"

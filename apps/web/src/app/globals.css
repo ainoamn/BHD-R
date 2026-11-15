@@ -10461,9 +10461,19 @@ body:has(.stays-booking-receipt) #main-content {
   color: #0f3d66;
 }
 .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow,
-.tenant-home__panel--alerts .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
+.tenant-home__panel--alerts .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow,
+.tenant-home__panel--renewals .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
   background: #ffc078;
   color: #7a3b00;
+}
+.tenant-home__panel--renewals .tenant-preview-row--contract-renewal {
+  border: 2px solid #c8102e !important;
+  border-inline-start: 2px solid #c8102e !important;
+  background: linear-gradient(180deg, #ffd7a8 0%, #fff4e8 40%, #fff 70%) !important;
+  box-shadow: 0 0 0 3px rgb(200 120 20 / 0.2);
+}
+.tenant-home__panel--renewals .tenant-preview-row.is-highlighted {
+  box-shadow: 0 0 0 4px rgb(200 16 46 / 0.35);
 }
 .contract-kind-chip {
   display: inline-flex;

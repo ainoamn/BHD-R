@@ -60,6 +60,10 @@ export type TenancyLease = {
   unitEn: string | null;
   /** Issued for a daily stay rather than a long-term rental. */
   fromStay: boolean;
+  /** Signed renewal awaiting clearance onto this lease (suppresses “ending soon”). */
+  renewalPendingContractId: string | null;
+  /** End date already accepted on the pending renewal addendum. */
+  renewalPendingEndsOn: string | null;
 };
 
 /** Deposit-refund lifecycle mirrored from the host/accountant stay_refunds row. */
@@ -325,15 +329,25 @@ export function buildTenancyAlerts(data: Omit<MyTenancy, 'alerts'>, today: strin
   for (const lease of data.leases) {
     if (lease.fromStay || !LIVE_LEASE.has(lease.status)) continue;
     if (lease.endsOn < today || lease.endsOn > expiryCutoff) continue;
+    // Already renewed (signed) and waiting for the new term to start — not an action item.
+    if (lease.renewalPendingContractId) continue;
+    const openRenewal = data.contracts.find(
+      (contract) =>
+        contract.kind === 'renewal' &&
+        contract.parentContractId === lease.contractId &&
+        SIGNABLE_CONTRACT.has(contract.status),
+    );
     alerts.push({
       kind: 'lease_expiring',
       id: lease.id,
       reference: lease.unitCode ?? lease.id.slice(0, 8),
-      href: '/tenant/leases',
+      href: openRenewal
+        ? `/tenant/contracts?focus=renewal&renewal=${encodeURIComponent(openRenewal.id)}`
+        : '/tenant/contracts?focus=renewal',
       date: lease.endsOn,
       amountMinor: null,
       currency: null,
-      action: false,
+      action: true,
     });
   }
   for (const reservation of data.reservations) {
@@ -507,6 +521,78 @@ export function tenancyUnitLabel(
 
 export function tenancyLandlordName(landlord: TenancyLandlord, ar: boolean): string {
   return ar ? landlord.ar || landlord.en : landlord.en || landlord.ar;
+}
+
+/** Open renewal addendum the tenant can complete or adjust. */
+export type TenancyRenewalIntent = {
+  key: string;
+  /** Open addendum ready for the tenant, or lease still waiting for one. */
+  phase: 'open_renewal' | 'awaiting_offer';
+  leaseId: string;
+  leaseEndsOn: string;
+  renewalContractId: string | null;
+  reference: string;
+  systemEndsOn: string | null;
+  landlord: TenancyLandlord;
+  unitCode: string | null;
+  unitAr: string | null;
+  unitEn: string | null;
+};
+
+/**
+ * Renewals the tenant should decide on: open addenda first, then leases ending soon
+ * that do not yet have an offer (and are not already cleared by a signed renewal).
+ */
+export function buildRenewalIntentItems(
+  data: Pick<MyTenancy, 'leases' | 'contracts'>,
+  today: string,
+): TenancyRenewalIntent[] {
+  const expiryCutoff = addDays(today, LEASE_EXPIRY_DAYS);
+  const items: TenancyRenewalIntent[] = [];
+  const coveredLeaseIds = new Set<string>();
+
+  for (const contract of data.contracts) {
+    if (contract.kind !== 'renewal' || !SIGNABLE_CONTRACT.has(contract.status)) continue;
+    const lease =
+      data.leases.find((row) => row.contractId && row.contractId === contract.parentContractId) ??
+      null;
+    if (!lease || lease.fromStay) continue;
+    coveredLeaseIds.add(lease.id);
+    items.push({
+      key: `renewal:${contract.id}`,
+      phase: 'open_renewal',
+      leaseId: lease.id,
+      leaseEndsOn: lease.endsOn,
+      renewalContractId: contract.id,
+      reference: contract.reference,
+      systemEndsOn: contract.endsOn,
+      landlord: lease.landlord,
+      unitCode: lease.unitCode ?? contract.unitCode,
+      unitAr: lease.unitAr ?? contract.unitAr,
+      unitEn: lease.unitEn ?? contract.unitEn,
+    });
+  }
+
+  for (const lease of data.leases) {
+    if (lease.fromStay || !LIVE_LEASE.has(lease.status)) continue;
+    if (lease.endsOn < today || lease.endsOn > expiryCutoff) continue;
+    if (lease.renewalPendingContractId || coveredLeaseIds.has(lease.id)) continue;
+    items.push({
+      key: `lease:${lease.id}`,
+      phase: 'awaiting_offer',
+      leaseId: lease.id,
+      leaseEndsOn: lease.endsOn,
+      renewalContractId: null,
+      reference: lease.unitCode ?? lease.id.slice(0, 8).toUpperCase(),
+      systemEndsOn: null,
+      landlord: lease.landlord,
+      unitCode: lease.unitCode,
+      unitAr: lease.unitAr,
+      unitEn: lease.unitEn,
+    });
+  }
+
+  return items.sort((a, b) => a.leaseEndsOn.localeCompare(b.leaseEndsOn));
 }
 
 export function hasTenancy(data: MyTenancy): boolean {
