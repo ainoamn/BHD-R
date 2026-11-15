@@ -220,6 +220,8 @@ export type LeaseRenewalContext = {
     templateVersionId: string | null;
     /** Terms saved on the incomplete addendum — used to reopen the renewal form. */
     initialTerms: LeaseTermsDraft;
+    /** Tenant started this draft from their portal. */
+    initiatedByTenant: boolean;
   } | null;
 };
 
@@ -552,6 +554,7 @@ export async function loadLeaseRenewalContext(
         updatedAt: pendingRenewalRow.updatedAt.toISOString(),
         templateVersionId: pendingRenewalRow.templateVersionId,
         initialTerms: { ...pendingTerms, endsOn: pendingEndsOn, startsOn: pendingStartsOn },
+        initiatedByTenant: pendingSnap.initiatedBy === 'tenant',
       };
     }
     return {
@@ -617,6 +620,7 @@ export async function createLeaseRenewalOnNeon(
   claims: SessionClaims,
   leaseId: string,
   input: CreateLeaseRenewalInput,
+  options?: { initiatedByTenant?: boolean },
 ): Promise<{
   contractId: string;
   reference: string | null;
@@ -624,7 +628,10 @@ export async function createLeaseRenewalOnNeon(
   proposedStartsOn: string;
   chequeCount: number;
 }> {
-  if (!hasPermission(claims, 'lease.update') || !hasPermission(claims, 'contract.create')) {
+  const asTenant = options?.initiatedByTenant === true;
+  if (asTenant) {
+    if (!claims.partyId) fail('forbidden');
+  } else if (!hasPermission(claims, 'lease.update') || !hasPermission(claims, 'contract.create')) {
     fail('forbidden');
   }
   const orgId = claims.organizationId ?? fail('organization_required');
@@ -636,15 +643,17 @@ export async function createLeaseRenewalOnNeon(
       where: and(eq(leases.id, leaseId), eq(leases.organizationId, orgId)),
     });
     if (!lease || lease.status !== 'active' || !lease.contractId) fail('lease_not_renewable');
+    if (asTenant && lease.tenantPartyId !== claims.partyId) fail('forbidden');
     const today = muscatToday();
     const windowOpen = isLeaseRenewalWindowOpen(lease.endsOn, today);
     const earlyException =
+      !asTenant &&
       !windowOpen &&
       input.earlyException === true &&
       canRenewLeaseEarlyException(claims.roles);
     if (!windowOpen && !earlyException) {
       fail(
-        canRenewLeaseEarlyException(claims.roles)
+        !asTenant && canRenewLeaseEarlyException(claims.roles)
           ? 'renewal_exception_required'
           : 'renewal_too_early',
       );
@@ -781,7 +790,8 @@ export async function createLeaseRenewalOnNeon(
         });
       }
     }
-    const ownerSignsNow = hasPermission(claims, 'contract.sign');
+    // Tenant proposals always wait for the landlord; owners with sign rights deliver immediately.
+    const ownerSignsNow = !asTenant && hasPermission(claims, 'contract.sign');
     const now = new Date();
     const baseRequirements = normalizeRenewalRequirements(input.requirements);
     const requirements =
@@ -854,6 +864,7 @@ export async function createLeaseRenewalOnNeon(
         byName: viewer?.displayName ?? null,
         at: now.toISOString(),
       },
+      ...(asTenant ? { initiatedBy: 'tenant' as const } : {}),
       ...(earlyException
         ? {
             earlyException: {
@@ -987,7 +998,11 @@ export async function createLeaseRenewalOnNeon(
         actorUserId: claims.sub,
         resourceType: 'lease',
         resourceId: lease.id,
-        eventType: ownerSignsNow ? 'lease.renewal_sent_to_tenant' : 'lease.renewal_requested',
+        eventType: ownerSignsNow
+          ? 'lease.renewal_sent_to_tenant'
+          : asTenant
+            ? 'lease.renewal_requested_by_tenant'
+            : 'lease.renewal_requested',
         fromStatus: lease.status,
         toStatus: lease.status,
         metadata: {
@@ -1000,8 +1015,39 @@ export async function createLeaseRenewalOnNeon(
           chequeCount: chequeInputs.length,
           deliveredToTenant: ownerSignsNow,
           requirementCount: requirements.length,
+          initiatedByTenant: asTenant,
         },
       });
+
+      if (asTenant) {
+        const ownerLink = appLink(`/ar/owner/leasing/${lease.id}/renew`);
+        await notifyInTx(tx, {
+          orgId,
+          aggregateType: 'contract',
+          aggregateId: contract.id,
+          audience: {
+            parties: [lease.ownerPartyId],
+            managersOf: { orgId, propertyId: property.id },
+          },
+          content: () => ({
+            tone: 'contract',
+            subject: `📝 طلب تجديد من المستأجر — ${contractReference}`,
+            title: 'المستأجر عبّأ ملحق تجديد',
+            intro: `أرسل المستأجر مسودة تجديد للعقد. راجع الحقول من صفحة التأجير ثم اعتمد أو عدّل وأرسل للتوقيع.`,
+            details: [
+              { label: 'رقم الملحق', value: contractReference },
+              { label: 'العقار', value: `${property.nameAr} — ${unit.nameAr || unit.code}` },
+              { label: 'نهاية التجديد المقترحة', value: arDate(input.endsOn) },
+              {
+                label: 'الإيجار الشهري',
+                value: formatMoney(rentMinor, lease.currency, 'ar'),
+              },
+            ],
+            cta: { label: 'مراجعة طلب التجديد', url: ownerLink },
+          }),
+        });
+      }
+
       return {
         contractId: contract.id,
         reference: contract.reference,
@@ -1588,6 +1634,64 @@ export async function completeTenantRenewalPackageOnNeon(
     });
 
     return { contractId: contract.id, status: 'signed' as const, reference: contract.reference };
+  });
+}
+
+/**
+ * Tenant voids their own draft renewal proposal (initiatedBy=tenant only).
+ */
+export async function voidTenantRenewalDraftOnNeon(
+  claims: SessionClaims,
+  contractId: string,
+  note?: string | null,
+): Promise<{ contractId: string; status: 'void' }> {
+  const orgId = claims.organizationId ?? fail('organization_required');
+  const partyId = claims.partyId ?? fail('forbidden');
+
+  return withinViewerTenant(claims, async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${contractId}, 61))`);
+    const contract = await tx.query.contracts.findFirst({
+      where: and(
+        eq(contracts.id, contractId),
+        eq(contracts.organizationId, orgId),
+        eq(contracts.kind, 'renewal'),
+        eq(contracts.tenantPartyId, partyId),
+      ),
+    });
+    if (!contract) fail('contract_not_found');
+    if (contract.status === 'void') return { contractId: contract.id, status: 'void' as const };
+    if (contract.status !== 'draft') fail('renewal_not_deliverable');
+    const snapshot = (contract.payloadSnapshot ?? {}) as Record<string, unknown>;
+    if (snapshot.initiatedBy !== 'tenant') fail('forbidden');
+
+    const now = new Date();
+    await tx
+      .update(contracts)
+      .set({
+        status: 'void',
+        payloadSnapshot: {
+          ...snapshot,
+          voidReason: 'abandoned_incomplete',
+          voidedAt: now.toISOString(),
+          voidNote: note?.trim().slice(0, 500) || null,
+          voidedByUserId: claims.sub,
+        },
+        updatedAt: now,
+      })
+      .where(eq(contracts.id, contract.id));
+
+    await tx.insert(workflowEvents).values({
+      organizationId: orgId,
+      actorUserId: claims.sub,
+      resourceType: 'contract',
+      resourceId: contract.id,
+      eventType: 'contract.voided_by_tenant',
+      fromStatus: 'draft',
+      toStatus: 'void',
+      metadata: { note: note?.trim().slice(0, 200) || null },
+    });
+
+    return { contractId: contract.id, status: 'void' as const };
   });
 }
 

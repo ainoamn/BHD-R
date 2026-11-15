@@ -366,6 +366,15 @@ export async function tenantClaimsForContract(
   return link ? tenantClaims(claims, link) : null;
 }
 
+/** Tenant claims for a lease the account rents, in whichever landlord organization. */
+export async function tenantClaimsForLease(
+  claims: SessionClaims,
+  leaseId: string,
+): Promise<SessionClaims | null> {
+  const found = await findTenancyLease(claims.sub, leaseId);
+  return found ? tenantClaims(claims, found.link) : null;
+}
+
 /** Writes on the tenant's own records in one landlord organization, in tenant mode. */
 export function withinTenancyLink<T>(
   userId: string,

@@ -19,6 +19,7 @@ import { SoftPortalLink as Link } from '@/components/soft-portal-link';
 import { TenantRenewalIntentList } from '@/components/tenant-renewal-intent-list';
 import { TenantRequestLauncher } from '@/components/tenant-request-form';
 import { TenantRequestsList } from '@/components/tenant-requests-list';
+import { TenantRowActionLink, TenantRowActionMenu } from '@/components/tenant-row-action-menu';
 import {
   requestLeasesOf,
   TenantArrearsSummary,
@@ -514,6 +515,28 @@ function ContractsTable({ ar, locale, data }: Ctx) {
     const endsOn = contractDisplayEndsOn(contract);
     const daily = Boolean(contract.stayReference || contract.stayType);
     const status = contractLifecycleLabel(contract, ar);
+    const leaseId =
+      data.leases.find((row) => row.contractId === contract.id)?.id ??
+      data.statements.find((row) => row.contractId === contract.id)?.leaseId ??
+      null;
+    const openRenewal = data.contracts.find(
+      (row) =>
+        row.kind === 'renewal' &&
+        row.parentContractId === contract.id &&
+        (row.status === 'sent' || row.status === 'partially_signed') &&
+        !row.tenantSigned,
+    );
+    const renewHref = openRenewal
+      ? `/tenant/contracts/${openRenewal.id}`
+      : leaseId
+        ? `/tenant/leases/${leaseId}/renew`
+        : `/tenant/contracts?focus=renewal`;
+    const financeHref = leaseId
+      ? `/tenant/invoices?lease=${encodeURIComponent(leaseId)}`
+      : '/tenant/invoices';
+    const notesHref = leaseId
+      ? `/tenant/requests?lease=${encodeURIComponent(leaseId)}`
+      : '/tenant/requests';
     return {
       id: contract.id,
       values: {
@@ -558,13 +581,22 @@ function ContractsTable({ ar, locale, data }: Ctx) {
         dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar),
         contractStatusCell(contract, ar),
         money(contract.amountMinor, contract.currency, locale),
-        <Link
-          key="open"
-          className="button button--quiet button--sm"
-          href={`/tenant/contracts/${contract.id}`}
-        >
-          {ar ? 'عرض' : 'View'}
-        </Link>,
+        <TenantRowActionMenu key="menu" ar={ar}>
+          <TenantRowActionLink href={`/tenant/contracts/${contract.id}`}>
+            {ar ? 'الاطلاع على العقد' : 'View contract'}
+          </TenantRowActionLink>
+          {!daily ? (
+            <TenantRowActionLink href={renewHref}>
+              {ar ? 'التجديد' : 'Renew'}
+            </TenantRowActionLink>
+          ) : null}
+          <TenantRowActionLink href={financeHref}>
+            {ar ? 'الخلفيات المالية' : 'Financial background'}
+          </TenantRowActionLink>
+          <TenantRowActionLink href={notesHref}>
+            {ar ? 'الملاحظات والإجراءات' : 'Notes & actions'}
+          </TenantRowActionLink>
+        </TenantRowActionMenu>,
       ],
     };
   });
@@ -1386,6 +1418,7 @@ export function TenantSpaceContent({
   const ctx: Ctx = { ar, locale, data };
   const searchParams = useSearchParams();
   const focusRenewal = searchParams.get('focus') === 'renewal';
+  const leaseFilter = searchParams.get('lease');
 
   const notice = failed ? (
     <p className="tenant-notice" role="status">
@@ -1398,7 +1431,12 @@ export function TenantSpaceContent({
   if (view !== 'overview') {
     const [title, hint] = ar ? VIEW_COPY[view].ar : VIEW_COPY[view].en;
     const requestLeases = requestLeasesOf(data.statements, ar);
-    const longTermStatements = data.statements.filter((item) => !item.fromStay);
+    const longTermStatements = data.statements.filter(
+      (item) => !item.fromStay && (!leaseFilter || item.leaseId === leaseFilter),
+    );
+    const filteredRequests = leaseFilter
+      ? data.requests.filter((item) => item.leaseId === leaseFilter)
+      : data.requests;
     return (
       <div className="dash-shell tenant-space tenant-home tenant-home--section">
         <header className="tenant-home__welcome">
@@ -1406,6 +1444,14 @@ export function TenantSpaceContent({
             <p className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>
             <h1>{title}</h1>
             <p>{hint}</p>
+            {leaseFilter && (view === 'invoices' || view === 'payments' || view === 'requests') ? (
+              <p className="muted">
+                {ar ? 'معروض لعقد/إيجار محدد.' : 'Filtered to one lease.'}{' '}
+                <Link href={view === 'requests' ? '/tenant/requests' : '/tenant/invoices'}>
+                  {ar ? 'عرض الكل' : 'Show all'}
+                </Link>
+              </p>
+            ) : null}
           </div>
           <div className="tenant-home__welcome-actions">
             {view === 'bookings' ? (
@@ -1613,7 +1659,7 @@ export function TenantSpaceContent({
                   : 'You can send requests once you have an active lease or daily stay contract.'}
               </p>
             )}
-            <TenantRequestsList requests={data.requests} locale={locale} />
+            <TenantRequestsList requests={filteredRequests} locale={locale} />
           </>
         ) : null}
       </div>

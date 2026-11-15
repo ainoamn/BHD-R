@@ -77,11 +77,20 @@ export function LeaseRenewalForm({
 }: {
   context: LeaseRenewalContext;
   locale: 'ar' | 'en';
-  portal?: 'owner' | 'developer';
+  portal?: 'owner' | 'developer' | 'tenant';
 }) {
   const ar = locale === 'ar';
+  const isTenant = portal === 'tenant';
   const router = useRouter();
   const currency = context.lease.currency as CurrencyCode;
+  const homeHref = isTenant ? '/tenant/contracts' : `/${portal}/leasing`;
+  const renewalsApi = isTenant
+    ? `/api/tenant/leasing/${encodeURIComponent(context.lease.id)}/renewals`
+    : `/api/owner/leasing/${encodeURIComponent(context.lease.id)}/renewals`;
+  const voidApi = (contractId: string) =>
+    isTenant
+      ? `/api/tenant/contracts/${encodeURIComponent(contractId)}/void-renewal-docs`
+      : `/api/owner/contracts/${encodeURIComponent(contractId)}/void-renewal-docs`;
   const templates = useMemo(
     () => leaseContractTemplateOptions(context.templates, locale),
     [context.templates, locale],
@@ -103,13 +112,19 @@ export function LeaseRenewalForm({
   /** Reopen renewal field form (seeded from incomplete addendum) instead of contract document. */
   const [editingPending, setEditingPending] = useState(false);
   const pendingRenewal = context.pendingRenewal;
-  const showCreateForm = !pendingRenewal || editingPending;
+  /** Owner may continue any incomplete addendum; tenant only their own draft. */
+  const canContinuePending = Boolean(
+    pendingRenewal &&
+      (!isTenant ||
+        (pendingRenewal.initiatedByTenant && pendingRenewal.status === 'draft')),
+  );
+  const showCreateForm = !pendingRenewal || (editingPending && canContinuePending);
   const [bankAccounts, setBankAccounts] = useState<LeaseBankAccountOption[]>([]);
   const [requirements, setRequirements] = useState<
     Array<{ code: string; labelAr: string; labelEn: string }>
   >([]);
   const windowOpen = context.renewalWindow.open;
-  const canEarly = context.renewalWindow.canEarlyException;
+  const canEarly = !isTenant && context.renewalWindow.canEarlyException;
   const daysLeft = context.renewalWindow.daysRemaining;
   const needsEarlyException = !windowOpen && canEarly;
   const formBlocked = !windowOpen && !canEarly;
@@ -127,6 +142,7 @@ export function LeaseRenewalForm({
   }, [context.lease.id]);
 
   useEffect(() => {
+    if (isTenant) return;
     let cancelled = false;
     void fetch('/api/owner/accounting/settings', { credentials: 'same-origin' })
       .then(async (response) => {
@@ -151,7 +167,7 @@ export function LeaseRenewalForm({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isTenant]);
 
   const place =
     locale === 'ar'
@@ -311,32 +327,27 @@ export function LeaseRenewalForm({
       }
 
       // Replace incomplete addendum first so create is not blocked by renewal_pending.
-      if (pendingRenewal) {
-        await browserNextMutation(
-          `/api/owner/contracts/${encodeURIComponent(pendingRenewal.id)}/void-renewal-docs`,
-          {
-            method: 'POST',
-            body: JSON.stringify({
-              note: ar
-                ? 'استبدال ملحق غير مكتمل بعد تعديل الحقول'
-                : 'Replaced incomplete addendum after field edits',
-            }),
-          },
-        );
+      if (pendingRenewal && canContinuePending) {
+        await browserNextMutation(voidApi(pendingRenewal.id), {
+          method: 'POST',
+          body: JSON.stringify({
+            note: ar
+              ? 'استبدال ملحق غير مكتمل بعد تعديل الحقول'
+              : 'Replaced incomplete addendum after field edits',
+          }),
+        });
       }
 
       // Save on Vercel → Neon (no Nest/Render). Same-origin Next CSRF.
       // Owner with sign permission delivers the addendum to the tenant immediately.
-      await browserNextMutation(
-        `/api/owner/leasing/${encodeURIComponent(context.lease.id)}/renewals`,
-        {
-          method: 'POST',
-          body: JSON.stringify(body),
-        },
-      );
+      // Tenant create stays as draft awaiting landlord review.
+      await browserNextMutation(renewalsApi, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
       clearV2(context.lease.id);
       clearRenewalDraft(context.lease.id);
-      router.push(`/${portal}/leasing`);
+      router.push(homeHref);
       router.refresh();
     } catch (caught) {
       let mapped: string;
@@ -402,11 +413,12 @@ export function LeaseRenewalForm({
       terms,
       updatedAt: new Date().toISOString(),
     });
-    router.push(`/${portal}/leasing`);
+    router.push(homeHref);
   }
 
   async function voidPendingRenewal() {
     if (!pendingRenewal || voidBusy) return;
+    if (isTenant && !pendingRenewal.initiatedByTenant) return;
     const confirmed = window.confirm(
       ar
         ? `إلغاء الملحق غير المكتمل ${pendingRenewal.reference || ''}؟ يمكنك إنشاء تجديد جديد بعدها.`
@@ -416,15 +428,12 @@ export function LeaseRenewalForm({
     setVoidBusy(true);
     setError(null);
     try {
-      await browserNextMutation(
-        `/api/owner/contracts/${encodeURIComponent(pendingRenewal.id)}/void-renewal-docs`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            note: ar ? 'إلغاء ملحق تجديد غير مكتمل من صفحة التجديد' : 'Abandoned incomplete renewal',
-          }),
-        },
-      );
+      await browserNextMutation(voidApi(pendingRenewal.id), {
+        method: 'POST',
+        body: JSON.stringify({
+          note: ar ? 'إلغاء ملحق تجديد غير مكتمل من صفحة التجديد' : 'Abandoned incomplete renewal',
+        }),
+      });
       clearV2(context.lease.id);
       clearRenewalDraft(context.lease.id);
       router.refresh();
@@ -464,23 +473,31 @@ export function LeaseRenewalForm({
               ? ar
                 ? 'ملحق تجديد غير مكتمل'
                 : 'Incomplete renewal addendum'
-              : ar
-                ? 'إنشاء ملحق تجديد'
-                : 'Create renewal addendum'}
+              : isTenant
+                ? ar
+                  ? 'طلب تجديد الإيجار'
+                  : 'Request lease renewal'
+                : ar
+                  ? 'إنشاء ملحق تجديد'
+                  : 'Create renewal addendum'}
           </h1>
           <p className="muted">
             {pendingRenewal
               ? ar
                 ? 'يوجد ملحق محفوظ مسبقاً لهذا العقد — أكمله أو ألغِه قبل إنشاء ملحق جديد.'
                 : 'An addendum is already saved for this lease — continue or void it before creating another.'
-              : ar
-                ? 'نفس خطوات وألوان عقد الإيجار الجديد — مع تعبئة تلقائية من العقد السابق (الضريبة، الإضافات، اسم الشيكات).'
-                : 'Same steps and colours as a new lease — prefilled from the previous contract (VAT, extras, cheque payee).'}
+              : isTenant
+                ? ar
+                  ? 'عبّئ ملحق التجديد بنفس خطوات العقد الجديد. يُرسل للمالك للمراجعة ثم التوقيع.'
+                  : 'Fill the renewal addendum like a new lease. It goes to the landlord for review, then signing.'
+                : ar
+                  ? 'نفس خطوات وألوان عقد الإيجار الجديد — مع تعبئة تلقائية من العقد السابق (الضريبة، الإضافات، اسم الشيكات).'
+                  : 'Same steps and colours as a new lease — prefilled from the previous contract (VAT, extras, cheque payee).'}
           </p>
         </div>
         <Link
           className="button button--quiet"
-          href={`/${portal}/leasing`}
+          href={homeHref}
           onClick={() =>
             writeV2(context.lease.id, {
               version: 2,
@@ -490,7 +507,13 @@ export function LeaseRenewalForm({
             })
           }
         >
-          {ar ? 'العودة للتأجير' : 'Back to leasing'}
+          {isTenant
+            ? ar
+              ? 'العودة لعقودي'
+              : 'Back to contracts'
+            : ar
+              ? 'العودة للتأجير'
+              : 'Back to leasing'}
         </Link>
       </header>
 
@@ -503,9 +526,13 @@ export function LeaseRenewalForm({
             {pendingStatusLabel}
           </p>
           <p className="ops-hint" style={{ marginTop: '0.5rem' }}>
-            {ar
-              ? 'أكمل تعديل حقول التجديد هنا، أو ألغِ الملحق غير المكتمل. مستند العقد للعرض فقط.'
-              : 'Continue editing renewal fields here, or void the incomplete addendum. The contract page is view-only.'}
+            {isTenant && !pendingRenewal.initiatedByTenant
+              ? ar
+                ? 'المالك يعمل على ملحق التجديد. عند إرساله إليك سيظهر في قائمة التجديد لإكماله.'
+                : 'The landlord is preparing the renewal. When sent to you it will appear in your renewal list.'
+              : ar
+                ? 'أكمل تعديل حقول التجديد هنا، أو ألغِ الملحق غير المكتمل. مستند العقد للعرض فقط.'
+                : 'Continue editing renewal fields here, or void the incomplete addendum. The contract page is view-only.'}
           </p>
           {error ? (
             <p className="notice notice--error" role="alert" style={{ marginTop: '0.75rem' }}>
@@ -516,41 +543,49 @@ export function LeaseRenewalForm({
             className="ops-vacant-strip__actions"
             style={{ marginTop: '0.85rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}
           >
-            <button
-              type="button"
-              className="button button--primary"
-              onClick={() => {
-                setTerms(pendingRenewal.initialTerms);
-                if (pendingRenewal.templateVersionId) {
-                  setTemplateVersionId(pendingRenewal.templateVersionId);
-                }
-                setRestoredDraft(true);
-                setEditingPending(true);
-                setError(null);
-              }}
-            >
-              {ar ? 'متابعة تعديل الحقول' : 'Continue editing fields'}
-            </button>
+            {canContinuePending ? (
+              <button
+                type="button"
+                className="button button--primary"
+                onClick={() => {
+                  setTerms(pendingRenewal.initialTerms);
+                  if (pendingRenewal.templateVersionId) {
+                    setTemplateVersionId(pendingRenewal.templateVersionId);
+                  }
+                  setRestoredDraft(true);
+                  setEditingPending(true);
+                  setError(null);
+                }}
+              >
+                {ar ? 'متابعة تعديل الحقول' : 'Continue editing fields'}
+              </button>
+            ) : null}
             <Link
               className="button button--quiet"
-              href={`/${portal}/contracts/${encodeURIComponent(pendingRenewal.id)}`}
+              href={
+                isTenant
+                  ? `/tenant/contracts/${encodeURIComponent(pendingRenewal.id)}`
+                  : `/${portal}/contracts/${encodeURIComponent(pendingRenewal.id)}`
+              }
             >
               {ar ? 'عرض مستند الملحق' : 'View addendum document'}
             </Link>
-            <button
-              type="button"
-              className="button button--quiet"
-              disabled={voidBusy}
-              onClick={() => void voidPendingRenewal()}
-            >
-              {voidBusy
-                ? ar
-                  ? 'جارٍ الإلغاء…'
-                  : 'Voiding…'
-                : ar
-                  ? 'إلغاء الملحق غير المكتمل'
-                  : 'Void incomplete addendum'}
-            </button>
+            {canContinuePending ? (
+              <button
+                type="button"
+                className="button button--quiet"
+                disabled={voidBusy}
+                onClick={() => void voidPendingRenewal()}
+              >
+                {voidBusy
+                  ? ar
+                    ? 'جارٍ الإلغاء…'
+                    : 'Voiding…'
+                  : ar
+                    ? 'إلغاء الملحق غير المكتمل'
+                    : 'Void incomplete addendum'}
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -576,7 +611,11 @@ export function LeaseRenewalForm({
             </button>
             <Link
               className="button button--quiet"
-              href={`/${portal}/contracts/${encodeURIComponent(pendingRenewal.id)}`}
+              href={
+                isTenant
+                  ? `/tenant/contracts/${encodeURIComponent(pendingRenewal.id)}`
+                  : `/${portal}/contracts/${encodeURIComponent(pendingRenewal.id)}`
+              }
             >
               {ar ? 'عرض المستند' : 'View document'}
             </Link>
