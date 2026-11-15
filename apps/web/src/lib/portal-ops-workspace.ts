@@ -49,11 +49,20 @@ const CONTEXT_KEY_PERMISSIONS: readonly (readonly [string, readonly string[]])[]
   ['party.read', ['parties', 'owners', 'tenants']],
   [
     'lease.read',
-    ['leases', 'cancelRequestedLeases', 'clearancePendingLeases', 'renewalPendingLeases'],
+    [
+      'leases',
+      'cancelRequestedLeases',
+      'clearancePendingLeases',
+      'renewalPendingLeases',
+      'transactionDrafts',
+    ],
   ],
   ['invoice.read', ['invoices']],
   ['accounting.read', ['ledgerAccounts']],
-  ['reservation.read', ['reservations', 'pendingDepositReservations', 'confirmedReservations']],
+  [
+    'reservation.read',
+    ['reservations', 'pendingDepositReservations', 'confirmedReservations', 'transactionDrafts'],
+  ],
   ['contract.template.read', ['contractTemplates']],
 ];
 

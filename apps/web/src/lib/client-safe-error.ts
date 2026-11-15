@@ -189,6 +189,9 @@ export function clientSafeErrorCode(error: unknown, fallback = 'request_failed')
   if (!(error instanceof Error)) return fallback;
   const code = error.message.trim();
   if (KNOWN_CODES.has(code)) return code;
+  // Allow structured codes like renewal_pending:<id>:<ref>:<status>.
+  const base = code.split(':')[0]?.trim() || '';
+  if (base && KNOWN_CODES.has(base)) return base;
   return fallback;
 }
 

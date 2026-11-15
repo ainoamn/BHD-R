@@ -177,6 +177,13 @@ export type LeaseRenewalContext = {
     version: number;
     language: string;
   }>;
+  /** Incomplete sibling renewal — continue or void before creating another. */
+  pendingRenewal: {
+    id: string;
+    reference: string | null;
+    status: string;
+    updatedAt: string;
+  } | null;
 };
 
 function snapshotNumber(value: unknown): number | null {
@@ -387,6 +394,21 @@ export async function loadLeaseRenewalContext(
 
     const today = muscatToday();
     const daysRemaining = leaseDaysRemaining(lease.endsOn, today);
+    const pendingRenewalRow = await tx.query.contracts.findFirst({
+      where: and(
+        eq(contracts.organizationId, orgId),
+        eq(contracts.parentContractId, lease.contractId),
+        eq(contracts.kind, 'renewal'),
+        inArray(contracts.status, ['draft', 'sent', 'partially_signed']),
+      ),
+      columns: {
+        id: true,
+        reference: true,
+        status: true,
+        updatedAt: true,
+      },
+      orderBy: [desc(contracts.updatedAt)],
+    });
     return {
       renewalWindow: {
         open: isLeaseRenewalWindowOpen(lease.endsOn, today),
@@ -437,6 +459,14 @@ export async function loadLeaseRenewalContext(
         version: row.version,
         language: row.language,
       })),
+      pendingRenewal: pendingRenewalRow
+        ? {
+            id: pendingRenewalRow.id,
+            reference: pendingRenewalRow.reference,
+            status: pendingRenewalRow.status,
+            updatedAt: pendingRenewalRow.updatedAt.toISOString(),
+          }
+        : null,
     };
   });
 }
@@ -526,8 +556,13 @@ export async function createLeaseRenewalOnNeon(
         eq(contracts.kind, 'renewal'),
         inArray(contracts.status, ['draft', 'sent', 'partially_signed']),
       ),
+      columns: { id: true, reference: true, status: true },
     });
-    if (pendingRenewal) fail('renewal_pending');
+    if (pendingRenewal) {
+      throw new Error(
+        `renewal_pending:${pendingRenewal.id}:${pendingRenewal.reference || ''}:${pendingRenewal.status}`,
+      );
+    }
 
     const property = await tx.query.properties.findFirst({
       where: and(eq(properties.id, unit.propertyId), eq(properties.organizationId, orgId)),
@@ -1357,7 +1392,10 @@ export async function completeTenantRenewalPackageOnNeon(
   });
 }
 
-/** Owner voids a signed renewal when attached documents do not match. */
+/**
+ * Owner voids an incomplete or signed renewal (abandon draft / docs mismatch).
+ * Allows draft|sent|partially_signed|signed so renew page can cancel a stuck addendum.
+ */
 export async function voidRenewalForDocumentMismatchOnNeon(
   claims: SessionClaims,
   contractId: string,
@@ -1379,14 +1417,15 @@ export async function voidRenewalForDocumentMismatchOnNeon(
     });
     if (!contract) fail('contract_not_found');
     if (contract.status === 'void') return { contractId: contract.id, status: 'void' as const };
-    if (!['signed', 'partially_signed', 'sent'].includes(contract.status)) {
+    if (!['draft', 'sent', 'partially_signed', 'signed'].includes(contract.status)) {
       fail('renewal_not_deliverable');
     }
 
     const now = new Date();
+    const incomplete = ['draft', 'sent', 'partially_signed'].includes(contract.status);
     const snapshot = {
       ...(contract.payloadSnapshot as Record<string, unknown>),
-      voidReason: 'document_mismatch',
+      voidReason: incomplete ? 'abandoned_incomplete' : 'document_mismatch',
       voidedAt: now.toISOString(),
       voidNote: note?.trim().slice(0, 500) || null,
       voidedByUserId: claims.sub,

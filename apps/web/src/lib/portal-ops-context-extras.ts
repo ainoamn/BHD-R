@@ -1,6 +1,7 @@
 import 'server-only';
 import { and, asc, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
+  contracts,
   contractTemplates,
   expenses,
   invoices,
@@ -9,7 +10,10 @@ import {
   legalCases,
   maintenanceTickets,
   memberships,
+  parties,
+  properties,
   reservations,
+  units,
   users,
   vendors,
   workTasks,
@@ -39,6 +43,7 @@ export async function loadOpsContextExtras(
     reservationRows,
     accountRows,
     vacancyCounts,
+    incompleteRenewalRows,
   ] = await Promise.all([
     transaction
       .selectDistinct({ id: users.id, name: users.displayName })
@@ -178,6 +183,34 @@ export async function loadOpsContextExtras(
           ),
         ),
     ]),
+    transaction
+      .select({
+        id: contracts.id,
+        reference: contracts.reference,
+        status: contracts.status,
+        updatedAt: contracts.updatedAt,
+        leaseId: leases.id,
+        unitId: leases.unitId,
+        propertyNameAr: properties.nameAr,
+        propertyNameEn: properties.nameEn,
+        unitCode: units.code,
+        tenantName: parties.displayName,
+      })
+      .from(contracts)
+      .innerJoin(leases, eq(leases.contractId, contracts.parentContractId))
+      .innerJoin(units, eq(units.id, leases.unitId))
+      .innerJoin(properties, eq(properties.id, units.propertyId))
+      .innerJoin(parties, eq(parties.id, leases.tenantPartyId))
+      .where(
+        and(
+          eq(contracts.organizationId, orgId),
+          eq(contracts.kind, 'renewal'),
+          inArray(contracts.status, ['draft', 'sent', 'partially_signed']),
+          eq(leases.organizationId, orgId),
+        ),
+      )
+      .orderBy(desc(contracts.updatedAt))
+      .limit(40),
   ]);
 
   const leaseItems = leaseRows.map((row) => ({
@@ -206,6 +239,36 @@ export async function loadOpsContextExtras(
       leaseItems.filter((row) => Boolean(row.renewalPendingContractId)),
       'renewal pending clearance',
     ),
+    /** Incomplete transactions the owner can resume (renewals + unpaid booking holds). */
+    transactionDrafts: [
+      ...incompleteRenewalRows.map((row) => ({
+        id: row.id,
+        kind: 'renewal' as const,
+        status: row.status,
+        reference: row.reference,
+        leaseId: row.leaseId,
+        unitId: row.unitId,
+        updatedAt: row.updatedAt.toISOString(),
+        name: `${row.reference || row.id.slice(0, 8)} · ${row.propertyNameAr || row.propertyNameEn || ''} · ${row.tenantName || ''}`.trim(),
+        href: `/owner/contracts/${row.id}`,
+        resumeHref: `/owner/leasing/${row.leaseId}/renew`,
+      })),
+      ...reservationRows
+        .filter((row) => row.status === 'pending' && !row.depositPaidAt)
+        .slice(0, 20)
+        .map((row) => ({
+          id: row.id,
+          kind: 'booking' as const,
+          status: row.status,
+          reference: null as string | null,
+          leaseId: null as string | null,
+          unitId: row.unitId,
+          updatedAt: null as string | null,
+          name: `${row.id.slice(0, 8)} · booking draft`,
+          href: `/owner/bookings?focus=${row.id}`,
+          resumeHref: `/owner/bookings?focus=${row.id}`,
+        })),
+    ],
     invoices: invoiceRows,
     contractTemplates: templateRows,
     reservations: reservationRows.map((row) => ({

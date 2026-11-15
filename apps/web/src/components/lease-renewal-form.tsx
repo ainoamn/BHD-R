@@ -92,8 +92,10 @@ export function LeaseRenewalForm({
   const [terms, setTerms] = useState<LeaseTermsDraft>(context.initialTerms);
   const [restoredDraft, setRestoredDraft] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [voidBusy, setVoidBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [earlyExceptionAck, setEarlyExceptionAck] = useState(false);
+  const pendingRenewal = context.pendingRenewal;
   const [bankAccounts, setBankAccounts] = useState<LeaseBankAccountOption[]>([]);
   const [requirements, setRequirements] = useState<
     Array<{ code: string; labelAr: string; labelEn: string }>
@@ -380,16 +382,77 @@ export function LeaseRenewalForm({
     router.push(`/${portal}/leasing`);
   }
 
+  async function voidPendingRenewal() {
+    if (!pendingRenewal || voidBusy) return;
+    const confirmed = window.confirm(
+      ar
+        ? `إلغاء الملحق غير المكتمل ${pendingRenewal.reference || ''}؟ يمكنك إنشاء تجديد جديد بعدها.`
+        : `Void incomplete addendum ${pendingRenewal.reference || ''}? You can create a new renewal afterwards.`,
+    );
+    if (!confirmed) return;
+    setVoidBusy(true);
+    setError(null);
+    try {
+      await browserNextMutation(
+        `/api/owner/contracts/${encodeURIComponent(pendingRenewal.id)}/void-renewal-docs`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            note: ar ? 'إلغاء ملحق تجديد غير مكتمل من صفحة التجديد' : 'Abandoned incomplete renewal',
+          }),
+        },
+      );
+      clearV2(context.lease.id);
+      clearRenewalDraft(context.lease.id);
+      router.refresh();
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : humanizeBrowserError(caught, ar),
+      );
+    } finally {
+      setVoidBusy(false);
+    }
+  }
+
+  const pendingStatusLabel =
+    pendingRenewal?.status === 'draft'
+      ? ar
+        ? 'مسودة'
+        : 'Draft'
+      : pendingRenewal?.status === 'sent'
+        ? ar
+          ? 'مُرسل للمستأجر'
+          : 'Sent to tenant'
+        : pendingRenewal?.status === 'partially_signed'
+          ? ar
+            ? 'توقيع جزئي'
+            : 'Partially signed'
+          : pendingRenewal?.status || '';
+
   return (
     <div className="form-shell lease-renewal">
       <header className="portal-topbar">
         <div>
           <span className="ops-kicker">BHD R · CONTRACT CONTROL</span>
-          <h1>{ar ? 'إنشاء ملحق تجديد' : 'Create renewal addendum'}</h1>
+          <h1>
+            {pendingRenewal
+              ? ar
+                ? 'ملحق تجديد غير مكتمل'
+                : 'Incomplete renewal addendum'
+              : ar
+                ? 'إنشاء ملحق تجديد'
+                : 'Create renewal addendum'}
+          </h1>
           <p className="muted">
-            {ar
-              ? 'نفس خطوات وألوان عقد الإيجار الجديد — مع تعبئة تلقائية من العقد السابق (الضريبة، الإضافات، اسم الشيكات).'
-              : 'Same steps and colours as a new lease — prefilled from the previous contract (VAT, extras, cheque payee).'}
+            {pendingRenewal
+              ? ar
+                ? 'يوجد ملحق محفوظ مسبقاً لهذا العقد — أكمله أو ألغِه قبل إنشاء ملحق جديد.'
+                : 'An addendum is already saved for this lease — continue or void it before creating another.'
+              : ar
+                ? 'نفس خطوات وألوان عقد الإيجار الجديد — مع تعبئة تلقائية من العقد السابق (الضريبة، الإضافات، اسم الشيكات).'
+                : 'Same steps and colours as a new lease — prefilled from the previous contract (VAT, extras, cheque payee).'}
           </p>
         </div>
         <Link
@@ -408,6 +471,54 @@ export function LeaseRenewalForm({
         </Link>
       </header>
 
+      {pendingRenewal ? (
+        <div className="notice notice--warning" role="status">
+          <p style={{ margin: 0 }}>
+            {ar ? 'الملحق:' : 'Addendum:'}{' '}
+            <strong dir="ltr">{pendingRenewal.reference || pendingRenewal.id.slice(0, 8)}</strong>
+            {' · '}
+            {pendingStatusLabel}
+          </p>
+          <p className="ops-hint" style={{ marginTop: '0.5rem' }}>
+            {ar
+              ? 'غالباً أُنشئ عند محاولة سابقة (حتى لو لم تُكمل الخطوات). اختر المتابعة أو الإلغاء.'
+              : 'Usually created on an earlier attempt (even if steps were not finished). Continue or void it.'}
+          </p>
+          {error ? (
+            <p className="notice notice--error" role="alert" style={{ marginTop: '0.75rem' }}>
+              {error}
+            </p>
+          ) : null}
+          <div
+            className="ops-vacant-strip__actions"
+            style={{ marginTop: '0.85rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}
+          >
+            <Link
+              className="button button--primary"
+              href={`/${portal}/contracts/${encodeURIComponent(pendingRenewal.id)}`}
+            >
+              {ar ? 'متابعة الملحق' : 'Continue addendum'}
+            </Link>
+            <button
+              type="button"
+              className="button button--quiet"
+              disabled={voidBusy}
+              onClick={() => void voidPendingRenewal()}
+            >
+              {voidBusy
+                ? ar
+                  ? 'جارٍ الإلغاء…'
+                  : 'Voiding…'
+                : ar
+                  ? 'إلغاء الملحق غير المكتمل'
+                  : 'Void incomplete addendum'}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {!pendingRenewal ? (
+        <>
       {formBlocked ? (
         <div className="notice notice--warning" role="status">
           {renewalTooEarlyMessage(ar, daysLeft)}
@@ -577,6 +688,8 @@ export function LeaseRenewalForm({
         }}
         onCancel={onCancel}
       />
+        </>
+      ) : null}
     </div>
   );
 }

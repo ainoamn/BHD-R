@@ -163,6 +163,18 @@ export interface OperationsContext {
       depositMinor?: string | null;
     }
   >;
+  transactionDrafts?: Array<
+    OptionRow & {
+      kind?: 'renewal' | 'booking';
+      status?: string;
+      reference?: string | null;
+      leaseId?: string | null;
+      unitId?: string;
+      updatedAt?: string | null;
+      href?: string;
+      resumeHref?: string;
+    }
+  >;
   invoices?: OptionRow[];
   contractTemplates?: OptionRow[];
   ledgerAccounts?: OptionRow[];
@@ -3069,6 +3081,9 @@ export function OperationsConsole({
   const cancelRequestedLeases = context.cancelRequestedLeases ?? [];
   const clearancePendingLeases = context.clearancePendingLeases ?? [];
   const renewalPendingLeases = context.renewalPendingLeases ?? [];
+  const transactionDrafts = context.transactionDrafts ?? [];
+  const leasingDrafts = transactionDrafts.filter((row) => row.kind === 'renewal' || !row.kind);
+  const bookingDrafts = transactionDrafts.filter((row) => row.kind === 'booking');
   const vacancyFollowUps = context.vacancyFollowUps;
   const vacancyFollowUpTotal = vacancyFollowUps
     ? vacancyFollowUps.tasks +
@@ -4381,6 +4396,86 @@ ${depositHtml}${
                   >
                     {ar ? 'استثناء مدير' : 'Waive'}
                   </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {section === 'leasing' && leasingDrafts.length ? (
+        <section
+          className="ops-deposit-queue"
+          aria-label={ar ? 'مسودات المعاملات' : 'Transaction drafts'}
+        >
+          <header>
+            <h2>{ar ? 'المسودات' : 'Drafts'}</h2>
+            <p>
+              {ar
+                ? 'معاملات غير مكتملة يمكنك متابعتها أو إلغاءها والبدء من جديد.'
+                : 'Incomplete transactions you can resume or abandon and start again.'}
+            </p>
+          </header>
+          <ul>
+            {leasingDrafts.slice(0, 12).map((row) => (
+              <li key={safeString(row.id)}>
+                <strong>{labelForOption(row, locale)}</strong>
+                <span className="muted" style={{ marginInlineStart: '0.35rem' }}>
+                  {row.status === 'draft'
+                    ? ar
+                      ? 'مسودة'
+                      : 'Draft'
+                    : row.status === 'sent'
+                      ? ar
+                        ? 'مُرسل'
+                        : 'Sent'
+                      : row.status === 'partially_signed'
+                        ? ar
+                          ? 'توقيع جزئي'
+                          : 'Partial'
+                        : row.status || ''}
+                </span>
+                <div className="ops-vacant-strip__actions">
+                  {row.resumeHref ? (
+                    <Link className="ops-action" href={row.resumeHref}>
+                      {ar ? 'متابعة' : 'Resume'}
+                    </Link>
+                  ) : null}
+                  {row.href ? (
+                    <Link className="ops-action" href={row.href}>
+                      {ar ? 'فتح الملحق' : 'Open'}
+                    </Link>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {section === 'bookings' && bookingDrafts.length ? (
+        <section
+          className="ops-deposit-queue"
+          aria-label={ar ? 'مسودات الحجوزات' : 'Booking drafts'}
+        >
+          <header>
+            <h2>{ar ? 'مسودات الحجوزات' : 'Booking drafts'}</h2>
+            <p>
+              {ar
+                ? 'دعوات أو حجوزات بانتظار إكمال الدفع أو البيانات.'
+                : 'Invites or bookings waiting for payment or missing details.'}
+            </p>
+          </header>
+          <ul>
+            {bookingDrafts.slice(0, 12).map((row) => (
+              <li key={safeString(row.id)}>
+                <strong>{labelForOption(row, locale)}</strong>
+                <div className="ops-vacant-strip__actions">
+                  {row.resumeHref || row.href ? (
+                    <Link className="ops-action" href={row.resumeHref || row.href || '/owner/bookings'}>
+                      {ar ? 'متابعة' : 'Resume'}
+                    </Link>
+                  ) : null}
                 </div>
               </li>
             ))}
