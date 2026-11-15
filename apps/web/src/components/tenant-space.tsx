@@ -1475,7 +1475,10 @@ export function TenantSpaceContent({
       ? data.requests.filter((item) => item.leaseId === leaseFilter)
       : data.requests;
     return (
-      <div className="dash-shell tenant-space tenant-home tenant-home--section">
+      <div
+        className="dash-shell tenant-space tenant-home tenant-home--section"
+        data-view={view}
+      >
         <header className="tenant-home__welcome">
           <div className="tenant-home__welcome-copy">
             <p className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>
@@ -1496,7 +1499,7 @@ export function TenantSpaceContent({
                 {ar ? 'تصفّح العقارات' : 'Browse properties'}
               </Link>
             ) : null}
-            <Link href="/tenant" className="button button--quiet">
+            <Link href="/tenant" className="button button--secondary">
               {ar ? 'لوحة المستأجر' : 'Tenant dashboard'}
             </Link>
           </div>
@@ -1505,11 +1508,15 @@ export function TenantSpaceContent({
         {view === 'contracts' ? (
           <TenantRenewalIntentList data={data} locale={locale} forceShow={focusRenewal} />
         ) : null}
-        {view === 'bookings' ? <BookingsTable ar={ar} locale={locale} data={data} /> : null}
-        {view === 'contracts' ? <ContractsTable ar={ar} locale={locale} data={data} /> : null}
-        {view === 'leases' ? <LeasesTable ar={ar} locale={locale} data={data} /> : null}
+        {view === 'bookings' || view === 'contracts' || view === 'leases' ? (
+          <div className="tenant-home__surface tenant-home__surface--table">
+            {view === 'bookings' ? <BookingsTable ar={ar} locale={locale} data={data} /> : null}
+            {view === 'contracts' ? <ContractsTable ar={ar} locale={locale} data={data} /> : null}
+            {view === 'leases' ? <LeasesTable ar={ar} locale={locale} data={data} /> : null}
+          </div>
+        ) : null}
         {view === 'invoices' || view === 'payments' ? (
-          <>
+          <div className="tenant-home__surface tenant-home__surface--stack">
             {(() => {
               const moneyStats = tenantFinanceMoney(data, locale);
               const paymentMoney = tenantPaymentMoney(data, locale);
@@ -1653,10 +1660,10 @@ export function TenantSpaceContent({
             <Section title={ar ? 'المدفوعات المباشرة' : 'Direct payments'}>
               <PaymentsTable ar={ar} locale={locale} data={data} />
             </Section>
-          </>
+          </div>
         ) : null}
         {view === 'requests' ? (
-          <>
+          <div className="tenant-home__surface tenant-home__surface--stack">
             <div className="tenant-space__toolbar">
               <TenantRequestLauncher
                 locale={locale}
@@ -1669,21 +1676,21 @@ export function TenantSpaceContent({
                 leases={requestLeases}
                 type="maintenance"
                 label={ar ? 'طلب صيانة' : 'Maintenance'}
-                className="button button--quiet"
+                className="button button--secondary"
               />
               <TenantRequestLauncher
                 locale={locale}
                 leases={requestLeases}
                 type="report_property"
                 label={ar ? 'بلاغ عن العقار' : 'Report about the property'}
-                className="button button--quiet"
+                className="button button--secondary"
               />
               <TenantRequestLauncher
                 locale={locale}
                 leases={requestLeases}
                 type="report_staff"
                 label={ar ? 'بلاغ عن موظف' : 'Report a staff member'}
-                className="button button--quiet"
+                className="button button--secondary"
               />
             </div>
             {longTermStatements.some((item) => item.statement.arrears.totalMinor !== '0') ? (
@@ -1697,7 +1704,7 @@ export function TenantSpaceContent({
               </p>
             )}
             <TenantRequestsList requests={filteredRequests} locale={locale} />
-          </>
+          </div>
         ) : null}
       </div>
     );
@@ -1752,7 +1759,7 @@ export function TenantSpaceContent({
   const leaseItems = takeRows(leasePreviewItems(data, ar, locale), 3);
 
   return (
-    <div className="dash-shell tenant-space tenant-home">
+    <div className="dash-shell tenant-space tenant-home" data-view="overview">
       <header className="tenant-home__welcome">
         <div className="tenant-home__welcome-copy">
           <p className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>

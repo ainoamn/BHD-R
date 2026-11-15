@@ -10097,8 +10097,8 @@ body:has(.stays-booking-receipt) #main-content {
   --tenant-warn-soft: #fff6e8;
   --tenant-danger: #9b1c1c;
   --tenant-danger-soft: #fdecec;
-  --tenant-action: #9a3412;
-  --tenant-action-soft: #fff1e8;
+  --tenant-action: #0f5c6b;
+  --tenant-action-soft: #e8f5f7;
   --tenant-info: #1a5a8a;
   --tenant-info-soft: #e8f1f8;
   --tenant-quiet: #475569;
@@ -10109,6 +10109,8 @@ body:has(.stays-booking-receipt) #main-content {
   --tenant-new: #1a5a8a;
   --tenant-new-soft: #e8f1f8;
   --tenant-new-mid: #c5daf0;
+  --tenant-shadow: 0 12px 30px rgb(15 47 74 / 0.05);
+  --tenant-shadow-soft: 0 8px 20px rgb(15 47 74 / 0.035);
   width: 100%;
   max-width: none;
   min-width: 0;
@@ -10161,13 +10163,123 @@ body:has(.stays-booking-receipt) #main-content {
   justify-content: space-between;
   gap: 1rem 1.5rem;
   width: 100%;
-  padding: 1.25rem 1.35rem;
-  border: 1px solid var(--tenant-line);
-  border-radius: 1.25rem;
+  padding: 1.35rem 1.45rem;
+  border: 1px solid rgb(26 90 138 / 0.12);
+  border-radius: 1.35rem;
+  background:
+    radial-gradient(circle at 0% 0%, rgb(15 92 107 / 0.08), transparent 14rem),
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.14), transparent 18rem),
+    linear-gradient(145deg, #e7f1f7 0%, #f7fbfd 42%, #fff 72%);
+  box-shadow: var(--tenant-shadow);
+}
+.tenant-home--section .tenant-home__welcome {
+  padding: 1.15rem 1.25rem;
+  border-radius: 1.2rem;
+}
+.tenant-home--section[data-view='bookings'] .tenant-home__welcome {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.16), transparent 16rem),
+    linear-gradient(145deg, #e8f1f8 0%, #fff 60%);
+}
+.tenant-home--section[data-view='contracts'] .tenant-home__welcome,
+.tenant-home--section[data-view='leases'] .tenant-home__welcome {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(15 92 107 / 0.14), transparent 16rem),
+    linear-gradient(145deg, #e8f5f7 0%, #fff 60%);
+}
+.tenant-home--section[data-view='invoices'] .tenant-home__welcome,
+.tenant-home--section[data-view='payments'] .tenant-home__welcome {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(15 107 82 / 0.12), transparent 16rem),
+    linear-gradient(145deg, #e8f6f1 0%, #fff 60%);
+}
+.tenant-home--section[data-view='requests'] .tenant-home__welcome {
   background:
     radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.12), transparent 16rem),
-    linear-gradient(145deg, #e8f1f8 0%, #fff 58%);
-  box-shadow: 0 14px 36px rgb(15 47 74 / 0.05);
+    linear-gradient(145deg, #eef3f8 0%, #fff 60%);
+}
+.tenant-home__surface {
+  display: grid;
+  gap: 0.85rem;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--tenant-line);
+  border-radius: 1.2rem;
+  background: var(--tenant-surface);
+  box-shadow: var(--tenant-shadow-soft);
+}
+.tenant-home__surface--table {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  gap: 1rem;
+}
+.tenant-home__surface--table .tenant-table-wrap {
+  margin: 0;
+}
+.tenant-home__surface--stack {
+  gap: 1rem;
+  padding: 1.05rem 1.1rem;
+  background:
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.04), transparent 16rem),
+    linear-gradient(180deg, #f8fbfd 0%, #fff 55%);
+}
+.tenant-home__surface--stack .tenant-table-wrap,
+.tenant-home__surface--stack .tenant-section {
+  background: transparent;
+}
+.tenant-space__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgb(26 90 138 / 0.1);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #f4f8fb, #fff 70%);
+  box-shadow: var(--tenant-shadow-soft);
+}
+.tenant-space .button--primary {
+  background: linear-gradient(135deg, #1a5a8a, #0f5c6b);
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgb(26 90 138 / 0.18);
+}
+.tenant-space .button--primary:hover {
+  filter: brightness(1.04);
+}
+.tenant-space .button--secondary {
+  background: #fff;
+  border-color: rgb(26 90 138 / 0.18);
+  color: var(--tenant-ink);
+}
+.tenant-space .button--secondary:hover {
+  background: var(--tenant-accent-soft);
+  border-color: rgb(26 90 138 / 0.28);
+}
+.tenant-home__chip--action {
+  border-inline-start-color: var(--tenant-action);
+  background: linear-gradient(180deg, var(--tenant-action-soft), #fff 70%);
+}
+.tenant-preview-row--action {
+  border-inline-start-color: var(--tenant-action);
+  background: linear-gradient(90deg, var(--tenant-action-soft), #fff 42%);
+}
+.tenant-requests-wrap,
+.tenant-statements,
+.tenant-requests {
+  display: grid;
+  gap: 0.55rem;
+}
+.tenant-request,
+.tenant-statement {
+  border: 1px solid rgb(26 90 138 / 0.1);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #fbfcfd, #fff 60%);
+  box-shadow: var(--tenant-shadow-soft);
+  overflow: hidden;
+}
+.tenant-home--section .tenant-section__titles h2 {
+  font-size: 1rem;
 }
 .tenant-home__welcome-copy {
   display: grid;
@@ -10294,11 +10406,18 @@ body:has(.stays-booking-receipt) #main-content {
   border-radius: 1.15rem;
   background: var(--tenant-surface);
 }
-.tenant-home__panel.has-items,
-.tenant-home__panel--alerts {
-  border-color: rgb(154 52 18 / 0.2);
-  background: linear-gradient(180deg, #fff7f1 0%, #fff 58%);
-  box-shadow: 0 12px 28px rgb(154 52 18 / 0.05);
+.tenant-home__panel.has-items {
+  border-color: rgb(26 90 138 / 0.14);
+  background:
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.05), transparent 14rem),
+    linear-gradient(180deg, #f4f8fb 0%, #fff 62%);
+  box-shadow: var(--tenant-shadow-soft);
+}
+.tenant-home__panel--alerts.has-items {
+  border-color: rgb(15 92 107 / 0.16);
+  background:
+    radial-gradient(circle at 0% 0%, rgb(15 92 107 / 0.07), transparent 12rem),
+    linear-gradient(180deg, #eef7f8 0%, #fff 60%);
 }
 .tenant-home__count {
   display: inline-flex;
@@ -10308,10 +10427,14 @@ body:has(.stays-booking-receipt) #main-content {
   height: 1.55rem;
   padding: 0 0.4rem;
   border-radius: 999px;
-  background: var(--tenant-action-soft);
-  color: var(--tenant-action);
+  background: var(--tenant-info-soft);
+  color: var(--tenant-info);
   font-size: 0.78rem;
   font-weight: 800;
+}
+.tenant-home__panel--alerts .tenant-home__count {
+  background: var(--tenant-renewal-soft);
+  color: var(--tenant-renewal);
 }
 .tenant-home__calm,
 .tenant-home__empty {
@@ -10382,11 +10505,12 @@ body:has(.stays-booking-receipt) #main-content {
   width: 100%;
 }
 .tenant-home__card {
-  padding: 1rem 1.05rem;
+  padding: 1.05rem 1.1rem;
   border: 1px solid var(--tenant-line);
-  border-radius: 1.15rem;
-  background: var(--tenant-surface);
-  box-shadow: 0 10px 26px rgb(15 47 74 / 0.04);
+  border-radius: 1.2rem;
+  background:
+    linear-gradient(180deg, #fbfdfe 0%, #fff 48%);
+  box-shadow: var(--tenant-shadow-soft, 0 10px 26px rgb(15 47 74 / 0.04));
 }
 .tenant-home__split {
   display: grid;
@@ -10775,14 +10899,9 @@ body:has(.stays-booking-receipt) #main-content {
   box-shadow: none;
   background: transparent;
 }
-.tenant-requests {
-  gap: 0.4rem;
-}
-.tenant-request {
-  border-radius: 0.75rem;
-}
+.tenant-requests,
 .tenant-statements {
-  gap: 0.4rem;
+  gap: 0.55rem;
 }
 @media (max-width: 960px) {
   .tenant-home__nav {
@@ -11165,6 +11284,27 @@ body:has(.stays-booking-receipt) #main-content {
 .portal-layout[data-portal='tenant'] .portal-sidebar__title {
   color: #7dd3c7;
 }
+.portal-layout[data-portal='tenant'] .portal-main {
+  background:
+    radial-gradient(circle at 100% 0%, rgb(26 90 138 / 0.05), transparent 28rem),
+    radial-gradient(circle at 0% 12%, rgb(15 92 107 / 0.04), transparent 22rem),
+    linear-gradient(180deg, #f3f7fa 0%, #f7fafc 40%, #f5f8fb 100%);
+}
+.portal-layout[data-portal='tenant'] .portal-sidebar {
+  background:
+    radial-gradient(ellipse 90% 55% at 0% 0%, rgb(15 92 107 / 0.32), transparent 55%),
+    linear-gradient(185deg, #0e3548 0%, #12324a 48%, #0c283a 100%);
+}
+.portal-layout[data-portal='tenant'] .portal-nav a[aria-current='page'] {
+  color: #042f2e;
+  background: linear-gradient(135deg, #7dd3c7, #2bb7ad);
+  box-shadow: 0 8px 18px rgb(43 183 173 / 0.22);
+}
+.portal-layout[data-portal='tenant'] .portal-topbar {
+  border-color: rgb(26 90 138 / 0.1);
+  background: rgb(255 255 255 / 0.86);
+  backdrop-filter: blur(10px);
+}
 .tenant-section {
   display: grid;
   gap: 0.65rem;
@@ -11244,11 +11384,13 @@ body:has(.stays-booking-receipt) #main-content {
 }
 .tenant-notice {
   margin: 0;
-  padding: 0.7rem 0.9rem;
-  border: 1px solid #efd2a0;
-  border-radius: 0.7rem;
-  background: #fff8eb;
-  color: #7a4a08;
+  padding: 0.75rem 0.95rem;
+  border: 1px solid rgb(15 92 107 / 0.16);
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, #eef7f8, #fff 70%);
+  color: var(--tenant-renewal, #0f5c6b);
+  font-size: 0.9rem;
+  line-height: 1.45;
 }
 .tenant-alerts {
   display: grid;
@@ -11292,12 +11434,12 @@ body:has(.stays-booking-receipt) #main-content {
   background: var(--tenant-danger, #9b1c1c);
 }
 .tenant-alert--action {
-  background: var(--tenant-action-soft, #fff1e8);
-  border-color: rgb(154 52 18 / 0.2);
-  color: var(--tenant-action, #9a3412);
+  background: var(--tenant-action-soft, #e8f5f7);
+  border-color: rgb(15 92 107 / 0.18);
+  color: var(--tenant-action, #0f5c6b);
 }
 .tenant-alert--action .tenant-alert__tone {
-  background: var(--tenant-action, #9a3412);
+  background: var(--tenant-action, #0f5c6b);
 }
 .tenant-alert--warn {
   background: var(--tenant-warn-soft, #fff6e8);
@@ -11343,9 +11485,9 @@ body:has(.stays-booking-receipt) #main-content {
   border: 1px solid transparent;
 }
 .tenant-status--action {
-  background: var(--tenant-action-soft, #fff1e8);
-  color: var(--tenant-action, #9a3412);
-  border-color: rgb(154 52 18 / 0.12);
+  background: var(--tenant-action-soft, #e8f5f7);
+  color: var(--tenant-action, #0f5c6b);
+  border-color: rgb(15 92 107 / 0.14);
 }
 .tenant-status--good {
   background: var(--tenant-good-soft, #e6f6f0);
@@ -11377,7 +11519,11 @@ body:has(.stays-booking-receipt) #main-content {
   flex-wrap: wrap;
   gap: 0.55rem;
   align-items: center;
-  margin: 0.65rem 0.75rem 0.35rem;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 1.2rem 1.2rem 0 0;
+  background: linear-gradient(180deg, #f7fafc, #fff);
+  border-bottom: 1px solid rgb(26 90 138 / 0.08);
 }
 .tenant-requests-wrap {
   display: grid;
@@ -11389,9 +11535,9 @@ body:has(.stays-booking-receipt) #main-content {
   max-height: none;
   overflow: visible;
   background: var(--tenant-surface, #fff);
-  border: 1px solid var(--tenant-line, rgb(15 47 74 / 0.1));
-  border-radius: var(--tenant-radius, 1rem);
-  box-shadow: 0 10px 28px rgb(15 47 74 / 0.045);
+  border: 1px solid rgb(26 90 138 / 0.1);
+  border-radius: 1.2rem;
+  box-shadow: var(--tenant-shadow-soft, 0 10px 28px rgb(15 47 74 / 0.045));
 }
 .portal-layout .tenant-space .tenant-table-wrap.data-table-wrap {
   overflow: visible;
@@ -11401,12 +11547,27 @@ body:has(.stays-booking-receipt) #main-content {
   table-layout: auto;
   white-space: normal;
 }
+.portal-layout .tenant-space .tenant-table thead th {
+  background: linear-gradient(180deg, #f3f7fa 0%, #eef4f8 100%);
+  color: var(--tenant-muted, #5a7188);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border-bottom: 1px solid rgb(26 90 138 / 0.1);
+}
+.portal-layout .tenant-space .tenant-table tbody tr {
+  transition: background-color 0.12s ease;
+}
+.portal-layout .tenant-space .tenant-table tbody tr:hover {
+  background: #f7fafc;
+}
 .portal-layout .tenant-space .tenant-table th,
 .portal-layout .tenant-space .tenant-table td {
   white-space: normal;
   vertical-align: top;
   padding: 1rem 1.15rem;
   overflow-wrap: anywhere;
+  border-color: rgb(15 47 74 / 0.06);
 }
 .tenant-table__ref {
   font-weight: 700;
