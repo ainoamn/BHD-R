@@ -66,6 +66,8 @@ export type LeaseTenantDraft = {
   /** Used for smart document suggestions (Omani vs expatriate signatory). */
   signatoryNationality: string;
   phone: string;
+  /** Alternate / secondary phone (رقم الهاتف البديل). */
+  altPhone: string;
   email: string;
 };
 
@@ -89,8 +91,25 @@ const EMPTY_TENANT: LeaseTenantDraft = {
   signatoryCivilId: '',
   signatoryNationality: '',
   phone: '',
+  altPhone: '',
   email: '',
 };
+
+/** Fields the tenant may still be asked to complete on the slim renewal wizard. */
+const TENANT_RENEWAL_SLIM_GAP_CODES = new Set([
+  'phone',
+  'monthly_rent',
+  'starts',
+  'ends',
+  'schedule',
+  'schedule_rows',
+  'payment_method',
+  'payment_frequency',
+  'payment_day',
+  'rent_bank',
+  'cheque_bank',
+  'cheque_name',
+]);
 
 type DirectoryHit = PropertyRecordTenant & {
   civilId?: string | null;
@@ -303,6 +322,12 @@ const STEP_GAP_CODES: Record<WizardStepId, readonly string[]> = {
   review: [],
 };
 
+const TENANT_SLIM_STEP_GAP_CODES: Partial<Record<WizardStepId, readonly string[]>> = {
+  tenant: ['phone'],
+  rent: ['monthly_rent', 'starts', 'ends'],
+  schedule: ['schedule', 'schedule_rows', 'rent_bank', 'cheque_bank', 'cheque_name'],
+};
+
 function Section({
   title,
   tone,
@@ -421,6 +446,7 @@ export function LeaseContractForm({
   lockTenantName = false,
   lockStartsOn = false,
   renewalMode = false,
+  tenantRenewalSlim = false,
   previousMeters = null,
   tenantFromDirectory = false,
   paidDepositMinor = null,
@@ -472,6 +498,11 @@ export function LeaseContractForm({
    * for rent section; taxes/extras/deposit stay editable.
    */
   renewalMode?: boolean | undefined;
+  /**
+   * Tenant portal renewal: only contact + rent dates + schedule/summary/review.
+   * Other contract sections stay filled from the previous term but hidden.
+   */
+  tenantRenewalSlim?: boolean | undefined;
   /** Prior meter readings/photos kept on screen while optional new ones can be added. */
   previousMeters?: LeasePreviousMeters | null | undefined;
   /**
@@ -499,8 +530,11 @@ export function LeaseContractForm({
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
   const [unitId, setUnitId] = useState(units[0]?.id ?? '');
-  const [wizardStep, setWizardStep] = useState<WizardStepId>('main');
+  const [wizardStep, setWizardStep] = useState<WizardStepId>(
+    tenantRenewalSlim ? 'tenant' : 'main',
+  );
   const [showAllFields, setShowAllFields] = useState(false);
+  const slim = Boolean(tenantRenewalSlim && renewalMode);
   /** Booking policy: start date tracks handover until the owner edits start explicitly. */
   const [startsFollowsHandover, setStartsFollowsHandover] = useState(true);
   /** Progressive reveal cursor for taxes / extras (booking form). */
@@ -917,18 +951,18 @@ export function LeaseContractForm({
     ],
   );
   const terms = result.ok ? result.terms : null;
-  const missingFields = useMemo(
-    () =>
-      missingLeaseContractFields({
-        unitId,
-        tenant,
-        draft: draftForCompute,
-        digits,
-        deferMeters: deferMeters || metersOptional,
-        deferHandover,
-      }),
-    [unitId, tenant, draftForCompute, digits, deferMeters, metersOptional, deferHandover],
-  );
+  const missingFields = useMemo(() => {
+    const all = missingLeaseContractFields({
+      unitId,
+      tenant,
+      draft: draftForCompute,
+      digits,
+      deferMeters: deferMeters || metersOptional,
+      deferHandover,
+    });
+    if (!slim) return all;
+    return all.filter((field) => TENANT_RENEWAL_SLIM_GAP_CODES.has(field.code));
+  }, [unitId, tenant, draftForCompute, digits, deferMeters, metersOptional, deferHandover, slim]);
   const missingCodes = useMemo(
     () => new Set(missingFields.map((field) => field.code)),
     [missingFields],
@@ -936,11 +970,14 @@ export function LeaseContractForm({
   const gap = (code: string) => missingCodes.has(code);
 
   const wizardSteps = useMemo((): WizardStepId[] => {
+    if (slim) {
+      return ['tenant', 'rent', 'schedule', 'totals', 'review'];
+    }
     const steps: WizardStepId[] = ['main', 'tenant'];
     if (requirements && onRequirementsChange) steps.push('docs');
     steps.push('unit', 'rent', 'taxes', 'extras', 'deposit', 'schedule', 'totals', 'review');
     return steps;
-  }, [requirements, onRequirementsChange]);
+  }, [requirements, onRequirementsChange, slim]);
 
   useEffect(() => {
     if (!wizardSteps.includes(wizardStep)) {
@@ -978,7 +1015,10 @@ export function LeaseContractForm({
   const isFirstStep = stepIndex <= 0;
   const isLastStep = stepIndex >= wizardSteps.length - 1;
   const reviewMode = wizardStep === 'review';
-  const stepActive = (id: WizardStepId) => reviewMode || wizardStep === id;
+  const stepActive = (id: WizardStepId) => {
+    if (slim && !wizardSteps.includes(id)) return false;
+    return reviewMode || wizardStep === id;
+  };
   /** Essentials-only: hide optional filled chrome unless the user opts into «show all». */
   const showExtra = showAllFields || reviewMode;
   /** Website booking: only empty fields (rent & term always stay visible). */
@@ -1028,10 +1068,12 @@ export function LeaseContractForm({
     set(key, dataUrl);
   }
 
-  const currentStepGaps = useMemo(
-    () => missingFields.filter((field) => (STEP_GAP_CODES[wizardStep] ?? []).includes(field.code)),
-    [missingFields, wizardStep],
-  );
+  const currentStepGaps = useMemo(() => {
+    const codes = slim
+      ? (TENANT_SLIM_STEP_GAP_CODES[wizardStep] ?? [])
+      : (STEP_GAP_CODES[wizardStep] ?? []);
+    return missingFields.filter((field) => codes.includes(field.code));
+  }, [missingFields, wizardStep, slim]);
 
   function goNext() {
     if (currentStepGaps.length) {
@@ -1356,14 +1398,16 @@ export function LeaseContractForm({
                   `Step ${stepIndex + 1} of ${wizardSteps.length}`,
                 )}
           </p>
-          <label className="lcf-show-all">
-            <input
-              type="checkbox"
-              checked={showAllFields}
-              onChange={(event) => setShowAllFields(event.target.checked)}
-            />
-            <span>{t('إظهار كافة البيانات', 'Show all fields')}</span>
-          </label>
+          {slim ? null : (
+            <label className="lcf-show-all">
+              <input
+                type="checkbox"
+                checked={showAllFields}
+                onChange={(event) => setShowAllFields(event.target.checked)}
+              />
+              <span>{t('إظهار كافة البيانات', 'Show all fields')}</span>
+            </label>
+          )}
         </div>
         <ol className="lcf-wizard-progress__list">
           {wizardSteps.map((id, index) => {
@@ -1406,10 +1450,15 @@ export function LeaseContractForm({
 
       {reviewMode ? (
         <p className="notice notice--info lcf-review-note" role="status">
-          {t(
-            'هذه صفحة التحقق: كل الأقسام ظاهرة وقابلة للتعديل (بما فيها الضرائب والإضافات والملاحظات).',
-            'Review page: every section is visible and editable (including taxes, extras, and notes).',
-          )}
+          {slim
+            ? t(
+                'راجع بيانات التواصل ومدة التجديد وجدول الدفع والملخص ثم أكّد الطلب.',
+                'Review contact details, renewal term, payment schedule and summary, then confirm.',
+              )
+            : t(
+                'هذه صفحة التحقق: كل الأقسام ظاهرة وقابلة للتعديل (بما فيها الضرائب والإضافات والملاحظات).',
+                'Review page: every section is visible and editable (including taxes, extras, and notes).',
+              )}
         </p>
       ) : null}
 
@@ -1582,7 +1631,14 @@ export function LeaseContractForm({
       </Section>
 
       <Section tone="tenant" active={stepActive('tenant')} title={t('👤 المستأجر', '👤 Tenant')}>
-        {renewalMode ? (
+        {slim ? (
+          <p className="muted lcf-help">
+            {t(
+              'بيانات التواصل من حسابك — أكّدها أو حدّثها قبل المتابعة.',
+              'Contact details from your account — confirm or update them before continuing.',
+            )}
+          </p>
+        ) : renewalMode ? (
           <p className="muted lcf-help">
             {t(
               'المستأجر من العقد السابق — لا يمكن تغييره في ملحق التجديد.',
@@ -1591,6 +1647,45 @@ export function LeaseContractForm({
           </p>
         ) : null}
         <div className="form-grid">
+          {slim ? (
+            <>
+              <Field id="lcf-phone" label={t('رقم الجوال', 'Mobile')} required missing={gap('phone')}>
+                <input
+                  id="lcf-phone"
+                  className="input"
+                  type="tel"
+                  dir="ltr"
+                  maxLength={40}
+                  required
+                  value={tenant.phone}
+                  onChange={(event) => setTenantField('phone', event.target.value)}
+                />
+              </Field>
+              <Field id="lcf-email" label={t('البريد الإلكتروني', 'Email')}>
+                <input
+                  id="lcf-email"
+                  className="input"
+                  type="email"
+                  dir="ltr"
+                  maxLength={320}
+                  value={tenant.email}
+                  onChange={(event) => setTenantField('email', event.target.value)}
+                />
+              </Field>
+              <Field id="lcf-alt-phone" label={t('رقم الهاتف البديل', 'Alternate phone')}>
+                <input
+                  id="lcf-alt-phone"
+                  className="input"
+                  type="tel"
+                  dir="ltr"
+                  maxLength={40}
+                  value={tenant.altPhone}
+                  onChange={(event) => setTenantField('altPhone', event.target.value)}
+                />
+              </Field>
+            </>
+          ) : (
+            <>
           {!renewalMode && (tenantFromDirectory || directory.length) ? (
             <Field
               id="lcf-book"
@@ -2070,6 +2165,8 @@ export function LeaseContractForm({
               onChange={(event) => setTenantField('email', event.target.value)}
             />
           </Field>
+            </>
+          )}
         </div>
       </Section>
 
@@ -2290,7 +2387,14 @@ export function LeaseContractForm({
         active={stepActive('rent')}
         title={t('💰 الإيجار والمدة', '💰 Rent & term')}
       >
-        {renewalMode ? (
+        {slim ? (
+          <p className="muted lcf-help">
+            {t(
+              'الإيجار وتاريخ البداية من النظام. عدّل تاريخ نهاية التجديد إن رغبت بمدة مختلفة.',
+              'Rent and start date come from the system. Change the renewal end date if you want a different term.',
+            )}
+          </p>
+        ) : renewalMode ? (
           <p className="muted lcf-help">
             {t(
               'الإيجار وطريقة احتسابه من العقد السابق (للقراءة فقط). عدّل مدة التجديد وتاريخ النهاية فقط.',
@@ -2299,6 +2403,55 @@ export function LeaseContractForm({
           </p>
         ) : null}
         <div className="form-grid">
+          {slim ? (
+            <>
+              <Field
+                id="lcf-rent"
+                label={t(`الإيجار الشهري (${currency})`, `Monthly rent (${currency})`)}
+                required
+                missing={gap('monthly_rent')}
+              >
+                <output id="lcf-rent" className="input lcf-output" dir="ltr">
+                  {draft.monthlyRent || '—'}
+                </output>
+              </Field>
+              <Field
+                id="lcf-start"
+                label={t('تاريخ البداية', 'Start date')}
+                required
+                missing={gap('starts')}
+                hint={t(
+                  'ثابت: اليوم التالي لنهاية العقد السابق.',
+                  'Fixed: the day after the previous contract ends.',
+                )}
+              >
+                <output id="lcf-start" className="input lcf-output" dir="ltr">
+                  {draft.startsOn}
+                </output>
+              </Field>
+              <Field
+                id="lcf-end"
+                label={t('تاريخ نهاية التجديد', 'Renewal end date')}
+                required
+                missing={gap('ends')}
+                hint={t(
+                  'يُحسب تلقائياً من مدة التجديد ويمكن تعديله.',
+                  'Computed from the renewal term; editable.',
+                )}
+              >
+                <input
+                  id="lcf-end"
+                  className="input"
+                  type="date"
+                  required
+                  min={draft.startsOn}
+                  value={draft.endsOn}
+                  onChange={(event) => changeEnd(event.target.value)}
+                />
+              </Field>
+            </>
+          ) : (
+            <>
           <Field id="lcf-calc" label={t('طريقة احتساب الإيجار', 'Rent calculation mode')}>
             {renewalMode ? (
               <output id="lcf-calc" className="input lcf-output">
@@ -2669,6 +2822,8 @@ export function LeaseContractForm({
               ))}
             </select>
           </Field>
+            </>
+          )}
         </div>
       </Section>
 

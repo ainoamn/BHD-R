@@ -158,6 +158,7 @@ export type LeaseRenewalTenantSeed = {
   signatoryCivilId: string;
   signatoryNationality: string;
   phone: string;
+  altPhone: string;
   email: string;
 };
 
@@ -362,6 +363,17 @@ export async function loadLeaseRenewalContext(
       phone: tenant.phone,
     };
 
+    const tenantMeta =
+      tenant.metadata && typeof tenant.metadata === 'object'
+        ? (tenant.metadata as Record<string, unknown>)
+        : {};
+    const bookingPerson =
+      tenantMeta.bookingParty &&
+      typeof tenantMeta.bookingParty === 'object' &&
+      (tenantMeta.bookingParty as { person?: unknown }).person &&
+      typeof (tenantMeta.bookingParty as { person?: unknown }).person === 'object'
+        ? ((tenantMeta.bookingParty as { person: Record<string, unknown> }).person)
+        : null;
     const initialTenant: LeaseRenewalTenantSeed = {
       partyId: tenant.id,
       entityType: tenant.type === 'company' ? 'company' : 'person',
@@ -379,6 +391,12 @@ export async function loadLeaseRenewalContext(
       signatoryCivilId: snapshotText(tenantDetails.signatoryCivilId) ?? '',
       signatoryNationality: snapshotText(tenantDetails.signatoryNationality) ?? '',
       phone: snapshotText(tenantDetails.phone) ?? tenant.phone ?? '',
+      altPhone:
+        snapshotText(tenantDetails.altPhone) ??
+        snapshotText(tenantMeta.altPhone) ??
+        snapshotText(tenantMeta.phone2) ??
+        snapshotText(bookingPerson?.altPhone) ??
+        '',
       email: snapshotText(tenantDetails.email) ?? tenant.email ?? '',
     };
 

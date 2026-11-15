@@ -130,6 +130,12 @@ export function LeaseRenewalForm({
   const formBlocked = !windowOpen && !canEarly;
 
   useEffect(() => {
+    if (isTenant && !templateVersionId && context.defaultTemplateVersionId) {
+      setTemplateVersionId(context.defaultTemplateVersionId);
+    }
+  }, [isTenant, templateVersionId, context.defaultTemplateVersionId]);
+
+  useEffect(() => {
     const saved = readV2(context.lease.id);
     if (saved) {
       setTerms(saved.terms);
@@ -680,55 +686,64 @@ export function LeaseRenewalForm({
         </div>
       ) : null}
 
-      <section className="card lease-renewal__summary" aria-labelledby="renewal-prev-title">
-        <h2 id="renewal-prev-title">{ar ? 'ملخص العقد السابق' : 'Previous contract summary'}</h2>
-        <dl className="lease-renewal__facts">
-          <div>
-            <dt>{ar ? 'رقم العقد' : 'Contract no.'}</dt>
-            <dd dir="ltr">{context.contract?.reference || '—'}</dd>
-          </div>
-          <div>
-            <dt>{ar ? 'المستأجر' : 'Tenant'}</dt>
-            <dd>{context.tenantName}</dd>
-          </div>
-          <div>
-            <dt>{ar ? 'العقار / الوحدة' : 'Property / unit'}</dt>
-            <dd>{place}</dd>
-          </div>
-          <div>
-            <dt>{ar ? 'البداية' : 'Starts'}</dt>
-            <dd dir="ltr">{context.lease.startsOn}</dd>
-          </div>
-          <div>
-            <dt>{ar ? 'النهاية' : 'Ends'}</dt>
-            <dd dir="ltr">{context.lease.endsOn}</dd>
-          </div>
-          <div>
-            <dt>{ar ? 'الإيجار' : 'Rent'}</dt>
-            <dd dir="ltr">{formatMoney(context.lease.rentMinor, currency, locale)}</dd>
-          </div>
-          <div>
-            <dt>{ar ? 'الضريبة المضافة' : 'VAT'}</dt>
-            <dd>
-              {context.initialTerms.vatEnabled
-                ? `${context.initialTerms.vatRate}%`
-                : ar
-                  ? 'غير مشمولة'
-                  : 'Not applicable'}
-            </dd>
-          </div>
-          <div>
-            <dt>{ar ? 'مبالغ إضافية' : 'Extras'}</dt>
-            <dd>
-              {context.initialTerms.adjustments.length
-                ? context.initialTerms.adjustments.length
-                : ar
-                  ? 'لا توجد'
-                  : 'None'}
-            </dd>
-          </div>
-        </dl>
-      </section>
+      {isTenant ? (
+        <section className="card lease-renewal__summary" aria-labelledby="renewal-prev-title">
+          <h2 id="renewal-prev-title">{ar ? 'تجديد الإيجار' : 'Lease renewal'}</h2>
+          <p className="muted">
+            {place} · {ar ? 'ينتهي الحالي' : 'Current ends'} {context.lease.endsOn}
+          </p>
+        </section>
+      ) : (
+        <section className="card lease-renewal__summary" aria-labelledby="renewal-prev-title">
+          <h2 id="renewal-prev-title">{ar ? 'ملخص العقد السابق' : 'Previous contract summary'}</h2>
+          <dl className="lease-renewal__facts">
+            <div>
+              <dt>{ar ? 'رقم العقد' : 'Contract no.'}</dt>
+              <dd dir="ltr">{context.contract?.reference || '—'}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'المستأجر' : 'Tenant'}</dt>
+              <dd>{context.tenantName}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'العقار / الوحدة' : 'Property / unit'}</dt>
+              <dd>{place}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'البداية' : 'Starts'}</dt>
+              <dd dir="ltr">{context.lease.startsOn}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'النهاية' : 'Ends'}</dt>
+              <dd dir="ltr">{context.lease.endsOn}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الإيجار' : 'Rent'}</dt>
+              <dd dir="ltr">{formatMoney(context.lease.rentMinor, currency, locale)}</dd>
+            </div>
+            <div>
+              <dt>{ar ? 'الضريبة المضافة' : 'VAT'}</dt>
+              <dd>
+                {context.initialTerms.vatEnabled
+                  ? `${context.initialTerms.vatRate}%`
+                  : ar
+                    ? 'غير مشمولة'
+                    : 'Not applicable'}
+              </dd>
+            </div>
+            <div>
+              <dt>{ar ? 'مبالغ إضافية' : 'Extras'}</dt>
+              <dd>
+                {context.initialTerms.adjustments.length
+                  ? context.initialTerms.adjustments.length
+                  : ar
+                    ? 'لا توجد'
+                    : 'None'}
+              </dd>
+            </div>
+          </dl>
+        </section>
+      )}
 
       <LeaseContractForm
         key={`${context.lease.id}:${restoredDraft ? 'restored' : 'seed'}`}
@@ -743,56 +758,79 @@ export function LeaseRenewalForm({
         lockTenantName
         lockStartsOn
         renewalMode
-        previousMeters={context.previousMeters}
-        tenantFromDirectory
+        tenantRenewalSlim={isTenant}
+        previousMeters={isTenant ? null : context.previousMeters}
+        tenantFromDirectory={!isTenant}
         municipalAfterHandover
         initialTenant={context.initialTenant}
         initialTerms={terms}
-        requirements={requirements}
-        onRequirementsChange={setRequirements}
-        heading={ar ? 'بيانات عقد التجديد' : 'Renewal contract details'}
-        submitLabel={
-          pendingRenewal && editingPending
+        {...(isTenant
+          ? {}
+          : {
+              requirements,
+              onRequirementsChange: setRequirements,
+            })}
+        heading={
+          isTenant
             ? ar
-              ? 'حفظ التعديلات وإرسال الملحق'
-              : 'Save edits and send addendum'
+              ? 'طلب تجديد الإيجار'
+              : 'Lease renewal request'
             : ar
-              ? 'إنشاء ملحق التجديد'
-              : 'Create renewal addendum'
+              ? 'بيانات عقد التجديد'
+              : 'Renewal contract details'
+        }
+        submitLabel={
+          isTenant
+            ? ar
+              ? 'إرسال طلب التجديد للمالك'
+              : 'Send renewal request to landlord'
+            : pendingRenewal && editingPending
+              ? ar
+                ? 'حفظ التعديلات وإرسال الملحق'
+                : 'Save edits and send addendum'
+              : ar
+                ? 'إنشاء ملحق التجديد'
+                : 'Create renewal addendum'
         }
         footnote={
-          pendingRenewal && editingPending
+          isTenant
             ? ar
-              ? 'الحفظ يلغي الملحق غير المكتمل ويستبدله بهذه الحقول، ثم يُرسل للمستأجر للتوقيع.'
-              : 'Saving voids the incomplete addendum, replaces it with these fields, then sends it to the tenant to sign.'
-            : ar
-              ? 'بعد الإنشاء يُرسل الملحق فوراً إلى المستأجر للتوقيع ورفع المستندات المطلوبة. لن يتغير العقد الحالي حتى يكتمل توقيع الطرفين. الشيكات تُكتب بالاسم الظاهر من الحساب البنكي.'
-              : 'On create, the addendum is sent to the tenant immediately for e-sign and required documents. The current lease stays unchanged until both parties have signed. Cheques use the bank-account payee name.'
+              ? 'بعد الإرسال يراجع المالك المسودة ثم يرسلها إليك للتوقيع ورفع المستندات إن لزم.'
+              : 'After submit the landlord reviews the draft, then sends it to you to sign and upload documents if needed.'
+            : pendingRenewal && editingPending
+              ? ar
+                ? 'الحفظ يلغي الملحق غير المكتمل ويستبدله بهذه الحقول، ثم يُرسل للمستأجر للتوقيع.'
+                : 'Saving voids the incomplete addendum, replaces it with these fields, then sends it to the tenant to sign.'
+              : ar
+                ? 'بعد الإنشاء يُرسل الملحق فوراً إلى المستأجر للتوقيع ورفع المستندات المطلوبة. لن يتغير العقد الحالي حتى يكتمل توقيع الطرفين. الشيكات تُكتب بالاسم الظاهر من الحساب البنكي.'
+                : 'On create, the addendum is sent to the tenant immediately for e-sign and required documents. The current lease stays unchanged until both parties have signed. Cheques use the bank-account payee name.'
         }
         lead={
-          <div className="form-grid lease-renewal__template">
-            <label className="field">
-              <span>{ar ? 'قالب ملحق العقد' : 'Addendum template'}</span>
-              <select
-                className="select"
-                required
-                value={templateVersionId}
-                onChange={(event) => setTemplateVersionId(event.target.value)}
-              >
-                <option value="">{ar ? 'اختر…' : 'Select…'}</option>
-                {templates.map((row) => (
-                  <option key={row.id} value={row.id}>
-                    {locale === 'ar' ? row.nameAr : row.nameEn}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <p className="muted span-2">
-              {ar
-                ? 'الإضافات والخصومات والضريبة واسم المستفيد على الشيكات منسوخة من العقد السابق ويمكنك تعديلها قبل الحفظ.'
-                : 'Extras, discounts, VAT and the cheque payee are copied from the previous contract and remain editable.'}
-            </p>
-          </div>
+          isTenant ? undefined : (
+            <div className="form-grid lease-renewal__template">
+              <label className="field">
+                <span>{ar ? 'قالب ملحق العقد' : 'Addendum template'}</span>
+                <select
+                  className="select"
+                  required
+                  value={templateVersionId}
+                  onChange={(event) => setTemplateVersionId(event.target.value)}
+                >
+                  <option value="">{ar ? 'اختر…' : 'Select…'}</option>
+                  {templates.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {locale === 'ar' ? row.nameAr : row.nameEn}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <p className="muted span-2">
+                {ar
+                  ? 'الإضافات والخصومات والضريبة واسم المستفيد على الشيكات منسوخة من العقد السابق ويمكنك تعديلها قبل الحفظ.'
+                  : 'Extras, discounts, VAT and the cheque payee are copied from the previous contract and remain editable.'}
+              </p>
+            </div>
+          )
         }
         onSubmit={(payload) => {
           setTerms(payload.terms);
