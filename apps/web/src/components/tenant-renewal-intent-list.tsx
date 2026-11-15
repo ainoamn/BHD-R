@@ -138,7 +138,7 @@ export function TenantRenewalIntentList({
       </div>
 
       {notice ? (
-        <div className="notice notice--info" role="status" style={{ marginBottom: '0.75rem' }}>
+        <div className="notice notice--info tenant-renewal-notice" role="status">
           {notice}
         </div>
       ) : null}
@@ -153,16 +153,23 @@ export function TenantRenewalIntentList({
         <ul className="tenant-preview-list">
           {items.map((item) => {
             const highlighted = highlightId && item.renewalContractId === highlightId;
+            const renewed = item.phase === 'renewed_pending';
             return (
               <li
                 key={item.key}
                 className={`tenant-preview-row tenant-preview-row--contract-renewal${
-                  highlighted ? ' is-highlighted' : ''
-                }`}
+                  renewed ? ' is-renewed' : ''
+                }${highlighted ? ' is-highlighted' : ''}`}
               >
                 <div className="tenant-preview-row__main">
                   <span className="tenant-preview-row__eyebrow">
-                    {ar ? 'عقد تجديد' : 'Renewal'}
+                    {renewed
+                      ? ar
+                        ? 'تجديد معتمد'
+                        : 'Renewed'
+                      : ar
+                        ? 'عقد تجديد'
+                        : 'Renewal'}
                   </span>
                   <div className="tenant-preview-row__headline">
                     <strong className="tenant-preview-row__title">
@@ -173,7 +180,7 @@ export function TenantRenewalIntentList({
                     {[
                       item.reference,
                       tenancyLandlordName(item.landlord, ar),
-                      ...(item.phase === 'renewed_pending'
+                      ...(renewed
                         ? [
                             item.systemEndsOn
                               ? ar
@@ -198,7 +205,7 @@ export function TenantRenewalIntentList({
                       .join(' · ')}
                   </span>
                 </div>
-                <div className="tenant-preview-row__side" style={{ flexWrap: 'wrap', gap: '0.35rem' }}>
+                <div className="tenant-preview-row__side">
                   {item.phase === 'open_renewal' && item.renewalContractId ? (
                     <>
                       <Link
@@ -219,17 +226,17 @@ export function TenantRenewalIntentList({
                         {ar ? 'تغير التواريخ' : 'Change dates'}
                       </button>
                     </>
-                  ) : item.phase === 'renewed_pending' ? (
+                  ) : renewed ? (
                     <>
-                      <span className="muted" style={{ fontSize: '0.85rem' }}>
+                      <span className="tenant-renewal-status">
                         {ar
-                          ? `تم اعتماد التجديد حتى ${formatDay(item.systemEndsOn, true)}`
-                          : `Renewal already accepted until ${formatDay(item.systemEndsOn, false)}`}
+                          ? `معتمد حتى ${formatDay(item.systemEndsOn, true)}`
+                          : `Accepted until ${formatDay(item.systemEndsOn, false)}`}
                       </span>
                       {item.renewalContractId ? (
                         <Link
                           href={`/tenant/contracts/${item.renewalContractId}?view=full`}
-                          className="button button--quiet button--sm"
+                          className="button button--secondary button--sm"
                         >
                           {ar ? 'عرض الملحق' : 'View addendum'}
                         </Link>
@@ -237,10 +244,10 @@ export function TenantRenewalIntentList({
                     </>
                   ) : (
                     <>
-                      <span className="muted" style={{ fontSize: '0.85rem' }}>
+                      <span className="tenant-renewal-status tenant-renewal-status--pending">
                         {ar
-                          ? 'سيصل ملحق التجديد حسب ضبط المالك، أو أرسل طلباً.'
-                          : 'The addendum follows landlord settings, or send a request.'}
+                          ? 'بانتظار ملحق التجديد'
+                          : 'Awaiting renewal addendum'}
                       </span>
                       {requestLeases.some((row) => row.id === item.leaseId) ? (
                         <TenantRequestLauncher
@@ -249,7 +256,7 @@ export function TenantRenewalIntentList({
                           leaseId={item.leaseId}
                           type="lease_renew"
                           label={ar ? 'طلب تجديد' : 'Request renewal'}
-                          className="button button--quiet button--sm"
+                          className="button button--secondary button--sm"
                         />
                       ) : null}
                     </>

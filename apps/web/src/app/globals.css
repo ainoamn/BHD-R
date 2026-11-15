@@ -10103,6 +10103,12 @@ body:has(.stays-booking-receipt) #main-content {
   --tenant-info-soft: #e8f1f8;
   --tenant-quiet: #475569;
   --tenant-quiet-soft: #eef2f6;
+  --tenant-renewal: #0f5c6b;
+  --tenant-renewal-soft: #e8f5f7;
+  --tenant-renewal-mid: #c8e6eb;
+  --tenant-new: #1a5a8a;
+  --tenant-new-soft: #e8f1f8;
+  --tenant-new-mid: #c5daf0;
   width: 100%;
   max-width: none;
   min-width: 0;
@@ -10430,50 +10436,115 @@ body:has(.stays-booking-receipt) #main-content {
 .tenant-preview-row--quiet {
   border-inline-start-color: var(--tenant-quiet);
 }
+.tenant-home__panel--renewals.has-items {
+  border-color: rgb(15 92 107 / 0.16);
+  background:
+    radial-gradient(circle at 100% 0%, rgb(15 92 107 / 0.07), transparent 16rem),
+    linear-gradient(180deg, #f2fafb 0%, #fff 64%);
+  box-shadow: 0 12px 28px rgb(15 47 74 / 0.04);
+}
+.tenant-home__panel--renewals .tenant-home__count {
+  background: var(--tenant-renewal-soft, #e8f5f7);
+  color: var(--tenant-renewal, #0f5c6b);
+}
 .tenant-preview-row--contract-new,
 .tenant-home__panel--alerts .tenant-preview-row--contract-new {
-  border: 2px solid #c8102e !important;
-  border-inline-start: 2px solid #c8102e !important;
-  background: linear-gradient(180deg, #d9ecff 0%, #eef7ff 40%, #fff 70%) !important;
-  box-shadow: 0 0 0 3px rgb(26 90 138 / 0.16);
+  border: 1px solid rgb(26 90 138 / 0.16) !important;
+  border-inline-start: 3px solid var(--tenant-new, #1a5a8a) !important;
+  background: linear-gradient(135deg, var(--tenant-new-soft, #e8f1f8) 0%, #fff 58%) !important;
+  box-shadow: 0 8px 20px rgb(15 47 74 / 0.04);
 }
 .tenant-preview-row--contract-renewal,
-.tenant-home__panel--alerts .tenant-preview-row--contract-renewal {
-  border: 2px solid #c8102e !important;
-  border-inline-start: 2px solid #c8102e !important;
-  background: linear-gradient(180deg, #ffd7a8 0%, #fff4e8 40%, #fff 70%) !important;
-  box-shadow: 0 0 0 3px rgb(200 120 20 / 0.2);
+.tenant-home__panel--alerts .tenant-preview-row--contract-renewal,
+.tenant-home__panel--renewals .tenant-preview-row--contract-renewal {
+  border: 1px solid rgb(15 92 107 / 0.16) !important;
+  border-inline-start: 3px solid var(--tenant-renewal, #0f5c6b) !important;
+  background: linear-gradient(135deg, var(--tenant-renewal-soft, #e8f5f7) 0%, #fff 58%) !important;
+  box-shadow: 0 8px 20px rgb(15 47 74 / 0.04);
+}
+.tenant-preview-row--contract-renewal.is-renewed,
+.tenant-home__panel--renewals .tenant-preview-row--contract-renewal.is-renewed {
+  border-inline-start-color: var(--tenant-good) !important;
+  background: linear-gradient(135deg, var(--tenant-good-soft) 0%, #fff 58%) !important;
 }
 .tenant-preview-row--contract-new .tenant-preview-row__eyebrow,
 .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow,
 .tenant-home__panel--alerts .tenant-preview-row--contract-new .tenant-preview-row__eyebrow,
-.tenant-home__panel--alerts .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
+.tenant-home__panel--alerts .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow,
+.tenant-home__panel--renewals .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
   display: inline-flex;
   align-items: center;
-  padding: 0.15rem 0.5rem;
-  border-radius: 0.4rem;
-  border: 2px solid #c8102e;
-  font-weight: 900;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
 }
 .tenant-preview-row--contract-new .tenant-preview-row__eyebrow,
 .tenant-home__panel--alerts .tenant-preview-row--contract-new .tenant-preview-row__eyebrow {
-  background: #b9dcff;
-  color: #0f3d66;
+  background: var(--tenant-new-mid, #c5daf0);
+  border-color: rgb(26 90 138 / 0.18);
+  color: var(--tenant-new, #1a5a8a);
 }
 .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow,
 .tenant-home__panel--alerts .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow,
 .tenant-home__panel--renewals .tenant-preview-row--contract-renewal .tenant-preview-row__eyebrow {
-  background: #ffc078;
-  color: #7a3b00;
+  background: var(--tenant-renewal-mid, #c8e6eb);
+  border-color: rgb(15 92 107 / 0.2);
+  color: var(--tenant-renewal, #0f5c6b);
 }
-.tenant-home__panel--renewals .tenant-preview-row--contract-renewal {
-  border: 2px solid #c8102e !important;
-  border-inline-start: 2px solid #c8102e !important;
-  background: linear-gradient(180deg, #ffd7a8 0%, #fff4e8 40%, #fff 70%) !important;
-  box-shadow: 0 0 0 3px rgb(200 120 20 / 0.2);
+.tenant-preview-row--contract-renewal.is-renewed .tenant-preview-row__eyebrow,
+.tenant-home__panel--renewals .tenant-preview-row--contract-renewal.is-renewed .tenant-preview-row__eyebrow {
+  background: #cfeee3;
+  border-color: rgb(15 107 82 / 0.22);
+  color: var(--tenant-good);
 }
 .tenant-home__panel--renewals .tenant-preview-row.is-highlighted {
-  box-shadow: 0 0 0 4px rgb(200 16 46 / 0.35);
+  box-shadow:
+    0 0 0 3px rgb(15 92 107 / 0.18),
+    0 12px 28px rgb(15 47 74 / 0.06);
+}
+.tenant-renewal-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.25;
+  background: var(--tenant-good-soft);
+  color: var(--tenant-good);
+  border: 1px solid rgb(15 107 82 / 0.18);
+}
+.tenant-renewal-status--pending {
+  background: var(--tenant-renewal-soft, #e8f5f7);
+  color: var(--tenant-renewal, #0f5c6b);
+  border-color: rgb(15 92 107 / 0.16);
+}
+.tenant-renewal-notice {
+  margin-bottom: 0.75rem;
+}
+.tenant-space .contract-kind-chip {
+  border: 1px solid rgb(15 47 74 / 0.12);
+  border-radius: 999px;
+  font-weight: 750;
+}
+.tenant-space .contract-kind-chip--new {
+  background: var(--tenant-new-soft, #e8f1f8);
+  color: var(--tenant-new, #1a5a8a);
+  border-color: rgb(26 90 138 / 0.18);
+}
+.tenant-space .contract-kind-chip--renewal {
+  background: var(--tenant-renewal-soft, #e8f5f7);
+  color: var(--tenant-renewal, #0f5c6b);
+  border-color: rgb(15 92 107 / 0.18);
+}
+.tenant-space .contract-kind-chip--amendment,
+.tenant-space .contract-kind-chip--other {
+  background: var(--tenant-quiet-soft);
+  color: var(--tenant-quiet);
+  border-color: rgb(71 85 105 / 0.16);
 }
 .contract-kind-chip {
   display: inline-flex;
@@ -10481,7 +10552,7 @@ body:has(.stays-booking-receipt) #main-content {
   gap: 0.25rem;
   padding: 0.18rem 0.55rem;
   border-radius: 0.45rem;
-  border: 2px solid #c8102e;
+  border: 1px solid rgb(15 47 74 / 0.14);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.01em;
@@ -10489,58 +10560,60 @@ body:has(.stays-booking-receipt) #main-content {
   white-space: nowrap;
 }
 .contract-kind-chip--new {
-  background: #d9ecff;
+  background: #e8f1f8;
   color: #0f3d66;
 }
 .contract-kind-chip--renewal {
-  background: #ffd7a8;
-  color: #7a3b00;
+  background: #e8f5f7;
+  color: #0f5c6b;
 }
 .contract-kind-chip--amendment,
 .contract-kind-chip--other {
-  background: #f3e8ff;
-  color: #4a2878;
+  background: #eef2f6;
+  color: #475569;
 }
 .ops-mobile-card--contract-new {
-  border: 2px solid #c8102e;
+  border: 1px solid rgb(26 90 138 / 0.18);
+  border-inline-start: 3px solid #1a5a8a;
   background: linear-gradient(180deg, #eef7ff, #fff 60%);
 }
 .ops-mobile-card--contract-renewal {
-  border: 2px solid #c8102e;
-  background: linear-gradient(180deg, #fff4e8, #fff 60%);
+  border: 1px solid rgb(15 92 107 / 0.18);
+  border-inline-start: 3px solid #0f5c6b;
+  background: linear-gradient(180deg, #eef8fa, #fff 60%);
 }
 .dash-approvals__list a.dash-approvals__link--contract-new,
 .portal-layout .dash-approvals__list a.dash-approvals__link--contract-new {
-  border: 2px solid #c8102e !important;
+  border: 1px solid rgb(26 90 138 / 0.2) !important;
   border-radius: 0.7rem;
-  background: linear-gradient(180deg, #d9ecff, #fff 70%) !important;
+  background: linear-gradient(180deg, #e8f1f8, #fff 70%) !important;
   padding: 0.65rem 0.75rem;
-  box-shadow: 0 0 0 2px rgb(26 90 138 / 0.14);
+  box-shadow: 0 8px 18px rgb(15 47 74 / 0.04);
   color: #0f3d66;
 }
 .dash-approvals__list a.dash-approvals__link--contract-renewal,
 .portal-layout .dash-approvals__list a.dash-approvals__link--contract-renewal {
-  border: 2px solid #c8102e !important;
+  border: 1px solid rgb(15 92 107 / 0.2) !important;
   border-radius: 0.7rem;
-  background: linear-gradient(180deg, #ffd7a8, #fff6eb 70%) !important;
+  background: linear-gradient(180deg, #e8f5f7, #fff 70%) !important;
   padding: 0.65rem 0.75rem;
-  box-shadow: 0 0 0 2px rgb(200 120 20 / 0.18);
-  color: #7a3b00;
+  box-shadow: 0 8px 18px rgb(15 47 74 / 0.04);
+  color: #0f5c6b;
 }
 .portal-layout .dash-alert--contract-new a,
 .dash-alerts .dash-alert--contract-new a {
   color: #0f3d66 !important;
-  background: linear-gradient(180deg, #d9ecff, #f5faff 70%) !important;
-  border: 2px solid #c8102e !important;
-  box-shadow: 0 0 0 2px rgb(26 90 138 / 0.14);
+  background: linear-gradient(180deg, #e8f1f8, #f5faff 70%) !important;
+  border: 1px solid rgb(26 90 138 / 0.2) !important;
+  box-shadow: 0 8px 18px rgb(15 47 74 / 0.04);
   font-weight: 800;
 }
 .portal-layout .dash-alert--contract-renewal a,
 .dash-alerts .dash-alert--contract-renewal a {
-  color: #7a3b00 !important;
-  background: linear-gradient(180deg, #ffd7a8, #fff6eb 70%) !important;
-  border: 2px solid #c8102e !important;
-  box-shadow: 0 0 0 2px rgb(200 120 20 / 0.18);
+  color: #0f5c6b !important;
+  background: linear-gradient(180deg, #e8f5f7, #f7fcfd 70%) !important;
+  border: 1px solid rgb(15 92 107 / 0.2) !important;
+  box-shadow: 0 8px 18px rgb(15 47 74 / 0.04);
   font-weight: 800;
 }
 .tenant-preview-row__main,
