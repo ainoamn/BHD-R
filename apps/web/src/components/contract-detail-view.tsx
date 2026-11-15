@@ -371,7 +371,9 @@ function SimpleContractView({
         </CardContent>
       </Card>
 
-      {portal === 'tenant' && contract.kind === 'renewal' ? (
+      {portal === 'tenant' &&
+      contract.kind === 'renewal' &&
+      (contract.status === 'sent' || contract.status === 'partially_signed') ? (
         <TenantRenewalTermPanel
           contractId={contract.id}
           currentEndsOn={contract.endsOn}
@@ -388,7 +390,9 @@ function SimpleContractView({
         />
       ) : null}
 
-      {portal === 'tenant' && contract.renewalRequirements?.length ? (
+      {portal === 'tenant' &&
+      (contract.status === 'sent' || contract.status === 'partially_signed') &&
+      contract.renewalRequirements?.length ? (
         <RenewalDocumentsPanel
           contractId={contract.id}
           requirements={contract.renewalRequirements}
