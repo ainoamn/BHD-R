@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.194 — 2026-11-15
+
+- **شريط عنوان العقد:** أصبح أرفع وأصغر في صفحة الوثيقة حتى لا يشغل مساحة فوق العقد.
+
 ## 0.8.136.193 — 2026-11-15
 
 - **شريط التحقق الرسمي:** نُقل من أعلى صفحة العقد إلى أسفلها حتى لا يقاطع قراءة الوثيقة.
