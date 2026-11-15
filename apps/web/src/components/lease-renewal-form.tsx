@@ -138,14 +138,31 @@ export function LeaseRenewalForm({
   useEffect(() => {
     const saved = readV2(context.lease.id);
     if (saved) {
-      setTerms(saved.terms);
+      const restored = saved.terms;
+      // Keep landlord cheque payee if an old local draft blanked it.
+      const merged =
+        restored.paymentMethod === 'cheque' &&
+        (!restored.rentBankAccountId?.trim() ||
+          !restored.chequeBankName?.trim() ||
+          !restored.chequeAccountName?.trim())
+          ? {
+              ...restored,
+              rentBankAccountId:
+                restored.rentBankAccountId?.trim() || context.initialTerms.rentBankAccountId || '',
+              chequeBankName:
+                restored.chequeBankName?.trim() || context.initialTerms.chequeBankName || '',
+              chequeAccountName:
+                restored.chequeAccountName?.trim() || context.initialTerms.chequeAccountName || '',
+            }
+          : restored;
+      setTerms(merged);
       if (saved.templateVersionId) setTemplateVersionId(saved.templateVersionId);
       setRestoredDraft(true);
       return;
     }
     // Drop legacy v1 drafts so we do not mix shapes.
     clearRenewalDraft(context.lease.id);
-  }, [context.lease.id]);
+  }, [context.lease.id, context.initialTerms]);
 
   useEffect(() => {
     if (isTenant) return;
@@ -215,15 +232,36 @@ export function LeaseRenewalForm({
       }
 
       const digits = minorDigitsFor(currency);
-      const computed = computeLeaseTerms(payload.terms, currency, digits, {
+      // Tenant never picks the landlord bank; keep seeded payee from context / previous lease.
+      const termsForCompute: LeaseTermsDraft =
+        isTenant && payload.terms.paymentMethod === 'cheque'
+          ? {
+              ...payload.terms,
+              rentBankAccountId:
+                payload.terms.rentBankAccountId?.trim() ||
+                context.initialTerms.rentBankAccountId ||
+                '',
+              chequeBankName:
+                payload.terms.chequeBankName?.trim() || context.initialTerms.chequeBankName || '',
+              chequeAccountName:
+                payload.terms.chequeAccountName?.trim() ||
+                context.initialTerms.chequeAccountName ||
+                '',
+            }
+          : payload.terms;
+      const computed = computeLeaseTerms(termsForCompute, currency, digits, {
         deferUntilHandover: ['meters'],
       });
       if (!computed.ok) {
         const computeError =
           computed.error === 'bank_account_required'
             ? ar
-              ? 'اختر الحساب البنكي الذي تُكتب الشيكات باسمه قبل إنشاء الملحق.'
-              : 'Choose the bank account cheques are payable to before creating the addendum.'
+              ? isTenant
+                ? 'بيانات مستفيد الشيكات غير مكتملة لدى المالك. تواصل مع المالك لإكمال الحساب البنكي ثم أعد المحاولة.'
+                : 'اختر الحساب البنكي الذي تُكتب الشيكات باسمه قبل إنشاء الملحق.'
+              : isTenant
+                ? 'Cheque payee details are missing on the landlord side. Ask the landlord to complete the rent bank account, then try again.'
+                : 'Choose the bank account cheques are payable to before creating the addendum.'
             : computed.error === 'invalid_schedule'
               ? ar
                 ? 'جدول الدفع غير مكتمل — تحقق من التواريخ والمبالغ.'

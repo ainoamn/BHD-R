@@ -106,9 +106,7 @@ const TENANT_RENEWAL_SLIM_GAP_CODES = new Set([
   'payment_method',
   'payment_frequency',
   'payment_day',
-  'rent_bank',
-  'cheque_bank',
-  'cheque_name',
+  // Cheque payee / bank are owner accounting data — seeded server-side, never tenant gaps.
 ]);
 
 type DirectoryHit = PropertyRecordTenant & {
@@ -325,7 +323,7 @@ const STEP_GAP_CODES: Record<WizardStepId, readonly string[]> = {
 const TENANT_SLIM_STEP_GAP_CODES: Partial<Record<WizardStepId, readonly string[]>> = {
   tenant: ['phone'],
   rent: ['monthly_rent', 'starts', 'ends'],
-  schedule: ['schedule', 'schedule_rows', 'rent_bank', 'cheque_bank', 'cheque_name'],
+  schedule: ['schedule', 'schedule_rows'],
 };
 
 function Section({
@@ -3432,6 +3430,17 @@ export function LeaseContractForm({
             'Dates follow the payment day and frequency; amounts follow the monthly rent. Any row can be edited (custom rent). Changing rent or term rebuilds the table but keeps cheque numbers.',
           )}
         </p>
+        {slim ? (
+          isCheque &&
+          ((draft.chequeAccountName ?? '').trim() || (draft.chequeBankName ?? '').trim()) ? (
+            <p className="muted lcf-help" role="status">
+              {t(
+                `الشيكات تُكتب باسم ${(draft.chequeAccountName ?? '').trim() || '—'} · ${(draft.chequeBankName ?? '').trim() || '—'} (من بيانات المالك).`,
+                `Cheques payable to ${(draft.chequeAccountName ?? '').trim() || '—'} · ${(draft.chequeBankName ?? '').trim() || '—'} (from landlord records).`,
+              )}
+            </p>
+          ) : null
+        ) : (
         <div className="lcf-bank-bind">
           <Field
             id="lcf-rent-bank"
@@ -3576,6 +3585,7 @@ export function LeaseContractForm({
             </div>
           ) : null}
         </div>
+        )}
         {draft.schedule.length ? (
           <div className="data-table-wrap">
             <table className="data-table lcf-table">

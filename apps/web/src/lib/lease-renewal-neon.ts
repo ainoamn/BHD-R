@@ -33,11 +33,67 @@ import {
   leaseDaysRemaining,
   RENEWAL_OPEN_WITHIN_DAYS,
 } from '@/lib/lease-renewal-window';
+import {
+  bankAccountPayeeName,
+  normalizeAccountingSettings,
+  resolveRentBankAccount,
+} from '@/lib/accounting-integrity';
 import { withinViewerTenant } from '@/lib/portal-ops-data';
 import { muscatToday } from '@/lib/tenant-charges-neon';
 
 function fail(code: string): never {
   throw new Error(code);
+}
+
+/** Owner rent bank for cheque payee — used when previous lease terms omit the link. */
+async function loadOrgRentBankForProperty(
+  tx: Parameters<Parameters<typeof withinViewerTenant>[1]>[0],
+  orgId: string,
+  propertyId: string,
+): Promise<{ id: string; bankName: string; accountHolderName: string } | null> {
+  const latest = await tx
+    .select({ metadata: workflowEvents.metadata })
+    .from(workflowEvents)
+    .where(
+      and(
+        eq(workflowEvents.organizationId, orgId),
+        eq(workflowEvents.resourceType, 'accounting_settings'),
+        eq(workflowEvents.eventType, 'settings.updated'),
+      ),
+    )
+    .orderBy(desc(workflowEvents.occurredAt))
+    .limit(1);
+  const settings = normalizeAccountingSettings(latest[0]?.metadata);
+  const bank = resolveRentBankAccount(settings.bankAccounts, propertyId);
+  if (!bank) return null;
+  return {
+    id: bank.id,
+    bankName: bank.bankName,
+    accountHolderName: bankAccountPayeeName(bank, false),
+  };
+}
+
+function applyRentBankToDraft(
+  draft: LeaseTermsDraft,
+  bank: { id: string; bankName: string; accountHolderName: string } | null,
+): LeaseTermsDraft {
+  if (!bank) return draft;
+  if (draft.paymentMethod !== 'cheque') return draft;
+  const needsBank =
+    !draft.rentBankAccountId?.trim() ||
+    !draft.chequeBankName?.trim() ||
+    !draft.chequeAccountName?.trim();
+  if (!needsBank) return draft;
+  return {
+    ...draft,
+    rentBankAccountId: draft.rentBankAccountId?.trim() || bank.id,
+    chequeBankName: draft.chequeBankName?.trim() || bank.bankName,
+    chequeAccountName: draft.chequeAccountName?.trim() || bank.accountHolderName,
+    schedule: draft.schedule.map((row) => ({
+      ...row,
+      bankName: row.bankName?.trim() || bank.bankName,
+    })),
+  };
 }
 
 function signatureHash(parts: string[]): string {
@@ -405,7 +461,7 @@ export async function loadLeaseRenewalContext(
         ? (nestedTerms as Record<string, unknown>)
         : null;
 
-    const { draft: initialTerms, previousMeters } = buildRenewalTermsDraft({
+    const { draft: seededTerms, previousMeters } = buildRenewalTermsDraft({
       currency: lease.currency,
       renewalStartsOn,
       months: 12,
@@ -439,6 +495,8 @@ export async function loadLeaseRenewalContext(
         snapshotText(leaseTermsNested?.rentBankAccountId) ??
         snapshotText(snapshot.rentBankAccountId),
     });
+    const orgRentBank = await loadOrgRentBankForProperty(tx, orgId, property.id);
+    const initialTerms = applyRentBankToDraft(seededTerms, orgRentBank);
 
     const leaseTemplates = templateRows.filter(
       (row) =>
@@ -571,7 +629,10 @@ export async function loadLeaseRenewalContext(
         status: pendingRenewalRow.status,
         updatedAt: pendingRenewalRow.updatedAt.toISOString(),
         templateVersionId: pendingRenewalRow.templateVersionId,
-        initialTerms: { ...pendingTerms, endsOn: pendingEndsOn, startsOn: pendingStartsOn },
+        initialTerms: applyRentBankToDraft(
+          { ...pendingTerms, endsOn: pendingEndsOn, startsOn: pendingStartsOn },
+          orgRentBank,
+        ),
         initiatedByTenant: pendingSnap.initiatedBy === 'tenant',
       };
     }
@@ -734,6 +795,12 @@ export async function createLeaseRenewalOnNeon(
     });
     if (!property) fail('property_not_found');
 
+    const orgRentBank = await loadOrgRentBankForProperty(tx, orgId, property.id);
+    const chequeAccountName =
+      input.chequeAccountName?.trim() || orgRentBank?.accountHolderName || null;
+    const chequeBankName = input.chequeBankName?.trim() || orgRentBank?.bankName || null;
+    const rentBankAccountId = input.rentBankAccountId?.trim() || orgRentBank?.id || null;
+
     const effectiveDate = new Date(`${lease.endsOn}T00:00:00.000Z`);
     effectiveDate.setUTCDate(effectiveDate.getUTCDate() + 1);
     const startsOn = effectiveDate.toISOString().slice(0, 10);
@@ -847,9 +914,9 @@ export async function createLeaseRenewalOnNeon(
       paymentFrequency: input.paymentFrequency ?? null,
       months: input.months ?? null,
       additionalTerms: input.additionalTerms ? sanitizeRichText(input.additionalTerms) : null,
-      chequeAccountName: input.chequeAccountName ?? null,
-      chequeBankName: input.chequeBankName ?? null,
-      rentBankAccountId: input.rentBankAccountId ?? null,
+      chequeAccountName,
+      chequeBankName,
+      rentBankAccountId,
       cheques: chequeInputs,
       requirements,
       renewalDocuments: [] as RenewalDocumentUpload[],
@@ -865,8 +932,8 @@ export async function createLeaseRenewalOnNeon(
               currency: row.amount.currency,
               suggestedChequeNumber: row.chequeNumber,
             })),
-            chequePayableTo: input.chequeAccountName ?? null,
-            chequeBankNameHint: input.chequeBankName ?? null,
+            chequePayableTo: chequeAccountName,
+            chequeBankNameHint: chequeBankName,
           }
         : {}),
       electronicNotice: {
