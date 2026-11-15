@@ -407,16 +407,6 @@ export function ContractDocumentView({
         </div>
       ) : null}
 
-      {contract.documentHash || doc.verification ? (
-        <DocumentAuthenticityStrip
-          locale={locale}
-          verifyUrl={doc.verification?.url ?? null}
-          documentHash={contract.documentHash}
-          digitalSeal={contract.digitalSeal}
-          reference={contract.reference}
-        />
-      ) : null}
-
       <ContractDocumentToolbar
         ar={ar}
         documentId={DOCUMENT_ID}
@@ -648,6 +638,16 @@ export function ContractDocumentView({
 
       {contract.canSign ? (
         <SignatureForm contractId={contract.id} expectedName={viewerName} />
+      ) : null}
+
+      {contract.documentHash || doc.verification ? (
+        <DocumentAuthenticityStrip
+          locale={locale}
+          verifyUrl={doc.verification?.url ?? null}
+          documentHash={contract.documentHash}
+          digitalSeal={contract.digitalSeal}
+          reference={contract.reference}
+        />
       ) : null}
     </div>
   );
