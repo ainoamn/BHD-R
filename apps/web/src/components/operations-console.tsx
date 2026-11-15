@@ -50,6 +50,7 @@ import {
   leaseDaysRemaining,
   leaseExpiryBand,
   leaseExpiryBandLabel,
+  leaseExpiryBandTone,
   type LeaseExpiryBand,
 } from '@/lib/lease-renewal-window';
 import { replaceSoftPortalUrl, useSoftPortalPathname } from '@/lib/soft-portal-nav';
@@ -1017,8 +1018,24 @@ function displayCell(
 }
 
 function leasingRowExpiryBand(row: DataRow): LeaseExpiryBand | null {
-  if (safeString(row.state) !== 'active' && safeString(row.status) !== 'active') return null;
+  const state = safeString(row.state);
+  const status = safeString(row.status);
+  const live =
+    state === 'active' ||
+    status === 'active' ||
+    status === 'signed' ||
+    state === 'current';
+  if (!live) return null;
   return leaseExpiryBand(safeString(row.endsOn), muscatToday());
+}
+
+function expiryStatusClass(band: LeaseExpiryBand | null): string | null {
+  const tone = leaseExpiryBandTone(band);
+  if (!tone) return null;
+  if (tone === 'danger') return 'negative';
+  if (tone === 'orange') return 'orange';
+  if (tone === 'warn') return 'warning';
+  return 'positive';
 }
 
 function displayCellValue(
@@ -1113,9 +1130,13 @@ function displayCellValue(
         ? contractStatus || status
         : '';
     const detail = detailKey ? CONTRACT_SIGNING_LABELS[detailKey] : null;
+    const expiryClass =
+      state === 'active' ? expiryStatusClass(leasingRowExpiryBand(row)) : null;
     return (
       <span className="ops-contract-state">
-        <span className={`ops-status ops-status--${CONTRACT_STATE_TONE[state]}`}>
+        <span
+          className={`ops-status ops-status--${expiryClass ?? CONTRACT_STATE_TONE[state]}`}
+        >
           {locale === 'ar' ? label.ar : label.en}
         </span>
         {detail ? <small>{locale === 'ar' ? detail.ar : detail.en}</small> : null}
@@ -1125,8 +1146,16 @@ function displayCellValue(
   if (column.format === 'status') {
     const status = safeString(value);
     const labeled = flow?.find((item) => item.value === status);
+    const expiryClass =
+      status === 'active' || status === 'signed'
+        ? expiryStatusClass(leasingRowExpiryBand(row))
+        : null;
     return (
-      <span className={`ops-status ops-status--${statusTone(status, safeString(row.recordKind))}`}>
+      <span
+        className={`ops-status ops-status--${
+          expiryClass ?? statusTone(status, safeString(row.recordKind))
+        }`}
+      >
         {labeled ? (locale === 'ar' ? labeled.ar : labeled.en) : domainStatusLabel(status, locale)}
       </span>
     );
@@ -3833,22 +3862,26 @@ ${depositHtml}${
               <p>{ar ? definition.introAr : definition.introEn}</p>
             </>
           )}
-          {section === 'leasing' && !leasingIntroCollapsed ? (
+          {(section === 'leasing' && !leasingIntroCollapsed) || section === 'contracts' ? (
             <ul
               className="ops-expiry-legend"
-              aria-label={ar ? 'دليل ألوان الانتهاء' : 'Expiry colour key'}
+              aria-label={ar ? 'دليل ألوان الحالة حسب المدة المتبقية' : 'Status colour by days left'}
             >
+              <li className="ops-expiry-legend__item ops-expiry-legend__item--ok">
+                <span />
+                {ar ? 'أكثر من 90 يوماً' : 'Over 90 days'}
+              </li>
               <li className="ops-expiry-legend__item ops-expiry-legend__item--d90">
                 <span />
-                {ar ? 'ينتهي خلال 90 يوماً' : 'Ends within 90 days'}
+                {ar ? 'أقل من 90 يوماً' : 'Under 90 days'}
               </li>
               <li className="ops-expiry-legend__item ops-expiry-legend__item--d60">
                 <span />
-                {ar ? 'ينتهي خلال 60 يوماً' : 'Ends within 60 days'}
+                {ar ? 'أقل من 60 يوماً' : 'Under 60 days'}
               </li>
               <li className="ops-expiry-legend__item ops-expiry-legend__item--d30">
                 <span />
-                {ar ? 'ينتهي خلال 30 يوماً' : 'Ends within 30 days'}
+                {ar ? 'أقل من 30 يوماً' : 'Under 30 days'}
               </li>
             </ul>
           ) : null}
@@ -5087,7 +5120,10 @@ ${depositHtml}${
                       const bookingApproval =
                         section === 'bookings' &&
                         bookingNeedsApproval(safeString(row.status), safeString(row.recordKind));
-                      const expiryBand = section === 'leasing' ? leasingRowExpiryBand(row) : null;
+                      const expiryBand =
+                        section === 'leasing' || section === 'contracts'
+                          ? leasingRowExpiryBand(row)
+                          : null;
                       return (
                         <tr
                           key={safeString(row.id ?? row.reference) || String(index)}
@@ -5569,7 +5605,10 @@ ${depositHtml}${
                   const bookingApproval =
                     section === 'bookings' &&
                     bookingNeedsApproval(safeString(row.status), safeString(row.recordKind));
-                  const expiryBand = section === 'leasing' ? leasingRowExpiryBand(row) : null;
+                  const expiryBand =
+                    section === 'leasing' || section === 'contracts'
+                      ? leasingRowExpiryBand(row)
+                      : null;
                   return (
                     <article
                       className={

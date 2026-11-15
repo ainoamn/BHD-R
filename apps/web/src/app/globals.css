@@ -11495,15 +11495,20 @@ body:has(.stays-booking-receipt) #main-content {
   border-color: rgb(15 107 82 / 0.12);
 }
 .tenant-status--danger {
-  background: var(--tenant-danger-soft, #fdecec);
-  color: var(--tenant-danger, #9b1c1c);
-  border-color: rgb(155 28 28 / 0.12);
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #f87171;
+}
+.tenant-status--orange {
+  background: #ffedd5;
+  color: #c2410c;
+  border-color: #fb923c;
 }
 .tenant-status--warn,
 .tenant-status--bad {
-  background: var(--tenant-warn-soft, #fff6e8);
-  color: var(--tenant-warn, #9a5b08);
-  border-color: rgb(154 91 8 / 0.14);
+  background: #fef9c3;
+  color: #a16207;
+  border-color: #facc15;
 }
 .tenant-status--info {
   background: var(--tenant-info-soft, #e8f1f8);
@@ -14372,6 +14377,11 @@ button.ops-row-key {
   font-size: 0.68rem;
   font-weight: 650;
 }
+.ops-expiry--ok {
+  color: #0f6b52;
+  background: #e6f6f0;
+  border-color: #34d399;
+}
 .ops-expiry--d90 {
   color: #a16207;
   background: #fef9c3;
@@ -14386,6 +14396,11 @@ button.ops-row-key {
   color: #b91c1c;
   background: #fee2e2;
   border-color: #f87171;
+}
+.ops-status--orange {
+  color: #c2410c;
+  background: #ffedd5;
+  border-color: #fb923c;
 }
 .ops-expiry-legend {
   display: flex;
@@ -14409,6 +14424,10 @@ button.ops-row-key {
   border-radius: 0.15rem;
   border: 1px solid transparent;
 }
+.ops-expiry-legend__item--ok span {
+  background: #e6f6f0;
+  border-color: #34d399;
+}
 .ops-expiry-legend__item--d90 span {
   background: #fef9c3;
   border-color: #facc15;
@@ -14421,6 +14440,10 @@ button.ops-row-key {
   background: #fee2e2;
   border-color: #f87171;
 }
+.ops-table tbody tr.ops-table__row--expiry-ok {
+  background: #f3faf7;
+  box-shadow: inset 0.22rem 0 0 #10b981;
+}
 .ops-table tbody tr.ops-table__row--expiry-d90 {
   background: #fffbeb;
   box-shadow: inset 0.22rem 0 0 #eab308;
@@ -14432,6 +14455,10 @@ button.ops-row-key {
 .ops-table tbody tr.ops-table__row--expiry-d30 {
   background: #fef2f2;
   box-shadow: inset 0.22rem 0 0 #ef4444;
+}
+.ops-mobile-card--expiry-ok {
+  background: #f3faf7;
+  box-shadow: inset 0.22rem 0 0 #10b981;
 }
 .ops-mobile-card--expiry-d90 {
   background: #fffbeb;

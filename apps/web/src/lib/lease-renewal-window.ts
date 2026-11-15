@@ -30,12 +30,13 @@ export function leaseDaysRemaining(endsOn: string, today: string): number {
 }
 
 /**
- * Visual urgency for leases still in force:
- * - d30: ≤ 30 days (red)
- * - d60: ≤ 60 days (orange)
- * - d90: ≤ 90 days (amber/yellow)
+ * Visual urgency for leases / contracts still in force:
+ * - d30: < 30 days (red)
+ * - d60: < 60 days (orange)
+ * - d90: < 90 days (yellow)
+ * - ok: ≥ 90 days (green)
  */
-export type LeaseExpiryBand = 'd30' | 'd60' | 'd90';
+export type LeaseExpiryBand = 'd30' | 'd60' | 'd90' | 'ok';
 
 export function leaseExpiryBand(
   endsOn: string | null | undefined,
@@ -44,21 +45,34 @@ export function leaseExpiryBand(
   if (!endsOn) return null;
   const remaining = leaseDaysRemaining(endsOn, today);
   if (remaining < 0) return null;
-  if (remaining <= 30) return 'd30';
-  if (remaining <= 60) return 'd60';
-  if (remaining <= 90) return 'd90';
-  return null;
+  if (remaining < 30) return 'd30';
+  if (remaining < 60) return 'd60';
+  if (remaining < 90) return 'd90';
+  return 'ok';
+}
+
+/** Status / badge tone mapped from the expiry band. */
+export function leaseExpiryBandTone(
+  band: LeaseExpiryBand | null | undefined,
+): 'danger' | 'orange' | 'warn' | 'good' | null {
+  if (!band) return null;
+  if (band === 'd30') return 'danger';
+  if (band === 'd60') return 'orange';
+  if (band === 'd90') return 'warn';
+  return 'good';
 }
 
 export function leaseExpiryBandLabel(band: LeaseExpiryBand, locale: 'ar' | 'en'): string {
   if (locale === 'ar') {
-    if (band === 'd30') return 'خلال 30 يوماً';
-    if (band === 'd60') return 'خلال 60 يوماً';
-    return 'خلال 90 يوماً';
+    if (band === 'd30') return 'أقل من 30 يوماً';
+    if (band === 'd60') return 'أقل من 60 يوماً';
+    if (band === 'd90') return 'أقل من 90 يوماً';
+    return 'أكثر من 90 يوماً';
   }
-  if (band === 'd30') return 'Within 30 days';
-  if (band === 'd60') return 'Within 60 days';
-  return 'Within 90 days';
+  if (band === 'd30') return 'Under 30 days';
+  if (band === 'd60') return 'Under 60 days';
+  if (band === 'd90') return 'Under 90 days';
+  return 'Over 90 days';
 }
 
 /** True when the normal renewal window is open (≤ 90 days left). */

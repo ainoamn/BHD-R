@@ -37,6 +37,10 @@ import {
 } from '@/lib/stay-booking-payment-labels';
 import { displayStayCheckoutOn } from '@/lib/stay-period-times';
 import {
+  leaseExpiryBand,
+  leaseExpiryBandTone,
+} from '@/lib/lease-renewal-window';
+import {
   invoiceOutstandingMinor,
   reservationHref,
   stayHref,
@@ -50,6 +54,7 @@ import {
   type MyTenancy,
   type TenancyContract,
   type TenancyDepositRefund,
+  type TenancyLease,
 } from '@/lib/tenancy-shared';
 import { OPEN_TENANT_REQUEST } from '@/lib/tenant-requests-shared';
 import { TENANT_SPACE_SECTIONS, type TenantSpaceView } from '@/lib/tenant-soft-nav';
@@ -113,7 +118,7 @@ function money(amountMinor: string | null, currency: string | null, locale: stri
   return amountMinor && currency ? formatMoney(amountMinor, currency, locale) : '—';
 }
 
-type StatusTone = 'action' | 'good' | 'danger' | 'warn' | 'info' | 'quiet';
+type StatusTone = 'action' | 'good' | 'danger' | 'warn' | 'orange' | 'info' | 'quiet';
 
 function Status({ label, tone }: { label: string; tone?: StatusTone | undefined }) {
   return <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>{label}</span>;
@@ -449,12 +454,21 @@ function PreviewList({ items, ar, empty }: { items: PreviewItem[]; ar: boolean; 
   );
 }
 
+function muscatTodayClient(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Muscat' }).format(new Date());
+}
+
+function expiryToneForEndsOn(endsOn: string | null | undefined): StatusTone | null {
+  return leaseExpiryBandTone(leaseExpiryBand(endsOn, muscatTodayClient()));
+}
+
 function contractLifecycleLabel(
   contract: TenancyContract,
   ar: boolean,
+  endsOn?: string | null,
 ): {
   label: string;
-  tone: 'action' | 'good' | 'warn' | 'quiet' | 'info' | undefined;
+  tone: StatusTone | undefined;
 } {
   const awaitingMe =
     ['sent', 'partially_signed'].includes(contract.status) && !contract.tenantSigned;
@@ -481,11 +495,12 @@ function contractLifecycleLabel(
       case 'closed':
         return { label: ar ? 'منتهٍ' : 'Ended', tone: 'info' };
       case 'checked_in':
-        return { label: ar ? 'ساري' : 'Active', tone: 'good' };
       case 'confirmed':
       case 'paid':
-      case 'pre_arrival':
-        return { label: ar ? 'ساري' : 'Active', tone: 'good' };
+      case 'pre_arrival': {
+        const stayTone = expiryToneForEndsOn(endsOn ?? contract.endsOn) ?? 'good';
+        return { label: ar ? 'ساري' : 'Active', tone: stayTone };
+      }
       case 'payment_pending':
       case 'request_pending':
         return { label: stayStatusLabel(stay, ar), tone: 'action' };
@@ -495,13 +510,40 @@ function contractLifecycleLabel(
   }
 
   if (contract.status === 'signed') {
-    return { label: ar ? 'ساري' : 'Active', tone: 'good' };
+    const tone = expiryToneForEndsOn(endsOn ?? contract.endsOn) ?? 'good';
+    return { label: ar ? 'ساري' : 'Active', tone };
   }
   return { label: domainStatusLabel(contract.status, ar), tone: 'info' };
 }
 
-function contractStatusCell(contract: TenancyContract, ar: boolean) {
-  const { label, tone } = contractLifecycleLabel(contract, ar);
+function contractStatusCell(
+  contract: TenancyContract,
+  ar: boolean,
+  endsOn?: string | null,
+) {
+  const { label, tone } = contractLifecycleLabel(contract, ar, endsOn);
+  return <Status label={label} tone={tone} />;
+}
+
+function leaseStatusCell(lease: TenancyLease, ar: boolean) {
+  const label = domainStatusLabel(lease.status, ar);
+  if (lease.status !== 'active') {
+    return (
+      <Status
+        label={label}
+        tone={
+          lease.status === 'cancel_requested' || lease.status === 'clearance_pending'
+            ? 'warn'
+            : lease.status === 'cancelled' || lease.status === 'terminated'
+              ? 'quiet'
+              : lease.status === 'ended'
+                ? 'info'
+                : undefined
+        }
+      />
+    );
+  }
+  const tone = expiryToneForEndsOn(leaseDisplayEndsOn(lease)) ?? 'good';
   return <Status label={label} tone={tone} />;
 }
 
@@ -526,7 +568,7 @@ function ContractsTable({ ar, locale, data }: Ctx) {
         ? displayStayCheckoutOn(contract.stayType, contract.startsOn, effectiveEnds)
         : effectiveEnds;
     const daily = Boolean(contract.stayReference || contract.stayType);
-    const status = contractLifecycleLabel(contract, ar);
+    const status = contractLifecycleLabel(contract, ar, endsOn);
     const relatedIds = new Set([contract.id, ...attachments.map((row) => row.id)]);
     const leaseId =
       data.leases.find(
@@ -597,7 +639,7 @@ function ContractsTable({ ar, locale, data }: Ctx) {
         tenancyLandlordName(contract.landlord, ar),
         dayWithTime(contract.startsOn, daily ? contract.checkInTime : null, ar),
         dayWithTime(endsOn, daily ? contract.checkOutTime : null, ar),
-        contractStatusCell(contract, ar),
+        contractStatusCell(contract, ar, endsOn),
         money(contract.amountMinor, contract.currency, locale),
         <TenantRowActionMenu key="menu" ar={ar}>
           <TenantRowActionLink href={`/tenant/contracts/${contract.id}`}>
@@ -661,21 +703,7 @@ function LeasesTable({ ar, locale, data }: Ctx) {
       formatDate(lease.startsOn, ar),
       formatDate(endsOn, ar),
       money(lease.rentMinor, lease.currency, locale),
-      <Status
-        key="status"
-        label={domainStatusLabel(lease.status, ar)}
-        tone={
-          lease.status === 'active'
-            ? 'good'
-            : lease.status === 'cancel_requested' || lease.status === 'clearance_pending'
-              ? 'warn'
-              : lease.status === 'cancelled' || lease.status === 'terminated'
-                ? 'quiet'
-                : lease.status === 'ended'
-                  ? 'info'
-                  : undefined
-        }
-      />,
+      leaseStatusCell(lease, ar),
       lease.contractId ? (
         <Link key="open" className="ops-action" href={`/tenant/contracts/${lease.contractId}`}>
           {ar ? 'العقد' : 'Contract'}
@@ -1204,7 +1232,7 @@ function contractPreviewItems(
         ? displayStayCheckoutOn(contract.stayType, contract.startsOn, effectiveEnds)
         : effectiveEnds;
     const daily = Boolean(contract.stayReference || contract.stayType);
-    const lifecycle = contractLifecycleLabel(contract, ar);
+    const lifecycle = contractLifecycleLabel(contract, ar, endsOn);
     const tone = contractKindTone(contract.kind);
     const rowTone =
       tone === 'renewal' ? 'contract-renewal' : tone === 'new' ? 'contract-new' : null;
@@ -1221,7 +1249,7 @@ function contractPreviewItems(
       status: (
         <span className="tenant-preview-row__status-stack">
           <ContractKindChip kind={contract.kind} ar={ar} />
-          {contractStatusCell(contract, ar)}
+          {contractStatusCell(contract, ar, endsOn)}
         </span>
       ),
       ...(rowTone ? { tone: rowTone } : {}),
@@ -1317,27 +1345,12 @@ function leasePreviewItems(data: MyTenancy, ar: boolean, locale: string): Previe
     title: tenancyUnitLabel(lease, ar),
     eyebrow: lease.fromStay ? (ar ? 'إقامة يومية' : 'Daily stay') : ar ? 'إيجار' : 'Lease',
     summary: `${tenancyLandlordName(lease.landlord, ar)} · ${period(lease.startsOn, endsOn, ar)}`,
-    status: (
-      <Status
-        label={domainStatusLabel(lease.status, ar)}
-        tone={
-          lease.status === 'active'
-            ? 'good'
-            : lease.status === 'cancel_requested' || lease.status === 'clearance_pending'
-              ? 'warn'
-              : lease.status === 'cancelled' || lease.status === 'terminated'
-                ? 'quiet'
-                : lease.status === 'ended'
-                  ? 'info'
-                  : undefined
-        }
-      />
-    ),
+    status: leaseStatusCell(lease, ar),
     facts: [
       { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(lease.landlord, ar) },
       { label: ar ? 'المدة' : 'Term', value: period(lease.startsOn, endsOn, ar) },
       { label: ar ? 'الإيجار' : 'Rent', value: money(lease.rentMinor, lease.currency, locale) },
-      { label: ar ? 'الحالة' : 'Status', value: domainStatusLabel(lease.status, ar) },
+      { label: ar ? 'الحالة' : 'Status', value: leaseStatusCell(lease, ar) },
     ],
     ...(lease.contractId
       ? {
