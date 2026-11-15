@@ -42,6 +42,8 @@ import {
   stayHref,
   tenancyAlertLabel,
   tenancyContractGroups,
+  tenancyEffectiveContractEndsOn,
+  tenancyEffectiveLeaseEndsOn,
   tenancyLandlordName,
   tenancyUnitLabel,
   viewingHref,
@@ -101,6 +103,10 @@ function dayWithTime(
 function contractDisplayEndsOn(contract: TenancyContract): string | null {
   if (!contract.startsOn || !contract.endsOn) return contract.endsOn;
   return displayStayCheckoutOn(contract.stayType, contract.startsOn, contract.endsOn);
+}
+
+function leaseDisplayEndsOn(lease: MyTenancy['leases'][number]): string {
+  return tenancyEffectiveLeaseEndsOn(lease);
 }
 
 function money(amountMinor: string | null, currency: string | null, locale: string): string {
@@ -512,12 +518,24 @@ function ContractsTable({ ar, locale, data }: Ctx) {
     { key: 'action', label: '', kind: 'none' },
   ];
   const rows: TenantTableRow[] = groups.map(({ root: contract, attachments }) => {
-    const endsOn = contractDisplayEndsOn(contract);
+    const effectiveEnds =
+      tenancyEffectiveContractEndsOn(contract, attachments, data.leases) ??
+      contractDisplayEndsOn(contract);
+    const endsOn =
+      contract.startsOn && effectiveEnds
+        ? displayStayCheckoutOn(contract.stayType, contract.startsOn, effectiveEnds)
+        : effectiveEnds;
     const daily = Boolean(contract.stayReference || contract.stayType);
     const status = contractLifecycleLabel(contract, ar);
+    const relatedIds = new Set([contract.id, ...attachments.map((row) => row.id)]);
     const leaseId =
-      data.leases.find((row) => row.contractId === contract.id)?.id ??
-      data.statements.find((row) => row.contractId === contract.id)?.leaseId ??
+      data.leases.find(
+        (row) =>
+          (row.contractId != null && relatedIds.has(row.contractId)) ||
+          (row.renewalPendingContractId != null && relatedIds.has(row.renewalPendingContractId)),
+      )?.id ??
+      data.statements.find((row) => row.contractId != null && relatedIds.has(row.contractId))
+        ?.leaseId ??
       null;
     const openRenewal = data.contracts.find(
       (row) =>
@@ -622,14 +640,16 @@ function LeasesTable({ ar, locale, data }: Ctx) {
     { key: 'status', label: ar ? 'الحالة' : 'Status' },
     { key: 'action', label: '', kind: 'none' },
   ];
-  const rows: TenantTableRow[] = data.leases.map((lease) => ({
+  const rows: TenantTableRow[] = data.leases.map((lease) => {
+    const endsOn = leaseDisplayEndsOn(lease);
+    return {
     id: lease.id,
     values: {
       unit: tenancyUnitLabel(lease, ar),
       landlord: tenancyLandlordName(lease.landlord, ar),
       type: lease.fromStay ? (ar ? 'إقامة يومية' : 'Daily stay') : ar ? 'إيجار' : 'Lease',
       startsOn: lease.startsOn?.slice(0, 10) ?? '',
-      endsOn: lease.endsOn?.slice(0, 10) ?? '',
+      endsOn: endsOn.slice(0, 10),
       rent: money(lease.rentMinor, lease.currency, locale),
       status: domainStatusLabel(lease.status, ar),
       action: '',
@@ -639,7 +659,7 @@ function LeasesTable({ ar, locale, data }: Ctx) {
       tenancyLandlordName(lease.landlord, ar),
       lease.fromStay ? (ar ? 'إقامة يومية' : 'Daily stay') : ar ? 'إيجار' : 'Lease',
       formatDate(lease.startsOn, ar),
-      formatDate(lease.endsOn, ar),
+      formatDate(endsOn, ar),
       money(lease.rentMinor, lease.currency, locale),
       <Status
         key="status"
@@ -664,7 +684,8 @@ function LeasesTable({ ar, locale, data }: Ctx) {
         '—'
       ),
     ],
-  }));
+  };
+  });
   return (
     <FilterableTenantTable
       columns={columns}
@@ -1164,11 +1185,24 @@ function contractPreviewItems(
   limit?: number,
 ): PreviewItem[] {
   // Flat list so renewals show as their own cards (not buried under the parent).
+  const groups = tenancyContractGroups(data.contracts);
   const sorted = data.contracts
     .slice()
     .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
   return takeRows(sorted, limit).map((contract) => {
-    const endsOn = contractDisplayEndsOn(contract);
+    const group =
+      groups.find(
+        (row) =>
+          row.root.id === contract.id || row.attachments.some((item) => item.id === contract.id),
+      ) ?? null;
+    const effectiveEnds =
+      contract.kind === 'initial' && group
+        ? tenancyEffectiveContractEndsOn(group.root, group.attachments, data.leases)
+        : contract.endsOn;
+    const endsOn =
+      contract.startsOn && effectiveEnds
+        ? displayStayCheckoutOn(contract.stayType, contract.startsOn, effectiveEnds)
+        : effectiveEnds;
     const daily = Boolean(contract.stayReference || contract.stayType);
     const lifecycle = contractLifecycleLabel(contract, ar);
     const tone = contractKindTone(contract.kind);
@@ -1276,11 +1310,13 @@ function invoicePreviewItems(
 }
 
 function leasePreviewItems(data: MyTenancy, ar: boolean, locale: string): PreviewItem[] {
-  return data.leases.map((lease) => ({
+  return data.leases.map((lease) => {
+    const endsOn = leaseDisplayEndsOn(lease);
+    return {
     id: `lease:${lease.id}`,
     title: tenancyUnitLabel(lease, ar),
     eyebrow: lease.fromStay ? (ar ? 'إقامة يومية' : 'Daily stay') : ar ? 'إيجار' : 'Lease',
-    summary: `${tenancyLandlordName(lease.landlord, ar)} · ${period(lease.startsOn, lease.endsOn, ar)}`,
+    summary: `${tenancyLandlordName(lease.landlord, ar)} · ${period(lease.startsOn, endsOn, ar)}`,
     status: (
       <Status
         label={domainStatusLabel(lease.status, ar)}
@@ -1299,7 +1335,7 @@ function leasePreviewItems(data: MyTenancy, ar: boolean, locale: string): Previe
     ),
     facts: [
       { label: ar ? 'المالك' : 'Landlord', value: tenancyLandlordName(lease.landlord, ar) },
-      { label: ar ? 'المدة' : 'Term', value: period(lease.startsOn, lease.endsOn, ar) },
+      { label: ar ? 'المدة' : 'Term', value: period(lease.startsOn, endsOn, ar) },
       { label: ar ? 'الإيجار' : 'Rent', value: money(lease.rentMinor, lease.currency, locale) },
       { label: ar ? 'الحالة' : 'Status', value: domainStatusLabel(lease.status, ar) },
     ],
@@ -1309,7 +1345,8 @@ function leasePreviewItems(data: MyTenancy, ar: boolean, locale: string): Previe
           hrefLabel: ar ? 'عرض العقد' : 'View contract',
         }
       : {}),
-  }));
+  };
+  });
 }
 
 function Section({
@@ -1806,7 +1843,7 @@ export function TenantSpaceContent({
             <p>
               {tenancyLandlordName(spotlightLease.landlord, ar)}
               {' · '}
-              {period(spotlightLease.startsOn, spotlightLease.endsOn, ar)}
+              {period(spotlightLease.startsOn, leaseDisplayEndsOn(spotlightLease), ar)}
             </p>
             <p className="tenant-home__spotlight-rent" dir="ltr">
               {money(spotlightLease.rentMinor, spotlightLease.currency, locale)}

@@ -173,16 +173,26 @@ export function TenantRenewalIntentList({
                     {[
                       item.reference,
                       tenancyLandlordName(item.landlord, ar),
-                      ar
-                        ? `ينتهي الإيجار ${formatDay(item.leaseEndsOn, true)}`
-                        : `Lease ends ${formatDay(item.leaseEndsOn, false)}`,
-                      item.systemEndsOn
-                        ? ar
-                          ? `مدة النظام حتى ${formatDay(item.systemEndsOn, true)}`
-                          : `System term until ${formatDay(item.systemEndsOn, false)}`
-                        : ar
-                          ? 'بانتظار ملحق التجديد'
-                          : 'Awaiting renewal addendum',
+                      ...(item.phase === 'renewed_pending'
+                        ? [
+                            item.systemEndsOn
+                              ? ar
+                                ? `نهاية التجديد ${formatDay(item.systemEndsOn, true)}`
+                                : `Renewal ends ${formatDay(item.systemEndsOn, false)}`
+                              : null,
+                          ]
+                        : [
+                            ar
+                              ? `ينتهي الإيجار ${formatDay(item.leaseEndsOn, true)}`
+                              : `Lease ends ${formatDay(item.leaseEndsOn, false)}`,
+                            item.systemEndsOn
+                              ? ar
+                                ? `مدة النظام حتى ${formatDay(item.systemEndsOn, true)}`
+                                : `System term until ${formatDay(item.systemEndsOn, false)}`
+                              : ar
+                                ? 'بانتظار ملحق التجديد'
+                                : 'Awaiting renewal addendum',
+                          ]),
                     ]
                       .filter(Boolean)
                       .join(' · ')}

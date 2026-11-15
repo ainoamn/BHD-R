@@ -42,6 +42,44 @@ export function tenancyContractGroups(contracts: TenancyContract[]): TenancyCont
   return groupContractRowsByParent(contracts);
 }
 
+/**
+ * End date the tenant should see for a contract group: prefer a signed renewal
+ * (or pending clearance end) over the original addendum dates that stay frozen.
+ */
+export function tenancyEffectiveContractEndsOn(
+  root: TenancyContract,
+  attachments: TenancyContract[],
+  leases: TenancyLease[],
+): string | null {
+  const relatedIds = new Set<string>([root.id, ...attachments.map((row) => row.id)]);
+  const lease =
+    leases.find(
+      (row) =>
+        (row.contractId != null && relatedIds.has(row.contractId)) ||
+        (row.renewalPendingContractId != null && relatedIds.has(row.renewalPendingContractId)),
+    ) ?? null;
+
+  const candidates: string[] = [];
+  if (lease?.renewalPendingEndsOn) candidates.push(lease.renewalPendingEndsOn.slice(0, 10));
+  if (lease?.endsOn) candidates.push(lease.endsOn.slice(0, 10));
+  for (const row of attachments) {
+    if (row.kind === 'renewal' && row.status === 'signed' && row.endsOn) {
+      candidates.push(row.endsOn.slice(0, 10));
+    }
+  }
+  if (root.endsOn) candidates.push(root.endsOn.slice(0, 10));
+  if (!candidates.length) return null;
+  return candidates.reduce((latest, day) => (day > latest ? day : latest));
+}
+
+/** Lease end date including a signed renewal still awaiting accountant clearance. */
+export function tenancyEffectiveLeaseEndsOn(lease: TenancyLease): string {
+  const pending = lease.renewalPendingEndsOn?.slice(0, 10) ?? null;
+  const current = lease.endsOn.slice(0, 10);
+  if (pending && pending > current) return pending;
+  return current;
+}
+
 export function tenancyContractKindLabel(kind: string, ar: boolean): string {
   return contractKindLabel(kind, ar);
 }
