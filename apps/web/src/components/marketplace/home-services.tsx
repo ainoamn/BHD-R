@@ -3,6 +3,34 @@ import { Link } from '@/i18n/navigation';
 
 const SERVICES = [
   {
+    href: '/projects',
+    icon: 'ش',
+    ar: {
+      title: 'مشاريع التطوير',
+      text: 'مشاريع قيد البيع مع وحدات وخطط دفع ومراحل تنفيذ.',
+      cta: 'استعرض المشاريع',
+    },
+    en: {
+      title: 'Development projects',
+      text: 'Off-plan projects with units, payment plans and milestones.',
+      cta: 'Browse projects',
+    },
+  },
+  {
+    href: '/auctions',
+    icon: 'ز',
+    ar: {
+      title: 'المزادات العقارية',
+      text: 'مزادات نشطة وقادمة مع عدّ تنازلي وتقديم مزايدات.',
+      cta: 'استعرض المزادات',
+    },
+    en: {
+      title: 'Property auctions',
+      text: 'Live and upcoming auctions with countdown and bidding.',
+      cta: 'Browse auctions',
+    },
+  },
+  {
     href: '/offices',
     icon: 'م',
     ar: {
@@ -76,7 +104,7 @@ export function HomeServicesSection({ locale }: { locale: string }) {
               {ar ? 'خدمات السوق' : 'Market services'}
             </span>
             <h2 id="home-services-title">
-              {ar ? 'مكاتب · تثمين · تأمين' : 'Offices · Valuation · Insurance'}
+              {ar ? 'مشاريع · مزادات · مكاتب' : 'Projects · Auctions · Offices'}
             </h2>
             <p>
               {ar

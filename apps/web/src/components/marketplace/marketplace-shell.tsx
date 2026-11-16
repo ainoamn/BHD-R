@@ -28,6 +28,12 @@ export function MarketplaceShell({
           <p className="mkt-hero__lead">{lead}</p>
           {actions ? <div className="mkt-hero__actions">{actions}</div> : null}
           <nav aria-label={ar ? 'خدمات السوق' : 'Market services'} className="mkt-hero__actions">
+            <Link className="button button--secondary button--small" href="/projects">
+              {ar ? 'المشاريع' : 'Projects'}
+            </Link>
+            <Link className="button button--secondary button--small" href="/auctions">
+              {ar ? 'المزادات' : 'Auctions'}
+            </Link>
             <Link className="button button--secondary button--small" href="/offices">
               {ar ? 'المكاتب' : 'Offices'}
             </Link>

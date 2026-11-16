@@ -95,6 +95,12 @@ export function SiteHeader() {
           <Link href="/properties" prefetch scroll={false} onClick={() => setOpen(false)}>
             {t('Nav.available')}
           </Link>
+          <Link href="/projects" prefetch scroll={false} onClick={() => setOpen(false)}>
+            {locale === 'ar' ? 'المشاريع' : 'Projects'}
+          </Link>
+          <Link href="/auctions" prefetch scroll={false} onClick={() => setOpen(false)}>
+            {locale === 'ar' ? 'المزادات' : 'Auctions'}
+          </Link>
           <Link href="/offices" prefetch scroll={false} onClick={() => setOpen(false)}>
             {locale === 'ar' ? 'المكاتب' : 'Offices'}
           </Link>

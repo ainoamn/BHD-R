@@ -75,6 +75,12 @@ export function SiteFooter() {
           <a href={`/${ar ? 'ar' : 'en'}/badges`}>
             {ar ? 'الشارات والتوثيق' : 'Badges & verification'}
           </a>
+          <a href={`/${ar ? 'ar' : 'en'}/projects`}>
+            {ar ? 'مشاريع التطوير' : 'Development projects'}
+          </a>
+          <a href={`/${ar ? 'ar' : 'en'}/auctions`}>
+            {ar ? 'المزادات العقارية' : 'Property auctions'}
+          </a>
           <a href={`/${ar ? 'ar' : 'en'}/offices`}>
             {ar ? 'المكاتب العقارية' : 'Real estate offices'}
           </a>

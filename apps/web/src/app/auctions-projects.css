@@ -1,0 +1,309 @@
+/* Public auctions + development projects — BHD R teal identity */
+
+.ap-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 1fr));
+  margin: 1.25rem 0 0;
+}
+
+.ap-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line, #e4ddd0);
+  border-radius: 1rem;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(9 45 36 / 0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ap-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgb(9 45 36 / 0.1);
+}
+
+.ap-card__media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  background: #d9e4e2;
+  overflow: hidden;
+}
+
+.ap-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ap-card__badge {
+  position: absolute;
+  top: 0.65rem;
+  inset-inline-start: 0.65rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgb(255 255 255 / 0.92);
+  color: #0b5f5c;
+}
+
+.ap-card__badge--featured {
+  background: #c4a35a;
+  color: #092d24;
+}
+
+.ap-card__badge--ended {
+  color: #5c6b66;
+}
+
+.ap-card__timer {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 0.45rem 0.65rem;
+  background: rgb(255 255 255 / 0.92);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #092d24;
+}
+
+.ap-card__body {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem 1.05rem;
+}
+
+.ap-card__body h3 {
+  margin: 0;
+  font-size: 1.02rem;
+  color: #092d24;
+  line-height: 1.35;
+}
+
+.ap-card__meta {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #5c6b66;
+}
+
+.ap-card__price {
+  margin: 0.15rem 0 0;
+  font-weight: 700;
+  color: #0b5f5c;
+  font-size: 0.95rem;
+}
+
+.ap-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.ap-filters input,
+.ap-filters select {
+  min-height: 2.5rem;
+  border: 1px solid var(--line, #e4ddd0);
+  border-radius: 0.65rem;
+  padding: 0.4rem 0.75rem;
+  background: #fff;
+  color: #092d24;
+  font: inherit;
+}
+
+.ap-filters input {
+  flex: 1 1 14rem;
+}
+
+.ap-chip {
+  border: 1px solid var(--line, #e4ddd0);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #5c6b66;
+  cursor: pointer;
+}
+
+.ap-chip.is-active {
+  background: #08a39f;
+  border-color: #08a39f;
+  color: #fff;
+}
+
+.ap-section-title {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 1.15rem;
+  color: #092d24;
+}
+
+.ap-detail {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(16rem, 0.8fr);
+  margin-top: 1rem;
+}
+
+@media (max-width: 860px) {
+  .ap-detail {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ap-detail__media {
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid var(--line, #e4ddd0);
+  background: #d9e4e2;
+  aspect-ratio: 16 / 10;
+}
+
+.ap-detail__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ap-panel {
+  border: 1px solid var(--line, #e4ddd0);
+  border-radius: 1rem;
+  background: #fff;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 8px 24px rgb(9 45 36 / 0.05);
+}
+
+.ap-panel h2 {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+  color: #092d24;
+}
+
+.ap-countdown {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.45rem;
+  margin: 0.75rem 0 1rem;
+}
+
+.ap-countdown div {
+  text-align: center;
+  padding: 0.55rem 0.25rem;
+  border-radius: 0.65rem;
+  background: rgb(8 163 159 / 0.1);
+  color: #092d24;
+}
+
+.ap-countdown strong {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.ap-countdown span {
+  font-size: 0.7rem;
+  color: #5c6b66;
+}
+
+.ap-bid-form {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.ap-bid-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  color: #5c6b66;
+}
+
+.ap-bid-form input {
+  min-height: 2.55rem;
+  border: 1px solid var(--line, #e4ddd0);
+  border-radius: 0.65rem;
+  padding: 0.4rem 0.75rem;
+  font: inherit;
+}
+
+.ap-bid-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.ap-bid-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.5rem;
+  background: #f7f5f0;
+}
+
+.ap-project-cover {
+  border-radius: 1rem;
+  min-height: 10rem;
+  display: grid;
+  align-content: end;
+  padding: 1.25rem;
+  color: #fff;
+  box-shadow: inset 0 -40px 60px rgb(0 0 0 / 0.25);
+}
+
+.ap-project-cover h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.ap-units {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.ap-unit {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--line, #e4ddd0);
+  background: #fff;
+}
+
+.ap-unit strong {
+  color: #092d24;
+}
+
+.ap-milestone {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.ap-milestone__bar {
+  height: 0.4rem;
+  border-radius: 999px;
+  background: #e4ddd0;
+  overflow: hidden;
+}
+
+.ap-milestone__bar > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #0b5f5c, #08a39f);
+}
+
+.ap-empty {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  text-align: center;
+  border-radius: 1rem;
+  border: 1px dashed var(--line, #e4ddd0);
+  color: #5c6b66;
+}

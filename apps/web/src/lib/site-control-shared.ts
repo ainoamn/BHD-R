@@ -19,6 +19,8 @@ export type PaymentGatewaysView = {
 export const SITE_PAGE_IDS = [
   'home',
   'properties',
+  'projects',
+  'auctions',
   'stays',
   'badges',
   'offices',
@@ -37,6 +39,8 @@ export type SitePageId = (typeof SITE_PAGE_IDS)[number];
 export const SITE_PAGE_META: Record<SitePageId, { path: string; ar: string; en: string }> = {
   home: { path: '/', ar: 'الصفحة الرئيسية', en: 'Home' },
   properties: { path: '/properties', ar: 'العقارات', en: 'Properties' },
+  projects: { path: '/projects', ar: 'مشاريع التطوير', en: 'Development projects' },
+  auctions: { path: '/auctions', ar: 'المزادات العقارية', en: 'Property auctions' },
   stays: { path: '/stays', ar: 'الإقامات اليومية', en: 'Daily stays' },
   badges: { path: '/badges', ar: 'الشارات', en: 'Badges' },
   offices: { path: '/offices', ar: 'المكاتب العقارية', en: 'Real estate offices' },
