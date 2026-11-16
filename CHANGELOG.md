@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.222 — 2026-11-16
+
+- **نشر الوحدة عند التوفر:** نُقل الخيار إلى خطوة الوصف (قبل العرض) داخل صندوق أحمر واضح.
+
 ## 0.8.136.221 — 2026-11-16
 
 - **عربون التأجير/البيع:** الكتابة المتواصلة دون توقف بعد كل رقم (نفس إصلاح المساحة والإيجار).

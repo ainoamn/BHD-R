@@ -2919,23 +2919,6 @@ export function PropertyWizard({
                                     {t('PropertyForm.commercialUnitHint')}
                                   </p>
                                 )}
-                                <div className="span-2 publish-hint">
-                                  <label className="checkbox-row">
-                                    <input
-                                      type="checkbox"
-                                      checked={unit.publishWhenAvailable}
-                                      onChange={(event) =>
-                                        updateUnit(
-                                          unit.localId,
-                                          'publishWhenAvailable',
-                                          event.target.checked,
-                                        )
-                                      }
-                                    />
-                                    {t('PropertyForm.publish')}
-                                  </label>
-                                  <p className="field__hint">{t('PropertyForm.publishHint')}</p>
-                                </div>
                               </div>
                             </fieldset>
                           );
@@ -3296,23 +3279,6 @@ export function PropertyWizard({
                                     />
                                   ) : null}
                                   {renderDepositFields(unit)}
-                                  <div className="span-2 publish-hint">
-                                    <label className="checkbox-row">
-                                      <input
-                                        type="checkbox"
-                                        checked={unit.publishWhenAvailable}
-                                        onChange={(event) =>
-                                          updateUnit(
-                                            unit.localId,
-                                            'publishWhenAvailable',
-                                            event.target.checked,
-                                          )
-                                        }
-                                      />
-                                      {t('PropertyForm.publish')}
-                                    </label>
-                                    <p className="field__hint">{t('PropertyForm.publishHint')}</p>
-                                  </div>
                                 </>
                               </GuidedReveal>
                             </div>
@@ -4025,6 +3991,33 @@ export function PropertyWizard({
                         />
                       </div>
                       <p className="field__hint">{t('PropertyForm.serialHint')}</p>
+                    </section>
+                    <section className="publish-hint publish-hint--alert" aria-label={t('PropertyForm.publish')}>
+                      {units.map((unit, index) => (
+                        <div key={unit.localId} className="publish-hint__unit">
+                          {units.length > 1 ? (
+                            <p className="publish-hint__unit-label">
+                              {t('PropertyForm.unit')} {index + 1}
+                              {unit.code.trim() ? ` · ${unit.code.trim()}` : ''}
+                            </p>
+                          ) : null}
+                          <label className="checkbox-row">
+                            <input
+                              type="checkbox"
+                              checked={unit.publishWhenAvailable}
+                              onChange={(event) =>
+                                updateUnit(
+                                  unit.localId,
+                                  'publishWhenAvailable',
+                                  event.target.checked,
+                                )
+                              }
+                            />
+                            {t('PropertyForm.publish')}
+                          </label>
+                          <p className="field__hint">{t('PropertyForm.publishHint')}</p>
+                        </div>
+                      ))}
                     </section>
                   </div>
                 ) : null}
