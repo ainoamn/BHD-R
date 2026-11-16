@@ -395,6 +395,7 @@ export function PropertyDetailManager({
     nameEn: property.nameEn,
     displayNumber: property.displayNumber,
     listingLabelMode: property.listingLabelMode,
+    serialFallback: property.serialNumber,
   });
   const showPublicOwnerName =
     Boolean(property.showOwnerNameOnListing ?? property.profile?.showOwnerNameOnListing) &&

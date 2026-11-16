@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.216 — 2026-11-16
+
+- **عرض الإعلان بقائمة منسدلة:** اختيار العنوان فقط / الرقم فقط / الرقم والعنوان معاً من قائمة؛ الحقول تظهر حسب الاختيار، وإن لم يُدخل رقم عقار يُستخدم المتسلسل BHD-… تلقائياً.
+
 ## 0.8.136.215 — 2026-11-16
 
 - **إصلاح بناء API:** توافق أنواع `displayNumber` / `listingLabelMode` مع `exactOptionalPropertyTypes` لإعادة نشر `bhd-r-api`.

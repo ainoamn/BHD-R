@@ -17,11 +17,13 @@ export function formatPropertyListingLabel(
     nameEn?: string | null | undefined;
     displayNumber?: string | null | undefined;
     listingLabelMode?: ListingLabelMode | string | null | undefined;
+    serialFallback?: string | null | undefined;
   },
 ): string {
   const mode = normalizeListingLabelMode(input.listingLabelMode);
   const title = localizedName(locale, input.nameAr ?? '', input.nameEn ?? '').trim();
-  const number = (input.displayNumber ?? '').trim();
+  const number =
+    (input.displayNumber ?? '').trim() || (input.serialFallback ?? '').trim();
   if (mode === 'number') return number || title;
   if (mode === 'both') {
     if (number && title) return `${number} · ${title}`;

@@ -190,6 +190,7 @@ export class PortfolioService {
         nameEn: input.property.nameEn,
         displayNumber: input.property.displayNumber,
         listingLabelMode: input.property.listingLabelMode,
+        serialFallback: serialNumber,
       });
       const propertyRows = await transaction
         .insert(properties)
@@ -581,6 +582,7 @@ export class PortfolioService {
         nameEn: input.property.nameEn,
         displayNumber: input.property.displayNumber,
         listingLabelMode: input.property.listingLabelMode,
+        serialFallback: property.serialNumber,
       });
       const propertyRows = await transaction
         .update(properties)

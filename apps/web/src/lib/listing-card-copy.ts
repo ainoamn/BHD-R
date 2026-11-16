@@ -40,6 +40,7 @@ export function formatBuildingCardLine(listing: CatalogueListing, locale: 'ar' |
     nameEn: listing.propertyNameEn,
     displayNumber: listing.displayNumber,
     listingLabelMode: listing.listingLabelMode,
+    serialFallback: listing.propertySerial,
   });
 }
 
@@ -60,6 +61,7 @@ export function formatListingCardTitle(
     nameEn: listing.propertyNameEn,
     displayNumber: listing.displayNumber,
     listingLabelMode: listing.listingLabelMode,
+    serialFallback: listing.propertySerial,
   });
   const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
   const headline =

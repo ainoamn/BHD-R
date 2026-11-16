@@ -126,6 +126,8 @@ export function resolveStoredPropertyNames(input: {
   nameEn?: string | null | undefined;
   displayNumber?: string | null | undefined;
   listingLabelMode?: 'title' | 'number' | 'both' | string | null | undefined;
+  /** System serial (BHD-…) used when the owner left display number empty. */
+  serialFallback?: string | null | undefined;
 }): {
   nameAr: string;
   nameEn: string;
@@ -136,11 +138,17 @@ export function resolveStoredPropertyNames(input: {
     input.listingLabelMode === 'number' || input.listingLabelMode === 'both'
       ? input.listingLabelMode
       : 'title';
-  const displayNumber = (input.displayNumber ?? '').trim() || null;
+  let displayNumber = (input.displayNumber ?? '').trim() || null;
+  if (
+    (listingLabelMode === 'number' || listingLabelMode === 'both') &&
+    !displayNumber
+  ) {
+    displayNumber = (input.serialFallback ?? '').trim() || null;
+  }
   let nameAr = (input.nameAr ?? '').trim();
   let nameEn = (input.nameEn ?? '').trim();
   if (listingLabelMode === 'number') {
-    const fallback = displayNumber || 'Property';
+    const fallback = displayNumber || (input.serialFallback ?? '').trim() || 'Property';
     if (nameAr.length < 2) nameAr = fallback;
     if (nameEn.length < 2) nameEn = fallback;
   }
@@ -153,12 +161,14 @@ export function applyListingLabelMode(input: {
   nameEn?: string | null | undefined;
   displayNumber?: string | null | undefined;
   listingLabelMode?: 'title' | 'number' | 'both' | string | null | undefined;
+  serialFallback?: string | null | undefined;
 }): { nameAr: string; nameEn: string } {
   const mode =
     input.listingLabelMode === 'number' || input.listingLabelMode === 'both'
       ? input.listingLabelMode
       : 'title';
-  const number = (input.displayNumber ?? '').trim();
+  const number =
+    (input.displayNumber ?? '').trim() || (input.serialFallback ?? '').trim();
   const titleAr = (input.nameAr ?? '').trim();
   const titleEn = (input.nameEn ?? '').trim();
   if (mode === 'number') {
@@ -183,9 +193,9 @@ export function refinePropertyListingLabel(
   ctx: z.RefinementCtx,
 ) {
   const mode = value.listingLabelMode ?? 'title';
-  const number = (value.displayNumber ?? '').trim();
   const nameAr = value.nameAr.trim();
   const nameEn = value.nameEn.trim();
+  // Display number is optional — the system serial fills it when empty.
   if (mode === 'title' || mode === 'both') {
     if (nameAr.length < 2) {
       ctx.addIssue({
@@ -199,15 +209,6 @@ export function refinePropertyListingLabel(
         code: 'custom',
         path: ['nameEn'],
         message: 'Property title (English) is required',
-      });
-    }
-  }
-  if (mode === 'number' || mode === 'both') {
-    if (number.length < 1) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['displayNumber'],
-        message: 'Property number is required',
       });
     }
   }

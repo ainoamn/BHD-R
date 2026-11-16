@@ -472,6 +472,10 @@ export function PropertyWizard({
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
   /** Create flow: how many fields are unlocked within each wizard step (1-based). */
   const [guidedUnlocked, setGuidedUnlocked] = useState<Record<number, number>>({ 0: 99 });
+  /** Number-only path: owner pressed Enter on the optional number field (serial fills if empty). */
+  const [numberFieldConfirmed, setNumberFieldConfirmed] = useState(
+    () => Boolean(initialProperty?.displayNumber?.trim()) || mode === 'edit',
+  );
   const bundleIdempotencyKey = useRef(`property-bundle:${crypto.randomUUID()}`);
 
   const steps = [
@@ -840,10 +844,7 @@ export function PropertyWizard({
         if (property.nameEn.trim().length < 2)
           issues.push(ar ? 'عنوان العقار (إنجليزي)' : 'Property title (English)');
       }
-      if (labelMode === 'number' || labelMode === 'both') {
-        if (!property.displayNumber.trim())
-          issues.push(t('PropertyForm.displayNumber'));
-      }
+      // Display number is optional — system serial is used when empty.
       if (!profile.usageType) issues.push(t('PropertyForm.usageType'));
       if (!property.category) issues.push(t('PropertyForm.category'));
       if (property.countryCode === 'OM') {
@@ -1788,9 +1789,9 @@ export function PropertyWizard({
   const namesBlockDone = (() => {
     const modeLabel = property.listingLabelMode;
     const hasTitles = property.nameAr.trim().length >= 2 && property.nameEn.trim().length >= 2;
-    const hasNumber = property.displayNumber.trim().length > 0;
-    if (modeLabel === 'number') return hasNumber;
-    if (modeLabel === 'both') return hasTitles && hasNumber;
+    // Number-only: confirm optional number (Enter) — empty uses system serial on save.
+    if (modeLabel === 'number') return numberFieldConfirmed;
+    if (modeLabel === 'both') return hasTitles;
     return hasTitles;
   })();
   const locationBlockDone = Boolean(
@@ -2193,54 +2194,42 @@ export function PropertyWizard({
                     </SelectField>
                     {showNamesBlock ? (
                       <div className="span-2 form-grid wizard-guided-block">
-                        <div className="field span-2">
-                          <label>{t('PropertyForm.listingLabelMode')}</label>
-                          <div className="wizard-seg" role="radiogroup">
-                            {(
-                              [
-                                ['title', 'listingLabelTitle'],
-                                ['number', 'listingLabelNumber'],
-                                ['both', 'listingLabelBoth'],
-                              ] as const
-                            ).map(([value, key]) => (
-                              <label
-                                key={value}
-                                className={
-                                  property.listingLabelMode === value
-                                    ? 'wizard-seg__item is-active'
-                                    : 'wizard-seg__item'
-                                }
-                              >
-                                <input
-                                  type="radio"
-                                  name="listingLabelMode"
-                                  checked={property.listingLabelMode === value}
-                                  onChange={() => {
-                                    updateProperty('listingLabelMode', value);
-                                    window.setTimeout(() => focusNextField(), 40);
-                                  }}
-                                />
-                                {t(`PropertyForm.${key}`)}
-                              </label>
-                            ))}
-                          </div>
-                        </div>
+                        <SelectField
+                          id="listingLabelMode"
+                          label={t('PropertyForm.listingLabelMode')}
+                          value={property.listingLabelMode}
+                          tone="ok"
+                          onChange={(event) =>
+                            onSelectAdvance(event, (value) => {
+                              const next =
+                                value === 'number' || value === 'both' ? value : 'title';
+                              updateProperty('listingLabelMode', next);
+                              setNumberFieldConfirmed(next !== 'number');
+                            })
+                          }
+                          required
+                        >
+                          <option value="title">{t('PropertyForm.listingLabelTitle')}</option>
+                          <option value="number">{t('PropertyForm.listingLabelNumber')}</option>
+                          <option value="both">{t('PropertyForm.listingLabelBoth')}</option>
+                        </SelectField>
                         {showNumberField ? (
                           <Field
                             id="displayNumber"
                             label={t('PropertyForm.displayNumber')}
                             value={property.displayNumber}
-                            tone={tone(property.displayNumber, true, showErrors)}
                             onChange={(event) =>
                               updateProperty('displayNumber', event.target.value)
                             }
-                            onKeyDown={(event) =>
-                              onTextEnter(event, event.currentTarget.value.trim().length > 0)
-                            }
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter') return;
+                              event.preventDefault();
+                              setNumberFieldConfirmed(true);
+                              focusNextField(event.currentTarget);
+                            }}
                             placeholder={t('PropertyForm.displayNumberPlaceholder')}
                             hint={t('PropertyForm.displayNumberHint')}
                             maxLength={80}
-                            required
                             dir="ltr"
                           />
                         ) : null}

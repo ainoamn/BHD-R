@@ -342,8 +342,9 @@ export const messages = {
       usageInvestment: 'استثماري',
       usageOther: 'أخرى',
       displayNumber: 'رقم العقار',
-      displayNumberPlaceholder: 'مثال: 12 أو A-7',
-      displayNumberHint: 'رقم يظهر للجمهور حسب خيار العرض أدناه (غير رقم النظام BHD-…).',
+      displayNumberPlaceholder: 'مثال: 12 أو A-7 (اختياري)',
+      displayNumberHint:
+        'اختياري. إن تركته فارغاً يُستخدم الرقم المتسلسل للنظام (BHD-…) تلقائياً كرقم العقار.',
       listingLabelMode: 'ماذا يظهر في الإعلان؟',
       listingLabelTitle: 'العنوان فقط',
       listingLabelNumber: 'الرقم فقط',
@@ -857,8 +858,9 @@ export const messages = {
       usageInvestment: 'Investment',
       usageOther: 'Other',
       displayNumber: 'Property number',
-      displayNumberPlaceholder: 'e.g. 12 or A-7',
-      displayNumberHint: 'Public number based on the display choice below (not the system BHD-… serial).',
+      displayNumberPlaceholder: 'e.g. 12 or A-7 (optional)',
+      displayNumberHint:
+        'Optional. If left empty, the system serial (BHD-…) is used automatically as the property number.',
       listingLabelMode: 'What should the listing show?',
       listingLabelTitle: 'Title only',
       listingLabelNumber: 'Number only',

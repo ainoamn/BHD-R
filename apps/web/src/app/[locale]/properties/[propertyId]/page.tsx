@@ -48,6 +48,7 @@ export async function generateMetadata({
     nameEn: property.nameEn,
     displayNumber: property.displayNumber,
     listingLabelMode: property.listingLabelMode,
+    serialFallback: property.serialNumber,
   });
   const description =
     localizedName(locale, property.descriptionAr ?? '', property.descriptionEn ?? '') ||
