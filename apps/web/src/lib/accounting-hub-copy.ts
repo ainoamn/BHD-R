@@ -5,11 +5,11 @@ export function accountingHubCopy(locale: 'ar' | 'en') {
   const ar = locale === 'ar';
   return {
     ar,
-    eyebrow: ar ? 'دفتر الأستاذ العقاري' : 'Property general ledger',
-    title: ar ? 'نظام المحاسبة' : 'Accounting system',
+    eyebrow: ar ? 'محاسبة العقارات · BHD R' : 'Property accounting · BHD R',
+    title: ar ? 'المحاسبة والتحصيل' : 'Accounting & collections',
     subtitle: ar
-      ? 'قيد مزدوج، مستندات مصدر، تتبع كامل للمعاملات، وتقارير قابلة لإعادة الإنتاج — وفق معايير المحاسبة الدولية.'
-      : 'Double-entry, source documents, full transaction trails, and reproducible reports — IFRS-ready property GL.',
+      ? 'شيكات المستأجرين، الإيجارات المستلمة، القيود المزدوجة والتقارير — بهوية BHD ودفتر عقاري موحّد.'
+      : 'Tenant cheques, rent receipts, double-entry journals and reports — BHD brand, one property ledger.',
     sync: ar ? 'مزامنة المدفوعات' : 'Sync payments',
     hisaby: ar ? 'حسابي' : 'Hisaby',
     warming: ar ? 'تجهيز الأقسام في الخلفية…' : 'Warming sections in the background…',
@@ -37,8 +37,8 @@ export function accountingHubCopy(locale: 'ar' | 'en') {
     },
     moneyGlance: ar ? 'ملخص الماليات' : 'Money at a glance',
     moneyHint: ar
-      ? 'يشمل تحصيل الإيجارات والإقامات، والعربون والتأمين، والمصروفات المسجّلة.'
-      : 'Includes rent and stay collections, booking deposits held in trust, and recorded expenses.',
+      ? 'يشمل المحصّل الفعلي، الشيكات المفتوحة بانتظار التحصيل، التأمين والعربون، الذمم والمصروفات.'
+      : 'Includes actual collections, open cheques awaiting clearance, deposits held, receivables and expenses.',
     collected: ar ? 'المحصّل' : 'Collected',
     depositsHeld: ar ? 'تأمينات وعربون' : 'Deposits held',
     receivables: ar ? 'الذمم المدينة' : 'Receivables',

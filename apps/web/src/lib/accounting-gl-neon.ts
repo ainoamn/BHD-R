@@ -1892,9 +1892,18 @@ export async function listAccountingAudit(claims: SessionClaims, limit = 80) {
 }
 
 function addMinor(
-  map: Map<string, { receivable: bigint; collected: bigint; expense: bigint; deposits: bigint }>,
+  map: Map<
+    string,
+    {
+      receivable: bigint;
+      collected: bigint;
+      expense: bigint;
+      deposits: bigint;
+      openCheques: bigint;
+    }
+  >,
   currency: string,
-  field: 'receivable' | 'collected' | 'expense' | 'deposits',
+  field: 'receivable' | 'collected' | 'expense' | 'deposits' | 'openCheques',
   value: string | null | undefined,
 ) {
   if (!value || !/^-?\d+$/.test(value)) return;
@@ -1903,6 +1912,7 @@ function addMinor(
     collected: 0n,
     expense: 0n,
     deposits: 0n,
+    openCheques: 0n,
   };
   row[field] += BigInt(value);
   map.set(currency, row);
@@ -1927,6 +1937,7 @@ export async function accountingDashboard(claims: SessionClaims) {
       recentStay,
       recentPayments,
       recentCheques,
+      openCheques,
     ] = await Promise.all([
       tx
         .select({
@@ -2087,11 +2098,31 @@ export async function accountingDashboard(claims: SessionClaims) {
         .where(and(eq(cheques.organizationId, orgId), eq(cheques.reviewStatus, 'cleared')))
         .orderBy(desc(cheques.updatedAt))
         .limit(8),
+      tx
+        .select({
+          currency: cheques.currency,
+          value: sql<string>`coalesce(sum(${cheques.amountMinor}), 0)::text`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(cheques)
+        .where(
+          and(
+            eq(cheques.organizationId, orgId),
+            inArray(cheques.reviewStatus, ['pending', 'accepted', 'deposited']),
+          ),
+        )
+        .groupBy(cheques.currency),
     ]);
 
     const byCurrency = new Map<
       string,
-      { receivable: bigint; collected: bigint; expense: bigint; deposits: bigint }
+      {
+        receivable: bigint;
+        collected: bigint;
+        expense: bigint;
+        deposits: bigint;
+        openCheques: bigint;
+      }
     >();
     for (const row of receivable) addMinor(byCurrency, row.currency, 'receivable', row.value);
     for (const row of invoiceCollected) addMinor(byCurrency, row.currency, 'collected', row.value);
@@ -2100,6 +2131,11 @@ export async function accountingDashboard(claims: SessionClaims) {
     for (const row of expenseTotal) addMinor(byCurrency, row.currency, 'expense', row.value);
     for (const row of depositHeld) addMinor(byCurrency, row.currency, 'deposits', row.value);
     for (const row of bookingDeposits) addMinor(byCurrency, row.currency, 'deposits', row.value);
+    let openChequeCount = 0;
+    for (const row of openCheques) {
+      addMinor(byCurrency, row.currency, 'openCheques', row.value);
+      openChequeCount += Number(row.count ?? 0);
+    }
 
     const currencies = [...byCurrency.keys()].sort();
     if (!currencies.length) currencies.push('OMR');
@@ -2146,6 +2182,7 @@ export async function accountingDashboard(claims: SessionClaims) {
           collected: 0n,
           expense: 0n,
           deposits: 0n,
+          openCheques: 0n,
         };
         return {
           currency,
@@ -2153,10 +2190,12 @@ export async function accountingDashboard(claims: SessionClaims) {
           collectedMinor: row.collected.toString(),
           expenseMinor: row.expense.toString(),
           depositsMinor: row.deposits.toString(),
+          openChequesMinor: row.openCheques.toString(),
         };
       }),
       draftJournals: Number(draftJournals[0]?.value ?? 0),
       overdueInvoices: Number(overdue[0]?.value ?? 0),
+      openChequeCount,
       accountCount: accounts,
       postedJournals: posted,
       needsSetup: accounts === 0 || posted === 0,

@@ -37,21 +37,18 @@
   align-items: flex-end;
   justify-content: space-between;
   gap: 1rem 1.5rem;
-  padding: 1.15rem 1.25rem;
-  border-radius: 1.15rem;
+  padding: 1.35rem 1.4rem;
+  border-radius: 1.2rem;
+  color: #fff;
   background:
     radial-gradient(
       90% 120% at 0% 0%,
-      color-mix(in srgb, var(--bhd-teal, #08a39f) 16%, transparent),
+      color-mix(in srgb, #fff 18%, transparent),
       transparent 55%
     ),
-    radial-gradient(
-      70% 90% at 100% 0%,
-      color-mix(in srgb, var(--bhd-navy, #174b70) 10%, transparent),
-      transparent 50%
-    ),
-    linear-gradient(135deg, #f5fbfb 0%, #eef5f8 100%);
-  border: 1px solid var(--gl-line);
+    linear-gradient(135deg, var(--bhd-teal, #08a39f) 0%, var(--bhd-navy, #174b70) 100%);
+  border: 0;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--bhd-navy, #174b70) 22%, transparent);
 }
 
 .accounting-hub__head h1 {
@@ -59,14 +56,31 @@
   font-size: clamp(1.55rem, 2.6vw, 2.05rem);
   font-weight: 750;
   letter-spacing: -0.035em;
+  color: #fff;
+}
+
+.accounting-hub__head .accounting-hub__eyebrow {
+  color: color-mix(in srgb, #fff 82%, transparent);
 }
 
 .accounting-hub__head p:not(.accounting-hub__eyebrow) {
   margin: 0.4rem 0 0;
-  color: var(--gl-muted);
+  color: color-mix(in srgb, #fff 88%, transparent);
   font-size: 0.95rem;
   max-width: 40rem;
   line-height: 1.5;
+}
+
+.accounting-hub__head .button--quiet {
+  background: color-mix(in srgb, #fff 14%, transparent);
+  color: #fff;
+  border-color: color-mix(in srgb, #fff 35%, transparent);
+}
+
+.accounting-hub__head .button--primary {
+  background: #fff;
+  color: var(--bhd-navy, #174b70);
+  border-color: #fff;
 }
 
 .accounting-hub__tabs {
@@ -216,6 +230,16 @@
 
 .accounting-hub__kpis--hero {
   grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.accounting-hub__kpis--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+  .accounting-hub__kpis--five {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -1969,10 +1993,25 @@
   border-color: color-mix(in srgb, var(--bhd-teal, #08a39f) 32%, transparent);
   border-inline-start-color: var(--bhd-teal, #08a39f);
 }
-.accounting-hub__kpi--hold {
-  background: color-mix(in srgb, var(--bhd-navy, #174b70) 8%, #fff);
-  border-color: color-mix(in srgb, var(--bhd-navy, #174b70) 28%, transparent);
+.accounting-hub__kpi--cheques {
+  appearance: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--bhd-navy, #174b70) 9%, #fff);
+  border-color: color-mix(in srgb, var(--bhd-navy, #174b70) 30%, transparent);
   border-inline-start-color: var(--bhd-navy, #174b70);
+}
+.accounting-hub__kpi--cheques small {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: color-mix(in srgb, var(--bhd-navy, #174b70) 75%, #64748b);
+}
+.accounting-hub__kpi--hold {
+  background: color-mix(in srgb, var(--bhd-teal, #08a39f) 7%, #fff);
+  border-color: color-mix(in srgb, var(--bhd-teal, #08a39f) 22%, transparent);
+  border-inline-start-color: color-mix(in srgb, var(--bhd-teal, #08a39f) 70%, #174b70);
 }
 .accounting-hub__kpi--due {
   background: #fff8ef;
@@ -1989,9 +2028,13 @@
 .accounting-hub__kpi--in strong {
   color: #067a77;
 }
+.accounting-hub__kpi--cheques span,
+.accounting-hub__kpi--cheques strong {
+  color: var(--bhd-navy, #174b70);
+}
 .accounting-hub__kpi--hold span,
 .accounting-hub__kpi--hold strong {
-  color: var(--bhd-navy, #174b70);
+  color: #0a7c78;
 }
 .accounting-hub__kpi--due span,
 .accounting-hub__kpi--due strong {

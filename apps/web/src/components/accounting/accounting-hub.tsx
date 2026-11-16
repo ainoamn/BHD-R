@@ -90,9 +90,11 @@ type HubDash = {
     collectedMinor: string;
     expenseMinor: string;
     depositsMinor?: string;
+    openChequesMinor?: string;
   }>;
   draftJournals: number;
   overdueInvoices: number;
+  openChequeCount?: number;
   accountCount: number;
   postedJournals: number;
   needsSetup?: boolean;
@@ -329,6 +331,7 @@ export function AccountingHub({
       collectedMinor: '0',
       expenseMinor: '0',
       depositsMinor: '0',
+      openChequesMinor: '0',
     };
   const syncedRef = useRef(false);
   const warmedRef = useRef(false);
@@ -699,11 +702,24 @@ export function AccountingHub({
               canManage={caps.manage}
               onChanged={() => void refreshAll({ silent: true })}
             />
-            <div className="accounting-hub__kpis accounting-hub__kpis--hero">
+            <div className="accounting-hub__kpis accounting-hub__kpis--hero accounting-hub__kpis--five">
               <div className="accounting-hub__kpi accounting-hub__kpi--in">
                 <span>{t.collected}</span>
                 <strong>{money(omr.collectedMinor, omr.currency, ar)}</strong>
               </div>
+              <button
+                type="button"
+                className="accounting-hub__kpi accounting-hub__kpi--cheques"
+                onClick={() => setTab('cheques')}
+              >
+                <span>{ar ? 'شيكات مفتوحة' : 'Open cheques'}</span>
+                <strong>{money(omr.openChequesMinor ?? '0', omr.currency, ar)}</strong>
+                <small>
+                  {ar
+                    ? `${dash?.openChequeCount ?? 0} شيك بانتظار التحصيل`
+                    : `${dash?.openChequeCount ?? 0} awaiting collection`}
+                </small>
+              </button>
               <div className="accounting-hub__kpi accounting-hub__kpi--hold">
                 <span>{t.depositsHeld}</span>
                 <strong>{money(omr.depositsMinor ?? '0', omr.currency, ar)}</strong>
@@ -727,6 +743,9 @@ export function AccountingHub({
               <span>
                 {ar ? 'فواتير متأخرة' : 'Overdue'}: {dash?.overdueInvoices ?? 0}
               </span>
+              <span>
+                {ar ? 'شيكات مفتوحة' : 'Open cheques'}: {dash?.openChequeCount ?? 0}
+              </span>
             </div>
             {(dash?.recentActivity?.length ?? 0) > 0 ? (
               <div className="accounting-hub__activity">
@@ -747,9 +766,13 @@ export function AccountingHub({
               </div>
             ) : dash ? (
               <p className="accounting-hub__muted">
-                {ar
-                  ? 'لا تحصيلات ظاهرة بعد — ستظهر هنا مدفوعات الإيجار والشيكات المحصّلة ومدفوعات الإقامة بعد تسجيلها أو مزامنتها.'
-                  : 'No collections yet — rent payments, cleared cheques, and stay receipts appear here after recording or sync.'}
+                {Number(omr.openChequesMinor ?? '0') > 0
+                  ? ar
+                    ? 'لا تحصيلات مرحّلة بعد — لديك شيكات مفتوحة في بطاقة «شيكات مفتوحة»؛ أكّد تحصيلها من تبويب الشيكات لتظهر هنا وفي القيود.'
+                    : 'No posted collections yet — open cheques are in the “Open cheques” card; confirm collection from the Cheques tab to post them here and to the GL.'
+                  : ar
+                    ? 'لا تحصيلات ظاهرة بعد — ستظهر هنا مدفوعات الإيجار والشيكات المحصّلة ومدفوعات الإقامة بعد تسجيلها أو مزامنتها.'
+                    : 'No collections yet — rent payments, cleared cheques, and stay receipts appear here after recording or sync.'}
               </p>
             ) : (
               <p className="accounting-hub__muted accounting-hub__muted--soft">
