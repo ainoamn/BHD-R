@@ -5,14 +5,26 @@ import { supportedCurrencyCodes } from '@bhd-r/contracts';
 import { countryPacks } from '@bhd-r/country-packs';
 import { Link } from '@/i18n/navigation';
 import { omanLocations } from '@/lib/oman-locations';
+import { categoryLabel } from '@/lib/properties-browse-filters';
 
 const categories = [
   'apartment',
   'villa',
+  'house',
+  'duplex',
+  'townhouse',
+  'penthouse',
+  'studio',
+  'chalet',
+  'palace',
   'building',
+  'hotel',
+  'farm',
   'office',
   'shop',
+  'showroom',
   'warehouse',
+  'labor_camp',
   'land',
   'other',
 ];
@@ -212,7 +224,7 @@ export function PropertyFilters({
               <option value="">{ar ? 'كل الأنواع' : 'All types'}</option>
               {categories.map((category) => (
                 <option key={category} value={category}>
-                  {category}
+                  {categoryLabel(category, ar)}
                 </option>
               ))}
             </select>

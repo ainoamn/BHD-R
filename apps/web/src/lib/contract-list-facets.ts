@@ -196,10 +196,21 @@ export function contractState(input: {
 const CATEGORY_USAGE: Record<string, PropertyUsage> = {
   apartment: 'residential',
   villa: 'residential',
+  house: 'residential',
+  duplex: 'residential',
+  townhouse: 'residential',
+  penthouse: 'residential',
+  studio: 'residential',
+  chalet: 'residential',
+  palace: 'residential',
   building: 'residential',
+  hotel: 'commercial',
+  farm: 'agricultural',
   office: 'commercial',
   shop: 'commercial',
+  showroom: 'commercial',
   warehouse: 'industrial',
+  labor_camp: 'industrial',
   land: 'agricultural',
 };
 

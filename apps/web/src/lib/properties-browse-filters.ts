@@ -3,10 +3,21 @@ import type { CatalogueListing } from '@/lib/listing-market-status';
 export const BROWSE_CATEGORIES = [
   'apartment',
   'villa',
+  'house',
+  'duplex',
+  'townhouse',
+  'penthouse',
+  'studio',
+  'chalet',
+  'palace',
   'building',
+  'hotel',
+  'farm',
   'office',
   'shop',
+  'showroom',
   'warehouse',
+  'labor_camp',
   'land',
   'other',
 ] as const;
@@ -252,6 +263,39 @@ export function parseSmartFilterQuery(raw: string): Partial<BrowseFilterState> {
   if (/شقة|apartment|flat/.test(text)) {
     patch.categories = [...(patch.categories ?? []), 'apartment'] as BrowseCategory[];
   }
+  if (/منزل|house/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'house'] as BrowseCategory[];
+  }
+  if (/دوبلكس|duplex/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'duplex'] as BrowseCategory[];
+  }
+  if (/تاون\s*هاوس|townhouse/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'townhouse'] as BrowseCategory[];
+  }
+  if (/بنتهاوس|penthouse/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'penthouse'] as BrowseCategory[];
+  }
+  if (/استوديو|studio/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'studio'] as BrowseCategory[];
+  }
+  if (/استراحة|شاليه|chalet/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'chalet'] as BrowseCategory[];
+  }
+  if (/قصر|palace/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'palace'] as BrowseCategory[];
+  }
+  if (/فندق|hotel/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'hotel'] as BrowseCategory[];
+  }
+  if (/مزرعة|مزارع|farm/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'farm'] as BrowseCategory[];
+  }
+  if (/معرض|showroom/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'showroom'] as BrowseCategory[];
+  }
+  if (/سكن\s*عمال|labor\s*camp/.test(text)) {
+    patch.categories = [...(patch.categories ?? []), 'labor_camp'] as BrowseCategory[];
+  }
   if (/مكتب|office/.test(text)) {
     patch.categories = [...(patch.categories ?? []), 'office'] as BrowseCategory[];
   }
@@ -395,10 +439,21 @@ export function categoryLabel(category: string, ar: boolean): string {
   const map: Record<string, [string, string]> = {
     apartment: ['شقق', 'Apartments'],
     villa: ['فيلات', 'Villas'],
+    house: ['منازل', 'Houses'],
+    duplex: ['دوبلكس', 'Duplexes'],
+    townhouse: ['تاون هاوس', 'Townhouses'],
+    penthouse: ['بنتهاوس', 'Penthouses'],
+    studio: ['استوديوهات', 'Studios'],
+    chalet: ['استراحات / شاليهات', 'Chalets'],
+    palace: ['قصور', 'Palaces'],
     building: ['مبانٍ', 'Buildings'],
+    hotel: ['فنادق', 'Hotels'],
+    farm: ['مزارع', 'Farms'],
     office: ['مكاتب', 'Offices'],
     shop: ['محلات', 'Shops'],
+    showroom: ['معارض', 'Showrooms'],
     warehouse: ['مستودعات', 'Warehouses'],
+    labor_camp: ['سكن عمال', 'Labor camps'],
     land: ['أراضٍ', 'Land'],
     other: ['أخرى', 'Other'],
   };
