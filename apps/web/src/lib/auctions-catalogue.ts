@@ -39,7 +39,11 @@ export type AuctionListing = {
   status: AuctionStatus;
 };
 
-export type ResolvedAuction = Omit<AuctionListing, 'startOffsetHours' | 'endOffsetHours' | 'status'> & {
+export type ResolvedAuction = Omit<
+  AuctionListing,
+  'startOffsetHours' | 'endOffsetHours' | 'status' | 'featured'
+> & {
+  featured: boolean;
   startTime: number;
   endTime: number;
   status: AuctionStatus;
@@ -255,7 +259,7 @@ export function resolveAuction(
     auctionTypeAr: listing.auctionTypeAr,
     auctionTypeEn: listing.auctionTypeEn,
     coords: listing.coords,
-    featured: listing.featured,
+    featured: Boolean(listing.featured),
     startTime: start,
     endTime: end,
     status: resolveStatus(start, end, now),
