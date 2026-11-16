@@ -3,7 +3,12 @@ import { createHash } from 'node:crypto';
 import { and, eq, ne, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { currencyMinorUnits } from '@bhd-r/contracts';
-import { createPropertySchema, createUnitSchema } from '@bhd-r/contracts';
+import {
+  createPropertyObjectSchema,
+  createUnitSchema,
+  refinePropertyListingLabel,
+} from '@bhd-r/contracts';
+import { resolveStoredPropertyNames } from '@/lib/property-listing-label';
 import type { SessionClaims } from '@bhd-r/authz';
 import {
   addresses,
@@ -71,9 +76,13 @@ async function persistUnitOfferingModes(
 
 const IDEMPOTENCY_ROUTE = 'POST:/api/owner/properties';
 
+const propertyInputSchema = createPropertyObjectSchema
+  .omit({ organizationId: true })
+  .superRefine(refinePropertyListingLabel);
+
 const propertyBundleSchema = z.object({
   asDraft: z.boolean().optional().default(false),
-  property: createPropertySchema.omit({ organizationId: true }),
+  property: propertyInputSchema,
   units: z
     .array(createUnitSchema.omit({ propertyId: true }))
     .min(1)
@@ -222,6 +231,12 @@ export async function createPropertyBundleOnNeon(
       .returning();
     const address = addressRows[0]!;
 
+    const storedNames = resolveStoredPropertyNames({
+      nameAr: input.property.nameAr,
+      nameEn: input.property.nameEn,
+      displayNumber: input.property.displayNumber,
+      listingLabelMode: input.property.listingLabelMode,
+    });
     const propertyRows = await transaction
       .insert(properties)
       .values({
@@ -230,8 +245,10 @@ export async function createPropertyBundleOnNeon(
         addressId: address.id,
         kind: input.property.kind,
         category: input.property.category,
-        nameAr: input.property.nameAr,
-        nameEn: input.property.nameEn,
+        nameAr: storedNames.nameAr,
+        nameEn: storedNames.nameEn,
+        displayNumber: storedNames.displayNumber,
+        listingLabelMode: storedNames.listingLabelMode,
         descriptionAr: input.property.descriptionAr,
         descriptionEn: input.property.descriptionEn,
         defaultCurrency: input.property.defaultCurrency,
@@ -422,7 +439,7 @@ export async function createPropertyBundleOnNeon(
 
 const updatePropertyBundleSchema = z.object({
   asDraft: z.boolean().optional().default(false),
-  property: createPropertySchema.omit({ organizationId: true }),
+  property: propertyInputSchema,
   units: z
     .array(
       createUnitSchema.omit({ propertyId: true }).extend({
@@ -541,13 +558,21 @@ export async function updatePropertyBundleOnNeon(
         ),
       );
 
+    const storedNames = resolveStoredPropertyNames({
+      nameAr: input.property.nameAr,
+      nameEn: input.property.nameEn,
+      displayNumber: input.property.displayNumber,
+      listingLabelMode: input.property.listingLabelMode,
+    });
     const propertyRows = await transaction
       .update(properties)
       .set({
         ownerPartyId: input.property.ownerPartyId,
         category: input.property.category,
-        nameAr: input.property.nameAr,
-        nameEn: input.property.nameEn,
+        nameAr: storedNames.nameAr,
+        nameEn: storedNames.nameEn,
+        displayNumber: storedNames.displayNumber,
+        listingLabelMode: storedNames.listingLabelMode,
         descriptionAr: input.property.descriptionAr ?? null,
         descriptionEn: input.property.descriptionEn ?? null,
         defaultCurrency: input.property.defaultCurrency,

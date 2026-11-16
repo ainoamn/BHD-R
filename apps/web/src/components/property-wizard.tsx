@@ -28,6 +28,7 @@ import { PropertyStaySettingsPanel } from '@/components/property-stay-settings-p
 import type { PropertyStaySettingsUnit } from '@/lib/property-stay-settings';
 import type { ManagedProperty } from '@/components/property-detail-manager';
 import type { OwnerPartyOption } from '@/lib/owner-parties';
+import { formatPropertyListingLabel } from '@/lib/property-listing-label';
 import {
   listingPurposeFromOfferingModes,
   offeringModesFromListingPurpose,
@@ -290,6 +291,12 @@ export function PropertyWizard({
     return {
       countryCode: (initialProperty?.address?.countryCode as CountryPackCode) || 'OM',
       category: initialProperty?.category ?? 'apartment',
+      displayNumber: initialProperty?.displayNumber ?? '',
+      listingLabelMode:
+        initialProperty?.listingLabelMode === 'number' ||
+        initialProperty?.listingLabelMode === 'both'
+          ? initialProperty.listingLabelMode
+          : ('title' as const),
       nameAr: initialProperty?.nameAr ?? '',
       nameEn: initialProperty?.nameEn ?? '',
       descriptionAr: initialProperty?.descriptionAr ?? '',
@@ -705,16 +712,22 @@ export function PropertyWizard({
   }
 
   function unitDisplayNames(unit: UnitDraft): { nameAr: string; nameEn: string } {
+    const baseAr =
+      property.nameAr.trim() ||
+      (property.listingLabelMode !== 'title' ? property.displayNumber.trim() : '');
+    const baseEn =
+      property.nameEn.trim() ||
+      (property.listingLabelMode !== 'title' ? property.displayNumber.trim() : '');
     if (kind === 'single_unit') {
-      return { nameAr: property.nameAr.trim(), nameEn: property.nameEn.trim() };
+      return { nameAr: baseAr, nameEn: baseEn };
     }
     const code = unit.code.trim() || 'U';
     const typeAr = unit.unitKind === 'shop' ? 'محل' : unit.unitKind === 'showroom' ? 'معرض' : 'شقة';
     const typeEn =
       unit.unitKind === 'shop' ? 'Shop' : unit.unitKind === 'showroom' ? 'Showroom' : 'Apartment';
     return {
-      nameAr: `${property.nameAr.trim()} — ${typeAr} ${code}`,
-      nameEn: `${property.nameEn.trim()} — ${typeEn} ${code}`,
+      nameAr: `${baseAr} — ${typeAr} ${code}`,
+      nameEn: `${baseEn} — ${typeEn} ${code}`,
     };
   }
 
@@ -747,10 +760,17 @@ export function PropertyWizard({
   function validateStep(index: number): string[] {
     const issues: string[] = [];
     if (index === 0) {
-      if (property.nameAr.trim().length < 2)
-        issues.push(ar ? 'عنوان العقار (عربي)' : 'Property title (Arabic)');
-      if (property.nameEn.trim().length < 2)
-        issues.push(ar ? 'عنوان العقار (إنجليزي)' : 'Property title (English)');
+      const labelMode = property.listingLabelMode;
+      if (labelMode === 'title' || labelMode === 'both') {
+        if (property.nameAr.trim().length < 2)
+          issues.push(ar ? 'عنوان العقار (عربي)' : 'Property title (Arabic)');
+        if (property.nameEn.trim().length < 2)
+          issues.push(ar ? 'عنوان العقار (إنجليزي)' : 'Property title (English)');
+      }
+      if (labelMode === 'number' || labelMode === 'both') {
+        if (!property.displayNumber.trim())
+          issues.push(t('PropertyForm.displayNumber'));
+      }
       if (!profile.usageType) issues.push(t('PropertyForm.usageType'));
       if (!property.category) issues.push(t('PropertyForm.category'));
       if (property.countryCode === 'OM') {
@@ -1349,6 +1369,8 @@ export function PropertyWizard({
           category: kind === 'multi_unit' ? 'building' : property.category,
           nameAr: property.nameAr,
           nameEn: property.nameEn,
+          displayNumber: property.displayNumber.trim() || undefined,
+          listingLabelMode: property.listingLabelMode,
           descriptionAr: property.descriptionAr || undefined,
           descriptionEn: property.descriptionEn || undefined,
           address: {
@@ -1661,7 +1683,13 @@ export function PropertyWizard({
   }
 
   const primary = units[0]!;
-  const previewTitle = locale === 'ar' ? property.nameAr || '—' : property.nameEn || '—';
+  const previewTitle =
+    formatPropertyListingLabel(locale, {
+      nameAr: property.nameAr,
+      nameEn: property.nameEn,
+      displayNumber: property.displayNumber,
+      listingLabelMode: property.listingLabelMode,
+    }) || '—';
   const mapCoords = parseGoogleMapsUrl(property.mapsUrl);
   /** Create flow: unlock the next block only after the previous required block is filled. Edit keeps all open. */
   const guidedCreate = mode !== 'edit';
@@ -1675,13 +1703,24 @@ export function PropertyWizard({
       (kind === 'multi_unit' || property.category) &&
       profile.usageType,
   );
-  const namesBlockDone = Boolean(property.nameAr.trim() && property.nameEn.trim());
+  const namesBlockDone = (() => {
+    const modeLabel = property.listingLabelMode;
+    const hasTitles = property.nameAr.trim().length >= 2 && property.nameEn.trim().length >= 2;
+    const hasNumber = property.displayNumber.trim().length > 0;
+    if (modeLabel === 'number') return hasNumber;
+    if (modeLabel === 'both') return hasTitles && hasNumber;
+    return hasTitles;
+  })();
   const locationBlockDone = Boolean(
     property.governorate.trim() && property.wilayat.trim() && property.city.trim(),
   );
   const showNamesBlock = !guidedCreate || basicsBlockDone;
   const showLocationBlock = !guidedCreate || namesBlockDone;
   const showMapBlock = !guidedCreate || locationBlockDone;
+  const showTitleFields =
+    property.listingLabelMode === 'title' || property.listingLabelMode === 'both';
+  const showNumberField =
+    property.listingLabelMode === 'number' || property.listingLabelMode === 'both';
   const previewLocation = [property.governorate, property.wilayat, property.city]
     .filter(Boolean)
     .join(' · ');
@@ -2071,74 +2110,129 @@ export function PropertyWizard({
                       ))}
                     </SelectField>
                     {showNamesBlock ? (
-                      <div className="bilingual-pair span-2 wizard-guided-block">
-                        <Field
-                          id="nameAr"
-                          label={t('PropertyForm.nameAr')}
-                          value={property.nameAr}
-                          tone={tone(property.nameAr, true, showErrors)}
-                          onChange={(event) => updateProperty('nameAr', event.target.value)}
-                          onKeyDown={(event) =>
-                            onTextEnter(event, event.currentTarget.value.trim().length >= 2)
-                          }
-                          placeholder={t('PropertyForm.nameArPlaceholder')}
-                          minLength={2}
-                          maxLength={160}
-                          required
-                        />
-                        <div className="bilingual-pair__actions">
-                          <Button
-                            type="button"
-                            variant="quiet"
-                            disabled={translating !== null || !property.nameAr.trim()}
-                            onClick={() =>
-                              void translateField(
-                                property.nameAr,
-                                'en',
-                                (value) => updateProperty('nameEn', value),
-                                'name-en',
-                              )
-                            }
-                          >
-                            {translating === 'name-en' ? '…' : 'AR → EN'}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="quiet"
-                            disabled={translating !== null || !property.nameEn.trim()}
-                            onClick={() =>
-                              void translateField(
-                                property.nameEn,
-                                'ar',
-                                (value) => updateProperty('nameAr', value),
-                                'name-ar',
-                              )
-                            }
-                          >
-                            {translating === 'name-ar' ? '…' : 'EN → AR'}
-                          </Button>
+                      <div className="span-2 form-grid wizard-guided-block">
+                        <div className="field span-2">
+                          <label>{t('PropertyForm.listingLabelMode')}</label>
+                          <div className="wizard-seg" role="radiogroup">
+                            {(
+                              [
+                                ['title', 'listingLabelTitle'],
+                                ['number', 'listingLabelNumber'],
+                                ['both', 'listingLabelBoth'],
+                              ] as const
+                            ).map(([value, key]) => (
+                              <label
+                                key={value}
+                                className={
+                                  property.listingLabelMode === value
+                                    ? 'wizard-seg__item is-active'
+                                    : 'wizard-seg__item'
+                                }
+                              >
+                                <input
+                                  type="radio"
+                                  name="listingLabelMode"
+                                  checked={property.listingLabelMode === value}
+                                  onChange={() => {
+                                    updateProperty('listingLabelMode', value);
+                                    window.setTimeout(() => focusNextField(), 40);
+                                  }}
+                                />
+                                {t(`PropertyForm.${key}`)}
+                              </label>
+                            ))}
+                          </div>
                         </div>
-                        <Field
-                          id="nameEn"
-                          label={t('PropertyForm.nameEn')}
-                          value={property.nameEn}
-                          tone={tone(property.nameEn, true, showErrors)}
-                          onChange={(event) => updateProperty('nameEn', event.target.value)}
-                          onKeyDown={(event) =>
-                            onTextEnter(event, event.currentTarget.value.trim().length >= 2)
-                          }
-                          placeholder={t('PropertyForm.nameEnPlaceholder')}
-                          minLength={2}
-                          maxLength={160}
-                          required
-                          dir="ltr"
-                        />
+                        {showNumberField ? (
+                          <Field
+                            id="displayNumber"
+                            label={t('PropertyForm.displayNumber')}
+                            value={property.displayNumber}
+                            tone={tone(property.displayNumber, true, showErrors)}
+                            onChange={(event) =>
+                              updateProperty('displayNumber', event.target.value)
+                            }
+                            onKeyDown={(event) =>
+                              onTextEnter(event, event.currentTarget.value.trim().length > 0)
+                            }
+                            placeholder={t('PropertyForm.displayNumberPlaceholder')}
+                            hint={t('PropertyForm.displayNumberHint')}
+                            maxLength={80}
+                            required
+                            dir="ltr"
+                          />
+                        ) : null}
+                        {showTitleFields ? (
+                          <div className="bilingual-pair span-2">
+                            <Field
+                              id="nameAr"
+                              label={t('PropertyForm.nameAr')}
+                              value={property.nameAr}
+                              tone={tone(property.nameAr, true, showErrors)}
+                              onChange={(event) => updateProperty('nameAr', event.target.value)}
+                              onKeyDown={(event) =>
+                                onTextEnter(event, event.currentTarget.value.trim().length >= 2)
+                              }
+                              placeholder={t('PropertyForm.nameArPlaceholder')}
+                              minLength={2}
+                              maxLength={160}
+                              required
+                            />
+                            <div className="bilingual-pair__actions">
+                              <Button
+                                type="button"
+                                variant="quiet"
+                                disabled={translating !== null || !property.nameAr.trim()}
+                                onClick={() =>
+                                  void translateField(
+                                    property.nameAr,
+                                    'en',
+                                    (value) => updateProperty('nameEn', value),
+                                    'name-en',
+                                  )
+                                }
+                              >
+                                {translating === 'name-en' ? '…' : 'AR → EN'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="quiet"
+                                disabled={translating !== null || !property.nameEn.trim()}
+                                onClick={() =>
+                                  void translateField(
+                                    property.nameEn,
+                                    'ar',
+                                    (value) => updateProperty('nameAr', value),
+                                    'name-ar',
+                                  )
+                                }
+                              >
+                                {translating === 'name-ar' ? '…' : 'EN → AR'}
+                              </Button>
+                            </div>
+                            <Field
+                              id="nameEn"
+                              label={t('PropertyForm.nameEn')}
+                              value={property.nameEn}
+                              tone={tone(property.nameEn, true, showErrors)}
+                              onChange={(event) => updateProperty('nameEn', event.target.value)}
+                              onKeyDown={(event) =>
+                                onTextEnter(event, event.currentTarget.value.trim().length >= 2)
+                              }
+                              placeholder={t('PropertyForm.nameEnPlaceholder')}
+                              minLength={2}
+                              maxLength={160}
+                              required
+                              dir="ltr"
+                            />
+                          </div>
+                        ) : null}
                       </div>
                     ) : (
                       <p className="span-2 field__hint wizard-guided-hint">
                         {ar
-                          ? 'أكمل التصنيف ونوع الاستعمال ليظهر عنوان العقار.'
-                          : 'Complete category and usage type to reveal the property title.'}
+                          ? 'أكمل التصنيف ونوع الاستعمال ليظهر رقم وعنوان العقار.'
+                          : 'Complete category and usage type to reveal the property number and title.'}
                       </p>
                     )}
 

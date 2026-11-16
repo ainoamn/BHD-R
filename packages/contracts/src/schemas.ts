@@ -77,33 +77,40 @@ export const propertyDocumentSchema = z.object({
   notes: z.string().trim().max(2_000).optional(),
 });
 
-export const createPropertySchema = z.object({
+export const listingLabelModeSchema = z.enum(['title', 'number', 'both']);
+export const propertyCategorySchema = z.enum([
+  'apartment',
+  'villa',
+  'house',
+  'duplex',
+  'townhouse',
+  'penthouse',
+  'studio',
+  'chalet',
+  'palace',
+  'building',
+  'hotel',
+  'farm',
+  'office',
+  'shop',
+  'showroom',
+  'warehouse',
+  'labor_camp',
+  'land',
+  'other',
+]);
+
+export const createPropertyObjectSchema = z.object({
   organizationId: uuidSchema,
   ownerPartyId: uuidSchema,
   kind: z.enum(['single_unit', 'multi_unit']),
-  category: z.enum([
-    'apartment',
-    'villa',
-    'house',
-    'duplex',
-    'townhouse',
-    'penthouse',
-    'studio',
-    'chalet',
-    'palace',
-    'building',
-    'hotel',
-    'farm',
-    'office',
-    'shop',
-    'showroom',
-    'warehouse',
-    'labor_camp',
-    'land',
-    'other',
-  ]),
-  nameAr: z.string().trim().min(2).max(160),
-  nameEn: z.string().trim().min(2).max(160),
+  category: propertyCategorySchema,
+  nameAr: z.string().trim().max(160).default(''),
+  nameEn: z.string().trim().max(160).default(''),
+  /** Owner-facing property number (not the system BHD serial). */
+  displayNumber: z.string().trim().max(80).optional(),
+  /** What the public listing should show as the property label. */
+  listingLabelMode: listingLabelModeSchema.default('title'),
   descriptionAr: z.string().trim().max(5_000).optional(),
   descriptionEn: z.string().trim().max(5_000).optional(),
   address: addressSchema,
@@ -113,6 +120,100 @@ export const createPropertySchema = z.object({
   meters: z.array(utilityMeterSchema).max(500).default([]),
   documents: z.array(propertyDocumentSchema).max(100).default([]),
 });
+
+export function resolveStoredPropertyNames(input: {
+  nameAr?: string | null;
+  nameEn?: string | null;
+  displayNumber?: string | null;
+  listingLabelMode?: 'title' | 'number' | 'both' | string | null;
+}): {
+  nameAr: string;
+  nameEn: string;
+  displayNumber: string | null;
+  listingLabelMode: 'title' | 'number' | 'both';
+} {
+  const listingLabelMode =
+    input.listingLabelMode === 'number' || input.listingLabelMode === 'both'
+      ? input.listingLabelMode
+      : 'title';
+  const displayNumber = (input.displayNumber ?? '').trim() || null;
+  let nameAr = (input.nameAr ?? '').trim();
+  let nameEn = (input.nameEn ?? '').trim();
+  if (listingLabelMode === 'number') {
+    const fallback = displayNumber || 'Property';
+    if (nameAr.length < 2) nameAr = fallback;
+    if (nameEn.length < 2) nameEn = fallback;
+  }
+  return { nameAr, nameEn, displayNumber, listingLabelMode };
+}
+
+/** Apply listing label mode to Arabic/English public property names. */
+export function applyListingLabelMode(input: {
+  nameAr?: string | null;
+  nameEn?: string | null;
+  displayNumber?: string | null;
+  listingLabelMode?: 'title' | 'number' | 'both' | string | null;
+}): { nameAr: string; nameEn: string } {
+  const mode =
+    input.listingLabelMode === 'number' || input.listingLabelMode === 'both'
+      ? input.listingLabelMode
+      : 'title';
+  const number = (input.displayNumber ?? '').trim();
+  const titleAr = (input.nameAr ?? '').trim();
+  const titleEn = (input.nameEn ?? '').trim();
+  if (mode === 'number') {
+    return { nameAr: number || titleAr, nameEn: number || titleEn };
+  }
+  if (mode === 'both') {
+    return {
+      nameAr: number && titleAr ? `${number} · ${titleAr}` : number || titleAr,
+      nameEn: number && titleEn ? `${number} · ${titleEn}` : number || titleEn,
+    };
+  }
+  return { nameAr: titleAr || number, nameEn: titleEn || number };
+}
+
+export function refinePropertyListingLabel(
+  value: {
+    nameAr: string;
+    nameEn: string;
+    displayNumber?: string | undefined;
+    listingLabelMode?: 'title' | 'number' | 'both' | undefined;
+  },
+  ctx: z.RefinementCtx,
+) {
+  const mode = value.listingLabelMode ?? 'title';
+  const number = (value.displayNumber ?? '').trim();
+  const nameAr = value.nameAr.trim();
+  const nameEn = value.nameEn.trim();
+  if (mode === 'title' || mode === 'both') {
+    if (nameAr.length < 2) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['nameAr'],
+        message: 'Property title (Arabic) is required',
+      });
+    }
+    if (nameEn.length < 2) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['nameEn'],
+        message: 'Property title (English) is required',
+      });
+    }
+  }
+  if (mode === 'number' || mode === 'both') {
+    if (number.length < 1) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['displayNumber'],
+        message: 'Property number is required',
+      });
+    }
+  }
+}
+
+export const createPropertySchema = createPropertyObjectSchema.superRefine(refinePropertyListingLabel);
 
 export const createUnitSchema = z.object({
   propertyId: uuidSchema,
@@ -150,7 +251,7 @@ export const listingSearchSchema = z.object({
   locale: localeSchema.default('ar'),
   countryCode: countryCodeSchema.default('OM'),
   governorate: z.string().trim().max(120).optional(),
-  category: createPropertySchema.shape.category.optional(),
+  category: propertyCategorySchema.optional(),
   bedrooms: z.coerce.number().int().min(0).optional(),
   currency: currencyCodeSchema.optional(),
   listingPurpose: z.enum(['rent', 'sale']).optional(),
@@ -165,11 +266,13 @@ export const publicListingSchema = z.object({
   slug: z.string().min(1).max(180),
   propertyId: uuidSchema,
   unitId: uuidSchema,
-  propertyNameAr: z.string().max(160),
-  propertyNameEn: z.string().max(160),
+  propertyNameAr: z.string().max(260),
+  propertyNameEn: z.string().max(260),
+  displayNumber: z.string().max(80).nullable().optional(),
+  listingLabelMode: listingLabelModeSchema.optional(),
   unitNameAr: z.string().max(120),
   unitNameEn: z.string().max(120),
-  category: createPropertySchema.shape.category,
+  category: propertyCategorySchema,
   governorate: z.string().max(120),
   wilayat: z.string().max(120),
   bedrooms: z.number().int().nonnegative(),
@@ -211,8 +314,10 @@ export const publicUnitDetailSchema = publicListingSchema
 
 export const publicPropertyDetailSchema = z.object({
   id: uuidSchema,
-  nameAr: z.string().max(160),
-  nameEn: z.string().max(160),
+  nameAr: z.string().max(260),
+  nameEn: z.string().max(260),
+  displayNumber: z.string().max(80).nullable().optional(),
+  listingLabelMode: listingLabelModeSchema.optional(),
   descriptionAr: z.string().nullable(),
   descriptionEn: z.string().nullable(),
   governorate: z.string().max(120),

@@ -12,6 +12,7 @@ import { buildAiTags, loadPropertyDiscoveryRails } from '@/lib/property-discover
 import { viewerOperatesOrganization } from '@/lib/portal-access';
 import { bilingualAlternates } from '@/lib/seo';
 import { localizedName } from '@/lib/format';
+import { formatPropertyListingLabel } from '@/lib/property-listing-label';
 import { getViewer } from '@/lib/viewer';
 import { withTimedResult } from '@/lib/with-timeout';
 
@@ -42,7 +43,12 @@ export async function generateMetadata({
       robots: { index: false, follow: false },
     };
   }
-  const title = localizedName(locale, property.nameAr, property.nameEn);
+  const title = formatPropertyListingLabel(locale === 'en' ? 'en' : 'ar', {
+    nameAr: property.nameAr,
+    nameEn: property.nameEn,
+    displayNumber: property.displayNumber,
+    listingLabelMode: property.listingLabelMode,
+  });
   const description =
     localizedName(locale, property.descriptionAr ?? '', property.descriptionEn ?? '') ||
     [property.address?.governorate, property.address?.wilayat].filter(Boolean).join(' · ');

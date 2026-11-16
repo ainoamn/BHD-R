@@ -271,6 +271,11 @@ export async function loadPublicPropertyShowcaseFromNeon(
       category: property.category,
       nameAr: property.nameAr,
       nameEn: property.nameEn,
+      displayNumber: property.displayNumber,
+      listingLabelMode:
+        property.listingLabelMode === 'number' || property.listingLabelMode === 'both'
+          ? property.listingLabelMode
+          : 'title',
       descriptionAr: property.descriptionAr,
       descriptionEn: property.descriptionEn,
       defaultCurrency: property.defaultCurrency as CurrencyCode,

@@ -43,6 +43,7 @@ import {
   listingCollectionSchema,
   publicPropertyDetailSchema,
   publicUnitDetailSchema,
+  resolveStoredPropertyNames,
   type CreatePropertyInput,
   type CreateUnitInput,
   type ListingSearchInput,
@@ -184,6 +185,12 @@ export class PortfolioService {
         })
         .returning();
       const address = addressRows[0]!;
+      const storedNames = resolveStoredPropertyNames({
+        nameAr: input.property.nameAr,
+        nameEn: input.property.nameEn,
+        displayNumber: input.property.displayNumber,
+        listingLabelMode: input.property.listingLabelMode,
+      });
       const propertyRows = await transaction
         .insert(properties)
         .values({
@@ -192,8 +199,10 @@ export class PortfolioService {
           addressId: address.id,
           kind: input.property.kind,
           category: input.property.category,
-          nameAr: input.property.nameAr,
-          nameEn: input.property.nameEn,
+          nameAr: storedNames.nameAr,
+          nameEn: storedNames.nameEn,
+          displayNumber: storedNames.displayNumber,
+          listingLabelMode: storedNames.listingLabelMode,
           descriptionAr: input.property.descriptionAr,
           descriptionEn: input.property.descriptionEn,
           defaultCurrency: input.property.defaultCurrency,
@@ -567,13 +576,21 @@ export class PortfolioService {
           ),
         );
 
+      const storedNames = resolveStoredPropertyNames({
+        nameAr: input.property.nameAr,
+        nameEn: input.property.nameEn,
+        displayNumber: input.property.displayNumber,
+        listingLabelMode: input.property.listingLabelMode,
+      });
       const propertyRows = await transaction
         .update(properties)
         .set({
           ownerPartyId: input.property.ownerPartyId,
           category: input.property.category,
-          nameAr: input.property.nameAr,
-          nameEn: input.property.nameEn,
+          nameAr: storedNames.nameAr,
+          nameEn: storedNames.nameEn,
+          displayNumber: storedNames.displayNumber,
+          listingLabelMode: storedNames.listingLabelMode,
           descriptionAr: input.property.descriptionAr ?? null,
           descriptionEn: input.property.descriptionEn ?? null,
           defaultCurrency: input.property.defaultCurrency,
@@ -1322,6 +1339,8 @@ export class PortfolioService {
           unitNameEn: units.nameEn,
           propertyNameAr: properties.nameAr,
           propertyNameEn: properties.nameEn,
+          displayNumber: properties.displayNumber,
+          listingLabelMode: properties.listingLabelMode,
           bedrooms: units.bedrooms,
           bathrooms: units.bathrooms,
           areaSquareMeters: units.areaSquareMeters,
@@ -1353,6 +1372,11 @@ export class PortfolioService {
           unitId: row.unitId,
           propertyNameAr: row.propertyNameAr,
           propertyNameEn: row.propertyNameEn,
+          displayNumber: row.displayNumber,
+          listingLabelMode:
+            row.listingLabelMode === 'number' || row.listingLabelMode === 'both'
+              ? row.listingLabelMode
+              : 'title',
           unitNameAr: row.unitNameAr,
           unitNameEn: row.unitNameEn,
           category: row.category,

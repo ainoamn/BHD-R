@@ -15,18 +15,23 @@ import { Throttle } from '@nestjs/throttler';
 import type { ApiRequest } from '../common/api-http.js';
 import { z } from 'zod';
 import {
-  createPropertySchema,
+  createPropertyObjectSchema,
   createUnitSchema,
   listingSearchSchema,
   moneySchema,
+  refinePropertyListingLabel,
 } from '@bhd-r/contracts';
 import { Idempotent, Public, RequirePermissions } from '../common/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import { PortfolioService } from './portfolio.service.js';
 
+const propertyInputSchema = createPropertyObjectSchema
+  .omit({ organizationId: true })
+  .superRefine(refinePropertyListingLabel);
+
 const propertyBundleSchema = z.object({
   asDraft: z.boolean().optional().default(false),
-  property: createPropertySchema.omit({ organizationId: true }),
+  property: propertyInputSchema,
   units: z
     .array(createUnitSchema.omit({ propertyId: true }))
     .min(1)
@@ -34,7 +39,7 @@ const propertyBundleSchema = z.object({
 });
 const propertyUpdateBundleSchema = z.object({
   asDraft: z.boolean().optional().default(false),
-  property: createPropertySchema.omit({ organizationId: true }),
+  property: propertyInputSchema,
   units: z
     .array(
       createUnitSchema.omit({ propertyId: true }).extend({

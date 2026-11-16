@@ -1,5 +1,6 @@
 import { localizedName } from '@/lib/format';
 import type { CatalogueListing } from '@/lib/listing-market-status';
+import { formatPropertyListingLabel } from '@/lib/property-listing-label';
 import { inferUnitKind, unitKindLabel } from '@/lib/unit-identity';
 
 /** Deduplicate adjacent/repeated location parts. */
@@ -34,7 +35,12 @@ export function formatUnitCardHeadline(listing: CatalogueListing, locale: 'ar' |
 }
 
 export function formatBuildingCardLine(listing: CatalogueListing, locale: 'ar' | 'en'): string {
-  return localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
+  return formatPropertyListingLabel(locale, {
+    nameAr: listing.propertyNameAr,
+    nameEn: listing.propertyNameEn,
+    displayNumber: listing.displayNumber,
+    listingLabelMode: listing.listingLabelMode,
+  });
 }
 
 export function formatListingCardTitle(
@@ -49,7 +55,12 @@ export function formatListingCardTitle(
       isMulti: true,
     };
   }
-  const propertyTitle = localizedName(locale, listing.propertyNameAr, listing.propertyNameEn);
+  const propertyTitle = formatPropertyListingLabel(locale, {
+    nameAr: listing.propertyNameAr,
+    nameEn: listing.propertyNameEn,
+    displayNumber: listing.displayNumber,
+    listingLabelMode: listing.listingLabelMode,
+  });
   const unitTitle = localizedName(locale, listing.unitNameAr, listing.unitNameEn);
   const headline =
     !unitTitle || unitTitle === propertyTitle || propertyTitle.includes(unitTitle)

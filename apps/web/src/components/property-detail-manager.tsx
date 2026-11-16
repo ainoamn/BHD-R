@@ -10,6 +10,7 @@ import { browserMutation, fetchBrowserCsrfToken } from '@/lib/api';
 import { depositForMode } from '@/lib/booking-deposit';
 import { formatMoney } from '@/lib/format';
 import { formatListingLocation } from '@/lib/listing-card-copy';
+import { formatPropertyListingLabel } from '@/lib/property-listing-label';
 import { PropertyQrCard } from '@/components/property-qr-card';
 import { ListingEngagementBar } from '@/components/listing-engagement-bar';
 import { PublicListingActions } from '@/components/public-listing-actions';
@@ -94,6 +95,10 @@ export interface ManagedProperty {
   category: string;
   nameAr: string;
   nameEn: string;
+  /** Owner-facing property number (not the system BHD serial). */
+  displayNumber?: string | null;
+  /** Public listing label: title | number | both */
+  listingLabelMode?: 'title' | 'number' | 'both' | null;
   descriptionAr: string | null;
   descriptionEn: string | null;
   defaultCurrency: CurrencyCode;
@@ -385,7 +390,12 @@ export function PropertyDetailManager({
     focusUnitId && primaryUnit && focusedUnitKind
       ? `${unitKindLabel(focusedUnitKind, locale)} ${primaryUnit.code}`.trim()
       : null;
-  const buildingNameLine = ar ? property.nameAr : property.nameEn;
+  const buildingNameLine = formatPropertyListingLabel(locale, {
+    nameAr: property.nameAr,
+    nameEn: property.nameEn,
+    displayNumber: property.displayNumber,
+    listingLabelMode: property.listingLabelMode,
+  });
   const showPublicOwnerName =
     Boolean(property.showOwnerNameOnListing ?? property.profile?.showOwnerNameOnListing) &&
     Boolean(property.ownerPartyName);
@@ -433,9 +443,7 @@ export function PropertyDetailManager({
     ? stayBooking.title
     : focusedUnitHeadline
       ? focusedUnitHeadline
-      : ar
-        ? property.nameAr
-        : property.nameEn;
+      : buildingNameLine;
   const mapsUrl = property.mapsUrl || mapsUrlFromNotes(property.profile?.notes) || null;
   const latitude =
     typeof property.latitude === 'number' && Number.isFinite(property.latitude)
@@ -995,7 +1003,7 @@ export function PropertyDetailManager({
               <dl className="property-360__building-facts">
                 <div>
                   <dt>{ar ? 'اسم المبنى' : 'Building name'}</dt>
-                  <dd>{ar ? property.nameAr : property.nameEn}</dd>
+                  <dd>{buildingNameLine}</dd>
                 </div>
                 {property.serialNumber ? (
                   <div>

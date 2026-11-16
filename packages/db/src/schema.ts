@@ -638,6 +638,13 @@ export const properties = pgTable(
     category: propertyCategory('category').notNull(),
     nameAr: varchar('name_ar', { length: 160 }).notNull(),
     nameEn: varchar('name_en', { length: 160 }).notNull(),
+    /** Owner-chosen property number shown on public listings when selected. */
+    displayNumber: varchar('display_number', { length: 80 }),
+    /**
+     * Public listing label: title only, number only, or number + title.
+     * System serial (BHD-…) stays separate from displayNumber.
+     */
+    listingLabelMode: varchar('listing_label_mode', { length: 24 }).notNull().default('title'),
     descriptionAr: text('description_ar'),
     descriptionEn: text('description_en'),
     defaultCurrency: varchar('default_currency', { length: 3 }).notNull(),
@@ -651,6 +658,10 @@ export const properties = pgTable(
     index('properties_owner_idx').on(table.ownerPartyId),
     uniqueIndex('properties_org_serial_unique').on(table.organizationId, table.serialNumber),
     index('properties_viewing_contact_user_idx').on(table.viewingContactUserId),
+    check(
+      'properties_listing_label_mode_check',
+      sql`${table.listingLabelMode} IN ('title', 'number', 'both')`,
+    ),
   ],
 );
 

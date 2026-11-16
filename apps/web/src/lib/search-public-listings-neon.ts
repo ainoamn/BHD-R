@@ -273,6 +273,8 @@ type CatalogueRow = {
   unit_name_en: string;
   property_name_ar: string;
   property_name_en: string;
+  property_display_number: string | null;
+  property_listing_label_mode: string | null;
   bedrooms: number;
   bathrooms: number;
   area_square_meters: string | null;
@@ -502,6 +504,8 @@ export async function searchPublicListingsFromNeon(
         u.name_en as unit_name_en,
         p.name_ar as property_name_ar,
         p.name_en as property_name_en,
+        p.display_number as property_display_number,
+        p.listing_label_mode as property_listing_label_mode,
         u.bedrooms as bedrooms,
         u.bathrooms as bathrooms,
         u.area_square_meters as area_square_meters,
@@ -733,6 +737,14 @@ export async function searchPublicListingsFromNeon(
         category,
         propertyNameAr: row.property_name_ar,
         propertyNameEn: row.property_name_en,
+        ...(row.property_display_number
+          ? { displayNumber: row.property_display_number }
+          : {}),
+        ...(row.property_listing_label_mode === 'number' ||
+        row.property_listing_label_mode === 'both' ||
+        row.property_listing_label_mode === 'title'
+          ? { listingLabelMode: row.property_listing_label_mode }
+          : {}),
         unitNameAr: row.unit_name_ar,
         unitNameEn: row.unit_name_en,
         governorate: row.governorate ?? '',
