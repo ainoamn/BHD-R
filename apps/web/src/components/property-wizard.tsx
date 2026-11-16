@@ -294,9 +294,10 @@ export function PropertyWizard({
       displayNumber: initialProperty?.displayNumber ?? '',
       listingLabelMode:
         initialProperty?.listingLabelMode === 'number' ||
-        initialProperty?.listingLabelMode === 'both'
+        initialProperty?.listingLabelMode === 'both' ||
+        initialProperty?.listingLabelMode === 'title'
           ? initialProperty.listingLabelMode
-          : ('title' as const),
+          : ('' as const),
       nameAr: initialProperty?.nameAr ?? '',
       nameEn: initialProperty?.nameEn ?? '',
       descriptionAr: initialProperty?.descriptionAr ?? '',
@@ -560,6 +561,45 @@ export function PropertyWizard({
     } finally {
       setTranslating(null);
     }
+  }
+
+  /** Silent background title translation — never shown in the create UI. */
+  async function syncSilentAdTitle(source: string) {
+    const text = source.trim();
+    if (text.length < 2) return;
+    const target: 'ar' | 'en' = ar ? 'en' : 'ar';
+    const applyKey = ar ? 'nameEn' : 'nameAr';
+    try {
+      const translated = await translateText(text, target);
+      updateProperty(applyKey, translated.trim() || text);
+    } catch {
+      updateProperty(applyKey, text);
+    }
+  }
+
+  async function ensureBilingualTitles(): Promise<{ nameAr: string; nameEn: string }> {
+    let nameAr = property.nameAr.trim();
+    let nameEn = property.nameEn.trim();
+    const modeLabel = property.listingLabelMode;
+    if (modeLabel !== 'title' && modeLabel !== 'both') {
+      return { nameAr, nameEn };
+    }
+    if (ar && nameAr.length >= 2 && nameEn.length < 2) {
+      try {
+        nameEn = (await translateText(nameAr, 'en')).trim() || nameAr;
+      } catch {
+        nameEn = nameAr;
+      }
+      updateProperty('nameEn', nameEn);
+    } else if (!ar && nameEn.length >= 2 && nameAr.length < 2) {
+      try {
+        nameAr = (await translateText(nameEn, 'ar')).trim() || nameEn;
+      } catch {
+        nameAr = nameEn;
+      }
+      updateProperty('nameAr', nameAr);
+    }
+    return { nameAr, nameEn };
   }
 
   const selectedGov = omanLocations.find(
@@ -838,11 +878,10 @@ export function PropertyWizard({
     const issues: string[] = [];
     if (index === 0) {
       const labelMode = property.listingLabelMode;
+      if (!labelMode) issues.push(t('PropertyForm.listingLabelMode'));
       if (labelMode === 'title' || labelMode === 'both') {
-        if (property.nameAr.trim().length < 2)
-          issues.push(ar ? 'عنوان العقار (عربي)' : 'Property title (Arabic)');
-        if (property.nameEn.trim().length < 2)
-          issues.push(ar ? 'عنوان العقار (إنجليزي)' : 'Property title (English)');
+        const primary = (ar ? property.nameAr : property.nameEn).trim();
+        if (primary.length < 2) issues.push(t('PropertyForm.adTitle'));
       }
       // Display number is optional — system serial is used when empty.
       if (!profile.usageType) issues.push(t('PropertyForm.usageType'));
@@ -1440,6 +1479,7 @@ export function PropertyWizard({
           : 'Saving property…',
     );
     try {
+      const titles = await ensureBilingualTitles();
       const amenityPayload = amenities.map((code) => {
         const option = amenityOptions.find(([value]) => value === code)!;
         return { code, labelAr: option[1], labelEn: option[2] };
@@ -1450,10 +1490,15 @@ export function PropertyWizard({
           ownerPartyId: selectedOwnerPartyId,
           kind,
           category: kind === 'multi_unit' ? 'building' : property.category,
-          nameAr: property.nameAr,
-          nameEn: property.nameEn,
+          nameAr: titles.nameAr,
+          nameEn: titles.nameEn,
           displayNumber: property.displayNumber.trim() || undefined,
-          listingLabelMode: property.listingLabelMode,
+          listingLabelMode:
+            property.listingLabelMode === 'number' ||
+            property.listingLabelMode === 'both' ||
+            property.listingLabelMode === 'title'
+              ? property.listingLabelMode
+              : 'title',
           descriptionAr: property.descriptionAr || undefined,
           descriptionEn: property.descriptionEn || undefined,
           address: {
@@ -1788,7 +1833,9 @@ export function PropertyWizard({
   );
   const namesBlockDone = (() => {
     const modeLabel = property.listingLabelMode;
-    const hasTitles = property.nameAr.trim().length >= 2 && property.nameEn.trim().length >= 2;
+    if (!modeLabel) return false;
+    const primaryTitle = (ar ? property.nameAr : property.nameEn).trim();
+    const hasTitles = primaryTitle.length >= 2;
     // Number-only: confirm optional number (Enter) — empty uses system serial on save.
     if (modeLabel === 'number') return numberFieldConfirmed;
     if (modeLabel === 'both') return hasTitles;
@@ -1804,6 +1851,7 @@ export function PropertyWizard({
     property.listingLabelMode === 'title' || property.listingLabelMode === 'both';
   const showNumberField =
     property.listingLabelMode === 'number' || property.listingLabelMode === 'both';
+  const adTitleValue = ar ? property.nameAr : property.nameEn;
   const previewLocation = [property.governorate, property.wilayat, property.city]
     .filter(Boolean)
     .join(' · ');
@@ -2198,17 +2246,20 @@ export function PropertyWizard({
                           id="listingLabelMode"
                           label={t('PropertyForm.listingLabelMode')}
                           value={property.listingLabelMode}
-                          tone="ok"
-                          onChange={(event) =>
-                            onSelectAdvance(event, (value) => {
-                              const next =
-                                value === 'number' || value === 'both' ? value : 'title';
-                              updateProperty('listingLabelMode', next);
-                              setNumberFieldConfirmed(next !== 'number');
-                            })
-                          }
+                          tone={tone(property.listingLabelMode, true, showErrors)}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            const next =
+                              value === 'number' || value === 'both' || value === 'title'
+                                ? value
+                                : '';
+                            updateProperty('listingLabelMode', next);
+                            setNumberFieldConfirmed(next !== 'number' && next !== '');
+                            if (next) focusNextField(event.currentTarget);
+                          }}
                           required
                         >
+                          <option value="">{t('PropertyForm.listingLabelModePlaceholder')}</option>
                           <option value="title">{t('PropertyForm.listingLabelTitle')}</option>
                           <option value="number">{t('PropertyForm.listingLabelNumber')}</option>
                           <option value="both">{t('PropertyForm.listingLabelBoth')}</option>
@@ -2234,67 +2285,38 @@ export function PropertyWizard({
                           />
                         ) : null}
                         {showTitleFields ? (
-                          <div className="bilingual-pair span-2">
+                          <div className="span-2">
                             <Field
-                              id="nameAr"
-                              label={t('PropertyForm.nameAr')}
-                              value={property.nameAr}
-                              tone={tone(property.nameAr, true, showErrors)}
-                              onChange={(event) => updateProperty('nameAr', event.target.value)}
-                              onKeyDown={(event) =>
-                                onTextEnter(event, event.currentTarget.value.trim().length >= 2)
-                              }
-                              placeholder={t('PropertyForm.nameArPlaceholder')}
+                              id="adTitle"
+                              label={t('PropertyForm.adTitle')}
+                              value={adTitleValue}
+                              tone={tone(adTitleValue, true, showErrors)}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                if (ar) {
+                                  updateProperty('nameAr', value);
+                                } else {
+                                  updateProperty('nameEn', value);
+                                }
+                              }}
+                              onBlur={(event) => {
+                                void syncSilentAdTitle(event.currentTarget.value);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter') return;
+                                event.preventDefault();
+                                const value = event.currentTarget.value;
+                                void syncSilentAdTitle(value).then(() => {
+                                  if (value.trim().length >= 2) {
+                                    focusNextField(event.currentTarget);
+                                  }
+                                });
+                              }}
+                              placeholder={t('PropertyForm.adTitlePlaceholder')}
                               minLength={2}
                               maxLength={160}
                               required
-                            />
-                            <div className="bilingual-pair__actions">
-                              <Button
-                                type="button"
-                                variant="quiet"
-                                disabled={translating !== null || !property.nameAr.trim()}
-                                onClick={() =>
-                                  void translateField(
-                                    property.nameAr,
-                                    'en',
-                                    (value) => updateProperty('nameEn', value),
-                                    'name-en',
-                                  )
-                                }
-                              >
-                                {translating === 'name-en' ? '…' : 'AR → EN'}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="quiet"
-                                disabled={translating !== null || !property.nameEn.trim()}
-                                onClick={() =>
-                                  void translateField(
-                                    property.nameEn,
-                                    'ar',
-                                    (value) => updateProperty('nameAr', value),
-                                    'name-ar',
-                                  )
-                                }
-                              >
-                                {translating === 'name-ar' ? '…' : 'EN → AR'}
-                              </Button>
-                            </div>
-                            <Field
-                              id="nameEn"
-                              label={t('PropertyForm.nameEn')}
-                              value={property.nameEn}
-                              tone={tone(property.nameEn, true, showErrors)}
-                              onChange={(event) => updateProperty('nameEn', event.target.value)}
-                              onKeyDown={(event) =>
-                                onTextEnter(event, event.currentTarget.value.trim().length >= 2)
-                              }
-                              placeholder={t('PropertyForm.nameEnPlaceholder')}
-                              minLength={2}
-                              maxLength={160}
-                              required
-                              dir="ltr"
+                              dir={ar ? 'rtl' : 'ltr'}
                             />
                           </div>
                         ) : null}
@@ -2302,8 +2324,8 @@ export function PropertyWizard({
                     ) : (
                       <p className="span-2 field__hint wizard-guided-hint">
                         {ar
-                          ? 'أكمل التصنيف ونوع الاستعمال ليظهر رقم وعنوان العقار.'
-                          : 'Complete category and usage type to reveal the property number and title.'}
+                          ? 'أكمل التصنيف ونوع الاستعمال ليظهر عنوان الإعلان.'
+                          : 'Complete category and usage type to reveal the ad title.'}
                       </p>
                     )}
 
