@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChangeEvent, FormEvent } from 'react';
+import type { ChangeEvent, FormEvent, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Card, CardContent, Field, SelectField, TextAreaField } from '@bhd-r/ui';
@@ -470,6 +470,8 @@ export function PropertyWizard({
   const [success, setSuccess] = useState<string | null>(null);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [mapPickerOpen, setMapPickerOpen] = useState(false);
+  /** Create flow: how many fields are unlocked within each wizard step (1-based). */
+  const [guidedUnlocked, setGuidedUnlocked] = useState<Record<number, number>>({ 0: 99 });
   const bundleIdempotencyKey = useRef(`property-bundle:${crypto.randomUUID()}`);
 
   const steps = [
@@ -498,6 +500,40 @@ export function PropertyWizard({
     // and races with Next CSRF used by translate / owner media / reviews).
     void fetch('/api/warm', { cache: 'no-store' }).catch(() => undefined);
   }, []);
+
+  // Keep previously filled unit fields visible when revisiting the units step.
+  useEffect(() => {
+    if (mode === 'edit' || step !== 1 || kind !== 'single_unit') return;
+    const unit = units[0];
+    if (!unit) return;
+    let depth = 1;
+    if (unit.floor) depth = 2;
+    if (unit.floor && unit.bedrooms) depth = 3;
+    if (unit.floor && unit.bedrooms && unit.bathrooms) depth = 4;
+    if (unit.floor && unit.bedrooms && unit.bathrooms && unit.majlis !== '') depth = 5;
+    if (unit.floor && unit.bedrooms && unit.bathrooms && unit.majlis !== '' && unit.halls !== '')
+      depth = 6;
+    if (
+      unit.floor &&
+      unit.bedrooms &&
+      unit.bathrooms &&
+      unit.majlis !== '' &&
+      unit.halls !== '' &&
+      unit.kitchens !== ''
+    )
+      depth = 7;
+    if (
+      unit.floor &&
+      unit.bedrooms &&
+      unit.bathrooms &&
+      unit.majlis !== '' &&
+      unit.halls !== '' &&
+      unit.kitchens !== '' &&
+      unit.hasPool
+    )
+      depth = 8;
+    setGuidedUnlocked((prev) => ({ ...prev, 1: Math.max(prev[1] ?? 1, depth) }));
+  }, [mode, step, kind, units]);
 
   async function translateField(
     source: string,
@@ -692,6 +728,43 @@ export function PropertyWizard({
     if (filled) focusNextField(event.currentTarget);
   }
 
+  function unlockGuided(stepIndex: number, order: number) {
+    if (mode === 'edit') return;
+    setGuidedUnlocked((prev) => ({
+      ...prev,
+      [stepIndex]: Math.max(prev[stepIndex] ?? 1, order + 1),
+    }));
+  }
+
+  function advanceGuided(
+    stepIndex: number,
+    order: number,
+    from?: HTMLElement | null,
+    filled = true,
+  ) {
+    if (!filled) return;
+    unlockGuided(stepIndex, order);
+    focusNextField(from ?? null);
+  }
+
+  function guidedOpen(stepIndex: number, order: number) {
+    if (mode === 'edit') return true;
+    return order <= (guidedUnlocked[stepIndex] ?? 1);
+  }
+
+  function GuidedReveal({
+    step: gateStep,
+    order,
+    children,
+  }: {
+    step: number;
+    order: number;
+    children: ReactNode;
+  }) {
+    if (!guidedOpen(gateStep, order)) return null;
+    return <>{children}</>;
+  }
+
   function applyMapsUrl(value: string) {
     const coords = parseGoogleMapsUrl(value);
     setProperty((current) => ({
@@ -868,7 +941,16 @@ export function PropertyWizard({
       setError(null);
       setMaxReached((m) => Math.max(m, next));
       setSlideDir('forward');
+      setGuidedUnlocked((prev) => {
+        let start = prev[next] ?? 1;
+        // Owner party is pre-selected — open the next ownership controls immediately.
+        if (next === 3 && selectedOwnerPartyId) start = Math.max(start, 2);
+        // Furnishing has a default once the amenity step is reached later.
+        if (next === 1) start = Math.max(start, 1);
+        return { ...prev, [next]: start };
+      });
       setStep(next);
+      window.setTimeout(() => focusNextField(), 120);
       return;
     }
     if (next < step && next >= 0) {
@@ -1738,8 +1820,8 @@ export function PropertyWizard({
         <p className="wizard-hero__intro">
           {guidedCreate
             ? ar
-              ? 'عبّئ كل خيار ليُفتح التالي تلقائياً — يمكنك الرجوع لأي مرحلة أو حقل سابق، أو المتابعة للأمام.'
-              : 'Fill each option to open the next automatically — you can go back to any previous step or field, or continue forward.'
+              ? 'في كل مرحلة تظهر البيانات واحداً تلو الآخر — عبّئ الخيار الحالي ليُفتح التالي، ويمكنك الرجوع أو المتابعة في أي وقت.'
+              : 'In every step, fields appear one by one — fill the current option to open the next, and go back or continue anytime.'
             : t('PropertyForm.intro')}
         </p>
         {mode === 'edit' && initialProperty?.status === 'draft' ? (
@@ -2725,6 +2807,13 @@ export function PropertyWizard({
                               <p className="span-2 field__hint">
                                 {t('PropertyForm.nameSharedHint')}
                               </p>
+                              {guidedCreate ? (
+                                <p className="span-2 field__hint wizard-guided-hint">
+                                  {ar
+                                    ? 'اختر كل حقل ليظهر التالي تلقائياً.'
+                                    : 'Choose each field to reveal the next automatically.'}
+                                </p>
+                              ) : null}
                               <div className="field">
                                 <label>{t('PropertyForm.code')}</label>
                                 <div className="wizard-readonly" dir="ltr">
@@ -2732,242 +2821,316 @@ export function PropertyWizard({
                                 </div>
                                 <p className="field__hint">{t('PropertyForm.codeAutoHint')}</p>
                               </div>
-                              <SelectField
-                                id={`unit-floor-${unit.localId}`}
-                                label={t('PropertyForm.floor')}
-                                value={unit.floor}
-                                tone={tone(unit.floor, true, showErrors)}
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'floor', event.target.value)
-                                }
-                                required
-                              >
-                                <option value="">{t('PropertyForm.selectFloor')}</option>
-                                {FLOOR_OPTIONS.map((value) => (
-                                  <option key={value} value={value}>
-                                    {value === '0' ? t('PropertyForm.floorGround') : value}
-                                  </option>
-                                ))}
-                              </SelectField>
-                              <SelectField
-                                id={`unit-beds-${unit.localId}`}
-                                label={t('PropertyForm.bedrooms')}
-                                value={unit.bedrooms}
-                                tone={tone(unit.bedrooms, true, showErrors)}
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'bedrooms', event.target.value)
-                                }
-                                required
-                              >
-                                <option value="">{t('PropertyForm.selectBedrooms')}</option>
-                                {BEDROOM_OPTIONS.map((value) => (
-                                  <option key={value} value={value}>
-                                    {value}
-                                  </option>
-                                ))}
-                              </SelectField>
-                              <SelectField
-                                id={`unit-baths-${unit.localId}`}
-                                label={t('PropertyForm.bathrooms')}
-                                value={unit.bathrooms}
-                                tone={tone(unit.bathrooms, true, showErrors)}
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'bathrooms', event.target.value)
-                                }
-                                required
-                              >
-                                <option value="">{t('PropertyForm.selectBathrooms')}</option>
-                                {BATHROOM_OPTIONS.map((value) => (
-                                  <option key={value} value={value}>
-                                    {value}
-                                  </option>
-                                ))}
-                              </SelectField>
-                              <SelectField
-                                id={`unit-majlis-${unit.localId}`}
-                                label={t('PropertyForm.majlis')}
-                                value={unit.majlis}
-                                tone={tone(unit.majlis, true, showErrors)}
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'majlis', event.target.value)
-                                }
-                                required
-                              >
-                                <option value="">{t('PropertyForm.selectMajlis')}</option>
-                                {ROOM_COUNT_OPTIONS.map((value) => (
-                                  <option key={value} value={value}>
-                                    {value}
-                                  </option>
-                                ))}
-                              </SelectField>
-                              <SelectField
-                                id={`unit-halls-${unit.localId}`}
-                                label={t('PropertyForm.halls')}
-                                value={unit.halls}
-                                tone={tone(unit.halls, true, showErrors)}
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'halls', event.target.value)
-                                }
-                                required
-                              >
-                                <option value="">{t('PropertyForm.selectHalls')}</option>
-                                {ROOM_COUNT_OPTIONS.map((value) => (
-                                  <option key={value} value={value}>
-                                    {value}
-                                  </option>
-                                ))}
-                              </SelectField>
-                              <SelectField
-                                id={`unit-kitchens-${unit.localId}`}
-                                label={t('PropertyForm.kitchens')}
-                                value={unit.kitchens}
-                                tone={tone(unit.kitchens, true, showErrors)}
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'kitchens', event.target.value)
-                                }
-                                required
-                              >
-                                <option value="">{t('PropertyForm.selectKitchens')}</option>
-                                {ROOM_COUNT_OPTIONS.map((value) => (
-                                  <option key={value} value={value}>
-                                    {value}
-                                  </option>
-                                ))}
-                              </SelectField>
-                              <SelectField
-                                id={`unit-pool-${unit.localId}`}
-                                label={t('PropertyForm.hasPool')}
-                                value={unit.hasPool}
-                                tone={tone(unit.hasPool, true, showErrors)}
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'hasPool', event.target.value)
-                                }
-                                required
-                              >
-                                <option value="">{t('PropertyForm.selectPool')}</option>
-                                <option value="true">{t('PropertyForm.poolAvailable')}</option>
-                                <option value="false">{t('PropertyForm.poolUnavailable')}</option>
-                              </SelectField>
-                              <Field
-                                id={`unit-area-${unit.localId}`}
-                                inputMode="decimal"
-                                label={t('PropertyForm.area')}
-                                value={unit.area}
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'area', event.target.value)
-                                }
-                              />
-                              <fieldset className="wizard-offering-modes">
-                                <legend>{t('PropertyForm.offeringModes')}</legend>
-                                <p className="muted wizard-offering-modes__hint">
-                                  {t('PropertyForm.offeringModesHint')}
-                                </p>
-                                {(
-                                  [
-                                    ['monthly', t('PropertyForm.offerMonthly')],
-                                    ['yearly', t('PropertyForm.offerYearly')],
-                                    ['daily', t('PropertyForm.offerDaily')],
-                                    ['sale', t('PropertyForm.offerSale')],
-                                  ] as const
-                                ).map(([mode, label]) => (
-                                  <label key={mode} className="wizard-offering-modes__item">
-                                    <input
-                                      type="checkbox"
-                                      checked={unit.offeringModes.includes(mode)}
-                                      onChange={(event) => {
-                                        setUnits((current) =>
-                                          current.map((row) => {
-                                            if (row.localId !== unit.localId) return row;
-                                            const nextModes = event.target.checked
-                                              ? [...row.offeringModes, mode]
-                                              : row.offeringModes.filter((item) => item !== mode);
-                                            const modes: OfferingMode[] = nextModes.length
-                                              ? nextModes
-                                              : ['monthly'];
-                                            return {
-                                              ...row,
-                                              offeringModes: modes,
-                                              listingPurpose:
-                                                listingPurposeFromOfferingModes(modes),
-                                              publishWhenAvailable:
-                                                modes.includes('daily') &&
-                                                !modes.some(
-                                                  (item) =>
-                                                    item === 'monthly' ||
-                                                    item === 'yearly' ||
-                                                    item === 'sale',
-                                                )
-                                                  ? false
-                                                  : row.publishWhenAvailable,
-                                            };
-                                          }),
-                                        );
-                                      }}
-                                    />
-                                    <span>{label}</span>
-                                  </label>
-                                ))}
-                              </fieldset>
-                              <Field
-                                id={`unit-rent-${unit.localId}`}
-                                inputMode="decimal"
-                                label={`${t('PropertyForm.rent')} (${currency})`}
-                                value={unit.rent}
-                                tone={
-                                  unit.offeringModes.includes('sale') &&
-                                  !unit.offeringModes.some(
-                                    (mode) =>
-                                      mode === 'monthly' || mode === 'yearly' || mode === 'daily',
-                                  )
-                                    ? 'neutral'
-                                    : tone(unit.rent, true, showErrors)
-                                }
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'rent', event.target.value)
-                                }
-                                required={
-                                  !(
+                              <GuidedReveal step={1} order={1}>
+                                <SelectField
+                                  id={`unit-floor-${unit.localId}`}
+                                  label={t('PropertyForm.floor')}
+                                  value={unit.floor}
+                                  tone={tone(unit.floor, true, showErrors)}
+                                  onChange={(event) =>
+                                    onSelectAdvance(event, (value) => {
+                                      updateUnit(unit.localId, 'floor', value);
+                                      if (value) unlockGuided(1, 1);
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectFloor')}</option>
+                                  {FLOOR_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value === '0' ? t('PropertyForm.floorGround') : value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={2}>
+                                <SelectField
+                                  id={`unit-beds-${unit.localId}`}
+                                  label={t('PropertyForm.bedrooms')}
+                                  value={unit.bedrooms}
+                                  tone={tone(unit.bedrooms, true, showErrors)}
+                                  onChange={(event) =>
+                                    onSelectAdvance(event, (value) => {
+                                      updateUnit(unit.localId, 'bedrooms', value);
+                                      if (value) unlockGuided(1, 2);
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectBedrooms')}</option>
+                                  {BEDROOM_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={3}>
+                                <SelectField
+                                  id={`unit-baths-${unit.localId}`}
+                                  label={t('PropertyForm.bathrooms')}
+                                  value={unit.bathrooms}
+                                  tone={tone(unit.bathrooms, true, showErrors)}
+                                  onChange={(event) =>
+                                    onSelectAdvance(event, (value) => {
+                                      updateUnit(unit.localId, 'bathrooms', value);
+                                      if (value) unlockGuided(1, 3);
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectBathrooms')}</option>
+                                  {BATHROOM_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={4}>
+                                <SelectField
+                                  id={`unit-majlis-${unit.localId}`}
+                                  label={t('PropertyForm.majlis')}
+                                  value={unit.majlis}
+                                  tone={tone(unit.majlis, true, showErrors)}
+                                  onChange={(event) =>
+                                    onSelectAdvance(event, (value) => {
+                                      updateUnit(unit.localId, 'majlis', value);
+                                      if (value) unlockGuided(1, 4);
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectMajlis')}</option>
+                                  {ROOM_COUNT_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={5}>
+                                <SelectField
+                                  id={`unit-halls-${unit.localId}`}
+                                  label={t('PropertyForm.halls')}
+                                  value={unit.halls}
+                                  tone={tone(unit.halls, true, showErrors)}
+                                  onChange={(event) =>
+                                    onSelectAdvance(event, (value) => {
+                                      updateUnit(unit.localId, 'halls', value);
+                                      if (value) unlockGuided(1, 5);
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectHalls')}</option>
+                                  {ROOM_COUNT_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={6}>
+                                <SelectField
+                                  id={`unit-kitchens-${unit.localId}`}
+                                  label={t('PropertyForm.kitchens')}
+                                  value={unit.kitchens}
+                                  tone={tone(unit.kitchens, true, showErrors)}
+                                  onChange={(event) =>
+                                    onSelectAdvance(event, (value) => {
+                                      updateUnit(unit.localId, 'kitchens', value);
+                                      if (value) unlockGuided(1, 6);
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectKitchens')}</option>
+                                  {ROOM_COUNT_OPTIONS.map((value) => (
+                                    <option key={value} value={value}>
+                                      {value}
+                                    </option>
+                                  ))}
+                                </SelectField>
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={7}>
+                                <SelectField
+                                  id={`unit-pool-${unit.localId}`}
+                                  label={t('PropertyForm.hasPool')}
+                                  value={unit.hasPool}
+                                  tone={tone(unit.hasPool, true, showErrors)}
+                                  onChange={(event) =>
+                                    onSelectAdvance(event, (value) => {
+                                      updateUnit(unit.localId, 'hasPool', value);
+                                      if (value) unlockGuided(1, 7);
+                                    })
+                                  }
+                                  required
+                                >
+                                  <option value="">{t('PropertyForm.selectPool')}</option>
+                                  <option value="true">{t('PropertyForm.poolAvailable')}</option>
+                                  <option value="false">{t('PropertyForm.poolUnavailable')}</option>
+                                </SelectField>
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={8}>
+                                <Field
+                                  id={`unit-area-${unit.localId}`}
+                                  inputMode="decimal"
+                                  label={t('PropertyForm.area')}
+                                  value={unit.area}
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'area', event.target.value)
+                                  }
+                                  onKeyDown={(event) => {
+                                    if (event.key !== 'Enter') return;
+                                    event.preventDefault();
+                                    advanceGuided(1, 8, event.currentTarget, true);
+                                  }}
+                                />
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={9}>
+                                <fieldset className="wizard-offering-modes">
+                                  <legend>{t('PropertyForm.offeringModes')}</legend>
+                                  <p className="muted wizard-offering-modes__hint">
+                                    {t('PropertyForm.offeringModesHint')}
+                                  </p>
+                                  {(
+                                    [
+                                      ['monthly', t('PropertyForm.offerMonthly')],
+                                      ['yearly', t('PropertyForm.offerYearly')],
+                                      ['daily', t('PropertyForm.offerDaily')],
+                                      ['sale', t('PropertyForm.offerSale')],
+                                    ] as const
+                                  ).map(([modeKey, label]) => (
+                                    <label key={modeKey} className="wizard-offering-modes__item">
+                                      <input
+                                        type="checkbox"
+                                        checked={unit.offeringModes.includes(modeKey)}
+                                        onChange={(event) => {
+                                          setUnits((current) =>
+                                            current.map((row) => {
+                                              if (row.localId !== unit.localId) return row;
+                                              const nextModes = event.target.checked
+                                                ? [...row.offeringModes, modeKey]
+                                                : row.offeringModes.filter(
+                                                    (item) => item !== modeKey,
+                                                  );
+                                              const modes: OfferingMode[] = nextModes.length
+                                                ? nextModes
+                                                : ['monthly'];
+                                              return {
+                                                ...row,
+                                                offeringModes: modes,
+                                                listingPurpose:
+                                                  listingPurposeFromOfferingModes(modes),
+                                                publishWhenAvailable:
+                                                  modes.includes('daily') &&
+                                                  !modes.some(
+                                                    (item) =>
+                                                      item === 'monthly' ||
+                                                      item === 'yearly' ||
+                                                      item === 'sale',
+                                                  )
+                                                    ? false
+                                                    : row.publishWhenAvailable,
+                                              };
+                                            }),
+                                          );
+                                          unlockGuided(1, 9);
+                                        }}
+                                      />
+                                      <span>{label}</span>
+                                    </label>
+                                  ))}
+                                  {guidedCreate ? (
+                                    <Button
+                                      type="button"
+                                      variant="quiet"
+                                      onClick={() => advanceGuided(1, 9, null, true)}
+                                    >
+                                      {t('Common.continue')}
+                                    </Button>
+                                  ) : null}
+                                </fieldset>
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={10}>
+                                <Field
+                                  id={`unit-rent-${unit.localId}`}
+                                  inputMode="decimal"
+                                  label={`${t('PropertyForm.rent')} (${currency})`}
+                                  value={unit.rent}
+                                  tone={
                                     unit.offeringModes.includes('sale') &&
                                     !unit.offeringModes.some(
-                                      (mode) =>
-                                        mode === 'monthly' || mode === 'yearly' || mode === 'daily',
+                                      (modeKey) =>
+                                        modeKey === 'monthly' ||
+                                        modeKey === 'yearly' ||
+                                        modeKey === 'daily',
                                     )
-                                  )
-                                }
-                              />
-                              <Field
-                                id={`unit-sale-price-${unit.localId}`}
-                                inputMode="decimal"
-                                label={`${t('PropertyForm.salePrice')} (${currency})`}
-                                value={unit.salePrice}
-                                tone={
-                                  unit.offeringModes.includes('sale')
-                                    ? tone(unit.salePrice, true, showErrors)
-                                    : 'neutral'
-                                }
-                                onChange={(event) =>
-                                  updateUnit(unit.localId, 'salePrice', event.target.value)
-                                }
-                                required={unit.offeringModes.includes('sale')}
-                              />
-                              {renderDepositFields(unit)}
-                              <div className="span-2 publish-hint">
-                                <label className="checkbox-row">
-                                  <input
-                                    type="checkbox"
-                                    checked={unit.publishWhenAvailable}
-                                    onChange={(event) =>
-                                      updateUnit(
-                                        unit.localId,
-                                        'publishWhenAvailable',
-                                        event.target.checked,
+                                      ? 'neutral'
+                                      : tone(unit.rent, true, showErrors)
+                                  }
+                                  onChange={(event) =>
+                                    updateUnit(unit.localId, 'rent', event.target.value)
+                                  }
+                                  onKeyDown={(event) => {
+                                    if (event.key !== 'Enter') return;
+                                    event.preventDefault();
+                                    advanceGuided(1, 10, event.currentTarget, true);
+                                  }}
+                                  required={
+                                    !(
+                                      unit.offeringModes.includes('sale') &&
+                                      !unit.offeringModes.some(
+                                        (modeKey) =>
+                                          modeKey === 'monthly' ||
+                                          modeKey === 'yearly' ||
+                                          modeKey === 'daily',
                                       )
-                                    }
-                                  />
-                                  {t('PropertyForm.publish')}
-                                </label>
-                                <p className="field__hint">{t('PropertyForm.publishHint')}</p>
-                              </div>
+                                    )
+                                  }
+                                />
+                              </GuidedReveal>
+                              <GuidedReveal step={1} order={11}>
+                                <>
+                                  {unit.offeringModes.includes('sale') ? (
+                                    <Field
+                                      id={`unit-sale-price-${unit.localId}`}
+                                      inputMode="decimal"
+                                      label={`${t('PropertyForm.salePrice')} (${currency})`}
+                                      value={unit.salePrice}
+                                      tone={tone(unit.salePrice, true, showErrors)}
+                                      onChange={(event) =>
+                                        updateUnit(unit.localId, 'salePrice', event.target.value)
+                                      }
+                                      onKeyDown={(event) => {
+                                        if (event.key !== 'Enter') return;
+                                        event.preventDefault();
+                                        advanceGuided(1, 11, event.currentTarget, true);
+                                      }}
+                                      required
+                                    />
+                                  ) : null}
+                                  {renderDepositFields(unit)}
+                                  <div className="span-2 publish-hint">
+                                    <label className="checkbox-row">
+                                      <input
+                                        type="checkbox"
+                                        checked={unit.publishWhenAvailable}
+                                        onChange={(event) =>
+                                          updateUnit(
+                                            unit.localId,
+                                            'publishWhenAvailable',
+                                            event.target.checked,
+                                          )
+                                        }
+                                      />
+                                      {t('PropertyForm.publish')}
+                                    </label>
+                                    <p className="field__hint">{t('PropertyForm.publishHint')}</p>
+                                  </div>
+                                </>
+                              </GuidedReveal>
                             </div>
                           </fieldset>
                         ))}
@@ -2986,331 +3149,489 @@ export function PropertyWizard({
 
                 {step === 2 ? (
                   <div>
+                    {guidedCreate ? (
+                      <p className="field__hint wizard-guided-hint" style={{ marginBottom: '1rem' }}>
+                        {ar
+                          ? 'أدخل كل بيان ثم Enter أو اختر من القائمة لفتح التالي.'
+                          : 'Enter each detail then press Enter, or pick from the list, to open the next.'}
+                      </p>
+                    ) : null}
                     <div className="form-grid">
-                      <Field
-                        id="land-area"
-                        inputMode="decimal"
-                        label={ar ? 'مساحة الأرض (م²)' : 'Land area (m²)'}
-                        value={profile.landArea}
-                        onChange={(event) => updateProfile('landArea', event.target.value)}
-                      />
-                      <Field
-                        id="built-area"
-                        inputMode="decimal"
-                        label={
-                          kind === 'multi_unit'
-                            ? t('PropertyForm.multiUnitTotalArea')
-                            : ar
-                              ? 'المساحة المبنية (م²)'
-                              : 'Built-up area (m²)'
-                        }
-                        value={profile.builtUpArea}
-                        onChange={(event) => updateProfile('builtUpArea', event.target.value)}
-                      />
-                      <Field
-                        id="year-built"
-                        type="number"
-                        min={1800}
-                        max={2200}
-                        label={ar ? 'سنة البناء' : 'Year built'}
-                        value={profile.yearBuilt}
-                        onChange={(event) => updateProfile('yearBuilt', event.target.value)}
-                      />
-                      <Field
-                        id="parking-spaces"
-                        type="number"
-                        min={0}
-                        label={ar ? 'عدد المواقف' : 'Parking spaces'}
-                        value={profile.parkingSpaces}
-                        onChange={(event) => updateProfile('parkingSpaces', event.target.value)}
-                      />
-                      <SelectField
-                        id="furnishing"
-                        label={ar ? 'التأثيث' : 'Furnishing'}
-                        value={profile.furnishing}
-                        onChange={(event) => updateProfile('furnishing', event.target.value)}
-                      >
-                        <option value="unfurnished">{ar ? 'غير مؤثث' : 'Unfurnished'}</option>
-                        <option value="semi_furnished">{ar ? 'شبه مؤثث' : 'Semi-furnished'}</option>
-                        <option value="furnished">{ar ? 'مؤثث' : 'Furnished'}</option>
-                      </SelectField>
+                      <GuidedReveal step={2} order={1}>
+                        <Field
+                          id="land-area"
+                          inputMode="decimal"
+                          label={ar ? 'مساحة الأرض (م²)' : 'Land area (m²)'}
+                          value={profile.landArea}
+                          onChange={(event) => updateProfile('landArea', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            advanceGuided(2, 1, event.currentTarget, true);
+                          }}
+                        />
+                      </GuidedReveal>
+                      <GuidedReveal step={2} order={2}>
+                        <Field
+                          id="built-area"
+                          inputMode="decimal"
+                          label={
+                            kind === 'multi_unit'
+                              ? t('PropertyForm.multiUnitTotalArea')
+                              : ar
+                                ? 'المساحة المبنية (م²)'
+                                : 'Built-up area (m²)'
+                          }
+                          value={profile.builtUpArea}
+                          onChange={(event) => updateProfile('builtUpArea', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            advanceGuided(2, 2, event.currentTarget, true);
+                          }}
+                        />
+                      </GuidedReveal>
+                      <GuidedReveal step={2} order={3}>
+                        <Field
+                          id="year-built"
+                          type="number"
+                          min={1800}
+                          max={2200}
+                          label={ar ? 'سنة البناء' : 'Year built'}
+                          value={profile.yearBuilt}
+                          onChange={(event) => updateProfile('yearBuilt', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            advanceGuided(2, 3, event.currentTarget, true);
+                          }}
+                        />
+                      </GuidedReveal>
+                      <GuidedReveal step={2} order={4}>
+                        <Field
+                          id="parking-spaces"
+                          type="number"
+                          min={0}
+                          label={ar ? 'عدد المواقف' : 'Parking spaces'}
+                          value={profile.parkingSpaces}
+                          onChange={(event) => updateProfile('parkingSpaces', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            // Furnishing always has a default — unlock it and amenities together.
+                            unlockGuided(2, 5);
+                            advanceGuided(2, 4, event.currentTarget, true);
+                          }}
+                        />
+                      </GuidedReveal>
+                      <GuidedReveal step={2} order={5}>
+                        <SelectField
+                          id="furnishing"
+                          label={ar ? 'التأثيث' : 'Furnishing'}
+                          value={profile.furnishing}
+                          onChange={(event) =>
+                            onSelectAdvance(event, (value) => {
+                              updateProfile('furnishing', value);
+                              if (value) unlockGuided(2, 5);
+                            })
+                          }
+                        >
+                          <option value="unfurnished">{ar ? 'غير مؤثث' : 'Unfurnished'}</option>
+                          <option value="semi_furnished">{ar ? 'شبه مؤثث' : 'Semi-furnished'}</option>
+                          <option value="furnished">{ar ? 'مؤثث' : 'Furnished'}</option>
+                        </SelectField>
+                      </GuidedReveal>
                     </div>
-                    <fieldset className="amenity-picker">
-                      <legend>{t('PropertyForm.amenitiesLegend')}</legend>
-                      <div className="amenity-picker__grid">
-                        {amenityOptions.map(([code, labelAr, labelEn, icon]) => (
-                          <label
-                            className={
-                              amenities.includes(code) ? 'amenity-chip is-selected' : 'amenity-chip'
-                            }
-                            key={code}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={amenities.includes(code)}
+                    <GuidedReveal step={2} order={6}>
+                      <fieldset className="amenity-picker wizard-guided-block">
+                        <legend>{t('PropertyForm.amenitiesLegend')}</legend>
+                        <div className="amenity-picker__grid">
+                          {amenityOptions.map(([code, labelAr, labelEn, icon]) => (
+                            <label
+                              className={
+                                amenities.includes(code)
+                                  ? 'amenity-chip is-selected'
+                                  : 'amenity-chip'
+                              }
+                              key={code}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={amenities.includes(code)}
+                                onChange={(event) =>
+                                  setAmenities((current) =>
+                                    event.target.checked
+                                      ? [...current, code]
+                                      : current.filter((value) => value !== code),
+                                  )
+                                }
+                              />
+                              <span className="amenity-chip__icon" aria-hidden="true">
+                                {icon}
+                              </span>
+                              <span>{ar ? labelAr : labelEn}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <div className="amenity-custom">
+                          <div className="bilingual-pair">
+                            <Field
+                              id="custom-amenity-ar"
+                              label={t('PropertyForm.customAmenityAr')}
+                              value={customDraft.ar}
                               onChange={(event) =>
-                                setAmenities((current) =>
-                                  event.target.checked
-                                    ? [...current, code]
-                                    : current.filter((value) => value !== code),
-                                )
+                                setCustomDraft((c) => ({ ...c, ar: event.target.value }))
                               }
                             />
-                            <span className="amenity-chip__icon" aria-hidden="true">
-                              {icon}
-                            </span>
-                            <span>{ar ? labelAr : labelEn}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="amenity-custom">
-                        <div className="bilingual-pair">
-                          <Field
-                            id="custom-amenity-ar"
-                            label={t('PropertyForm.customAmenityAr')}
-                            value={customDraft.ar}
-                            onChange={(event) =>
-                              setCustomDraft((c) => ({ ...c, ar: event.target.value }))
-                            }
-                          />
-                          <div className="bilingual-pair__actions">
-                            <span className="bilingual-pair__hint">AR ‖ EN</span>
+                            <div className="bilingual-pair__actions">
+                              <span className="bilingual-pair__hint">AR ‖ EN</span>
+                            </div>
+                            <Field
+                              id="custom-amenity-en"
+                              label={t('PropertyForm.customAmenityEn')}
+                              value={customDraft.en}
+                              onChange={(event) =>
+                                setCustomDraft((c) => ({ ...c, en: event.target.value }))
+                              }
+                              dir="ltr"
+                            />
                           </div>
-                          <Field
-                            id="custom-amenity-en"
-                            label={t('PropertyForm.customAmenityEn')}
-                            value={customDraft.en}
-                            onChange={(event) =>
-                              setCustomDraft((c) => ({ ...c, en: event.target.value }))
-                            }
-                            dir="ltr"
-                          />
+                          <Button type="button" variant="quiet" onClick={addCustomAmenity}>
+                            {t('PropertyForm.addCustomAmenity')}
+                          </Button>
                         </div>
-                        <Button type="button" variant="quiet" onClick={addCustomAmenity}>
-                          {t('PropertyForm.addCustomAmenity')}
-                        </Button>
-                      </div>
-                    </fieldset>
+                      </fieldset>
+                    </GuidedReveal>
                   </div>
                 ) : null}
 
                 {step === 3 ? (
                   <div className="form-grid">
-                    <SelectField
-                      id="owner-party"
-                      label={ar ? 'الملكية باسم' : 'Ownership under'}
-                      value={selectedOwnerPartyId}
-                      onChange={(event) => setSelectedOwnerPartyId(event.target.value)}
-                      required
-                    >
-                      {(ownerPartyOptions.length
-                        ? ownerPartyOptions
-                        : [
-                            {
-                              id: ownerPartyId,
-                              displayName: ar ? 'حسابي' : 'My account',
-                              type: 'person',
-                            },
-                          ]
-                      ).map((party) => (
-                        <option key={party.id} value={party.id}>
-                          {party.displayName}
-                          {party.id === ownerPartyId ? (ar ? ' (حسابي)' : ' (me)') : ''}
-                        </option>
-                      ))}
-                    </SelectField>
-                    <label className="checkbox-row" htmlFor="show-owner-name">
-                      <input
-                        id="show-owner-name"
-                        type="checkbox"
-                        checked={profile.showOwnerNameOnListing}
-                        onChange={(event) =>
-                          setProfile((current) => ({
-                            ...current,
-                            showOwnerNameOnListing: event.target.checked,
-                          }))
-                        }
-                      />
-                      <span>
+                    {guidedCreate ? (
+                      <p className="span-2 field__hint wizard-guided-hint">
                         {ar
-                          ? 'السماح بإظهار اسم المالك في الإعلان العام'
-                          : 'Allow showing the owner name on the public listing'}
-                      </span>
-                    </label>
-                    <p className="field__hint span-2">
-                      {ar
-                        ? 'مقفول افتراضياً. عند التفعيل يظهر الاسم في صفحة العقار العامة فقط.'
-                        : 'Off by default. When enabled, the name appears on the public property page only.'}
-                    </p>
-                    <p className="muted span-2">
-                      {ar
-                        ? 'اختر الطرف الذي سيُسجَّل كمالك للعقار في سجل الملكية. يمكنك إضافة أطراف من قائمة الأطراف والجهات.'
-                        : 'Choose the party recorded as owner. Add more parties from the Parties section.'}
-                    </p>
-                    <Field
-                      id="deed-number"
-                      label={ar ? 'رقم سند الملكية' : 'Title deed number'}
-                      value={profile.deedNumber}
-                      onChange={(event) => updateProfile('deedNumber', event.target.value)}
-                    />
-                    <Field
-                      id="plot-number"
-                      label={ar ? 'رقم القطعة' : 'Plot number'}
-                      value={profile.plotNumber}
-                      onChange={(event) => updateProfile('plotNumber', event.target.value)}
-                    />
-                    <Field
-                      id="municipality-number"
-                      label={ar ? 'الرقم البلدي' : 'Municipality number'}
-                      value={profile.municipalityNumber}
-                      onChange={(event) => updateProfile('municipalityNumber', event.target.value)}
-                    />
-                    <Field
-                      id="insurance-number"
-                      label={ar ? 'رقم وثيقة التأمين' : 'Insurance policy number'}
-                      value={profile.insuranceNumber}
-                      onChange={(event) => updateProfile('insuranceNumber', event.target.value)}
-                    />
-                    <Field
-                      id="insurance-expiry"
-                      type="date"
-                      label={ar ? 'انتهاء التأمين' : 'Insurance expiry'}
-                      value={profile.insuranceExpiresOn}
-                      onChange={(event) => updateProfile('insuranceExpiresOn', event.target.value)}
-                    />
-                    <Field
-                      id="electricity-meter"
-                      label={ar ? 'عداد الكهرباء' : 'Electricity meter'}
-                      value={profile.electricityMeter}
-                      onChange={(event) => updateProfile('electricityMeter', event.target.value)}
-                    />
-                    <Field
-                      id="water-meter"
-                      label={ar ? 'عداد المياه' : 'Water meter'}
-                      value={profile.waterMeter}
-                      onChange={(event) => updateProfile('waterMeter', event.target.value)}
-                    />
-                    <TextAreaField
-                      id="property-notes"
-                      label={ar ? 'ملاحظات تشغيلية وقانونية' : 'Operational/legal notes'}
-                      value={profile.notes}
-                      onChange={(event) => updateProfile('notes', event.target.value)}
-                      maxLength={5000}
-                    />
-                    <div className="span-2 private-docs">
-                      <div className="private-docs__banner" role="note">
-                        <strong>{t('PropertyForm.privateDocsTitle')}</strong>
-                        <p>{t('PropertyForm.privateDocsNote')}</p>
-                      </div>
-                      {(
-                        [
-                          ['title_deed', 'docOwnership'],
-                          ['floor_plan', 'docSurvey'],
-                          ['other', 'docOwnerId'],
-                        ] as const
-                      ).map(([docType, labelKey]) => {
-                        const current = documents.find((item) => item.documentType === docType);
-                        const inputId = `property-doc-${docType}`;
-                        return (
-                          <div className="private-docs__slot" key={docType}>
-                            <div className="private-docs__head">
-                              <strong>{t(`PropertyForm.${labelKey}`)}</strong>
-                              <span>{t('PropertyForm.optional')}</span>
-                            </div>
-                            <label className="private-docs__drop" htmlFor={inputId}>
-                              <input
-                                id={inputId}
-                                className="sr-only"
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp,application/pdf"
-                                onChange={(event) => selectDocuments(docType, event)}
-                              />
+                          ? 'الحقول اختيارية غالباً — اضغط Enter بعد كل حقل للمتابعة، أو تخطَّه.'
+                          : 'Most fields are optional — press Enter after each one to continue, or skip it.'}
+                      </p>
+                    ) : null}
+                    <GuidedReveal step={3} order={1}>
+                      <SelectField
+                        id="owner-party"
+                        label={ar ? 'الملكية باسم' : 'Ownership under'}
+                        value={selectedOwnerPartyId}
+                        onChange={(event) =>
+                          onSelectAdvance(event, (value) => {
+                            setSelectedOwnerPartyId(value);
+                            if (value) unlockGuided(3, 1);
+                          })
+                        }
+                        required
+                      >
+                        {(ownerPartyOptions.length
+                          ? ownerPartyOptions
+                          : [
+                              {
+                                id: ownerPartyId,
+                                displayName: ar ? 'حسابي' : 'My account',
+                                type: 'person',
+                              },
+                            ]
+                        ).map((party) => (
+                          <option key={party.id} value={party.id}>
+                            {party.displayName}
+                            {party.id === ownerPartyId ? (ar ? ' (حسابي)' : ' (me)') : ''}
+                          </option>
+                        ))}
+                      </SelectField>
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={2}>
+                      <>
+                        <label className="checkbox-row" htmlFor="show-owner-name">
+                          <input
+                            id="show-owner-name"
+                            type="checkbox"
+                            checked={profile.showOwnerNameOnListing}
+                            onChange={(event) => {
+                              setProfile((current) => ({
+                                ...current,
+                                showOwnerNameOnListing: event.target.checked,
+                              }));
+                              unlockGuided(3, 2);
+                            }}
+                          />
+                          <span>
+                            {ar
+                              ? 'السماح بإظهار اسم المالك في الإعلان العام'
+                              : 'Allow showing the owner name on the public listing'}
+                          </span>
+                        </label>
+                        <p className="field__hint span-2">
+                          {ar
+                            ? 'مقفول افتراضياً. عند التفعيل يظهر الاسم في صفحة العقار العامة فقط.'
+                            : 'Off by default. When enabled, the name appears on the public property page only.'}
+                        </p>
+                        {guidedCreate ? (
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            className="span-2"
+                            onClick={() => advanceGuided(3, 2, null, true)}
+                          >
+                            {t('Common.continue')}
+                          </Button>
+                        ) : null}
+                      </>
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={3}>
+                      <Field
+                        id="deed-number"
+                        label={ar ? 'رقم سند الملكية' : 'Title deed number'}
+                        value={profile.deedNumber}
+                        onChange={(event) => updateProfile('deedNumber', event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          advanceGuided(3, 3, event.currentTarget, true);
+                        }}
+                      />
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={4}>
+                      <Field
+                        id="plot-number"
+                        label={ar ? 'رقم القطعة' : 'Plot number'}
+                        value={profile.plotNumber}
+                        onChange={(event) => updateProfile('plotNumber', event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          advanceGuided(3, 4, event.currentTarget, true);
+                        }}
+                      />
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={5}>
+                      <Field
+                        id="municipality-number"
+                        label={ar ? 'الرقم البلدي' : 'Municipality number'}
+                        value={profile.municipalityNumber}
+                        onChange={(event) =>
+                          updateProfile('municipalityNumber', event.target.value)
+                        }
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          advanceGuided(3, 5, event.currentTarget, true);
+                        }}
+                      />
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={6}>
+                      <Field
+                        id="insurance-number"
+                        label={ar ? 'رقم وثيقة التأمين' : 'Insurance policy number'}
+                        value={profile.insuranceNumber}
+                        onChange={(event) => updateProfile('insuranceNumber', event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          advanceGuided(3, 6, event.currentTarget, true);
+                        }}
+                      />
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={7}>
+                      <Field
+                        id="insurance-expiry"
+                        type="date"
+                        label={ar ? 'انتهاء التأمين' : 'Insurance expiry'}
+                        value={profile.insuranceExpiresOn}
+                        onChange={(event) => {
+                          updateProfile('insuranceExpiresOn', event.target.value);
+                          if (event.target.value) unlockGuided(3, 7);
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          advanceGuided(3, 7, event.currentTarget, true);
+                        }}
+                      />
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={8}>
+                      <Field
+                        id="electricity-meter"
+                        label={ar ? 'عداد الكهرباء' : 'Electricity meter'}
+                        value={profile.electricityMeter}
+                        onChange={(event) => updateProfile('electricityMeter', event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          advanceGuided(3, 8, event.currentTarget, true);
+                        }}
+                      />
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={9}>
+                      <Field
+                        id="water-meter"
+                        label={ar ? 'عداد المياه' : 'Water meter'}
+                        value={profile.waterMeter}
+                        onChange={(event) => updateProfile('waterMeter', event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return;
+                          event.preventDefault();
+                          advanceGuided(3, 9, event.currentTarget, true);
+                        }}
+                      />
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={10}>
+                      <>
+                        <TextAreaField
+                          id="property-notes"
+                          label={ar ? 'ملاحظات تشغيلية وقانونية' : 'Operational/legal notes'}
+                          value={profile.notes}
+                          onChange={(event) => updateProfile('notes', event.target.value)}
+                          maxLength={5000}
+                        />
+                        {guidedCreate ? (
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            className="span-2"
+                            onClick={() => unlockGuided(3, 10)}
+                          >
+                            {ar ? 'متابعة إلى المستندات' : 'Continue to documents'}
+                          </Button>
+                        ) : null}
+                      </>
+                    </GuidedReveal>
+                    <GuidedReveal step={3} order={11}>
+                      <div className="span-2 private-docs wizard-guided-block">
+                        <div className="private-docs__banner" role="note">
+                          <strong>{t('PropertyForm.privateDocsTitle')}</strong>
+                          <p>{t('PropertyForm.privateDocsNote')}</p>
+                        </div>
+                        {(
+                          [
+                            ['title_deed', 'docOwnership'],
+                            ['floor_plan', 'docSurvey'],
+                            ['other', 'docOwnerId'],
+                          ] as const
+                        ).map(([docType, labelKey]) => {
+                          const current = documents.find((item) => item.documentType === docType);
+                          const inputId = `property-doc-${docType}`;
+                          return (
+                            <div className="private-docs__slot" key={docType}>
+                              <div className="private-docs__head">
+                                <strong>{t(`PropertyForm.${labelKey}`)}</strong>
+                                <span>{t('PropertyForm.optional')}</span>
+                              </div>
+                              <label className="private-docs__drop" htmlFor={inputId}>
+                                <input
+                                  id={inputId}
+                                  className="sr-only"
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                                  onChange={(event) => selectDocuments(docType, event)}
+                                />
+                                {current ? (
+                                  <span className="private-docs__file">
+                                    <button
+                                      type="button"
+                                      className="media-icon"
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        setPreviewId(current.id);
+                                      }}
+                                    >
+                                      <span aria-hidden="true">
+                                        {current.kind === 'pdf' ? 'PDF' : 'IMG'}
+                                      </span>
+                                      <small>
+                                        {current.file?.name ||
+                                          current.label ||
+                                          (current.existing
+                                            ? ar
+                                              ? 'مستند محفوظ'
+                                              : 'Saved document'
+                                            : t('PropertyForm.chooseFile'))}
+                                      </small>
+                                    </button>
+                                  </span>
+                                ) : (
+                                  <span>{t('PropertyForm.chooseFile')}</span>
+                                )}
+                              </label>
                               {current ? (
-                                <span className="private-docs__file">
-                                  <button
-                                    type="button"
-                                    className="media-icon"
-                                    onClick={(event) => {
-                                      event.preventDefault();
-                                      setPreviewId(current.id);
-                                    }}
-                                  >
-                                    <span aria-hidden="true">
-                                      {current.kind === 'pdf' ? 'PDF' : 'IMG'}
-                                    </span>
-                                    <small>
-                                      {current.file?.name ||
-                                        current.label ||
-                                        (current.existing
-                                          ? ar
-                                            ? 'مستند محفوظ'
-                                            : 'Saved document'
-                                          : t('PropertyForm.chooseFile'))}
-                                    </small>
-                                  </button>
-                                </span>
-                              ) : (
-                                <span>{t('PropertyForm.chooseFile')}</span>
-                              )}
-                            </label>
-                            {current ? (
-                              <Button
-                                type="button"
-                                variant="quiet"
-                                onClick={() => removeDocument(docType)}
-                              >
-                                {t('PropertyForm.removeFile')}
-                              </Button>
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </div>
+                                <Button
+                                  type="button"
+                                  variant="quiet"
+                                  onClick={() => removeDocument(docType)}
+                                >
+                                  {t('PropertyForm.removeFile')}
+                                </Button>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </GuidedReveal>
                   </div>
                 ) : null}
 
                 {step === 4 ? (
                   <div className="upload-zone">
+                    {guidedCreate ? (
+                      <p className="field__hint wizard-guided-hint" style={{ marginBottom: '1rem' }}>
+                        {ar
+                          ? 'الصور اختيارية — أضفها الآن أو تابع للمرحلة التالية.'
+                          : 'Photos are optional — add them now or continue to the next step.'}
+                      </p>
+                    ) : null}
                     {kind === 'multi_unit' ? (
-                      <div className="field span-2" style={{ marginBottom: '1rem' }}>
-                        <label>{t('PropertyForm.multiMediaMode')}</label>
-                        <div className="wizard-seg" role="radiogroup">
-                          <label
-                            className={
-                              multiMediaMode === 'building'
-                                ? 'wizard-seg__item is-active'
-                                : 'wizard-seg__item'
-                            }
-                          >
-                            <input
-                              type="radio"
-                              name="multi-media-mode"
-                              checked={multiMediaMode === 'building'}
-                              onChange={() => setMultiMediaMode('building')}
-                            />
-                            {t('PropertyForm.multiMediaBuilding')}
-                          </label>
-                          <label
-                            className={
-                              multiMediaMode === 'per_unit'
-                                ? 'wizard-seg__item is-active'
-                                : 'wizard-seg__item'
-                            }
-                          >
-                            <input
-                              type="radio"
-                              name="multi-media-mode"
-                              checked={multiMediaMode === 'per_unit'}
-                              onChange={() => setMultiMediaMode('per_unit')}
-                            />
-                            {t('PropertyForm.multiMediaPerUnit')}
-                          </label>
+                      <GuidedReveal step={4} order={1}>
+                        <div className="field span-2" style={{ marginBottom: '1rem' }}>
+                          <label>{t('PropertyForm.multiMediaMode')}</label>
+                          <div className="wizard-seg" role="radiogroup">
+                            <label
+                              className={
+                                multiMediaMode === 'building'
+                                  ? 'wizard-seg__item is-active'
+                                  : 'wizard-seg__item'
+                              }
+                            >
+                              <input
+                                type="radio"
+                                name="multi-media-mode"
+                                checked={multiMediaMode === 'building'}
+                                onChange={() => {
+                                  setMultiMediaMode('building');
+                                  unlockGuided(4, 1);
+                                }}
+                              />
+                              {t('PropertyForm.multiMediaBuilding')}
+                            </label>
+                            <label
+                              className={
+                                multiMediaMode === 'per_unit'
+                                  ? 'wizard-seg__item is-active'
+                                  : 'wizard-seg__item'
+                              }
+                            >
+                              <input
+                                type="radio"
+                                name="multi-media-mode"
+                                checked={multiMediaMode === 'per_unit'}
+                                onChange={() => {
+                                  setMultiMediaMode('per_unit');
+                                  unlockGuided(4, 1);
+                                }}
+                              />
+                              {t('PropertyForm.multiMediaPerUnit')}
+                            </label>
+                          </div>
+                          <p className="field__hint">{t('PropertyForm.multiMediaModeHint')}</p>
                         </div>
-                        <p className="field__hint">{t('PropertyForm.multiMediaModeHint')}</p>
-                      </div>
+                      </GuidedReveal>
                     ) : null}
 
                     {kind !== 'multi_unit' || multiMediaMode === 'building' ? (
+                      guidedOpen(4, kind === 'multi_unit' ? 2 : 1) ? (
                       <>
                         <label htmlFor="property-images" className="upload-zone__label">
                           <strong>
@@ -3381,7 +3702,8 @@ export function PropertyWizard({
                           <p className="field__hint">{t('PropertyForm.imagesMaxReached')}</p>
                         ) : null}
                       </>
-                    ) : (
+                      ) : null
+                    ) : guidedOpen(4, 2) ? (
                       <div className="form-grid">
                         <p className="span-2 field__hint">{t('PropertyForm.perUnitImagesHint')}</p>
                         {units.map((unit) => {
@@ -3446,7 +3768,7 @@ export function PropertyWizard({
                           );
                         })}
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 ) : null}
 
