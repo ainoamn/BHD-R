@@ -512,34 +512,9 @@ export function PropertyWizard({
   // Keep previously filled unit fields visible when revisiting the units step.
   useEffect(() => {
     if (mode === 'edit' || step !== 1 || kind !== 'single_unit') return;
-    const unit = units[0];
+    const unit = unitsWithLiveInputs(units)[0];
     if (!unit) return;
-    let depth = 1;
-    if (unit.floor) depth = 2;
-    if (unit.floor && unit.bedrooms) depth = 3;
-    if (unit.floor && unit.bedrooms && unit.bathrooms) depth = 4;
-    if (unit.floor && unit.bedrooms && unit.bathrooms && unit.majlis !== '') depth = 5;
-    if (unit.floor && unit.bedrooms && unit.bathrooms && unit.majlis !== '' && unit.halls !== '')
-      depth = 6;
-    if (
-      unit.floor &&
-      unit.bedrooms &&
-      unit.bathrooms &&
-      unit.majlis !== '' &&
-      unit.halls !== '' &&
-      unit.kitchens !== ''
-    )
-      depth = 7;
-    if (
-      unit.floor &&
-      unit.bedrooms &&
-      unit.bathrooms &&
-      unit.majlis !== '' &&
-      unit.halls !== '' &&
-      unit.kitchens !== '' &&
-      unit.hasPool
-    )
-      depth = 8;
+    const depth = singleUnitGuidedDepth(unit);
     setGuidedUnlocked((prev) => {
       const current = prev[1] ?? 1;
       if (depth <= current) return prev;
@@ -835,6 +810,63 @@ export function PropertyWizard({
     });
   }
 
+  /** How far the guided units step should be unlocked from filled values. */
+  function singleUnitGuidedDepth(unit: UnitDraft): number {
+    let depth = 1;
+    if (unit.floor) depth = 2;
+    if (unit.floor && unit.bedrooms) depth = 3;
+    if (unit.floor && unit.bedrooms && unit.bathrooms) depth = 4;
+    if (unit.floor && unit.bedrooms && unit.bathrooms && unit.majlis !== '') depth = 5;
+    if (unit.floor && unit.bedrooms && unit.bathrooms && unit.majlis !== '' && unit.halls !== '')
+      depth = 6;
+    if (
+      unit.floor &&
+      unit.bedrooms &&
+      unit.bathrooms &&
+      unit.majlis !== '' &&
+      unit.halls !== '' &&
+      unit.kitchens !== ''
+    )
+      depth = 7;
+    if (
+      unit.floor &&
+      unit.bedrooms &&
+      unit.bathrooms &&
+      unit.majlis !== '' &&
+      unit.halls !== '' &&
+      unit.kitchens !== '' &&
+      unit.hasPool
+    )
+      depth = 8; // area field
+    const areaOk = Boolean(unit.area.trim()) && Number(unit.area) > 0;
+    if (depth >= 8 && areaOk) {
+      // Offering modes default to monthly — reveal them and rent together.
+      depth = 10;
+    }
+    const saleOnly =
+      unit.offeringModes.includes('sale') &&
+      !unit.offeringModes.some(
+        (modeKey) => modeKey === 'monthly' || modeKey === 'yearly' || modeKey === 'daily',
+      );
+    const rentOk = saleOnly || Boolean(unit.rent.trim());
+    if (depth >= 10 && rentOk) depth = 11;
+    return depth;
+  }
+
+  function revealGuidedUnitsFromLive() {
+    if (mode === 'edit' || kind !== 'single_unit') return;
+    const live = unitsWithLiveInputs(units);
+    const unit = live[0];
+    if (!unit) return;
+    setUnits(live);
+    const depth = singleUnitGuidedDepth(unit);
+    setGuidedUnlocked((prev) => {
+      const current = prev[1] ?? 1;
+      if (depth <= current) return prev;
+      return { ...prev, 1: depth };
+    });
+  }
+
   function advanceGuided(
     stepIndex: number,
     order: number,
@@ -1023,6 +1055,11 @@ export function PropertyWizard({
 
   function goToStep(next: number) {
     if (next > step) {
+      // Sync area/rent typed in the DOM, then reveal the next guided blocks (e.g. rent)
+      // so Continue never complains about a field that is still hidden.
+      if (step === 1 && guidedCreate) {
+        revealGuidedUnitsFromLive();
+      }
       const issues = validateStep(step);
       if (issues.length) {
         setShowErrors(true);
@@ -1032,6 +1069,19 @@ export function PropertyWizard({
             ? `أكمل الحقول المطلوبة قبل المتابعة: ${issues.slice(0, 4).join('، ')}`
             : `Complete required fields before continuing: ${issues.slice(0, 4).join(', ')}`,
         );
+        window.setTimeout(() => {
+          const rentEl = units[0]
+            ? document.getElementById(`unit-rent-${units[0].localId}`)
+            : null;
+          if (rentEl instanceof HTMLElement) {
+            try {
+              rentEl.focus({ preventScroll: true });
+            } catch {
+              rentEl.focus();
+            }
+            markGuidedField(rentEl);
+          }
+        }, 150);
         return;
       }
       setShowErrors(false);
@@ -3054,22 +3104,22 @@ export function PropertyWizard({
                                     guardTextTyping();
                                   }}
                                   onBlur={(event) => {
-                                    commitUnitTextField(
-                                      unit.localId,
-                                      'area',
-                                      event.currentTarget.value,
-                                    );
+                                    const value = event.currentTarget.value;
+                                    commitUnitTextField(unit.localId, 'area', value);
+                                    // After area, show offering modes + rent (footer Continue is enough).
+                                    if (value.trim() && Number(value) > 0) {
+                                      unlockGuided(1, 9);
+                                    }
                                   }}
                                   onKeyDown={(event) => {
                                     if (event.key !== 'Enter') return;
                                     event.preventDefault();
                                     event.stopPropagation();
-                                    commitUnitTextField(
-                                      unit.localId,
-                                      'area',
-                                      event.currentTarget.value,
-                                    );
-                                    advanceGuided(1, 8, event.currentTarget, true);
+                                    const value = event.currentTarget.value;
+                                    commitUnitTextField(unit.localId, 'area', value);
+                                    if (value.trim() && Number(value) > 0) {
+                                      advanceGuided(1, 9, event.currentTarget, true);
+                                    }
                                   }}
                                 />
                               </GuidedReveal>
