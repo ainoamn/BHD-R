@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import '../../marketplace.css';
 import '../../auctions-projects.css';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  PROJECT_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { ProjectsBrowse } from '@/components/projects/projects-browse';
-import { Link } from '@/i18n/navigation';
 import { DEVELOPMENT_PROJECTS } from '@/lib/development-projects-catalogue';
 import { bilingualAlternates } from '@/lib/seo';
 
@@ -18,7 +19,7 @@ export async function generateMetadata({
   const { locale } = await params;
   const ar = locale !== 'en';
   return {
-    title: ar ? 'مشاريع التطوير العقاري' : 'Development projects',
+    title: ar ? 'التطوير العقاري' : 'Real estate development',
     description: ar
       ? 'مشاريع تطوير عقاري من بن حمود — وحدات قيد البيع ومراحل تنفيذ وخطط دفع.'
       : 'Bin Hamood development projects — units for sale, milestones and payment plans.',
@@ -35,22 +36,18 @@ export default async function ProjectsPage({ params }: { params: Promise<{ local
   await assertPublicSitePage('projects');
 
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? 'مشاريع التطوير' : 'Development'}
-      title={ar ? 'مشاريع التطوير العقاري' : 'Real estate development projects'}
+      brand="BHD R"
+      title={ar ? 'التطوير العقاري' : 'Real estate development'}
       lead={
         ar
-          ? 'تصفّح المشاريع حسب الحالة، طالع الوحدات وخطط الدفع ومراحل التنفيذ.'
-          : 'Browse projects by status, units, payment plans and construction milestones.'
+          ? 'مشاريع مرتّبة حسب الحالة — وحدات وخطط دفع ومراحل تنفيذ.'
+          : 'Projects ordered by status — units, payment plans and milestones.'
       }
-      actions={
-        <Link className="button button--gold button--small" href="/auctions">
-          {ar ? 'المزادات العقارية' : 'Property auctions'}
-        </Link>
-      }
+      tabs={PROJECT_TABS('projects')}
     >
       <ProjectsBrowse locale={locale} projects={DEVELOPMENT_PROJECTS} />
-    </MarketplaceShell>
+    </SectionShell>
   );
 }

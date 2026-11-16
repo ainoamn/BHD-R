@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import '../../../marketplace.css';
 import '../../../auctions-projects.css';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  PROJECT_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { Link } from '@/i18n/navigation';
 import { bilingualAlternates } from '@/lib/seo';
 
@@ -34,34 +36,31 @@ export default async function ProjectPartnersPage({
   await assertPublicSitePage('projects');
 
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? 'التطوير العقاري' : 'Development'}
+      brand="BHD R"
       title={ar ? 'شركاء التطوير' : 'Development partners'}
       lead={
         ar
           ? 'مكاتب ومثمّنون وشركاء تأمين يعملون مع مشاريع بن حمود.'
           : 'Offices, appraisers and insurers working with Bin Hamood projects.'
       }
-      actions={
-        <>
-          <Link className="button button--gold button--small" href="/offices">
-            {ar ? 'المكاتب' : 'Offices'}
-          </Link>
-          <Link className="button button--secondary button--small" href="/appraisers">
-            {ar ? 'المثمّنون' : 'Appraisers'}
-          </Link>
-          <Link className="button button--secondary button--small" href="/insurance">
-            {ar ? 'التأمين' : 'Insurance'}
-          </Link>
-        </>
-      }
+      tabs={PROJECT_TABS('partners')}
     >
-      <p className="ap-empty">
-        {ar
-          ? 'استعرض أدلة الشركاء من الروابط أعلاه، أو تواصل عبر بوابة الحساب للانضمام كشريك تطوير.'
-          : 'Browse partner directories from the links above, or use the account portal to join as a development partner.'}
-      </p>
-    </MarketplaceShell>
+      <div className="ap-simple-list">
+        <Link href="/offices" prefetch>
+          <h3>{ar ? 'المكاتب العقارية' : 'Real estate offices'}</h3>
+          <p>{ar ? 'دليل المكاتب الشريكة' : 'Partner offices directory'}</p>
+        </Link>
+        <Link href="/appraisers" prefetch>
+          <h3>{ar ? 'المثمّنون' : 'Appraisers'}</h3>
+          <p>{ar ? 'تثمين معتمد للتمويل والبيع' : 'Certified valuation for financing and sales'}</p>
+        </Link>
+        <Link href="/insurance" prefetch>
+          <h3>{ar ? 'التأمين' : 'Insurance'}</h3>
+          <p>{ar ? 'شركاء تأمين عقاري' : 'Property insurance partners'}</p>
+        </Link>
+      </div>
+    </SectionShell>
   );
 }

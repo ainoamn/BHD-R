@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import '../../../marketplace.css';
 import '../../../auctions-projects.css';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  PROJECT_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { Link } from '@/i18n/navigation';
 import { bilingualAlternates } from '@/lib/seo';
 
@@ -34,24 +36,20 @@ export default async function ProjectFinancingPage({
   await assertPublicSitePage('projects');
 
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? 'التطوير العقاري' : 'Development'}
+      brand="BHD R"
       title={ar ? 'التمويل العقاري' : 'Property financing'}
       lead={
         ar
-          ? 'تعرّف على خطط الدفع داخل المشاريع، أو اطلب تثمينًا لدعم طلب التمويل البنكي.'
-          : 'Review in-project payment plans, or request a valuation to support a bank financing application.'
+          ? 'خطط دفع داخل المشاريع، أو تثمين لدعم التمويل البنكي.'
+          : 'In-project payment plans, or valuation support for bank financing.'
       }
+      tabs={PROJECT_TABS('financing')}
       actions={
-        <>
-          <Link className="button button--gold button--small" href="/valuation">
-            {ar ? 'طلب تثمين' : 'Request valuation'}
-          </Link>
-          <Link className="button button--secondary button--small" href="/projects">
-            {ar ? 'المشاريع' : 'Projects'}
-          </Link>
-        </>
+        <Link className="button button--primary button--small" href="/valuation">
+          {ar ? 'طلب تثمين' : 'Request valuation'}
+        </Link>
       }
     >
       <div className="ap-panel">
@@ -71,6 +69,6 @@ export default async function ProjectFinancingPage({
           </li>
         </ul>
       </div>
-    </MarketplaceShell>
+    </SectionShell>
   );
 }

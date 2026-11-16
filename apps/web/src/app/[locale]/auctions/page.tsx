@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import '../../marketplace.css';
 import '../../auctions-projects.css';
 import { AuctionsBrowse } from '@/components/auctions/auctions-browse';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  AUCTION_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { Link } from '@/i18n/navigation';
 import { listResolvedAuctions } from '@/lib/auctions-catalogue';
 import { loadAuctionBidsMap } from '@/lib/auctions-bids-neon';
@@ -52,27 +54,23 @@ export default async function AuctionsPage({
   const auctions = listResolvedAuctions(Date.now(), bids);
 
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? 'مزادات BHD R' : 'BHD R auctions'}
-      title={ar ? 'المزايدات العقارية' : 'Real estate auctions'}
+      brand="BHD R"
+      title={ar ? 'المزادات العقارية' : 'Real estate auctions'}
       lead={
         ar
-          ? 'اكتشف الفرص العقارية بالمزايدة — عدّ تنازلي، سجل مزايدات، وتصفح حسب الحالة.'
-          : 'Discover auction opportunities with live countdowns, bid history and status filters.'
+          ? 'مزادات واضحة بعدّ تنازلي ومزايدة مباشرة — بلا تشويش.'
+          : 'Clear auctions with countdowns and direct bidding — no clutter.'
       }
+      tabs={AUCTION_TABS(initialStatus === 'all' ? 'all' : initialStatus)}
       actions={
-        <>
-          <Link className="button button--gold button--small" href="/auctions/new">
-            {ar ? 'إنشاء مزاد' : 'Create auction'}
-          </Link>
-          <Link className="button button--secondary button--small" href="/projects">
-            {ar ? 'مشاريع التطوير' : 'Development projects'}
-          </Link>
-        </>
+        <Link className="button button--primary button--small" href="/auctions/new">
+          {ar ? 'إنشاء مزاد' : 'Create auction'}
+        </Link>
       }
     >
       <AuctionsBrowse locale={locale} auctions={auctions} initialStatus={initialStatus} />
-    </MarketplaceShell>
+    </SectionShell>
   );
 }

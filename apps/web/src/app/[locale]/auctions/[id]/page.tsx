@@ -1,10 +1,12 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
-import '../../../marketplace.css';
 import '../../../auctions-projects.css';
 import { AuctionDetailClient } from '@/components/auctions/auction-detail-client';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  AUCTION_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { getResolvedAuction } from '@/lib/auctions-catalogue';
 import { loadAuctionBids } from '@/lib/auctions-bids-neon';
 import { bilingualAlternates } from '@/lib/seo';
@@ -44,13 +46,14 @@ export default async function AuctionDetailPage({
   if (!auction) notFound();
 
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? auction.auctionTypeAr : auction.auctionTypeEn}
+      brand="BHD R"
       title={ar ? auction.titleAr : auction.titleEn}
       lead={ar ? auction.locationAr : auction.locationEn}
+      tabs={AUCTION_TABS(auction.status === 'active' || auction.status === 'upcoming' ? auction.status : 'all')}
     >
       <AuctionDetailClient locale={locale} auction={auction} />
-    </MarketplaceShell>
+    </SectionShell>
   );
 }

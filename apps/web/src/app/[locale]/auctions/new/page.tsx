@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import '../../../marketplace.css';
 import '../../../auctions-projects.css';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  AUCTION_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { Link } from '@/i18n/navigation';
 import { bilingualAlternates } from '@/lib/seo';
 
@@ -35,41 +37,46 @@ export default async function CreateAuctionPage({
   const signIn = `/api/auth/bhd/start?returnTo=${encodeURIComponent(`/${locale}/auctions/new`)}`;
 
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? 'المزادات' : 'Auctions'}
-      title={ar ? 'إنشاء مزاد عقاري' : 'Create a property auction'}
+      brand="BHD R"
+      title={ar ? 'إنشاء مزاد' : 'Create auction'}
       lead={
         ar
-          ? 'سجّل الدخول من مساحة المالك أو المطوّر لنشر مزاد رسمي. يمكنك الآن تصفح المزادات النشطة.'
-          : 'Sign in from an owner or developer workspace to publish an official auction. You can browse live auctions now.'
+          ? 'سجّل الدخول من مساحة المالك أو المطوّر لنشر مزاد رسمي.'
+          : 'Sign in from an owner or developer workspace to publish an official auction.'
       }
+      tabs={AUCTION_TABS('new')}
       actions={
         <>
-          <a className="button button--gold button--small" href={signIn}>
-            {ar ? 'تسجيل الدخول للمتابعة' : 'Sign in to continue'}
+          <a className="button button--primary button--small" href={signIn}>
+            {ar ? 'تسجيل الدخول' : 'Sign in'}
           </a>
           <Link className="button button--secondary button--small" href="/auctions">
-            {ar ? 'المزادات الحالية' : 'Current auctions'}
+            {ar ? 'المزادات' : 'Auctions'}
           </Link>
         </>
       }
-      band={
-        <div className="mkt-band">
-          <h2>{ar ? 'ما الذي ستحتاجه؟' : 'What you will need'}</h2>
-          <p>
-            {ar
-              ? 'وصف العقار، السعر الابتدائي، مدة المزاد، ومستندات الملكية. بعد الاعتماد يظهر المزاد في القائمة العامة.'
-              : 'Property description, starting price, auction window, and ownership documents. After approval it appears in the public list.'}
-          </p>
-        </div>
-      }
     >
-      <p className="ap-empty">
+      <div className="ap-panel">
+        <h2>{ar ? 'ما الذي ستحتاجه؟' : 'What you will need'}</h2>
+        <ul className="ap-bid-list">
+          <li>
+            <span>{ar ? 'وصف العقار والسعر الابتدائي' : 'Property description and starting price'}</span>
+          </li>
+          <li>
+            <span>{ar ? 'مدة المزاد ومستندات الملكية' : 'Auction window and ownership documents'}</span>
+          </li>
+          <li>
+            <span>{ar ? 'بعد الاعتماد يظهر في القائمة العامة' : 'After approval it appears publicly'}</span>
+          </li>
+        </ul>
+      </div>
+      <p className="ap-empty" style={{ marginTop: '1rem' }}>
         {ar
-          ? 'نموذج الإنشاء الكامل للمزاد سيُفعَّل داخل مساحة المالك قريباً — الروابط جاهزة من القائمة.'
-          : 'The full create-auction form will open inside the owner workspace soon — nav links are ready.'}
+          ? 'نموذج الإنشاء الكامل سيُفعَّل داخل مساحة المالك قريباً.'
+          : 'The full create form will open inside the owner workspace soon.'}
       </p>
-    </MarketplaceShell>
+    </SectionShell>
   );
 }

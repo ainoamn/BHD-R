@@ -11,7 +11,7 @@ import {
 
 const STATUS_FILTERS: { id: 'all' | AuctionStatus; ar: string; en: string }[] = [
   { id: 'all', ar: 'الكل', en: 'All' },
-  { id: 'active', ar: 'نشط', en: 'Active' },
+  { id: 'active', ar: 'نشط', en: 'Live' },
   { id: 'upcoming', ar: 'قادم', en: 'Upcoming' },
   { id: 'ended', ar: 'منتهٍ', en: 'Ended' },
 ];
@@ -19,18 +19,23 @@ const STATUS_FILTERS: { id: 'all' | AuctionStatus; ar: string; en: string }[] = 
 function timerLabel(auction: ResolvedAuction, ar: boolean) {
   if (auction.status === 'upcoming') {
     const p = remainingParts(auction.startTime);
-    return ar
-      ? `يبدأ خلال ${p.days}ي ${p.hours}س`
-      : `Starts in ${p.days}d ${p.hours}h`;
+    return ar ? `يبدأ خلال ${p.days}ي ${p.hours}س` : `Starts in ${p.days}d ${p.hours}h`;
   }
-  if (auction.status === 'ended') return ar ? 'انتهى المزاد' : 'Auction ended';
+  if (auction.status === 'ended') return ar ? 'انتهى' : 'Ended';
   const p = remainingParts(auction.endTime);
   return ar
     ? `متبقي ${p.days}ي ${p.hours}س ${p.minutes}د`
     : `${p.days}d ${p.hours}h ${p.minutes}m left`;
 }
 
-function statusBadge(status: AuctionStatus, ar: boolean) {
+function statusClass(status: AuctionStatus) {
+  if (status === 'ended') return 'ap-row__status is-ended';
+  if (status === 'upcoming') return 'ap-row__status is-upcoming';
+  return 'ap-row__status';
+}
+
+function statusLabel(status: AuctionStatus, ar: boolean, featured?: boolean) {
+  if (featured && status === 'active') return ar ? 'مميز · نشط' : 'Featured · Live';
   if (status === 'active') return ar ? 'نشط' : 'Live';
   if (status === 'upcoming') return ar ? 'قادم' : 'Upcoming';
   return ar ? 'منتهٍ' : 'Ended';
@@ -61,33 +66,16 @@ export function AuctionsBrowse({
         if (!needle) return true;
         const hay = `${a.titleAr} ${a.titleEn} ${a.locationAr} ${a.locationEn}`.toLowerCase();
         return hay.includes(needle);
+      })
+      .sort((a, b) => {
+        const rank = { active: 0, upcoming: 1, ended: 2 } as const;
+        return rank[a.status] - rank[b.status];
       });
   }, [auctions, q, status]);
 
-  const groups: { key: AuctionStatus; ar: string; en: string; items: ResolvedAuction[] }[] = [
-    {
-      key: 'active',
-      ar: 'المزادات النشطة',
-      en: 'Active auctions',
-      items: filtered.filter((a) => a.status === 'active'),
-    },
-    {
-      key: 'upcoming',
-      ar: 'المزادات القادمة',
-      en: 'Upcoming auctions',
-      items: filtered.filter((a) => a.status === 'upcoming'),
-    },
-    {
-      key: 'ended',
-      ar: 'المزادات المنتهية',
-      en: 'Ended auctions',
-      items: filtered.filter((a) => a.status === 'ended'),
-    },
-  ];
-
   return (
     <div>
-      <div className="ap-filters">
+      <div className="ap-tools">
         <input
           type="search"
           value={q}
@@ -95,67 +83,48 @@ export function AuctionsBrowse({
           placeholder={ar ? 'ابحث عن عقار أو موقع…' : 'Search property or location…'}
           aria-label={ar ? 'بحث المزادات' : 'Search auctions'}
         />
-        {STATUS_FILTERS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            className={status === f.id ? 'ap-chip is-active' : 'ap-chip'}
-            onClick={() => setStatus(f.id)}
-          >
-            {ar ? f.ar : f.en}
-          </button>
-        ))}
+        <div className="ap-seg" role="group" aria-label={ar ? 'حالة المزاد' : 'Auction status'}>
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              className={status === f.id ? 'is-active' : undefined}
+              onClick={() => setStatus(f.id)}
+            >
+              {ar ? f.ar : f.en}
+            </button>
+          ))}
+        </div>
       </div>
+
+      <p className="ap-count">
+        {ar ? `وجدنا ${filtered.length} مزاداً` : `${filtered.length} auctions`}
+      </p>
 
       {filtered.length === 0 ? (
         <p className="ap-empty">{ar ? 'لا توجد مزادات مطابقة.' : 'No matching auctions.'}</p>
       ) : (
-        groups.map((group) =>
-          group.items.length === 0 ? null : (
-            <section key={group.key}>
-              <h2 className="ap-section-title">{ar ? group.ar : group.en}</h2>
-              <div className="ap-grid">
-                {group.items.map((auction) => (
-                  <Link
-                    key={auction.id}
-                    href={`/auctions/${auction.id}`}
-                    className="ap-card"
-                    prefetch
-                  >
-                    <div className="ap-card__media">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={auction.image} alt="" loading="lazy" />
-                      {auction.featured ? (
-                        <span className="ap-card__badge ap-card__badge--featured">
-                          {ar ? 'مميز' : 'Featured'}
-                        </span>
-                      ) : (
-                        <span
-                          className={
-                            auction.status === 'ended'
-                              ? 'ap-card__badge ap-card__badge--ended'
-                              : 'ap-card__badge'
-                          }
-                        >
-                          {statusBadge(auction.status, ar)}
-                        </span>
-                      )}
-                      <div className="ap-card__timer">{timerLabel(auction, ar)}</div>
-                    </div>
-                    <div className="ap-card__body">
-                      <h3>{ar ? auction.titleAr : auction.titleEn}</h3>
-                      <p className="ap-card__meta">{ar ? auction.locationAr : auction.locationEn}</p>
-                      <p className="ap-card__price">
-                        {ar ? 'المزايدة الحالية: ' : 'Current bid: '}
-                        {formatOmr(auction.currentBid, ar ? 'ar' : 'en')}
-                      </p>
-                    </div>
-                  </Link>
-                ))}
+        <div className="ap-list">
+          {filtered.map((auction) => (
+            <Link key={auction.id} href={`/auctions/${auction.id}`} className="ap-row" prefetch>
+              <div className="ap-row__media">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={auction.image} alt="" loading="lazy" />
               </div>
-            </section>
-          ),
-        )
+              <div className="ap-row__main">
+                <span className={statusClass(auction.status)}>
+                  {statusLabel(auction.status, ar, auction.featured)}
+                </span>
+                <h3>{ar ? auction.titleAr : auction.titleEn}</h3>
+                <p className="ap-row__meta">{ar ? auction.locationAr : auction.locationEn}</p>
+              </div>
+              <div className="ap-row__side">
+                <p className="ap-row__price">{formatOmr(auction.currentBid, ar ? 'ar' : 'en')}</p>
+                <p className="ap-row__timer">{timerLabel(auction, ar)}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
       )}
     </div>
   );

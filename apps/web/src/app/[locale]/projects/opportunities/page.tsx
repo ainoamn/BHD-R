@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import '../../../marketplace.css';
 import '../../../auctions-projects.css';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  PROJECT_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { Link } from '@/i18n/navigation';
 import { bilingualAlternates } from '@/lib/seo';
 
@@ -33,50 +35,44 @@ export default async function ProjectOpportunitiesPage({
   const { assertPublicSitePage } = await import('@/lib/site-page-gate');
   await assertPublicSitePage('projects');
 
+  const items = [
+    {
+      ar: 'وحدات قيد البيع في مجمع الفرسان',
+      en: 'Units for sale in Al Fursan complex',
+      href: '/projects/prj-alfursan',
+    },
+    {
+      ar: 'أبراج البحر — بنتهاوس وإطلالة',
+      en: 'Al Bahr towers — penthouse & views',
+      href: '/projects/prj-albahr',
+    },
+    {
+      ar: 'فلل روضة التلال في نزوى',
+      en: 'Al Rawda Hills villas in Nizwa',
+      href: '/projects/prj-alrawda',
+    },
+  ];
+
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? 'التطوير العقاري' : 'Development'}
+      brand="BHD R"
       title={ar ? 'الفرص الاستثمارية' : 'Investment opportunities'}
       lead={
         ar
-          ? 'وحدات ومشاريع مختارة للبيع والاستثمار ضمن محفظة بن حمود.'
-          : 'Selected units and projects for sale and investment in the Bin Hamood portfolio.'
+          ? 'وحدات ومشاريع مختارة للبيع والاستثمار.'
+          : 'Selected units and projects for sale and investment.'
       }
-      actions={
-        <Link className="button button--gold button--small" href="/projects">
-          {ar ? 'عرض المشاريع' : 'View projects'}
-        </Link>
-      }
+      tabs={PROJECT_TABS('opportunities')}
     >
-      <div className="ap-grid">
-        {[
-          {
-            ar: 'وحدات قيد البيع في مجمع الفرسان',
-            en: 'Units for sale in Al Fursan complex',
-            href: '/projects/prj-alfursan',
-          },
-          {
-            ar: 'أبراج البحر — بنتهاوس وإطلالة',
-            en: 'Al Bahr towers — penthouse & views',
-            href: '/projects/prj-albahr',
-          },
-          {
-            ar: 'فلل روضة التلال في نزوى',
-            en: 'Al Rawda Hills villas in Nizwa',
-            href: '/projects/prj-alrawda',
-          },
-        ].map((item) => (
-          <Link key={item.href} href={item.href} className="ap-card" prefetch>
-            <div className="ap-card__body">
-              <h3>{ar ? item.ar : item.en}</h3>
-              <p className="ap-card__meta">
-                {ar ? 'فرصة استثمارية من كتالوج المشاريع' : 'Investment opportunity from the projects catalogue'}
-              </p>
-            </div>
+      <div className="ap-simple-list">
+        {items.map((item) => (
+          <Link key={item.href} href={item.href} prefetch>
+            <h3>{ar ? item.ar : item.en}</h3>
+            <p>{ar ? 'من كتالوج المشاريع' : 'From the projects catalogue'}</p>
           </Link>
         ))}
       </div>
-    </MarketplaceShell>
+    </SectionShell>
   );
 }

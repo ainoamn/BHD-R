@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
 import { setRequestLocale } from 'next-intl/server';
-import '../../../marketplace.css';
 import '../../../auctions-projects.css';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  AUCTION_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { Link } from '@/i18n/navigation';
 import { bilingualAlternates } from '@/lib/seo';
 
@@ -35,18 +37,19 @@ export default async function MyAuctionsPage({
   const signIn = `/api/auth/bhd/start?returnTo=${encodeURIComponent(`/${locale}/auctions/my`)}`;
 
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? 'حسابي' : 'My account'}
+      brand="BHD R"
       title={ar ? 'مزاداتي' : 'My auctions'}
       lead={
         ar
           ? 'تابع المزادات التي أنشأتها أو شاركت فيها بعد تسجيل الدخول.'
           : 'Track auctions you created or joined after signing in.'
       }
+      tabs={AUCTION_TABS('my')}
       actions={
         <>
-          <a className="button button--gold button--small" href={signIn}>
+          <a className="button button--primary button--small" href={signIn}>
             {ar ? 'تسجيل الدخول' : 'Sign in'}
           </a>
           <Link className="button button--secondary button--small" href="/auctions">
@@ -60,6 +63,6 @@ export default async function MyAuctionsPage({
           ? 'لا توجد مزادات مرتبطة بهذا الحساب بعد. ابدأ من المزادات الحالية أو أنشئ مزاداً جديداً.'
           : 'No auctions linked to this account yet. Browse current auctions or create a new one.'}
       </p>
-    </MarketplaceShell>
+    </SectionShell>
   );
 }

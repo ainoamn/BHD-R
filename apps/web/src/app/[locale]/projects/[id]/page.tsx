@@ -1,9 +1,11 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { setRequestLocale } from 'next-intl/server';
-import '../../../marketplace.css';
 import '../../../auctions-projects.css';
-import { MarketplaceShell } from '@/components/marketplace/marketplace-shell';
+import {
+  PROJECT_TABS,
+  SectionShell,
+} from '@/components/marketplace/section-shell';
 import { ProjectDetailView } from '@/components/projects/project-detail-view';
 import { getDevelopmentProject } from '@/lib/development-projects-catalogue';
 import { bilingualAlternates } from '@/lib/seo';
@@ -42,13 +44,14 @@ export default async function ProjectDetailPage({
   if (!project) notFound();
 
   return (
-    <MarketplaceShell
+    <SectionShell
       locale={locale}
-      kicker={ar ? project.cityAr : project.cityEn}
+      brand="BHD R"
       title={ar ? project.titleAr : project.titleEn}
-      lead={ar ? project.descriptionAr : project.descriptionEn}
+      lead={ar ? project.cityAr : project.cityEn}
+      tabs={PROJECT_TABS('projects')}
     >
       <ProjectDetailView locale={locale} project={project} />
-    </MarketplaceShell>
+    </SectionShell>
   );
 }
