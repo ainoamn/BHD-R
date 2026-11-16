@@ -614,20 +614,46 @@ export function PropertyWizard({
         {rents ? (
           <Field
             id={`unit-deposit-${unit.localId}`}
+            type="text"
             inputMode="decimal"
+            autoComplete="off"
             label={`${t('PropertyForm.depositRent')} (${currency})`}
-            value={unit.deposit}
-            onChange={(event) => updateUnit(unit.localId, 'deposit', event.target.value)}
+            defaultValue={unit.deposit}
+            onChange={() => {
+              guardTextTyping();
+            }}
+            onBlur={(event) => {
+              commitUnitTextField(unit.localId, 'deposit', event.currentTarget.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              commitUnitTextField(unit.localId, 'deposit', event.currentTarget.value);
+              advanceGuided(1, 11, event.currentTarget, true);
+            }}
             hint={t('PropertyForm.depositRentHint')}
           />
         ) : null}
         {sells ? (
           <Field
             id={`unit-sale-deposit-${unit.localId}`}
+            type="text"
             inputMode="decimal"
+            autoComplete="off"
             label={`${t('PropertyForm.depositSale')} (${currency})`}
-            value={unit.saleDeposit}
-            onChange={(event) => updateUnit(unit.localId, 'saleDeposit', event.target.value)}
+            defaultValue={unit.saleDeposit}
+            onChange={() => {
+              guardTextTyping();
+            }}
+            onBlur={(event) => {
+              commitUnitTextField(unit.localId, 'saleDeposit', event.currentTarget.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter') return;
+              event.preventDefault();
+              commitUnitTextField(unit.localId, 'saleDeposit', event.currentTarget.value);
+              advanceGuided(1, 11, event.currentTarget, true);
+            }}
             hint={t('PropertyForm.depositSaleHint')}
           />
         ) : null}
@@ -801,11 +827,16 @@ export function PropertyWizard({
       const areaEl = document.getElementById(`unit-area-${unit.localId}`);
       const rentEl = document.getElementById(`unit-rent-${unit.localId}`);
       const saleEl = document.getElementById(`unit-sale-price-${unit.localId}`);
+      const depositEl = document.getElementById(`unit-deposit-${unit.localId}`);
+      const saleDepositEl = document.getElementById(`unit-sale-deposit-${unit.localId}`);
       return {
         ...unit,
         area: areaEl instanceof HTMLInputElement ? areaEl.value : unit.area,
         rent: rentEl instanceof HTMLInputElement ? rentEl.value : unit.rent,
         salePrice: saleEl instanceof HTMLInputElement ? saleEl.value : unit.salePrice,
+        deposit: depositEl instanceof HTMLInputElement ? depositEl.value : unit.deposit,
+        saleDeposit:
+          saleDepositEl instanceof HTMLInputElement ? saleDepositEl.value : unit.saleDeposit,
       };
     });
   }
