@@ -478,6 +478,8 @@ export function PropertyWizard({
     () => Boolean(initialProperty?.displayNumber?.trim()) || mode === 'edit',
   );
   const bundleIdempotencyKey = useRef(`property-bundle:${crypto.randomUUID()}`);
+  /** Cancels stale focusNextField timers so typing in text fields is not interrupted. */
+  const focusNextGeneration = useRef(0);
 
   const steps = [
     t('PropertyForm.basics'),
@@ -537,7 +539,11 @@ export function PropertyWizard({
       unit.hasPool
     )
       depth = 8;
-    setGuidedUnlocked((prev) => ({ ...prev, 1: Math.max(prev[1] ?? 1, depth) }));
+    setGuidedUnlocked((prev) => {
+      const current = prev[1] ?? 1;
+      if (depth <= current) return prev;
+      return { ...prev, 1: depth };
+    });
   }, [mode, step, kind, units]);
 
   async function translateField(
@@ -721,16 +727,35 @@ export function PropertyWizard({
 
   function focusNextField(from?: HTMLElement | null) {
     if (typeof window === 'undefined') return;
+    const generation = ++focusNextGeneration.current;
     // Wait for React to unlock the next guided block before scanning focusables.
     window.setTimeout(() => {
+      if (generation !== focusNextGeneration.current) return;
       const root = document.querySelector('.wizard-shell .card__content');
       if (!root) return;
+      // Do not steal focus while the owner is mid-typing in a text/number field.
+      const active = document.activeElement as HTMLElement | null;
+      if (
+        active &&
+        (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) &&
+        active !== from &&
+        document.activeElement === active &&
+        (active.type === 'text' ||
+          active.type === 'search' ||
+          active.type === 'tel' ||
+          active.type === 'number' ||
+          active.tagName === 'TEXTAREA' ||
+          active.inputMode === 'decimal' ||
+          active.inputMode === 'numeric')
+      ) {
+        const typed = active.value ?? '';
+        if (typed.length > 0 && active === document.activeElement) return;
+      }
       const focusables = Array.from(
         root.querySelectorAll<HTMLElement>(
-          'input:not([type="hidden"]):not([disabled]):not([type="radio"]), select:not([disabled]), textarea:not([disabled])',
+          'input:not([type="hidden"]):not([disabled]):not([type="radio"]):not([type="checkbox"]), select:not([disabled]), textarea:not([disabled])',
         ),
       ).filter((el) => el.offsetParent !== null);
-      const active = document.activeElement as HTMLElement | null;
       const fromEl = from && focusables.includes(from) ? from : null;
       let index = fromEl
         ? focusables.indexOf(fromEl)
@@ -753,11 +778,9 @@ export function PropertyWizard({
             /* not all browsers allow programmatic open */
           }
         }
-        return;
       }
-      if (step >= steps.length - 1) return;
-      if (validateStep(step).length === 0) goToStep(step + 1);
-    }, 100);
+      // Never auto-advance the wizard step from focus helpers — use Continue.
+    }, 120);
   }
 
   function onSelectAdvance(event: ChangeEvent<HTMLSelectElement>, apply: (value: string) => void) {
@@ -778,6 +801,11 @@ export function PropertyWizard({
       ...prev,
       [stepIndex]: Math.max(prev[stepIndex] ?? 1, order + 1),
     }));
+  }
+
+  /** Call from text/number onChange so queued focus jumps cannot interrupt typing. */
+  function guardTextTyping() {
+    focusNextGeneration.current += 1;
   }
 
   function advanceGuided(
@@ -2984,20 +3012,35 @@ export function PropertyWizard({
                                 </SelectField>
                               </GuidedReveal>
                               <GuidedReveal step={1} order={8}>
-                                <Field
-                                  id={`unit-area-${unit.localId}`}
-                                  inputMode="decimal"
-                                  label={t('PropertyForm.area')}
-                                  value={unit.area}
-                                  onChange={(event) =>
-                                    updateUnit(unit.localId, 'area', event.target.value)
-                                  }
-                                  onKeyDown={(event) => {
-                                    if (event.key !== 'Enter') return;
-                                    event.preventDefault();
-                                    advanceGuided(1, 8, event.currentTarget, true);
-                                  }}
-                                />
+                                <div className="span-2 form-grid" style={{ gap: '0.5rem' }}>
+                                  <Field
+                                    id={`unit-area-${unit.localId}`}
+                                    type="text"
+                                    inputMode="decimal"
+                                    autoComplete="off"
+                                    label={t('PropertyForm.area')}
+                                    value={unit.area}
+                                    onChange={(event) => {
+                                      guardTextTyping();
+                                      updateUnit(unit.localId, 'area', event.target.value);
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (event.key !== 'Enter') return;
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                      advanceGuided(1, 8, event.currentTarget, true);
+                                    }}
+                                  />
+                                  {guidedCreate ? (
+                                    <Button
+                                      type="button"
+                                      variant="quiet"
+                                      onClick={() => advanceGuided(1, 8, null, true)}
+                                    >
+                                      {t('Common.continue')}
+                                    </Button>
+                                  ) : null}
+                                </div>
                               </GuidedReveal>
                               <GuidedReveal step={1} order={9}>
                                 <fieldset className="wizard-offering-modes">
@@ -3081,9 +3124,10 @@ export function PropertyWizard({
                                       ? 'neutral'
                                       : tone(unit.rent, true, showErrors)
                                   }
-                                  onChange={(event) =>
-                                    updateUnit(unit.localId, 'rent', event.target.value)
-                                  }
+                                  onChange={(event) => {
+                                    guardTextTyping();
+                                    updateUnit(unit.localId, 'rent', event.target.value);
+                                  }}
                                   onKeyDown={(event) => {
                                     if (event.key !== 'Enter') return;
                                     event.preventDefault();
@@ -3107,13 +3151,16 @@ export function PropertyWizard({
                                   {unit.offeringModes.includes('sale') ? (
                                     <Field
                                       id={`unit-sale-price-${unit.localId}`}
+                                      type="text"
                                       inputMode="decimal"
+                                      autoComplete="off"
                                       label={`${t('PropertyForm.salePrice')} (${currency})`}
                                       value={unit.salePrice}
                                       tone={tone(unit.salePrice, true, showErrors)}
-                                      onChange={(event) =>
-                                        updateUnit(unit.localId, 'salePrice', event.target.value)
-                                      }
+                                      onChange={(event) => {
+                                        guardTextTyping();
+                                        updateUnit(unit.localId, 'salePrice', event.target.value);
+                                      }}
                                       onKeyDown={(event) => {
                                         if (event.key !== 'Enter') return;
                                         event.preventDefault();
@@ -3171,10 +3218,15 @@ export function PropertyWizard({
                       <GuidedReveal step={2} order={1}>
                         <Field
                           id="land-area"
+                          type="text"
                           inputMode="decimal"
+                          autoComplete="off"
                           label={ar ? 'مساحة الأرض (م²)' : 'Land area (m²)'}
                           value={profile.landArea}
-                          onChange={(event) => updateProfile('landArea', event.target.value)}
+                          onChange={(event) => {
+                            guardTextTyping();
+                            updateProfile('landArea', event.target.value);
+                          }}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return;
                             event.preventDefault();
@@ -3185,7 +3237,9 @@ export function PropertyWizard({
                       <GuidedReveal step={2} order={2}>
                         <Field
                           id="built-area"
+                          type="text"
                           inputMode="decimal"
+                          autoComplete="off"
                           label={
                             kind === 'multi_unit'
                               ? t('PropertyForm.multiUnitTotalArea')
@@ -3194,7 +3248,10 @@ export function PropertyWizard({
                                 : 'Built-up area (m²)'
                           }
                           value={profile.builtUpArea}
-                          onChange={(event) => updateProfile('builtUpArea', event.target.value)}
+                          onChange={(event) => {
+                            guardTextTyping();
+                            updateProfile('builtUpArea', event.target.value);
+                          }}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return;
                             event.preventDefault();
@@ -3205,12 +3262,15 @@ export function PropertyWizard({
                       <GuidedReveal step={2} order={3}>
                         <Field
                           id="year-built"
-                          type="number"
-                          min={1800}
-                          max={2200}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
                           label={ar ? 'سنة البناء' : 'Year built'}
                           value={profile.yearBuilt}
-                          onChange={(event) => updateProfile('yearBuilt', event.target.value)}
+                          onChange={(event) => {
+                            guardTextTyping();
+                            updateProfile('yearBuilt', event.target.value);
+                          }}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return;
                             event.preventDefault();
@@ -3221,11 +3281,15 @@ export function PropertyWizard({
                       <GuidedReveal step={2} order={4}>
                         <Field
                           id="parking-spaces"
-                          type="number"
-                          min={0}
+                          type="text"
+                          inputMode="numeric"
+                          autoComplete="off"
                           label={ar ? 'عدد المواقف' : 'Parking spaces'}
                           value={profile.parkingSpaces}
-                          onChange={(event) => updateProfile('parkingSpaces', event.target.value)}
+                          onChange={(event) => {
+                            guardTextTyping();
+                            updateProfile('parkingSpaces', event.target.value);
+                          }}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return;
                             event.preventDefault();
