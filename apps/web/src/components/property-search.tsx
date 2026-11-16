@@ -5,7 +5,16 @@ import { AutoSubmitSearchForm } from '@/components/auto-submit-search-form';
 import { omanLocations } from '@/lib/oman-locations';
 import { categoryLabel } from '@/lib/properties-browse-filters';
 
-const categories = ['apartment', 'villa', 'building', 'office', 'shop', 'warehouse', 'land'];
+const categories = [
+  'apartment',
+  'villa',
+  'building',
+  'office',
+  'shop',
+  'warehouse',
+  'land',
+  'other',
+];
 
 export async function PropertySearch({
   locale,

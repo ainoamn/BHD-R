@@ -8,6 +8,7 @@ export const BROWSE_CATEGORIES = [
   'shop',
   'warehouse',
   'land',
+  'other',
 ] as const;
 
 export type BrowseCategory = (typeof BROWSE_CATEGORIES)[number];

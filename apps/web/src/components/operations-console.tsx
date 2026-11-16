@@ -3005,8 +3005,20 @@ export function OperationsConsole({
   const [prefillTenantId, setPrefillTenantId] = useState('');
   const [propertyFilter, setPropertyFilter] = useState('');
   const [bookingPurposeTab, setBookingPurposeTab] = useState<BookingPurposeTab>('all');
-  const [propertyOfferingFilter, setPropertyOfferingFilter] =
-    useState<PropertyOfferingFilter>('all');
+  const [propertyOfferingFilter, setPropertyOfferingFilter] = useState<PropertyOfferingFilter>(
+    () => {
+      const offering = new URLSearchParams(search).get('offering');
+      return offering === 'rent' || offering === 'sale' || offering === 'stay' ? offering : 'all';
+    },
+  );
+
+  useEffect(() => {
+    if (section !== 'properties') return;
+    const offering = new URLSearchParams(search).get('offering');
+    const next: PropertyOfferingFilter =
+      offering === 'rent' || offering === 'sale' || offering === 'stay' ? offering : 'all';
+    setPropertyOfferingFilter(next);
+  }, [search, section]);
   const [successNotice, setSuccessNotice] = useState<string | null>(null);
   const [hideApiBanner, setHideApiBanner] = useState(false);
   const [statsOpen, setStatsOpen] = useState(section !== 'bookings');

@@ -12,9 +12,9 @@ export function offeringChannelLabel(
   locale: 'ar' | 'en',
 ): string {
   const ar = locale === 'ar';
-  if (channel === 'stay') return ar ? 'إيجار يومي' : 'Daily stay';
-  if (channel === 'sale') return ar ? 'للبيع' : 'For sale';
-  return ar ? 'عقد طويل' : 'Long-term lease';
+  if (channel === 'stay') return ar ? 'إقامة يومية' : 'Daily stay';
+  if (channel === 'sale') return ar ? 'عقار للبيع' : 'For sale';
+  return ar ? 'عقار للإيجار' : 'For rent';
 }
 
 /** Badge text; for multi-unit buildings include how many units use this channel. */

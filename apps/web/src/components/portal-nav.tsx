@@ -30,8 +30,12 @@ const propertiesNavItem: NavItem = {
   label: 'Common.properties',
   mark: '▤',
   children: [
-    { path: '/properties', label: 'Portal.viewProperties', mark: '◫' },
+    { path: '/properties?offering=rent', label: 'Portal.propertiesForRent', mark: '⌂' },
+    { path: '/properties?offering=sale', label: 'Portal.propertiesForSale', mark: '◆' },
+    { path: '/stays', label: 'Portal.propertiesDailyStay', mark: '▦' },
+    { path: '/properties', label: 'Portal.allProperties', mark: '◫' },
     { path: PROPERTIES_MANAGE_PATH, label: 'Portal.manageProperties', mark: '⚙' },
+    { path: '/properties/new', label: 'Portal.addProperty', mark: '+' },
   ],
 };
 
@@ -375,11 +379,24 @@ export function PortalNav({
       );
     }
     if (basePath === '/properties') {
-      // Property detail/edit pages belong to "manage"; the add wizard belongs to "view".
-      const manageItem = query === 'mode=manage';
-      if (pathname === href) return manageItem === manageMode;
-      if (pathname === `${href}/new`) return !manageItem;
-      return manageItem && pathname.startsWith(`${href}/`);
+      const params = new URLSearchParams(query || '');
+      const manageItem = params.get('mode') === 'manage';
+      const offering = params.get('offering');
+      if (item.path === '/properties/new') return pathname === `${href}/new`;
+      if (pathname === `${href}/new`) return false;
+      if (manageItem) {
+        return manageMode && (pathname === href || pathname.startsWith(`${href}/`));
+      }
+      if (offering) {
+        return pathname === href && !manageMode && searchParams.get('offering') === offering;
+      }
+      if (item.path === '/properties') {
+        return pathname === href && !manageMode && !searchParams.get('offering');
+      }
+      return pathname === href && !manageMode;
+    }
+    if (basePath === '/stays' && item.path === '/stays') {
+      return pathname === href || pathname.startsWith(`${href}/`);
     }
     return (
       pathname === href ||

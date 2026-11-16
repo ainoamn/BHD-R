@@ -35,13 +35,18 @@ const NAV_GROUPS: NavGroup[] = [
     en: 'Properties',
     badge: { ar: 'جديد', en: 'New', tone: 'new' },
     children: [
+      { href: '/properties?purpose=rent', ar: 'عقار للإيجار', en: 'For rent' },
+      { href: '/properties?purpose=sale', ar: 'عقار للبيع', en: 'For sale' },
+      { href: '/stays', ar: 'إقامة يومية', en: 'Daily stay' },
       { href: '/properties', ar: 'جميع العقارات', en: 'All properties' },
       { href: '/properties?category=apartment', ar: 'شقق', en: 'Apartments' },
       { href: '/properties?category=villa', ar: 'فيلات', en: 'Villas' },
+      { href: '/properties?category=building', ar: 'مبانٍ', en: 'Buildings' },
       { href: '/properties?category=office', ar: 'مكاتب', en: 'Offices' },
       { href: '/properties?category=shop', ar: 'محلات', en: 'Shops' },
-      { href: '/properties?category=land', ar: 'أراضي', en: 'Land' },
-      { href: '/properties?category=building', ar: 'تجاري', en: 'Commercial' },
+      { href: '/properties?category=warehouse', ar: 'مستودعات', en: 'Warehouses' },
+      { href: '/properties?category=land', ar: 'أراضٍ', en: 'Land' },
+      { href: '/properties?category=other', ar: 'أخرى', en: 'Other' },
     ],
   },
   {
@@ -79,7 +84,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/appraisers', ar: 'المثمّنون', en: 'Appraisers' },
       { href: '/insurance', ar: 'التأمين', en: 'Insurance' },
       { href: '/valuation', ar: 'طلب تثمين', en: 'Valuation request' },
-      { href: '/stays', ar: 'الإقامات اليومية', en: 'Daily stays' },
     ],
   },
 ];
@@ -155,21 +159,9 @@ function NavDropdown({
         </span>
       </button>
       <div id={panelId} className="nav-drop" hidden={!open}>
-        <Link
-          href={group.href}
-          className="nav-drop__head"
-          prefetch
-          scroll={false}
-          onClick={() => {
-            setOpen(false);
-            onNavigate();
-          }}
-        >
-          {ar ? `عرض ${group.ar}` : `Browse ${group.en}`}
-        </Link>
         <ul>
           {group.children!.map((child) => (
-            <li key={child.href}>
+            <li key={`${group.id}-${child.href}-${child.ar}`}>
               <Link
                 href={child.href}
                 prefetch

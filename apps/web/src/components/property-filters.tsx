@@ -6,7 +6,16 @@ import { countryPacks } from '@bhd-r/country-packs';
 import { Link } from '@/i18n/navigation';
 import { omanLocations } from '@/lib/oman-locations';
 
-const categories = ['apartment', 'villa', 'building', 'office', 'shop', 'warehouse', 'land'];
+const categories = [
+  'apartment',
+  'villa',
+  'building',
+  'office',
+  'shop',
+  'warehouse',
+  'land',
+  'other',
+];
 
 export type PropertyFilterDefaults = {
   purpose?: string;
