@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.215 — 2026-11-16
+
+- **إصلاح بناء API:** توافق أنواع `displayNumber` / `listingLabelMode` مع `exactOptionalPropertyTypes` لإعادة نشر `bhd-r-api`.
+
 ## 0.8.136.214 — 2026-11-16
 
 - **توجيه تدريجي لكل مراحل إضافة العقار:** الوحدات والمرافق والملكية والصور تظهر حقلًا بعد حقل (مع Enter/اختيار للمتابعة والرجوع)، وليس دفعة واحدة.

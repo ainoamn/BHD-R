@@ -122,10 +122,10 @@ export const createPropertyObjectSchema = z.object({
 });
 
 export function resolveStoredPropertyNames(input: {
-  nameAr?: string | null;
-  nameEn?: string | null;
-  displayNumber?: string | null;
-  listingLabelMode?: 'title' | 'number' | 'both' | string | null;
+  nameAr?: string | null | undefined;
+  nameEn?: string | null | undefined;
+  displayNumber?: string | null | undefined;
+  listingLabelMode?: 'title' | 'number' | 'both' | string | null | undefined;
 }): {
   nameAr: string;
   nameEn: string;
@@ -149,10 +149,10 @@ export function resolveStoredPropertyNames(input: {
 
 /** Apply listing label mode to Arabic/English public property names. */
 export function applyListingLabelMode(input: {
-  nameAr?: string | null;
-  nameEn?: string | null;
-  displayNumber?: string | null;
-  listingLabelMode?: 'title' | 'number' | 'both' | string | null;
+  nameAr?: string | null | undefined;
+  nameEn?: string | null | undefined;
+  displayNumber?: string | null | undefined;
+  listingLabelMode?: 'title' | 'number' | 'both' | string | null | undefined;
 }): { nameAr: string; nameEn: string } {
   const mode =
     input.listingLabelMode === 'number' || input.listingLabelMode === 'both'

@@ -13,10 +13,10 @@ export const resolveStoredPropertyNames = resolveStoredPropertyNamesShared;
 export function formatPropertyListingLabel(
   locale: 'ar' | 'en',
   input: {
-    nameAr?: string | null;
-    nameEn?: string | null;
-    displayNumber?: string | null;
-    listingLabelMode?: ListingLabelMode | string | null;
+    nameAr?: string | null | undefined;
+    nameEn?: string | null | undefined;
+    displayNumber?: string | null | undefined;
+    listingLabelMode?: ListingLabelMode | string | null | undefined;
   },
 ): string {
   const mode = normalizeListingLabelMode(input.listingLabelMode);
