@@ -148,6 +148,16 @@ type DocItem = {
   label?: string;
 };
 
+const PROPERTY_USAGE_TYPES = [
+  'residential',
+  'commercial',
+  'mixed',
+  'industrial',
+  'tourism',
+  'agricultural',
+] as const;
+type PropertyUsageType = (typeof PROPERTY_USAGE_TYPES)[number];
+
 function extractMapsUrl(notes?: string | null, fallback?: string | null): string {
   if (fallback?.trim()) return fallback.trim();
   if (!notes) return '';
@@ -155,10 +165,20 @@ function extractMapsUrl(notes?: string | null, fallback?: string | null): string
   return match?.[1]?.replace(/[.,;]+$/, '') ?? '';
 }
 
+function extractUsageType(notes?: string | null): PropertyUsageType | '' {
+  if (!notes) return '';
+  const match = notes.match(/Usage type:\s*([a-z_]+)/i);
+  const value = match?.[1]?.toLowerCase() ?? '';
+  return (PROPERTY_USAGE_TYPES as readonly string[]).includes(value)
+    ? (value as PropertyUsageType)
+    : '';
+}
+
 function stripMapsFromNotes(notes?: string | null): string {
   if (!notes) return '';
   return notes
     .replace(/Google Maps:\s*https?:\/\/\S+/gi, '')
+    .replace(/Usage type:\s*[a-z_]+/gi, '')
     .replace(/\n{2,}/g, '\n')
     .trim();
 }
@@ -372,6 +392,7 @@ export function PropertyWizard({
       insuranceNumber: insurance?.documentNumber ?? '',
       insuranceExpiresOn: insurance?.expiresOn ?? '',
       notes: stripMapsFromNotes(p?.notes),
+      usageType: extractUsageType(p?.notes) as PropertyUsageType | '',
       showOwnerNameOnListing: Boolean(p?.showOwnerNameOnListing),
     };
   });
@@ -659,8 +680,11 @@ export function PropertyWizard({
   function validateStep(index: number): string[] {
     const issues: string[] = [];
     if (index === 0) {
-      if (property.nameAr.trim().length < 2) issues.push(ar ? 'الاسم بالعربية' : 'Arabic name');
-      if (property.nameEn.trim().length < 2) issues.push(ar ? 'الاسم بالإنجليزية' : 'English name');
+      if (property.nameAr.trim().length < 2)
+        issues.push(ar ? 'عنوان العقار (عربي)' : 'Property title (Arabic)');
+      if (property.nameEn.trim().length < 2)
+        issues.push(ar ? 'عنوان العقار (إنجليزي)' : 'Property title (English)');
+      if (!profile.usageType) issues.push(t('PropertyForm.usageType'));
       if (!property.category) issues.push(t('PropertyForm.category'));
       if (property.countryCode === 'OM') {
         if (!property.governorate) issues.push(t('PropertyForm.governorate'));
@@ -1288,6 +1312,7 @@ export function PropertyWizard({
             notes:
               [
                 profile.notes.trim(),
+                profile.usageType ? `Usage type: ${profile.usageType}` : '',
                 property.mapsUrl.trim() ? `Google Maps: ${property.mapsUrl.trim()}` : '',
               ]
                 .filter(Boolean)
@@ -1869,6 +1894,37 @@ export function PropertyWizard({
                       <p className="field__hint span-2">{t('PropertyForm.multiCategoryHint')}</p>
                     ) : null}
                     <SelectField
+                      id="usageType"
+                      label={t('PropertyForm.usageType')}
+                      value={profile.usageType}
+                      tone={tone(profile.usageType, true, showErrors)}
+                      onChange={(event) =>
+                        onSelectAdvance(event, (value) =>
+                          setProfile((current) => ({
+                            ...current,
+                            usageType: value as PropertyUsageType | '',
+                          })),
+                        )
+                      }
+                      required
+                    >
+                      <option value="">{t('PropertyForm.usageTypePlaceholder')}</option>
+                      {(
+                        [
+                          ['residential', 'usageResidential'],
+                          ['commercial', 'usageCommercial'],
+                          ['mixed', 'usageMixed'],
+                          ['industrial', 'usageIndustrial'],
+                          ['tourism', 'usageTourism'],
+                          ['agricultural', 'usageAgricultural'],
+                        ] as const
+                      ).map(([value, key]) => (
+                        <option key={value} value={value}>
+                          {t(`PropertyForm.${key}`)}
+                        </option>
+                      ))}
+                    </SelectField>
+                    <SelectField
                       id="currency"
                       name="currency"
                       label={t('Common.currency')}
@@ -1891,6 +1947,7 @@ export function PropertyWizard({
                         value={property.nameAr}
                         tone={tone(property.nameAr, true, showErrors)}
                         onChange={(event) => updateProperty('nameAr', event.target.value)}
+                        placeholder={t('PropertyForm.nameArPlaceholder')}
                         minLength={2}
                         maxLength={160}
                         required
@@ -1933,6 +1990,7 @@ export function PropertyWizard({
                         value={property.nameEn}
                         tone={tone(property.nameEn, true, showErrors)}
                         onChange={(event) => updateProperty('nameEn', event.target.value)}
+                        placeholder={t('PropertyForm.nameEnPlaceholder')}
                         minLength={2}
                         maxLength={160}
                         required
