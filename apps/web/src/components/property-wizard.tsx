@@ -480,6 +480,7 @@ export function PropertyWizard({
   const bundleIdempotencyKey = useRef(`property-bundle:${crypto.randomUUID()}`);
   /** Cancels stale focusNextField timers so typing in text fields is not interrupted. */
   const focusNextGeneration = useRef(0);
+  const focusNextTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const steps = [
     t('PropertyForm.basics'),
@@ -710,7 +711,7 @@ export function PropertyWizard({
     const wrap = el?.closest('.field');
     if (wrap) {
       wrap.classList.add('is-guided-active');
-      wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // No scrollIntoView — smooth scroll + mobile keyboard freezes the page.
     }
   }
 
@@ -728,29 +729,29 @@ export function PropertyWizard({
   function focusNextField(from?: HTMLElement | null) {
     if (typeof window === 'undefined') return;
     const generation = ++focusNextGeneration.current;
+    if (focusNextTimer.current) {
+      clearTimeout(focusNextTimer.current);
+      focusNextTimer.current = null;
+    }
     // Wait for React to unlock the next guided block before scanning focusables.
-    window.setTimeout(() => {
+    focusNextTimer.current = setTimeout(() => {
+      focusNextTimer.current = null;
       if (generation !== focusNextGeneration.current) return;
       const root = document.querySelector('.wizard-shell .card__content');
       if (!root) return;
-      // Do not steal focus while the owner is mid-typing in a text/number field.
       const active = document.activeElement as HTMLElement | null;
+      // Never steal focus from a text field the user is actively editing.
       if (
-        active &&
-        (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) &&
+        active instanceof HTMLInputElement &&
         active !== from &&
-        document.activeElement === active &&
-        (active.type === 'text' ||
-          active.type === 'search' ||
-          active.type === 'tel' ||
-          active.type === 'number' ||
-          active.tagName === 'TEXTAREA' ||
-          active.inputMode === 'decimal' ||
-          active.inputMode === 'numeric')
+        (active.inputMode === 'decimal' ||
+          active.inputMode === 'numeric' ||
+          active.type === 'text' ||
+          active.type === 'number')
       ) {
-        const typed = active.value ?? '';
-        if (typed.length > 0 && active === document.activeElement) return;
+        return;
       }
+      if (active instanceof HTMLTextAreaElement && active !== from) return;
       const focusables = Array.from(
         root.querySelectorAll<HTMLElement>(
           'input:not([type="hidden"]):not([disabled]):not([type="radio"]):not([type="checkbox"]), select:not([disabled]), textarea:not([disabled])',
@@ -769,17 +770,15 @@ export function PropertyWizard({
         next = focusables[index + 1] ?? null;
       }
       if (next) {
-        next.focus();
         markGuidedField(next);
-        if (next instanceof HTMLSelectElement) {
-          try {
-            next.showPicker?.();
-          } catch {
-            /* not all browsers allow programmatic open */
-          }
+        // preventScroll avoids layout thrash with the mobile keyboard.
+        try {
+          next.focus({ preventScroll: true });
+        } catch {
+          next.focus();
         }
       }
-      // Never auto-advance the wizard step from focus helpers — use Continue.
+      // Never auto-advance the wizard step from focus helpers — use footer Continue.
     }, 120);
   }
 
@@ -806,6 +805,34 @@ export function PropertyWizard({
   /** Call from text/number onChange so queued focus jumps cannot interrupt typing. */
   function guardTextTyping() {
     focusNextGeneration.current += 1;
+    if (focusNextTimer.current) {
+      clearTimeout(focusNextTimer.current);
+      focusNextTimer.current = null;
+    }
+  }
+
+  function commitUnitTextField(
+    unitId: string,
+    field: 'area' | 'rent' | 'salePrice' | 'deposit' | 'saleDeposit',
+    value: string,
+  ) {
+    updateUnit(unitId, field, value);
+  }
+
+  /** Read uncontrolled money/area inputs so validate/submit see what is on screen. */
+  function unitsWithLiveInputs(list: UnitDraft[]): UnitDraft[] {
+    if (typeof document === 'undefined') return list;
+    return list.map((unit) => {
+      const areaEl = document.getElementById(`unit-area-${unit.localId}`);
+      const rentEl = document.getElementById(`unit-rent-${unit.localId}`);
+      const saleEl = document.getElementById(`unit-sale-price-${unit.localId}`);
+      return {
+        ...unit,
+        area: areaEl instanceof HTMLInputElement ? areaEl.value : unit.area,
+        rent: rentEl instanceof HTMLInputElement ? rentEl.value : unit.rent,
+        salePrice: saleEl instanceof HTMLInputElement ? saleEl.value : unit.salePrice,
+      };
+    });
   }
 
   function advanceGuided(
@@ -934,11 +961,12 @@ export function PropertyWizard({
       }
     }
     if (index === 1) {
+      const liveUnits = unitsWithLiveInputs(units);
       if (kind === 'multi_unit') {
         if (!profile.builtUpArea.trim() || !(Number(profile.builtUpArea) > 0)) {
           issues.push(t('PropertyForm.multiUnitTotalArea'));
         }
-        units.forEach((unit, i) => {
+        liveUnits.forEach((unit, i) => {
           const typeLabel =
             unit.unitKind === 'shop'
               ? t('PropertyForm.unitKindShop')
@@ -961,7 +989,7 @@ export function PropertyWizard({
           }
         });
       } else {
-        units.forEach((unit, i) => {
+        liveUnits.forEach((unit, i) => {
           const label = `${t('PropertyForm.unit')} ${i + 1}`;
           if (!unit.floor.trim()) issues.push(`${label}: ${t('PropertyForm.floor')}`);
           if (unit.bedrooms === '') issues.push(`${label}: ${t('PropertyForm.bedrooms')}`);
@@ -970,6 +998,8 @@ export function PropertyWizard({
           if (unit.halls === '') issues.push(`${label}: ${t('PropertyForm.halls')}`);
           if (unit.kitchens === '') issues.push(`${label}: ${t('PropertyForm.kitchens')}`);
           if (unit.hasPool === '') issues.push(`${label}: ${t('PropertyForm.hasPool')}`);
+          if (!unit.area.trim() || !(Number(unit.area) > 0))
+            issues.push(`${label}: ${t('PropertyForm.area')}`);
           if (unit.listingPurpose !== 'sale' && !unit.rent.trim())
             issues.push(`${label}: ${t('PropertyForm.rent')}`);
           if (unit.listingPurpose !== 'rent' && !unit.salePrice.trim())
@@ -1602,7 +1632,7 @@ export function PropertyWizard({
             })),
           ],
         },
-        units: (units.length ? units : [blankUnit(1)]).map((unit, index) => {
+        units: (unitsWithLiveInputs(units.length ? units : [blankUnit(1)])).map((unit, index) => {
           const names = unitDisplayNames(unit);
           const autoCode =
             kind === 'multi_unit' && unit.code.trim()
@@ -3012,35 +3042,36 @@ export function PropertyWizard({
                                 </SelectField>
                               </GuidedReveal>
                               <GuidedReveal step={1} order={8}>
-                                <div className="span-2 form-grid" style={{ gap: '0.5rem' }}>
-                                  <Field
-                                    id={`unit-area-${unit.localId}`}
-                                    type="text"
-                                    inputMode="decimal"
-                                    autoComplete="off"
-                                    label={t('PropertyForm.area')}
-                                    value={unit.area}
-                                    onChange={(event) => {
-                                      guardTextTyping();
-                                      updateUnit(unit.localId, 'area', event.target.value);
-                                    }}
-                                    onKeyDown={(event) => {
-                                      if (event.key !== 'Enter') return;
-                                      event.preventDefault();
-                                      event.stopPropagation();
-                                      advanceGuided(1, 8, event.currentTarget, true);
-                                    }}
-                                  />
-                                  {guidedCreate ? (
-                                    <Button
-                                      type="button"
-                                      variant="quiet"
-                                      onClick={() => advanceGuided(1, 8, null, true)}
-                                    >
-                                      {t('Common.continue')}
-                                    </Button>
-                                  ) : null}
-                                </div>
+                                <Field
+                                  id={`unit-area-${unit.localId}`}
+                                  type="text"
+                                  inputMode="decimal"
+                                  autoComplete="off"
+                                  label={t('PropertyForm.area')}
+                                  defaultValue={unit.area}
+                                  onChange={() => {
+                                    // Uncontrolled while typing — avoid re-rendering the whole wizard per digit.
+                                    guardTextTyping();
+                                  }}
+                                  onBlur={(event) => {
+                                    commitUnitTextField(
+                                      unit.localId,
+                                      'area',
+                                      event.currentTarget.value,
+                                    );
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (event.key !== 'Enter') return;
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    commitUnitTextField(
+                                      unit.localId,
+                                      'area',
+                                      event.currentTarget.value,
+                                    );
+                                    advanceGuided(1, 8, event.currentTarget, true);
+                                  }}
+                                />
                               </GuidedReveal>
                               <GuidedReveal step={1} order={9}>
                                 <fieldset className="wizard-offering-modes">
@@ -3096,23 +3127,15 @@ export function PropertyWizard({
                                       <span>{label}</span>
                                     </label>
                                   ))}
-                                  {guidedCreate ? (
-                                    <Button
-                                      type="button"
-                                      variant="quiet"
-                                      onClick={() => advanceGuided(1, 9, null, true)}
-                                    >
-                                      {t('Common.continue')}
-                                    </Button>
-                                  ) : null}
                                 </fieldset>
                               </GuidedReveal>
                               <GuidedReveal step={1} order={10}>
                                 <Field
                                   id={`unit-rent-${unit.localId}`}
                                   inputMode="decimal"
+                                  autoComplete="off"
                                   label={`${t('PropertyForm.rent')} (${currency})`}
-                                  value={unit.rent}
+                                  defaultValue={unit.rent}
                                   tone={
                                     unit.offeringModes.includes('sale') &&
                                     !unit.offeringModes.some(
@@ -3124,13 +3147,24 @@ export function PropertyWizard({
                                       ? 'neutral'
                                       : tone(unit.rent, true, showErrors)
                                   }
-                                  onChange={(event) => {
+                                  onChange={() => {
                                     guardTextTyping();
-                                    updateUnit(unit.localId, 'rent', event.target.value);
+                                  }}
+                                  onBlur={(event) => {
+                                    commitUnitTextField(
+                                      unit.localId,
+                                      'rent',
+                                      event.currentTarget.value,
+                                    );
                                   }}
                                   onKeyDown={(event) => {
                                     if (event.key !== 'Enter') return;
                                     event.preventDefault();
+                                    commitUnitTextField(
+                                      unit.localId,
+                                      'rent',
+                                      event.currentTarget.value,
+                                    );
                                     advanceGuided(1, 10, event.currentTarget, true);
                                   }}
                                   required={
@@ -3155,15 +3189,26 @@ export function PropertyWizard({
                                       inputMode="decimal"
                                       autoComplete="off"
                                       label={`${t('PropertyForm.salePrice')} (${currency})`}
-                                      value={unit.salePrice}
+                                      defaultValue={unit.salePrice}
                                       tone={tone(unit.salePrice, true, showErrors)}
-                                      onChange={(event) => {
+                                      onChange={() => {
                                         guardTextTyping();
-                                        updateUnit(unit.localId, 'salePrice', event.target.value);
+                                      }}
+                                      onBlur={(event) => {
+                                        commitUnitTextField(
+                                          unit.localId,
+                                          'salePrice',
+                                          event.currentTarget.value,
+                                        );
                                       }}
                                       onKeyDown={(event) => {
                                         if (event.key !== 'Enter') return;
                                         event.preventDefault();
+                                        commitUnitTextField(
+                                          unit.localId,
+                                          'salePrice',
+                                          event.currentTarget.value,
+                                        );
                                         advanceGuided(1, 11, event.currentTarget, true);
                                       }}
                                       required
@@ -3445,16 +3490,6 @@ export function PropertyWizard({
                             ? 'مقفول افتراضياً. عند التفعيل يظهر الاسم في صفحة العقار العامة فقط.'
                             : 'Off by default. When enabled, the name appears on the public property page only.'}
                         </p>
-                        {guidedCreate ? (
-                          <Button
-                            type="button"
-                            variant="quiet"
-                            className="span-2"
-                            onClick={() => advanceGuided(3, 2, null, true)}
-                          >
-                            {t('Common.continue')}
-                          </Button>
-                        ) : null}
                       </>
                     </GuidedReveal>
                     <GuidedReveal step={3} order={3}>
