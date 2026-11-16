@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from '@/i18n/navigation';
 import {
   formatOmr,
@@ -39,13 +39,19 @@ function statusBadge(status: AuctionStatus, ar: boolean) {
 export function AuctionsBrowse({
   locale,
   auctions,
+  initialStatus = 'all',
 }: {
   locale: string;
   auctions: ResolvedAuction[];
+  initialStatus?: 'all' | AuctionStatus;
 }) {
   const ar = locale !== 'en';
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState<'all' | AuctionStatus>('all');
+  const [status, setStatus] = useState<'all' | AuctionStatus>(initialStatus);
+
+  useEffect(() => {
+    setStatus(initialStatus);
+  }, [initialStatus]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();

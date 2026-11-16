@@ -27,13 +27,26 @@ export async function generateMetadata({
   };
 }
 
-export default async function AuctionsPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function AuctionsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { locale: raw } = await params;
   const locale = raw === 'en' ? 'en' : 'ar';
   const ar = locale === 'ar';
   setRequestLocale(locale);
   const { assertPublicSitePage } = await import('@/lib/site-page-gate');
   await assertPublicSitePage('auctions');
+
+  const query = await searchParams;
+  const statusRaw = typeof query.status === 'string' ? query.status : '';
+  const initialStatus =
+    statusRaw === 'active' || statusRaw === 'upcoming' || statusRaw === 'ended'
+      ? statusRaw
+      : 'all';
 
   const bids = await loadAuctionBidsMap();
   const auctions = listResolvedAuctions(Date.now(), bids);
@@ -49,12 +62,17 @@ export default async function AuctionsPage({ params }: { params: Promise<{ local
           : 'Discover auction opportunities with live countdowns, bid history and status filters.'
       }
       actions={
-        <Link className="button button--gold button--small" href="/projects">
-          {ar ? 'مشاريع التطوير' : 'Development projects'}
-        </Link>
+        <>
+          <Link className="button button--gold button--small" href="/auctions/new">
+            {ar ? 'إنشاء مزاد' : 'Create auction'}
+          </Link>
+          <Link className="button button--secondary button--small" href="/projects">
+            {ar ? 'مشاريع التطوير' : 'Development projects'}
+          </Link>
+        </>
       }
     >
-      <AuctionsBrowse locale={locale} auctions={auctions} />
+      <AuctionsBrowse locale={locale} auctions={auctions} initialStatus={initialStatus} />
     </MarketplaceShell>
   );
 }

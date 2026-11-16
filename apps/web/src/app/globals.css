@@ -386,8 +386,8 @@ h3 {
 .main-nav {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  font-size: 0.93rem;
+  gap: 0.55rem;
+  font-size: 0.9rem;
   font-weight: 700;
 }
 .main-nav > a:not(.button) {
@@ -397,6 +397,127 @@ h3 {
 .main-nav > a:hover {
   color: var(--maroon-700);
   border-color: var(--gold-500);
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.45rem;
+  padding: 0.35rem 0.55rem;
+  color: #344b42;
+  border-radius: 0.75rem;
+  text-decoration: none;
+}
+.nav-link:hover {
+  color: var(--oman-deep, #092d24);
+  background: rgb(8 163 159 / 0.08);
+}
+.nav-item {
+  position: relative;
+}
+.nav-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.45rem;
+  padding: 0.35rem 0.65rem;
+  color: #344b42;
+  background: transparent;
+  border: 0;
+  border-radius: 0.75rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.nav-item.is-open .nav-trigger,
+.nav-trigger:hover {
+  color: var(--oman-deep, #092d24);
+  background: rgb(8 163 159 / 0.12);
+}
+.nav-trigger__label {
+  white-space: nowrap;
+}
+.nav-chevron {
+  font-size: 0.7rem;
+  opacity: 0.7;
+}
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.nav-badge--new {
+  color: #0b5f5c;
+  background: #d9f3ef;
+}
+.nav-badge--hot {
+  color: #8a3b12;
+  background: #fde8d8;
+}
+.nav-drop {
+  position: absolute;
+  inset-block-start: calc(100% - 0.15rem);
+  inset-inline-start: 0;
+  z-index: 120;
+  min-width: 14.5rem;
+  padding: 0.55rem;
+  background: #fff;
+  border: 1px solid rgb(9 45 36 / 0.1);
+  border-radius: 0.9rem;
+  box-shadow: 0 16px 40px rgb(9 45 36 / 0.12);
+}
+.nav-drop[hidden] {
+  display: none !important;
+}
+.nav-drop__head {
+  display: block;
+  margin-bottom: 0.35rem;
+  padding: 0.45rem 0.65rem;
+  color: #0b5f5c;
+  background: rgb(8 163 159 / 0.08);
+  border-radius: 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+.nav-drop ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+.nav-drop a {
+  display: block;
+  padding: 0.55rem 0.7rem 0.55rem 0.7rem;
+  color: #344b42;
+  border-radius: 0.55rem;
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+html[dir='rtl'] .nav-drop a {
+  padding-inline-start: 1.35rem;
+  background-image: radial-gradient(circle, #08a39f 0 0.18rem, transparent 0.2rem);
+  background-position: right 0.55rem center;
+  background-repeat: no-repeat;
+  background-size: 0.35rem 0.35rem;
+}
+html[dir='ltr'] .nav-drop a {
+  padding-inline-start: 1.35rem;
+  background-image: radial-gradient(circle, #08a39f 0 0.18rem, transparent 0.2rem);
+  background-position: left 0.55rem center;
+  background-repeat: no-repeat;
+  background-size: 0.35rem 0.35rem;
+}
+.nav-drop a:hover {
+  color: var(--oman-deep, #092d24);
+  background-color: rgb(8 163 159 / 0.08);
 }
 .language-link {
   color: var(--maroon-700);
@@ -9059,7 +9180,7 @@ body:has(.stays-booking-receipt) #main-content {
   }
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1080px) {
   .container {
     width: min(calc(100% - 1.25rem), var(--container));
   }
@@ -9073,7 +9194,7 @@ body:has(.stays-booking-receipt) #main-content {
     inset-block-start: 4.5rem;
     inset-inline: 0.65rem;
     align-items: stretch;
-    max-height: min(70svh, 28rem);
+    max-height: min(78svh, 36rem);
     overflow-y: auto;
     padding: 1rem;
     background: white;
@@ -9083,6 +9204,22 @@ body:has(.stays-booking-receipt) #main-content {
   }
   .main-nav--open {
     display: grid;
+    gap: 0.35rem;
+  }
+  .nav-item,
+  .nav-link,
+  .nav-trigger,
+  .header-auth-slot {
+    width: 100%;
+  }
+  .nav-trigger {
+    justify-content: space-between;
+  }
+  .nav-drop {
+    position: static;
+    min-width: 0;
+    margin-top: 0.35rem;
+    box-shadow: none;
   }
   .hero-grid,
   .detail-grid {
@@ -9747,12 +9884,15 @@ body:has(.stays-booking-receipt) #main-content {
   background: var(--gold-300);
 }
 .main-nav {
-  gap: clamp(0.72rem, 1.5vw, 1.25rem);
+  gap: clamp(0.35rem, 1vw, 0.75rem);
 }
-.main-nav > a:not(.button, .header-portal-link) {
+.main-nav > a:not(.button, .header-portal-link),
+.nav-trigger {
   color: #344b42;
 }
-.main-nav > a:not(.button):hover {
+.main-nav > a:not(.button):hover,
+.nav-item.is-open .nav-trigger,
+.nav-trigger:hover {
   color: var(--oman-deep);
 }
 .language-link {
