@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { supportedCurrencyCodes } from '@bhd-r/contracts';
 import { countryPacks } from '@bhd-r/country-packs';
@@ -18,6 +19,7 @@ import {
   countAmenity,
   countCategory,
   facetUniverse,
+  filtersFromSearchRecord,
   filtersToSearchParams,
   loadRecentFilters,
   parseSmartFilterQuery,
@@ -136,6 +138,8 @@ export function PropertiesBrowse({
   const ar = locale === 'ar';
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchKey = searchParams.toString();
   const [filters, setFilters] = useState<BrowseFilterState>(initialFilters);
   const [universe, setUniverse] = useState<CatalogueListing[]>(initialListings);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -158,6 +162,8 @@ export function PropertiesBrowse({
   const [, startTransition] = useTransition();
   const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  /** Skip one filters→URL write after we applied filters from the address bar / nav. */
+  const skipUrlWriteRef = useRef(false);
 
   useEffect(() => {
     setRecent(loadRecentFilters());
@@ -168,6 +174,23 @@ export function PropertiesBrowse({
       }
     }
   }, []);
+
+  // Soft-nav from header (/properties?category=… / ?purpose=…) must update filters.
+  // Client state otherwise keeps the previous selection and ignores the new query.
+  useEffect(() => {
+    const raw: Record<string, string | undefined> = {};
+    searchParams.forEach((value, key) => {
+      raw[key] = value;
+    });
+    const next = filtersFromSearchRecord(raw);
+    const nextQs = filtersToSearchParams(next).toString();
+    setFilters((prev) => {
+      const prevQs = filtersToSearchParams(prev).toString();
+      if (prevQs === nextQs) return prev;
+      skipUrlWriteRef.current = true;
+      return next;
+    });
+  }, [searchKey, searchParams]);
 
   function changeViewMode(next: BrowseViewMode) {
     setViewMode(next);
@@ -253,6 +276,10 @@ export function PropertiesBrowse({
   useEffect(() => {
     if (urlTimer.current) clearTimeout(urlTimer.current);
     urlTimer.current = setTimeout(() => {
+      if (skipUrlWriteRef.current) {
+        skipUrlWriteRef.current = false;
+        return;
+      }
       const qs = filtersToSearchParams(filters).toString();
       const current =
         typeof window !== 'undefined' ? window.location.search.replace(/^\?/, '') : '';
@@ -709,11 +736,24 @@ export function PropertiesBrowse({
     </aside>
   );
 
+  const liveHeading =
+    filters.purpose === 'rent'
+      ? ar
+        ? 'عقارات للإيجار'
+        : 'Properties for rent'
+      : filters.purpose === 'sale'
+        ? ar
+          ? 'عقارات للبيع'
+          : 'Properties for sale'
+        : filters.categories.length === 1
+          ? categoryLabel(filters.categories[0]!, ar)
+          : heading;
+
   return (
     <div className="props-browse">
       <header className="props-browse__hero">
         <div className="container">
-          <h1>{heading}</h1>
+          <h1>{liveHeading}</h1>
           <p>{hint}</p>
         </div>
       </header>
