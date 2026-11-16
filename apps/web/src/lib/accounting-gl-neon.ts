@@ -5,6 +5,7 @@ import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
 import {
   approvalRequests,
+  cheques,
   expenses,
   invoices,
   journalEntries,
@@ -45,6 +46,7 @@ import {
   DEFAULT_ACCOUNTING_SETTINGS,
 } from '@/lib/accounting-integrity';
 import {
+  channelFromMethod,
   expenseCodeFromCategory,
   postingDepositHeld,
   postingExpensePaid,
@@ -494,7 +496,7 @@ export type AccountingDocument = {
   archived?: boolean;
 };
 
-/** Invoices, stay receipts and source journals for the documents register. */
+/** Invoices, stay/cheque receipts and source journals for the documents register. */
 export async function listAccountingDocuments(
   claims: SessionClaims,
   limit = 80,
@@ -503,87 +505,133 @@ export async function listAccountingDocuments(
   const orgId = claims.organizationId!;
   const cap = Math.min(Math.max(limit, 1), 200);
   return withinViewerTenant(claims, async (tx) => {
-    const [invoiceRows, stayRows, journalDocs, journalBySource] = await Promise.all([
-      tx
-        .select({
-          id: invoices.id,
-          number: invoices.invoiceNumber,
-          status: invoices.status,
-          currency: invoices.currency,
-          totalMinor: invoices.totalMinor,
-          paidMinor: invoices.paidMinor,
-          issuedOn: invoices.issuedOn,
-          notes: invoices.notes,
-          tenantName: parties.displayName,
-          propertyNameAr: properties.nameAr,
-          unitCode: units.code,
-        })
-        .from(invoices)
-        .leftJoin(parties, eq(parties.id, invoices.tenantPartyId))
-        .leftJoin(leases, eq(leases.id, invoices.leaseId))
-        .leftJoin(units, eq(units.id, leases.unitId))
-        .leftJoin(properties, eq(properties.id, units.propertyId))
-        .where(eq(invoices.organizationId, orgId))
-        .orderBy(desc(invoices.issuedOn), desc(invoices.createdAt))
-        .limit(cap),
-      tx
-        .select({
-          id: stayPaymentIntents.id,
-          amountMinor: stayPaymentIntents.amountMinor,
-          currency: stayPaymentIntents.currency,
-          status: stayPaymentIntents.status,
-          at: stayPaymentIntents.updatedAt,
-          referenceCode: stayBookings.referenceCode,
-          propertyNameAr: properties.nameAr,
-          unitCode: units.code,
-        })
-        .from(stayPaymentIntents)
-        .innerJoin(stayBookings, eq(stayBookings.id, stayPaymentIntents.bookingId))
-        .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
-        .innerJoin(units, eq(units.id, stayBookings.unitId))
-        .where(
-          and(
-            eq(stayPaymentIntents.organizationId, orgId),
-            eq(stayPaymentIntents.status, 'succeeded'),
-          ),
-        )
-        .orderBy(desc(stayPaymentIntents.updatedAt))
-        .limit(cap),
-      tx
-        .select({
-          id: journalEntries.id,
-          reference: journalEntries.reference,
-          description: journalEntries.description,
-          status: journalEntries.status,
-          occurredOn: journalEntries.occurredOn,
-          sourceType: journalEntries.sourceType,
-          sourceId: journalEntries.sourceId,
-        })
-        .from(journalEntries)
-        .where(and(eq(journalEntries.organizationId, orgId), eq(journalEntries.status, 'posted')))
-        .orderBy(desc(journalEntries.occurredOn), desc(journalEntries.createdAt))
-        .limit(cap),
-      tx
-        .select({
-          id: journalEntries.id,
-          sourceType: journalEntries.sourceType,
-          sourceId: journalEntries.sourceId,
-        })
-        .from(journalEntries)
-        .where(
-          and(
-            eq(journalEntries.organizationId, orgId),
-            sql`${journalEntries.sourceType} is not null`,
-            sql`${journalEntries.sourceId} is not null`,
-          ),
-        )
-        .limit(500),
-    ]);
+    const [invoiceRows, stayRows, chequeRows, journalDocs, journalBySource, paymentRows] =
+      await Promise.all([
+        tx
+          .select({
+            id: invoices.id,
+            number: invoices.invoiceNumber,
+            status: invoices.status,
+            currency: invoices.currency,
+            totalMinor: invoices.totalMinor,
+            paidMinor: invoices.paidMinor,
+            issuedOn: invoices.issuedOn,
+            notes: invoices.notes,
+            tenantName: parties.displayName,
+            propertyNameAr: properties.nameAr,
+            unitCode: units.code,
+          })
+          .from(invoices)
+          .leftJoin(parties, eq(parties.id, invoices.tenantPartyId))
+          .leftJoin(leases, eq(leases.id, invoices.leaseId))
+          .leftJoin(units, eq(units.id, leases.unitId))
+          .leftJoin(properties, eq(properties.id, units.propertyId))
+          .where(eq(invoices.organizationId, orgId))
+          .orderBy(desc(invoices.issuedOn), desc(invoices.createdAt))
+          .limit(cap),
+        tx
+          .select({
+            id: stayPaymentIntents.id,
+            amountMinor: stayPaymentIntents.amountMinor,
+            currency: stayPaymentIntents.currency,
+            status: stayPaymentIntents.status,
+            at: stayPaymentIntents.updatedAt,
+            referenceCode: stayBookings.referenceCode,
+            propertyNameAr: properties.nameAr,
+            unitCode: units.code,
+          })
+          .from(stayPaymentIntents)
+          .innerJoin(stayBookings, eq(stayBookings.id, stayPaymentIntents.bookingId))
+          .innerJoin(properties, eq(properties.id, stayBookings.propertyId))
+          .innerJoin(units, eq(units.id, stayBookings.unitId))
+          .where(
+            and(
+              eq(stayPaymentIntents.organizationId, orgId),
+              eq(stayPaymentIntents.status, 'succeeded'),
+            ),
+          )
+          .orderBy(desc(stayPaymentIntents.updatedAt))
+          .limit(cap),
+        tx
+          .select({
+            id: cheques.id,
+            chequeNumber: cheques.chequeNumber,
+            amountMinor: cheques.amountMinor,
+            currency: cheques.currency,
+            dueOn: cheques.dueOn,
+            reviewedAt: cheques.reviewedAt,
+            updatedAt: cheques.updatedAt,
+            tenantName: parties.displayName,
+            propertyNameAr: properties.nameAr,
+            unitCode: units.code,
+          })
+          .from(cheques)
+          .leftJoin(leases, eq(leases.id, cheques.leaseId))
+          .leftJoin(parties, eq(parties.id, leases.tenantPartyId))
+          .leftJoin(units, eq(units.id, leases.unitId))
+          .leftJoin(properties, eq(properties.id, units.propertyId))
+          .where(and(eq(cheques.organizationId, orgId), eq(cheques.reviewStatus, 'cleared')))
+          .orderBy(desc(cheques.updatedAt))
+          .limit(cap),
+        tx
+          .select({
+            id: journalEntries.id,
+            reference: journalEntries.reference,
+            description: journalEntries.description,
+            status: journalEntries.status,
+            occurredOn: journalEntries.occurredOn,
+            sourceType: journalEntries.sourceType,
+            sourceId: journalEntries.sourceId,
+          })
+          .from(journalEntries)
+          .where(and(eq(journalEntries.organizationId, orgId), eq(journalEntries.status, 'posted')))
+          .orderBy(desc(journalEntries.occurredOn), desc(journalEntries.createdAt))
+          .limit(cap),
+        tx
+          .select({
+            id: journalEntries.id,
+            sourceType: journalEntries.sourceType,
+            sourceId: journalEntries.sourceId,
+          })
+          .from(journalEntries)
+          .where(
+            and(
+              eq(journalEntries.organizationId, orgId),
+              sql`${journalEntries.sourceType} is not null`,
+              sql`${journalEntries.sourceId} is not null`,
+            ),
+          )
+          .limit(800),
+        tx
+          .select({
+            id: payments.id,
+            invoiceId: payments.invoiceId,
+            receivedAt: payments.receivedAt,
+          })
+          .from(payments)
+          .where(
+            and(
+              eq(payments.organizationId, orgId),
+              inArray(payments.status, ['succeeded', 'partially_refunded', 'refunded']),
+            ),
+          )
+          .orderBy(desc(payments.receivedAt))
+          .limit(500),
+      ]);
 
     const sourceJournal = new Map<string, string>();
     for (const row of journalBySource) {
       if (row.sourceType && row.sourceId) {
         sourceJournal.set(`${row.sourceType}:${row.sourceId}`, row.id);
+      }
+    }
+
+    /** rent_payment journals use payment id — map invoice → latest payment journal. */
+    const invoiceRentJournal = new Map<string, string>();
+    for (const pay of paymentRows) {
+      const journalId = sourceJournal.get(`rent_payment:${pay.id}`);
+      if (journalId && !invoiceRentJournal.has(pay.invoiceId)) {
+        invoiceRentJournal.set(pay.invoiceId, journalId);
       }
     }
 
@@ -607,7 +655,9 @@ export async function listAccountingDocuments(
         occurredOn: row.issuedOn,
         partyName: row.tenantName,
         propertyLabel: [row.propertyNameAr, row.unitCode].filter(Boolean).join(' / ') || null,
-        journalId: sourceJournal.get(`rent_payment:${row.id}`) ?? null,
+        journalId: paid
+          ? (invoiceRentJournal.get(row.id) ?? sourceJournal.get(`invoice:${row.id}`) ?? null)
+          : (sourceJournal.get(`invoice:${row.id}`) ?? null),
         note: row.notes,
         sourceType: paid ? 'rent_payment' : 'invoice',
       });
@@ -627,6 +677,29 @@ export async function listAccountingDocuments(
         journalId: sourceJournal.get(`stay_payment:${row.id}`) ?? null,
         note: null,
         sourceType: 'stay_payment',
+      });
+    }
+    for (const row of chequeRows) {
+      const occurredOn = (
+        row.reviewedAt?.toISOString() ??
+        row.updatedAt.toISOString()
+      ).slice(0, 10);
+      docs.push({
+        id: row.id,
+        kind: 'receipt',
+        reference: row.chequeNumber,
+        title: row.tenantName
+          ? `تحصيل شيك — ${row.tenantName}`
+          : `تحصيل شيك ${row.chequeNumber}`,
+        status: 'cleared',
+        amountMinor: row.amountMinor.toString(),
+        currency: row.currency,
+        occurredOn,
+        partyName: row.tenantName,
+        propertyLabel: [row.propertyNameAr, row.unitCode].filter(Boolean).join(' / ') || null,
+        journalId: sourceJournal.get(`cheque_clear:${row.id}`) ?? null,
+        note: null,
+        sourceType: 'cheque_clear',
       });
     }
     for (const row of journalDocs) {
@@ -649,7 +722,9 @@ export async function listAccountingDocuments(
     }
     docs.sort((a, b) => (a.occurredOn < b.occurredOn ? 1 : a.occurredOn > b.occurredOn ? -1 : 0));
     const page = docs.slice(0, cap);
-    const invoiceIds = page.filter((row) => row.kind !== 'journal').map((row) => row.id);
+    const invoiceIds = page
+      .filter((row) => row.kind !== 'journal' && row.sourceType !== 'cheque_clear')
+      .map((row) => row.id);
     const journalIds = page.filter((row) => row.kind === 'journal').map((row) => row.id);
     const [archivedInvoices, archivedJournals] = await Promise.all([
       archivedIdSet(tx, orgId, 'invoice', invoiceIds),
@@ -1841,6 +1916,7 @@ export async function accountingDashboard(claims: SessionClaims) {
       receivable,
       invoiceCollected,
       stayCollected,
+      chequeCollected,
       expenseTotal,
       depositHeld,
       bookingDeposits,
@@ -1849,6 +1925,8 @@ export async function accountingDashboard(claims: SessionClaims) {
       accountCount,
       postedCount,
       recentStay,
+      recentPayments,
+      recentCheques,
     ] = await Promise.all([
       tx
         .select({
@@ -1889,6 +1967,14 @@ export async function accountingDashboard(claims: SessionClaims) {
           ),
         )
         .groupBy(stayPaymentIntents.currency),
+      tx
+        .select({
+          currency: cheques.currency,
+          value: sql<string>`coalesce(sum(${cheques.amountMinor}), 0)::text`,
+        })
+        .from(cheques)
+        .where(and(eq(cheques.organizationId, orgId), eq(cheques.reviewStatus, 'cleared')))
+        .groupBy(cheques.currency),
       tx
         .select({
           currency: expenses.currency,
@@ -1965,6 +2051,42 @@ export async function accountingDashboard(claims: SessionClaims) {
         )
         .orderBy(desc(stayPaymentIntents.updatedAt))
         .limit(8),
+      tx
+        .select({
+          id: payments.id,
+          amountMinor: payments.amountMinor,
+          currency: payments.currency,
+          invoiceNumber: invoices.invoiceNumber,
+          tenantName: parties.displayName,
+          receivedAt: payments.receivedAt,
+        })
+        .from(payments)
+        .innerJoin(invoices, eq(invoices.id, payments.invoiceId))
+        .leftJoin(parties, eq(parties.id, invoices.tenantPartyId))
+        .where(
+          and(
+            eq(payments.organizationId, orgId),
+            inArray(payments.status, ['succeeded', 'partially_refunded']),
+          ),
+        )
+        .orderBy(desc(payments.receivedAt))
+        .limit(8),
+      tx
+        .select({
+          id: cheques.id,
+          amountMinor: cheques.amountMinor,
+          currency: cheques.currency,
+          chequeNumber: cheques.chequeNumber,
+          tenantName: parties.displayName,
+          receivedAt: cheques.reviewedAt,
+          updatedAt: cheques.updatedAt,
+        })
+        .from(cheques)
+        .leftJoin(leases, eq(leases.id, cheques.leaseId))
+        .leftJoin(parties, eq(parties.id, leases.tenantPartyId))
+        .where(and(eq(cheques.organizationId, orgId), eq(cheques.reviewStatus, 'cleared')))
+        .orderBy(desc(cheques.updatedAt))
+        .limit(8),
     ]);
 
     const byCurrency = new Map<
@@ -1974,6 +2096,7 @@ export async function accountingDashboard(claims: SessionClaims) {
     for (const row of receivable) addMinor(byCurrency, row.currency, 'receivable', row.value);
     for (const row of invoiceCollected) addMinor(byCurrency, row.currency, 'collected', row.value);
     for (const row of stayCollected) addMinor(byCurrency, row.currency, 'collected', row.value);
+    for (const row of chequeCollected) addMinor(byCurrency, row.currency, 'collected', row.value);
     for (const row of expenseTotal) addMinor(byCurrency, row.currency, 'expense', row.value);
     for (const row of depositHeld) addMinor(byCurrency, row.currency, 'deposits', row.value);
     for (const row of bookingDeposits) addMinor(byCurrency, row.currency, 'deposits', row.value);
@@ -1982,6 +2105,40 @@ export async function accountingDashboard(claims: SessionClaims) {
     if (!currencies.length) currencies.push('OMR');
     const accounts = Number(accountCount[0]?.value ?? 0);
     const posted = Number(postedCount[0]?.value ?? 0);
+
+    const recentActivity = [
+      ...recentStay.map((row) => ({
+        id: row.id,
+        kind: 'stay_payment' as const,
+        label: row.referenceCode,
+        amountMinor: row.amountMinor.toString(),
+        currency: row.currency,
+        at: row.receivedAt.toISOString(),
+      })),
+      ...recentPayments.map((row) => ({
+        id: row.id,
+        kind: 'rent_payment' as const,
+        label: row.tenantName
+          ? `${row.tenantName} · ${row.invoiceNumber}`
+          : row.invoiceNumber,
+        amountMinor: row.amountMinor.toString(),
+        currency: row.currency,
+        at: row.receivedAt.toISOString(),
+      })),
+      ...recentCheques.map((row) => ({
+        id: row.id,
+        kind: 'cheque_clear' as const,
+        label: row.tenantName
+          ? `${row.tenantName} · شيك ${row.chequeNumber}`
+          : `شيك ${row.chequeNumber}`,
+        amountMinor: row.amountMinor.toString(),
+        currency: row.currency,
+        at: (row.receivedAt ?? row.updatedAt).toISOString(),
+      })),
+    ]
+      .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+      .slice(0, 10);
+
     return {
       totalsByCurrency: currencies.map((currency) => {
         const row = byCurrency.get(currency) ?? {
@@ -2003,14 +2160,7 @@ export async function accountingDashboard(claims: SessionClaims) {
       accountCount: accounts,
       postedJournals: posted,
       needsSetup: accounts === 0 || posted === 0,
-      recentActivity: recentStay.map((row) => ({
-        id: row.id,
-        kind: 'stay_payment' as const,
-        label: row.referenceCode,
-        amountMinor: row.amountMinor.toString(),
-        currency: row.currency,
-        at: row.receivedAt.toISOString(),
-      })),
+      recentActivity,
       capabilities: {
         manage: canManageAccounting(claims),
         post: canPostAccounting(claims),
@@ -2020,8 +2170,8 @@ export async function accountingDashboard(claims: SessionClaims) {
 }
 
 /**
- * Bootstrap CoA and post historical stay payments + paid booking deposits into the GL
- * (idempotent via sourceType+sourceId). Does not invent amounts — only existing ops rows.
+ * Bootstrap CoA and post historical stay payments, lease rent payments, cleared cheques,
+ * and paid booking deposits into the GL (idempotent via sourceType+sourceId).
  */
 export async function syncOperationalGl(claims: SessionClaims) {
   if (!canManageAccounting(claims) && !canPostAccounting(claims)) fail('forbidden');
@@ -2032,6 +2182,8 @@ export async function syncOperationalGl(claims: SessionClaims) {
     let stayPayments = 0;
     let reservationDeposits = 0;
     let stayDeposits = 0;
+    let rentPayments = 0;
+    let chequesCleared = 0;
 
     const stays = await tx
       .select({
@@ -2177,12 +2329,118 @@ export async function syncOperationalGl(claims: SessionClaims) {
       if (posted.created) stayDeposits += 1;
     }
 
+    const rentRows = await tx
+      .select({
+        id: payments.id,
+        amountMinor: payments.amountMinor,
+        currency: payments.currency,
+        method: payments.method,
+        receivedAt: payments.receivedAt,
+        invoiceNumber: invoices.invoiceNumber,
+        tenantPartyId: invoices.tenantPartyId,
+        propertyId: units.propertyId,
+        unitId: leases.unitId,
+      })
+      .from(payments)
+      .innerJoin(invoices, eq(invoices.id, payments.invoiceId))
+      .leftJoin(leases, eq(leases.id, invoices.leaseId))
+      .leftJoin(units, eq(units.id, leases.unitId))
+      .where(
+        and(
+          eq(payments.organizationId, orgId),
+          inArray(payments.status, ['succeeded', 'partially_refunded']),
+          sql`${payments.amountMinor} > 0`,
+        ),
+      )
+      .limit(500);
+    for (const row of rentRows) {
+      const net = row.amountMinor;
+      if (net <= 0n) continue;
+      const memo = row.invoiceNumber;
+      const posted = await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId,
+        occurredOn: row.receivedAt.toISOString().slice(0, 10),
+        description: `قبض إيجار ${memo}`.slice(0, 500),
+        sourceType: 'rent_payment',
+        sourceId: row.id,
+        lines: postingRentReceipt(
+          map,
+          net.toString(),
+          {
+            currency: row.currency,
+            ...(row.tenantPartyId ? { partyId: row.tenantPartyId } : {}),
+            ...(row.propertyId ? { propertyId: row.propertyId } : {}),
+            ...(row.unitId ? { unitId: row.unitId } : {}),
+          },
+          channelFromMethod(row.method),
+          memo,
+        ),
+      });
+      if (posted.created) rentPayments += 1;
+    }
+
+    const clearedCheques = await tx
+      .select({
+        id: cheques.id,
+        amountMinor: cheques.amountMinor,
+        currency: cheques.currency,
+        chequeNumber: cheques.chequeNumber,
+        reviewedAt: cheques.reviewedAt,
+        updatedAt: cheques.updatedAt,
+        dueOn: cheques.dueOn,
+        tenantPartyId: leases.tenantPartyId,
+        propertyId: units.propertyId,
+        unitId: leases.unitId,
+      })
+      .from(cheques)
+      .leftJoin(leases, eq(leases.id, cheques.leaseId))
+      .leftJoin(units, eq(units.id, leases.unitId))
+      .where(
+        and(
+          eq(cheques.organizationId, orgId),
+          eq(cheques.reviewStatus, 'cleared'),
+          sql`${cheques.amountMinor} > 0`,
+        ),
+      )
+      .limit(500);
+    for (const row of clearedCheques) {
+      const occurredOn = (
+        row.reviewedAt?.toISOString() ??
+        row.updatedAt.toISOString()
+      ).slice(0, 10);
+      const memo = `شيك ${row.chequeNumber}`;
+      const posted = await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId,
+        occurredOn: ISO_DATE.test(occurredOn) ? occurredOn : row.dueOn,
+        description: `تحصيل شيك إيجار ${row.chequeNumber}`.slice(0, 500),
+        sourceType: 'cheque_clear',
+        sourceId: row.id,
+        lines: postingRentReceipt(
+          map,
+          row.amountMinor.toString(),
+          {
+            currency: row.currency,
+            ...(row.tenantPartyId ? { partyId: row.tenantPartyId } : {}),
+            ...(row.propertyId ? { propertyId: row.propertyId } : {}),
+            ...(row.unitId ? { unitId: row.unitId } : {}),
+          },
+          'cheque',
+          memo,
+        ),
+      });
+      if (posted.created) chequesCleared += 1;
+    }
+
     const accounts = await listAccountsInTx(tx, orgId);
     return {
       accountCount: accounts.length,
       stayPaymentsPosted: stayPayments,
       reservationDepositsPosted: reservationDeposits,
       stayDepositsPosted: stayDeposits,
+      rentPaymentsPosted: rentPayments,
+      chequesClearedPosted: chequesCleared,
     };
   });
 }

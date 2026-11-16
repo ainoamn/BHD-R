@@ -25,6 +25,7 @@ import {
   channelFromMethod,
   postingIncomeReceived,
   postingPurchase,
+  postingRentReceipt,
   postingSale,
   type PostingDimensions,
 } from '@/lib/accounting-posting';
@@ -716,27 +717,92 @@ function openCheque(row: AccountingChequeRow): boolean {
   );
 }
 
-/** Accountant confirms the office received the installment. Marks the cheque cleared. */
+/** Accountant confirms the office received the installment. Marks the cheque cleared and posts rent receipt to GL. */
 export async function confirmChequeCollected(
   claims: SessionClaims,
   id: string,
-): Promise<{ id: string }> {
+): Promise<{ id: string; journalId?: string }> {
   if (!canManageAccounting(claims)) fail('forbidden');
   if (!UUID.test(id)) fail('invalid_input');
   const orgId = claims.organizationId!;
   return withinViewerTenant(claims, async (tx) => {
     const row = await tx
-      .select({ id: cheques.id, status: cheques.reviewStatus })
+      .select({
+        id: cheques.id,
+        status: cheques.reviewStatus,
+        amountMinor: cheques.amountMinor,
+        currency: cheques.currency,
+        chequeNumber: cheques.chequeNumber,
+        dueOn: cheques.dueOn,
+        leaseId: cheques.leaseId,
+        updatedAt: cheques.updatedAt,
+      })
       .from(cheques)
       .where(and(eq(cheques.id, id), eq(cheques.organizationId, orgId)))
       .limit(1);
     if (!row[0]) fail('not_found');
     if (row[0].status === 'cancelled' || row[0].status === 'rejected') fail('invalid_input');
-    await tx
-      .update(cheques)
-      .set({ reviewStatus: 'cleared', updatedAt: new Date() })
-      .where(eq(cheques.id, id));
-    return { id };
+    const alreadyCleared = row[0].status === 'cleared';
+    if (!alreadyCleared) {
+      await tx
+        .update(cheques)
+        .set({
+          reviewStatus: 'cleared',
+          reviewedByUserId: claims.sub,
+          reviewedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(cheques.id, id));
+    }
+
+    let journalId: string | undefined;
+    if (row[0].amountMinor > 0n) {
+      let partyId: string | undefined;
+      let propertyId: string | undefined;
+      let unitId: string | undefined;
+      if (row[0].leaseId) {
+        const lease = await tx
+          .select({
+            tenantPartyId: leases.tenantPartyId,
+            unitId: leases.unitId,
+            propertyId: units.propertyId,
+          })
+          .from(leases)
+          .innerJoin(units, eq(units.id, leases.unitId))
+          .where(and(eq(leases.id, row[0].leaseId), eq(leases.organizationId, orgId)))
+          .limit(1);
+        if (lease[0]) {
+          partyId = lease[0].tenantPartyId ?? undefined;
+          propertyId = lease[0].propertyId ?? undefined;
+          unitId = lease[0].unitId ?? undefined;
+        }
+      }
+      const map = await ensureAccountCodeMap(tx, orgId);
+      const memo = `شيك ${row[0].chequeNumber}`.slice(0, 500);
+      const occurredOn = muscatToday();
+      const posted = await postSourceDocumentInTx(tx, {
+        organizationId: orgId,
+        actorUserId: claims.sub,
+        occurredOn,
+        description: `تحصيل شيك إيجار ${row[0].chequeNumber}`.slice(0, 500),
+        sourceType: 'cheque_clear',
+        sourceId: row[0].id,
+        lines: postingRentReceipt(
+          map,
+          row[0].amountMinor.toString(),
+          {
+            currency: row[0].currency,
+            ...(partyId ? { partyId } : {}),
+            ...(propertyId ? { propertyId } : {}),
+            ...(unitId ? { unitId } : {}),
+          },
+          'cheque',
+          memo,
+        ),
+      });
+      journalId = posted.id;
+    }
+    return { id, ...(journalId ? { journalId } : {}) };
   });
 }
 

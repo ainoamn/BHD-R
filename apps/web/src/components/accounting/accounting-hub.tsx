@@ -510,11 +510,7 @@ export function AccountingHub({
           ]);
         });
 
-        if (
-          !syncedRef.current &&
-          hub.needsSetup &&
-          (hub.capabilities.manage || hub.capabilities.post)
-        ) {
+        if (!syncedRef.current && (hub.capabilities.manage || hub.capabilities.post)) {
           syncedRef.current = true;
           void (async () => {
             try {
@@ -737,8 +733,13 @@ export function AccountingHub({
                 <h3>{ar ? 'آخر التحصيلات' : 'Recent collections'}</h3>
                 <ul>
                   {dash!.recentActivity!.map((row) => (
-                    <li key={row.id}>
-                      <span>{row.label}</span>
+                    <li key={`${row.kind}-${row.id}`}>
+                      <span>
+                        <em className="accounting-hub__activity-kind">
+                          {accountingSourceTypeLabel(row.kind, ar ? 'ar' : 'en')}
+                        </em>
+                        {row.label}
+                      </span>
                       <strong>{money(row.amountMinor, row.currency, ar)}</strong>
                     </li>
                   ))}
@@ -747,8 +748,8 @@ export function AccountingHub({
             ) : dash ? (
               <p className="accounting-hub__muted">
                 {ar
-                  ? 'لا تحصيلات ظاهرة بعد — اضغط «مزامنة المدفوعات» لجلب مدفوعات الإقامة والعربون إلى القيود.'
-                  : 'No collections yet — press “Sync payments” to pull stay and deposit money into journals.'}
+                  ? 'لا تحصيلات ظاهرة بعد — ستظهر هنا مدفوعات الإيجار والشيكات المحصّلة ومدفوعات الإقامة بعد تسجيلها أو مزامنتها.'
+                  : 'No collections yet — rent payments, cleared cheques, and stay receipts appear here after recording or sync.'}
               </p>
             ) : (
               <p className="accounting-hub__muted accounting-hub__muted--soft">

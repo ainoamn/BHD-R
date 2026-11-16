@@ -32,6 +32,7 @@ const SOURCE_TYPE: Record<string, { ar: string; en: string }> = {
   stay_deposit_held: { ar: 'تأمين إقامة', en: 'Stay deposit held' },
   stay_payment: { ar: 'تحصيل إقامة', en: 'Stay payment' },
   rent_payment: { ar: 'تحصيل إيجار', en: 'Rent payment' },
+  cheque_clear: { ar: 'تحصيل شيك', en: 'Cheque cleared' },
   expense: { ar: 'مصروف', en: 'Expense' },
   ops_income: { ar: 'دخل تشغيلي', en: 'Operating income' },
   ops_purchase: { ar: 'مشتريات', en: 'Purchase' },
