@@ -608,32 +608,81 @@ export function PropertyWizard({
     setProperty((current) => ({ ...current, [field]: value }));
   }
 
-  function focusNextField(from?: HTMLElement | null) {
-    if (typeof window === 'undefined') return;
+  function markGuidedField(el: HTMLElement | null) {
     const root = document.querySelector('.wizard-shell .card__content');
     if (!root) return;
-    const focusables = Array.from(
-      root.querySelectorAll<HTMLElement>(
-        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled])',
-      ),
-    ).filter((el) => el.offsetParent !== null);
-    const active = from ?? (document.activeElement as HTMLElement | null);
-    const index = active ? focusables.indexOf(active) : -1;
-    const next = focusables[index + 1];
-    if (next) {
-      window.setTimeout(() => next.focus(), 40);
-      return;
+    root.querySelectorAll('.field.is-guided-active').forEach((node) => {
+      node.classList.remove('is-guided-active');
+    });
+    const wrap = el?.closest('.field');
+    if (wrap) {
+      wrap.classList.add('is-guided-active');
+      wrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    // Last field of this step filled — advance when valid.
+  }
+
+  function isFilledControl(el: HTMLElement): boolean {
+    if (el instanceof HTMLSelectElement) return Boolean(el.value);
+    if (el instanceof HTMLInputElement) {
+      if (el.type === 'radio' || el.type === 'checkbox') return el.checked;
+      if (el.type === 'number') return el.value !== '';
+      return el.value.trim().length > 0;
+    }
+    if (el instanceof HTMLTextAreaElement) return el.value.trim().length > 0;
+    return false;
+  }
+
+  function focusNextField(from?: HTMLElement | null) {
+    if (typeof window === 'undefined') return;
+    // Wait for React to unlock the next guided block before scanning focusables.
     window.setTimeout(() => {
+      const root = document.querySelector('.wizard-shell .card__content');
+      if (!root) return;
+      const focusables = Array.from(
+        root.querySelectorAll<HTMLElement>(
+          'input:not([type="hidden"]):not([disabled]):not([type="radio"]), select:not([disabled]), textarea:not([disabled])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+      const active = document.activeElement as HTMLElement | null;
+      const fromEl = from && focusables.includes(from) ? from : null;
+      let index = fromEl
+        ? focusables.indexOf(fromEl)
+        : active && focusables.includes(active)
+          ? focusables.indexOf(active)
+          : -1;
+      let next = focusables[index + 1] ?? null;
+      // Skip selects that already have a value (e.g. currency default) so the flow keeps moving.
+      while (next && next instanceof HTMLSelectElement && isFilledControl(next)) {
+        index += 1;
+        next = focusables[index + 1] ?? null;
+      }
+      if (next) {
+        next.focus();
+        markGuidedField(next);
+        if (next instanceof HTMLSelectElement) {
+          try {
+            next.showPicker?.();
+          } catch {
+            /* not all browsers allow programmatic open */
+          }
+        }
+        return;
+      }
       if (step >= steps.length - 1) return;
       if (validateStep(step).length === 0) goToStep(step + 1);
-    }, 120);
+    }, 100);
   }
 
   function onSelectAdvance(event: ChangeEvent<HTMLSelectElement>, apply: (value: string) => void) {
     apply(event.target.value);
-    focusNextField(event.currentTarget);
+    if (event.target.value) focusNextField(event.currentTarget);
+  }
+
+  /** Text fields: Enter commits and opens the next control. */
+  function onTextEnter(event: { key: string; preventDefault: () => void; currentTarget: HTMLElement }, filled: boolean) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (filled) focusNextField(event.currentTarget);
   }
 
   function applyMapsUrl(value: string) {
@@ -1614,6 +1663,25 @@ export function PropertyWizard({
   const primary = units[0]!;
   const previewTitle = locale === 'ar' ? property.nameAr || '—' : property.nameEn || '—';
   const mapCoords = parseGoogleMapsUrl(property.mapsUrl);
+  /** Create flow: unlock the next block only after the previous required block is filled. Edit keeps all open. */
+  const guidedCreate = mode !== 'edit';
+  const multiCountsOk =
+    kind !== 'multi_unit' ||
+    (Number(unitCountShop) || 0) + (Number(unitCountShowroom) || 0) + (Number(unitCountApartment) || 0) >
+      0;
+  const basicsBlockDone = Boolean(
+    multiCountsOk &&
+      property.countryCode &&
+      (kind === 'multi_unit' || property.category) &&
+      profile.usageType,
+  );
+  const namesBlockDone = Boolean(property.nameAr.trim() && property.nameEn.trim());
+  const locationBlockDone = Boolean(
+    property.governorate.trim() && property.wilayat.trim() && property.city.trim(),
+  );
+  const showNamesBlock = !guidedCreate || basicsBlockDone;
+  const showLocationBlock = !guidedCreate || namesBlockDone;
+  const showMapBlock = !guidedCreate || locationBlockDone;
   const previewLocation = [property.governorate, property.wilayat, property.city]
     .filter(Boolean)
     .join(' · ');
@@ -1628,7 +1696,13 @@ export function PropertyWizard({
         <h1>
           {mode === 'edit' ? (ar ? 'تعديل العقار' : 'Edit property') : t('PropertyForm.title')}
         </h1>
-        <p className="wizard-hero__intro">{t('PropertyForm.intro')}</p>
+        <p className="wizard-hero__intro">
+          {guidedCreate
+            ? ar
+              ? 'عبّئ كل خيار ليُفتح التالي تلقائياً — يمكنك الرجوع لأي مرحلة أو حقل سابق، أو المتابعة للأمام.'
+              : 'Fill each option to open the next automatically — you can go back to any previous step or field, or continue forward.'
+            : t('PropertyForm.intro')}
+        </p>
         {mode === 'edit' && initialProperty?.status === 'draft' ? (
           <p className="notice notice--warning" role="status" style={{ marginTop: '0.75rem' }}>
             {ar ? 'حالة العقار حالياً: مسودة' : 'Current property status: Draft'}
@@ -1834,6 +1908,15 @@ export function PropertyWizard({
                                 : tone('', true, showErrors)
                             }
                             onChange={(event) => applyMultiUnitCounts({ shop: event.target.value })}
+                            onKeyDown={(event) =>
+                              onTextEnter(
+                                event,
+                                (Number(unitCountShop) || 0) +
+                                  (Number(unitCountShowroom) || 0) +
+                                  (Number(unitCountApartment) || 0) >
+                                  0,
+                              )
+                            }
                           />
                           <Field
                             id="unit-count-showroom"
@@ -1844,6 +1927,15 @@ export function PropertyWizard({
                             onChange={(event) =>
                               applyMultiUnitCounts({ showroom: event.target.value })
                             }
+                            onKeyDown={(event) =>
+                              onTextEnter(
+                                event,
+                                (Number(unitCountShop) || 0) +
+                                  (Number(unitCountShowroom) || 0) +
+                                  (Number(unitCountApartment) || 0) >
+                                  0,
+                              )
+                            }
                           />
                           <Field
                             id="unit-count-apartment"
@@ -1853,6 +1945,15 @@ export function PropertyWizard({
                             value={unitCountApartment}
                             onChange={(event) =>
                               applyMultiUnitCounts({ apartment: event.target.value })
+                            }
+                            onKeyDown={(event) =>
+                              onTextEnter(
+                                event,
+                                (Number(unitCountShop) || 0) +
+                                  (Number(unitCountShowroom) || 0) +
+                                  (Number(unitCountApartment) || 0) >
+                                  0,
+                              )
                             }
                           />
                         </div>
@@ -1969,66 +2070,81 @@ export function PropertyWizard({
                         <option key={value}>{value}</option>
                       ))}
                     </SelectField>
-                    <div className="bilingual-pair span-2">
-                      <Field
-                        id="nameAr"
-                        label={t('PropertyForm.nameAr')}
-                        value={property.nameAr}
-                        tone={tone(property.nameAr, true, showErrors)}
-                        onChange={(event) => updateProperty('nameAr', event.target.value)}
-                        placeholder={t('PropertyForm.nameArPlaceholder')}
-                        minLength={2}
-                        maxLength={160}
-                        required
-                      />
-                      <div className="bilingual-pair__actions">
-                        <Button
-                          type="button"
-                          variant="quiet"
-                          disabled={translating !== null || !property.nameAr.trim()}
-                          onClick={() =>
-                            void translateField(
-                              property.nameAr,
-                              'en',
-                              (value) => updateProperty('nameEn', value),
-                              'name-en',
-                            )
+                    {showNamesBlock ? (
+                      <div className="bilingual-pair span-2 wizard-guided-block">
+                        <Field
+                          id="nameAr"
+                          label={t('PropertyForm.nameAr')}
+                          value={property.nameAr}
+                          tone={tone(property.nameAr, true, showErrors)}
+                          onChange={(event) => updateProperty('nameAr', event.target.value)}
+                          onKeyDown={(event) =>
+                            onTextEnter(event, event.currentTarget.value.trim().length >= 2)
                           }
-                        >
-                          {translating === 'name-en' ? '…' : 'AR → EN'}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="quiet"
-                          disabled={translating !== null || !property.nameEn.trim()}
-                          onClick={() =>
-                            void translateField(
-                              property.nameEn,
-                              'ar',
-                              (value) => updateProperty('nameAr', value),
-                              'name-ar',
-                            )
+                          placeholder={t('PropertyForm.nameArPlaceholder')}
+                          minLength={2}
+                          maxLength={160}
+                          required
+                        />
+                        <div className="bilingual-pair__actions">
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            disabled={translating !== null || !property.nameAr.trim()}
+                            onClick={() =>
+                              void translateField(
+                                property.nameAr,
+                                'en',
+                                (value) => updateProperty('nameEn', value),
+                                'name-en',
+                              )
+                            }
+                          >
+                            {translating === 'name-en' ? '…' : 'AR → EN'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="quiet"
+                            disabled={translating !== null || !property.nameEn.trim()}
+                            onClick={() =>
+                              void translateField(
+                                property.nameEn,
+                                'ar',
+                                (value) => updateProperty('nameAr', value),
+                                'name-ar',
+                              )
+                            }
+                          >
+                            {translating === 'name-ar' ? '…' : 'EN → AR'}
+                          </Button>
+                        </div>
+                        <Field
+                          id="nameEn"
+                          label={t('PropertyForm.nameEn')}
+                          value={property.nameEn}
+                          tone={tone(property.nameEn, true, showErrors)}
+                          onChange={(event) => updateProperty('nameEn', event.target.value)}
+                          onKeyDown={(event) =>
+                            onTextEnter(event, event.currentTarget.value.trim().length >= 2)
                           }
-                        >
-                          {translating === 'name-ar' ? '…' : 'EN → AR'}
-                        </Button>
+                          placeholder={t('PropertyForm.nameEnPlaceholder')}
+                          minLength={2}
+                          maxLength={160}
+                          required
+                          dir="ltr"
+                        />
                       </div>
-                      <Field
-                        id="nameEn"
-                        label={t('PropertyForm.nameEn')}
-                        value={property.nameEn}
-                        tone={tone(property.nameEn, true, showErrors)}
-                        onChange={(event) => updateProperty('nameEn', event.target.value)}
-                        placeholder={t('PropertyForm.nameEnPlaceholder')}
-                        minLength={2}
-                        maxLength={160}
-                        required
-                        dir="ltr"
-                      />
-                    </div>
+                    ) : (
+                      <p className="span-2 field__hint wizard-guided-hint">
+                        {ar
+                          ? 'أكمل التصنيف ونوع الاستعمال ليظهر عنوان العقار.'
+                          : 'Complete category and usage type to reveal the property title.'}
+                      </p>
+                    )}
 
-                    {property.countryCode === 'OM' ? (
-                      <>
+                    {showLocationBlock ? (
+                      property.countryCode === 'OM' ? (
+                      <div className="span-2 form-grid wizard-guided-block">
                         <SelectField
                           id="governorate"
                           label={t('PropertyForm.governorate')}
@@ -2038,7 +2154,7 @@ export function PropertyWizard({
                             updateProperty('governorate', event.target.value);
                             updateProperty('wilayat', '');
                             updateProperty('city', '');
-                            focusNextField(event.currentTarget);
+                            if (event.target.value) focusNextField(event.currentTarget);
                           }}
                           required
                         >
@@ -2058,7 +2174,7 @@ export function PropertyWizard({
                             onChange={(event) => {
                               updateProperty('wilayat', event.target.value);
                               updateProperty('city', '');
-                              focusNextField(event.currentTarget);
+                              if (event.target.value) focusNextField(event.currentTarget);
                             }}
                             required
                           >
@@ -2089,15 +2205,18 @@ export function PropertyWizard({
                             ))}
                           </SelectField>
                         ) : null}
-                      </>
+                      </div>
                     ) : (
-                      <>
+                      <div className="span-2 form-grid wizard-guided-block">
                         <Field
                           id="governorate"
                           label={t('PropertyForm.governorate')}
                           value={property.governorate}
                           tone={tone(property.governorate, true, showErrors)}
                           onChange={(event) => updateProperty('governorate', event.target.value)}
+                          onKeyDown={(event) =>
+                            onTextEnter(event, event.currentTarget.value.trim().length > 0)
+                          }
                           required
                         />
                         <Field
@@ -2106,6 +2225,9 @@ export function PropertyWizard({
                           value={property.wilayat}
                           tone={tone(property.wilayat, true, showErrors)}
                           onChange={(event) => updateProperty('wilayat', event.target.value)}
+                          onKeyDown={(event) =>
+                            onTextEnter(event, event.currentTarget.value.trim().length > 0)
+                          }
                           required
                         />
                         <Field
@@ -2114,62 +2236,90 @@ export function PropertyWizard({
                           value={property.city}
                           tone={tone(property.city, true, showErrors)}
                           onChange={(event) => updateProperty('city', event.target.value)}
-                          required
-                        />
-                      </>
-                    )}
-                    <Field
-                      id="street"
-                      label={t('PropertyForm.street')}
-                      value={property.street}
-                      onChange={(event) => updateProperty('street', event.target.value)}
-                    />
-                    <div className="span-2 maps-field">
-                      <div className="maps-field__row">
-                        <Field
-                          id="mapsUrl"
-                          label={t('PropertyForm.mapsUrl')}
-                          value={property.mapsUrl}
-                          tone={
-                            !property.mapsUrl.trim()
-                              ? tone('', true, showErrors)
-                              : mapCoords
-                                ? 'ok'
-                                : showErrors
-                                  ? 'missing'
-                                  : 'neutral'
+                          onKeyDown={(event) =>
+                            onTextEnter(event, event.currentTarget.value.trim().length > 0)
                           }
-                          onChange={(event) => applyMapsUrl(event.target.value)}
-                          hint={t('PropertyForm.mapsUrlHint')}
                           required
-                          dir="ltr"
-                          placeholder="https://maps.google.com/..."
                         />
-                        <div className="maps-field__pick">
-                          <Button
-                            type="button"
-                            variant="quiet"
-                            onClick={() => setMapPickerOpen(true)}
-                          >
-                            {t('PropertyForm.pickOnMap')}
-                          </Button>
+                      </div>
+                      )
+                    ) : showNamesBlock ? (
+                      <p className="span-2 field__hint wizard-guided-hint">
+                        {ar
+                          ? 'أدخل عنوان العقار عربي/إنجليزي ثم اضغط Enter لفتح الموقع.'
+                          : 'Enter Arabic/English titles, then press Enter to open location.'}
+                      </p>
+                    ) : null}
+
+                    {showMapBlock ? (
+                      <div className="span-2 form-grid wizard-guided-block">
+                        <Field
+                          id="street"
+                          label={t('PropertyForm.street')}
+                          value={property.street}
+                          onChange={(event) => updateProperty('street', event.target.value)}
+                          onKeyDown={(event) => onTextEnter(event, true)}
+                        />
+                        <div className="span-2 maps-field">
+                          <div className="maps-field__row">
+                            <Field
+                              id="mapsUrl"
+                              label={t('PropertyForm.mapsUrl')}
+                              value={property.mapsUrl}
+                              tone={
+                                !property.mapsUrl.trim()
+                                  ? tone('', true, showErrors)
+                                  : mapCoords
+                                    ? 'ok'
+                                    : showErrors
+                                      ? 'missing'
+                                      : 'neutral'
+                              }
+                              onChange={(event) => applyMapsUrl(event.target.value)}
+                              onKeyDown={(event) =>
+                                onTextEnter(
+                                  event,
+                                  Boolean(parseGoogleMapsUrl(event.currentTarget.value)),
+                                )
+                              }
+                              hint={t('PropertyForm.mapsUrlHint')}
+                              required
+                              dir="ltr"
+                              placeholder="https://maps.google.com/..."
+                            />
+                            <div className="maps-field__pick">
+                              <Button
+                                type="button"
+                                variant="quiet"
+                                onClick={() => setMapPickerOpen(true)}
+                              >
+                                {t('PropertyForm.pickOnMap')}
+                              </Button>
+                            </div>
+                          </div>
+                          {mapCoords ? (
+                            <div className="maps-preview">
+                              <p className="maps-preview__label">{t('PropertyForm.mapsPreview')}</p>
+                              <iframe
+                                title={t('PropertyForm.mapsPreview')}
+                                className="maps-preview__frame"
+                                loading="lazy"
+                                referrerPolicy="no-referrer-when-downgrade"
+                                src={googleMapsEmbedSrc(mapCoords.latitude, mapCoords.longitude)}
+                              />
+                            </div>
+                          ) : property.mapsUrl.trim() ? (
+                            <p className="field__error">{t('PropertyForm.mapsUrlInvalid')}</p>
+                          ) : null}
                         </div>
                       </div>
-                      {mapCoords ? (
-                        <div className="maps-preview">
-                          <p className="maps-preview__label">{t('PropertyForm.mapsPreview')}</p>
-                          <iframe
-                            title={t('PropertyForm.mapsPreview')}
-                            className="maps-preview__frame"
-                            loading="lazy"
-                            referrerPolicy="no-referrer-when-downgrade"
-                            src={googleMapsEmbedSrc(mapCoords.latitude, mapCoords.longitude)}
-                          />
-                        </div>
-                      ) : property.mapsUrl.trim() ? (
-                        <p className="field__error">{t('PropertyForm.mapsUrlInvalid')}</p>
-                      ) : null}
-                    </div>
+                    ) : showLocationBlock ? (
+                      <p className="span-2 field__hint wizard-guided-hint">
+                        {ar
+                          ? 'أكمل المحافظة والولاية والمنطقة لفتح الخريطة.'
+                          : 'Complete governorate, wilayat and area to open the map.'}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -3499,6 +3649,10 @@ export function PropertyWizard({
           onConfirm={(coords, mapsUrl) => {
             applyMapsCoords(coords.latitude, coords.longitude, mapsUrl);
             setMapPickerOpen(false);
+            window.setTimeout(() => {
+              const mapsInput = document.getElementById('mapsUrl');
+              if (mapsInput) focusNextField(mapsInput);
+            }, 100);
           }}
           labels={{
             title: t('PropertyForm.pickOnMapTitle'),

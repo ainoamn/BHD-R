@@ -6649,6 +6649,42 @@ body:has(.stays-booking-receipt) #main-content {
   border-radius: 999px;
   font-weight: 800;
 }
+.wizard-shell .field.is-guided-active {
+  position: relative;
+  border-radius: 0.85rem;
+  box-shadow:
+    0 0 0 2px rgb(8 163 159 / 0.35),
+    0 12px 28px rgb(8 163 159 / 0.12);
+  transition: box-shadow 0.25s ease;
+}
+.wizard-shell .wizard-guided-hint {
+  margin: 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px dashed rgb(9 45 36 / 0.16);
+  background: rgb(8 163 159 / 0.06);
+  color: rgb(9 45 36 / 0.72);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.wizard-shell .wizard-guided-block {
+  animation: wizard-guided-reveal 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes wizard-guided-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(0.65rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wizard-shell .wizard-guided-block {
+    animation: none;
+  }
+}
 /* Arabic â€– English side-by-side (not stacked) */
 .bilingual-pair {
   grid-column: 1 / -1;
