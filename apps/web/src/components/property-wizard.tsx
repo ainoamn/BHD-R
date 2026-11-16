@@ -148,27 +148,32 @@ type DocItem = {
   label?: string;
 };
 
+/** Well-known usage types only — keep the form short and familiar. */
 const PROPERTY_USAGE_TYPES = [
   'residential',
   'commercial',
   'mixed',
   'industrial',
   'tourism',
-  'hotel',
   'agricultural',
-  'farm',
-  'office',
-  'educational',
-  'medical',
-  'recreational',
-  'religious',
-  'government',
-  'logistics',
-  'labor_camp',
-  'investment',
-  'other',
 ] as const;
 type PropertyUsageType = (typeof PROPERTY_USAGE_TYPES)[number];
+
+/** Map older/expanded values onto the core six when editing existing drafts. */
+const USAGE_TYPE_ALIASES: Record<string, PropertyUsageType> = {
+  hotel: 'tourism',
+  farm: 'agricultural',
+  office: 'commercial',
+  educational: 'commercial',
+  medical: 'commercial',
+  recreational: 'tourism',
+  religious: 'mixed',
+  government: 'commercial',
+  logistics: 'industrial',
+  labor_camp: 'industrial',
+  investment: 'commercial',
+  other: 'mixed',
+};
 
 function extractMapsUrl(notes?: string | null, fallback?: string | null): string {
   if (fallback?.trim()) return fallback.trim();
@@ -181,9 +186,10 @@ function extractUsageType(notes?: string | null): PropertyUsageType | '' {
   if (!notes) return '';
   const match = notes.match(/Usage type:\s*([a-z_]+)/i);
   const value = match?.[1]?.toLowerCase() ?? '';
-  return (PROPERTY_USAGE_TYPES as readonly string[]).includes(value)
-    ? (value as PropertyUsageType)
-    : '';
+  if ((PROPERTY_USAGE_TYPES as readonly string[]).includes(value)) {
+    return value as PropertyUsageType;
+  }
+  return USAGE_TYPE_ALIASES[value] ?? '';
 }
 
 function stripMapsFromNotes(notes?: string | null): string {
@@ -1939,19 +1945,7 @@ export function PropertyWizard({
                           ['mixed', 'usageMixed'],
                           ['industrial', 'usageIndustrial'],
                           ['tourism', 'usageTourism'],
-                          ['hotel', 'usageHotel'],
                           ['agricultural', 'usageAgricultural'],
-                          ['farm', 'usageFarm'],
-                          ['office', 'usageOffice'],
-                          ['educational', 'usageEducational'],
-                          ['medical', 'usageMedical'],
-                          ['recreational', 'usageRecreational'],
-                          ['religious', 'usageReligious'],
-                          ['government', 'usageGovernment'],
-                          ['logistics', 'usageLogistics'],
-                          ['labor_camp', 'usageLaborCamp'],
-                          ['investment', 'usageInvestment'],
-                          ['other', 'usageOther'],
                         ] as const
                       ).map(([value, key]) => (
                         <option key={value} value={value}>
