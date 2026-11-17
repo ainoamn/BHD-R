@@ -8,6 +8,11 @@ import {
   trialBalance,
 } from '@/lib/accounting-gl-neon';
 import { accountingErrorResponse } from '@/lib/accounting-gl-http';
+import {
+  agingPayables,
+  ownerPropertyStatement,
+  vatControlReport,
+} from '@/lib/accounting-standards-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';
 
@@ -15,7 +20,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 25;
 
-/** GET /api/owner/accounting/reports?report=trial|income|balance|cashflow|aging */
+/** GET reports: trial|income|balance|cashflow|aging|ap-aging|vat|owner */
 export async function GET(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -50,6 +55,21 @@ export async function GET(request: Request) {
     }
     if (report === 'aging') {
       return NextResponse.json(await agingReceivables(claims, asOfDate, currency), {
+        headers: { 'Cache-Control': 'private, no-store' },
+      });
+    }
+    if (report === 'ap-aging') {
+      return NextResponse.json(await agingPayables(claims, asOfDate, currency), {
+        headers: { 'Cache-Control': 'private, no-store' },
+      });
+    }
+    if (report === 'vat') {
+      return NextResponse.json(await vatControlReport(claims, fromDate, toDate, currency), {
+        headers: { 'Cache-Control': 'private, no-store' },
+      });
+    }
+    if (report === 'owner') {
+      return NextResponse.json(await ownerPropertyStatement(claims, fromDate, toDate, currency), {
         headers: { 'Cache-Control': 'private, no-store' },
       });
     }

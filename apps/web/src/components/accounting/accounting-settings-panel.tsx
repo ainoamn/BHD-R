@@ -344,6 +344,48 @@ export function AccountingSettingsPanel({
                   }
                 />
               </label>
+              <label className="accounting-settings__field">
+                {ar ? 'معاملة إيجار ضريبة القيمة المضافة (عُمان)' : 'Rent VAT treatment (Oman)'}
+                <select
+                  value={settings.rentVatMode}
+                  onChange={(event) =>
+                    setSettings((current) => ({
+                      ...current,
+                      rentVatMode: event.target.value === 'standard' ? 'standard' : 'exempt',
+                    }))
+                  }
+                >
+                  <option value="exempt">
+                    {ar
+                      ? 'سكني معفى (4010) — الافتراضي القانوني للإيجار السكني >3 أشهر'
+                      : 'Residential exempt (4010) — default for residential leases >3 months'}
+                  </option>
+                  <option value="standard">
+                    {ar
+                      ? 'تجاري خاضع 5% (4000 + 2200)'
+                      : 'Commercial taxable 5% (4000 + 2200)'}
+                  </option>
+                </select>
+              </label>
+              <label className="accounting-settings__switch">
+                <input
+                  type="checkbox"
+                  checked={settings.accrualBasis}
+                  onChange={(event) =>
+                    setSettings((current) => ({ ...current, accrualBasis: event.target.checked }))
+                  }
+                />
+                <span>
+                  <strong>
+                    {ar ? 'أساس الاستحقاق (IFRS)' : 'Accrual basis (IFRS)'}
+                  </strong>
+                  <small>
+                    {ar
+                      ? 'الفاتورة تثبّت الذمة والإيراد؛ القبض يصفّي الذمة دون تكرار الإيراد.'
+                      : 'Invoice books AR + revenue; cash receipt clears AR without double-counting revenue.'}
+                  </small>
+                </span>
+              </label>
             </fieldset>
           </section>
 

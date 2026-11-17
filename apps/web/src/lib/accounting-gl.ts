@@ -47,8 +47,14 @@ export const DEFAULT_CHART_OF_ACCOUNTS: readonly ChartSeed[] = [
   { code: '3100', nameAr: 'أرباح محتجزة', nameEn: 'Retained earnings', type: 'equity' },
   {
     code: '4000',
-    nameAr: 'إيرادات الإيجار والإقامات',
-    nameEn: 'Rent & stay revenue',
+    nameAr: 'إيرادات إيجار تجاري (خاضع للضريبة)',
+    nameEn: 'Commercial rent revenue (taxable)',
+    type: 'revenue',
+  },
+  {
+    code: '4010',
+    nameAr: 'إيرادات إيجار سكني (معفى)',
+    nameEn: 'Residential rent revenue (VAT exempt)',
     type: 'revenue',
   },
   { code: '4100', nameAr: 'عمولات البيع', nameEn: 'Sales commission', type: 'revenue' },
@@ -180,7 +186,7 @@ export type AgingBucketKey = 'current' | '1-30' | '31-60' | '61-90' | '90+';
 
 export type AgingReport = {
   report: 'aging';
-  ledger: 'ar';
+  ledger: 'ar' | 'ap';
   asOfDate: string;
   currency: string;
   totalOutstandingMinor: string;

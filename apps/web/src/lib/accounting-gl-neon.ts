@@ -49,7 +49,9 @@ import {
   channelFromMethod,
   expenseCodeFromCategory,
   postingDepositHeld,
+  postingChequeCollect,
   postingExpensePaid,
+  postingReceivableCollection,
   postingRentReceipt,
   type AccountCodeMap,
 } from '@/lib/accounting-posting';
@@ -1709,6 +1711,7 @@ export async function createExpenseGl(
     });
     if (input.postJournal !== false && total > 0n) {
       const map = await ensureAccountCodeMap(tx, orgId);
+      const tax = BigInt(input.taxMinor && /^\d+$/.test(input.taxMinor) ? input.taxMinor : '0');
       await postSourceDocumentInTx(tx, {
         organizationId: orgId,
         actorUserId: claims.sub,
@@ -1718,7 +1721,7 @@ export async function createExpenseGl(
         sourceId: row.id,
         lines: postingExpensePaid(
           map,
-          total.toString(),
+          input.amountMinor,
           {
             currency,
             ...(input.propertyId ? { propertyId: input.propertyId } : {}),
@@ -1728,6 +1731,7 @@ export async function createExpenseGl(
           'bank',
           expenseCodeFromCategory(input.category),
           input.category.slice(0, 500),
+          tax > 0n ? tax.toString() : undefined,
         ),
       });
     }
@@ -1805,7 +1809,10 @@ function settingsResourceId(orgId: string): string {
   return deterministicSourceId(`bhd-r:accounting-settings:${orgId}`);
 }
 
-async function readAccountingSettingsInTx(tx: GlTx, orgId: string): Promise<AccountingSettings> {
+export async function readAccountingSettingsInTx(
+  tx: GlTx,
+  orgId: string,
+): Promise<AccountingSettings> {
   const row = await tx
     .select({ metadata: workflowEvents.metadata })
     .from(workflowEvents)
@@ -2449,6 +2456,7 @@ export async function syncOperationalGl(claims: SessionClaims) {
         row.updatedAt.toISOString()
       ).slice(0, 10);
       const memo = `شيك ${row.chequeNumber}`;
+      // PDC collect path: Dr bank 1100 / Cr under-collection 1150 (not cash→revenue).
       const posted = await postSourceDocumentInTx(tx, {
         organizationId: orgId,
         actorUserId,
@@ -2456,7 +2464,7 @@ export async function syncOperationalGl(claims: SessionClaims) {
         description: `تحصيل شيك إيجار ${row.chequeNumber}`.slice(0, 500),
         sourceType: 'cheque_clear',
         sourceId: row.id,
-        lines: postingRentReceipt(
+        lines: postingChequeCollect(
           map,
           row.amountMinor.toString(),
           {
@@ -2465,7 +2473,6 @@ export async function syncOperationalGl(claims: SessionClaims) {
             ...(row.propertyId ? { propertyId: row.propertyId } : {}),
             ...(row.unitId ? { unitId: row.unitId } : {}),
           },
-          'cheque',
           memo,
         ),
       });

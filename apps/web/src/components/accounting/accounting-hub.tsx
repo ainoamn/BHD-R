@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { BankReconPanel } from '@/components/accounting/accounting-bank-recon-panel';
 import { AccountingChequesPanel } from '@/components/accounting/accounting-cheques-panel';
 import {
   AccountingCollectionBoard,
@@ -1790,7 +1791,10 @@ export function AccountingHub({
                   <option value="income">{ar ? 'قائمة الدخل' : 'Income statement'}</option>
                   <option value="balance">{ar ? 'الميزانية العمومية' : 'Balance sheet'}</option>
                   <option value="cashflow">{ar ? 'التدفقات النقدية' : 'Cash flow'}</option>
-                  <option value="aging">{ar ? 'أعمار الذمم' : 'AR aging'}</option>
+                  <option value="aging">{ar ? 'أعمار الذمم المدينة' : 'AR aging'}</option>
+                  <option value="ap-aging">{ar ? 'أعمار الذمم الدائنة' : 'AP aging'}</option>
+                  <option value="vat">{ar ? 'ملخص ضريبة القيمة المضافة' : 'VAT control'}</option>
+                  <option value="owner">{ar ? 'بيان المالك حسب العقار' : 'Owner by property'}</option>
                 </select>
               </label>
               <label>
@@ -1868,11 +1872,11 @@ export function AccountingHub({
 
         <AccountingTabPanel id="periods" tab={tab}>
           <div className="accounting-hub__panel">
-            <h2>{ar ? 'إقفال الفترات المالية' : 'Fiscal period lock'}</h2>
+            <h2>{ar ? 'إقفال الفترات والسنة المالية' : 'Fiscal period & year close'}</h2>
             <p className="accounting-hub__muted">
               {ar
-                ? 'عند الإقفال يُرفض أي ترحيل أو قيد بتاريخ داخل الفترة — حماية تدقيق عالمية بدون تعديل بنية القاعدة.'
-                : 'While locked, posting into the range is rejected — audit-grade control without a schema migration.'}
+                ? 'إقفال الفترة يمنع الترحيل بتاريخ داخل النطاق. إقفال السنة ينقل صافي الدخل إلى الأرباح المحتجزة (3100) ثم يقفل السنة — معيار IFRS / أنظمة إدارة العقارات.'
+                : 'Period lock blocks posting in-range. Year close sweeps P&L into retained earnings (3100) then locks the year — IFRS / PM standard.'}
             </p>
             {caps.manage ? (
               <form
@@ -1880,6 +1884,22 @@ export function AccountingHub({
                 onSubmit={(event) => {
                   event.preventDefault();
                   void run(async () => {
+                    const year = Number(periodForm.from.slice(0, 4));
+                    if (
+                      periodForm.from.endsWith('-01-01') &&
+                      periodForm.to.endsWith('-12-31') &&
+                      periodForm.from.slice(0, 4) === periodForm.to.slice(0, 4)
+                    ) {
+                      await browserNextMutation('/api/owner/accounting/periods', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          action: 'year_close',
+                          year,
+                          ...(periodForm.note ? { note: periodForm.note } : {}),
+                        }),
+                      });
+                      return;
+                    }
                     await browserNextMutation('/api/owner/accounting/periods', {
                       method: 'POST',
                       body: JSON.stringify({ ...periodForm, lock: true }),
@@ -1921,10 +1941,16 @@ export function AccountingHub({
                   </label>
                 </div>
                 <button className="button button--primary" type="submit" disabled={busy}>
-                  {ar ? 'إقفال الفترة' : 'Lock period'}
+                  {ar ? 'إقفال الفترة / السنة' : 'Lock period / year'}
                 </button>
+                <p className="accounting-hub__hint">
+                  {ar
+                    ? 'لإقفال سنة كاملة مع قيد الأرباح المحتجزة: من 01-01 إلى 12-31 لنفس السنة.'
+                    : 'For full year close with retained-earnings journal: from 01-01 to 12-31 of the same year.'}
+                </p>
               </form>
             ) : null}
+            <BankReconPanel locale={locale} canManage={caps.manage} active={tab === 'periods'} />
             <div className="accounting-hub__table-wrap">
               <table className="accounting-hub__table">
                 <thead>
@@ -2248,11 +2274,18 @@ function ReportView({ ar, report }: { ar: boolean; report: Record<string, unknow
   }
   if (report.report === 'aging') {
     const buckets = report.buckets as Record<string, string>;
+    const ledger = String(report.ledger || 'ar');
     return (
       <div className="accounting-hub__panel">
         <p>
-          {ar ? 'إجمالي المستحق' : 'Outstanding'}:{' '}
-          <strong>{money(String(report.totalOutstandingMinor), currency, ar)}</strong>
+          {ledger === 'ap'
+            ? ar
+              ? 'إجمالي الدائن'
+              : 'Payables outstanding'
+            : ar
+              ? 'إجمالي المدين'
+              : 'Receivables outstanding'}
+          : <strong>{money(String(report.totalOutstandingMinor), currency, ar)}</strong>
         </p>
         <div className="accounting-hub__kpis">
           {Object.entries(buckets).map(([key, value]) => (
@@ -2261,6 +2294,69 @@ function ReportView({ ar, report }: { ar: boolean; report: Record<string, unknow
               <strong>{money(value, currency, ar)}</strong>
             </div>
           ))}
+        </div>
+      </div>
+    );
+  }
+  if (report.report === 'vat') {
+    return (
+      <div className="accounting-hub__panel">
+        <p className="accounting-hub__muted">
+          {ar ? String(report.noteAr || '') : String(report.noteEn || '')}
+        </p>
+        <div className="accounting-hub__kpis">
+          <div className="accounting-hub__kpi">
+            <span>{ar ? 'مخرجات (2200)' : 'Output (2200)'}</span>
+            <strong>{money(String(report.outputVatMinor), currency, ar)}</strong>
+          </div>
+          <div className="accounting-hub__kpi">
+            <span>{ar ? 'مدخلات (1400)' : 'Input (1400)'}</span>
+            <strong>{money(String(report.inputVatMinor), currency, ar)}</strong>
+          </div>
+          <div className="accounting-hub__kpi">
+            <span>{ar ? 'صافي مستحق' : 'Net payable'}</span>
+            <strong>{money(String(report.netPayableMinor), currency, ar)}</strong>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (report.report === 'owner' && Array.isArray(report.properties)) {
+    const rows = report.properties as Array<{
+      propertyId: string;
+      nameAr: string;
+      nameEn: string;
+      revenueMinor: string;
+      expenseMinor: string;
+      netMinor: string;
+    }>;
+    return (
+      <div className="accounting-hub__panel">
+        <p>
+          {ar ? 'صافي المحفظة' : 'Portfolio net'}:{' '}
+          <strong>{money(String(report.netMinor), currency, ar)}</strong>
+        </p>
+        <div className="accounting-hub__table-wrap">
+          <table className="accounting-hub__table">
+            <thead>
+              <tr>
+                <th>{ar ? 'العقار' : 'Property'}</th>
+                <th className="num">{ar ? 'إيراد' : 'Revenue'}</th>
+                <th className="num">{ar ? 'مصروف' : 'Expense'}</th>
+                <th className="num">{ar ? 'صافي' : 'Net'}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row.propertyId}>
+                  <td>{ar ? row.nameAr : row.nameEn}</td>
+                  <td className="num">{money(row.revenueMinor, currency, ar)}</td>
+                  <td className="num">{money(row.expenseMinor, currency, ar)}</td>
+                  <td className="num">{money(row.netMinor, currency, ar)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     );

@@ -1905,6 +1905,25 @@ export const journalSequences = pgTable(
   (table) => [primaryKey({ columns: [table.organizationId, table.year, table.kind] })],
 );
 
+export const bankReconciliations = pgTable(
+  'bank_reconciliations',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    accountCode: varchar('account_code', { length: 16 }).notNull().default('1100'),
+    statementOn: date('statement_on').notNull(),
+    statementBalanceMinor: bigint('statement_balance_minor', { mode: 'bigint' }).notNull(),
+    currency: varchar('currency', { length: 3 }).notNull().default('OMR'),
+    status: varchar('status', { length: 24 }).notNull().default('draft'),
+    notes: text('notes'),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+  },
+  (table) => [index('bank_reconciliations_org_idx').on(table.organizationId, table.statementOn)],
+);
+
 export const journalLines = pgTable(
   'journal_lines',
   {
@@ -1930,10 +1949,15 @@ export const journalLines = pgTable(
     currency: varchar('currency', { length: 3 }).notNull(),
     minorUnit: integer('minor_unit').notNull(),
     memo: varchar('memo', { length: 500 }),
+    reconciledAt: timestamp('reconciled_at', { withTimezone: true }),
+    reconciliationId: uuid('reconciliation_id').references(() => bankReconciliations.id, {
+      onDelete: 'set null',
+    }),
   },
   (table) => [
     index('journal_lines_entry_idx').on(table.journalEntryId),
     index('journal_lines_account_idx').on(table.accountId),
+    index('journal_lines_recon_idx').on(table.organizationId, table.reconciledAt),
     check(
       'journal_lines_one_side_check',
       sql`(${table.debitMinor} > 0 and ${table.creditMinor} = 0) or (${table.creditMinor} > 0 and ${table.debitMinor} = 0)`,

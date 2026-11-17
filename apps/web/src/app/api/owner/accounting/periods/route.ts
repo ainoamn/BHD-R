@@ -6,12 +6,13 @@ import {
   setFiscalPeriodLock,
 } from '@/lib/accounting-gl-neon';
 import { accountingErrorResponse } from '@/lib/accounting-gl-http';
+import { closeFiscalYear } from '@/lib/accounting-standards-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 20;
+export const maxDuration = 30;
 
 export async function GET(request: Request) {
   if (!hasDatabaseUrl()) {
@@ -41,11 +42,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: { code: 'forbidden' } }, { status: 403 });
     }
     const body = (await request.json().catch(() => null)) as {
+      action?: string;
+      year?: number;
       from?: string;
       to?: string;
       lock?: boolean;
       note?: string;
     } | null;
+    if (body?.action === 'year_close' && typeof body.year === 'number') {
+      return NextResponse.json({
+        close: await closeFiscalYear(claims, body.year, body.note),
+      });
+    }
     if (!body?.from || !body.to || typeof body.lock !== 'boolean') {
       return NextResponse.json({ error: { code: 'invalid_date' } }, { status: 400 });
     }

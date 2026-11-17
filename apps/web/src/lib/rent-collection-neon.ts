@@ -2,9 +2,27 @@ import 'server-only';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import { currencyMinorUnits, type CurrencyCode } from '@bhd-r/contracts';
-import { contracts, invoiceLines, invoices, leases, parties, properties, units } from '@bhd-r/db';
-import { ensureAccountCodeMap, postSourceDocumentInTx } from '@/lib/accounting-gl-neon';
-import { channelFromMethod, postingRentReceipt } from '@/lib/accounting-posting';
+import {
+  contracts,
+  invoiceLines,
+  invoices,
+  journalEntries,
+  leases,
+  parties,
+  properties,
+  units,
+} from '@bhd-r/db';
+import {
+  ensureAccountCodeMap,
+  postSourceDocumentInTx,
+  readAccountingSettingsInTx,
+} from '@/lib/accounting-gl-neon';
+import {
+  channelFromMethod,
+  postingReceivableCollection,
+  postingRentReceipt,
+} from '@/lib/accounting-posting';
+import { postAccrualInvoiceInTx } from '@/lib/accounting-standards-neon';
 import { appLink, notifyByEmail } from '@/lib/email-notify';
 import { formatMoney } from '@/lib/format';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
@@ -238,6 +256,42 @@ export async function recordRentPayment(
             .limit(1);
       if (!opened) fail('tenant_charge_invalid');
       invoiceId = opened.id;
+      if (created) {
+        const settings = await readAccountingSettingsInTx(tx, orgId);
+        if (settings.accrualBasis) {
+          const revenueCode =
+            settings.rentVatMode === 'standard' ? ('4000' as const) : ('4010' as const);
+          const net = total;
+          let tax = 0n;
+          if (settings.vatEnabled && settings.rentVatMode === 'standard') {
+            tax = (net * BigInt(Math.round(settings.vatRatePercent * 10))) / 1000n;
+          }
+          await postAccrualInvoiceInTx(tx, {
+            organizationId: orgId,
+            actorUserId: claims.sub,
+            invoiceId: created.id,
+            occurredOn: subject.dueOn < today ? subject.dueOn : today,
+            amountMinor: net.toString(),
+            ...(tax > 0n ? { taxMinor: tax.toString() } : {}),
+            currency: lease.currency,
+            memo: `${subject.label.ar} — ${rentMonthLabel(subject, true)}`.slice(0, 500),
+            partyId: lease.tenantPartyId,
+            propertyId: lease.propertyId,
+            unitId: lease.unitId,
+            revenueCode,
+          });
+          if (tax > 0n) {
+            await tx
+              .update(invoices)
+              .set({
+                taxMinor: tax,
+                totalMinor: net + tax,
+                subtotalMinor: net,
+              })
+              .where(eq(invoices.id, created.id));
+          }
+        }
+      }
     }
 
     const paid = await recordChargePayment(tx, {
@@ -259,11 +313,27 @@ export async function recordRentPayment(
         actorUserId: claims.sub,
       });
     }
-    // Official GL post: Dr cash/bank, Cr rent revenue — linked to tenant, property and unit.
+    // Accrual: clear AR when invoice was booked; legacy cash→revenue otherwise.
     if (paid.paymentId) {
       const map = await ensureAccountCodeMap(tx, orgId);
       const occurredOn = (input.receivedOn ?? today).slice(0, 10);
       const memo = `${subject.label.ar} · ${rentMonthLabel(subject, true)}`.slice(0, 500);
+      const dims = {
+        currency: lease.currency,
+        partyId: lease.tenantPartyId,
+        propertyId: lease.propertyId,
+        unitId: lease.unitId,
+      };
+      const channel = channelFromMethod(input.method);
+      const invoiceJournal = await tx.query.journalEntries.findFirst({
+        where: and(
+          eq(journalEntries.organizationId, orgId),
+          eq(journalEntries.sourceType, 'invoice'),
+          eq(journalEntries.sourceId, invoiceId),
+          eq(journalEntries.status, 'posted'),
+        ),
+        columns: { id: true },
+      });
       await postSourceDocumentInTx(tx, {
         organizationId: orgId,
         actorUserId: claims.sub,
@@ -271,18 +341,9 @@ export async function recordRentPayment(
         description: `قبض إيجار ${memo}`.slice(0, 500),
         sourceType: 'rent_payment',
         sourceId: paid.paymentId,
-        lines: postingRentReceipt(
-          map,
-          amount.toString(),
-          {
-            currency: lease.currency,
-            partyId: lease.tenantPartyId,
-            propertyId: lease.propertyId,
-            unitId: lease.unitId,
-          },
-          channelFromMethod(input.method),
-          memo,
-        ),
+        lines: invoiceJournal
+          ? postingReceivableCollection(map, amount.toString(), dims, channel, memo)
+          : postingRentReceipt(map, amount.toString(), dims, channel, memo),
       });
     }
     return {

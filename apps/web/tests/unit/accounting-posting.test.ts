@@ -19,10 +19,14 @@ import { validateBalanced } from '@/lib/accounting-gl';
 const MAP = new Map<string, string>([
   ['1000', 'cash'],
   ['1100', 'bank'],
+  ['1140', 'cheque-hand'],
   ['1150', 'cheque'],
   ['1200', 'ar'],
+  ['1400', 'vat-in'],
   ['2100', 'deposit'],
+  ['2200', 'vat-out'],
   ['4000', 'rent'],
+  ['4010', 'rent-exempt'],
   ['4200', 'service'],
   ['4300', 'other'],
   ['5000', 'opex'],
@@ -91,6 +95,25 @@ describe('accounting-posting', () => {
     const collect = postingReceivableCollection(MAP, '100000', DIMS, 'cash', 'تحصيل');
     expect(() => validateBalanced(invoice)).not.toThrow();
     expect(() => validateBalanced(collect)).not.toThrow();
+  });
+
+  it('splits Oman VAT on taxable invoice and expense; exempt rent uses 4010', () => {
+    const taxable = postingTenantInvoice(MAP, '100000', DIMS, '4000', 'تجاري', '5000');
+    expect(taxable).toHaveLength(3);
+    expect(taxable[0]!.debitMinor).toBe('105000');
+    expect(taxable[1]!.creditMinor).toBe('100000');
+    expect(taxable[2]!.accountId).toBe('vat-out');
+    expect(() => validateBalanced(taxable)).not.toThrow();
+
+    const exempt = postingTenantInvoice(MAP, '100000', DIMS, '4010', 'سكني');
+    expect(exempt[1]!.accountId).toBe('rent-exempt');
+    expect(() => validateBalanced(exempt)).not.toThrow();
+
+    const withVat = postingExpensePaid(MAP, '20000', DIMS, 'bank', '5100', 'صيانة', '1000');
+    expect(withVat).toHaveLength(3);
+    expect(withVat[1]!.accountId).toBe('vat-in');
+    expect(withVat[2]!.creditMinor).toBe('21000');
+    expect(() => validateBalanced(withVat)).not.toThrow();
   });
 
   it('rejects zero/invalid amounts and missing accounts', () => {

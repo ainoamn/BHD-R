@@ -115,7 +115,10 @@ export function postingDepositRetained(
   ];
 }
 
-/** Operating / maintenance / legal expense paid: Dr expense, Cr cash. */
+/**
+ * Operating / maintenance / legal expense paid: Dr expense, Cr cash.
+ * Optional input VAT (Oman): Dr expense (net) + Dr 1400 (VAT) / Cr cash (gross).
+ */
 export function postingExpensePaid(
   map: AccountCodeMap,
   amountMinor: string,
@@ -123,11 +126,21 @@ export function postingExpensePaid(
   channel: CashChannel,
   expenseCode: '5000' | '5100' | '5200' | '5300' | '5400' | '5500' | '5600',
   memo: string,
+  vatMinor?: string,
 ): JournalLineInput[] {
   if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  const vat = vatMinor && /^\d+$/.test(vatMinor) ? BigInt(vatMinor) : 0n;
+  if (vat <= 0n) {
+    return [
+      line(requireCode(map, expenseCode), 'debit', amountMinor, dims, memo),
+      line(requireCode(map, cashAccountCode(channel)), 'credit', amountMinor, dims, memo),
+    ];
+  }
+  const gross = (BigInt(amountMinor) + vat).toString();
   return [
     line(requireCode(map, expenseCode), 'debit', amountMinor, dims, memo),
-    line(requireCode(map, cashAccountCode(channel)), 'credit', amountMinor, dims, memo),
+    line(requireCode(map, '1400'), 'debit', vat.toString(), dims, memo),
+    line(requireCode(map, cashAccountCode(channel)), 'credit', gross, dims, memo),
   ];
 }
 
@@ -183,18 +196,33 @@ export function postingSale(
   ];
 }
 
-/** Invoice issued to tenant (not yet collected): Dr receivables, Cr revenue. */
+/**
+ * Accrual: invoice issued to tenant (not yet collected).
+ * Dr receivables (gross) / Cr revenue (net) [/ Cr 2200 output VAT when taxable].
+ * Oman: residential rent usually VAT-exempt → use revenue 4010 with vatMinor omitted.
+ */
 export function postingTenantInvoice(
   map: AccountCodeMap,
   amountMinor: string,
   dims: PostingDimensions,
-  revenueCode: '4000' | '4200' | '4300',
+  revenueCode: '4000' | '4010' | '4200' | '4300',
   memo: string,
+  vatMinor?: string,
 ): JournalLineInput[] {
   if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  const vat = vatMinor && /^\d+$/.test(vatMinor) ? BigInt(vatMinor) : 0n;
+  if (vat <= 0n) {
+    return [
+      line(requireCode(map, '1200'), 'debit', amountMinor, dims, memo),
+      line(requireCode(map, revenueCode), 'credit', amountMinor, dims, memo),
+    ];
+  }
+  const net = BigInt(amountMinor);
+  const gross = (net + vat).toString();
   return [
-    line(requireCode(map, '1200'), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, '1200'), 'debit', gross, dims, memo),
     line(requireCode(map, revenueCode), 'credit', amountMinor, dims, memo),
+    line(requireCode(map, '2200'), 'credit', vat.toString(), dims, memo),
   ];
 }
 

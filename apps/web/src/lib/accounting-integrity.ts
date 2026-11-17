@@ -13,6 +13,9 @@ export const PROTECTED_JOURNAL_SOURCES = [
   'ops_sale',
   'cheque_clear',
   'cheque_op',
+  'tenant_charge_payment',
+  'year_close',
+  'bank_recon',
 ] as const;
 
 export type ProtectedJournalSource = (typeof PROTECTED_JOURNAL_SOURCES)[number];
@@ -89,6 +92,13 @@ export function bankAccountPayeeName(account: AccountingBankAccount, preferEn = 
 export type AccountingSettings = {
   vatEnabled: boolean;
   vatRatePercent: number;
+  /**
+   * Oman residential leases (>3 months) are generally VAT-exempt; commercial is 5%.
+   * `exempt` posts rent to 4010 without output VAT; `standard` uses 4000 + 2200.
+   */
+  rentVatMode: 'exempt' | 'standard';
+  /** Accrual basis: invoice → AR + revenue; cash receipt clears AR (IFRS / PM standard). */
+  accrualBasis: boolean;
   otherTaxes: AccountingTaxRow[];
   baseCurrency: string;
   currencies: AccountingFxRate[];
@@ -104,6 +114,8 @@ export type AccountingSettings = {
 export const DEFAULT_ACCOUNTING_SETTINGS: AccountingSettings = {
   vatEnabled: true,
   vatRatePercent: 5,
+  rentVatMode: 'exempt',
+  accrualBasis: true,
   otherTaxes: [],
   baseCurrency: 'OMR',
   currencies: [
@@ -269,6 +281,8 @@ export function normalizeAccountingSettings(raw: unknown): AccountingSettings {
   return {
     vatEnabled: input.vatEnabled !== false,
     vatRatePercent: vatRate,
+    rentVatMode: input.rentVatMode === 'standard' ? 'standard' : 'exempt',
+    accrualBasis: input.accrualBasis !== false,
     otherTaxes,
     baseCurrency: /^[A-Z]{3}$/.test(baseCurrency) ? baseCurrency : base.baseCurrency,
     currencies,
