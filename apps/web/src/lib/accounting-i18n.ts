@@ -182,6 +182,9 @@ const CHEQUE_STATUS: Record<string, { ar: string; en: string }> = {
   bounced: { ar: 'مرتجع', en: 'Bounced' },
   cancelled: { ar: 'ملغى', en: 'Cancelled' },
   rejected: { ar: 'مرفوض', en: 'Rejected' },
+  postponed: { ar: 'مؤجّل بطلب المستأجر', en: 'Postponed by tenant' },
+  insufficient_funds: { ar: 'لا يوجد رصيد', en: 'Insufficient funds' },
+  partially_cleared: { ar: 'صُرف جزئياً', en: 'Partially cleared' },
 };
 
 export function accountingChequeStatusLabel(status: string | null | undefined, locale: Locale) {

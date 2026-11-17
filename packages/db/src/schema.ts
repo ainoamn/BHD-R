@@ -2335,6 +2335,9 @@ export const chequeReviewStatus = pgEnum('cheque_review_status', [
   'cleared',
   'bounced',
   'cancelled',
+  'postponed',
+  'insufficient_funds',
+  'partially_cleared',
 ]);
 
 export const cheques = pgTable(
@@ -2352,6 +2355,8 @@ export const cheques = pgTable(
     bankName: varchar('bank_name', { length: 160 }).notNull(),
     chequeNumber: varchar('cheque_number', { length: 80 }).notNull(),
     amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
+    /** Amount already cashed when status is partially_cleared (minor units). */
+    collectedMinor: bigint('collected_minor', { mode: 'bigint' }),
     currency: varchar('currency', { length: 3 }).notNull(),
     dueOn: date('due_on').notNull(),
     attachmentMediaId: uuid('attachment_media_id').references(() => mediaAssets.id),

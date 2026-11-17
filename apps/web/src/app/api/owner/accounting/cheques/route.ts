@@ -49,6 +49,8 @@ export async function POST(request: Request) {
       id?: string;
       status?: string;
       notes?: string;
+      dueOn?: string;
+      collectedMinor?: string;
       csv?: string;
       rows?: Array<{
         chequeNumber: string;
@@ -62,7 +64,11 @@ export async function POST(request: Request) {
     } | null;
     if (body?.id && body.status) {
       return NextResponse.json(
-        await setChequeLifecycleStatus(claims, body.id, body.status, body.notes),
+        await setChequeLifecycleStatus(claims, body.id, body.status, {
+          ...(body.notes !== undefined ? { notes: body.notes } : {}),
+          ...(body.dueOn !== undefined ? { dueOn: body.dueOn } : {}),
+          ...(body.collectedMinor !== undefined ? { collectedMinor: body.collectedMinor } : {}),
+        }),
       );
     }
     if (body?.confirmId) {

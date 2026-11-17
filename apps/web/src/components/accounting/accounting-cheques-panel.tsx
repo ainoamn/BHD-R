@@ -64,19 +64,29 @@ type Filter =
   | 'accepted'
   | 'deposited'
   | 'cleared'
-  | 'bounced';
+  | 'bounced'
+  | 'postponed'
+  | 'insufficient_funds'
+  | 'partially_cleared';
 
-const LIFECYCLE_ACTIONS: Array<{
+type ActionDef = {
   status: string;
   ar: string;
   en: string;
-  from: string[];
-}> = [
-  { status: 'accepted', ar: 'استلام', en: 'Receive', from: ['pending', 'bounced'] },
-  { status: 'deposited', ar: 'إيداع بالبنك', en: 'Deposit', from: ['pending', 'accepted', 'bounced'] },
-  { status: 'cleared', ar: 'صرف / تحصيل', en: 'Clear', from: ['pending', 'accepted', 'deposited', 'bounced'] },
-  { status: 'bounced', ar: 'مرتجع', en: 'Bounce', from: ['accepted', 'deposited'] },
-  { status: 'cancelled', ar: 'إلغاء', en: 'Cancel', from: ['pending', 'accepted', 'bounced'] },
+  needs?: 'dueOn' | 'partial';
+};
+
+/** All operational actions — any can be applied/undone as long as the cheque has a DB id. */
+const LIFECYCLE_ACTIONS: ActionDef[] = [
+  { status: 'accepted', ar: 'استلام', en: 'Receive' },
+  { status: 'deposited', ar: 'إيداع بالبنك', en: 'Bank deposit' },
+  { status: 'cleared', ar: 'صرف كامل', en: 'Full clear' },
+  { status: 'partially_cleared', ar: 'صرف جزئي', en: 'Partial clear', needs: 'partial' },
+  { status: 'postponed', ar: 'تأجيل (طلب مستأجر)', en: 'Postpone', needs: 'dueOn' },
+  { status: 'insufficient_funds', ar: 'لا يوجد رصيد', en: 'No funds' },
+  { status: 'bounced', ar: 'مرتجع', en: 'Bounced' },
+  { status: 'pending', ar: 'تراجع / إعادة ضبط', en: 'Undo / reset' },
+  { status: 'cancelled', ar: 'إلغاء', en: 'Cancel' },
 ];
 
 const PIPELINE = [
@@ -119,6 +129,13 @@ export function AccountingChequesPanel({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [dialog, setDialog] = useState<null | {
+    row: ChequeRow;
+    action: ActionDef;
+  }>(null);
+  const [dialogDueOn, setDialogDueOn] = useState('');
+  const [dialogPartial, setDialogPartial] = useState('');
+  const [menuId, setMenuId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!active && rows !== null) return;
@@ -196,7 +213,10 @@ export function AccountingChequesPanel({
     ['pending', ar ? 'بانتظار' : 'Pending'],
     ['accepted', ar ? 'مستلمة' : 'Received'],
     ['deposited', ar ? 'مودعة' : 'Deposited'],
+    ['postponed', ar ? 'مؤجّلة' : 'Postponed'],
+    ['partially_cleared', ar ? 'جزئية' : 'Partial'],
     ['cleared', ar ? 'مصروفة' : 'Cleared'],
+    ['insufficient_funds', ar ? 'بلا رصيد' : 'No funds'],
     ['bounced', ar ? 'مرتجعة' : 'Bounced'],
   ];
 
@@ -207,7 +227,11 @@ export function AccountingChequesPanel({
     return accountingChequeStatusLabel(row.reviewStatus, locale);
   };
 
-  async function advanceStatus(row: ChequeRow, status: string) {
+  async function advanceStatus(
+    row: ChequeRow,
+    status: string,
+    extra?: { dueOn?: string; collectedMinor?: string; notes?: string },
+  ) {
     if (!isUuid(row.id)) {
       setNotice(
         ar
@@ -218,24 +242,50 @@ export function AccountingChequesPanel({
     }
     setBusyId(row.id);
     setNotice(null);
+    setMenuId(null);
     try {
       await browserNextMutation('/api/owner/accounting/cheques', {
         method: 'POST',
-        body: JSON.stringify({ id: row.id, status }),
+        body: JSON.stringify({
+          id: row.id,
+          status,
+          ...(extra?.dueOn ? { dueOn: extra.dueOn } : {}),
+          ...(extra?.collectedMinor ? { collectedMinor: extra.collectedMinor } : {}),
+          ...(extra?.notes ? { notes: extra.notes } : {}),
+        }),
       });
       invalidateAccountingCache();
       setReloadKey((key) => key + 1);
       setRows(null);
+      setDialog(null);
       setNotice(
         ar
-          ? `تم تحديث حالة الشيك ${row.chequeNumber}.`
-          : `Cheque ${row.chequeNumber} updated.`,
+          ? `تم تحديث حالة الشيك ${row.chequeNumber}. يمكنك التراجع أو التعديل في أي وقت.`
+          : `Cheque ${row.chequeNumber} updated. You can undo or change it anytime.`,
       );
     } catch {
       setNotice(ar ? 'تعذر تحديث حالة الشيك.' : 'Could not update cheque status.');
     } finally {
       setBusyId(null);
     }
+  }
+
+  function startAction(row: ChequeRow, action: ActionDef) {
+    if (action.needs === 'dueOn') {
+      setDialogDueOn(row.dueOn);
+      setDialog({ row, action });
+      return;
+    }
+    if (action.needs === 'partial') {
+      setDialogPartial('');
+      setDialog({ row, action });
+      return;
+    }
+    void advanceStatus(row, action.status);
+  }
+
+  function availableActions(row: ChequeRow): ActionDef[] {
+    return LIFECYCLE_ACTIONS.filter((action) => action.status !== row.reviewStatus);
   }
 
   return (
@@ -379,9 +429,11 @@ export function AccountingChequesPanel({
               visible.map((row) => {
                 const tone = STATUS_TONE[row.lineStatus || ''] ?? '';
                 const paid = row.paidMinor ?? '0';
-                const actions = LIFECYCLE_ACTIONS.filter((action) =>
-                  action.from.includes(row.reviewStatus),
+                const actions = availableActions(row);
+                const primary = actions.filter((action) =>
+                  ['accepted', 'deposited', 'cleared', 'pending'].includes(action.status),
                 );
+                const more = actions.filter((action) => !primary.includes(action));
                 return (
                   <tr key={row.id} data-kind={row.kind || 'cheque'}>
                     <td>
@@ -410,6 +462,12 @@ export function AccountingChequesPanel({
                     </td>
                     <td className="num">
                       {formatMoney(row.amountMinor, row.currency || 'OMR', locale)}
+                      {row.reviewStatus === 'partially_cleared' && paid !== '0' ? (
+                        <div className="accounting-hub__meta">
+                          {ar ? 'محصّل:' : 'Cashed:'}{' '}
+                          {formatMoney(paid, row.currency || 'OMR', locale)}
+                        </div>
+                      ) : null}
                     </td>
                     <td>
                       {row.leaseId && row.lineKey ? (
@@ -428,24 +486,53 @@ export function AccountingChequesPanel({
                     <td>
                       <div className="cheque-lifecycle__actions">
                         {canManage
-                          ? actions.map((action) => (
+                          ? primary.map((action) => (
                               <button
                                 key={action.status}
                                 type="button"
                                 className={`button button--tiny ${
                                   action.status === 'cleared'
                                     ? 'button--primary'
-                                    : action.status === 'bounced' || action.status === 'cancelled'
+                                    : action.status === 'pending'
                                       ? 'button--quiet'
                                       : 'button--quiet'
                                 }`}
                                 disabled={busyId === row.id}
-                                onClick={() => void advanceStatus(row, action.status)}
+                                onClick={() => startAction(row, action)}
                               >
                                 {ar ? action.ar : action.en}
                               </button>
                             ))
                           : null}
+                        {canManage && more.length ? (
+                          <div className="cheque-lifecycle__more">
+                            <button
+                              type="button"
+                              className="button button--tiny button--quiet"
+                              disabled={busyId === row.id}
+                              aria-expanded={menuId === row.id}
+                              onClick={() =>
+                                setMenuId((current) => (current === row.id ? null : row.id))
+                              }
+                            >
+                              {ar ? 'المزيد…' : 'More…'}
+                            </button>
+                            {menuId === row.id ? (
+                              <div className="cheque-lifecycle__menu" role="menu">
+                                {more.map((action) => (
+                                  <button
+                                    key={action.status}
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => startAction(row, action)}
+                                  >
+                                    {ar ? action.ar : action.en}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        ) : null}
                         <AccountingFollowTask
                           locale={locale}
                           kind="cheque"
@@ -466,6 +553,72 @@ export function AccountingChequesPanel({
           </tbody>
         </table>
       </div>
+
+      {dialog ? (
+        <div className="cheque-lifecycle__dialog" role="dialog" aria-modal="true">
+          <div className="cheque-lifecycle__dialog-card">
+            <h3>
+              {ar ? dialog.action.ar : dialog.action.en} · {dialog.row.chequeNumber}
+            </h3>
+            {dialog.action.needs === 'dueOn' ? (
+              <label>
+                {ar ? 'تاريخ الاستحقاق الجديد' : 'New due date'}
+                <input
+                  type="date"
+                  value={dialogDueOn}
+                  onChange={(event) => setDialogDueOn(event.target.value)}
+                />
+              </label>
+            ) : null}
+            {dialog.action.needs === 'partial' ? (
+              <label>
+                {ar
+                  ? `المبلغ المحصّل جزئياً (من أصل ${dialog.row.amountMinor})`
+                  : `Partial amount collected (of ${dialog.row.amountMinor})`}
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={dialogPartial}
+                  onChange={(event) => setDialogPartial(event.target.value.replace(/\D/g, ''))}
+                  placeholder={ar ? 'بالم وحدة صغرى' : 'minor units'}
+                />
+              </label>
+            ) : null}
+            <div className="cheque-lifecycle__dialog-actions">
+              <button
+                type="button"
+                className="button button--quiet"
+                onClick={() => setDialog(null)}
+              >
+                {ar ? 'إلغاء' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                className="button button--primary"
+                disabled={busyId === dialog.row.id}
+                onClick={() => {
+                  if (dialog.action.needs === 'dueOn') {
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(dialogDueOn)) return;
+                    void advanceStatus(dialog.row, dialog.action.status, {
+                      dueOn: dialogDueOn,
+                      notes: ar ? 'تأجيل بطلب من المستأجر' : 'Postponed by tenant request',
+                    });
+                    return;
+                  }
+                  if (dialog.action.needs === 'partial') {
+                    if (!/^[1-9]\d*$/.test(dialogPartial)) return;
+                    void advanceStatus(dialog.row, dialog.action.status, {
+                      collectedMinor: dialogPartial,
+                    });
+                  }
+                }}
+              >
+                {ar ? 'تأكيد' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {canManage ? (
         <form

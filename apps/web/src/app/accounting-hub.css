@@ -2994,3 +2994,95 @@ button.fin-dash__metric {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+.cheque-lifecycle__status--postponed {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+.cheque-lifecycle__status--insufficient_funds {
+  background: #ffe4e6;
+  color: #9f1239;
+}
+.cheque-lifecycle__status--partially_cleared {
+  background: #fef9c3;
+  color: #854d0e;
+}
+
+.cheque-lifecycle__more {
+  position: relative;
+}
+
+.cheque-lifecycle__menu {
+  position: absolute;
+  z-index: 20;
+  inset-inline-start: 0;
+  top: calc(100% + 0.25rem);
+  min-width: 11rem;
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.35rem;
+  border-radius: 0.7rem;
+  background: #fff;
+  border: 1px solid rgb(148 163 184 / 0.35);
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.14);
+}
+
+.cheque-lifecycle__menu button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  text-align: start;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.cheque-lifecycle__menu button:hover {
+  background: #f1f5f9;
+}
+
+.cheque-lifecycle__dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(15 23 42 / 0.45);
+}
+
+.cheque-lifecycle__dialog-card {
+  width: min(100%, 24rem);
+  display: grid;
+  gap: 0.85rem;
+  padding: 1.1rem 1.2rem;
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow: 0 18px 40px rgb(15 23 42 / 0.25);
+}
+
+.cheque-lifecycle__dialog-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.cheque-lifecycle__dialog-card label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+}
+
+.cheque-lifecycle__dialog-card input {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.55rem;
+  border: 1px solid rgb(148 163 184 / 0.45);
+  font: inherit;
+}
+
+.cheque-lifecycle__dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

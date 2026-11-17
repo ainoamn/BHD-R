@@ -7,13 +7,24 @@
 import { chargeCategoryOf, chargeLabel, type ChargeCategory } from '@/lib/tenant-charges-shared';
 
 export type LedgerChequeStatus =
-  'pending' | 'accepted' | 'rejected' | 'deposited' | 'cleared' | 'bounced' | 'cancelled';
+  | 'pending'
+  | 'accepted'
+  | 'rejected'
+  | 'deposited'
+  | 'cleared'
+  | 'bounced'
+  | 'cancelled'
+  | 'postponed'
+  | 'insufficient_funds'
+  | 'partially_cleared';
 
 export type LedgerCheque = {
   id: string;
   chequeNumber: string;
   bankName: string | null;
   amountMinor: string;
+  /** Cashed amount when partially cleared. */
+  collectedMinor?: string | null;
   dueOn: string;
   reviewStatus: LedgerChequeStatus;
 };
@@ -169,9 +180,17 @@ function lineStatus(
   today: string,
 ): LedgerLineStatus {
   if (paid >= amount) return 'paid';
-  if (cheque?.reviewStatus === 'bounced') return 'bounced';
+  if (cheque?.reviewStatus === 'bounced' || cheque?.reviewStatus === 'insufficient_funds')
+    return 'bounced';
   if (cheque?.reviewStatus === 'cancelled') return 'stopped';
   if (cheque?.reviewStatus === 'deposited') return 'collecting';
+  if (cheque?.reviewStatus === 'postponed') {
+    return dueOn < today ? 'overdue' : dueOn <= plusDays(today, DUE_SOON_DAYS) ? 'due_soon' : 'upcoming';
+  }
+  if (cheque?.reviewStatus === 'partially_cleared' || paid > 0n) {
+    if (paid >= amount) return 'paid';
+    return 'partially_paid';
+  }
   const holdsCheque = cheque?.reviewStatus === 'pending' || cheque?.reviewStatus === 'accepted';
   if (dueOn < today) {
     if (holdsCheque) return 'collecting';
@@ -229,8 +248,15 @@ export function buildLeaseStatement(input: {
     if (cheque) usedCheques.add(cheque.id);
     return cheque;
   };
-  const chequePaid = (cheque: LedgerCheque | null, amount: bigint) =>
-    cheque?.reviewStatus === 'cleared' ? amount : 0n;
+  const chequePaid = (cheque: LedgerCheque | null, amount: bigint) => {
+    if (!cheque) return 0n;
+    if (cheque.reviewStatus === 'cleared') return amount;
+    if (cheque.reviewStatus === 'partially_cleared') {
+      const collected = big(cheque.collectedMinor);
+      return collected > 0n ? min(collected, amount) : 0n;
+    }
+    return 0n;
+  };
   const keyed = new Map<string, LedgerInvoice>();
   for (const invoice of installmentInvoices) {
     const key = installmentKeyOf(invoice.number);

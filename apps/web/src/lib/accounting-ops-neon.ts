@@ -8,6 +8,8 @@ import {
   cheques,
   contracts,
   invoices,
+  journalEntries,
+  journalLines,
   leases,
   parties,
   properties,
@@ -331,26 +333,25 @@ const CHEQUE_LIFECYCLE = [
   'cleared',
   'bounced',
   'cancelled',
+  'postponed',
+  'insufficient_funds',
+  'partially_cleared',
 ] as const;
 type ChequeLifecycleStatus = (typeof CHEQUE_LIFECYCLE)[number];
 
-const CHEQUE_TRANSITIONS: Record<ChequeLifecycleStatus, ChequeLifecycleStatus[]> = {
-  pending: ['accepted', 'rejected', 'deposited', 'cleared', 'cancelled'],
-  accepted: ['deposited', 'cleared', 'bounced', 'cancelled'],
-  deposited: ['cleared', 'bounced'],
-  bounced: ['accepted', 'deposited', 'cleared', 'cancelled'],
-  rejected: [],
-  cleared: [],
-  cancelled: [],
-};
-
+/** Managers may move freely between statuses so mistakes can be undone and corrected. */
 function isChequeLifecycleStatus(value: string): value is ChequeLifecycleStatus {
   return (CHEQUE_LIFECYCLE as readonly string[]).includes(value);
+}
+
+function isCollectedStatus(status: string): boolean {
+  return status === 'cleared' || status === 'partially_cleared';
 }
 
 function reviewStatusFromLine(chequeStatus: string | null, lineStatus: string): string {
   if (chequeStatus) return chequeStatus;
   if (lineStatus === 'paid') return 'cleared';
+  if (lineStatus === 'partially_paid') return 'partially_cleared';
   if (lineStatus === 'bounced') return 'bounced';
   if (lineStatus === 'stopped') return 'cancelled';
   if (lineStatus === 'collecting') return 'deposited';
@@ -513,6 +514,7 @@ export async function listAccountingCheques(
               chequeNumber: cheques.chequeNumber,
               bankName: cheques.bankName,
               amountMinor: cheques.amountMinor,
+              collectedMinor: cheques.collectedMinor,
               dueOn: cheques.dueOn,
               reviewStatus: cheques.reviewStatus,
             })
@@ -549,6 +551,7 @@ export async function listAccountingCheques(
           chequeNumber: cheques.chequeNumber,
           bankName: cheques.bankName,
           amountMinor: cheques.amountMinor,
+          collectedMinor: cheques.collectedMinor,
           currency: cheques.currency,
           dueOn: cheques.dueOn,
           reviewStatus: cheques.reviewStatus,
@@ -617,8 +620,9 @@ export async function listAccountingCheques(
             chequeNumber: cheque.chequeNumber,
             bankName: cheque.bankName,
             amountMinor: cheque.amountMinor.toString(),
+            collectedMinor: cheque.collectedMinor?.toString() ?? null,
             dueOn: String(cheque.dueOn),
-            reviewStatus: cheque.reviewStatus,
+            reviewStatus: cheque.reviewStatus as import('@/lib/tenant-ledger').LedgerChequeStatus,
           })),
         invoices: invoiceRows
           .filter((invoice) => invoice.leaseId === lease.leaseId)
@@ -707,7 +711,12 @@ export async function listAccountingCheques(
         row.reviewStatus === 'rejected';
       let lineStatus = 'upcoming';
       if (row.reviewStatus === 'cleared') lineStatus = 'paid';
-      else if (row.reviewStatus === 'bounced') lineStatus = 'bounced';
+      else if (row.reviewStatus === 'partially_cleared') lineStatus = 'partially_paid';
+      else if (
+        row.reviewStatus === 'bounced' ||
+        row.reviewStatus === 'insufficient_funds'
+      )
+        lineStatus = 'bounced';
       else if (row.reviewStatus === 'cancelled') lineStatus = 'stopped';
       else if (row.reviewStatus === 'deposited') lineStatus = 'collecting';
       else if (dueOn < today) lineStatus = 'overdue';
@@ -717,12 +726,18 @@ export async function listAccountingCheques(
         expected += row.amountMinor;
         upcomingCount += 1;
       }
+      const paidAmount =
+        row.reviewStatus === 'cleared'
+          ? row.amountMinor
+          : row.reviewStatus === 'partially_cleared'
+            ? (row.collectedMinor ?? 0n)
+            : 0n;
       if (closed) {
         paidCount += 1;
-        paidMinor += row.amountMinor;
+        paidMinor += paidAmount > 0n ? paidAmount : row.amountMinor;
       } else {
         remainingCount += 1;
-        remainingMinor += row.amountMinor;
+        remainingMinor += row.amountMinor - paidAmount;
       }
       if (dueOn < today) pastCount += 1;
       out.push({
@@ -730,7 +745,7 @@ export async function listAccountingCheques(
         chequeNumber: row.chequeNumber,
         bankName: row.bankName,
         amountMinor: row.amountMinor.toString(),
-        paidMinor: row.reviewStatus === 'cleared' ? row.amountMinor.toString() : '0',
+        paidMinor: paidAmount.toString(),
         currency: row.currency,
         dueOn,
         reviewStatus: row.reviewStatus,
@@ -810,22 +825,99 @@ function openCheque(row: AccountingChequeRow): boolean {
   );
 }
 
-/** Advance a cheque through the office lifecycle: receive → accept → bank deposit → clear / bounce. */
+async function reverseChequeClearJournal(
+  tx: GlTx,
+  orgId: string,
+  actorUserId: string,
+  chequeId: string,
+  chequeNumber: string,
+) {
+  const entry = await tx.query.journalEntries.findFirst({
+    where: and(
+      eq(journalEntries.organizationId, orgId),
+      eq(journalEntries.sourceType, 'cheque_clear'),
+      eq(journalEntries.sourceId, chequeId),
+      eq(journalEntries.status, 'posted'),
+    ),
+    columns: { id: true, reference: true, reversalOfId: true },
+  });
+  if (!entry || entry.reversalOfId) return;
+  const already = await tx.query.journalEntries.findFirst({
+    where: and(eq(journalEntries.organizationId, orgId), eq(journalEntries.reversalOfId, entry.id)),
+    columns: { id: true },
+  });
+  if (already) {
+    await tx
+      .update(journalEntries)
+      .set({ sourceType: 'cheque_clear_undone' })
+      .where(eq(journalEntries.id, entry.id));
+    return;
+  }
+  const sourceLines = await tx.select().from(journalLines).where(eq(journalLines.journalEntryId, entry.id));
+  if (!sourceLines.length) return;
+  const occurredOn = muscatToday();
+  const reversalRows = await tx
+    .insert(journalEntries)
+    .values({
+      organizationId: orgId,
+      reference: `REV-${randomUUID().replace(/-/g, '').slice(0, 20)}`,
+      occurredOn,
+      description: `تراجع تحصيل شيك ${chequeNumber}`.slice(0, 500),
+      status: 'posted',
+      sourceType: 'journal_reversal',
+      sourceId: entry.id,
+      reversalOfId: entry.id,
+      postedByUserId: actorUserId,
+      postedAt: new Date(),
+    })
+    .returning({ id: journalEntries.id });
+  if (!reversalRows[0]) return;
+  await tx.insert(journalLines).values(
+    sourceLines.map((line) => ({
+      organizationId: orgId,
+      journalEntryId: reversalRows[0]!.id,
+      accountId: line.accountId,
+      partyId: line.partyId,
+      propertyId: line.propertyId,
+      unitId: line.unitId,
+      debitMinor: line.creditMinor,
+      creditMinor: line.debitMinor,
+      currency: line.currency,
+      minorUnit: line.minorUnit,
+      memo: line.memo,
+    })),
+  );
+  // Free the source key so a later clear can post a fresh journal.
+  await tx
+    .update(journalEntries)
+    .set({ sourceType: 'cheque_clear_undone' })
+    .where(eq(journalEntries.id, entry.id));
+}
+
+/** Change cheque status freely (including undo). Supports postpone date and partial cash. */
 export async function setChequeLifecycleStatus(
   claims: SessionClaims,
   id: string,
   nextStatus: string,
-  notes?: string,
+  opts?: {
+    notes?: string;
+    dueOn?: string;
+    collectedMinor?: string;
+  },
 ): Promise<{ id: string; status: string; journalId?: string }> {
   if (!canManageAccounting(claims)) fail('forbidden');
   if (!UUID.test(id) || !isChequeLifecycleStatus(nextStatus)) fail('invalid_input');
   const orgId = claims.organizationId!;
+  const noteText = opts?.notes?.trim();
+  const nextDue = opts?.dueOn?.trim();
+  if (nextDue && !ISO_DATE.test(nextDue)) fail('invalid_input');
   return withinViewerTenant(claims, async (tx) => {
     const row = await tx
       .select({
         id: cheques.id,
         status: cheques.reviewStatus,
         amountMinor: cheques.amountMinor,
+        collectedMinor: cheques.collectedMinor,
         currency: cheques.currency,
         chequeNumber: cheques.chequeNumber,
         dueOn: cheques.dueOn,
@@ -837,12 +929,24 @@ export async function setChequeLifecycleStatus(
       .limit(1);
     if (!row[0]) fail('not_found');
     const current = isChequeLifecycleStatus(row[0].status) ? row[0].status : 'pending';
-    if (current === nextStatus) {
-      return { id, status: current };
-    }
-    if (!CHEQUE_TRANSITIONS[current].includes(nextStatus)) fail('invalid_input');
 
-    const noteText = notes?.trim();
+    let collectedMinor: bigint | null = row[0].collectedMinor ?? null;
+    if (nextStatus === 'partially_cleared') {
+      const raw = (opts?.collectedMinor ?? '').trim();
+      if (!/^[1-9]\d*$/.test(raw)) fail('invalid_input');
+      const partial = BigInt(raw);
+      if (partial <= 0n || partial >= row[0].amountMinor) fail('invalid_input');
+      collectedMinor = partial;
+    } else if (nextStatus === 'cleared') {
+      collectedMinor = row[0].amountMinor;
+    } else if (!isCollectedStatus(nextStatus)) {
+      collectedMinor = null;
+    }
+
+    if (isCollectedStatus(current) && !isCollectedStatus(nextStatus)) {
+      await reverseChequeClearJournal(tx, orgId, claims.sub, row[0].id, row[0].chequeNumber);
+    }
+
     await tx
       .update(cheques)
       .set({
@@ -850,7 +954,18 @@ export async function setChequeLifecycleStatus(
         reviewedByUserId: claims.sub,
         reviewedAt: new Date(),
         updatedAt: new Date(),
-        ...(noteText ? { reviewNotes: noteText.slice(0, 2000) } : {}),
+        collectedMinor,
+        ...(nextDue ? { dueOn: nextDue } : {}),
+        ...(nextStatus === 'postponed' && !nextDue
+          ? {}
+          : {}),
+        ...(noteText
+          ? { reviewNotes: noteText.slice(0, 2000) }
+          : nextStatus === 'insufficient_funds'
+            ? { reviewNotes: 'لا يوجد رصيد كافٍ' }
+            : nextStatus === 'postponed'
+              ? { reviewNotes: 'تأجيل بطلب من المستأجر' }
+              : {}),
       })
       .where(eq(cheques.id, id));
 
