@@ -71,6 +71,48 @@ export type LedgerTerms = {
   }>;
 };
 
+/**
+ * Stable placeholder when a schedule / deposit row has no physical cheque number.
+ * Must match the `SCH-…` rows written into `cheques` by the accounting register.
+ */
+export function scheduleChequeNumber(
+  leaseId: string,
+  kind: 'RENT' | 'VAT' | 'DEP',
+  index: number,
+  explicit: string | null | undefined,
+): string {
+  const trimmed = (explicit ?? '').trim();
+  if (trimmed) return trimmed.slice(0, 80);
+  const short = leaseId.replace(/-/g, '').slice(0, 8).toUpperCase();
+  return `SCH-${short}-${kind}-${index}`.slice(0, 80);
+}
+
+/** Fill missing cheque numbers so the statement matches register placeholders. */
+export function withAlignedScheduleCheques(
+  terms: LedgerTerms,
+  leaseId: string,
+): LedgerTerms {
+  return {
+    ...terms,
+    schedule: terms.schedule.map((row) => ({
+      ...row,
+      chequeNumber: scheduleChequeNumber(leaseId, 'RENT', row.index, row.chequeNumber),
+    })),
+    vatCheques: terms.vatCheques.map((row) => ({
+      ...row,
+      chequeNumber: scheduleChequeNumber(leaseId, 'VAT', row.index, row.chequeNumber),
+    })),
+    depositItems: terms.depositItems.map((item, at) =>
+      item.method === 'cheque'
+        ? {
+            ...item,
+            reference: scheduleChequeNumber(leaseId, 'DEP', at + 1, item.reference),
+          }
+        : item,
+    ),
+  };
+}
+
 export type LedgerLineKind = 'rent' | 'vat' | 'fees' | 'deposit' | 'invoice' | 'cheque';
 
 export type LedgerLineStatus =

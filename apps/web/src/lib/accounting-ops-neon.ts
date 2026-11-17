@@ -41,7 +41,12 @@ import type { JournalLineInput } from '@/lib/accounting-gl';
 import type { ChequeImportRow } from '@/lib/accounting-ops';
 import { muscatToday } from '@/lib/contract-list-facets';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
-import { buildLeaseStatement, ledgerTermsOf } from '@/lib/tenant-ledger';
+import {
+  buildLeaseStatement,
+  ledgerTermsOf,
+  scheduleChequeNumber,
+  withAlignedScheduleCheques,
+} from '@/lib/tenant-ledger';
 
 export type { ChequeImportRow };
 
@@ -352,19 +357,6 @@ export type AccountingChequesPayload = {
   cheques: AccountingChequeRow[];
   summary: AccountingChequesSummary;
 };
-
-/** Stable placeholder when the lease schedule has no physical cheque number. */
-function scheduleChequeNumber(
-  leaseId: string,
-  kind: 'RENT' | 'VAT' | 'DEP',
-  index: number,
-  explicit: string | null | undefined,
-): string {
-  const trimmed = (explicit ?? '').trim();
-  if (trimmed) return trimmed.slice(0, 80);
-  const short = leaseId.replace(/-/g, '').slice(0, 8).toUpperCase();
-  return `SCH-${short}-${kind}-${index}`.slice(0, 80);
-}
 
 const REGISTER_STATUSES = [
   'in_hand',
@@ -724,26 +716,8 @@ export async function listAccountingCheques(
 
     for (const lease of leaseRows) {
       currency = lease.currency || currency;
-      const terms = ledgerTermsOf({ leaseTerms: lease.leaseTerms });
-      if (terms) {
-        // Align schedule cheque numbers with the placeholders we sync into `cheques`.
-        terms.schedule = terms.schedule.map((row) => ({
-          ...row,
-          chequeNumber: scheduleChequeNumber(lease.leaseId, 'RENT', row.index, row.chequeNumber),
-        }));
-        terms.vatCheques = terms.vatCheques.map((row) => ({
-          ...row,
-          chequeNumber: scheduleChequeNumber(lease.leaseId, 'VAT', row.index, row.chequeNumber),
-        }));
-        terms.depositItems = terms.depositItems.map((item, at) =>
-          item.method === 'cheque'
-            ? {
-                ...item,
-                reference: scheduleChequeNumber(lease.leaseId, 'DEP', at + 1, item.reference),
-              }
-            : item,
-        );
-      }
+      const parsed = ledgerTermsOf({ leaseTerms: lease.leaseTerms });
+      const terms = parsed ? withAlignedScheduleCheques(parsed, lease.leaseId) : null;
       const statement = buildLeaseStatement({
         terms,
         contractAmountMinor: lease.contractAmountMinor,

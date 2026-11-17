@@ -52,7 +52,12 @@ import {
   type TenancyStay,
   type TenancyViewing,
 } from '@/lib/tenancy-shared';
-import { buildLeaseStatement, ledgerTermsOf, type LeaseStatement } from '@/lib/tenant-ledger';
+import {
+  buildLeaseStatement,
+  ledgerTermsOf,
+  withAlignedScheduleCheques,
+  type LeaseStatement,
+} from '@/lib/tenant-ledger';
 import { loadTenantPolicy } from '@/lib/tenant-policy-neon';
 import { maintenanceBlockedByPolicy } from '@/lib/tenant-policy-shared';
 import {
@@ -565,7 +570,10 @@ export async function leaseStatementsInTx(
         unitId: row.unitId,
         currency: row.currency,
         statement: buildLeaseStatement({
-          terms: ledgerTermsOf({ leaseTerms: row.leaseTerms }),
+          terms: (() => {
+            const parsed = ledgerTermsOf({ leaseTerms: row.leaseTerms });
+            return parsed ? withAlignedScheduleCheques(parsed, row.id) : null;
+          })(),
           contractAmountMinor: row.contractAmountMinor,
           cheques: chequeRows
             .filter((cheque) => cheque.leaseId === row.id)

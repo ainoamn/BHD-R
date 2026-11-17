@@ -4,6 +4,8 @@ import {
   buildLeaseStatement,
   chequeIsAdjustable,
   ledgerTermsOf,
+  scheduleChequeNumber,
+  withAlignedScheduleCheques,
   type LedgerCheque,
   type LedgerTerms,
 } from '@/lib/tenant-ledger';
@@ -159,6 +161,71 @@ describe('buildLeaseStatement', () => {
     expect(result.paidMinor).toBe('50000');
     expect(result.overdueMinor).toBe('150000');
     expect(result.remainingMinor).toBe('2350000');
+  });
+
+  it('links SCH placeholders when the contract left cheque numbers blank', () => {
+    const leaseId = 'f334099a-f872-437d-a07c-aa277e6f644c';
+    const blank: LedgerTerms = {
+      startsOn: '2026-11-12',
+      paymentMethod: 'cheque',
+      grandTotalMinor: 120_000,
+      schedule: [
+        {
+          index: 1,
+          periodFrom: '2026-11-12',
+          periodTo: '2026-12-11',
+          dueOn: '2026-12-05',
+          totalMinor: 120_000,
+          chequeNumber: null,
+          bankName: null,
+        },
+      ],
+      vatCheques: [],
+      depositItems: [
+        {
+          method: 'cheque',
+          amountMinor: 120_000,
+          reference: null,
+          bankName: null,
+          dueOn: null,
+        },
+      ],
+    };
+    const aligned = withAlignedScheduleCheques(blank, leaseId);
+    expect(aligned.depositItems[0]?.reference).toBe(
+      scheduleChequeNumber(leaseId, 'DEP', 1, null),
+    );
+    expect(aligned.schedule[0]?.chequeNumber).toBe(
+      scheduleChequeNumber(leaseId, 'RENT', 1, null),
+    );
+    const result = buildLeaseStatement({
+      terms: aligned,
+      contractAmountMinor: null,
+      cheques: [
+        {
+          id: 'dep',
+          chequeNumber: scheduleChequeNumber(leaseId, 'DEP', 1, null),
+          bankName: '—',
+          amountMinor: '120000',
+          dueOn: '2026-11-12',
+          reviewStatus: 'cleared',
+        },
+        {
+          id: 'rent',
+          chequeNumber: scheduleChequeNumber(leaseId, 'RENT', 1, null),
+          bankName: '—',
+          amountMinor: '120000',
+          dueOn: '2026-12-05',
+          reviewStatus: 'in_hand',
+        },
+      ],
+      invoices: [],
+      today: '2026-11-17',
+    });
+    const deposit = result.lines.find((line) => line.key === 'deposit-0');
+    expect(deposit?.paidMinor).toBe('120000');
+    expect(deposit?.status).toBe('paid');
+    expect(result.lines.some((line) => line.key.startsWith('cheque-'))).toBe(false);
   });
 
   it('keeps charge invoices out of the installments and lists every arrear by category', () => {
