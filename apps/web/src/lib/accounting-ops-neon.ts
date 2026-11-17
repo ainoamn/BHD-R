@@ -289,6 +289,13 @@ export type AccountingChequesSummary = {
   expectedMinor: string;
   overdueCount: number;
   upcomingCount: number;
+  paidCount: number;
+  paidMinor: string;
+  remainingCount: number;
+  remainingMinor: string;
+  pastCount: number;
+  depositCount: number;
+  depositMinor: string;
   currency: string;
   windows: {
     today: { amountMinor: string; count: number };
@@ -306,7 +313,7 @@ export type AccountingChequesPayload = {
 /** Stable placeholder when the lease schedule has no physical cheque number. */
 function scheduleChequeNumber(
   leaseId: string,
-  kind: 'RENT' | 'VAT',
+  kind: 'RENT' | 'VAT' | 'DEP',
   index: number,
   explicit: string | null | undefined,
 ): string {
@@ -314,6 +321,31 @@ function scheduleChequeNumber(
   if (trimmed) return trimmed.slice(0, 80);
   const short = leaseId.replace(/-/g, '').slice(0, 8).toUpperCase();
   return `SCH-${short}-${kind}-${index}`.slice(0, 80);
+}
+
+const CHEQUE_LIFECYCLE = [
+  'pending',
+  'accepted',
+  'rejected',
+  'deposited',
+  'cleared',
+  'bounced',
+  'cancelled',
+] as const;
+type ChequeLifecycleStatus = (typeof CHEQUE_LIFECYCLE)[number];
+
+const CHEQUE_TRANSITIONS: Record<ChequeLifecycleStatus, ChequeLifecycleStatus[]> = {
+  pending: ['accepted', 'rejected', 'deposited', 'cleared', 'cancelled'],
+  accepted: ['deposited', 'cleared', 'bounced', 'cancelled'],
+  deposited: ['cleared', 'bounced'],
+  bounced: ['accepted', 'deposited', 'cleared', 'cancelled'],
+  rejected: [],
+  cleared: [],
+  cancelled: [],
+};
+
+function isChequeLifecycleStatus(value: string): value is ChequeLifecycleStatus {
+  return (CHEQUE_LIFECYCLE as readonly string[]).includes(value);
 }
 
 function reviewStatusFromLine(chequeStatus: string | null, lineStatus: string): string {
@@ -393,6 +425,15 @@ async function ensureChequesFromApprovedLeases(
         dueOn: row.dueOn,
         amountMinor: Math.round(Number(row.amountMinor) || 0),
       })),
+      ...terms.depositItems
+        .map((item, at) => ({ item, at }))
+        .filter(({ item }) => item.method === 'cheque')
+        .map(({ item, at }) => ({
+          number: scheduleChequeNumber(lease.leaseId, 'DEP', at + 1, item.reference),
+          bank: item.bankName,
+          dueOn: item.dueOn ?? terms.startsOn,
+          amountMinor: Math.round(Number(item.amountMinor) || 0),
+        })),
     ];
     for (const row of scheduleRows) {
       if (!ISO_DATE.test(row.dueOn) || row.amountMinor <= 0) continue;
@@ -535,6 +576,13 @@ export async function listAccountingCheques(
     let expected = 0n;
     let overdueCount = 0;
     let upcomingCount = 0;
+    let paidCount = 0;
+    let paidMinor = 0n;
+    let remainingCount = 0;
+    let remainingMinor = 0n;
+    let pastCount = 0;
+    let depositCount = 0;
+    let depositMinor = 0n;
     let currency = 'OMR';
 
     for (const lease of leaseRows) {
@@ -550,6 +598,14 @@ export async function listAccountingCheques(
           ...row,
           chequeNumber: scheduleChequeNumber(lease.leaseId, 'VAT', row.index, row.chequeNumber),
         }));
+        terms.depositItems = terms.depositItems.map((item, at) =>
+          item.method === 'cheque'
+            ? {
+                ...item,
+                reference: scheduleChequeNumber(lease.leaseId, 'DEP', at + 1, item.reference),
+              }
+            : item,
+        );
       }
       const statement = buildLeaseStatement({
         terms,
@@ -583,7 +639,17 @@ export async function listAccountingCheques(
 
       arrears += BigInt(statement.arrears.totalMinor || '0');
       for (const line of statement.lines) {
-        if (line.kind !== 'rent' && line.kind !== 'vat' && line.kind !== 'cheque') continue;
+        // Include rent, VAT, deposit insurance, and standalone cheques.
+        if (
+          line.kind !== 'rent' &&
+          line.kind !== 'vat' &&
+          line.kind !== 'cheque' &&
+          line.kind !== 'deposit'
+        ) {
+          continue;
+        }
+        // Skip non-cheque deposit payments (cash/transfer) — register tracks cheques only.
+        if (line.kind === 'deposit' && !line.chequeNumber && !line.chequeId) continue;
         if (line.chequeId) usedChequeIds.add(line.chequeId);
         const amount = BigInt(line.amountMinor || '0');
         const paid = BigInt(line.paidMinor || '0');
@@ -596,6 +662,18 @@ export async function listAccountingCheques(
         ) {
           expected += open;
           upcomingCount += 1;
+        }
+        if (line.status === 'paid' || paid >= amount) {
+          paidCount += 1;
+          paidMinor += amount;
+        } else if (open > 0n) {
+          remainingCount += 1;
+          remainingMinor += open;
+        }
+        if (line.dueOn < today) pastCount += 1;
+        if (line.kind === 'deposit') {
+          depositCount += 1;
+          depositMinor += amount;
         }
         out.push({
           id: line.chequeId ?? `line:${lease.leaseId}:${line.key}`,
@@ -639,6 +717,14 @@ export async function listAccountingCheques(
         expected += row.amountMinor;
         upcomingCount += 1;
       }
+      if (closed) {
+        paidCount += 1;
+        paidMinor += row.amountMinor;
+      } else {
+        remainingCount += 1;
+        remainingMinor += row.amountMinor;
+      }
+      if (dueOn < today) pastCount += 1;
       out.push({
         id: row.id,
         chequeNumber: row.chequeNumber,
@@ -690,6 +776,13 @@ export async function listAccountingCheques(
         expectedMinor: expected.toString(),
         overdueCount,
         upcomingCount,
+        paidCount,
+        paidMinor: paidMinor.toString(),
+        remainingCount,
+        remainingMinor: remainingMinor.toString(),
+        pastCount,
+        depositCount,
+        depositMinor: depositMinor.toString(),
         currency,
         windows: {
           today: bucket((due) => due === today),
@@ -717,13 +810,15 @@ function openCheque(row: AccountingChequeRow): boolean {
   );
 }
 
-/** Accountant confirms the office received the installment. Marks the cheque cleared and posts rent receipt to GL. */
-export async function confirmChequeCollected(
+/** Advance a cheque through the office lifecycle: receive → accept → bank deposit → clear / bounce. */
+export async function setChequeLifecycleStatus(
   claims: SessionClaims,
   id: string,
-): Promise<{ id: string; journalId?: string }> {
+  nextStatus: string,
+  notes?: string,
+): Promise<{ id: string; status: string; journalId?: string }> {
   if (!canManageAccounting(claims)) fail('forbidden');
-  if (!UUID.test(id)) fail('invalid_input');
+  if (!UUID.test(id) || !isChequeLifecycleStatus(nextStatus)) fail('invalid_input');
   const orgId = claims.organizationId!;
   return withinViewerTenant(claims, async (tx) => {
     const row = await tx
@@ -741,22 +836,26 @@ export async function confirmChequeCollected(
       .where(and(eq(cheques.id, id), eq(cheques.organizationId, orgId)))
       .limit(1);
     if (!row[0]) fail('not_found');
-    if (row[0].status === 'cancelled' || row[0].status === 'rejected') fail('invalid_input');
-    const alreadyCleared = row[0].status === 'cleared';
-    if (!alreadyCleared) {
-      await tx
-        .update(cheques)
-        .set({
-          reviewStatus: 'cleared',
-          reviewedByUserId: claims.sub,
-          reviewedAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(cheques.id, id));
+    const current = isChequeLifecycleStatus(row[0].status) ? row[0].status : 'pending';
+    if (current === nextStatus) {
+      return { id, status: current };
     }
+    if (!CHEQUE_TRANSITIONS[current].includes(nextStatus)) fail('invalid_input');
+
+    const noteText = notes?.trim();
+    await tx
+      .update(cheques)
+      .set({
+        reviewStatus: nextStatus,
+        reviewedByUserId: claims.sub,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+        ...(noteText ? { reviewNotes: noteText.slice(0, 2000) } : {}),
+      })
+      .where(eq(cheques.id, id));
 
     let journalId: string | undefined;
-    if (row[0].amountMinor > 0n) {
+    if (nextStatus === 'cleared' && row[0].amountMinor > 0n) {
       let partyId: string | undefined;
       let propertyId: string | undefined;
       let unitId: string | undefined;
@@ -779,12 +878,11 @@ export async function confirmChequeCollected(
       }
       const map = await ensureAccountCodeMap(tx, orgId);
       const memo = `شيك ${row[0].chequeNumber}`.slice(0, 500);
-      const occurredOn = muscatToday();
       const posted = await postSourceDocumentInTx(tx, {
         organizationId: orgId,
         actorUserId: claims.sub,
-        occurredOn,
-        description: `تحصيل شيك إيجار ${row[0].chequeNumber}`.slice(0, 500),
+        occurredOn: muscatToday(),
+        description: `تحصيل شيك ${row[0].chequeNumber}`.slice(0, 500),
         sourceType: 'cheque_clear',
         sourceId: row[0].id,
         lines: postingRentReceipt(
@@ -802,8 +900,17 @@ export async function confirmChequeCollected(
       });
       journalId = posted.id;
     }
-    return { id, ...(journalId ? { journalId } : {}) };
+    return { id, status: nextStatus, ...(journalId ? { journalId } : {}) };
   });
+}
+
+/** Accountant confirms clearance — shortcut to lifecycle `cleared`. */
+export async function confirmChequeCollected(
+  claims: SessionClaims,
+  id: string,
+): Promise<{ id: string; journalId?: string }> {
+  const result = await setChequeLifecycleStatus(claims, id, 'cleared');
+  return { id: result.id, ...(result.journalId ? { journalId: result.journalId } : {}) };
 }
 
 /**

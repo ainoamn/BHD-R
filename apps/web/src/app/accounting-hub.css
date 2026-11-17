@@ -2839,3 +2839,158 @@ button.fin-dash__metric {
     grid-template-columns: 1fr;
   }
 }
+
+/* —— Cheque lifecycle register —— */
+.cheque-lifecycle__pipeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem;
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.cheque-lifecycle__pipeline li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  background: #fff;
+  border: 1px solid rgb(148 163 184 / 0.28);
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.cheque-lifecycle__step-index {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.cheque-lifecycle__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1rem;
+}
+
+.cheque-lifecycle__stat {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.85rem;
+  background: #fff;
+  border: 1px solid rgb(148 163 184 / 0.24);
+}
+
+.cheque-lifecycle__stat span {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.cheque-lifecycle__stat strong {
+  font-size: 1.2rem;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
+}
+
+.cheque-lifecycle__stat em {
+  font-style: normal;
+  font-size: 0.78rem;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+.cheque-lifecycle__stat--good {
+  border-color: rgb(16 185 129 / 0.35);
+  background: #ecfdf5;
+}
+
+.cheque-lifecycle__stat--deposit {
+  border-color: rgb(245 158 11 / 0.4);
+  background: #fffbeb;
+}
+
+.cheque-lifecycle__stat--bad {
+  border-color: rgb(244 63 94 / 0.35);
+  background: #fff1f2;
+}
+
+.cheque-lifecycle__kind {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.cheque-lifecycle__kind--rent {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.cheque-lifecycle__kind--vat {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+.cheque-lifecycle__kind--deposit {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.cheque-lifecycle__status {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.cheque-lifecycle__status--pending {
+  background: #f1f5f9;
+}
+.cheque-lifecycle__status--accepted {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.cheque-lifecycle__status--deposited {
+  background: #fef3c7;
+  color: #b45309;
+}
+.cheque-lifecycle__status--cleared {
+  background: #d1fae5;
+  color: #047857;
+}
+.cheque-lifecycle__status--bounced {
+  background: #ffe4e6;
+  color: #be123c;
+}
+.cheque-lifecycle__status--cancelled,
+.cheque-lifecycle__status--rejected {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.cheque-lifecycle__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+@media (max-width: 820px) {
+  .cheque-lifecycle__pipeline {
+    grid-template-columns: 1fr 1fr;
+  }
+}

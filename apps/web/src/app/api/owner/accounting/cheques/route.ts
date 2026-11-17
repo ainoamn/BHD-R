@@ -6,6 +6,7 @@ import {
   confirmChequeCollected,
   importAccountingCheques,
   listAccountingCheques,
+  setChequeLifecycleStatus,
 } from '@/lib/accounting-ops-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';
@@ -45,6 +46,9 @@ export async function POST(request: Request) {
     }
     const body = (await request.json().catch(() => null)) as {
       confirmId?: string;
+      id?: string;
+      status?: string;
+      notes?: string;
       csv?: string;
       rows?: Array<{
         chequeNumber: string;
@@ -56,6 +60,11 @@ export async function POST(request: Request) {
         tenantPartyId?: string;
       }>;
     } | null;
+    if (body?.id && body.status) {
+      return NextResponse.json(
+        await setChequeLifecycleStatus(claims, body.id, body.status, body.notes),
+      );
+    }
     if (body?.confirmId) {
       return NextResponse.json(await confirmChequeCollected(claims, body.confirmId));
     }

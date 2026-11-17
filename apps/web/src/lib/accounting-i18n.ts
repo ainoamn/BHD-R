@@ -175,10 +175,10 @@ export function accountingDisplayText(text: string | null | undefined, locale: L
 }
 
 const CHEQUE_STATUS: Record<string, { ar: string; en: string }> = {
-  pending: { ar: 'قيد الانتظار', en: 'Pending' },
-  accepted: { ar: 'مقبول', en: 'Accepted' },
-  deposited: { ar: 'مودع للتحصيل', en: 'Deposited' },
-  cleared: { ar: 'محصّل', en: 'Cleared' },
+  pending: { ar: 'بانتظار الاستلام', en: 'Awaiting receipt' },
+  accepted: { ar: 'مستلم', en: 'Received' },
+  deposited: { ar: 'مودع بالبنك', en: 'Deposited at bank' },
+  cleared: { ar: 'مصروف / محصّل', en: 'Cleared / cashed' },
   bounced: { ar: 'مرتجع', en: 'Bounced' },
   cancelled: { ar: 'ملغى', en: 'Cancelled' },
   rejected: { ar: 'مرفوض', en: 'Rejected' },

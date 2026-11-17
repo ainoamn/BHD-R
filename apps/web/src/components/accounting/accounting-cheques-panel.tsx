@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { outstandingMinorOf, RentDocLinks } from '@/components/rent-doc-links';
-import { fetchAccountingJson, getAccountingCache } from '@/lib/accounting-client-cache';
+import { fetchAccountingJson, getAccountingCache, invalidateAccountingCache } from '@/lib/accounting-client-cache';
 import { accountingChequeStatusLabel } from '@/lib/accounting-i18n';
 import { browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -42,13 +42,64 @@ type Summary = {
   expectedMinor: string;
   overdueCount: number;
   upcomingCount: number;
+  paidCount?: number;
+  paidMinor?: string;
+  remainingCount?: number;
+  remainingMinor?: string;
+  pastCount?: number;
+  depositCount?: number;
+  depositMinor?: string;
   currency: string;
 };
 
 type Filter =
-  'all' | 'pending' | 'accepted' | 'deposited' | 'cleared' | 'bounced' | 'overdue' | 'upcoming';
+  | 'all'
+  | 'past'
+  | 'upcoming'
+  | 'remaining'
+  | 'paid'
+  | 'deposit'
+  | 'overdue'
+  | 'pending'
+  | 'accepted'
+  | 'deposited'
+  | 'cleared'
+  | 'bounced';
 
-/** Tenant collection register: schedule from signed leases + cheque status + CSV import. */
+const LIFECYCLE_ACTIONS: Array<{
+  status: string;
+  ar: string;
+  en: string;
+  from: string[];
+}> = [
+  { status: 'accepted', ar: 'استلام', en: 'Receive', from: ['pending', 'bounced'] },
+  { status: 'deposited', ar: 'إيداع بالبنك', en: 'Deposit', from: ['pending', 'accepted', 'bounced'] },
+  { status: 'cleared', ar: 'صرف / تحصيل', en: 'Clear', from: ['pending', 'accepted', 'deposited', 'bounced'] },
+  { status: 'bounced', ar: 'مرتجع', en: 'Bounce', from: ['accepted', 'deposited'] },
+  { status: 'cancelled', ar: 'إلغاء', en: 'Cancel', from: ['pending', 'accepted', 'bounced'] },
+];
+
+const PIPELINE = [
+  { id: 'pending', ar: 'بانتظار الاستلام', en: 'Awaiting receipt' },
+  { id: 'accepted', ar: 'مستلم', en: 'Received' },
+  { id: 'deposited', ar: 'مودع بالبنك', en: 'At bank' },
+  { id: 'cleared', ar: 'مصروف / محصّل', en: 'Cleared' },
+] as const;
+
+function kindLabel(kind: string | undefined, ar: boolean) {
+  if (kind === 'deposit') return ar ? 'تأمين' : 'Deposit';
+  if (kind === 'vat') return ar ? 'ضريبة' : 'VAT';
+  if (kind === 'rent') return ar ? 'إيجار' : 'Rent';
+  return ar ? 'شيك' : 'Cheque';
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+/** Tenant cheque lifecycle register: all rent/VAT/deposit cheques from signed leases. */
 export function AccountingChequesPanel({
   locale,
   active,
@@ -65,6 +116,7 @@ export function AccountingChequesPanel({
   const [filter, setFilter] = useState<Filter>('all');
   const [csv, setCsv] = useState('');
   const [busy, setBusy] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -95,30 +147,38 @@ export function AccountingChequesPanel({
       }
     })();
     return () => controller.abort();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when tab opens or import finishes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload only when tab opens or action finishes
   }, [active, reloadKey]);
 
   const today = new Date().toISOString().slice(0, 10);
   const visible = useMemo(() => {
     const list = rows ?? [];
     return list.filter((row) => {
+      const paid = BigInt(row.paidMinor || '0');
+      const amount = BigInt(row.amountMinor || '0');
+      const remaining = amount > paid;
+      const closed =
+        row.reviewStatus === 'cleared' ||
+        row.lineStatus === 'paid' ||
+        (!remaining && amount > 0n);
       if (filter === 'all') return true;
+      if (filter === 'past') return row.dueOn < today;
+      if (filter === 'upcoming') {
+        return (
+          row.dueOn >= today &&
+          remaining &&
+          row.reviewStatus !== 'cleared' &&
+          row.reviewStatus !== 'cancelled'
+        );
+      }
+      if (filter === 'remaining') return remaining && !closed;
+      if (filter === 'paid') return closed || row.reviewStatus === 'cleared';
+      if (filter === 'deposit') return row.kind === 'deposit';
       if (filter === 'overdue') {
         return (
           row.lineStatus === 'overdue' ||
           row.lineStatus === 'bounced' ||
-          (row.dueOn < today &&
-            row.reviewStatus !== 'cleared' &&
-            row.reviewStatus !== 'cancelled' &&
-            row.reviewStatus !== 'bounced')
-        );
-      }
-      if (filter === 'upcoming') {
-        return (
-          row.lineStatus === 'upcoming' ||
-          row.lineStatus === 'due_soon' ||
-          row.lineStatus === 'due' ||
-          (row.dueOn >= today && row.reviewStatus !== 'cleared' && row.reviewStatus !== 'cancelled')
+          (row.dueOn < today && remaining && row.reviewStatus !== 'cleared')
         );
       }
       return row.reviewStatus === filter;
@@ -127,12 +187,16 @@ export function AccountingChequesPanel({
 
   const filters: Array<[Filter, string]> = [
     ['all', ar ? 'الكل' : 'All'],
+    ['past', ar ? 'سابقة' : 'Past'],
+    ['upcoming', ar ? 'لاحقة' : 'Upcoming'],
+    ['remaining', ar ? 'متبقية' : 'Remaining'],
+    ['paid', ar ? 'مدفوعة' : 'Paid'],
+    ['deposit', ar ? 'تأمينات' : 'Deposits'],
     ['overdue', ar ? 'متأخرة' : 'Overdue'],
-    ['upcoming', ar ? 'قادمة' : 'Upcoming'],
     ['pending', ar ? 'بانتظار' : 'Pending'],
-    ['accepted', ar ? 'مقبولة' : 'Accepted'],
+    ['accepted', ar ? 'مستلمة' : 'Received'],
     ['deposited', ar ? 'مودعة' : 'Deposited'],
-    ['cleared', ar ? 'محصّلة' : 'Cleared'],
+    ['cleared', ar ? 'مصروفة' : 'Cleared'],
     ['bounced', ar ? 'مرتجعة' : 'Bounced'],
   ];
 
@@ -143,54 +207,98 @@ export function AccountingChequesPanel({
     return accountingChequeStatusLabel(row.reviewStatus, locale);
   };
 
+  async function advanceStatus(row: ChequeRow, status: string) {
+    if (!isUuid(row.id)) {
+      setNotice(
+        ar
+          ? 'هذا القسط غير مسجّل كشيك بعد — حدّث الصفحة أو اربط رقم الشيك بالعقد.'
+          : 'This installment is not registered as a cheque yet — refresh or link a cheque number.',
+      );
+      return;
+    }
+    setBusyId(row.id);
+    setNotice(null);
+    try {
+      await browserNextMutation('/api/owner/accounting/cheques', {
+        method: 'POST',
+        body: JSON.stringify({ id: row.id, status }),
+      });
+      invalidateAccountingCache();
+      setReloadKey((key) => key + 1);
+      setRows(null);
+      setNotice(
+        ar
+          ? `تم تحديث حالة الشيك ${row.chequeNumber}.`
+          : `Cheque ${row.chequeNumber} updated.`,
+      );
+    } catch {
+      setNotice(ar ? 'تعذر تحديث حالة الشيك.' : 'Could not update cheque status.');
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
-    <div className="accounting-hub__panel">
+    <div className="accounting-hub__panel cheque-lifecycle">
       <div className="accounting-hub__toolbar">
         <div>
-          <h2>{ar ? 'التحصيل والشيكات' : 'Collections & cheques'}</h2>
+          <h2>{ar ? 'نظام تتبّع الشيكات' : 'Cheque tracking system'}</h2>
           <p className="accounting-hub__hint">
             {ar
-              ? 'تُجلب من جداول أقساط العقود الموثّقة. لا تُحذف أقساط أو شيكات مرتبطة بالعقد — تُحدَّث الحالة بعد التحقق والتحصيل فقط.'
-              : 'From signed lease schedules. Lease-linked installments and cheques are not deleted — only status changes after verification and collection.'}
+              ? 'كل شيكات الإيجار والضريبة والتأمين من العقود الموثّقة — من الاستلام حتى الإيداع والصرف أو الارتجاع.'
+              : 'All rent, VAT and deposit cheques from signed leases — from receipt through bank deposit to clearance or bounce.'}
           </p>
         </div>
       </div>
 
+      <ol className="cheque-lifecycle__pipeline" aria-label={ar ? 'مسار الشيك' : 'Cheque path'}>
+        {PIPELINE.map((step, index) => (
+          <li key={step.id}>
+            <span className="cheque-lifecycle__step-index">{index + 1}</span>
+            <span>{ar ? step.ar : step.en}</span>
+          </li>
+        ))}
+      </ol>
+
       {summary ? (
-        <div className="accounting-hub__finance-summary">
-          {summary.arrearsMinor !== '0' ? (
-            <section className="tenant-arrears" aria-label={ar ? 'المتأخرات' : 'Arrears'}>
-              <header>
-                <h3>{ar ? 'المتأخرات على المستأجرين' : 'Tenant arrears'}</h3>
-                <strong>
-                  {formatMoney(summary.arrearsMinor, summary.currency || 'OMR', locale)}
-                </strong>
-              </header>
-              <ul className="tenant-arrears__totals">
-                <li>
-                  <span>{ar ? 'أقساط متأخرة' : 'Overdue installments'}</span>
-                  <b>{summary.overdueCount}</b>
-                </li>
-              </ul>
-            </section>
-          ) : null}
-          <div
-            className="accounting-hub__stat-row"
-            role="group"
-            aria-label={ar ? 'ملخص التحصيل' : 'Collection summary'}
-          >
-            <div className="accounting-hub__stat">
-              <span className="accounting-hub__stat-label">
-                {ar ? 'متوقع استلامه لاحقاً' : 'Expected receipts'}
-              </span>
-              <strong>
-                {formatMoney(summary.expectedMinor, summary.currency || 'OMR', locale)}
-              </strong>
-              <span className="accounting-hub__meta">
-                {ar ? `${summary.upcomingCount} قسط قادم` : `${summary.upcomingCount} upcoming`}
-              </span>
-            </div>
+        <div
+          className="cheque-lifecycle__stats"
+          role="group"
+          aria-label={ar ? 'ملخص الشيكات' : 'Cheque summary'}
+        >
+          <div className="cheque-lifecycle__stat">
+            <span>{ar ? 'سابقة' : 'Past'}</span>
+            <strong>{summary.pastCount ?? 0}</strong>
           </div>
+          <div className="cheque-lifecycle__stat">
+            <span>{ar ? 'لاحقة' : 'Upcoming'}</span>
+            <strong>{summary.upcomingCount}</strong>
+            <em>{formatMoney(summary.expectedMinor, summary.currency || 'OMR', locale)}</em>
+          </div>
+          <div className="cheque-lifecycle__stat">
+            <span>{ar ? 'متبقية' : 'Remaining'}</span>
+            <strong>{summary.remainingCount ?? 0}</strong>
+            <em>
+              {formatMoney(summary.remainingMinor ?? '0', summary.currency || 'OMR', locale)}
+            </em>
+          </div>
+          <div className="cheque-lifecycle__stat cheque-lifecycle__stat--good">
+            <span>{ar ? 'مدفوعة' : 'Paid'}</span>
+            <strong>{summary.paidCount ?? 0}</strong>
+            <em>{formatMoney(summary.paidMinor ?? '0', summary.currency || 'OMR', locale)}</em>
+          </div>
+          <div className="cheque-lifecycle__stat cheque-lifecycle__stat--deposit">
+            <span>{ar ? 'تأمينات' : 'Deposits'}</span>
+            <strong>{summary.depositCount ?? 0}</strong>
+            <em>{formatMoney(summary.depositMinor ?? '0', summary.currency || 'OMR', locale)}</em>
+          </div>
+          {summary.arrearsMinor !== '0' ? (
+            <div className="cheque-lifecycle__stat cheque-lifecycle__stat--bad">
+              <span>{ar ? 'متأخرات' : 'Arrears'}</span>
+              <strong>{summary.overdueCount}</strong>
+              <em>{formatMoney(summary.arrearsMinor, summary.currency || 'OMR', locale)}</em>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -204,6 +312,28 @@ export function AccountingChequesPanel({
             onClick={() => setFilter(id)}
           >
             {label}
+            {id === 'all' && rows ? ` (${rows.length})` : ''}
+            {id !== 'all' && rows
+              ? ` (${
+                  rows.filter((row) => {
+                    const paid = BigInt(row.paidMinor || '0');
+                    const amount = BigInt(row.amountMinor || '0');
+                    const remaining = amount > paid;
+                    if (id === 'past') return row.dueOn < today;
+                    if (id === 'upcoming')
+                      return row.dueOn >= today && remaining && row.reviewStatus !== 'cleared';
+                    if (id === 'remaining') return remaining && row.reviewStatus !== 'cleared';
+                    if (id === 'paid') return !remaining || row.reviewStatus === 'cleared';
+                    if (id === 'deposit') return row.kind === 'deposit';
+                    if (id === 'overdue')
+                      return (
+                        row.lineStatus === 'overdue' ||
+                        (row.dueOn < today && remaining && row.reviewStatus !== 'cleared')
+                      );
+                    return row.reviewStatus === id;
+                  }).length
+                })`
+              : ''}
           </button>
         ))}
       </div>
@@ -213,47 +343,55 @@ export function AccountingChequesPanel({
           {ar ? 'تعذر تحميل الشيكات' : 'Could not load cheques'}
         </p>
       ) : null}
+      {notice ? <p className="accounting-hub__meta">{notice}</p> : null}
 
       <div className="accounting-hub__table-wrap">
         <table className="accounting-hub__table">
           <thead>
             <tr>
-              <th>{ar ? 'رقم الشيك / القسط' : 'Cheque / installment'}</th>
+              <th>{ar ? 'النوع' : 'Kind'}</th>
+              <th>{ar ? 'رقم الشيك' : 'Cheque #'}</th>
               <th>{ar ? 'المستأجر' : 'Tenant'}</th>
               <th>{ar ? 'المبنى / الوحدة' : 'Property / unit'}</th>
               <th>{ar ? 'البنك' : 'Bank'}</th>
               <th>{ar ? 'الاستحقاق' : 'Due'}</th>
-              <th>{ar ? 'الحالة' : 'Status'}</th>
+              <th>{ar ? 'حالة التحصيل' : 'Collection'}</th>
+              <th>{ar ? 'دورة الشيك' : 'Lifecycle'}</th>
               <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
-              <th>{ar ? 'الإيصال والفاتورة' : 'Receipt & invoice'}</th>
+              <th>{ar ? 'الإيصال' : 'Docs'}</th>
               <th>{ar ? 'إجراءات' : 'Actions'}</th>
             </tr>
           </thead>
           <tbody>
             {rows === null ? (
               <tr>
-                <td colSpan={9}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</td>
+                <td colSpan={11}>{ar ? 'جارٍ التحميل…' : 'Loading…'}</td>
               </tr>
             ) : visible.length === 0 ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={11}>
                   {ar
-                    ? 'لا أقساط بعد — وثّق عقد إيجار بجدول دفعات لتظهر هنا مباشرة.'
-                    : 'No installments yet — document a lease with a payment schedule to see them here.'}
+                    ? 'لا شيكات في هذا التصفية — وثّق عقد إيجار بجدول دفعات وشيكات تأمين لتظهر هنا.'
+                    : 'No cheques in this filter — document a lease with payment and deposit cheques.'}
                 </td>
               </tr>
             ) : (
               visible.map((row) => {
                 const tone = STATUS_TONE[row.lineStatus || ''] ?? '';
                 const paid = row.paidMinor ?? '0';
+                const actions = LIFECYCLE_ACTIONS.filter((action) =>
+                  action.from.includes(row.reviewStatus),
+                );
                 return (
-                  <tr key={row.id} data-kind="cheque">
-                    <td dir="ltr">
-                      <span className="accounting-hub__chip accounting-hub__chip--cheque">
-                        <i aria-hidden="true" />
-                      </span>{' '}
-                      {row.chequeNumber}
+                  <tr key={row.id} data-kind={row.kind || 'cheque'}>
+                    <td>
+                      <span
+                        className={`cheque-lifecycle__kind cheque-lifecycle__kind--${row.kind || 'cheque'}`}
+                      >
+                        {kindLabel(row.kind, ar)}
+                      </span>
                     </td>
+                    <td dir="ltr">{row.chequeNumber}</td>
                     <td>
                       <bdi>{row.tenantName || '—'}</bdi>
                     </td>
@@ -263,6 +401,11 @@ export function AccountingChequesPanel({
                     <td>
                       <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>
                         {statusLabel(row)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`cheque-lifecycle__status cheque-lifecycle__status--${row.reviewStatus}`}>
+                        {accountingChequeStatusLabel(row.reviewStatus, locale)}
                       </span>
                     </td>
                     <td className="num">
@@ -283,17 +426,38 @@ export function AccountingChequesPanel({
                       )}
                     </td>
                     <td>
-                      <AccountingFollowTask
-                        locale={locale}
-                        kind="cheque"
-                        sourceId={row.id}
-                        title={`${row.chequeNumber} · ${row.tenantName || row.propertyName || ''}`.trim()}
-                        detail={[row.propertyName, row.unitCode, row.bankName]
-                          .filter(Boolean)
-                          .join(' · ')}
-                        dueOn={row.dueOn}
-                        status={row.lineStatus || row.reviewStatus}
-                      />
+                      <div className="cheque-lifecycle__actions">
+                        {canManage
+                          ? actions.map((action) => (
+                              <button
+                                key={action.status}
+                                type="button"
+                                className={`button button--tiny ${
+                                  action.status === 'cleared'
+                                    ? 'button--primary'
+                                    : action.status === 'bounced' || action.status === 'cancelled'
+                                      ? 'button--quiet'
+                                      : 'button--quiet'
+                                }`}
+                                disabled={busyId === row.id}
+                                onClick={() => void advanceStatus(row, action.status)}
+                              >
+                                {ar ? action.ar : action.en}
+                              </button>
+                            ))
+                          : null}
+                        <AccountingFollowTask
+                          locale={locale}
+                          kind="cheque"
+                          sourceId={row.id}
+                          title={`${row.chequeNumber} · ${row.tenantName || row.propertyName || ''}`.trim()}
+                          detail={[row.propertyName, row.unitCode, row.bankName]
+                            .filter(Boolean)
+                            .join(' · ')}
+                          dueOn={row.dueOn}
+                          status={row.lineStatus || row.reviewStatus}
+                        />
+                      </div>
                     </td>
                   </tr>
                 );
@@ -326,6 +490,7 @@ export function AccountingChequesPanel({
                     ? `تم استيراد ${result.imported ?? 0} شيك، وتخطّي ${result.skipped ?? 0}.`
                     : `Imported ${result.imported ?? 0}, skipped ${result.skipped ?? 0}.`,
                 );
+                invalidateAccountingCache();
                 setReloadKey((key) => key + 1);
                 setRows(null);
               } catch {
@@ -355,7 +520,6 @@ export function AccountingChequesPanel({
           <button className="button button--primary" type="submit" disabled={busy || !csv.trim()}>
             {ar ? 'استيراد' : 'Import'}
           </button>
-          {notice ? <p className="accounting-hub__meta">{notice}</p> : null}
         </form>
       ) : null}
     </div>
