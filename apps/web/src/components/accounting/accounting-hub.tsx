@@ -608,10 +608,15 @@ export function AccountingHub({
   return (
     <AccountingTasksProvider active={active}>
       <section className="accounting-hub" data-testid="accounting-hub" hidden={!active}>
-        <header className="accounting-hub__head">
+        <header className="accounting-hub__head accounting-hub__head--fin">
           <div>
             <p className="accounting-hub__eyebrow">{t.eyebrow}</p>
-            <h1>{t.title}</h1>
+            <h1>
+              <span className="accounting-hub__title-mark" aria-hidden="true">
+                ر.ع
+              </span>
+              {t.title}
+            </h1>
             <p>{t.subtitle}</p>
           </div>
           <div className="accounting-hub__actions">
@@ -633,6 +638,15 @@ export function AccountingHub({
                 {t.sync}
               </button>
             )}
+            <button
+              type="button"
+              className="button button--quiet button--sm"
+              disabled={busy || warming}
+              onClick={() => void refreshAll({ silent: false })}
+              title={ar ? 'تحديث' : 'Refresh'}
+            >
+              {ar ? 'تحديث' : 'Refresh'}
+            </button>
             <a
               className="button button--quiet button--sm"
               href="https://hisaby.bhd-om.com"
@@ -689,126 +703,337 @@ export function AccountingHub({
         ) : null}
 
         <AccountingTabPanel id="dashboard" tab={tab}>
-          <div className="accounting-hub__panel accounting-hub__panel--hero">
-            <div className="accounting-hub__hero-copy">
-              <h2>{t.moneyGlance}</h2>
-              <p className="accounting-hub__hint">{t.moneyHint}</p>
-            </div>
+          <div className="fin-dash">
             <AccountingTasksAlert locale={locale} onOpen={() => setTab('tasks')} />
             <AccountingRefundsAlert locale={locale} onOpen={() => setTab('deposits')} />
+
+            <div className="fin-dash__metrics">
+              <div className="fin-dash__metric fin-dash__metric--revenue">
+                <div className="fin-dash__metric-top">
+                  <span className="fin-dash__metric-icon" aria-hidden="true">
+                    ↑
+                  </span>
+                  <span className="fin-dash__metric-badge">
+                    {ar ? 'محصّل' : 'In'}
+                  </span>
+                </div>
+                <p className="fin-dash__metric-label">{t.collected}</p>
+                <p className="fin-dash__metric-value">
+                  {money(omr.collectedMinor, omr.currency, ar)}
+                </p>
+              </div>
+              <div className="fin-dash__metric fin-dash__metric--expense">
+                <div className="fin-dash__metric-top">
+                  <span className="fin-dash__metric-icon" aria-hidden="true">
+                    ↓
+                  </span>
+                  <span className="fin-dash__metric-badge">
+                    {ar ? 'مصروف' : 'Out'}
+                  </span>
+                </div>
+                <p className="fin-dash__metric-label">{t.expenses}</p>
+                <p className="fin-dash__metric-value">
+                  {money(omr.expenseMinor, omr.currency, ar)}
+                </p>
+              </div>
+              <div className="fin-dash__metric fin-dash__metric--profit">
+                <div className="fin-dash__metric-top">
+                  <span className="fin-dash__metric-icon" aria-hidden="true">
+                    Σ
+                  </span>
+                  <span className="fin-dash__metric-badge">
+                    {ar ? 'صافي' : 'Net'}
+                  </span>
+                </div>
+                <p className="fin-dash__metric-label">
+                  {ar ? 'صافي التحصيل' : 'Net collections'}
+                </p>
+                <p className="fin-dash__metric-value">
+                  {money(
+                    (
+                      BigInt(omr.collectedMinor || '0') - BigInt(omr.expenseMinor || '0')
+                    ).toString(),
+                    omr.currency,
+                    ar,
+                  )}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="fin-dash__metric fin-dash__metric--cash"
+                onClick={() => setTab('cheques')}
+              >
+                <div className="fin-dash__metric-top">
+                  <span className="fin-dash__metric-icon" aria-hidden="true">
+                    ⌬
+                  </span>
+                  <span className="fin-dash__metric-badge">
+                    {dash?.openChequeCount ?? 0}
+                  </span>
+                </div>
+                <p className="fin-dash__metric-label">
+                  {ar ? 'شيكات مفتوحة' : 'Open cheques'}
+                </p>
+                <p className="fin-dash__metric-value">
+                  {money(omr.openChequesMinor ?? '0', omr.currency, ar)}
+                </p>
+              </button>
+            </div>
+
+            <div className="fin-dash__secondary">
+              <div className="fin-dash__stat">
+                <span>{t.receivables}</span>
+                <strong>{money(omr.receivableMinor, omr.currency, ar)}</strong>
+              </div>
+              <div className="fin-dash__stat">
+                <span>{t.depositsHeld}</span>
+                <strong>{money(omr.depositsMinor ?? '0', omr.currency, ar)}</strong>
+              </div>
+              <div className="fin-dash__stat">
+                <span>{ar ? 'قيود مرحّلة' : 'Posted journals'}</span>
+                <strong>{dash?.postedJournals ?? 0}</strong>
+              </div>
+              <div className="fin-dash__stat">
+                <span>{ar ? 'فواتير متأخرة' : 'Overdue'}</span>
+                <strong>{dash?.overdueInvoices ?? 0}</strong>
+              </div>
+            </div>
+
             <AccountingCollectionBoard
               locale={locale}
               outlook={outlook}
               canManage={caps.manage}
               onChanged={() => void refreshAll({ silent: true })}
             />
-            <div className="accounting-hub__kpis accounting-hub__kpis--hero accounting-hub__kpis--five">
-              <div className="accounting-hub__kpi accounting-hub__kpi--in">
-                <span>{t.collected}</span>
-                <strong>{money(omr.collectedMinor, omr.currency, ar)}</strong>
+
+            <section className="fin-dash__section">
+              <h2>
+                <span aria-hidden="true">▣</span>
+                {ar ? 'الأنظمة المالية الرئيسية' : 'Main financial modules'}
+              </h2>
+              <div className="fin-dash__modules">
+                {(
+                  [
+                    {
+                      id: 'documents' as const,
+                      name: ar ? 'المستندات والفواتير' : 'Documents & invoices',
+                      desc: ar ? 'إيصالات ومطالبات' : 'Receipts & demands',
+                      tone: 'blue',
+                    },
+                    {
+                      id: 'journal' as const,
+                      name: ar ? 'القيود اليومية' : 'General journal',
+                      desc: ar ? 'قيد مزدوج متوازن' : 'Balanced double-entry',
+                      tone: 'indigo',
+                    },
+                    {
+                      id: 'expenses' as const,
+                      name: ar ? 'صرف ودخل' : 'Expense & income',
+                      desc: ar ? 'تشغيل يومي' : 'Day-to-day ops',
+                      tone: 'green',
+                    },
+                    {
+                      id: 'trading' as const,
+                      name: ar ? 'مشتريات ومبيعات' : 'Purchases & sales',
+                      desc: ar ? 'قيود تجارية' : 'Trading entries',
+                      tone: 'teal',
+                    },
+                    {
+                      id: 'cheques' as const,
+                      name: ar ? 'الشيكات' : 'Cheques',
+                      desc: ar ? 'تحصيل وجدولة' : 'Collection & schedule',
+                      tone: 'purple',
+                    },
+                    {
+                      id: 'deposits' as const,
+                      name: ar ? 'أمانات التأمين' : 'Security deposits',
+                      desc: ar ? 'عربون وتأمين' : 'Deposits held',
+                      tone: 'orange',
+                    },
+                    {
+                      id: 'accounts' as const,
+                      name: ar ? 'دليل الحسابات' : 'Chart of accounts',
+                      desc: ar ? 'شجرة الحسابات' : 'Account tree',
+                      tone: 'blue',
+                    },
+                    {
+                      id: 'ledgers' as const,
+                      name: ar ? 'أستاذ تحليلي' : 'Dimensional ledger',
+                      desc: ar ? 'مبنى / وحدة / طرف' : 'Property / unit / party',
+                      tone: 'indigo',
+                    },
+                    {
+                      id: 'tasks' as const,
+                      name: ar ? 'مهام المتابعة' : 'Follow-up tasks',
+                      desc: ar ? 'تنبيهات وتحصيل' : 'Alerts & chase',
+                      tone: 'orange',
+                    },
+                    {
+                      id: 'settings' as const,
+                      name: ar ? 'ضبط الحسابات' : 'Accounting settings',
+                      desc: ar ? 'ترويسة وفترات' : 'Letterhead & periods',
+                      tone: 'teal',
+                    },
+                  ] as const
+                ).map((mod) => (
+                  <button
+                    key={mod.id}
+                    type="button"
+                    className={`fin-dash__module fin-dash__module--${mod.tone}`}
+                    onClick={() => setTab(mod.id)}
+                  >
+                    <span className="fin-dash__module-icon" aria-hidden="true">
+                      <TabMark id={mod.id} />
+                    </span>
+                    <span className="fin-dash__module-name">{mod.name}</span>
+                    <span className="fin-dash__module-desc">{mod.desc}</span>
+                  </button>
+                ))}
               </div>
-              <button
-                type="button"
-                className="accounting-hub__kpi accounting-hub__kpi--cheques"
-                onClick={() => setTab('cheques')}
-              >
-                <span>{ar ? 'شيكات مفتوحة' : 'Open cheques'}</span>
-                <strong>{money(omr.openChequesMinor ?? '0', omr.currency, ar)}</strong>
-                <small>
-                  {ar
-                    ? `${dash?.openChequeCount ?? 0} شيك بانتظار التحصيل`
-                    : `${dash?.openChequeCount ?? 0} awaiting collection`}
-                </small>
-              </button>
-              <div className="accounting-hub__kpi accounting-hub__kpi--hold">
-                <span>{t.depositsHeld}</span>
-                <strong>{money(omr.depositsMinor ?? '0', omr.currency, ar)}</strong>
+            </section>
+
+            <section className="fin-dash__section">
+              <h2>{ar ? 'الإجراءات السريعة' : 'Quick actions'}</h2>
+              <div className="fin-dash__quick">
+                {(
+                  [
+                    { id: 'documents' as const, label: ar ? 'الفواتير' : 'Invoices', tone: 'blue' },
+                    {
+                      id: 'expenses' as const,
+                      label: ar ? 'المدفوعات' : 'Payments',
+                      tone: 'green',
+                    },
+                    { id: 'cheques' as const, label: ar ? 'الشيكات' : 'Cheques', tone: 'purple' },
+                    {
+                      id: 'reports' as const,
+                      label: ar ? 'الذمم' : 'Receivables',
+                      tone: 'orange',
+                      report: 'aging',
+                    },
+                    {
+                      id: 'trading' as const,
+                      label: ar ? 'المشتريات' : 'Purchases',
+                      tone: 'red',
+                    },
+                    {
+                      id: 'accounts' as const,
+                      label: ar ? 'دليل الحسابات' : 'Accounts',
+                      tone: 'indigo',
+                    },
+                  ] as const
+                ).map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    className={`fin-dash__quick-btn fin-dash__quick-btn--${action.tone}`}
+                    onClick={() => {
+                      if ('report' in action && action.report) setReportKind(action.report);
+                      setTab(action.id);
+                    }}
+                  >
+                    <TabMark id={action.id} />
+                    <span>{action.label}</span>
+                  </button>
+                ))}
               </div>
-              <div className="accounting-hub__kpi accounting-hub__kpi--due">
-                <span>{t.receivables}</span>
-                <strong>{money(omr.receivableMinor, omr.currency, ar)}</strong>
+            </section>
+
+            <section className="fin-dash__section">
+              <h2>
+                <span aria-hidden="true">◎</span>
+                {ar ? 'التقارير المالية' : 'Financial reports'}
+              </h2>
+              <div className="fin-dash__reports">
+                {(
+                  [
+                    {
+                      kind: 'balance',
+                      title: ar ? 'الميزانية العمومية' : 'Balance sheet',
+                      en: 'Balance Sheet',
+                      tone: 'blue',
+                    },
+                    {
+                      kind: 'income',
+                      title: ar ? 'قائمة الدخل' : 'Income statement',
+                      en: 'Income Statement',
+                      tone: 'green',
+                    },
+                    {
+                      kind: 'cashflow',
+                      title: ar ? 'التدفقات النقدية' : 'Cash flow',
+                      en: 'Cash Flow',
+                      tone: 'purple',
+                    },
+                    {
+                      kind: 'trial',
+                      title: ar ? 'ميزان المراجعة' : 'Trial balance',
+                      en: 'Trial Balance',
+                      tone: 'orange',
+                    },
+                    {
+                      kind: 'aging',
+                      title: ar ? 'أعمار الذمم' : 'AR aging',
+                      en: 'Receivables Aging',
+                      tone: 'indigo',
+                    },
+                    {
+                      kind: 'income',
+                      title: ar ? 'الأرباح والخسائر' : 'Profit & loss',
+                      en: 'P&L Statement',
+                      tone: 'teal',
+                    },
+                  ] as const
+                ).map((rep) => (
+                  <button
+                    key={`${rep.kind}-${rep.en}`}
+                    type="button"
+                    className={`fin-dash__report fin-dash__report--${rep.tone}`}
+                    onClick={() => {
+                      setReportKind(rep.kind);
+                      setTab('reports');
+                    }}
+                  >
+                    <strong>{rep.title}</strong>
+                    <span>{rep.en}</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="fin-dash__report fin-dash__report--all"
+                  onClick={() => setTab('reports')}
+                >
+                  <strong>{ar ? 'عرض جميع التقارير ←' : 'View all reports →'}</strong>
+                  <span>{ar ? 'ميزان · دخل · تدفقات · ذمم' : 'Trial · income · cash · aging'}</span>
+                </button>
               </div>
-              <div className="accounting-hub__kpi accounting-hub__kpi--out">
-                <span>{t.expenses}</span>
-                <strong>{money(omr.expenseMinor, omr.currency, ar)}</strong>
-              </div>
-            </div>
-            <div className="accounting-hub__meta-row">
-              <span>
-                {ar ? 'قيود مرحّلة' : 'Posted'}: {dash?.postedJournals ?? 0}
-              </span>
-              <span>
-                {ar ? 'حسابات' : 'Accounts'}: {dash?.accountCount ?? 0}
-              </span>
-              <span>
-                {ar ? 'فواتير متأخرة' : 'Overdue'}: {dash?.overdueInvoices ?? 0}
-              </span>
-              <span>
-                {ar ? 'شيكات مفتوحة' : 'Open cheques'}: {dash?.openChequeCount ?? 0}
-              </span>
-            </div>
+            </section>
+
             {(dash?.recentActivity?.length ?? 0) > 0 ? (
-              <div className="accounting-hub__activity">
-                <h3>{ar ? 'آخر التحصيلات' : 'Recent collections'}</h3>
+              <section className="fin-dash__section fin-dash__activity">
+                <h2>{ar ? 'آخر التحصيلات' : 'Recent collections'}</h2>
                 <ul>
                   {dash!.recentActivity!.map((row) => (
                     <li key={`${row.kind}-${row.id}`}>
                       <span>
-                        <em className="accounting-hub__activity-kind">
-                          {accountingSourceTypeLabel(row.kind, ar ? 'ar' : 'en')}
-                        </em>
+                        <em>{accountingSourceTypeLabel(row.kind, ar ? 'ar' : 'en')}</em>
                         {row.label}
                       </span>
                       <strong>{money(row.amountMinor, row.currency, ar)}</strong>
                     </li>
                   ))}
                 </ul>
-              </div>
+              </section>
             ) : dash ? (
               <p className="accounting-hub__muted">
                 {Number(omr.openChequesMinor ?? '0') > 0
                   ? ar
-                    ? 'لا تحصيلات مرحّلة بعد — لديك شيكات مفتوحة في بطاقة «شيكات مفتوحة»؛ أكّد تحصيلها من تبويب الشيكات لتظهر هنا وفي القيود.'
-                    : 'No posted collections yet — open cheques are in the “Open cheques” card; confirm collection from the Cheques tab to post them here and to the GL.'
+                    ? 'لا تحصيلات مرحّلة بعد — أكّد تحصيل الشيكات المفتوحة من تبويب الشيكات.'
+                    : 'No posted collections yet — confirm open cheques from the Cheques tab.'
                   : ar
-                    ? 'لا تحصيلات ظاهرة بعد — ستظهر هنا مدفوعات الإيجار والشيكات المحصّلة ومدفوعات الإقامة بعد تسجيلها أو مزامنتها.'
-                    : 'No collections yet — rent payments, cleared cheques, and stay receipts appear here after recording or sync.'}
+                    ? 'لا تحصيلات ظاهرة بعد — ستظهر هنا بعد التسجيل أو المزامنة.'
+                    : 'No collections yet — they appear here after recording or sync.'}
               </p>
-            ) : (
-              <p className="accounting-hub__muted accounting-hub__muted--soft">
-                {ar ? 'جاري تجهيز الملخص…' : 'Preparing summary…'}
-              </p>
-            )}
-            <div className="accounting-hub__actions">
-              <button
-                type="button"
-                className="button button--quiet"
-                onClick={() => setTab('deposits')}
-              >
-                {ar ? 'أمانات التأمين' : 'Deposits'}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet"
-                onClick={() => setTab('ledgers')}
-              >
-                {ar ? 'أستاذ تحليلي' : 'Ledgers'}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet"
-                onClick={() => setTab('reports')}
-              >
-                {ar ? 'التقارير' : 'Reports'}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet"
-                onClick={() => setTab('accounts')}
-              >
-                {ar ? 'دليل الحسابات' : 'Accounts'}
-              </button>
-            </div>
+            ) : null}
           </div>
         </AccountingTabPanel>
 

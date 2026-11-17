@@ -6,10 +6,10 @@ export function accountingHubCopy(locale: 'ar' | 'en') {
   return {
     ar,
     eyebrow: ar ? 'محاسبة العقارات · BHD R' : 'Property accounting · BHD R',
-    title: ar ? 'المحاسبة والتحصيل' : 'Accounting & collections',
+    title: ar ? 'النظام المالي الشامل' : 'Complete financial system',
     subtitle: ar
-      ? 'شيكات المستأجرين، الإيجارات المستلمة، القيود المزدوجة والتقارير — بهوية BHD ودفتر عقاري موحّد.'
-      : 'Tenant cheques, rent receipts, double-entry journals and reports — BHD brand, one property ledger.',
+      ? 'نظام محاسبي متكامل للعقارات · تحصيل · قيود · تقارير · شيكات'
+      : 'Integrated property accounting · collections · journals · reports · cheques',
     sync: ar ? 'مزامنة المدفوعات' : 'Sync payments',
     hisaby: ar ? 'حسابي' : 'Hisaby',
     warming: ar ? 'تجهيز الأقسام في الخلفية…' : 'Warming sections in the background…',
