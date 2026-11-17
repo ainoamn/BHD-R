@@ -33,6 +33,8 @@ const SOURCE_TYPE: Record<string, { ar: string; en: string }> = {
   stay_payment: { ar: 'تحصيل إقامة', en: 'Stay payment' },
   rent_payment: { ar: 'تحصيل إيجار', en: 'Rent payment' },
   cheque_clear: { ar: 'تحصيل شيك', en: 'Cheque cleared' },
+  cheque_op: { ar: 'عملية شيك', en: 'Cheque operation' },
+  cheque_op_undone: { ar: 'عملية شيك ملغاة', en: 'Cheque operation undone' },
   expense: { ar: 'مصروف', en: 'Expense' },
   ops_income: { ar: 'دخل تشغيلي', en: 'Operating income' },
   ops_purchase: { ar: 'مشتريات', en: 'Purchase' },
@@ -175,17 +177,39 @@ export function accountingDisplayText(text: string | null | undefined, locale: L
 }
 
 const CHEQUE_STATUS: Record<string, { ar: string; en: string }> = {
-  pending: { ar: 'بانتظار الاستلام', en: 'Awaiting receipt' },
-  accepted: { ar: 'مستلم', en: 'Received' },
-  deposited: { ar: 'مودع بالبنك', en: 'Deposited at bank' },
-  cleared: { ar: 'مصروف / محصّل', en: 'Cleared / cashed' },
+  in_hand: { ar: 'في اليد', en: 'In hand' },
+  under_collection: { ar: 'برسم التحصيل', en: 'Under collection' },
+  cleared: { ar: 'محصّل', en: 'Cleared' },
   bounced: { ar: 'مرتجع', en: 'Bounced' },
   cancelled: { ar: 'ملغى', en: 'Cancelled' },
-  rejected: { ar: 'مرفوض', en: 'Rejected' },
-  postponed: { ar: 'مؤجّل بطلب المستأجر', en: 'Postponed by tenant' },
-  insufficient_funds: { ar: 'لا يوجد رصيد', en: 'Insufficient funds' },
-  partially_cleared: { ar: 'صُرف جزئياً', en: 'Partially cleared' },
+  // Legacy aliases (normalized on read)
+  pending: { ar: 'في اليد', en: 'In hand' },
+  accepted: { ar: 'في اليد', en: 'In hand' },
+  deposited: { ar: 'برسم التحصيل', en: 'Under collection' },
+  rejected: { ar: 'ملغى', en: 'Cancelled' },
+  postponed: { ar: 'في اليد (مؤجّل)', en: 'In hand (postponed)' },
+  insufficient_funds: { ar: 'مرتجع — بلا رصيد', en: 'Bounced — no funds' },
+  partially_cleared: { ar: 'محصّل', en: 'Cleared' },
 };
+
+const CHEQUE_OPERATION: Record<string, { ar: string; en: string }> = {
+  receive: { ar: 'استلام', en: 'Receive' },
+  deposit: { ar: 'إيداع', en: 'Deposit' },
+  collect: { ar: 'تحصيل', en: 'Collect' },
+  bounce: { ar: 'ارتجاع', en: 'Bounce' },
+  redeposit: { ar: 'إعادة إيداع', en: 'Redeposit' },
+  cancel: { ar: 'إلغاء', en: 'Cancel' },
+  postpone: { ar: 'تأجيل', en: 'Postpone' },
+  undo: { ar: 'تراجع', en: 'Undo' },
+};
+
+export function accountingChequeOperationLabel(
+  operation: string | null | undefined,
+  locale: Locale,
+) {
+  if (!operation) return '—';
+  return pick(locale, CHEQUE_OPERATION[operation], operation);
+}
 
 export function accountingChequeStatusLabel(status: string | null | undefined, locale: Locale) {
   if (!status) return '—';

@@ -27,7 +27,8 @@ export type ChartSeed = {
 export const DEFAULT_CHART_OF_ACCOUNTS: readonly ChartSeed[] = [
   { code: '1000', nameAr: 'الصندوق', nameEn: 'Cash', type: 'asset' },
   { code: '1100', nameAr: 'البنوك', nameEn: 'Banks', type: 'asset' },
-  { code: '1150', nameAr: 'شيكات تحت التحصيل', nameEn: 'Cheques receivable', type: 'asset' },
+  { code: '1140', nameAr: 'شيكات في اليد', nameEn: 'Cheques in hand', type: 'asset' },
+  { code: '1150', nameAr: 'شيكات برسم التحصيل', nameEn: 'Cheques under collection', type: 'asset' },
   { code: '1200', nameAr: 'ذمم المستأجرين', nameEn: 'Tenant receivables', type: 'asset' },
   { code: '1210', nameAr: 'ذمم مدينة أخرى', nameEn: 'Other receivables', type: 'asset' },
   { code: '1300', nameAr: 'دفعات ومصروفات مقدمة', nameEn: 'Prepayments', type: 'asset' },
@@ -65,6 +66,12 @@ export const DEFAULT_CHART_OF_ACCOUNTS: readonly ChartSeed[] = [
   { code: '5400', nameAr: 'رواتب ومزايا', nameEn: 'Salaries & benefits', type: 'expense' },
   { code: '5500', nameAr: 'مصروفات أخرى', nameEn: 'Other expenses', type: 'expense' },
   { code: '5600', nameAr: 'مشتريات', nameEn: 'Purchases', type: 'expense' },
+  {
+    code: '5610',
+    nameAr: 'عمولات شيكات مرتجعة',
+    nameEn: 'Returned cheque charges',
+    type: 'expense',
+  },
   { code: '4400', nameAr: 'مبيعات', nameEn: 'Sales', type: 'revenue' },
 ] as const;
 

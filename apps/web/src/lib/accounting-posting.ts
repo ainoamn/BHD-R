@@ -262,6 +262,107 @@ export function postingLegalRecovery(
 }
 
 /**
+ * PDC register — receive tenant cheque into hand:
+ * Dr 1140 (cheques in hand) / Cr 1200 (tenant AR) when receivable already booked,
+ * else Cr 4000 (rent revenue) so the books stay balanced without inventing cash.
+ */
+export function postingChequeReceive(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  memo: string,
+  creditCode: '1200' | '4000' | '2100' = '1200',
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  return [
+    line(requireCode(map, '1140'), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, creditCode), 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/** Deposit cheque at bank for collection: Dr 1150 / Cr 1140. */
+export function postingChequeDeposit(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  memo: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  return [
+    line(requireCode(map, '1150'), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, '1140'), 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/** Bank clears the cheque: Dr 1100 / Cr 1150 — cash recognized only here. */
+export function postingChequeCollect(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  memo: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  return [
+    line(requireCode(map, '1100'), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, '1150'), 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/**
+ * Bounce under collection: Dr 1200 (restore AR) / Cr 1150.
+ * Optional bank charge: Dr 5610 / Cr 1100.
+ */
+export function postingChequeBounce(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  memo: string,
+  bankChargeMinor?: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  const lines: JournalLineInput[] = [
+    line(requireCode(map, '1200'), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, '1150'), 'credit', amountMinor, dims, memo),
+  ];
+  if (bankChargeMinor && /^[1-9]\d*$/.test(bankChargeMinor)) {
+    lines.push(
+      line(requireCode(map, '5610'), 'debit', bankChargeMinor, dims, memo),
+      line(requireCode(map, '1100'), 'credit', bankChargeMinor, dims, memo),
+    );
+  }
+  return lines;
+}
+
+/** Redeposit after bounce: Dr 1150 / Cr 1200. */
+export function postingChequeRedeposit(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  memo: string,
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  return [
+    line(requireCode(map, '1150'), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, '1200'), 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/** Cancel in-hand cheque that was received into 1140: reverse the receive. */
+export function postingChequeCancelReceive(
+  map: AccountCodeMap,
+  amountMinor: string,
+  dims: PostingDimensions,
+  memo: string,
+  creditCode: '1200' | '4000' | '2100' = '1200',
+): JournalLineInput[] {
+  if (!/^[1-9]\d*$/.test(amountMinor)) throw new Error('invalid_amount');
+  return [
+    line(requireCode(map, creditCode), 'debit', amountMinor, dims, memo),
+    line(requireCode(map, '1140'), 'credit', amountMinor, dims, memo),
+  ];
+}
+
+/**
  * Charge collection that is not rent: Dr cash, Cr revenue by category.
  * Prefer over postingRentReceipt for maintenance/utilities/damage/service.
  */

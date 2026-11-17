@@ -12,6 +12,7 @@ export const PROTECTED_JOURNAL_SOURCES = [
   'ops_purchase',
   'ops_sale',
   'cheque_clear',
+  'cheque_op',
 ] as const;
 
 export type ProtectedJournalSource = (typeof PROTECTED_JOURNAL_SOURCES)[number];

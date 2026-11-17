@@ -3,10 +3,10 @@ import { canManageAccounting, canReadAccounting } from '@/lib/accounting-gl-neon
 import { accountingErrorResponse } from '@/lib/accounting-gl-http';
 import { parseChequeImportCsv } from '@/lib/accounting-ops';
 import {
+  applyChequeOperation,
   confirmChequeCollected,
   importAccountingCheques,
   listAccountingCheques,
-  setChequeLifecycleStatus,
 } from '@/lib/accounting-ops-neon';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import { requireLiveSession } from '@/lib/next-route-guard';
@@ -15,7 +15,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-/** GET tenant cheques with status and due dates. */
+/** GET tenant cheques with PDC register status, dates, and recent operations. */
 export async function GET(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -34,7 +34,11 @@ export async function GET(request: Request) {
   }
 }
 
-/** POST { confirmId } marks a cheque collected, or CSV import { csv } / { rows }. */
+/**
+ * POST { id, operation, occurredOn?, dueOn?, bounceReason?, notes?, bankChargeMinor? }
+ * runs a strict register step, or CSV import { csv } / { rows }.
+ * Legacy { confirmId } still maps to collect.
+ */
 export async function POST(request: Request) {
   if (!hasDatabaseUrl()) {
     return NextResponse.json({ error: { code: 'db_unconfigured' } }, { status: 503 });
@@ -47,10 +51,12 @@ export async function POST(request: Request) {
     const body = (await request.json().catch(() => null)) as {
       confirmId?: string;
       id?: string;
-      status?: string;
-      notes?: string;
+      operation?: string;
+      occurredOn?: string;
       dueOn?: string;
-      collectedMinor?: string;
+      bounceReason?: string;
+      notes?: string;
+      bankChargeMinor?: string;
       csv?: string;
       rows?: Array<{
         chequeNumber: string;
@@ -62,12 +68,16 @@ export async function POST(request: Request) {
         tenantPartyId?: string;
       }>;
     } | null;
-    if (body?.id && body.status) {
+    if (body?.id && body.operation) {
       return NextResponse.json(
-        await setChequeLifecycleStatus(claims, body.id, body.status, {
-          ...(body.notes !== undefined ? { notes: body.notes } : {}),
+        await applyChequeOperation(claims, body.id, body.operation, {
+          ...(body.occurredOn !== undefined ? { occurredOn: body.occurredOn } : {}),
           ...(body.dueOn !== undefined ? { dueOn: body.dueOn } : {}),
-          ...(body.collectedMinor !== undefined ? { collectedMinor: body.collectedMinor } : {}),
+          ...(body.bounceReason !== undefined ? { bounceReason: body.bounceReason } : {}),
+          ...(body.notes !== undefined ? { notes: body.notes } : {}),
+          ...(body.bankChargeMinor !== undefined
+            ? { bankChargeMinor: body.bankChargeMinor }
+            : {}),
         }),
       );
     }

@@ -2957,13 +2957,13 @@ button.fin-dash__metric {
   color: #334155;
 }
 
-.cheque-lifecycle__status--pending {
-  background: #f1f5f9;
-}
+.cheque-lifecycle__status--in_hand,
+.cheque-lifecycle__status--pending,
 .cheque-lifecycle__status--accepted {
   background: #e0f2fe;
   color: #0369a1;
 }
+.cheque-lifecycle__status--under_collection,
 .cheque-lifecycle__status--deposited {
   background: #fef3c7;
   color: #b45309;
@@ -2980,6 +2980,14 @@ button.fin-dash__metric {
 .cheque-lifecycle__status--rejected {
   background: #e2e8f0;
   color: #475569;
+}
+
+.cheque-lifecycle__ops {
+  display: grid;
+  gap: 0.1rem;
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: #64748b;
 }
 
 .cheque-lifecycle__actions {

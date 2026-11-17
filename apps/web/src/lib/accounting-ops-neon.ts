@@ -1,10 +1,11 @@
 import 'server-only';
-import { and, asc, desc, eq, inArray, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import type { SessionClaims } from '@bhd-r/authz';
 import type { CurrencyCode } from '@bhd-r/contracts';
 import {
   addresses,
+  chequeOperations,
   cheques,
   contracts,
   invoices,
@@ -25,12 +26,18 @@ import {
 } from '@/lib/accounting-gl-neon';
 import {
   channelFromMethod,
+  postingChequeBounce,
+  postingChequeCancelReceive,
+  postingChequeCollect,
+  postingChequeDeposit,
+  postingChequeReceive,
+  postingChequeRedeposit,
   postingIncomeReceived,
   postingPurchase,
-  postingRentReceipt,
   postingSale,
   type PostingDimensions,
 } from '@/lib/accounting-posting';
+import type { JournalLineInput } from '@/lib/accounting-gl';
 import type { ChequeImportRow } from '@/lib/accounting-ops';
 import { muscatToday } from '@/lib/contract-list-facets';
 import { ownerPartyScope, withinViewerTenant } from '@/lib/portal-ops-data';
@@ -266,6 +273,35 @@ export async function createOpsEntry(
   });
 }
 
+export type ChequeRegisterStatus =
+  | 'in_hand'
+  | 'under_collection'
+  | 'cleared'
+  | 'bounced'
+  | 'cancelled';
+
+export type ChequeOperationName =
+  | 'receive'
+  | 'deposit'
+  | 'collect'
+  | 'bounce'
+  | 'redeposit'
+  | 'cancel'
+  | 'postpone'
+  | 'undo';
+
+export type ChequeOperationSummary = {
+  id: string;
+  operation: ChequeOperationName;
+  fromStatus: string | null;
+  toStatus: string | null;
+  occurredOn: string;
+  notes: string | null;
+  bounceReason: string | null;
+  journalEntryId: string | null;
+  createdAt: string;
+};
+
 export type AccountingChequeRow = {
   id: string;
   chequeNumber: string;
@@ -274,7 +310,11 @@ export type AccountingChequeRow = {
   paidMinor: string;
   currency: string;
   dueOn: string;
-  reviewStatus: string;
+  reviewStatus: ChequeRegisterStatus | string;
+  bounceReason: string | null;
+  receivedOn: string | null;
+  depositedOn: string | null;
+  clearedOn: string | null;
   /** Ledger line status from the same builder as tenant invoices. */
   lineStatus: string;
   kind: string;
@@ -284,6 +324,7 @@ export type AccountingChequeRow = {
   tenantName: string | null;
   propertyName: string | null;
   unitCode: string | null;
+  operations: ChequeOperationSummary[];
 };
 
 export type AccountingChequesSummary = {
@@ -325,37 +366,69 @@ function scheduleChequeNumber(
   return `SCH-${short}-${kind}-${index}`.slice(0, 80);
 }
 
-const CHEQUE_LIFECYCLE = [
-  'pending',
-  'accepted',
-  'rejected',
-  'deposited',
+const REGISTER_STATUSES = [
+  'in_hand',
+  'under_collection',
   'cleared',
   'bounced',
   'cancelled',
-  'postponed',
-  'insufficient_funds',
-  'partially_cleared',
 ] as const;
-type ChequeLifecycleStatus = (typeof CHEQUE_LIFECYCLE)[number];
 
-/** Managers may move freely between statuses so mistakes can be undone and corrected. */
-function isChequeLifecycleStatus(value: string): value is ChequeLifecycleStatus {
-  return (CHEQUE_LIFECYCLE as readonly string[]).includes(value);
+const CHEQUE_OPERATIONS = [
+  'receive',
+  'deposit',
+  'collect',
+  'bounce',
+  'redeposit',
+  'cancel',
+  'postpone',
+  'undo',
+] as const;
+
+function isRegisterStatus(value: string): value is ChequeRegisterStatus {
+  return (REGISTER_STATUSES as readonly string[]).includes(value);
 }
 
-function isCollectedStatus(status: string): boolean {
-  return status === 'cleared' || status === 'partially_cleared';
+function isChequeOperation(value: string): value is ChequeOperationName {
+  return (CHEQUE_OPERATIONS as readonly string[]).includes(value);
 }
 
-function reviewStatusFromLine(chequeStatus: string | null, lineStatus: string): string {
-  if (chequeStatus) return chequeStatus;
-  if (lineStatus === 'paid') return 'cleared';
-  if (lineStatus === 'partially_paid') return 'partially_cleared';
+/** Map legacy free-lifecycle values onto the PDC register model. */
+export function normalizeChequeRegisterStatus(raw: string | null | undefined): ChequeRegisterStatus {
+  const value = (raw ?? '').trim();
+  if (isRegisterStatus(value)) return value;
+  if (value === 'pending' || value === 'accepted' || value === 'postponed') return 'in_hand';
+  if (value === 'deposited') return 'under_collection';
+  if (value === 'insufficient_funds') return 'bounced';
+  if (value === 'partially_cleared') return 'cleared';
+  if (value === 'rejected') return 'cancelled';
+  if (value === 'cleared' || value === 'bounced' || value === 'cancelled') return value;
+  return 'in_hand';
+}
+
+function reviewStatusFromLine(chequeStatus: string | null, lineStatus: string): ChequeRegisterStatus {
+  if (chequeStatus) return normalizeChequeRegisterStatus(chequeStatus);
+  if (lineStatus === 'paid' || lineStatus === 'partially_paid') return 'cleared';
   if (lineStatus === 'bounced') return 'bounced';
   if (lineStatus === 'stopped') return 'cancelled';
-  if (lineStatus === 'collecting') return 'deposited';
-  return 'pending';
+  if (lineStatus === 'collecting') return 'under_collection';
+  return 'in_hand';
+}
+
+function receiveCreditCode(chequeNumber: string): '1200' | '4000' | '2100' {
+  if (/-DEP-/i.test(chequeNumber)) return '2100';
+  return '1200';
+}
+
+function parsePrevDueNote(notes: string | null | undefined): string | null {
+  const match = (notes ?? '').match(/prev_due=(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] ?? null;
+}
+
+function postponeNotes(prevDue: string, userNotes?: string): string {
+  const base = `prev_due=${prevDue}`;
+  const extra = userNotes?.trim();
+  return extra ? `${base}\n${extra}`.slice(0, 2000) : base;
 }
 
 /**
@@ -408,6 +481,8 @@ async function ensureChequesFromApprovedLeases(
     amountMinor: bigint;
     currency: string;
     dueOn: string;
+    reviewStatus: 'in_hand';
+    receivedOn: string;
   }> = [];
 
   for (const lease of leaseRows) {
@@ -450,6 +525,8 @@ async function ensureChequesFromApprovedLeases(
         amountMinor: BigInt(row.amountMinor),
         currency: lease.currency || 'OMR',
         dueOn: row.dueOn,
+        reviewStatus: 'in_hand',
+        receivedOn: row.dueOn,
       });
     }
   }
@@ -505,7 +582,7 @@ export async function listAccountingCheques(
       .limit(500);
 
     const leaseIds = leaseRows.map((row) => row.leaseId);
-    const [chequeRows, invoiceRows, orphanCheques] = await Promise.all([
+    const [chequeRows, invoiceRows, orphanCheques, operationRows] = await Promise.all([
       leaseIds.length
         ? tx
             .select({
@@ -517,6 +594,10 @@ export async function listAccountingCheques(
               collectedMinor: cheques.collectedMinor,
               dueOn: cheques.dueOn,
               reviewStatus: cheques.reviewStatus,
+              bounceReason: cheques.bounceReason,
+              receivedOn: cheques.receivedOn,
+              depositedOn: cheques.depositedOn,
+              clearedOn: cheques.clearedOn,
             })
             .from(cheques)
             .where(and(eq(cheques.organizationId, orgId), inArray(cheques.leaseId, leaseIds)))
@@ -555,6 +636,10 @@ export async function listAccountingCheques(
           currency: cheques.currency,
           dueOn: cheques.dueOn,
           reviewStatus: cheques.reviewStatus,
+          bounceReason: cheques.bounceReason,
+          receivedOn: cheques.receivedOn,
+          depositedOn: cheques.depositedOn,
+          clearedOn: cheques.clearedOn,
           leaseId: cheques.leaseId,
           tenantName: parties.displayName,
           propertyNameAr: properties.nameAr,
@@ -570,7 +655,56 @@ export async function listAccountingCheques(
         .where(eq(cheques.organizationId, orgId))
         .orderBy(asc(cheques.dueOn), desc(cheques.createdAt))
         .limit(2000),
+      tx
+        .select({
+          id: chequeOperations.id,
+          chequeId: chequeOperations.chequeId,
+          operation: chequeOperations.operation,
+          fromStatus: chequeOperations.fromStatus,
+          toStatus: chequeOperations.toStatus,
+          occurredOn: chequeOperations.occurredOn,
+          notes: chequeOperations.notes,
+          bounceReason: chequeOperations.bounceReason,
+          journalEntryId: chequeOperations.journalEntryId,
+          createdAt: chequeOperations.createdAt,
+          undoneAt: chequeOperations.undoneAt,
+        })
+        .from(chequeOperations)
+        .where(and(eq(chequeOperations.organizationId, orgId), isNull(chequeOperations.undoneAt)))
+        .orderBy(desc(chequeOperations.createdAt))
+        .limit(8000),
     ]);
+
+    const opsByCheque = new Map<string, ChequeOperationSummary[]>();
+    for (const op of operationRows) {
+      const list = opsByCheque.get(op.chequeId) ?? [];
+      if (list.length >= 5) continue;
+      list.push({
+        id: op.id,
+        operation: op.operation as ChequeOperationName,
+        fromStatus: op.fromStatus,
+        toStatus: op.toStatus,
+        occurredOn: String(op.occurredOn),
+        notes: op.notes,
+        bounceReason: op.bounceReason,
+        journalEntryId: op.journalEntryId,
+        createdAt: op.createdAt.toISOString(),
+      });
+      opsByCheque.set(op.chequeId, list);
+    }
+
+    const chequeMeta = new Map(
+      chequeRows.map((row) => [
+        row.id,
+        {
+          bounceReason: row.bounceReason,
+          receivedOn: row.receivedOn ? String(row.receivedOn) : null,
+          depositedOn: row.depositedOn ? String(row.depositedOn) : null,
+          clearedOn: row.clearedOn ? String(row.clearedOn) : null,
+          reviewStatus: normalizeChequeRegisterStatus(row.reviewStatus),
+        },
+      ]),
+    );
 
     const today = muscatToday();
     const usedChequeIds = new Set<string>();
@@ -622,7 +756,9 @@ export async function listAccountingCheques(
             amountMinor: cheque.amountMinor.toString(),
             collectedMinor: cheque.collectedMinor?.toString() ?? null,
             dueOn: String(cheque.dueOn),
-            reviewStatus: cheque.reviewStatus as import('@/lib/tenant-ledger').LedgerChequeStatus,
+            reviewStatus: normalizeChequeRegisterStatus(
+              cheque.reviewStatus,
+            ) as import('@/lib/tenant-ledger').LedgerChequeStatus,
           })),
         invoices: invoiceRows
           .filter((invoice) => invoice.leaseId === lease.leaseId)
@@ -679,6 +815,8 @@ export async function listAccountingCheques(
           depositCount += 1;
           depositMinor += amount;
         }
+        const meta = line.chequeId ? chequeMeta.get(line.chequeId) : undefined;
+        const registerStatus = reviewStatusFromLine(line.chequeStatus, line.status);
         out.push({
           id: line.chequeId ?? `line:${lease.leaseId}:${line.key}`,
           chequeNumber: line.chequeNumber || '—',
@@ -687,7 +825,11 @@ export async function listAccountingCheques(
           paidMinor: line.paidMinor,
           currency: lease.currency || 'OMR',
           dueOn: line.dueOn,
-          reviewStatus: reviewStatusFromLine(line.chequeStatus, line.status),
+          reviewStatus: registerStatus,
+          bounceReason: meta?.bounceReason ?? null,
+          receivedOn: meta?.receivedOn ?? null,
+          depositedOn: meta?.depositedOn ?? null,
+          clearedOn: meta?.clearedOn ?? null,
           lineStatus: line.status,
           kind: line.kind,
           lineKey: line.key,
@@ -695,6 +837,7 @@ export async function listAccountingCheques(
           tenantName: lease.tenantName,
           propertyName: lease.propertyNameAr || lease.propertyNameEn || null,
           unitCode: lease.unitCode,
+          operations: line.chequeId ? (opsByCheque.get(line.chequeId) ?? []) : [],
         });
       }
     }
@@ -705,20 +848,13 @@ export async function listAccountingCheques(
         continue;
       }
       const dueOn = String(row.dueOn);
-      const closed =
-        row.reviewStatus === 'cleared' ||
-        row.reviewStatus === 'cancelled' ||
-        row.reviewStatus === 'rejected';
+      const registerStatus = normalizeChequeRegisterStatus(row.reviewStatus);
+      const closed = registerStatus === 'cleared' || registerStatus === 'cancelled';
       let lineStatus = 'upcoming';
-      if (row.reviewStatus === 'cleared') lineStatus = 'paid';
-      else if (row.reviewStatus === 'partially_cleared') lineStatus = 'partially_paid';
-      else if (
-        row.reviewStatus === 'bounced' ||
-        row.reviewStatus === 'insufficient_funds'
-      )
-        lineStatus = 'bounced';
-      else if (row.reviewStatus === 'cancelled') lineStatus = 'stopped';
-      else if (row.reviewStatus === 'deposited') lineStatus = 'collecting';
+      if (registerStatus === 'cleared') lineStatus = 'paid';
+      else if (registerStatus === 'bounced') lineStatus = 'bounced';
+      else if (registerStatus === 'cancelled') lineStatus = 'stopped';
+      else if (registerStatus === 'under_collection') lineStatus = 'collecting';
       else if (dueOn < today) lineStatus = 'overdue';
       else if (dueOn <= today) lineStatus = 'due_soon';
       if (lineStatus === 'overdue' || lineStatus === 'bounced') overdueCount += 1;
@@ -726,16 +862,11 @@ export async function listAccountingCheques(
         expected += row.amountMinor;
         upcomingCount += 1;
       }
-      const paidAmount =
-        row.reviewStatus === 'cleared'
-          ? row.amountMinor
-          : row.reviewStatus === 'partially_cleared'
-            ? (row.collectedMinor ?? 0n)
-            : 0n;
-      if (closed) {
+      const paidAmount = registerStatus === 'cleared' ? row.amountMinor : 0n;
+      if (closed && registerStatus === 'cleared') {
         paidCount += 1;
         paidMinor += paidAmount > 0n ? paidAmount : row.amountMinor;
-      } else {
+      } else if (!closed) {
         remainingCount += 1;
         remainingMinor += row.amountMinor - paidAmount;
       }
@@ -748,7 +879,11 @@ export async function listAccountingCheques(
         paidMinor: paidAmount.toString(),
         currency: row.currency,
         dueOn,
-        reviewStatus: row.reviewStatus,
+        reviewStatus: registerStatus,
+        bounceReason: row.bounceReason,
+        receivedOn: row.receivedOn ? String(row.receivedOn) : null,
+        depositedOn: row.depositedOn ? String(row.depositedOn) : null,
+        clearedOn: row.clearedOn ? String(row.clearedOn) : null,
         lineStatus,
         kind: 'cheque',
         lineKey: row.leaseId ? `cheque-${row.id}` : null,
@@ -756,6 +891,7 @@ export async function listAccountingCheques(
         tenantName: row.tenantName,
         propertyName: row.propertyNameAr || row.propertyNameEn || null,
         unitCode: row.unitCode,
+        operations: opsByCheque.get(row.id) ?? [],
       });
     }
 
@@ -817,29 +953,28 @@ function plusIsoDays(iso: string, days: number): string {
 }
 
 function openCheque(row: AccountingChequeRow): boolean {
+  const status = normalizeChequeRegisterStatus(row.reviewStatus);
   return (
     row.lineStatus !== 'paid' &&
-    row.reviewStatus !== 'cleared' &&
-    row.reviewStatus !== 'cancelled' &&
-    row.reviewStatus !== 'rejected'
+    status !== 'cleared' &&
+    status !== 'cancelled'
   );
 }
 
-async function reverseChequeClearJournal(
+async function reverseJournalEntry(
   tx: GlTx,
   orgId: string,
   actorUserId: string,
-  chequeId: string,
-  chequeNumber: string,
-) {
+  entryId: string,
+  description: string,
+): Promise<void> {
   const entry = await tx.query.journalEntries.findFirst({
     where: and(
       eq(journalEntries.organizationId, orgId),
-      eq(journalEntries.sourceType, 'cheque_clear'),
-      eq(journalEntries.sourceId, chequeId),
+      eq(journalEntries.id, entryId),
       eq(journalEntries.status, 'posted'),
     ),
-    columns: { id: true, reference: true, reversalOfId: true },
+    columns: { id: true, reversalOfId: true },
   });
   if (!entry || entry.reversalOfId) return;
   const already = await tx.query.journalEntries.findFirst({
@@ -849,20 +984,19 @@ async function reverseChequeClearJournal(
   if (already) {
     await tx
       .update(journalEntries)
-      .set({ sourceType: 'cheque_clear_undone' })
+      .set({ sourceType: 'cheque_op_undone' })
       .where(eq(journalEntries.id, entry.id));
     return;
   }
   const sourceLines = await tx.select().from(journalLines).where(eq(journalLines.journalEntryId, entry.id));
   if (!sourceLines.length) return;
-  const occurredOn = muscatToday();
   const reversalRows = await tx
     .insert(journalEntries)
     .values({
       organizationId: orgId,
       reference: `REV-${randomUUID().replace(/-/g, '').slice(0, 20)}`,
-      occurredOn,
-      description: `تراجع تحصيل شيك ${chequeNumber}`.slice(0, 500),
+      occurredOn: muscatToday(),
+      description: description.slice(0, 500),
       status: 'posted',
       sourceType: 'journal_reversal',
       sourceId: entry.id,
@@ -887,144 +1021,355 @@ async function reverseChequeClearJournal(
       memo: line.memo,
     })),
   );
-  // Free the source key so a later clear can post a fresh journal.
   await tx
     .update(journalEntries)
-    .set({ sourceType: 'cheque_clear_undone' })
+    .set({ sourceType: 'cheque_op_undone' })
     .where(eq(journalEntries.id, entry.id));
 }
 
-/** Change cheque status freely (including undo). Supports postpone date and partial cash. */
-export async function setChequeLifecycleStatus(
+async function leaseDims(
+  tx: GlTx,
+  orgId: string,
+  leaseId: string | null,
+): Promise<Pick<PostingDimensions, 'partyId' | 'propertyId' | 'unitId'>> {
+  if (!leaseId) return {};
+  const lease = await tx
+    .select({
+      tenantPartyId: leases.tenantPartyId,
+      unitId: leases.unitId,
+      propertyId: units.propertyId,
+    })
+    .from(leases)
+    .innerJoin(units, eq(units.id, leases.unitId))
+    .where(and(eq(leases.id, leaseId), eq(leases.organizationId, orgId)))
+    .limit(1);
+  if (!lease[0]) return {};
+  return {
+    ...(lease[0].tenantPartyId ? { partyId: lease[0].tenantPartyId } : {}),
+    ...(lease[0].propertyId ? { propertyId: lease[0].propertyId } : {}),
+    ...(lease[0].unitId ? { unitId: lease[0].unitId } : {}),
+  };
+}
+
+type ChequeOpOpts = {
+  occurredOn?: string;
+  dueOn?: string;
+  bounceReason?: string;
+  notes?: string;
+  bankChargeMinor?: string;
+};
+
+/** Strict PDC register operation — one transition + optional journal + operations log. */
+export async function applyChequeOperation(
   claims: SessionClaims,
   id: string,
-  nextStatus: string,
-  opts?: {
-    notes?: string;
-    dueOn?: string;
-    collectedMinor?: string;
-  },
-): Promise<{ id: string; status: string; journalId?: string }> {
+  operation: string,
+  opts?: ChequeOpOpts,
+): Promise<{ id: string; status: string; operationId: string; journalId?: string }> {
   if (!canManageAccounting(claims)) fail('forbidden');
-  if (!UUID.test(id) || !isChequeLifecycleStatus(nextStatus)) fail('invalid_input');
+  if (!UUID.test(id) || !isChequeOperation(operation)) fail('invalid_input');
   const orgId = claims.organizationId!;
-  const noteText = opts?.notes?.trim();
+  const occurredOn = (opts?.occurredOn ?? muscatToday()).trim();
+  if (!ISO_DATE.test(occurredOn)) fail('invalid_input');
   const nextDue = opts?.dueOn?.trim();
   if (nextDue && !ISO_DATE.test(nextDue)) fail('invalid_input');
+  const noteText = opts?.notes?.trim();
+  const bounceReason = (opts?.bounceReason ?? '').trim().slice(0, 80);
+  const bankCharge = opts?.bankChargeMinor?.trim();
+
   return withinViewerTenant(claims, async (tx) => {
     const row = await tx
       .select({
         id: cheques.id,
         status: cheques.reviewStatus,
         amountMinor: cheques.amountMinor,
-        collectedMinor: cheques.collectedMinor,
         currency: cheques.currency,
         chequeNumber: cheques.chequeNumber,
         dueOn: cheques.dueOn,
         leaseId: cheques.leaseId,
-        updatedAt: cheques.updatedAt,
+        receivedOn: cheques.receivedOn,
+        depositedOn: cheques.depositedOn,
+        clearedOn: cheques.clearedOn,
+        bounceReason: cheques.bounceReason,
       })
       .from(cheques)
       .where(and(eq(cheques.id, id), eq(cheques.organizationId, orgId)))
       .limit(1);
     if (!row[0]) fail('not_found');
-    const current = isChequeLifecycleStatus(row[0].status) ? row[0].status : 'pending';
+    const current = normalizeChequeRegisterStatus(row[0].status);
+    const amount = row[0].amountMinor;
+    if (amount <= 0n) fail('invalid_input');
+    const dimsBase = await leaseDims(tx, orgId, row[0].leaseId);
+    const dims: PostingDimensions = { currency: row[0].currency, ...dimsBase };
+    const map = await ensureAccountCodeMap(tx, orgId);
+    const memo = `شيك ${row[0].chequeNumber}`.slice(0, 500);
 
-    let collectedMinor: bigint | null = row[0].collectedMinor ?? null;
-    if (nextStatus === 'partially_cleared') {
-      const raw = (opts?.collectedMinor ?? '').trim();
-      if (!/^[1-9]\d*$/.test(raw)) fail('invalid_input');
-      const partial = BigInt(raw);
-      if (partial <= 0n || partial >= row[0].amountMinor) fail('invalid_input');
-      collectedMinor = partial;
-    } else if (nextStatus === 'cleared') {
-      collectedMinor = row[0].amountMinor;
-    } else if (!isCollectedStatus(nextStatus)) {
-      collectedMinor = null;
-    }
-
-    if (isCollectedStatus(current) && !isCollectedStatus(nextStatus)) {
-      await reverseChequeClearJournal(tx, orgId, claims.sub, row[0].id, row[0].chequeNumber);
-    }
-
-    await tx
-      .update(cheques)
-      .set({
-        reviewStatus: nextStatus,
+    if (operation === 'undo') {
+      const last = await tx
+        .select()
+        .from(chequeOperations)
+        .where(
+          and(
+            eq(chequeOperations.organizationId, orgId),
+            eq(chequeOperations.chequeId, id),
+            isNull(chequeOperations.undoneAt),
+            ne(chequeOperations.operation, 'undo'),
+          ),
+        )
+        .orderBy(desc(chequeOperations.createdAt))
+        .limit(1);
+      if (!last[0]) fail('invalid_input');
+      const target = last[0];
+      if (target.journalEntryId) {
+        await reverseJournalEntry(
+          tx,
+          orgId,
+          claims.sub,
+          target.journalEntryId,
+          `تراجع عملية شيك ${row[0].chequeNumber}`,
+        );
+      }
+      const restoreStatus = normalizeChequeRegisterStatus(
+        target.fromStatus ?? current,
+      );
+      const patch: Record<string, unknown> = {
+        reviewStatus: restoreStatus,
         reviewedByUserId: claims.sub,
         reviewedAt: new Date(),
         updatedAt: new Date(),
-        collectedMinor,
-        ...(nextDue ? { dueOn: nextDue } : {}),
-        ...(nextStatus === 'postponed' && !nextDue
-          ? {}
-          : {}),
-        ...(noteText
-          ? { reviewNotes: noteText.slice(0, 2000) }
-          : nextStatus === 'insufficient_funds'
-            ? { reviewNotes: 'لا يوجد رصيد كافٍ' }
-            : nextStatus === 'postponed'
-              ? { reviewNotes: 'تأجيل بطلب من المستأجر' }
-              : {}),
-      })
-      .where(eq(cheques.id, id));
-
-    let journalId: string | undefined;
-    if (nextStatus === 'cleared' && row[0].amountMinor > 0n) {
-      let partyId: string | undefined;
-      let propertyId: string | undefined;
-      let unitId: string | undefined;
-      if (row[0].leaseId) {
-        const lease = await tx
-          .select({
-            tenantPartyId: leases.tenantPartyId,
-            unitId: leases.unitId,
-            propertyId: units.propertyId,
-          })
-          .from(leases)
-          .innerJoin(units, eq(units.id, leases.unitId))
-          .where(and(eq(leases.id, row[0].leaseId), eq(leases.organizationId, orgId)))
-          .limit(1);
-        if (lease[0]) {
-          partyId = lease[0].tenantPartyId ?? undefined;
-          propertyId = lease[0].propertyId ?? undefined;
-          unitId = lease[0].unitId ?? undefined;
-        }
+      };
+      if (target.operation === 'deposit' || target.operation === 'redeposit') {
+        patch.depositedOn = null;
       }
-      const map = await ensureAccountCodeMap(tx, orgId);
-      const memo = `شيك ${row[0].chequeNumber}`.slice(0, 500);
+      if (target.operation === 'collect') {
+        patch.clearedOn = null;
+        patch.collectedMinor = null;
+      }
+      if (target.operation === 'bounce') {
+        patch.bounceReason = null;
+      }
+      if (target.operation === 'postpone') {
+        const prev = parsePrevDueNote(target.notes);
+        if (prev) patch.dueOn = prev;
+      }
+      if (target.operation === 'receive') {
+        patch.receivedOn = null;
+      }
+      if (target.operation === 'cancel') {
+        patch.reviewNotes = null;
+      }
+      await tx.update(cheques).set(patch).where(eq(cheques.id, id));
+      await tx
+        .update(chequeOperations)
+        .set({ undoneAt: new Date(), updatedAt: new Date() })
+        .where(eq(chequeOperations.id, target.id));
+      const undoRows = await tx
+        .insert(chequeOperations)
+        .values({
+          organizationId: orgId,
+          chequeId: id,
+          operation: 'undo',
+          fromStatus: current,
+          toStatus: restoreStatus,
+          occurredOn,
+          amountMinor: amount,
+          notes: noteText?.slice(0, 2000) ?? `undo:${target.operation}`,
+          actorUserId: claims.sub,
+        })
+        .returning({ id: chequeOperations.id });
+      return {
+        id,
+        status: restoreStatus,
+        operationId: undoRows[0]!.id,
+      };
+    }
+
+    let toStatus: ChequeRegisterStatus = current;
+    let lines: JournalLineInput[] | null = null;
+    let description = '';
+    let opNotes = noteText?.slice(0, 2000) ?? null;
+    let opBounce: string | null = null;
+    const patch: Record<string, unknown> = {
+      reviewedByUserId: claims.sub,
+      reviewedAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    if (operation === 'receive') {
+      if (current !== 'in_hand') fail('invalid_transition');
+      toStatus = 'in_hand';
+      lines = postingChequeReceive(
+        map,
+        amount.toString(),
+        dims,
+        memo,
+        receiveCreditCode(row[0].chequeNumber),
+      );
+      description = `استلام شيك ${row[0].chequeNumber}`;
+      patch.receivedOn = occurredOn;
+      patch.reviewStatus = 'in_hand';
+    } else if (operation === 'deposit') {
+      if (current !== 'in_hand') fail('invalid_transition');
+      // Ensure intermediate 1140 balance exists before moving to under collection.
+      const priorReceive = await tx
+        .select({ id: chequeOperations.id, journalEntryId: chequeOperations.journalEntryId })
+        .from(chequeOperations)
+        .where(
+          and(
+            eq(chequeOperations.chequeId, id),
+            eq(chequeOperations.operation, 'receive'),
+            isNull(chequeOperations.undoneAt),
+          ),
+        )
+        .limit(1);
+      if (!priorReceive[0]?.journalEntryId) {
+        const receiveOpId = randomUUID();
+        const receivePosted = await postSourceDocumentInTx(tx, {
+          organizationId: orgId,
+          actorUserId: claims.sub,
+          occurredOn,
+          description: `استلام شيك ${row[0].chequeNumber}`.slice(0, 500),
+          sourceType: 'cheque_op',
+          sourceId: receiveOpId,
+          lines: postingChequeReceive(
+            map,
+            amount.toString(),
+            dims,
+            memo,
+            receiveCreditCode(row[0].chequeNumber),
+          ),
+        });
+        await tx.insert(chequeOperations).values({
+          id: receiveOpId,
+          organizationId: orgId,
+          chequeId: id,
+          operation: 'receive',
+          fromStatus: current,
+          toStatus: 'in_hand',
+          occurredOn,
+          amountMinor: amount,
+          notes: 'auto_receive_before_deposit',
+          journalEntryId: receivePosted.id,
+          actorUserId: claims.sub,
+        });
+        if (!row[0].receivedOn) patch.receivedOn = occurredOn;
+      }
+      toStatus = 'under_collection';
+      lines = postingChequeDeposit(map, amount.toString(), dims, memo);
+      description = `إيداع شيك ${row[0].chequeNumber}`;
+      patch.reviewStatus = 'under_collection';
+      patch.depositedOn = occurredOn;
+    } else if (operation === 'collect') {
+      if (current !== 'under_collection') fail('invalid_transition');
+      toStatus = 'cleared';
+      lines = postingChequeCollect(map, amount.toString(), dims, memo);
+      description = `تحصيل شيك ${row[0].chequeNumber}`;
+      patch.reviewStatus = 'cleared';
+      patch.clearedOn = occurredOn;
+      patch.collectedMinor = amount;
+    } else if (operation === 'bounce') {
+      if (current !== 'under_collection') fail('invalid_transition');
+      toStatus = 'bounced';
+      const reason = bounceReason || 'insufficient_funds';
+      opBounce = reason;
+      lines = postingChequeBounce(map, amount.toString(), dims, memo, bankCharge);
+      description = `ارتجاع شيك ${row[0].chequeNumber}`;
+      patch.reviewStatus = 'bounced';
+      patch.bounceReason = reason;
+      patch.reviewNotes = noteText?.slice(0, 2000) ?? reason;
+    } else if (operation === 'redeposit') {
+      if (current !== 'bounced') fail('invalid_transition');
+      toStatus = 'under_collection';
+      lines = postingChequeRedeposit(map, amount.toString(), dims, memo);
+      description = `إعادة إيداع شيك ${row[0].chequeNumber}`;
+      patch.reviewStatus = 'under_collection';
+      patch.depositedOn = occurredOn;
+      patch.bounceReason = null;
+    } else if (operation === 'cancel') {
+      if (current !== 'in_hand') fail('invalid_transition');
+      toStatus = 'cancelled';
+      const priorReceive = await tx
+        .select({ journalEntryId: chequeOperations.journalEntryId })
+        .from(chequeOperations)
+        .where(
+          and(
+            eq(chequeOperations.chequeId, id),
+            eq(chequeOperations.operation, 'receive'),
+            isNull(chequeOperations.undoneAt),
+          ),
+        )
+        .limit(1);
+      if (priorReceive[0]?.journalEntryId) {
+        lines = postingChequeCancelReceive(
+          map,
+          amount.toString(),
+          dims,
+          memo,
+          receiveCreditCode(row[0].chequeNumber),
+        );
+      }
+      description = `إلغاء شيك ${row[0].chequeNumber}`;
+      patch.reviewStatus = 'cancelled';
+      patch.reviewNotes = noteText?.slice(0, 2000) ?? 'cancelled';
+    } else if (operation === 'postpone') {
+      if (current !== 'in_hand') fail('invalid_transition');
+      if (!nextDue) fail('invalid_input');
+      toStatus = 'in_hand';
+      opNotes = postponeNotes(String(row[0].dueOn), noteText);
+      patch.dueOn = nextDue;
+      patch.reviewStatus = 'in_hand';
+      patch.reviewNotes = noteText?.slice(0, 2000) ?? 'تأجيل بطلب من المستأجر';
+      description = `تأجيل شيك ${row[0].chequeNumber}`;
+    } else {
+      fail('invalid_input');
+    }
+
+    const operationId = randomUUID();
+    let journalId: string | undefined;
+    if (lines) {
       const posted = await postSourceDocumentInTx(tx, {
         organizationId: orgId,
         actorUserId: claims.sub,
-        occurredOn: muscatToday(),
-        description: `تحصيل شيك ${row[0].chequeNumber}`.slice(0, 500),
-        sourceType: 'cheque_clear',
-        sourceId: row[0].id,
-        lines: postingRentReceipt(
-          map,
-          row[0].amountMinor.toString(),
-          {
-            currency: row[0].currency,
-            ...(partyId ? { partyId } : {}),
-            ...(propertyId ? { propertyId } : {}),
-            ...(unitId ? { unitId } : {}),
-          },
-          'cheque',
-          memo,
-        ),
+        occurredOn,
+        description: description.slice(0, 500),
+        sourceType: 'cheque_op',
+        sourceId: operationId,
+        lines,
       });
       journalId = posted.id;
     }
-    return { id, status: nextStatus, ...(journalId ? { journalId } : {}) };
+
+    await tx.update(cheques).set(patch).where(eq(cheques.id, id));
+    await tx.insert(chequeOperations).values({
+      id: operationId,
+      organizationId: orgId,
+      chequeId: id,
+      operation,
+      fromStatus: current,
+      toStatus,
+      occurredOn,
+      amountMinor: amount,
+      notes: opNotes,
+      bounceReason: opBounce,
+      journalEntryId: journalId ?? null,
+      actorUserId: claims.sub,
+    });
+
+    return {
+      id,
+      status: toStatus,
+      operationId,
+      ...(journalId ? { journalId } : {}),
+    };
   });
 }
 
-/** Accountant confirms clearance — shortcut to lifecycle `cleared`. */
+/** Accountant confirms clearance — deposit must already be under collection. */
 export async function confirmChequeCollected(
   claims: SessionClaims,
   id: string,
 ): Promise<{ id: string; journalId?: string }> {
-  const result = await setChequeLifecycleStatus(claims, id, 'cleared');
+  const result = await applyChequeOperation(claims, id, 'collect');
   return { id: result.id, ...(result.journalId ? { journalId: result.journalId } : {}) };
 }
 
@@ -1115,6 +1460,8 @@ export async function importAccountingCheques(
         amountMinor: BigInt(row.amountMinor),
         currency,
         dueOn: row.dueOn,
+        reviewStatus: 'in_hand',
+        receivedOn: row.dueOn,
       });
       seen.add(number.toLowerCase());
       imported += 1;

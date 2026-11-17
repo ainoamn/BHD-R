@@ -4,10 +4,25 @@ import { useEffect, useMemo, useState } from 'react';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { outstandingMinorOf, RentDocLinks } from '@/components/rent-doc-links';
 import { fetchAccountingJson, getAccountingCache, invalidateAccountingCache } from '@/lib/accounting-client-cache';
-import { accountingChequeStatusLabel } from '@/lib/accounting-i18n';
+import {
+  accountingChequeOperationLabel,
+  accountingChequeStatusLabel,
+} from '@/lib/accounting-i18n';
 import { browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { ledgerStatusLabel, type LedgerLineStatus } from '@/lib/tenant-ledger';
+
+type ChequeOp = {
+  id: string;
+  operation: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  occurredOn: string;
+  notes: string | null;
+  bounceReason: string | null;
+  journalEntryId: string | null;
+  createdAt: string;
+};
 
 type ChequeRow = {
   id: string;
@@ -18,6 +33,10 @@ type ChequeRow = {
   currency: string;
   dueOn: string;
   reviewStatus: string;
+  bounceReason?: string | null;
+  receivedOn?: string | null;
+  depositedOn?: string | null;
+  clearedOn?: string | null;
   lineStatus?: string;
   kind?: string;
   lineKey?: string | null;
@@ -25,6 +44,7 @@ type ChequeRow = {
   tenantName: string | null;
   propertyName: string | null;
   unitCode: string | null;
+  operations?: ChequeOp[];
 };
 
 const STATUS_TONE: Partial<Record<string, string>> = {
@@ -56,45 +76,33 @@ type Filter =
   | 'all'
   | 'past'
   | 'upcoming'
-  | 'remaining'
-  | 'paid'
-  | 'deposit'
-  | 'overdue'
-  | 'pending'
-  | 'accepted'
-  | 'deposited'
+  | 'in_hand'
+  | 'under_collection'
   | 'cleared'
   | 'bounced'
-  | 'postponed'
-  | 'insufficient_funds'
-  | 'partially_cleared';
+  | 'cancelled';
 
 type ActionDef = {
-  status: string;
+  operation: string;
   ar: string;
   en: string;
-  needs?: 'dueOn' | 'partial';
+  needs?: 'dueOn' | 'bounce';
+  primary?: boolean;
 };
 
-/** All operational actions — any can be applied/undone as long as the cheque has a DB id. */
-const LIFECYCLE_ACTIONS: ActionDef[] = [
-  { status: 'accepted', ar: 'استلام', en: 'Receive' },
-  { status: 'deposited', ar: 'إيداع بالبنك', en: 'Bank deposit' },
-  { status: 'cleared', ar: 'صرف كامل', en: 'Full clear' },
-  { status: 'partially_cleared', ar: 'صرف جزئي', en: 'Partial clear', needs: 'partial' },
-  { status: 'postponed', ar: 'تأجيل (طلب مستأجر)', en: 'Postpone', needs: 'dueOn' },
-  { status: 'insufficient_funds', ar: 'لا يوجد رصيد', en: 'No funds' },
-  { status: 'bounced', ar: 'مرتجع', en: 'Bounced' },
-  { status: 'pending', ar: 'تراجع / إعادة ضبط', en: 'Undo / reset' },
-  { status: 'cancelled', ar: 'إلغاء', en: 'Cancel' },
-];
-
 const PIPELINE = [
-  { id: 'pending', ar: 'بانتظار الاستلام', en: 'Awaiting receipt' },
-  { id: 'accepted', ar: 'مستلم', en: 'Received' },
-  { id: 'deposited', ar: 'مودع بالبنك', en: 'At bank' },
-  { id: 'cleared', ar: 'مصروف / محصّل', en: 'Cleared' },
+  { id: 'in_hand', ar: 'في اليد', en: 'In hand' },
+  { id: 'under_collection', ar: 'برسم التحصيل', en: 'Under collection' },
+  { id: 'cleared', ar: 'محصّل', en: 'Cleared' },
 ] as const;
+
+const BOUNCE_REASONS: Array<{ id: string; ar: string; en: string }> = [
+  { id: 'insufficient_funds', ar: 'لا يوجد رصيد', en: 'Insufficient funds' },
+  { id: 'signature', ar: 'توقيع غير مطابق', en: 'Signature mismatch' },
+  { id: 'account_closed', ar: 'حساب مغلق', en: 'Account closed' },
+  { id: 'stale', ar: 'شيك منتهي', en: 'Stale / expired' },
+  { id: 'other', ar: 'سبب آخر', en: 'Other' },
+];
 
 function kindLabel(kind: string | undefined, ar: boolean) {
   if (kind === 'deposit') return ar ? 'تأمين' : 'Deposit';
@@ -109,7 +117,45 @@ function isUuid(value: string) {
   );
 }
 
-/** Tenant cheque lifecycle register: all rent/VAT/deposit cheques from signed leases. */
+function normalizeStatus(status: string): string {
+  if (status === 'pending' || status === 'accepted' || status === 'postponed') return 'in_hand';
+  if (status === 'deposited') return 'under_collection';
+  if (status === 'insufficient_funds') return 'bounced';
+  if (status === 'partially_cleared') return 'cleared';
+  if (status === 'rejected') return 'cancelled';
+  return status;
+}
+
+function actionsFor(status: string): ActionDef[] {
+  const s = normalizeStatus(status);
+  if (s === 'in_hand') {
+    return [
+      { operation: 'deposit', ar: 'إيداع بالبنك', en: 'Deposit at bank', primary: true },
+      { operation: 'postpone', ar: 'تأجيل التاريخ', en: 'Postpone date', needs: 'dueOn' },
+      { operation: 'cancel', ar: 'إلغاء / إعادة للعميل', en: 'Cancel / return' },
+      { operation: 'undo', ar: 'تراجع عن آخر خطوة', en: 'Undo last step' },
+    ];
+  }
+  if (s === 'under_collection') {
+    return [
+      { operation: 'collect', ar: 'تحصيل', en: 'Collect', primary: true },
+      { operation: 'bounce', ar: 'ارتجاع', en: 'Bounce', needs: 'bounce' },
+      { operation: 'undo', ar: 'تراجع عن آخر خطوة', en: 'Undo last step' },
+    ];
+  }
+  if (s === 'bounced') {
+    return [
+      { operation: 'redeposit', ar: 'إعادة إيداع', en: 'Redeposit', primary: true },
+      { operation: 'undo', ar: 'تراجع عن آخر خطوة', en: 'Undo last step' },
+    ];
+  }
+  if (s === 'cleared' || s === 'cancelled') {
+    return [{ operation: 'undo', ar: 'تراجع عن آخر خطوة', en: 'Undo last step' }];
+  }
+  return [];
+}
+
+/** PDC cheque register: In hand → Under collection → Cleared (+ bounce / cancel). */
 export function AccountingChequesPanel({
   locale,
   active,
@@ -134,7 +180,8 @@ export function AccountingChequesPanel({
     action: ActionDef;
   }>(null);
   const [dialogDueOn, setDialogDueOn] = useState('');
-  const [dialogPartial, setDialogPartial] = useState('');
+  const [dialogBounce, setDialogBounce] = useState('insufficient_funds');
+  const [dialogNotes, setDialogNotes] = useState('');
   const [menuId, setMenuId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -171,66 +218,38 @@ export function AccountingChequesPanel({
   const visible = useMemo(() => {
     const list = rows ?? [];
     return list.filter((row) => {
-      const paid = BigInt(row.paidMinor || '0');
-      const amount = BigInt(row.amountMinor || '0');
-      const remaining = amount > paid;
-      const closed =
-        row.reviewStatus === 'cleared' ||
-        row.lineStatus === 'paid' ||
-        (!remaining && amount > 0n);
+      const status = normalizeStatus(row.reviewStatus);
       if (filter === 'all') return true;
       if (filter === 'past') return row.dueOn < today;
       if (filter === 'upcoming') {
-        return (
-          row.dueOn >= today &&
-          remaining &&
-          row.reviewStatus !== 'cleared' &&
-          row.reviewStatus !== 'cancelled'
-        );
+        return row.dueOn >= today && status !== 'cleared' && status !== 'cancelled';
       }
-      if (filter === 'remaining') return remaining && !closed;
-      if (filter === 'paid') return closed || row.reviewStatus === 'cleared';
-      if (filter === 'deposit') return row.kind === 'deposit';
-      if (filter === 'overdue') {
-        return (
-          row.lineStatus === 'overdue' ||
-          row.lineStatus === 'bounced' ||
-          (row.dueOn < today && remaining && row.reviewStatus !== 'cleared')
-        );
-      }
-      return row.reviewStatus === filter;
+      return status === filter;
     });
   }, [rows, filter, today]);
 
   const filters: Array<[Filter, string]> = [
     ['all', ar ? 'الكل' : 'All'],
+    ['in_hand', ar ? 'في اليد' : 'In hand'],
+    ['under_collection', ar ? 'برسم التحصيل' : 'Under collection'],
+    ['cleared', ar ? 'محصّل' : 'Cleared'],
+    ['bounced', ar ? 'مرتجع' : 'Bounced'],
+    ['cancelled', ar ? 'ملغى' : 'Cancelled'],
     ['past', ar ? 'سابقة' : 'Past'],
     ['upcoming', ar ? 'لاحقة' : 'Upcoming'],
-    ['remaining', ar ? 'متبقية' : 'Remaining'],
-    ['paid', ar ? 'مدفوعة' : 'Paid'],
-    ['deposit', ar ? 'تأمينات' : 'Deposits'],
-    ['overdue', ar ? 'متأخرة' : 'Overdue'],
-    ['pending', ar ? 'بانتظار' : 'Pending'],
-    ['accepted', ar ? 'مستلمة' : 'Received'],
-    ['deposited', ar ? 'مودعة' : 'Deposited'],
-    ['postponed', ar ? 'مؤجّلة' : 'Postponed'],
-    ['partially_cleared', ar ? 'جزئية' : 'Partial'],
-    ['cleared', ar ? 'مصروفة' : 'Cleared'],
-    ['insufficient_funds', ar ? 'بلا رصيد' : 'No funds'],
-    ['bounced', ar ? 'مرتجعة' : 'Bounced'],
   ];
 
   const statusLabel = (row: ChequeRow) => {
     if (row.lineStatus) {
       return ledgerStatusLabel(row.lineStatus as LedgerLineStatus, ar);
     }
-    return accountingChequeStatusLabel(row.reviewStatus, locale);
+    return accountingChequeStatusLabel(normalizeStatus(row.reviewStatus), locale);
   };
 
-  async function advanceStatus(
+  async function runOperation(
     row: ChequeRow,
-    status: string,
-    extra?: { dueOn?: string; collectedMinor?: string; notes?: string },
+    operation: string,
+    extra?: { dueOn?: string; bounceReason?: string; notes?: string },
   ) {
     if (!isUuid(row.id)) {
       setNotice(
@@ -248,9 +267,9 @@ export function AccountingChequesPanel({
         method: 'POST',
         body: JSON.stringify({
           id: row.id,
-          status,
+          operation,
           ...(extra?.dueOn ? { dueOn: extra.dueOn } : {}),
-          ...(extra?.collectedMinor ? { collectedMinor: extra.collectedMinor } : {}),
+          ...(extra?.bounceReason ? { bounceReason: extra.bounceReason } : {}),
           ...(extra?.notes ? { notes: extra.notes } : {}),
         }),
       });
@@ -260,11 +279,15 @@ export function AccountingChequesPanel({
       setDialog(null);
       setNotice(
         ar
-          ? `تم تحديث حالة الشيك ${row.chequeNumber}. يمكنك التراجع أو التعديل في أي وقت.`
-          : `Cheque ${row.chequeNumber} updated. You can undo or change it anytime.`,
+          ? `تم تسجيل عملية الشيك ${row.chequeNumber}. التراجع يعكس آخر خطوة فقط.`
+          : `Cheque ${row.chequeNumber} updated. Undo reverses the last step only.`,
       );
     } catch {
-      setNotice(ar ? 'تعذر تحديث حالة الشيك.' : 'Could not update cheque status.');
+      setNotice(
+        ar
+          ? 'تعذر تنفيذ العملية — تحقق من الحالة الحالية للشيك.'
+          : 'Could not run operation — check the cheque’s current status.',
+      );
     } finally {
       setBusyId(null);
     }
@@ -273,30 +296,28 @@ export function AccountingChequesPanel({
   function startAction(row: ChequeRow, action: ActionDef) {
     if (action.needs === 'dueOn') {
       setDialogDueOn(row.dueOn);
+      setDialogNotes('');
       setDialog({ row, action });
       return;
     }
-    if (action.needs === 'partial') {
-      setDialogPartial('');
+    if (action.needs === 'bounce') {
+      setDialogBounce('insufficient_funds');
+      setDialogNotes('');
       setDialog({ row, action });
       return;
     }
-    void advanceStatus(row, action.status);
-  }
-
-  function availableActions(row: ChequeRow): ActionDef[] {
-    return LIFECYCLE_ACTIONS.filter((action) => action.status !== row.reviewStatus);
+    void runOperation(row, action.operation);
   }
 
   return (
     <div className="accounting-hub__panel cheque-lifecycle">
       <div className="accounting-hub__toolbar">
         <div>
-          <h2>{ar ? 'نظام تتبّع الشيكات' : 'Cheque tracking system'}</h2>
+          <h2>{ar ? 'سجل الشيكات (PDC)' : 'Cheque register (PDC)'}</h2>
           <p className="accounting-hub__hint">
             {ar
-              ? 'كل شيكات الإيجار والضريبة والتأمين من العقود الموثّقة — من الاستلام حتى الإيداع والصرف أو الارتجاع.'
-              : 'All rent, VAT and deposit cheques from signed leases — from receipt through bank deposit to clearance or bounce.'}
+              ? 'دورة معيارية: في اليد → برسم التحصيل → محصّل. كل خطوة عملية بقيد، والتراجع لآخر عملية فقط.'
+              : 'Standard path: in hand → under collection → cleared. Each step is an operation with a journal; undo reverses the last step only.'}
           </p>
         </div>
       </div>
@@ -325,15 +346,8 @@ export function AccountingChequesPanel({
             <strong>{summary.upcomingCount}</strong>
             <em>{formatMoney(summary.expectedMinor, summary.currency || 'OMR', locale)}</em>
           </div>
-          <div className="cheque-lifecycle__stat">
-            <span>{ar ? 'متبقية' : 'Remaining'}</span>
-            <strong>{summary.remainingCount ?? 0}</strong>
-            <em>
-              {formatMoney(summary.remainingMinor ?? '0', summary.currency || 'OMR', locale)}
-            </em>
-          </div>
           <div className="cheque-lifecycle__stat cheque-lifecycle__stat--good">
-            <span>{ar ? 'مدفوعة' : 'Paid'}</span>
+            <span>{ar ? 'محصّلة' : 'Cleared'}</span>
             <strong>{summary.paidCount ?? 0}</strong>
             <em>{formatMoney(summary.paidMinor ?? '0', summary.currency || 'OMR', locale)}</em>
           </div>
@@ -366,21 +380,11 @@ export function AccountingChequesPanel({
             {id !== 'all' && rows
               ? ` (${
                   rows.filter((row) => {
-                    const paid = BigInt(row.paidMinor || '0');
-                    const amount = BigInt(row.amountMinor || '0');
-                    const remaining = amount > paid;
+                    const status = normalizeStatus(row.reviewStatus);
                     if (id === 'past') return row.dueOn < today;
                     if (id === 'upcoming')
-                      return row.dueOn >= today && remaining && row.reviewStatus !== 'cleared';
-                    if (id === 'remaining') return remaining && row.reviewStatus !== 'cleared';
-                    if (id === 'paid') return !remaining || row.reviewStatus === 'cleared';
-                    if (id === 'deposit') return row.kind === 'deposit';
-                    if (id === 'overdue')
-                      return (
-                        row.lineStatus === 'overdue' ||
-                        (row.dueOn < today && remaining && row.reviewStatus !== 'cleared')
-                      );
-                    return row.reviewStatus === id;
+                      return row.dueOn >= today && status !== 'cleared' && status !== 'cancelled';
+                    return status === id;
                   }).length
                 })`
               : ''}
@@ -405,8 +409,8 @@ export function AccountingChequesPanel({
               <th>{ar ? 'المبنى / الوحدة' : 'Property / unit'}</th>
               <th>{ar ? 'البنك' : 'Bank'}</th>
               <th>{ar ? 'الاستحقاق' : 'Due'}</th>
-              <th>{ar ? 'حالة التحصيل' : 'Collection'}</th>
-              <th>{ar ? 'دورة الشيك' : 'Lifecycle'}</th>
+              <th>{ar ? 'الحالة' : 'Status'}</th>
+              <th>{ar ? 'التواريخ' : 'Dates'}</th>
               <th className="num">{ar ? 'المبلغ' : 'Amount'}</th>
               <th>{ar ? 'الإيصال' : 'Docs'}</th>
               <th>{ar ? 'إجراءات' : 'Actions'}</th>
@@ -429,11 +433,17 @@ export function AccountingChequesPanel({
               visible.map((row) => {
                 const tone = STATUS_TONE[row.lineStatus || ''] ?? '';
                 const paid = row.paidMinor ?? '0';
-                const actions = availableActions(row);
-                const primary = actions.filter((action) =>
-                  ['accepted', 'deposited', 'cleared', 'pending'].includes(action.status),
-                );
-                const more = actions.filter((action) => !primary.includes(action));
+                const status = normalizeStatus(row.reviewStatus);
+                const actions = actionsFor(status);
+                const primary = actions.filter((action) => action.primary);
+                const more = actions.filter((action) => !action.primary);
+                const dates = [
+                  row.receivedOn ? `${ar ? 'استلام' : 'Rcv'} ${row.receivedOn}` : null,
+                  row.depositedOn ? `${ar ? 'إيداع' : 'Dep'} ${row.depositedOn}` : null,
+                  row.clearedOn ? `${ar ? 'تحصيل' : 'Clr'} ${row.clearedOn}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
                 return (
                   <tr key={row.id} data-kind={row.kind || 'cheque'}>
                     <td>
@@ -451,23 +461,36 @@ export function AccountingChequesPanel({
                     <td>{row.bankName}</td>
                     <td dir="ltr">{row.dueOn}</td>
                     <td>
+                      <span className={`cheque-lifecycle__status cheque-lifecycle__status--${status}`}>
+                        {accountingChequeStatusLabel(status, locale)}
+                      </span>
+                      {row.bounceReason ? (
+                        <div className="accounting-hub__meta">
+                          {BOUNCE_REASONS.find((item) => item.id === row.bounceReason)
+                            ? ar
+                              ? BOUNCE_REASONS.find((item) => item.id === row.bounceReason)!.ar
+                              : BOUNCE_REASONS.find((item) => item.id === row.bounceReason)!.en
+                            : row.bounceReason}
+                        </div>
+                      ) : null}
+                      {row.operations && row.operations.length ? (
+                        <div className="cheque-lifecycle__ops">
+                          {row.operations.slice(0, 3).map((op) => (
+                            <span key={op.id}>
+                              {accountingChequeOperationLabel(op.operation, locale)} · {op.occurredOn}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
                       <span className={`tenant-status${tone ? ` tenant-status--${tone}` : ''}`}>
                         {statusLabel(row)}
                       </span>
                     </td>
-                    <td>
-                      <span className={`cheque-lifecycle__status cheque-lifecycle__status--${row.reviewStatus}`}>
-                        {accountingChequeStatusLabel(row.reviewStatus, locale)}
-                      </span>
+                    <td className="accounting-hub__meta" dir="ltr">
+                      {dates || '—'}
                     </td>
                     <td className="num">
                       {formatMoney(row.amountMinor, row.currency || 'OMR', locale)}
-                      {row.reviewStatus === 'partially_cleared' && paid !== '0' ? (
-                        <div className="accounting-hub__meta">
-                          {ar ? 'محصّل:' : 'Cashed:'}{' '}
-                          {formatMoney(paid, row.currency || 'OMR', locale)}
-                        </div>
-                      ) : null}
                     </td>
                     <td>
                       {row.leaseId && row.lineKey ? (
@@ -488,15 +511,9 @@ export function AccountingChequesPanel({
                         {canManage
                           ? primary.map((action) => (
                               <button
-                                key={action.status}
+                                key={action.operation}
                                 type="button"
-                                className={`button button--tiny ${
-                                  action.status === 'cleared'
-                                    ? 'button--primary'
-                                    : action.status === 'pending'
-                                      ? 'button--quiet'
-                                      : 'button--quiet'
-                                }`}
+                                className="button button--tiny button--primary"
                                 disabled={busyId === row.id}
                                 onClick={() => startAction(row, action)}
                               >
@@ -521,7 +538,7 @@ export function AccountingChequesPanel({
                               <div className="cheque-lifecycle__menu" role="menu">
                                 {more.map((action) => (
                                   <button
-                                    key={action.status}
+                                    key={action.operation}
                                     type="button"
                                     role="menuitem"
                                     onClick={() => startAction(row, action)}
@@ -542,7 +559,7 @@ export function AccountingChequesPanel({
                             .filter(Boolean)
                             .join(' · ')}
                           dueOn={row.dueOn}
-                          status={row.lineStatus || row.reviewStatus}
+                          status={row.lineStatus || status}
                         />
                       </div>
                     </td>
@@ -570,20 +587,29 @@ export function AccountingChequesPanel({
                 />
               </label>
             ) : null}
-            {dialog.action.needs === 'partial' ? (
+            {dialog.action.needs === 'bounce' ? (
               <label>
-                {ar
-                  ? `المبلغ المحصّل جزئياً (من أصل ${dialog.row.amountMinor})`
-                  : `Partial amount collected (of ${dialog.row.amountMinor})`}
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={dialogPartial}
-                  onChange={(event) => setDialogPartial(event.target.value.replace(/\D/g, ''))}
-                  placeholder={ar ? 'بالم وحدة صغرى' : 'minor units'}
-                />
+                {ar ? 'سبب الارتجاع' : 'Bounce reason'}
+                <select
+                  value={dialogBounce}
+                  onChange={(event) => setDialogBounce(event.target.value)}
+                >
+                  {BOUNCE_REASONS.map((reason) => (
+                    <option key={reason.id} value={reason.id}>
+                      {ar ? reason.ar : reason.en}
+                    </option>
+                  ))}
+                </select>
               </label>
             ) : null}
+            <label>
+              {ar ? 'ملاحظات (اختياري)' : 'Notes (optional)'}
+              <input
+                type="text"
+                value={dialogNotes}
+                onChange={(event) => setDialogNotes(event.target.value)}
+              />
+            </label>
             <div className="cheque-lifecycle__dialog-actions">
               <button
                 type="button"
@@ -599,16 +625,16 @@ export function AccountingChequesPanel({
                 onClick={() => {
                   if (dialog.action.needs === 'dueOn') {
                     if (!/^\d{4}-\d{2}-\d{2}$/.test(dialogDueOn)) return;
-                    void advanceStatus(dialog.row, dialog.action.status, {
+                    void runOperation(dialog.row, dialog.action.operation, {
                       dueOn: dialogDueOn,
-                      notes: ar ? 'تأجيل بطلب من المستأجر' : 'Postponed by tenant request',
+                      ...(dialogNotes.trim() ? { notes: dialogNotes.trim() } : {}),
                     });
                     return;
                   }
-                  if (dialog.action.needs === 'partial') {
-                    if (!/^[1-9]\d*$/.test(dialogPartial)) return;
-                    void advanceStatus(dialog.row, dialog.action.status, {
-                      collectedMinor: dialogPartial,
+                  if (dialog.action.needs === 'bounce') {
+                    void runOperation(dialog.row, dialog.action.operation, {
+                      bounceReason: dialogBounce,
+                      ...(dialogNotes.trim() ? { notes: dialogNotes.trim() } : {}),
                     });
                   }
                 }}

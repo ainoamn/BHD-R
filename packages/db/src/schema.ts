@@ -2327,6 +2327,8 @@ export const rentalApplications = pgTable(
   ],
 );
 
+/** PDC register statuses are in_hand | under_collection | cleared | bounced | cancelled.
+ * Legacy values remain for DB compatibility and are normalized on read/write. */
 export const chequeReviewStatus = pgEnum('cheque_review_status', [
   'pending',
   'accepted',
@@ -2338,6 +2340,19 @@ export const chequeReviewStatus = pgEnum('cheque_review_status', [
   'postponed',
   'insufficient_funds',
   'partially_cleared',
+  'in_hand',
+  'under_collection',
+]);
+
+export const chequeOperationType = pgEnum('cheque_operation_type', [
+  'receive',
+  'deposit',
+  'collect',
+  'bounce',
+  'redeposit',
+  'cancel',
+  'postpone',
+  'undo',
 ]);
 
 export const cheques = pgTable(
@@ -2355,7 +2370,7 @@ export const cheques = pgTable(
     bankName: varchar('bank_name', { length: 160 }).notNull(),
     chequeNumber: varchar('cheque_number', { length: 80 }).notNull(),
     amountMinor: bigint('amount_minor', { mode: 'bigint' }).notNull(),
-    /** Amount already cashed when status is partially_cleared (minor units). */
+    /** Legacy partial-clear amount; full clear only in the PDC register model. */
     collectedMinor: bigint('collected_minor', { mode: 'bigint' }),
     currency: varchar('currency', { length: 3 }).notNull(),
     dueOn: date('due_on').notNull(),
@@ -2364,11 +2379,43 @@ export const cheques = pgTable(
     reviewedByUserId: uuid('reviewed_by_user_id').references(() => users.id),
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
     reviewNotes: text('review_notes'),
+    bounceReason: varchar('bounce_reason', { length: 80 }),
+    receivedOn: date('received_on'),
+    depositedOn: date('deposited_on'),
+    clearedOn: date('cleared_on'),
+    bankAccountMemo: varchar('bank_account_memo', { length: 160 }),
   },
   (table) => [
     uniqueIndex('cheques_org_number_unique').on(table.organizationId, table.chequeNumber),
     index('cheques_org_status_idx').on(table.organizationId, table.reviewStatus),
     index('cheques_due_idx').on(table.organizationId, table.dueOn),
+  ],
+);
+
+export const chequeOperations = pgTable(
+  'cheque_operations',
+  {
+    ...identityColumns,
+    organizationId: uuid('organization_id')
+      .notNull()
+      .references(() => organizations.id),
+    chequeId: uuid('cheque_id')
+      .notNull()
+      .references(() => cheques.id, { onDelete: 'cascade' }),
+    operation: chequeOperationType('operation').notNull(),
+    fromStatus: chequeReviewStatus('from_status'),
+    toStatus: chequeReviewStatus('to_status'),
+    occurredOn: date('occurred_on').notNull(),
+    amountMinor: bigint('amount_minor', { mode: 'bigint' }),
+    notes: text('notes'),
+    bounceReason: varchar('bounce_reason', { length: 80 }),
+    journalEntryId: uuid('journal_entry_id').references(() => journalEntries.id),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+    undoneAt: timestamp('undone_at', { withTimezone: true }),
+  },
+  (table) => [
+    index('cheque_operations_cheque_idx').on(table.chequeId, table.createdAt),
+    index('cheque_operations_org_idx').on(table.organizationId, table.occurredOn),
   ],
 );
 

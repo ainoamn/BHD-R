@@ -16,7 +16,9 @@ export type LedgerChequeStatus =
   | 'cancelled'
   | 'postponed'
   | 'insufficient_funds'
-  | 'partially_cleared';
+  | 'partially_cleared'
+  | 'in_hand'
+  | 'under_collection';
 
 export type LedgerCheque = {
   id: string;
@@ -180,10 +182,17 @@ function lineStatus(
   today: string,
 ): LedgerLineStatus {
   if (paid >= amount) return 'paid';
-  if (cheque?.reviewStatus === 'bounced' || cheque?.reviewStatus === 'insufficient_funds')
+  if (
+    cheque?.reviewStatus === 'bounced' ||
+    cheque?.reviewStatus === 'insufficient_funds'
+  )
     return 'bounced';
-  if (cheque?.reviewStatus === 'cancelled') return 'stopped';
-  if (cheque?.reviewStatus === 'deposited') return 'collecting';
+  if (cheque?.reviewStatus === 'cancelled' || cheque?.reviewStatus === 'rejected') return 'stopped';
+  if (
+    cheque?.reviewStatus === 'deposited' ||
+    cheque?.reviewStatus === 'under_collection'
+  )
+    return 'collecting';
   if (cheque?.reviewStatus === 'postponed') {
     return dueOn < today ? 'overdue' : dueOn <= plusDays(today, DUE_SOON_DAYS) ? 'due_soon' : 'upcoming';
   }
@@ -191,7 +200,10 @@ function lineStatus(
     if (paid >= amount) return 'paid';
     return 'partially_paid';
   }
-  const holdsCheque = cheque?.reviewStatus === 'pending' || cheque?.reviewStatus === 'accepted';
+  const holdsCheque =
+    cheque?.reviewStatus === 'pending' ||
+    cheque?.reviewStatus === 'accepted' ||
+    cheque?.reviewStatus === 'in_hand';
   if (dueOn < today) {
     if (holdsCheque) return 'collecting';
     return paid > 0n ? 'partially_paid' : 'overdue';
@@ -630,6 +642,8 @@ export function chequeIsAdjustable(line: LedgerLine): boolean {
   return (
     Boolean(line.chequeId) &&
     line.status !== 'paid' &&
-    (line.chequeStatus === 'pending' || line.chequeStatus === 'accepted')
+    (line.chequeStatus === 'pending' ||
+      line.chequeStatus === 'accepted' ||
+      line.chequeStatus === 'in_hand')
   );
 }
