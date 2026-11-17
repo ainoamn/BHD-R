@@ -992,6 +992,40 @@ export function PropertyWizard({
     setProfile((current) => ({ ...current, [field]: value }));
   }
 
+  function commitProfileField(
+    field: Exclude<keyof typeof profile, 'showOwnerNameOnListing' | 'furnishing' | 'usageType'>,
+    value: string,
+  ) {
+    updateProfile(field, value);
+  }
+
+  /** Read uncontrolled profile text inputs so validate/submit see what is on screen. */
+  function profileWithLiveInputs() {
+    if (typeof document === 'undefined') return profile;
+    const read = (id: string, fallback: string) => {
+      const el = document.getElementById(id);
+      return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement
+        ? el.value
+        : fallback;
+    };
+    const builtFromMulti = read('multi-total-area', '');
+    const builtFromOps = read('built-area', '');
+    return {
+      ...profile,
+      landArea: read('land-area', profile.landArea),
+      builtUpArea: builtFromMulti || builtFromOps || profile.builtUpArea,
+      yearBuilt: read('year-built', profile.yearBuilt),
+      parkingSpaces: read('parking-spaces', profile.parkingSpaces),
+      deedNumber: read('deed-number', profile.deedNumber),
+      plotNumber: read('plot-number', profile.plotNumber),
+      municipalityNumber: read('municipality-number', profile.municipalityNumber),
+      insuranceNumber: read('insurance-number', profile.insuranceNumber),
+      electricityMeter: read('electricity-meter', profile.electricityMeter),
+      waterMeter: read('water-meter', profile.waterMeter),
+      notes: read('property-notes', profile.notes),
+    };
+  }
+
   function validateStep(index: number): string[] {
     const issues: string[] = [];
     if (index === 0) {
@@ -1025,8 +1059,9 @@ export function PropertyWizard({
     }
     if (index === 1) {
       const liveUnits = unitsWithLiveInputs(units);
+      const liveProfile = profileWithLiveInputs();
       if (kind === 'multi_unit') {
-        if (!profile.builtUpArea.trim() || !(Number(profile.builtUpArea) > 0)) {
+        if (!liveProfile.builtUpArea.trim() || !(Number(liveProfile.builtUpArea) > 0)) {
           issues.push(t('PropertyForm.multiUnitTotalArea'));
         }
         liveUnits.forEach((unit, i) => {
@@ -1090,6 +1125,9 @@ export function PropertyWizard({
       // so Continue never complains about a field that is still hidden.
       if (step === 1 && guidedCreate) {
         revealGuidedUnitsFromLive();
+      }
+      if (step === 1 || step === 2 || step === 3) {
+        setProfile(profileWithLiveInputs());
       }
       const issues = validateStep(step);
       if (issues.length) {
@@ -1651,48 +1689,63 @@ export function PropertyWizard({
             longitude: property.longitude ? Number(property.longitude) : undefined,
           },
           defaultCurrency: currency,
-          profile: {
-            deedNumber: profile.deedNumber || undefined,
-            plotNumber: profile.plotNumber || undefined,
-            municipalityNumber: profile.municipalityNumber || undefined,
-            landAreaSquareMeters: profile.landArea || undefined,
-            builtUpAreaSquareMeters: profile.builtUpArea || undefined,
-            yearBuilt: profile.yearBuilt ? Number(profile.yearBuilt) : undefined,
-            parkingSpaces: profile.parkingSpaces ? Number(profile.parkingSpaces) : undefined,
-            furnishing: profile.furnishing,
-            managementStartedOn: profile.managementStartedOn || undefined,
-            managementFee: profile.managementFee
-              ? { amountMinor: toMinorUnits(profile.managementFee, currency), currency }
-              : undefined,
-            showOwnerNameOnListing: profile.showOwnerNameOnListing,
-            notes:
-              [
-                profile.notes.trim(),
-                profile.usageType ? `Usage type: ${profile.usageType}` : '',
-                property.mapsUrl.trim() ? `Google Maps: ${property.mapsUrl.trim()}` : '',
-              ]
-                .filter(Boolean)
-                .join('\n') || undefined,
-          },
+          profile: (() => {
+            const liveProfile = profileWithLiveInputs();
+            return {
+              deedNumber: liveProfile.deedNumber || undefined,
+              plotNumber: liveProfile.plotNumber || undefined,
+              municipalityNumber: liveProfile.municipalityNumber || undefined,
+              landAreaSquareMeters: liveProfile.landArea || undefined,
+              builtUpAreaSquareMeters: liveProfile.builtUpArea || undefined,
+              yearBuilt: liveProfile.yearBuilt ? Number(liveProfile.yearBuilt) : undefined,
+              parkingSpaces: liveProfile.parkingSpaces
+                ? Number(liveProfile.parkingSpaces)
+                : undefined,
+              furnishing: liveProfile.furnishing,
+              managementStartedOn: liveProfile.managementStartedOn || undefined,
+              managementFee: liveProfile.managementFee
+                ? { amountMinor: toMinorUnits(liveProfile.managementFee, currency), currency }
+                : undefined,
+              showOwnerNameOnListing: liveProfile.showOwnerNameOnListing,
+              notes:
+                [
+                  liveProfile.notes.trim(),
+                  liveProfile.usageType ? `Usage type: ${liveProfile.usageType}` : '',
+                  property.mapsUrl.trim() ? `Google Maps: ${property.mapsUrl.trim()}` : '',
+                ]
+                  .filter(Boolean)
+                  .join('\n') || undefined,
+            };
+          })(),
           amenities: amenityPayload,
-          meters: [
-            ...(profile.electricityMeter
-              ? [{ utilityType: 'electricity' as const, meterNumber: profile.electricityMeter }]
+          meters: (() => {
+            const liveProfile = profileWithLiveInputs();
+            return [
+              ...(liveProfile.electricityMeter
+                ? [
+                    {
+                      utilityType: 'electricity' as const,
+                      meterNumber: liveProfile.electricityMeter,
+                    },
+                  ]
+                : []),
+              ...(liveProfile.waterMeter
+                ? [{ utilityType: 'water' as const, meterNumber: liveProfile.waterMeter }]
+                : []),
+            ];
+          })(),
+          documents: (() => {
+            const liveProfile = profileWithLiveInputs();
+            return [
+            ...(liveProfile.deedNumber
+              ? [{ documentType: 'title_deed' as const, documentNumber: liveProfile.deedNumber }]
               : []),
-            ...(profile.waterMeter
-              ? [{ utilityType: 'water' as const, meterNumber: profile.waterMeter }]
-              : []),
-          ],
-          documents: [
-            ...(profile.deedNumber
-              ? [{ documentType: 'title_deed' as const, documentNumber: profile.deedNumber }]
-              : []),
-            ...(profile.insuranceNumber
+            ...(liveProfile.insuranceNumber
               ? [
                   {
                     documentType: 'insurance' as const,
-                    documentNumber: profile.insuranceNumber,
-                    expiresOn: profile.insuranceExpiresOn || undefined,
+                    documentNumber: liveProfile.insuranceNumber,
+                    expiresOn: liveProfile.insuranceExpiresOn || undefined,
                   },
                 ]
               : []),
@@ -1711,7 +1764,8 @@ export function PropertyWizard({
                       ? 'سند ملكية — خاص بالمالك فقط'
                       : 'Title deed — owner-private only',
             })),
-          ],
+          ];
+          })(),
         },
         units: (unitsWithLiveInputs(units.length ? units : [blankUnit(1)])).map((unit, index) => {
           const names = unitDisplayNames(unit);
@@ -2656,11 +2710,18 @@ export function PropertyWizard({
                         <div className="form-grid" style={{ marginBottom: '1rem' }}>
                           <Field
                             id="multi-total-area"
+                            type="text"
                             inputMode="decimal"
+                            autoComplete="off"
                             label={t('PropertyForm.multiUnitTotalArea')}
-                            value={profile.builtUpArea}
+                            defaultValue={profile.builtUpArea}
                             tone={tone(profile.builtUpArea, true, showErrors)}
-                            onChange={(event) => updateProfile('builtUpArea', event.target.value)}
+                            onChange={() => {
+                              guardTextTyping();
+                            }}
+                            onBlur={(event) => {
+                              commitProfileField('builtUpArea', event.currentTarget.value);
+                            }}
                             required
                             hint={t('PropertyForm.multiUnitTotalAreaHint')}
                           />
@@ -3314,14 +3375,17 @@ export function PropertyWizard({
                           inputMode="decimal"
                           autoComplete="off"
                           label={ar ? 'مساحة الأرض (م²)' : 'Land area (m²)'}
-                          value={profile.landArea}
-                          onChange={(event) => {
+                          defaultValue={profile.landArea}
+                          onChange={() => {
                             guardTextTyping();
-                            updateProfile('landArea', event.target.value);
+                          }}
+                          onBlur={(event) => {
+                            commitProfileField('landArea', event.currentTarget.value);
                           }}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return;
                             event.preventDefault();
+                            commitProfileField('landArea', event.currentTarget.value);
                             advanceGuided(2, 1, event.currentTarget, true);
                           }}
                         />
@@ -3339,14 +3403,17 @@ export function PropertyWizard({
                                 ? 'المساحة المبنية (م²)'
                                 : 'Built-up area (m²)'
                           }
-                          value={profile.builtUpArea}
-                          onChange={(event) => {
+                          defaultValue={profile.builtUpArea}
+                          onChange={() => {
                             guardTextTyping();
-                            updateProfile('builtUpArea', event.target.value);
+                          }}
+                          onBlur={(event) => {
+                            commitProfileField('builtUpArea', event.currentTarget.value);
                           }}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return;
                             event.preventDefault();
+                            commitProfileField('builtUpArea', event.currentTarget.value);
                             advanceGuided(2, 2, event.currentTarget, true);
                           }}
                         />
@@ -3358,14 +3425,17 @@ export function PropertyWizard({
                           inputMode="numeric"
                           autoComplete="off"
                           label={ar ? 'سنة البناء' : 'Year built'}
-                          value={profile.yearBuilt}
-                          onChange={(event) => {
+                          defaultValue={profile.yearBuilt}
+                          onChange={() => {
                             guardTextTyping();
-                            updateProfile('yearBuilt', event.target.value);
+                          }}
+                          onBlur={(event) => {
+                            commitProfileField('yearBuilt', event.currentTarget.value);
                           }}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return;
                             event.preventDefault();
+                            commitProfileField('yearBuilt', event.currentTarget.value);
                             advanceGuided(2, 3, event.currentTarget, true);
                           }}
                         />
@@ -3377,14 +3447,17 @@ export function PropertyWizard({
                           inputMode="numeric"
                           autoComplete="off"
                           label={ar ? 'عدد المواقف' : 'Parking spaces'}
-                          value={profile.parkingSpaces}
-                          onChange={(event) => {
+                          defaultValue={profile.parkingSpaces}
+                          onChange={() => {
                             guardTextTyping();
-                            updateProfile('parkingSpaces', event.target.value);
+                          }}
+                          onBlur={(event) => {
+                            commitProfileField('parkingSpaces', event.currentTarget.value);
                           }}
                           onKeyDown={(event) => {
                             if (event.key !== 'Enter') return;
                             event.preventDefault();
+                            commitProfileField('parkingSpaces', event.currentTarget.value);
                             // Furnishing always has a default — unlock it and amenities together.
                             unlockGuided(2, 5);
                             advanceGuided(2, 4, event.currentTarget, true);
@@ -3542,12 +3615,20 @@ export function PropertyWizard({
                     <GuidedReveal step={3} order={3}>
                       <Field
                         id="deed-number"
+                        type="text"
+                        autoComplete="off"
                         label={ar ? 'رقم سند الملكية' : 'Title deed number'}
-                        value={profile.deedNumber}
-                        onChange={(event) => updateProfile('deedNumber', event.target.value)}
+                        defaultValue={profile.deedNumber}
+                        onChange={() => {
+                          guardTextTyping();
+                        }}
+                        onBlur={(event) => {
+                          commitProfileField('deedNumber', event.currentTarget.value);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter') return;
                           event.preventDefault();
+                          commitProfileField('deedNumber', event.currentTarget.value);
                           advanceGuided(3, 3, event.currentTarget, true);
                         }}
                       />
@@ -3555,12 +3636,20 @@ export function PropertyWizard({
                     <GuidedReveal step={3} order={4}>
                       <Field
                         id="plot-number"
+                        type="text"
+                        autoComplete="off"
                         label={ar ? 'رقم القطعة' : 'Plot number'}
-                        value={profile.plotNumber}
-                        onChange={(event) => updateProfile('plotNumber', event.target.value)}
+                        defaultValue={profile.plotNumber}
+                        onChange={() => {
+                          guardTextTyping();
+                        }}
+                        onBlur={(event) => {
+                          commitProfileField('plotNumber', event.currentTarget.value);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter') return;
                           event.preventDefault();
+                          commitProfileField('plotNumber', event.currentTarget.value);
                           advanceGuided(3, 4, event.currentTarget, true);
                         }}
                       />
@@ -3568,14 +3657,20 @@ export function PropertyWizard({
                     <GuidedReveal step={3} order={5}>
                       <Field
                         id="municipality-number"
+                        type="text"
+                        autoComplete="off"
                         label={ar ? 'الرقم البلدي' : 'Municipality number'}
-                        value={profile.municipalityNumber}
-                        onChange={(event) =>
-                          updateProfile('municipalityNumber', event.target.value)
-                        }
+                        defaultValue={profile.municipalityNumber}
+                        onChange={() => {
+                          guardTextTyping();
+                        }}
+                        onBlur={(event) => {
+                          commitProfileField('municipalityNumber', event.currentTarget.value);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter') return;
                           event.preventDefault();
+                          commitProfileField('municipalityNumber', event.currentTarget.value);
                           advanceGuided(3, 5, event.currentTarget, true);
                         }}
                       />
@@ -3583,12 +3678,20 @@ export function PropertyWizard({
                     <GuidedReveal step={3} order={6}>
                       <Field
                         id="insurance-number"
+                        type="text"
+                        autoComplete="off"
                         label={ar ? 'رقم وثيقة التأمين' : 'Insurance policy number'}
-                        value={profile.insuranceNumber}
-                        onChange={(event) => updateProfile('insuranceNumber', event.target.value)}
+                        defaultValue={profile.insuranceNumber}
+                        onChange={() => {
+                          guardTextTyping();
+                        }}
+                        onBlur={(event) => {
+                          commitProfileField('insuranceNumber', event.currentTarget.value);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter') return;
                           event.preventDefault();
+                          commitProfileField('insuranceNumber', event.currentTarget.value);
                           advanceGuided(3, 6, event.currentTarget, true);
                         }}
                       />
@@ -3613,12 +3716,20 @@ export function PropertyWizard({
                     <GuidedReveal step={3} order={8}>
                       <Field
                         id="electricity-meter"
+                        type="text"
+                        autoComplete="off"
                         label={ar ? 'عداد الكهرباء' : 'Electricity meter'}
-                        value={profile.electricityMeter}
-                        onChange={(event) => updateProfile('electricityMeter', event.target.value)}
+                        defaultValue={profile.electricityMeter}
+                        onChange={() => {
+                          guardTextTyping();
+                        }}
+                        onBlur={(event) => {
+                          commitProfileField('electricityMeter', event.currentTarget.value);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter') return;
                           event.preventDefault();
+                          commitProfileField('electricityMeter', event.currentTarget.value);
                           advanceGuided(3, 8, event.currentTarget, true);
                         }}
                       />
@@ -3626,36 +3737,38 @@ export function PropertyWizard({
                     <GuidedReveal step={3} order={9}>
                       <Field
                         id="water-meter"
+                        type="text"
+                        autoComplete="off"
                         label={ar ? 'عداد المياه' : 'Water meter'}
-                        value={profile.waterMeter}
-                        onChange={(event) => updateProfile('waterMeter', event.target.value)}
+                        defaultValue={profile.waterMeter}
+                        onChange={() => {
+                          guardTextTyping();
+                        }}
+                        onBlur={(event) => {
+                          commitProfileField('waterMeter', event.currentTarget.value);
+                        }}
                         onKeyDown={(event) => {
                           if (event.key !== 'Enter') return;
                           event.preventDefault();
-                          advanceGuided(3, 9, event.currentTarget, true);
+                          commitProfileField('waterMeter', event.currentTarget.value);
+                          // Show notes + documents together (footer Continue only).
+                          advanceGuided(3, 10, event.currentTarget, true);
                         }}
                       />
                     </GuidedReveal>
                     <GuidedReveal step={3} order={10}>
-                      <>
-                        <TextAreaField
-                          id="property-notes"
-                          label={ar ? 'ملاحظات تشغيلية وقانونية' : 'Operational/legal notes'}
-                          value={profile.notes}
-                          onChange={(event) => updateProfile('notes', event.target.value)}
-                          maxLength={5000}
-                        />
-                        {guidedCreate ? (
-                          <Button
-                            type="button"
-                            variant="quiet"
-                            className="span-2"
-                            onClick={() => unlockGuided(3, 10)}
-                          >
-                            {ar ? 'متابعة إلى المستندات' : 'Continue to documents'}
-                          </Button>
-                        ) : null}
-                      </>
+                      <TextAreaField
+                        id="property-notes"
+                        label={ar ? 'ملاحظات تشغيلية وقانونية' : 'Operational/legal notes'}
+                        defaultValue={profile.notes}
+                        onChange={() => {
+                          guardTextTyping();
+                        }}
+                        onBlur={(event) => {
+                          commitProfileField('notes', event.currentTarget.value);
+                        }}
+                        maxLength={5000}
+                      />
                     </GuidedReveal>
                     <GuidedReveal step={3} order={11}>
                       <div className="span-2 private-docs wizard-guided-block">
