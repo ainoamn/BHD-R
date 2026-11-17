@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useAccountingTrustConfirm } from '@/components/accounting/accounting-trust-confirm';
 import { fetchAccountingJson, invalidateAccountingCache } from '@/lib/accounting-client-cache';
 import { browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
@@ -41,6 +42,7 @@ export function BankReconPanel({
   active: boolean;
 }) {
   const ar = locale === 'ar';
+  const trust = useAccountingTrustConfirm(locale);
   const [data, setData] = useState<Payload | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [statementOn, setStatementOn] = useState(() => new Date().toISOString().slice(0, 10));
@@ -78,6 +80,7 @@ export function BankReconPanel({
 
   return (
     <div className="accounting-hub__panel" style={{ marginTop: '1.5rem' }}>
+      {trust.gate}
       <h3>{ar ? 'مطابقة كشف البنك' : 'Bank reconciliation'}</h3>
       <p className="accounting-hub__muted">
         {ar
@@ -154,9 +157,33 @@ export function BankReconPanel({
               );
               return;
             }
-            setBusy(true);
-            setNotice(null);
             void (async () => {
+              const ok = await trust.ask({
+                title: ar ? 'تأكيد مطابقة كشف البنك' : 'Confirm bank reconciliation',
+                rows: [
+                  { label: ar ? 'تاريخ الكشف' : 'Statement date', value: statementOn },
+                  {
+                    label: ar ? 'رصيد الكشف' : 'Statement balance',
+                    value: formatMoney(statementBalance, 'OMR', locale),
+                  },
+                  {
+                    label: ar ? 'رصيد الدفتر' : 'Book balance',
+                    value: formatMoney(book, 'OMR', locale),
+                  },
+                  {
+                    label: ar ? 'حركات مطابقة' : 'Cleared lines',
+                    value: String(selected.size),
+                  },
+                ],
+                impact: ar
+                  ? 'ستُعلَّم الحركات المختارة كمطابقة ويُقفل جلسة المطابقة في السجل.'
+                  : 'Selected lines will be marked cleared and the reconciliation session locked.',
+                tone: 'success',
+                confirmLabel: ar ? 'تأكيد المطابقة' : 'Confirm reconciliation',
+              });
+              if (!ok) return;
+              setBusy(true);
+              setNotice(null);
               try {
                 await browserNextMutation('/api/owner/accounting/bank-recon', {
                   method: 'POST',

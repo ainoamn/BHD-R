@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
+import { useAccountingTrustConfirm } from '@/components/accounting/accounting-trust-confirm';
 import { outstandingMinorOf, RentDocLinks } from '@/components/rent-doc-links';
 import { fetchAccountingJson, getAccountingCache, invalidateAccountingCache } from '@/lib/accounting-client-cache';
 import {
@@ -166,6 +167,7 @@ export function AccountingChequesPanel({
   canManage: boolean;
 }) {
   const ar = locale === 'ar';
+  const trust = useAccountingTrustConfirm(locale);
   const [rows, setRows] = useState<ChequeRow[] | null>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [failed, setFailed] = useState(false);
@@ -246,9 +248,45 @@ export function AccountingChequesPanel({
     return accountingChequeStatusLabel(normalizeStatus(row.reviewStatus), locale);
   };
 
+  function chequeTrustRows(
+    row: ChequeRow,
+    action: ActionDef,
+    extra?: { dueOn?: string; bounceReason?: string; notes?: string },
+  ) {
+    const bounceLabel = extra?.bounceReason
+      ? BOUNCE_REASONS.find((item) => item.id === extra.bounceReason)
+      : null;
+    return [
+      { label: ar ? 'رقم الشيك' : 'Cheque #', value: row.chequeNumber },
+      {
+        label: ar ? 'المستأجر' : 'Tenant',
+        value: row.tenantName || '—',
+      },
+      {
+        label: ar ? 'المبلغ' : 'Amount',
+        value: formatMoney(row.amountMinor, row.currency || 'OMR', locale),
+      },
+      { label: ar ? 'الاستحقاق' : 'Due', value: extra?.dueOn || row.dueOn },
+      {
+        label: ar ? 'الحالة الحالية' : 'Current status',
+        value: accountingChequeStatusLabel(normalizeStatus(row.reviewStatus), locale),
+      },
+      {
+        label: ar ? 'العملية' : 'Operation',
+        value: ar ? action.ar : action.en,
+      },
+      ...(bounceLabel
+        ? [{ label: ar ? 'سبب الارتجاع' : 'Bounce reason', value: ar ? bounceLabel.ar : bounceLabel.en }]
+        : []),
+      ...(extra?.notes
+        ? [{ label: ar ? 'ملاحظات' : 'Notes', value: extra.notes }]
+        : []),
+    ];
+  }
+
   async function runOperation(
     row: ChequeRow,
-    operation: string,
+    action: ActionDef,
     extra?: { dueOn?: string; bounceReason?: string; notes?: string },
   ) {
     if (!isUuid(row.id)) {
@@ -259,6 +297,33 @@ export function AccountingChequesPanel({
       );
       return;
     }
+    const ok = await trust.ask({
+      title: ar ? action.ar : action.en,
+      subtitle: ar
+        ? `شيك ${row.chequeNumber} — راجع التفاصيل قبل الترحيل`
+        : `Cheque ${row.chequeNumber} — review before posting`,
+      rows: chequeTrustRows(row, action, extra),
+      impact:
+        action.operation === 'undo'
+          ? ar
+            ? 'سيُعكس آخر قيد مسجّل لهذا الشيك وتُعاد الحالة السابقة فقط.'
+            : 'Only the last journal for this cheque will be reversed and the previous status restored.'
+          : action.operation === 'postpone'
+            ? ar
+              ? 'يُحدَّث تاريخ الاستحقاق فقط؛ الشيك يبقى في اليد بدون قيد نقدي.'
+              : 'Only the due date changes; the cheque stays in hand with no cash journal.'
+            : ar
+              ? 'ستُنشأ عملية في سجل الشيكات مع قيد يومية متوازن عبر الحسابات الوسيطة.'
+              : 'A cheque-register operation will be logged with a balanced journal through control accounts.',
+      tone: action.operation === 'bounce' || action.operation === 'cancel' || action.operation === 'undo'
+        ? 'danger'
+        : action.operation === 'collect'
+          ? 'success'
+          : 'default',
+      confirmLabel: ar ? 'تأكيد العملية' : 'Confirm operation',
+    });
+    if (!ok) return;
+
     setBusyId(row.id);
     setNotice(null);
     setMenuId(null);
@@ -267,7 +332,7 @@ export function AccountingChequesPanel({
         method: 'POST',
         body: JSON.stringify({
           id: row.id,
-          operation,
+          operation: action.operation,
           ...(extra?.dueOn ? { dueOn: extra.dueOn } : {}),
           ...(extra?.bounceReason ? { bounceReason: extra.bounceReason } : {}),
           ...(extra?.notes ? { notes: extra.notes } : {}),
@@ -306,11 +371,12 @@ export function AccountingChequesPanel({
       setDialog({ row, action });
       return;
     }
-    void runOperation(row, action.operation);
+    void runOperation(row, action);
   }
 
   return (
     <div className="accounting-hub__panel cheque-lifecycle">
+      {trust.gate}
       <div className="accounting-hub__toolbar">
         <div>
           <h2>{ar ? 'سجل الشيكات (PDC)' : 'Cheque register (PDC)'}</h2>
@@ -625,21 +691,23 @@ export function AccountingChequesPanel({
                 onClick={() => {
                   if (dialog.action.needs === 'dueOn') {
                     if (!/^\d{4}-\d{2}-\d{2}$/.test(dialogDueOn)) return;
-                    void runOperation(dialog.row, dialog.action.operation, {
+                    setDialog(null);
+                    void runOperation(dialog.row, dialog.action, {
                       dueOn: dialogDueOn,
                       ...(dialogNotes.trim() ? { notes: dialogNotes.trim() } : {}),
                     });
                     return;
                   }
                   if (dialog.action.needs === 'bounce') {
-                    void runOperation(dialog.row, dialog.action.operation, {
+                    setDialog(null);
+                    void runOperation(dialog.row, dialog.action, {
                       bounceReason: dialogBounce,
                       ...(dialogNotes.trim() ? { notes: dialogNotes.trim() } : {}),
                     });
                   }
                 }}
               >
-                {ar ? 'تأكيد' : 'Confirm'}
+                {ar ? 'متابعة للمراجعة' : 'Continue to review'}
               </button>
             </div>
           </div>
@@ -652,9 +720,26 @@ export function AccountingChequesPanel({
           onSubmit={(event) => {
             event.preventDefault();
             if (!csv.trim()) return;
-            setBusy(true);
-            setNotice(null);
             void (async () => {
+              const ok = await trust.ask({
+                title: ar ? 'استيراد شيكات CSV' : 'Import cheques CSV',
+                subtitle: ar
+                  ? 'راجع أن الملف يحتوي أرقام شيكات وتواريخ صحيحة قبل الترحيل'
+                  : 'Confirm the file has valid cheque numbers and dates before posting',
+                rows: [
+                  {
+                    label: ar ? 'عدد الأسطر التقريبي' : 'Approx. lines',
+                    value: String(csv.trim().split(/\r?\n/).filter(Boolean).length),
+                  },
+                ],
+                impact: ar
+                  ? 'ستُضاف الشيكات الجديدة بحالة «في اليد» دون تحصيل نقدي.'
+                  : 'New cheques will be added as in-hand with no cash collection.',
+                confirmLabel: ar ? 'تأكيد الاستيراد' : 'Confirm import',
+              });
+              if (!ok) return;
+              setBusy(true);
+              setNotice(null);
               try {
                 const result = await browserNextMutation<{
                   imported?: number;

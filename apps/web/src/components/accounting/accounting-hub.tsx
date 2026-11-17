@@ -12,6 +12,7 @@ import {
 } from 'react';
 import { BankReconPanel } from '@/components/accounting/accounting-bank-recon-panel';
 import { AccountingChequesPanel } from '@/components/accounting/accounting-cheques-panel';
+import { useAccountingTrustConfirm } from '@/components/accounting/accounting-trust-confirm';
 import {
   AccountingCollectionBoard,
   type CollectionOutlook,
@@ -253,6 +254,7 @@ export function AccountingHub({
   active: boolean;
 }) {
   const ar = locale === 'ar';
+  const trust = useAccountingTrustConfirm(locale);
   const t = useMemo(() => accountingHubCopy(locale), [locale]);
   const router = useRouter();
   const pathname = usePathname();
@@ -608,6 +610,7 @@ export function AccountingHub({
 
   return (
     <AccountingTasksProvider active={active}>
+      {trust.gate}
       <section className="accounting-hub" data-testid="accounting-hub" hidden={!active}>
         <header className="accounting-hub__head accounting-hub__head--fin">
           <div>
@@ -1885,11 +1888,43 @@ export function AccountingHub({
                   event.preventDefault();
                   void run(async () => {
                     const year = Number(periodForm.from.slice(0, 4));
-                    if (
+                    const isYearClose =
                       periodForm.from.endsWith('-01-01') &&
                       periodForm.to.endsWith('-12-31') &&
-                      periodForm.from.slice(0, 4) === periodForm.to.slice(0, 4)
-                    ) {
+                      periodForm.from.slice(0, 4) === periodForm.to.slice(0, 4);
+                    const ok = await trust.ask({
+                      title: isYearClose
+                        ? ar
+                          ? `تأكيد إقفال السنة ${year}`
+                          : `Confirm year close ${year}`
+                        : ar
+                          ? 'تأكيد إقفال الفترة'
+                          : 'Confirm period lock',
+                      rows: [
+                        { label: ar ? 'من' : 'From', value: periodForm.from },
+                        { label: ar ? 'إلى' : 'To', value: periodForm.to },
+                        ...(periodForm.note
+                          ? [{ label: ar ? 'ملاحظة' : 'Note', value: periodForm.note }]
+                          : []),
+                      ],
+                      impact: isYearClose
+                        ? ar
+                          ? 'سيُرحَّل قيد إقفال إلى الأرباح المحتجزة (3100) ثم تُقفل السنة بالكامل.'
+                          : 'A closing journal will post into retained earnings (3100), then the year locks.'
+                        : ar
+                          ? 'أي ترحيل بتاريخ داخل الفترة سيُرفض حتى تُفتح مجدداً.'
+                          : 'Any posting dated inside the range will be rejected until unlocked.',
+                      tone: 'danger',
+                      confirmLabel: isYearClose
+                        ? ar
+                          ? 'تأكيد إقفال السنة'
+                          : 'Confirm year close'
+                        : ar
+                          ? 'تأكيد الإقفال'
+                          : 'Confirm lock',
+                    });
+                    if (!ok) return;
+                    if (isYearClose) {
                       await browserNextMutation('/api/owner/accounting/periods', {
                         method: 'POST',
                         body: JSON.stringify({
@@ -1986,6 +2021,19 @@ export function AccountingHub({
                               disabled={busy}
                               onClick={() =>
                                 void run(async () => {
+                                  const ok = await trust.ask({
+                                    title: ar ? 'فتح الفترة المقفلة' : 'Unlock period',
+                                    rows: [
+                                      { label: ar ? 'من' : 'From', value: period.from },
+                                      { label: ar ? 'إلى' : 'To', value: period.to },
+                                    ],
+                                    impact: ar
+                                      ? 'سيُسمح مجدداً بالترحيل داخل هذا النطاق — سجّل سبباً إن أمكن.'
+                                      : 'Posting inside this range will be allowed again — note a reason when possible.',
+                                    tone: 'danger',
+                                    confirmLabel: ar ? 'تأكيد الفتح' : 'Confirm unlock',
+                                  });
+                                  if (!ok) return;
                                   await browserNextMutation('/api/owner/accounting/periods', {
                                     method: 'POST',
                                     body: JSON.stringify({
@@ -2068,6 +2116,15 @@ export function AccountingHub({
           onClose={() => setOpenJournalId(null)}
           onPost={(id) =>
             void run(async () => {
+              const ok = await trust.ask({
+                title: ar ? 'تأكيد ترحيل القيد' : 'Confirm journal post',
+                rows: [{ label: ar ? 'معرّف القيد' : 'Journal id', value: id.slice(0, 8) + '…' }],
+                impact: ar
+                  ? 'سيُرحَّل القيد إلى الدفتر الرسمي ويظهر في التقارير.'
+                  : 'The journal will post to the official books and appear in reports.',
+                tone: 'success',
+              });
+              if (!ok) return;
               await browserNextMutation(`/api/owner/accounting/journals/${id}/post`, {
                 method: 'POST',
                 body: '{}',
@@ -2077,30 +2134,53 @@ export function AccountingHub({
           }
           onChanged={() => void refreshAll({ silent: true })}
           onReverse={(id) => {
-            const reason = window.prompt(
-              ar
-                ? 'سبب العكس / الاسترداد (مطلوب للمعاملات المرتبطة أو الإلكترونية):'
-                : 'Reason for reverse / refund (required for linked or electronic lines):',
-              '',
-            );
-            if (reason === null) return;
-            const refundOk = window.confirm(
-              ar
-                ? 'أكد أن الاسترداد أو فشل التحصيل موثّق قبل عكس القيد الإلكتروني.'
-                : 'Confirm the refund or collection failure is documented before reversing an electronic entry.',
-            );
-            if (!refundOk) return;
-            void run(async () => {
-              await browserNextMutation(`/api/owner/accounting/journals/${id}/reverse`, {
-                method: 'POST',
-                body: JSON.stringify({
-                  occurredOn: todayIso(),
-                  note: reason.trim() || undefined,
-                  refundConfirmed: true,
-                }),
+            void (async () => {
+              const reviewOk = await trust.ask({
+                title: ar ? 'تأكيد عكس القيد' : 'Confirm journal reverse',
+                rows: [{ label: ar ? 'معرّف القيد' : 'Journal id', value: id.slice(0, 8) + '…' }],
+                impact: ar
+                  ? 'سيُنشأ قيد عكسي. للمعاملات الإلكترونية يلزم توثيق الاسترداد.'
+                  : 'A reversing entry will be posted. Electronic lines require documented refund.',
+                tone: 'danger',
+                confirmLabel: ar ? 'متابعة وإدخال السبب' : 'Continue & enter reason',
               });
-              setOpenJournalId(null);
-            });
+              if (!reviewOk) return;
+              const reason = window.prompt(
+                ar
+                  ? 'سبب العكس / الاسترداد (مطلوب للمعاملات المرتبطة أو الإلكترونية):'
+                  : 'Reason for reverse / refund (required for linked or electronic lines):',
+                '',
+              );
+              if (reason === null) return;
+              const refundOk = await trust.ask({
+                title: ar ? 'توثيق الاسترداد' : 'Refund documentation',
+                rows: [
+                  {
+                    label: ar ? 'التأكيد' : 'Confirm',
+                    value: ar
+                      ? 'الاسترداد أو فشل التحصيل موثّق'
+                      : 'Refund or collection failure is documented',
+                  },
+                ],
+                impact: ar
+                  ? 'بدون هذا التأكيد لا يُسمح بعكس قيد إلكتروني.'
+                  : 'Electronic reverse is blocked without this confirmation.',
+                tone: 'danger',
+                confirmLabel: ar ? 'نعم، موثّق' : 'Yes, documented',
+              });
+              if (!refundOk) return;
+              await run(async () => {
+                await browserNextMutation(`/api/owner/accounting/journals/${id}/reverse`, {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    occurredOn: todayIso(),
+                    note: reason.trim() || undefined,
+                    refundConfirmed: true,
+                  }),
+                });
+                setOpenJournalId(null);
+              });
+            })();
           }}
         />
       </section>

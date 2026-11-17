@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { AccountingPropertyUnitFields } from '@/components/accounting/accounting-property-unit-fields';
+import { useAccountingTrustConfirm } from '@/components/accounting/accounting-trust-confirm';
 import { browserNextMutation } from '@/lib/api';
 
 function todayIso() {
@@ -74,6 +75,7 @@ export function AccountingExpenseIncomeModal({
   onError: (message: string) => void;
 }) {
   const ar = locale === 'ar';
+  const trust = useAccountingTrustConfirm(locale);
   const [kind, setKind] = useState<'expense' | 'income'>('expense');
   const [form, setForm] = useState({
     category: ar ? 'تشغيل' : 'Operating',
@@ -94,12 +96,46 @@ export function AccountingExpenseIncomeModal({
       onClose={onClose}
       tone={kind}
     >
+      {trust.gate}
       <form
         className="accounting-hub__form accounting-hub__form--modal"
         onSubmit={(event) => {
           event.preventDefault();
-          onBusy(true);
           void (async () => {
+            const amountMinor = toMinor(form.amount);
+            const ok = await trust.ask({
+              title:
+                kind === 'income'
+                  ? ar
+                    ? 'تأكيد تسجيل دخل'
+                    : 'Confirm income entry'
+                  : ar
+                    ? 'تأكيد تسجيل مصروف'
+                    : 'Confirm expense entry',
+              rows: [
+                {
+                  label: ar ? 'النوع' : 'Type',
+                  value: kind === 'income' ? (ar ? 'دخل' : 'Income') : ar ? 'مصروف' : 'Expense',
+                },
+                { label: ar ? 'الوصف' : 'Description', value: form.description },
+                { label: ar ? 'المبلغ' : 'Amount', value: `${form.amount} OMR` },
+                { label: ar ? 'التاريخ' : 'Date', value: form.issuedOn },
+                ...(kind === 'expense'
+                  ? [{ label: ar ? 'التصنيف' : 'Category', value: form.category }]
+                  : [{ label: ar ? 'طريقة القبض' : 'Method', value: form.method }]),
+              ],
+              impact:
+                kind === 'income'
+                  ? ar
+                    ? 'سيُرحَّل قيد: مدين نقد/بنك · دائن إيراد.'
+                    : 'Will post: Dr cash/bank · Cr revenue.'
+                  : ar
+                    ? 'سيُرحَّل قيد مصروف متوازن (مع ضريبة مدخلات إن وُجدت).'
+                    : 'Will post a balanced expense journal (with input VAT when provided).',
+              tone: kind === 'expense' ? 'danger' : 'success',
+            });
+            if (!ok) return;
+            onBusy(true);
             try {
               if (kind === 'income') {
                 await browserNextMutation('/api/owner/accounting/ops', {
@@ -107,7 +143,7 @@ export function AccountingExpenseIncomeModal({
                   body: JSON.stringify({
                     kind: 'income',
                     description: form.description,
-                    amountMinor: toMinor(form.amount),
+                    amountMinor,
                     occurredOn: form.issuedOn,
                     method: form.method,
                     ...(form.propertyId ? { propertyId: form.propertyId } : {}),
@@ -121,7 +157,7 @@ export function AccountingExpenseIncomeModal({
                   body: JSON.stringify({
                     category: form.category,
                     description: form.description,
-                    amountMinor: toMinor(form.amount),
+                    amountMinor,
                     currency: 'OMR',
                     issuedOn: form.issuedOn,
                     ...(form.propertyId ? { propertyId: form.propertyId } : {}),
@@ -264,6 +300,7 @@ export function AccountingTradingModal({
   onError: (message: string) => void;
 }) {
   const ar = locale === 'ar';
+  const trust = useAccountingTrustConfirm(locale);
   const [kind, setKind] = useState<'purchase' | 'sale'>('purchase');
   const [form, setForm] = useState({
     description: '',
@@ -281,12 +318,39 @@ export function AccountingTradingModal({
       onClose={onClose}
       tone={kind}
     >
+      {trust.gate}
       <form
         className="accounting-hub__form accounting-hub__form--modal"
         onSubmit={(event) => {
           event.preventDefault();
-          onBusy(true);
           void (async () => {
+            const amountMinor = toMinor(form.amount);
+            const ok = await trust.ask({
+              title:
+                kind === 'purchase'
+                  ? ar
+                    ? 'تأكيد مشتريات'
+                    : 'Confirm purchase'
+                  : ar
+                    ? 'تأكيد مبيعات'
+                    : 'Confirm sale',
+              rows: [
+                {
+                  label: ar ? 'النوع' : 'Type',
+                  value: kind === 'purchase' ? (ar ? 'مشتريات' : 'Purchase') : ar ? 'مبيعات' : 'Sale',
+                },
+                { label: ar ? 'الوصف' : 'Description', value: form.description },
+                { label: ar ? 'المبلغ' : 'Amount', value: `${form.amount} OMR` },
+                { label: ar ? 'التاريخ' : 'Date', value: form.occurredOn },
+                { label: ar ? 'الطريقة' : 'Method', value: form.method },
+              ],
+              impact: ar
+                ? 'سيُرحَّل قيد تشغيلي متوازن ويظهر في التقارير فورًا.'
+                : 'A balanced trading journal will post and appear in reports immediately.',
+              tone: kind === 'purchase' ? 'danger' : 'success',
+            });
+            if (!ok) return;
+            onBusy(true);
             try {
               await browserNextMutation('/api/owner/accounting/ops', {
                 method: 'POST',

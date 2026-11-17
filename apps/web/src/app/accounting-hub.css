@@ -3094,3 +3094,136 @@ button.fin-dash__metric {
   justify-content: flex-end;
   gap: 0.5rem;
 }
+
+/* Trusted confirmation gate before any accounting mutation */
+.accounting-trust {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background:
+    radial-gradient(ellipse at 20% 10%, rgb(14 116 144 / 0.18), transparent 45%),
+    radial-gradient(ellipse at 80% 90%, rgb(15 23 42 / 0.35), transparent 50%),
+    rgb(15 23 42 / 0.58);
+  backdrop-filter: blur(3px);
+}
+
+.accounting-trust__card {
+  width: min(100%, 28rem);
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem 1.35rem 1.15rem;
+  border-radius: 1.15rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid rgb(148 163 184 / 0.35);
+  box-shadow: 0 24px 60px rgb(15 23 42 / 0.35);
+}
+
+.accounting-trust__card--danger {
+  border-color: rgb(190 24 93 / 0.35);
+}
+
+.accounting-trust__card--success {
+  border-color: rgb(4 120 87 / 0.35);
+}
+
+.accounting-trust__badge {
+  margin: 0 0 0.35rem;
+  display: inline-flex;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.accounting-trust__head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.35;
+  color: #0f172a;
+}
+
+.accounting-trust__sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.9rem;
+  color: #64748b;
+}
+
+.accounting-trust__rows {
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.85rem;
+  background: #f1f5f9;
+  border: 1px solid rgb(148 163 184 / 0.25);
+}
+
+.accounting-trust__row {
+  display: grid;
+  grid-template-columns: minmax(5.5rem, 38%) 1fr;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.accounting-trust__row dt {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.accounting-trust__row dd {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 650;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.accounting-trust__impact {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.75rem;
+  background: #fff7ed;
+  border: 1px solid rgb(234 88 12 / 0.22);
+  color: #9a3412;
+}
+
+.accounting-trust__impact strong {
+  font-size: 0.78rem;
+}
+
+.accounting-trust__impact p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.accounting-trust__card--danger .accounting-trust__impact {
+  background: #fff1f2;
+  border-color: rgb(225 29 72 / 0.25);
+  color: #9f1239;
+}
+
+.accounting-trust__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.button--danger {
+  background: #be123c;
+  color: #fff;
+  border-color: #be123c;
+}
+
+.button--danger:hover:not(:disabled) {
+  background: #9f1239;
+}

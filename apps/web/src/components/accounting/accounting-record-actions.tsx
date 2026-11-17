@@ -1,5 +1,6 @@
 'use client';
 
+import { useAccountingTrustConfirm } from '@/components/accounting/accounting-trust-confirm';
 import { isProtectedJournalSource, canUnpostJournalSource } from '@/lib/accounting-integrity';
 import { browserNextMutation } from '@/lib/api';
 
@@ -31,35 +32,53 @@ export function AccountingRecordActions({
   onError: (message: string) => void;
 }) {
   const ar = locale === 'ar';
+  const trust = useAccountingTrustConfirm(locale);
   const uuid = /^[0-9a-f-]{36}$/i.test(id);
   if (!uuid) return null;
 
-  const run = (
+  const run = async (
     action: string,
     resource: Kind,
-    prompt: string,
+    review: {
+      title: string;
+      impact: string;
+      tone?: 'default' | 'danger' | 'success';
+    },
     targetId = id,
     extra?: { note?: string; refundConfirmed?: boolean; approvalId?: string },
   ) => {
-    if (!window.confirm(prompt)) return;
-    void (async () => {
-      try {
-        await browserNextMutation('/api/owner/accounting/lifecycle', {
-          method: 'POST',
-          body: JSON.stringify({
-            action,
-            kind: resource === 'receipt' ? 'invoice' : resource,
-            id: targetId,
-            ...extra,
-          }),
-        });
-        onDone();
-      } catch (error) {
-        onError(
-          error instanceof Error ? error.message : ar ? 'تعذر تنفيذ الإجراء' : 'Action failed',
-        );
-      }
-    })();
+    const ok = await trust.ask({
+      title: review.title,
+      rows: [
+        { label: ar ? 'النوع' : 'Kind', value: resource },
+        { label: ar ? 'المعرّف' : 'Id', value: targetId.slice(0, 8) + '…' },
+        { label: ar ? 'الحالة' : 'Status', value: status },
+        ...(sourceType
+          ? [{ label: ar ? 'المصدر' : 'Source', value: sourceType }]
+          : []),
+        ...(extra?.note ? [{ label: ar ? 'السبب' : 'Reason', value: extra.note }] : []),
+      ],
+      impact: review.impact,
+      tone: review.tone ?? 'danger',
+      confirmLabel: ar ? 'تأكيد الإجراء' : 'Confirm action',
+    });
+    if (!ok) return;
+    try {
+      await browserNextMutation('/api/owner/accounting/lifecycle', {
+        method: 'POST',
+        body: JSON.stringify({
+          action,
+          kind: resource === 'receipt' ? 'invoice' : resource,
+          id: targetId,
+          ...extra,
+        }),
+      });
+      onDone();
+    } catch (error) {
+      onError(
+        error instanceof Error ? error.message : ar ? 'تعذر تنفيذ الإجراء' : 'Action failed',
+      );
+    }
   };
 
   const archiveKind: Kind = kind === 'receipt' ? 'invoice' : kind;
@@ -82,43 +101,77 @@ export function AccountingRecordActions({
 
   const undoReverse = () => {
     if (!journalTarget) return;
-    const reason = window.prompt(
-      ar
-        ? 'سبب العكس / الاسترداد (مطلوب للمعاملات الإلكترونية):'
-        : 'Reason for reverse / refund (required for electronic lines):',
-      '',
-    );
-    if (reason === null) return;
-    if (protectedLine && reason.trim().length < 8) {
-      onError(
-        ar ? 'أدخل سبباً أوضح (ثمانية أحرف على الأقل).' : 'Enter a clearer reason (8+ characters).',
-      );
-      return;
-    }
-    if (protectedLine) {
-      const okRefund = window.confirm(
+    void (async () => {
+      const reasonPrompt = await trust.ask({
+        title: ar ? 'سبب العكس / الاسترداد' : 'Reason for reverse / refund',
+        subtitle: ar
+          ? 'اكتب السبب في الملاحظات بعد التأكيد — للمعاملات الإلكترونية يلزم توثيق الاسترداد'
+          : 'Electronic lines require a documented refund confirmation',
+        rows: [
+          { label: ar ? 'القيد' : 'Journal', value: journalTarget.slice(0, 8) + '…' },
+          { label: ar ? 'المصدر' : 'Source', value: resolvedSource || '—' },
+        ],
+        impact: ar
+          ? 'سيُنشأ قيد عكسي ويبقي الأصل في الدفتر مع حالة معكوس.'
+          : 'A reversing journal will be posted; the original stays as reversed.',
+        tone: 'danger',
+        confirmLabel: ar ? 'متابعة وإدخال السبب' : 'Continue & enter reason',
+      });
+      if (!reasonPrompt) return;
+      const reason = window.prompt(
         ar
-          ? 'هل تم عكس المبلغ من بوابة التحصيل (مثل ثواني) أو تسجيل استرداد يدوي موثّق؟ لا يُسمح بالعكس الإلكتروني بدون ذلك.'
-          : 'Has the amount been reversed at the payment gateway (e.g. Thawani) or a documented manual refund recorded? Electronic reverse is blocked without that.',
+          ? 'سبب العكس / الاسترداد (مطلوب للمعاملات الإلكترونية):'
+          : 'Reason for reverse / refund (required for electronic lines):',
+        '',
       );
-      if (!okRefund) return;
-    }
-    run(
-      'reverse',
-      'journal',
-      ar
-        ? 'التراجع ينشئ قيد عكس ويبقي أثراً في الدفتر. متابعة؟'
-        : 'Undo posts a reversing entry and keeps an audit trail. Continue?',
-      journalTarget,
-      {
-        note: reason.trim() || (ar ? 'تراجع من شاشة المحاسبة' : 'Undo from accounting'),
-        refundConfirmed: protectedLine,
-      },
-    );
+      if (reason === null) return;
+      if (protectedLine && reason.trim().length < 8) {
+        onError(
+          ar ? 'أدخل سبباً أوضح (ثمانية أحرف على الأقل).' : 'Enter a clearer reason (8+ characters).',
+        );
+        return;
+      }
+      if (protectedLine) {
+        const okRefund = await trust.ask({
+          title: ar ? 'تأكيد الاسترداد الإلكتروني' : 'Confirm electronic refund',
+          rows: [
+            {
+              label: ar ? 'السؤال' : 'Check',
+              value: ar
+                ? 'هل عُكس المبلغ من بوابة التحصيل أو سُجّل استرداد موثّق؟'
+                : 'Was the amount reversed at the gateway or a documented refund recorded?',
+            },
+          ],
+          impact: ar
+            ? 'بدون تأكيد الاسترداد لا يُسمح بعكس قيد إلكتروني.'
+            : 'Electronic reverse is blocked without refund confirmation.',
+          tone: 'danger',
+          confirmLabel: ar ? 'نعم، موثّق' : 'Yes, documented',
+        });
+        if (!okRefund) return;
+      }
+      await run(
+        'reverse',
+        'journal',
+        {
+          title: ar ? 'تأكيد عكس القيد' : 'Confirm journal reverse',
+          impact: ar
+            ? 'التراجع ينشئ قيد عكس ويبقي أثراً في الدفتر.'
+            : 'Undo posts a reversing entry and keeps an audit trail.',
+          tone: 'danger',
+        },
+        journalTarget,
+        {
+          note: reason.trim() || (ar ? 'تراجع من شاشة المحاسبة' : 'Undo from accounting'),
+          refundConfirmed: protectedLine,
+        },
+      );
+    })();
   };
 
   return (
     <div className="accounting-hub__row-actions">
+      {trust.gate}
       {journalTarget &&
       status !== 'draft' &&
       status !== 'reversed' &&
@@ -139,11 +192,13 @@ export function AccountingRecordActions({
           className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() =>
-            run(
-              'discard',
-              'journal',
-              ar ? 'حذف مسودة القيد نهائياً؟' : 'Delete this draft journal?',
-            )
+            void run('discard', 'journal', {
+              title: ar ? 'حذف مسودة القيد' : 'Delete draft journal',
+              impact: ar
+                ? 'ستُحذف المسودة نهائياً ولن يظهر قيد في الدفتر.'
+                : 'The draft will be deleted permanently with no ledger entry.',
+              tone: 'danger',
+            })
           }
         >
           {ar ? 'حذف' : 'Delete'}
@@ -155,12 +210,16 @@ export function AccountingRecordActions({
           className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() =>
-            run(
+            void run(
               'unpost',
               'journal',
-              ar
-                ? 'حذف الترحيل يُخرج القيد اليدوي من الدفاتر ويعيده مسودة. متابعة؟'
-                : 'Unpost this manual entry back to draft?',
+              {
+                title: ar ? 'حذف الترحيل' : 'Unpost entry',
+                impact: ar
+                  ? 'يُخرج القيد اليدوي من الدفاتر ويعيده مسودة.'
+                  : 'Removes this manual entry from the books back to draft.',
+                tone: 'danger',
+              },
               journalTarget,
             )
           }
@@ -174,13 +233,13 @@ export function AccountingRecordActions({
           className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() =>
-            run(
-              'void',
-              'invoice',
-              ar
-                ? 'إلغاء الفاتورة؟ لا يُلغى ما عليه مدفوعات أو تحصيل إلكتروني.'
-                : 'Void this invoice? Paid or electronic collections cannot be voided.',
-            )
+            void run('void', 'invoice', {
+              title: ar ? 'إلغاء الفاتورة' : 'Void invoice',
+              impact: ar
+                ? 'لا يُلغى ما عليه مدفوعات أو تحصيل إلكتروني.'
+                : 'Paid or electronic collections cannot be voided.',
+              tone: 'danger',
+            })
           }
         >
           {ar ? 'حذف' : 'Delete'}
@@ -192,13 +251,13 @@ export function AccountingRecordActions({
           className="accounting-act accounting-act--void"
           disabled={disabled}
           onClick={() =>
-            run(
-              'cancel',
-              'expense',
-              ar
-                ? 'إلغاء المصروف؟ إن وُجد قيد مرحّل يجب عكسه أولاً.'
-                : 'Cancel this expense? A posted journal must be reversed first.',
-            )
+            void run('cancel', 'expense', {
+              title: ar ? 'إلغاء المصروف' : 'Cancel expense',
+              impact: ar
+                ? 'إن وُجد قيد مرحّل يجب عكسه أولاً.'
+                : 'A posted journal must be reversed first.',
+              tone: 'danger',
+            })
           }
         >
           {ar ? 'حذف' : 'Delete'}
@@ -209,17 +268,23 @@ export function AccountingRecordActions({
         className="accounting-act accounting-act--archive"
         disabled={disabled}
         onClick={() =>
-          run(
-            archived ? 'restore' : 'archive',
-            archiveKind,
-            archived
+          void run(archived ? 'restore' : 'archive', archiveKind, {
+            title: archived
               ? ar
-                ? 'استعادة السجل من الأرشيف؟'
-                : 'Restore this record?'
+                ? 'استعادة من الأرشيف'
+                : 'Restore from archive'
               : ar
-                ? 'أرشفة السجل؟ يبقى في السجل مع شارة أرشيف.'
-                : 'Archive this record? It stays listed with an archive badge.',
-          )
+                ? 'أرشفة السجل'
+                : 'Archive record',
+            impact: archived
+              ? ar
+                ? 'سيظهر السجل مجدداً في القوائم النشطة.'
+                : 'The record will reappear in active lists.'
+              : ar
+                ? 'يبقى في السجل مع شارة أرشيف.'
+                : 'Stays listed with an archive badge.',
+            tone: 'default',
+          })
         }
       >
         {archived ? (ar ? 'استعادة' : 'Restore') : ar ? 'أرشفة' : 'Archive'}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { AccountingPropertyUnitFields } from '@/components/accounting/accounting-property-unit-fields';
+import { useAccountingTrustConfirm } from '@/components/accounting/accounting-trust-confirm';
 import type { LedgerAccountType } from '@/lib/accounting-gl';
 import { browserNextMutation } from '@/lib/api';
 
@@ -61,6 +62,7 @@ export function AccountingJournalComposerModal({
   onSaved: (journalId?: string) => void;
 }) {
   const ar = locale === 'ar';
+  const trust = useAccountingTrustConfirm(locale);
   const [form, setForm] = useState({
     occurredOn: todayIso(),
     description: '',
@@ -103,6 +105,7 @@ export function AccountingJournalComposerModal({
             {ar ? 'إغلاق' : 'Close'}
           </button>
         </header>
+        {trust.gate}
         <form
           className="accounting-hub__form accounting-hub__form--composer accounting-hub__form--modal"
           onSubmit={(event) => {
@@ -117,6 +120,54 @@ export function AccountingJournalComposerModal({
             }
             setLocalError(null);
             void (async () => {
+              const activeLines = form.lines.filter(
+                (line) => line.accountId && (line.debit || line.credit),
+              );
+              const ok = await trust.ask({
+                title: form.post
+                  ? ar
+                    ? 'تأكيد ترحيل قيد يومية'
+                    : 'Confirm posting journal'
+                  : ar
+                    ? 'تأكيد حفظ مسودة قيد'
+                    : 'Confirm saving draft journal',
+                rows: [
+                  { label: ar ? 'الوصف' : 'Description', value: form.description },
+                  { label: ar ? 'التاريخ' : 'Date', value: form.occurredOn },
+                  {
+                    label: ar ? 'المدين' : 'Debit',
+                    value: money(lineBalance.debit.toString(), 'OMR', ar),
+                  },
+                  {
+                    label: ar ? 'الدائن' : 'Credit',
+                    value: money(lineBalance.credit.toString(), 'OMR', ar),
+                  },
+                  {
+                    label: ar ? 'عدد البنود' : 'Lines',
+                    value: String(activeLines.length),
+                  },
+                  {
+                    label: ar ? 'الترحيل' : 'Post',
+                    value: form.post ? (ar ? 'فوري' : 'Immediate') : ar ? 'مسودة' : 'Draft',
+                  },
+                ],
+                impact: form.post
+                  ? ar
+                    ? 'سيُرحَّل القيد إلى الدفتر الرسمي ويظهر في التقارير فوراً.'
+                    : 'The entry will post to the official books and appear in reports immediately.'
+                  : ar
+                    ? 'تُحفظ كمسودة ويمكن ترحيلها لاحقاً.'
+                    : 'Saved as a draft and can be posted later.',
+                tone: form.post ? 'success' : 'default',
+                confirmLabel: form.post
+                  ? ar
+                    ? 'تأكيد الترحيل'
+                    : 'Confirm post'
+                  : ar
+                    ? 'حفظ المسودة'
+                    : 'Save draft',
+              });
+              if (!ok) return;
               try {
                 const created = await browserNextMutation<{ journal?: { id?: string } }>(
                   '/api/owner/accounting/journals',
@@ -126,17 +177,15 @@ export function AccountingJournalComposerModal({
                       occurredOn: form.occurredOn,
                       description: form.description,
                       post: form.post,
-                      lines: form.lines
-                        .filter((line) => line.accountId && (line.debit || line.credit))
-                        .map((line) => ({
-                          accountId: line.accountId,
-                          debitMinor: toMinor(line.debit),
-                          creditMinor: toMinor(line.credit),
-                          currency: 'OMR',
-                          memo: line.memo || undefined,
-                          ...(form.propertyId ? { propertyId: form.propertyId } : {}),
-                          ...(form.unitId ? { unitId: form.unitId } : {}),
-                        })),
+                      lines: activeLines.map((line) => ({
+                        accountId: line.accountId,
+                        debitMinor: toMinor(line.debit),
+                        creditMinor: toMinor(line.credit),
+                        currency: 'OMR',
+                        memo: line.memo || undefined,
+                        ...(form.propertyId ? { propertyId: form.propertyId } : {}),
+                        ...(form.unitId ? { unitId: form.unitId } : {}),
+                      })),
                     }),
                   },
                 );
