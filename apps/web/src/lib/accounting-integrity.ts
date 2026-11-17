@@ -97,7 +97,10 @@ export type AccountingSettings = {
    * `exempt` posts rent to 4010 without output VAT; `standard` uses 4000 + 2200.
    */
   rentVatMode: 'exempt' | 'standard';
-  /** Accrual basis: invoice → AR + revenue; cash receipt clears AR (IFRS / PM standard). */
+  /**
+   * Accrual basis: invoice → AR + revenue; cash receipt clears AR (IFRS / PM standard).
+   * Always true in runtime — cash-basis rent posting is not allowed.
+   */
   accrualBasis: boolean;
   otherTaxes: AccountingTaxRow[];
   baseCurrency: string;
@@ -282,7 +285,8 @@ export function normalizeAccountingSettings(raw: unknown): AccountingSettings {
     vatEnabled: input.vatEnabled !== false,
     vatRatePercent: vatRate,
     rentVatMode: input.rentVatMode === 'standard' ? 'standard' : 'exempt',
-    accrualBasis: input.accrualBasis !== false,
+    // IFRS / PM: accrual is mandatory; ignore any stored cash-basis preference.
+    accrualBasis: true,
     otherTaxes,
     baseCurrency: /^[A-Z]{3}$/.test(baseCurrency) ? baseCurrency : base.baseCurrency,
     currencies,

@@ -238,6 +238,13 @@ export function RentDocumentView({ doc, locale }: { doc: RentDocument; locale: '
         </tbody>
       </table>
 
+      <p className="rent-doc__tax" role="note">
+        {ar ? doc.tax.labelAr : doc.tax.labelEn}
+        {doc.tax.mode === 'standard' && doc.tax.ratePercent > 0 ? (
+          <small dir="ltr"> · {doc.tax.ratePercent}%</small>
+        ) : null}
+      </p>
+
       <div className="rent-doc__total">
         <span>
           {receipt

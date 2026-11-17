@@ -767,6 +767,30 @@ export async function createJournal(
     .toString();
   const created = await withinViewerTenant(claims, async (tx) => {
     await assertPeriodOpen(tx, orgId, input.occurredOn);
+    if (input.sourceType && input.sourceId) {
+      const existing = await tx.query.journalEntries.findFirst({
+        where: and(
+          eq(journalEntries.organizationId, orgId),
+          eq(journalEntries.sourceType, input.sourceType),
+          eq(journalEntries.sourceId, input.sourceId),
+        ),
+        columns: {
+          id: true,
+          reference: true,
+          status: true,
+          occurredOn: true,
+        },
+      });
+      if (existing) {
+        return {
+          id: existing.id,
+          reference: existing.reference,
+          status: existing.status,
+          occurredOn: existing.occurredOn,
+          created: false as const,
+        };
+      }
+    }
     const accountIds = [...new Set(input.lines.map((line) => line.accountId))];
     const accountRows = await tx
       .select({ id: ledgerAccounts.id })
@@ -786,7 +810,27 @@ export async function createJournal(
         postedByUserId: shouldPost ? claims.sub : undefined,
         postedAt: shouldPost ? new Date() : undefined,
       })
+      .onConflictDoNothing()
       .returning();
+    if (!entryRows[0] && input.sourceType && input.sourceId) {
+      const again = await tx.query.journalEntries.findFirst({
+        where: and(
+          eq(journalEntries.organizationId, orgId),
+          eq(journalEntries.sourceType, input.sourceType),
+          eq(journalEntries.sourceId, input.sourceId),
+        ),
+        columns: { id: true, reference: true, status: true, occurredOn: true },
+      });
+      if (again) {
+        return {
+          id: again.id,
+          reference: again.reference,
+          status: again.status,
+          occurredOn: again.occurredOn,
+          created: false as const,
+        };
+      }
+    }
     const entry = entryRows[0]!;
     await tx.insert(journalLines).values(
       input.lines.map((line) => {
@@ -836,6 +880,7 @@ export async function createJournal(
       reference: entry.reference,
       status: entry.status,
       occurredOn: entry.occurredOn,
+      created: true as const,
     };
   });
   if (shouldPost) {
@@ -933,6 +978,8 @@ export async function reverseJournal(
     });
     if (!entry) fail('not_found');
     if (entry.status !== 'posted') fail('not_posted');
+    // Locked periods block reversing books that already sit inside the closed range.
+    await assertPeriodOpen(tx, orgId, entry.occurredOn);
     const existing = await tx.query.journalEntries.findFirst({
       where: and(eq(journalEntries.organizationId, orgId), eq(journalEntries.reversalOfId, id)),
     });

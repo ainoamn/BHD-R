@@ -33,6 +33,7 @@ import {
 import { AccountingSettingsPanel } from '@/components/accounting/accounting-settings-panel';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { AccountingRefundsAlert } from '@/components/accounting/accounting-refunds-alert';
+import { AccountingIntegrityPanel } from '@/components/accounting/accounting-integrity-panel';
 import {
   AccountingWorkspace,
   AccountingWorkspaceSection,
@@ -2204,56 +2205,61 @@ export function AccountingHub({
         </AccountingTabPanel>
 
         <AccountingTabPanel id="audit" tab={tab}>
-          <AccountingWorkspace
-            title={ar ? 'سجل التدقيق المحاسبي' : 'Accounting audit trail'}
-            hint={
-              ar
-                ? 'أحداث الترحيل والإقفال والتغييرات المسجّلة على المستندات المحاسبية.'
-                : 'Posting, lock, and mutation events recorded on accounting documents.'
-            }
-            stats={[
-              {
-                key: 'events',
-                label: ar ? 'الأحداث' : 'Events',
-                value: audit === null ? '—' : String(audit.length),
-              },
-            ]}
-          >
-            <div className="accounting-hub__table-wrap">
-              <table className="accounting-hub__table">
-                <thead>
-                  <tr>
-                    <th>{ar ? 'الوقت' : 'When'}</th>
-                    <th>{ar ? 'الحدث' : 'Event'}</th>
-                    <th>{ar ? 'المورد' : 'Resource'}</th>
-                    <th>{ar ? 'الحالة' : 'Status'}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {audit === null ? (
+          <div className="fin-dash fin-dash--workspace">
+            <AccountingIntegrityPanel locale={locale} active={active && tab === 'audit'} />
+            <AccountingWorkspace
+              title={ar ? 'سجل التدقيق المحاسبي' : 'Accounting audit trail'}
+              hint={
+                ar
+                  ? 'أحداث الترحيل والإقفال والتغييرات المسجّلة على المستندات المحاسبية.'
+                  : 'Posting, lock, and mutation events recorded on accounting documents.'
+              }
+              stats={[
+                {
+                  key: 'events',
+                  label: ar ? 'الأحداث' : 'Events',
+                  value: audit === null ? '—' : String(audit.length),
+                },
+              ]}
+            >
+              <div className="accounting-hub__table-wrap">
+                <table className="accounting-hub__table">
+                  <thead>
                     <tr>
-                      <td colSpan={4}>{ar ? 'جاري التحميل…' : 'Loading…'}</td>
+                      <th>{ar ? 'الوقت' : 'When'}</th>
+                      <th>{ar ? 'الحدث' : 'Event'}</th>
+                      <th>{ar ? 'المورد' : 'Resource'}</th>
+                      <th>{ar ? 'الحالة' : 'Status'}</th>
                     </tr>
-                  ) : audit.length === 0 ? (
-                    <tr>
-                      <td colSpan={4}>{ar ? 'لا أحداث بعد.' : 'No events yet.'}</td>
-                    </tr>
-                  ) : (
-                    audit.map((row) => (
-                      <tr key={row.id}>
-                        <td>{row.occurredAt.replace('T', ' ').slice(0, 19)}</td>
-                        <td>{row.eventType}</td>
-                        <td>
-                          {row.resourceType}:{row.resourceId.slice(0, 8)}
-                        </td>
-                        <td>{[row.fromStatus, row.toStatus].filter(Boolean).join(' → ') || '—'}</td>
+                  </thead>
+                  <tbody>
+                    {audit === null ? (
+                      <tr>
+                        <td colSpan={4}>{ar ? 'جاري التحميل…' : 'Loading…'}</td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </AccountingWorkspace>
+                    ) : audit.length === 0 ? (
+                      <tr>
+                        <td colSpan={4}>{ar ? 'لا أحداث بعد.' : 'No events yet.'}</td>
+                      </tr>
+                    ) : (
+                      audit.map((row) => (
+                        <tr key={row.id}>
+                          <td>{row.occurredAt.replace('T', ' ').slice(0, 19)}</td>
+                          <td>{row.eventType}</td>
+                          <td>
+                            {row.resourceType}:{row.resourceId.slice(0, 8)}
+                          </td>
+                          <td>
+                            {[row.fromStatus, row.toStatus].filter(Boolean).join(' → ') || '—'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </AccountingWorkspace>
+          </div>
         </AccountingTabPanel>
 
         <AccountingEntryDrawer

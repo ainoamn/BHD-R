@@ -29,6 +29,7 @@ import {
 } from '@/lib/rent-documents';
 import { publicWebOrigin } from '@/lib/seo';
 import { findTenancyLease, leaseStatementsInTx } from '@/lib/tenancy-neon';
+import { readAccountingSettingsInTx } from '@/lib/accounting-gl-neon';
 import { canChargeTenants, canRecordTenantPayments } from '@/lib/tenant-charges-neon';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -70,6 +71,16 @@ export type RentDocument = {
   chequeClearedAt: string | null;
   /** When the receipt's last payment came in, or when the demand was produced. */
   issuedAt: string;
+  /**
+   * Oman VAT treatment for this document (residential exempt vs commercial 5%).
+   * Receipts and demand invoices both carry the policy in force at issue time.
+   */
+  tax: {
+    mode: 'exempt' | 'standard';
+    ratePercent: number;
+    labelAr: string;
+    labelEn: string;
+  };
   signature: {
     fingerprint: string;
     code: string;
@@ -233,6 +244,23 @@ async function buildDocument(
   if (!statement) return null;
   const subject = findRentDocSubject(statement.statement, key);
   if (!subject || (!anyKind && !rentDocKindsOf(subject).includes(kind))) return null;
+  // Receipts require GL-backed paidMinor (posted collect / rent_payment) — never schedule alone.
+  if (kind === 'receipt' && subject.paidMinor === '0') return null;
+
+  const settings = await readAccountingSettingsInTx(tx, orgId);
+  const taxMode = settings.rentVatMode;
+  const tax = {
+    mode: taxMode,
+    ratePercent: taxMode === 'standard' && settings.vatEnabled ? settings.vatRatePercent : 0,
+    labelAr:
+      taxMode === 'standard'
+        ? `خاضع لضريبة القيمة المضافة ${settings.vatRatePercent}% (تجاري)`
+        : 'معفى من ضريبة القيمة المضافة (إيجار سكني >3 أشهر — عُمان)',
+    labelEn:
+      taxMode === 'standard'
+        ? `VAT ${settings.vatRatePercent}% (commercial)`
+        : 'VAT-exempt (residential lease >3 months — Oman)',
+  };
 
   const [detail] = await tx
     .select({
@@ -386,6 +414,7 @@ async function buildDocument(
     payments: paymentList,
     chequeClearedAt,
     issuedAt,
+    tax,
     signature: {
       fingerprint,
       code: fingerprint

@@ -53,6 +53,10 @@ import {
   type TenancyViewing,
 } from '@/lib/tenancy-shared';
 import {
+  applyGlEvidenceToStatement,
+  loadGlLeaseEvidenceInTx,
+} from '@/lib/accounting-tenant-gl';
+import {
   buildLeaseStatement,
   ledgerTermsOf,
   withAlignedScheduleCheques,
@@ -560,50 +564,55 @@ export async function leaseStatementsInTx(
       .limit(STATEMENT_ROWS),
   ]);
   const today = muscatToday();
-  return new Map(
-    leaseRows.map((row) => [
-      row.id,
-      {
-        leaseId: row.id,
-        tenantPartyId: row.tenantPartyId,
-        propertyId: row.propertyId,
-        unitId: row.unitId,
-        currency: row.currency,
-        statement: buildLeaseStatement({
-          terms: (() => {
-            const parsed = ledgerTermsOf({ leaseTerms: row.leaseTerms });
-            return parsed ? withAlignedScheduleCheques(parsed, row.id) : null;
-          })(),
-          contractAmountMinor: row.contractAmountMinor,
-          cheques: chequeRows
-            .filter((cheque) => cheque.leaseId === row.id)
-            .map((cheque) => ({
-              id: cheque.id,
-              chequeNumber: cheque.chequeNumber,
-              bankName: cheque.bankName,
-              amountMinor: cheque.amountMinor.toString(),
-              dueOn: String(cheque.dueOn),
-              reviewStatus: cheque.reviewStatus,
-            })),
-          invoices: invoiceRows
-            .filter((invoice) => invoice.leaseId === row.id)
-            .map((invoice) => ({
-              id: invoice.id,
-              number: invoice.number,
-              status: invoice.status,
-              issuedOn: String(invoice.issuedOn),
-              dueOn: String(invoice.dueOn),
-              totalMinor: invoice.totalMinor.toString(),
-              paidMinor: invoice.paidMinor.toString(),
-              billingPeriodStart: invoice.billingPeriodStart
-                ? String(invoice.billingPeriodStart)
-                : null,
-            })),
-          today,
-        }),
-      },
-    ]),
-  );
+  const out = new Map<string, LeaseStatementRow>();
+  for (const row of leaseRows) {
+    const leaseCheques = chequeRows.filter((cheque) => cheque.leaseId === row.id);
+    const draft = buildLeaseStatement({
+      terms: (() => {
+        const parsed = ledgerTermsOf({ leaseTerms: row.leaseTerms });
+        return parsed ? withAlignedScheduleCheques(parsed, row.id) : null;
+      })(),
+      contractAmountMinor: row.contractAmountMinor,
+      cheques: leaseCheques.map((cheque) => ({
+        id: cheque.id,
+        chequeNumber: cheque.chequeNumber,
+        bankName: cheque.bankName,
+        amountMinor: cheque.amountMinor.toString(),
+        dueOn: String(cheque.dueOn),
+        reviewStatus: cheque.reviewStatus,
+      })),
+      invoices: invoiceRows
+        .filter((invoice) => invoice.leaseId === row.id)
+        .map((invoice) => ({
+          id: invoice.id,
+          number: invoice.number,
+          status: invoice.status,
+          issuedOn: String(invoice.issuedOn),
+          dueOn: String(invoice.dueOn),
+          totalMinor: invoice.totalMinor.toString(),
+          paidMinor: invoice.paidMinor.toString(),
+          billingPeriodStart: invoice.billingPeriodStart
+            ? String(invoice.billingPeriodStart)
+            : null,
+        })),
+      today,
+    });
+    const evidence = await loadGlLeaseEvidenceInTx(tx, orgId, {
+      partyId: row.tenantPartyId,
+      unitId: row.unitId,
+      chequeIds: leaseCheques.map((cheque) => cheque.id),
+    });
+    const statement = applyGlEvidenceToStatement(draft, evidence);
+    out.set(row.id, {
+      leaseId: row.id,
+      tenantPartyId: row.tenantPartyId,
+      propertyId: row.propertyId,
+      unitId: row.unitId,
+      currency: row.currency,
+      statement,
+    });
+  }
+  return out;
 }
 
 async function loadLinkTenancy(userId: string, link: TenancyLink): Promise<LinkTenancy> {

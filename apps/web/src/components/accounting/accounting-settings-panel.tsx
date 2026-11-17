@@ -371,25 +371,19 @@ export function AccountingSettingsPanel({
                   </option>
                 </select>
               </label>
-              <label className="accounting-settings__switch">
-                <input
-                  type="checkbox"
-                  checked={settings.accrualBasis}
-                  onChange={(event) =>
-                    setSettings((current) => ({ ...current, accrualBasis: event.target.checked }))
-                  }
-                />
+              <div className="accounting-settings__switch accounting-settings__switch--locked">
+                <input type="checkbox" checked disabled readOnly />
                 <span>
                   <strong>
-                    {ar ? 'أساس الاستحقاق (IFRS)' : 'Accrual basis (IFRS)'}
+                    {ar ? 'أساس الاستحقاق (IFRS) — إلزامي' : 'Accrual basis (IFRS) — required'}
                   </strong>
                   <small>
                     {ar
-                      ? 'الفاتورة تثبّت الذمة والإيراد؛ القبض يصفّي الذمة دون تكرار الإيراد.'
-                      : 'Invoice books AR + revenue; cash receipt clears AR without double-counting revenue.'}
+                      ? 'الفاتورة تثبّت الذمة والإيراد؛ القبض يصفّي الذمة. لا يُسمح بأساس نقدي للإيجار.'
+                      : 'Invoice books AR + revenue; cash clears AR. Cash-basis rent posting is not allowed.'}
                   </small>
                 </span>
-              </label>
+              </div>
             </fieldset>
           </section>
 

@@ -278,8 +278,10 @@ export async function ownerPropertyStatement(
 }
 
 /**
- * Year-end close (IFRS / PM standard): sweep revenue & expense into retained earnings 3100,
- * then lock the calendar year so back-dated posts are refused.
+ * Year-end close (IFRS / PM standard):
+ * 1) Post closing lines that zero every revenue/expense balance into retained earnings 3100
+ *    (Dr revenue / Cr 3100 and Dr 3100 / Cr expense) so 4xxx/5xxx net to zero for the year.
+ * 2) Lock the calendar year so post, reverse, and unpost into that range are refused.
  */
 export async function closeFiscalYear(
   claims: SessionClaims,

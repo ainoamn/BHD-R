@@ -184,6 +184,19 @@
   color: #61756e;
   font-size: 0.78rem;
 }
+.rent-doc__tax {
+  margin: 0.75rem 0 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  border: 1px solid rgb(148 163 184 / 0.28);
+  color: #475569;
+  font-size: 0.88rem;
+}
+.rent-doc__tax small {
+  margin-inline-start: 0.35rem;
+  color: #64748b;
+}
 .rent-doc__total {
   display: grid;
   justify-self: end;
