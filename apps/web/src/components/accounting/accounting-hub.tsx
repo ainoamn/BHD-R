@@ -33,6 +33,10 @@ import {
 import { AccountingSettingsPanel } from '@/components/accounting/accounting-settings-panel';
 import { DepositLedgerPanel } from '@/components/accounting/deposit-ledger';
 import { AccountingRefundsAlert } from '@/components/accounting/accounting-refunds-alert';
+import {
+  AccountingWorkspace,
+  AccountingWorkspaceSection,
+} from '@/components/accounting/accounting-workspace';
 import { usePathname, useRouter } from '@/i18n/navigation';
 import {
   ACCOUNTING_HUB_TABS,
@@ -1050,10 +1054,22 @@ export function AccountingHub({
         </AccountingTabPanel>
 
         <AccountingTabPanel id="accounts" tab={tab}>
-          <div className="accounting-hub__panel">
-            <div className="accounting-hub__toolbar">
-              <h2>{ar ? 'دليل الحسابات' : 'Chart of accounts'}</h2>
-              {caps.manage ? (
+          <AccountingWorkspace
+            title={ar ? 'دليل الحسابات' : 'Chart of accounts'}
+            hint={
+              ar
+                ? 'الحسابات المستخدمة في القيود والتقارير — هيّئ الدليل ثم أضف حسابات مخصّصة عند الحاجة.'
+                : 'Accounts used by journals and reports — bootstrap the chart, then add custom accounts as needed.'
+            }
+            stats={[
+              {
+                key: 'accounts',
+                label: ar ? 'إجمالي الحسابات' : 'Accounts',
+                value: String(accounts?.length ?? dash?.accountCount ?? '—'),
+              },
+            ]}
+            actions={
+              caps.manage ? (
                 <button
                   type="button"
                   className="button button--quiet"
@@ -1069,8 +1085,9 @@ export function AccountingHub({
                 >
                   {ar ? 'تهيئة الدليل الافتراضي' : 'Bootstrap default chart'}
                 </button>
-              ) : null}
-            </div>
+              ) : null
+            }
+          >
             {caps.manage ? (
               <form
                 className="accounting-hub__form"
@@ -1161,27 +1178,29 @@ export function AccountingHub({
               </table>
             </div>
             {accounts === null ? (
-              <p className="accounting-hub__muted accounting-hub__muted--soft">
-                {ar ? 'جاري التحميل…' : 'Loading…'}
-              </p>
+              <p className="fin-dash__empty">{ar ? 'جاري التحميل…' : 'Loading…'}</p>
             ) : accounts.length === 0 ? (
-              <p className="accounting-hub__muted">
+              <p className="fin-dash__empty">
                 {ar
                   ? 'لا حسابات بعد — اضغط تهيئة الدليل الافتراضي.'
                   : 'No accounts yet — bootstrap the chart.'}
               </p>
             ) : null}
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingTabPanel id="documents" tab={tab}>
-          <div className="accounting-hub__panel accounting-hub__panel--workspace">
-            <div className="accounting-hub__toolbar">
-              <div>
-                <h2>{t.docsTitle}</h2>
-                <p className="accounting-hub__hint">{t.docsHint}</p>
-              </div>
-            </div>
+          <AccountingWorkspace
+            title={t.docsTitle}
+            hint={t.docsHint}
+            stats={[
+              {
+                key: 'docs',
+                label: ar ? 'المستندات' : 'Documents',
+                value: documents === null ? '—' : String(documents.length),
+              },
+            ]}
+          >
             <div className="accounting-hub__table-wrap">
               <table className="accounting-hub__table accounting-hub__table--interactive">
                 <thead>
@@ -1383,17 +1402,32 @@ export function AccountingHub({
                 </tbody>
               </table>
             </div>
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingTabPanel id="journal" tab={tab}>
-          <div className="accounting-hub__panel accounting-hub__panel--workspace">
-            <div className="accounting-hub__toolbar">
-              <div>
-                <h2>{t.journalTitle}</h2>
-                <p className="accounting-hub__hint">{t.journalHint}</p>
-              </div>
-              {caps.manage ? (
+          <AccountingWorkspace
+            title={t.journalTitle}
+            hint={t.journalHint}
+            stats={[
+              {
+                key: 'journals',
+                label: ar ? 'القيود' : 'Journals',
+                value: journals === null ? '—' : String(journals.length),
+              },
+              {
+                key: 'drafts',
+                label: ar ? 'مسودات' : 'Drafts',
+                value: String(dash?.draftJournals ?? '—'),
+              },
+              {
+                key: 'posted',
+                label: ar ? 'مرحّلة' : 'Posted',
+                value: String(dash?.postedJournals ?? '—'),
+              },
+            ]}
+            actions={
+              caps.manage ? (
                 <button
                   type="button"
                   className="button button--primary"
@@ -1401,8 +1435,9 @@ export function AccountingHub({
                 >
                   {t.newJournal}
                 </button>
-              ) : null}
-            </div>
+              ) : null
+            }
+          >
             <AccountingJournalComposerModal
               open={composeOpen}
               onClose={() => setComposeOpen(false)}
@@ -1500,23 +1535,31 @@ export function AccountingHub({
                 </tbody>
               </table>
             </div>
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingTabPanel id="tasks" tab={tab}>
-          <div className="accounting-hub__panel accounting-hub__panel--workspace">
-            <AccountingTasksInbox locale={locale} markSeen={active && tab === 'tasks'} />
-          </div>
+          <AccountingTasksInbox locale={locale} markSeen={active && tab === 'tasks'} />
         </AccountingTabPanel>
 
         <AccountingTabPanel id="expenses" tab={tab}>
-          <div className="accounting-hub__panel">
-            <div className="accounting-hub__toolbar">
-              <div>
-                <h2>{t.expensesTitle}</h2>
-                <p className="accounting-hub__hint">{t.expensesHint}</p>
-              </div>
-              {caps.manage ? (
+          <AccountingWorkspace
+            title={t.expensesTitle}
+            hint={t.expensesHint}
+            stats={[
+              {
+                key: 'rows',
+                label: ar ? 'العمليات' : 'Entries',
+                value: expenses === null ? '—' : String(expenses.length),
+              },
+              {
+                key: 'out',
+                label: t.expenses,
+                value: money(omr.expenseMinor, omr.currency, ar),
+              },
+            ]}
+            actions={
+              caps.manage ? (
                 <button
                   type="button"
                   className="button button--primary"
@@ -1524,8 +1567,9 @@ export function AccountingHub({
                 >
                   {t.addExpenseIncome}
                 </button>
-              ) : null}
-            </div>
+              ) : null
+            }
+          >
             <AccountingExpenseIncomeModal
               open={expenseModalOpen}
               onClose={() => setExpenseModalOpen(false)}
@@ -1610,17 +1654,15 @@ export function AccountingHub({
                 </tbody>
               </table>
             </div>
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingTabPanel id="trading" tab={tab}>
-          <div className="accounting-hub__panel">
-            <div className="accounting-hub__toolbar">
-              <div>
-                <h2>{t.tradingTitle}</h2>
-                <p className="accounting-hub__hint">{t.tradingHint}</p>
-              </div>
-              {caps.manage ? (
+          <AccountingWorkspace
+            title={t.tradingTitle}
+            hint={t.tradingHint}
+            actions={
+              caps.manage ? (
                 <button
                   type="button"
                   className="button button--primary"
@@ -1628,8 +1670,9 @@ export function AccountingHub({
                 >
                   {t.addTrading}
                 </button>
-              ) : null}
-            </div>
+              ) : null
+            }
+          >
             <AccountingTradingModal
               open={tradingModalOpen}
               onClose={() => setTradingModalOpen(false)}
@@ -1639,12 +1682,12 @@ export function AccountingHub({
               onDone={() => void refreshAll({ silent: true })}
               onError={(message) => setError(message)}
             />
-            <p className="accounting-hub__hint">
+            <p className="fin-dash__empty">
               {ar
                 ? 'بعد الحفظ يظهر القيد في دفتر اليومية والمستندات. استخدم «إضافة مشتريات / مبيعات» لكل حركة جديدة.'
                 : 'After saving, the journal appears under Journal and Documents. Use “Add purchase / sale” for each new entry.'}
             </p>
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingTabPanel id="cheques" tab={tab}>
@@ -1656,13 +1699,31 @@ export function AccountingHub({
         </AccountingTabPanel>
 
         <AccountingTabPanel id="ledgers" tab={tab}>
-          <div className="accounting-hub__panel">
-            <h2>{ar ? 'أستاذ تحليلي (مبنى / وحدة / طرف)' : 'Dimensional ledger'}</h2>
-            <p className="accounting-hub__hint">
-              {ar
+          <AccountingWorkspace
+            title={ar ? 'أستاذ تحليلي (مبنى / وحدة / طرف)' : 'Dimensional ledger'}
+            hint={
+              ar
                 ? 'اعرض حركة القيود المرحّلة المرتبطة بمبنى أو وحدة أو طرف — الإيجار والتأمين والمصروفات تظهر هنا عند الربط الصحيح.'
-                : 'Posted journal activity scoped to a property, unit, or party — rent, deposits, and expenses appear when dimensions are set.'}
-            </p>
+                : 'Posted journal activity scoped to a property, unit, or party — rent, deposits, and expenses appear when dimensions are set.'
+            }
+            stats={[
+              {
+                key: 'debit',
+                label: ar ? 'إجمالي مدين' : 'Total debit',
+                value: money(ledgerTotals.debitMinor, 'OMR', ar),
+              },
+              {
+                key: 'credit',
+                label: ar ? 'إجمالي دائن' : 'Total credit',
+                value: money(ledgerTotals.creditMinor, 'OMR', ar),
+              },
+              {
+                key: 'rows',
+                label: ar ? 'الحركات' : 'Rows',
+                value: String(ledgerRows.length),
+              },
+            ]}
+          >
             <div className="accounting-hub__toolbar">
               <label>
                 {ar ? 'النطاق' : 'Scope'}
@@ -1714,11 +1775,6 @@ export function AccountingHub({
                 {ar ? 'عرض' : 'Load'}
               </button>
             </div>
-            <p className="accounting-hub__meta">
-              {ar ? 'إجمالي مدين' : 'Total debit'}: {money(ledgerTotals.debitMinor, 'OMR', ar)}
-              {' · '}
-              {ar ? 'إجمالي دائن' : 'Total credit'}: {money(ledgerTotals.creditMinor, 'OMR', ar)}
-            </p>
             <div className="accounting-hub__table-wrap">
               <table className="accounting-hub__table">
                 <thead>
@@ -1780,12 +1836,101 @@ export function AccountingHub({
                 </tbody>
               </table>
             </div>
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingTabPanel id="reports" tab={tab}>
-          <div className="accounting-hub__panel">
-            <h2>{ar ? 'التقارير المالية' : 'Financial reports'}</h2>
+          <AccountingWorkspace
+            title={ar ? 'التقارير المالية' : 'Financial reports'}
+            hint={
+              ar
+                ? 'اختر التقرير والفترة ثم اعرض أو اطبع أو أرسل الملخص.'
+                : 'Pick a report and period, then run, print, or send the summary.'
+            }
+            beforeSection={
+              <div className="fin-dash__reports">
+                {(
+                  [
+                    ['trial', ar ? 'ميزان المراجعة' : 'Trial balance', 'blue'],
+                    ['income', ar ? 'قائمة الدخل' : 'Income', 'green'],
+                    ['balance', ar ? 'الميزانية' : 'Balance sheet', 'indigo'],
+                    ['cashflow', ar ? 'التدفقات' : 'Cash flow', 'teal'],
+                    ['aging', ar ? 'أعمار مدينة' : 'AR aging', 'orange'],
+                    ['ap-aging', ar ? 'أعمار دائنة' : 'AP aging', 'purple'],
+                    ['vat', ar ? 'ضريبة القيمة' : 'VAT', 'blue'],
+                    ['owner', ar ? 'بيان المالك' : 'Owner', 'green'],
+                  ] as const
+                ).map(([kind, label, tone]) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    className={`fin-dash__report fin-dash__report--${tone}${
+                      reportKind === kind ? ' is-active' : ''
+                    }`}
+                    onClick={() => setReportKind(kind)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            }
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="button button--primary"
+                  disabled={busy}
+                  onClick={() => void run(async () => refreshReport())}
+                >
+                  {ar ? 'عرض' : 'Run'}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  disabled={!report || busy}
+                  onClick={() => {
+                    if (!report) return;
+                    void openAccountingPrint(locale, 'report', `${reportKind}-${toDate}`, {
+                      report: reportKind,
+                      fromDate,
+                      toDate,
+                    });
+                  }}
+                >
+                  {t.printReport}
+                </button>
+                <button
+                  type="button"
+                  className="button button--quiet"
+                  disabled={!report || busy}
+                  onClick={() =>
+                    void run(async () => {
+                      if (!report) return;
+                      const summary = reportShareSummary(report, reportKind, fromDate, toDate, ar);
+                      const result = await browserNextMutation<{
+                        emailed: number;
+                        whatsappUrl: string | null;
+                      }>('/api/owner/accounting/send', {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          kind: 'report',
+                          id: `${reportKind}-${fromDate}-${toDate}`,
+                          channel: 'both',
+                          locale,
+                          reportSummary: summary,
+                        }),
+                      });
+                      if (result.whatsappUrl) {
+                        window.open(result.whatsappUrl, '_blank', 'noopener,noreferrer');
+                      }
+                    })
+                  }
+                >
+                  {ar ? 'إرسال التقرير' : 'Send report'}
+                </button>
+              </>
+            }
+          >
             <div className="accounting-hub__toolbar">
               <label>
                 {ar ? 'التقرير' : 'Report'}
@@ -1816,71 +1961,131 @@ export function AccountingHub({
                   onChange={(event) => setToDate(event.target.value)}
                 />
               </label>
-              <button
-                type="button"
-                className="button button--primary"
-                disabled={busy}
-                onClick={() => void run(async () => refreshReport())}
-              >
-                {ar ? 'عرض' : 'Run'}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet"
-                disabled={!report || busy}
-                onClick={() => {
-                  if (!report) return;
-                  void openAccountingPrint(locale, 'report', `${reportKind}-${toDate}`, {
-                    report: reportKind,
-                    fromDate,
-                    toDate,
-                  });
-                }}
-              >
-                {t.printReport}
-              </button>
-              <button
-                type="button"
-                className="button button--quiet"
-                disabled={!report || busy}
-                onClick={() =>
-                  void run(async () => {
-                    if (!report) return;
-                    const summary = reportShareSummary(report, reportKind, fromDate, toDate, ar);
-                    const result = await browserNextMutation<{
-                      emailed: number;
-                      whatsappUrl: string | null;
-                    }>('/api/owner/accounting/send', {
-                      method: 'POST',
-                      body: JSON.stringify({
-                        kind: 'report',
-                        id: `${reportKind}-${fromDate}-${toDate}`,
-                        channel: 'both',
-                        locale,
-                        reportSummary: summary,
-                      }),
-                    });
-                    if (result.whatsappUrl) {
-                      window.open(result.whatsappUrl, '_blank', 'noopener,noreferrer');
-                    }
-                  })
-                }
-              >
-                {ar ? 'إرسال التقرير' : 'Send report'}
-              </button>
             </div>
             <ReportView ar={ar} report={report} />
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingTabPanel id="periods" tab={tab}>
-          <div className="accounting-hub__panel">
-            <h2>{ar ? 'إقفال الفترات والسنة المالية' : 'Fiscal period & year close'}</h2>
-            <p className="accounting-hub__muted">
-              {ar
-                ? 'إقفال الفترة يمنع الترحيل بتاريخ داخل النطاق. إقفال السنة ينقل صافي الدخل إلى الأرباح المحتجزة (3100) ثم يقفل السنة — معيار IFRS / أنظمة إدارة العقارات.'
-                : 'Period lock blocks posting in-range. Year close sweeps P&L into retained earnings (3100) then locks the year — IFRS / PM standard.'}
-            </p>
+          <AccountingWorkspace
+            title={ar ? 'إقفال الفترات والسنة المالية' : 'Fiscal period & year close'}
+            hint={
+              ar
+                ? 'إقفال الفترة يمنع الترحيل بتاريخ داخل النطاق. إقفال السنة ينقل صافي الدخل إلى الأرباح المحتجزة (3100) ثم يقفل السنة.'
+                : 'Period lock blocks posting in-range. Year close sweeps P&L into retained earnings (3100) then locks the year.'
+            }
+            stats={[
+              {
+                key: 'locked',
+                label: ar ? 'فترات مقفلة' : 'Locked periods',
+                value:
+                  periods === null
+                    ? '—'
+                    : String(periods.filter((period) => period.locked).length),
+              },
+              {
+                key: 'open',
+                label: ar ? 'مفتوحة' : 'Open',
+                value:
+                  periods === null
+                    ? '—'
+                    : String(periods.filter((period) => !period.locked).length),
+              },
+            ]}
+            afterSection={
+              <>
+                <BankReconPanel
+                  locale={locale}
+                  canManage={caps.manage}
+                  active={tab === 'periods'}
+                />
+                <AccountingWorkspaceSection
+                  title={ar ? 'الفترات المسجّلة' : 'Recorded periods'}
+                >
+                  <div className="accounting-hub__table-wrap">
+                    <table className="accounting-hub__table">
+                      <thead>
+                        <tr>
+                          <th>{ar ? 'من' : 'From'}</th>
+                          <th>{ar ? 'إلى' : 'To'}</th>
+                          <th>{ar ? 'الحالة' : 'Status'}</th>
+                          <th />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {periods === null ? (
+                          <tr>
+                            <td colSpan={4}>{ar ? 'جاري التحميل…' : 'Loading…'}</td>
+                          </tr>
+                        ) : periods.length === 0 ? (
+                          <tr>
+                            <td colSpan={4}>
+                              {ar ? 'لا فترات مقفلة بعد.' : 'No locked periods yet.'}
+                            </td>
+                          </tr>
+                        ) : (
+                          periods.map((period) => (
+                            <tr key={period.id}>
+                              <td>{period.from}</td>
+                              <td>{period.to}</td>
+                              <td>
+                                {period.locked
+                                  ? ar
+                                    ? 'مقفلة'
+                                    : 'Locked'
+                                  : ar
+                                    ? 'مفتوحة'
+                                    : 'Open'}
+                              </td>
+                              <td>
+                                {caps.manage && period.locked ? (
+                                  <button
+                                    type="button"
+                                    className="button button--quiet button--sm"
+                                    disabled={busy}
+                                    onClick={() =>
+                                      void run(async () => {
+                                        const ok = await trust.ask({
+                                          title: ar ? 'فتح الفترة المقفلة' : 'Unlock period',
+                                          rows: [
+                                            { label: ar ? 'من' : 'From', value: period.from },
+                                            { label: ar ? 'إلى' : 'To', value: period.to },
+                                          ],
+                                          impact: ar
+                                            ? 'سيُسمح مجدداً بالترحيل داخل هذا النطاق — سجّل سبباً إن أمكن.'
+                                            : 'Posting inside this range will be allowed again — note a reason when possible.',
+                                          tone: 'danger',
+                                          confirmLabel: ar ? 'تأكيد الفتح' : 'Confirm unlock',
+                                        });
+                                        if (!ok) return;
+                                        await browserNextMutation(
+                                          '/api/owner/accounting/periods',
+                                          {
+                                            method: 'POST',
+                                            body: JSON.stringify({
+                                              from: period.from,
+                                              to: period.to,
+                                              lock: false,
+                                            }),
+                                          },
+                                        );
+                                      })
+                                    }
+                                  >
+                                    {ar ? 'فتح' : 'Unlock'}
+                                  </button>
+                                ) : null}
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </AccountingWorkspaceSection>
+              </>
+            }
+          >
             {caps.manage ? (
               <form
                 className="accounting-hub__form"
@@ -1985,77 +2190,7 @@ export function AccountingHub({
                 </p>
               </form>
             ) : null}
-            <BankReconPanel locale={locale} canManage={caps.manage} active={tab === 'periods'} />
-            <div className="accounting-hub__table-wrap">
-              <table className="accounting-hub__table">
-                <thead>
-                  <tr>
-                    <th>{ar ? 'من' : 'From'}</th>
-                    <th>{ar ? 'إلى' : 'To'}</th>
-                    <th>{ar ? 'الحالة' : 'Status'}</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {periods === null ? (
-                    <tr>
-                      <td colSpan={4}>{ar ? 'جاري التحميل…' : 'Loading…'}</td>
-                    </tr>
-                  ) : periods.length === 0 ? (
-                    <tr>
-                      <td colSpan={4}>{ar ? 'لا فترات مقفلة بعد.' : 'No locked periods yet.'}</td>
-                    </tr>
-                  ) : (
-                    periods.map((period) => (
-                      <tr key={period.id}>
-                        <td>{period.from}</td>
-                        <td>{period.to}</td>
-                        <td>
-                          {period.locked ? (ar ? 'مقفلة' : 'Locked') : ar ? 'مفتوحة' : 'Open'}
-                        </td>
-                        <td>
-                          {caps.manage && period.locked ? (
-                            <button
-                              type="button"
-                              className="button button--quiet button--sm"
-                              disabled={busy}
-                              onClick={() =>
-                                void run(async () => {
-                                  const ok = await trust.ask({
-                                    title: ar ? 'فتح الفترة المقفلة' : 'Unlock period',
-                                    rows: [
-                                      { label: ar ? 'من' : 'From', value: period.from },
-                                      { label: ar ? 'إلى' : 'To', value: period.to },
-                                    ],
-                                    impact: ar
-                                      ? 'سيُسمح مجدداً بالترحيل داخل هذا النطاق — سجّل سبباً إن أمكن.'
-                                      : 'Posting inside this range will be allowed again — note a reason when possible.',
-                                    tone: 'danger',
-                                    confirmLabel: ar ? 'تأكيد الفتح' : 'Confirm unlock',
-                                  });
-                                  if (!ok) return;
-                                  await browserNextMutation('/api/owner/accounting/periods', {
-                                    method: 'POST',
-                                    body: JSON.stringify({
-                                      from: period.from,
-                                      to: period.to,
-                                      lock: false,
-                                    }),
-                                  });
-                                })
-                              }
-                            >
-                              {ar ? 'فتح' : 'Unlock'}
-                            </button>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingTabPanel id="settings" tab={tab}>
@@ -2069,8 +2204,21 @@ export function AccountingHub({
         </AccountingTabPanel>
 
         <AccountingTabPanel id="audit" tab={tab}>
-          <div className="accounting-hub__panel">
-            <h2>{ar ? 'سجل التدقيق المحاسبي' : 'Accounting audit trail'}</h2>
+          <AccountingWorkspace
+            title={ar ? 'سجل التدقيق المحاسبي' : 'Accounting audit trail'}
+            hint={
+              ar
+                ? 'أحداث الترحيل والإقفال والتغييرات المسجّلة على المستندات المحاسبية.'
+                : 'Posting, lock, and mutation events recorded on accounting documents.'
+            }
+            stats={[
+              {
+                key: 'events',
+                label: ar ? 'الأحداث' : 'Events',
+                value: audit === null ? '—' : String(audit.length),
+              },
+            ]}
+          >
             <div className="accounting-hub__table-wrap">
               <table className="accounting-hub__table">
                 <thead>
@@ -2105,7 +2253,7 @@ export function AccountingHub({
                 </tbody>
               </table>
             </div>
-          </div>
+          </AccountingWorkspace>
         </AccountingTabPanel>
 
         <AccountingEntryDrawer

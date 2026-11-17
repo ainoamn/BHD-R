@@ -6,6 +6,7 @@ import { Link } from '@/i18n/navigation';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { DepositClaimsAdmin } from '@/components/accounting/deposit-claims-admin';
 import { DepositReconciliation } from '@/components/accounting/deposit-receipts';
+import { AccountingWorkspace } from '@/components/accounting/accounting-workspace';
 import { ModalPortal } from '@/components/modal-portal';
 import {
   DepositRefundCell,
@@ -308,95 +309,121 @@ export function DepositLedgerPanel({
     }
   }
 
+  function moneyValues(values: Array<[string, bigint]>) {
+    return values.length
+      ? values
+          .map(([currency, value]) => formatMoney(value.toString(), currency, locale))
+          .join(' · ')
+      : formatMoney('0', 'OMR', locale);
+  }
+
   return (
     <section className="deposit-ledger" id="deposits" aria-labelledby="deposit-ledger-title">
-      <header className="deposit-ledger__head">
-        <div>
-          <h2 id="deposit-ledger-title">{ar ? 'أمانات التأمين' : 'Deposit trust'}</h2>
-          <p className="muted">
-            {ar
-              ? 'حوّل الاستردادات المعتمدة هنا. المبالغ المحتجزة أمانة وليست دخلاً إلا ما يُخصم.'
-              : 'Transfer approved refunds here. Held amounts are in trust — only deductions become income.'}
-          </p>
+      <AccountingWorkspace
+        title={ar ? 'أمانات التأمين' : 'Deposit trust'}
+        hint={
+          ar
+            ? 'حوّل الاستردادات المعتمدة هنا. المبالغ المحتجزة أمانة وليست دخلاً إلا ما يُخصم.'
+            : 'Transfer approved refunds here. Held amounts are in trust — only deductions become income.'
+        }
+        actions={
+          awaiting.length ? (
+            <span className="deposit-ledger__cue" role="status">
+              {ar
+                ? `${awaiting.length} بانتظار تحويلك`
+                : `${awaiting.length} awaiting your transfer`}
+            </span>
+          ) : null
+        }
+        metrics={[
+          {
+            key: 'held',
+            label: cards[0]!.label,
+            value: moneyValues(cards[0]!.values),
+            tone: 'cash',
+            badge: cards[0]!.hint,
+            icon: '◈',
+          },
+          {
+            key: 'pay',
+            label: cards[1]!.label,
+            value: moneyValues(cards[1]!.values),
+            tone: 'expense',
+            badge: cards[1]!.hint,
+            icon: '↘',
+          },
+          {
+            key: 'paid',
+            label: cards[2]!.label,
+            value: moneyValues(cards[2]!.values),
+            tone: 'revenue',
+            badge: cards[2]!.hint,
+            icon: '↑',
+          },
+          {
+            key: 'kept',
+            label: cards[3]!.label,
+            value: moneyValues(cards[3]!.values),
+            tone: 'profit',
+            badge: cards[3]!.hint,
+            icon: 'Σ',
+          },
+        ]}
+        beforeSection={
+          claimOpen.size ? (
+            <div className="deposit-ledger__alert" role="status">
+              <strong>
+                {ar
+                  ? `${claimOpen.size} بلاغ ضيف عن التأمين بانتظار تحقق المحاسب`
+                  : `${claimOpen.size} guest deposit report(s) awaiting accountant review`}
+              </strong>
+              <p>
+                {ar
+                  ? 'افتح الصف ثم اقرأ ملاحظة الضيف: إمّا تأكيد عدم الوصول لإعادة التحويل، أو رفض البلاغ إن وصل المبلغ — مع ملاحظة إلزامية.'
+                  : 'Open the row and read the guest note: confirm not-received to re-transfer, or decline if the money arrived — a note is required.'}
+              </p>
+            </div>
+          ) : null
+        }
+      >
+        <div className="deposit-ledger__filters" role="group" aria-label={ar ? 'تصفية' : 'Filter'}>
+          {filters.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              className={`deposit-ledger__chip${filter === key ? ' is-active' : ''}`}
+              aria-pressed={filter === key}
+              onClick={() => setFilter(key)}
+            >
+              {label}
+              {key === 'awaiting_refund_transfer' && awaiting.length ? (
+                <b dir="ltr">{awaiting.length}</b>
+              ) : null}
+            </button>
+          ))}
         </div>
-        {awaiting.length ? (
-          <p className="deposit-ledger__cue" role="status">
-            {ar ? `${awaiting.length} بانتظار تحويلك` : `${awaiting.length} awaiting your transfer`}
+
+        {notice ? (
+          <p
+            className={`notice notice--${notice.tone}`}
+            role={notice.tone === 'error' ? 'alert' : 'status'}
+          >
+            {notice.text}
           </p>
         ) : null}
-      </header>
 
-      {claimOpen.size ? (
-        <div className="deposit-ledger__alert" role="status">
-          <strong>
-            {ar
-              ? `${claimOpen.size} بلاغ ضيف عن التأمين بانتظار تحقق المحاسب`
-              : `${claimOpen.size} guest deposit report(s) awaiting accountant review`}
-          </strong>
-          <p>
-            {ar
-              ? 'افتح الصف ثم اقرأ ملاحظة الضيف: إمّا تأكيد عدم الوصول لإعادة التحويل، أو رفض البلاغ إن وصل المبلغ — مع ملاحظة إلزامية.'
-              : 'Open the row and read the guest note: confirm not-received to re-transfer, or decline if the money arrived — a note is required.'}
+        {failed ? (
+          <p className="notice notice--error" role="alert">
+            {ar ? 'تعذّر تحميل أمانات التأمين.' : 'Could not load the deposits.'}{' '}
+            <button
+              type="button"
+              className="button button--quiet"
+              onClick={() => setReloadKey((key) => key + 1)}
+            >
+              {ar ? 'إعادة المحاولة' : 'Retry'}
+            </button>
           </p>
-        </div>
-      ) : null}
-
-      <div className="deposit-ledger__cards" role="group" aria-label={ar ? 'ملخص' : 'Summary'}>
-        {cards.map((card) => (
-          <div key={card.label} className={`deposit-ledger__card is-${card.tone}`}>
-            <span className="deposit-ledger__label">
-              {card.label}
-              <small>{card.hint}</small>
-            </span>
-            <strong dir="ltr">
-              {card.values.length
-                ? card.values
-                    .map(([currency, value]) => formatMoney(value.toString(), currency, locale))
-                    .join(' · ')
-                : formatMoney('0', 'OMR', locale)}
-            </strong>
-          </div>
-        ))}
-      </div>
-
-      <div className="deposit-ledger__filters" role="group" aria-label={ar ? 'تصفية' : 'Filter'}>
-        {filters.map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            className={`deposit-ledger__chip${filter === key ? ' is-active' : ''}`}
-            aria-pressed={filter === key}
-            onClick={() => setFilter(key)}
-          >
-            {label}
-            {key === 'awaiting_refund_transfer' && awaiting.length ? (
-              <b dir="ltr">{awaiting.length}</b>
-            ) : null}
-          </button>
-        ))}
-      </div>
-
-      {notice ? (
-        <p
-          className={`notice notice--${notice.tone}`}
-          role={notice.tone === 'error' ? 'alert' : 'status'}
-        >
-          {notice.text}
-        </p>
-      ) : null}
-
-      {failed ? (
-        <p className="notice notice--error" role="alert">
-          {ar ? 'تعذّر تحميل أمانات التأمين.' : 'Could not load the deposits.'}{' '}
-          <button
-            type="button"
-            className="button button--quiet"
-            onClick={() => setReloadKey((key) => key + 1)}
-          >
-            {ar ? 'إعادة المحاولة' : 'Retry'}
-          </button>
-        </p>
-      ) : rows === null ? (
+        ) : rows === null ? (
         <p className="muted">{ar ? 'جارٍ التحميل…' : 'Loading…'}</p>
       ) : !visible.length ? (
         <p className="muted deposit-ledger__empty">
@@ -734,6 +761,7 @@ export function DepositLedgerPanel({
           })}
         </ul>
       )}
+      </AccountingWorkspace>
     </section>
   );
 }

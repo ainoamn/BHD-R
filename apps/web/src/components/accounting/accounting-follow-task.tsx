@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link } from '@/i18n/navigation';
+import { AccountingWorkspace } from '@/components/accounting/accounting-workspace';
 import { browserNextMutation } from '@/lib/api';
 import { accountingExpenseStatusLabel } from '@/lib/accounting-i18n';
 import { roleLabel } from '@/lib/team-shared';
@@ -156,45 +157,58 @@ export function AccountingTasksInbox({
   useEffect(() => {
     if (markSeen) markTasksSeen();
   }, [markSeen, markTasksSeen]);
+  const openCount = tasks.filter((task) => taskIsOpen(task)).length;
+  const closedCount = tasks.length - openCount;
+
   return (
-    <section className="accounting-tasks" aria-label={ar ? 'المهام المحاسبية' : 'Accounting tasks'}>
-      <header>
-        <h2>{ar ? 'المهام المحاسبية' : 'Accounting tasks'}</h2>
-        <p>
-          {ar
-            ? 'كل عملية أُحيلت للمتابعة تظهر هنا. العملية الواحدة لها مهمة واحدة.'
-            : 'Every accounting line sent for follow-up is listed here. Each line has one task.'}
-        </p>
-      </header>
-      {tasks.length === 0 ? (
-        <p className="accounting-hub__muted">
-          {ar ? 'لا مهام محاسبية بعد.' : 'No accounting tasks yet.'}
-        </p>
-      ) : (
-        <ul>
-          {tasks.map((task) => {
-            const kind = KIND_LABEL[task.kind] ?? [task.kind, task.kind];
-            const live = taskIsOpen(task);
-            return (
-              <li key={task.id}>
-                <Link href={`/owner/tasks/${encodeURIComponent(task.id)}`}>
-                  <span
-                    className={live ? 'accounting-tasks__mark is-open' : 'accounting-tasks__mark'}
-                  >
-                    {live ? (ar ? 'مفتوحة' : 'Open') : ar ? 'مغلقة' : 'Closed'}
-                  </span>
-                  <strong>{task.title}</strong>
-                  <small>
-                    {ar ? kind[0] : kind[1]} · {task.reference}
-                  </small>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      <Link href="/owner/tasks">{ar ? 'كل مهام المنصة' : 'All platform tasks'}</Link>
-    </section>
+    <AccountingWorkspace
+      title={ar ? 'المهام المحاسبية' : 'Accounting tasks'}
+      hint={
+        ar
+          ? 'كل عملية أُحيلت للمتابعة تظهر هنا. العملية الواحدة لها مهمة واحدة.'
+          : 'Every accounting line sent for follow-up is listed here. Each line has one task.'
+      }
+      stats={[
+        { key: 'open', label: ar ? 'مفتوحة' : 'Open', value: String(openCount) },
+        { key: 'closed', label: ar ? 'مغلقة' : 'Closed', value: String(closedCount) },
+        { key: 'all', label: ar ? 'الكل' : 'All', value: String(tasks.length) },
+      ]}
+      actions={
+        <Link className="button button--quiet" href="/owner/tasks">
+          {ar ? 'كل مهام المنصة' : 'All platform tasks'}
+        </Link>
+      }
+    >
+      <section className="accounting-tasks" aria-label={ar ? 'المهام المحاسبية' : 'Accounting tasks'}>
+        {tasks.length === 0 ? (
+          <p className="fin-dash__empty">
+            {ar ? 'لا مهام محاسبية بعد.' : 'No accounting tasks yet.'}
+          </p>
+        ) : (
+          <ul>
+            {tasks.map((task) => {
+              const kind = KIND_LABEL[task.kind] ?? [task.kind, task.kind];
+              const live = taskIsOpen(task);
+              return (
+                <li key={task.id}>
+                  <Link href={`/owner/tasks/${encodeURIComponent(task.id)}`}>
+                    <span
+                      className={live ? 'accounting-tasks__mark is-open' : 'accounting-tasks__mark'}
+                    >
+                      {live ? (ar ? 'مفتوحة' : 'Open') : ar ? 'مغلقة' : 'Closed'}
+                    </span>
+                    <strong>{task.title}</strong>
+                    <small>
+                      {ar ? kind[0] : kind[1]} · {task.reference}
+                    </small>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+    </AccountingWorkspace>
   );
 }
 

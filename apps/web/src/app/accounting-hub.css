@@ -1421,11 +1421,22 @@
 
 .accounting-settings {
   display: grid;
-  gap: 1rem;
+  gap: 1.15rem;
   padding: 0 !important;
   background: transparent !important;
   border: 0 !important;
   box-shadow: none !important;
+}
+
+.accounting-settings__body {
+  display: grid;
+  gap: 1rem;
+}
+
+.accounting-settings .accounting-settings__footer {
+  margin-top: 0.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgb(148 163 184 / 0.18);
 }
 
 .accounting-settings--loading {
@@ -2583,6 +2594,124 @@ button.fin-dash__metric {
   color: #2563eb;
 }
 
+/* —— Shared workspace shell (every tab except الملخص) —— */
+.fin-dash--workspace {
+  gap: 1.15rem;
+}
+
+.fin-dash__metrics--1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fin-dash__metrics--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.fin-dash__metrics--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.fin-dash__secondary--1 {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fin-dash__secondary--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.fin-dash__secondary--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.fin-dash__secondary--5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.fin-dash__section--workspace {
+  padding: 0;
+  overflow: hidden;
+}
+
+.fin-dash__section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem 1.25rem;
+  padding: 1.15rem 1.2rem 1rem;
+  border-bottom: 1px solid rgb(148 163 184 / 0.18);
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+}
+
+.fin-dash__section-copy {
+  min-width: min(100%, 16rem);
+  flex: 1 1 14rem;
+}
+
+.fin-dash__section--workspace .fin-dash__section-head h2,
+.fin-dash__section-head h2 {
+  margin: 0;
+  font-size: 1.12rem;
+  color: #0f172a;
+}
+
+.fin-dash__section-hint {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  max-width: 52rem;
+}
+
+.fin-dash__section-hint p {
+  margin: 0;
+}
+
+.fin-dash__section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fin-dash__section-body {
+  padding: 1rem 1.2rem 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.fin-dash__section-body > .accounting-hub__table-wrap {
+  margin: 0;
+}
+
+.fin-dash__section-body > .accounting-hub__form,
+.fin-dash__section-body > .accounting-hub__toolbar {
+  margin: 0;
+}
+
+.fin-dash__empty {
+  margin: 0;
+  padding: 1.35rem 1rem;
+  text-align: center;
+  color: #64748b;
+  background: #f8fafc;
+  border: 1px dashed rgb(148 163 184 / 0.45);
+  border-radius: 0.85rem;
+  font-size: 0.92rem;
+}
+
+/* Deposit ledger aligned to fin-dash tokens */
+.deposit-ledger.fin-dash--workspace .deposit-ledger__cards {
+  display: none;
+}
+
+.deposit-ledger__list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.deposit-ledger__item {
+  border: 1px solid rgb(148 163 184 / 0.22);
+  border-radius: 0.9rem;
+  background: #fff;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 0.04);
+}
+
 .fin-dash__modules {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -2783,6 +2912,16 @@ button.fin-dash__metric {
   text-align: center;
 }
 
+.fin-dash__report.is-active {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+  box-shadow: 0 8px 18px rgb(37 99 235 / 0.12);
+}
+
+.fin-dash--workspace > .fin-dash__reports {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .fin-dash__activity ul {
   list-style: none;
   margin: 0;
@@ -2821,7 +2960,10 @@ button.fin-dash__metric {
 
 @media (max-width: 820px) {
   .fin-dash__metrics,
+  .fin-dash__metrics--3,
   .fin-dash__secondary,
+  .fin-dash__secondary--3,
+  .fin-dash__secondary--5,
   .fin-dash__reports {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2832,11 +2974,24 @@ button.fin-dash__metric {
 
 @media (max-width: 520px) {
   .fin-dash__metrics,
+  .fin-dash__metrics--2,
+  .fin-dash__metrics--3,
   .fin-dash__secondary,
+  .fin-dash__secondary--2,
+  .fin-dash__secondary--3,
+  .fin-dash__secondary--5,
   .fin-dash__modules,
   .fin-dash__quick,
   .fin-dash__reports {
     grid-template-columns: 1fr;
+  }
+
+  .fin-dash__section-head {
+    padding: 1rem 1rem 0.85rem;
+  }
+
+  .fin-dash__section-body {
+    padding: 0.85rem 1rem 1.1rem;
   }
 }
 

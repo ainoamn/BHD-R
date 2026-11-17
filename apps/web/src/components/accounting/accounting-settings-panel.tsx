@@ -221,32 +221,36 @@ export function AccountingSettingsPanel({
   ];
 
   return (
-    <div className="accounting-hub__panel accounting-settings">
-      <header className="accounting-settings__hero">
-        <div className="accounting-settings__hero-copy">
-          <p className="accounting-hub__eyebrow">{ar ? 'إعدادات المحاسبة' : 'Accounting setup'}</p>
-          <h2>{ar ? 'ضبط الحسابات' : 'Accounting settings'}</h2>
-          <p>
-            {ar
-              ? 'نظّم الضرائب والعملات والحسابات البنكية وسياسة سلامة الدفاتر في مكان واحد مرتب.'
-              : 'Organize taxes, currencies, bank accounts, and book-integrity policy in one clear place.'}
-          </p>
+    <div className="fin-dash fin-dash--workspace accounting-settings">
+      <div className="fin-dash__secondary fin-dash__secondary--3">
+        <div className="fin-dash__stat">
+          <span>{ar ? 'حساب بنكي' : 'Banks'}</span>
+          <strong>{settings.bankAccounts?.length ?? 0}</strong>
         </div>
-        <div className="accounting-settings__hero-stats" aria-hidden="true">
-          <div>
-            <strong>{settings.bankAccounts?.length ?? 0}</strong>
-            <span>{ar ? 'حساب بنكي' : 'Banks'}</span>
-          </div>
-          <div>
-            <strong>{settings.otherTaxes.length + (settings.vatEnabled ? 1 : 0)}</strong>
-            <span>{ar ? 'ضريبة' : 'Taxes'}</span>
-          </div>
-          <div>
-            <strong>{1 + settings.currencies.length}</strong>
-            <span>{ar ? 'عملة' : 'FX'}</span>
-          </div>
+        <div className="fin-dash__stat">
+          <span>{ar ? 'ضريبة' : 'Taxes'}</span>
+          <strong>{settings.otherTaxes.length + (settings.vatEnabled ? 1 : 0)}</strong>
         </div>
-      </header>
+        <div className="fin-dash__stat">
+          <span>{ar ? 'عملة' : 'FX'}</span>
+          <strong>{1 + settings.currencies.length}</strong>
+        </div>
+      </div>
+      <section className="fin-dash__section fin-dash__section--workspace">
+        <header className="fin-dash__section-head">
+          <div className="fin-dash__section-copy">
+            <p className="accounting-hub__eyebrow">
+              {ar ? 'إعدادات المحاسبة' : 'Accounting setup'}
+            </p>
+            <h2>{ar ? 'ضبط الحسابات' : 'Accounting settings'}</h2>
+            <div className="fin-dash__section-hint">
+              {ar
+                ? 'نظّم الضرائب والعملات والحسابات البنكية وسياسة سلامة الدفاتر في مكان واحد مرتب.'
+                : 'Organize taxes, currencies, bank accounts, and book-integrity policy in one clear place.'}
+            </div>
+          </div>
+        </header>
+        <div className="fin-dash__section-body accounting-settings__body">
 
       {notice ? (
         <p className="accounting-settings__notice" role="status">
@@ -1117,6 +1121,8 @@ export function AccountingSettingsPanel({
           </p>
         )}
       </footer>
+        </div>
+      </section>
     </div>
   );
 }

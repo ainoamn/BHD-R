@@ -3,6 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AccountingFollowTask } from '@/components/accounting/accounting-follow-task';
 import { useAccountingTrustConfirm } from '@/components/accounting/accounting-trust-confirm';
+import {
+  AccountingWorkspace,
+  AccountingWorkspaceSection,
+} from '@/components/accounting/accounting-workspace';
 import { outstandingMinorOf, RentDocLinks } from '@/components/rent-doc-links';
 import { fetchAccountingJson, getAccountingCache, invalidateAccountingCache } from '@/lib/accounting-client-cache';
 import {
@@ -374,99 +378,197 @@ export function AccountingChequesPanel({
     void runOperation(row, action);
   }
 
+  const currency = summary?.currency || 'OMR';
+
   return (
-    <div className="accounting-hub__panel cheque-lifecycle">
+    <div className="cheque-lifecycle">
       {trust.gate}
-      <div className="accounting-hub__toolbar">
-        <div>
-          <h2>{ar ? 'سجل الشيكات (PDC)' : 'Cheque register (PDC)'}</h2>
-          <p className="accounting-hub__hint">
-            {ar
-              ? 'دورة معيارية: في اليد → برسم التحصيل → محصّل. كل خطوة عملية بقيد، والتراجع لآخر عملية فقط.'
-              : 'Standard path: in hand → under collection → cleared. Each step is an operation with a journal; undo reverses the last step only.'}
+      <AccountingWorkspace
+        title={ar ? 'سجل الشيكات (PDC)' : 'Cheque register (PDC)'}
+        hint={
+          ar
+            ? 'دورة معيارية: في اليد → برسم التحصيل → محصّل. كل خطوة عملية بقيد، والتراجع لآخر عملية فقط.'
+            : 'Standard path: in hand → under collection → cleared. Each step is an operation with a journal; undo reverses the last step only.'
+        }
+        {...(summary
+          ? {
+              metrics: [
+                {
+                  key: 'cleared',
+                  label: ar ? 'محصّلة' : 'Cleared',
+                  value: formatMoney(summary.paidMinor ?? '0', currency, locale),
+                  tone: 'revenue' as const,
+                  badge: String(summary.paidCount ?? 0),
+                  icon: '✓',
+                },
+                {
+                  key: 'upcoming',
+                  label: ar ? 'لاحقة' : 'Upcoming',
+                  value: formatMoney(summary.expectedMinor, currency, locale),
+                  tone: 'profit' as const,
+                  badge: String(summary.upcomingCount),
+                  icon: '◷',
+                },
+                {
+                  key: 'deposits',
+                  label: ar ? 'تأمينات' : 'Deposits',
+                  value: formatMoney(summary.depositMinor ?? '0', currency, locale),
+                  tone: 'cash' as const,
+                  badge: String(summary.depositCount ?? 0),
+                  icon: '◈',
+                },
+                {
+                  key: 'arrears',
+                  label: ar ? 'متأخرات' : 'Arrears',
+                  value: formatMoney(summary.arrearsMinor, currency, locale),
+                  tone: 'expense' as const,
+                  badge: String(summary.overdueCount),
+                  icon: '!',
+                },
+              ],
+              stats: [
+                {
+                  key: 'past',
+                  label: ar ? 'سابقة' : 'Past',
+                  value: String(summary.pastCount ?? 0),
+                },
+                {
+                  key: 'all',
+                  label: ar ? 'إجمالي الشيكات' : 'All cheques',
+                  value: String(rows?.length ?? '—'),
+                },
+              ],
+            }
+          : {})}
+        beforeSection={
+          <ol className="cheque-lifecycle__pipeline" aria-label={ar ? 'مسار الشيك' : 'Cheque path'}>
+            {PIPELINE.map((step, index) => (
+              <li key={step.id}>
+                <span className="cheque-lifecycle__step-index">{index + 1}</span>
+                <span>{ar ? step.ar : step.en}</span>
+              </li>
+            ))}
+          </ol>
+        }
+        {...(canManage
+          ? {
+              afterSection: (
+                <AccountingWorkspaceSection
+                  title={ar ? 'استيراد شيكات (CSV)' : 'Import cheques (CSV)'}
+                  hint={
+                    ar
+                      ? 'الأعمدة: رقم الشيك، البنك، المبلغ، تاريخ الاستحقاق (YYYY-MM-DD)، معرّف العقد (اختياري).'
+                      : 'Columns: cheque number, bank, amount, due date (YYYY-MM-DD), lease id (optional).'
+                  }
+                >
+                  <form
+                    className="accounting-hub__form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (!csv.trim()) return;
+                      void (async () => {
+                        const ok = await trust.ask({
+                          title: ar ? 'استيراد شيكات CSV' : 'Import cheques CSV',
+                          subtitle: ar
+                            ? 'راجع أن الملف يحتوي أرقام شيكات وتواريخ صحيحة قبل الترحيل'
+                            : 'Confirm the file has valid cheque numbers and dates before posting',
+                          rows: [
+                            {
+                              label: ar ? 'عدد الأسطر التقريبي' : 'Approx. lines',
+                              value: String(csv.trim().split(/\r?\n/).filter(Boolean).length),
+                            },
+                          ],
+                          impact: ar
+                            ? 'ستُضاف الشيكات الجديدة بحالة «في اليد» دون تحصيل نقدي.'
+                            : 'New cheques will be added as in-hand with no cash collection.',
+                          confirmLabel: ar ? 'تأكيد الاستيراد' : 'Confirm import',
+                        });
+                        if (!ok) return;
+                        setBusy(true);
+                        setNotice(null);
+                        try {
+                          const result = await browserNextMutation<{
+                            imported?: number;
+                            skipped?: number;
+                          }>('/api/owner/accounting/cheques', {
+                            method: 'POST',
+                            body: JSON.stringify({ csv }),
+                          });
+                          setCsv('');
+                          setNotice(
+                            ar
+                              ? `تم استيراد ${result.imported ?? 0} شيك، وتخطّي ${result.skipped ?? 0}.`
+                              : `Imported ${result.imported ?? 0}, skipped ${result.skipped ?? 0}.`,
+                          );
+                          invalidateAccountingCache();
+                          setReloadKey((key) => key + 1);
+                          setRows(null);
+                        } catch {
+                          setNotice(
+                            ar
+                              ? 'فشل الاستيراد — تحقق من الأعمدة ومعرّف العقد.'
+                              : 'Import failed.',
+                          );
+                        } finally {
+                          setBusy(false);
+                        }
+                      })();
+                    }}
+                  >
+                    <textarea
+                      rows={5}
+                      value={csv}
+                      onChange={(event) => setCsv(event.target.value)}
+                      placeholder="chequeNumber,bankName,amount,dueOn,leaseId"
+                    />
+                    <button
+                      className="button button--primary"
+                      type="submit"
+                      disabled={busy || !csv.trim()}
+                    >
+                      {ar ? 'استيراد' : 'Import'}
+                    </button>
+                  </form>
+                </AccountingWorkspaceSection>
+              ),
+            }
+          : {})}
+      >
+        <div className="accounting-hub__chips" role="tablist">
+          {filters.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`button button--tiny ${filter === id ? 'button--primary' : 'button--quiet'}`}
+              aria-selected={filter === id}
+              onClick={() => setFilter(id)}
+            >
+              {label}
+              {id === 'all' && rows ? ` (${rows.length})` : ''}
+              {id !== 'all' && rows
+                ? ` (${
+                    rows.filter((row) => {
+                      const status = normalizeStatus(row.reviewStatus);
+                      if (id === 'past') return row.dueOn < today;
+                      if (id === 'upcoming')
+                        return row.dueOn >= today && status !== 'cleared' && status !== 'cancelled';
+                      return status === id;
+                    }).length
+                  })`
+                : ''}
+            </button>
+          ))}
+        </div>
+
+        {failed ? (
+          <p className="accounting-hub__error">
+            {ar ? 'تعذر تحميل الشيكات' : 'Could not load cheques'}
           </p>
-        </div>
-      </div>
+        ) : null}
+        {notice ? <p className="accounting-hub__meta">{notice}</p> : null}
 
-      <ol className="cheque-lifecycle__pipeline" aria-label={ar ? 'مسار الشيك' : 'Cheque path'}>
-        {PIPELINE.map((step, index) => (
-          <li key={step.id}>
-            <span className="cheque-lifecycle__step-index">{index + 1}</span>
-            <span>{ar ? step.ar : step.en}</span>
-          </li>
-        ))}
-      </ol>
-
-      {summary ? (
-        <div
-          className="cheque-lifecycle__stats"
-          role="group"
-          aria-label={ar ? 'ملخص الشيكات' : 'Cheque summary'}
-        >
-          <div className="cheque-lifecycle__stat">
-            <span>{ar ? 'سابقة' : 'Past'}</span>
-            <strong>{summary.pastCount ?? 0}</strong>
-          </div>
-          <div className="cheque-lifecycle__stat">
-            <span>{ar ? 'لاحقة' : 'Upcoming'}</span>
-            <strong>{summary.upcomingCount}</strong>
-            <em>{formatMoney(summary.expectedMinor, summary.currency || 'OMR', locale)}</em>
-          </div>
-          <div className="cheque-lifecycle__stat cheque-lifecycle__stat--good">
-            <span>{ar ? 'محصّلة' : 'Cleared'}</span>
-            <strong>{summary.paidCount ?? 0}</strong>
-            <em>{formatMoney(summary.paidMinor ?? '0', summary.currency || 'OMR', locale)}</em>
-          </div>
-          <div className="cheque-lifecycle__stat cheque-lifecycle__stat--deposit">
-            <span>{ar ? 'تأمينات' : 'Deposits'}</span>
-            <strong>{summary.depositCount ?? 0}</strong>
-            <em>{formatMoney(summary.depositMinor ?? '0', summary.currency || 'OMR', locale)}</em>
-          </div>
-          {summary.arrearsMinor !== '0' ? (
-            <div className="cheque-lifecycle__stat cheque-lifecycle__stat--bad">
-              <span>{ar ? 'متأخرات' : 'Arrears'}</span>
-              <strong>{summary.overdueCount}</strong>
-              <em>{formatMoney(summary.arrearsMinor, summary.currency || 'OMR', locale)}</em>
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-
-      <div className="accounting-hub__chips" role="tablist">
-        {filters.map(([id, label]) => (
-          <button
-            key={id}
-            type="button"
-            className={`button button--tiny ${filter === id ? 'button--primary' : 'button--quiet'}`}
-            aria-selected={filter === id}
-            onClick={() => setFilter(id)}
-          >
-            {label}
-            {id === 'all' && rows ? ` (${rows.length})` : ''}
-            {id !== 'all' && rows
-              ? ` (${
-                  rows.filter((row) => {
-                    const status = normalizeStatus(row.reviewStatus);
-                    if (id === 'past') return row.dueOn < today;
-                    if (id === 'upcoming')
-                      return row.dueOn >= today && status !== 'cleared' && status !== 'cancelled';
-                    return status === id;
-                  }).length
-                })`
-              : ''}
-          </button>
-        ))}
-      </div>
-
-      {failed ? (
-        <p className="accounting-hub__error">
-          {ar ? 'تعذر تحميل الشيكات' : 'Could not load cheques'}
-        </p>
-      ) : null}
-      {notice ? <p className="accounting-hub__meta">{notice}</p> : null}
-
-      <div className="accounting-hub__table-wrap">
-        <table className="accounting-hub__table">
+        <div className="accounting-hub__table-wrap">
+          <table className="accounting-hub__table">
           <thead>
             <tr>
               <th>{ar ? 'النوع' : 'Kind'}</th>
@@ -634,8 +736,9 @@ export function AccountingChequesPanel({
               })
             )}
           </tbody>
-        </table>
-      </div>
+          </table>
+        </div>
+      </AccountingWorkspace>
 
       {dialog ? (
         <div className="cheque-lifecycle__dialog" role="dialog" aria-modal="true">
@@ -712,79 +815,6 @@ export function AccountingChequesPanel({
             </div>
           </div>
         </div>
-      ) : null}
-
-      {canManage ? (
-        <form
-          className="accounting-hub__form"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!csv.trim()) return;
-            void (async () => {
-              const ok = await trust.ask({
-                title: ar ? 'استيراد شيكات CSV' : 'Import cheques CSV',
-                subtitle: ar
-                  ? 'راجع أن الملف يحتوي أرقام شيكات وتواريخ صحيحة قبل الترحيل'
-                  : 'Confirm the file has valid cheque numbers and dates before posting',
-                rows: [
-                  {
-                    label: ar ? 'عدد الأسطر التقريبي' : 'Approx. lines',
-                    value: String(csv.trim().split(/\r?\n/).filter(Boolean).length),
-                  },
-                ],
-                impact: ar
-                  ? 'ستُضاف الشيكات الجديدة بحالة «في اليد» دون تحصيل نقدي.'
-                  : 'New cheques will be added as in-hand with no cash collection.',
-                confirmLabel: ar ? 'تأكيد الاستيراد' : 'Confirm import',
-              });
-              if (!ok) return;
-              setBusy(true);
-              setNotice(null);
-              try {
-                const result = await browserNextMutation<{
-                  imported?: number;
-                  skipped?: number;
-                }>('/api/owner/accounting/cheques', {
-                  method: 'POST',
-                  body: JSON.stringify({ csv }),
-                });
-                setCsv('');
-                setNotice(
-                  ar
-                    ? `تم استيراد ${result.imported ?? 0} شيك، وتخطّي ${result.skipped ?? 0}.`
-                    : `Imported ${result.imported ?? 0}, skipped ${result.skipped ?? 0}.`,
-                );
-                invalidateAccountingCache();
-                setReloadKey((key) => key + 1);
-                setRows(null);
-              } catch {
-                setNotice(ar ? 'فشل الاستيراد — تحقق من الأعمدة ومعرّف العقد.' : 'Import failed.');
-              } finally {
-                setBusy(false);
-              }
-            })();
-          }}
-        >
-          <h3>{ar ? 'استيراد شيكات (CSV)' : 'Import cheques (CSV)'}</h3>
-          <p className="accounting-hub__hint">
-            {ar
-              ? 'الأعمدة: رقم الشيك، البنك، المبلغ، تاريخ الاستحقاق (YYYY-MM-DD)، معرّف العقد (اختياري).'
-              : 'Columns: cheque number, bank, amount, due date (YYYY-MM-DD), lease id (optional).'}
-          </p>
-          <textarea
-            rows={5}
-            value={csv}
-            onChange={(event) => setCsv(event.target.value)}
-            placeholder={
-              ar
-                ? 'chequeNumber,bankName,amount,dueOn,leaseId'
-                : 'chequeNumber,bankName,amount,dueOn,leaseId'
-            }
-          />
-          <button className="button button--primary" type="submit" disabled={busy || !csv.trim()}>
-            {ar ? 'استيراد' : 'Import'}
-          </button>
-        </form>
       ) : null}
     </div>
   );
