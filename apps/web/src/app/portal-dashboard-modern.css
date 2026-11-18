@@ -22,7 +22,7 @@
   --pd-shadow: none;
   --pd-shadow-lift: none;
   --pd-ease: ease;
-  --pd-topbar: #0d7a6d;
+  --pd-topbar: #ffffff;
   --pd-sidebar: #f3f4f6;
   --pd-canvas: #eceff2;
   --pd-table-head: #1e3a5f;
@@ -42,7 +42,7 @@
   --pd-accent: #1d4e89;
   --pd-accent-2: #2563eb;
   --pd-gold: #c9a05a;
-  --pd-topbar: #1d4e89;
+  --pd-topbar: #ffffff;
   --pd-hero-from: #ffffff;
   --pd-hero-via: #ffffff;
   --pd-hero-to: #ffffff;
@@ -50,19 +50,20 @@
 }
 
 /* ————————————————————————————————————————————————
-   Top chrome — solid green identity strip
+   Top chrome — light bar; brand green only as accents
 ———————————————————————————————————————————————— */
-.portal-layout[data-portal='owner'] .portal-chrome,
-.portal-layout[data-portal='tenant'] .portal-chrome {
-  background: var(--pd-topbar);
-  border-bottom: 1px solid color-mix(in srgb, var(--pd-topbar) 78%, #000);
-  box-shadow: none;
-  backdrop-filter: none;
+.portal-layout[data-portal='owner'],
+.portal-layout[data-portal='tenant'] {
+  --pd-topbar: #ffffff;
 }
 
 .portal-layout[data-portal='owner'] .portal-chrome,
 .portal-layout[data-portal='tenant'] .portal-chrome {
-  color: #fff;
+  background: #ffffff;
+  border-bottom: 3px solid var(--pd-accent);
+  box-shadow: none;
+  backdrop-filter: none;
+  color: var(--pd-ink);
 }
 
 .portal-layout[data-portal='owner'] .portal-chrome a,
@@ -79,7 +80,7 @@
 .portal-layout[data-portal='tenant'] .portal-chrome__user-text small,
 .portal-layout[data-portal='owner'] .portal-chrome__role,
 .portal-layout[data-portal='tenant'] .portal-chrome__role {
-  color: #fff;
+  color: var(--pd-ink);
 }
 
 .portal-layout[data-portal='owner'] .portal-chrome__home,
@@ -88,11 +89,27 @@
 .portal-layout[data-portal='tenant'] .portal-chrome__lang,
 .portal-layout[data-portal='owner'] .portal-chrome__menu,
 .portal-layout[data-portal='tenant'] .portal-chrome__menu {
-  background: rgb(255 255 255 / 0.16);
-  border-color: rgb(255 255 255 / 0.28);
-  color: #fff;
+  background: #f3f4f6;
+  border: 1px solid #d9dee3;
+  color: var(--pd-ink);
   border-radius: 0.25rem;
   box-shadow: none;
+}
+
+.portal-layout[data-portal='owner'] .portal-space-switch a,
+.portal-layout[data-portal='tenant'] .portal-space-switch a {
+  background: #f3f4f6 !important;
+  border: 1px solid #d9dee3 !important;
+  color: var(--pd-ink) !important;
+}
+
+.portal-layout[data-portal='owner'] .portal-space-switch a[aria-current='page'],
+.portal-layout[data-portal='owner'] .portal-space-switch a.is-active,
+.portal-layout[data-portal='tenant'] .portal-space-switch a[aria-current='page'],
+.portal-layout[data-portal='tenant'] .portal-space-switch a.is-active {
+  background: var(--pd-accent) !important;
+  border-color: var(--pd-accent) !important;
+  color: #fff !important;
 }
 
 /* ————————————————————————————————————————————————
@@ -2966,7 +2983,7 @@
 /* Keep chrome text readable if logo images invert poorly */
 .portal-layout[data-portal='owner'] .portal-chrome__logo,
 .portal-layout[data-portal='tenant'] .portal-chrome__logo {
-  filter: brightness(0) invert(1);
+  filter: none;
 }
 
 
@@ -3490,11 +3507,121 @@
   overflow: auto;
 }
 
-/* Keep top chrome green (never orange) */
-.portal-layout[data-portal='owner'] {
-  --pd-topbar: #0d7a6d;
+/* Top chrome stays light — brand green is accent line/buttons only */
+.portal-layout[data-portal='owner'] .portal-chrome,
+.portal-layout[data-portal='tenant'] .portal-chrome {
+  background: #ffffff !important;
+  border-bottom: 3px solid var(--pd-accent) !important;
+  color: var(--pd-ink) !important;
 }
-.portal-layout[data-portal='owner'] .portal-chrome {
-  background: #0d7a6d !important;
-  border-bottom-color: #0a5f55 !important;
+
+.portal-layout[data-portal='owner'] .portal-chrome__logo,
+.portal-layout[data-portal='tenant'] .portal-chrome__logo {
+  filter: none !important;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   PART 7 — light chrome + force MoL tables on ALL list pages (0.8.136.246)
+════════════════════════════════════════════════════════════════ */
+
+.portal-layout[data-portal='owner'] .portal-chrome *,
+.portal-layout[data-portal='tenant'] .portal-chrome * {
+  color: inherit;
+}
+
+.portal-layout[data-portal='owner'] .portal-chrome__titles strong,
+.portal-layout[data-portal='tenant'] .portal-chrome__titles strong,
+.portal-layout[data-portal='owner'] .portal-chrome__user-text strong,
+.portal-layout[data-portal='tenant'] .portal-chrome__user-text strong {
+  color: #111827 !important;
+}
+
+.portal-layout[data-portal='owner'] .portal-chrome__titles span,
+.portal-layout[data-portal='tenant'] .portal-chrome__titles span,
+.portal-layout[data-portal='owner'] .portal-chrome__user-text small,
+.portal-layout[data-portal='tenant'] .portal-chrome__user-text small,
+.portal-layout[data-portal='owner'] .portal-chrome__role,
+.portal-layout[data-portal='tenant'] .portal-chrome__role {
+  color: #6b7280 !important;
+}
+
+/* Force navy MoL headers on every table variant (ops + bookings psr + accounting) */
+.portal-layout[data-portal='owner'] table.data-table > thead > tr > th,
+.portal-layout[data-portal='owner'] table.ops-table > thead > tr > th,
+.portal-layout[data-portal='owner'] table.psr-table > thead > tr > th,
+.portal-layout[data-portal='owner'] table.tenant-table > thead > tr > th,
+.portal-layout[data-portal='tenant'] table.data-table > thead > tr > th,
+.portal-layout[data-portal='tenant'] table.ops-table > thead > tr > th,
+.portal-layout[data-portal='owner'] .accounting-hub table > thead > tr > th,
+.portal-layout[data-portal='owner'] .fin-dash table > thead > tr > th,
+.portal-layout[data-portal='owner'] .contacts-board table > thead > tr > th,
+.portal-layout[data-portal='owner'] .task-board table > thead > tr > th,
+.portal-layout[data-portal='owner'] .approvals-hub table > thead > tr > th,
+.portal-layout[data-portal='owner'] .legal-board table > thead > tr > th {
+  background: #1e3a5f !important;
+  color: #ffffff !important;
+  border-bottom: 0 !important;
+}
+
+.portal-layout[data-portal='owner'] .data-table-wrap,
+.portal-layout[data-portal='tenant'] .data-table-wrap,
+.portal-layout[data-portal='owner'] .psr-table,
+.portal-layout[data-portal='owner'] .ops-panel {
+  border: 1px solid #cfd6dd !important;
+  border-radius: 0.2rem !important;
+  background: #fff !important;
+}
+
+/* Bookings PSR toolbar/chips — same light registry chrome */
+.portal-layout[data-portal='owner'] .psr-toolbar,
+.portal-layout[data-portal='owner'] .psr-filters,
+.portal-layout[data-portal='owner'] .psr-summary {
+  background: #f3f6f9 !important;
+  border: 1px solid #d7dde5 !important;
+  border-radius: 0.2rem !important;
+  box-shadow: none !important;
+}
+
+.portal-layout[data-portal='owner'] .psr-chip {
+  border: 1px solid #c5cdd6 !important;
+  border-radius: 0.15rem !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.portal-layout[data-portal='owner'] .psr-chip--active {
+  background: #1e3a5f !important;
+  border-color: #1e3a5f !important;
+  color: #fff !important;
+}
+
+.portal-layout[data-portal='owner'] .psr-summary article {
+  background: #fff !important;
+  border: 1px solid #d7dde5 !important;
+  border-radius: 0.2rem !important;
+  box-shadow: none !important;
+  border-block-start: 3px solid #1e3a5f !important;
+}
+
+/* Soften KPI strip so pages feel lighter (MoL-like) */
+.portal-layout[data-portal='owner'] .ops-kpi-strip__card,
+.portal-layout[data-portal='tenant'] .ops-kpi-strip__card {
+  box-shadow: none !important;
+  border-radius: 0.2rem !important;
+}
+
+.portal-layout[data-portal='owner'] .ops-stats__toggle {
+  border: 1px solid #d7dde5 !important;
+  border-radius: 0.2rem !important;
+  background: #f8fafc !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* pmh badges solid like MoL */
+.portal-layout[data-portal='owner'] .pmh-badge {
+  border-radius: 0.2rem !important;
+  border: 0 !important;
+  font-weight: 750 !important;
 }
