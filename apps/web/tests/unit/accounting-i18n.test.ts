@@ -8,6 +8,8 @@ import {
   accountingIntegrityGapKindLabel,
   accountingJournalStatusLabel,
   accountingSourceTypeLabel,
+  accountingStatusChipLabel,
+  accountingStatusTone,
 } from '@/lib/accounting-i18n';
 import { workflowEventLabel } from '@/lib/ui-labels';
 
@@ -50,5 +52,29 @@ describe('accounting i18n', () => {
     expect(accountingAgingBucketLabel('90+', 'ar')).toBe('أكثر من 90 يوماً');
     expect(workflowEventLabel('journal.posted', 'ar')).toContain('ترحيل');
     expect(workflowEventLabel('settings.updated', 'en')).toBe('Settings updated');
+  });
+
+  it('marks posted reversals and undone cheque ops as cancelled tone', () => {
+    expect(
+      accountingStatusTone({
+        status: 'posted',
+        sourceType: 'journal_reversal',
+        text: 'عكس قيد',
+      }),
+    ).toBe('bad');
+    expect(
+      accountingStatusTone({
+        status: 'posted',
+        sourceType: 'cheque_op_undone',
+      }),
+    ).toBe('bad');
+    expect(accountingStatusTone({ status: 'posted', sourceType: 'cheque_clear' })).toBe('good');
+    expect(accountingStatusTone({ status: 'draft' })).toBe('review');
+    expect(
+      accountingStatusChipLabel(
+        { status: 'posted', sourceType: 'journal_reversal', text: 'عكس القيد' },
+        'ar',
+      ),
+    ).toBe('معكوس');
   });
 });

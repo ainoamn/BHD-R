@@ -171,18 +171,41 @@ export function accountingJournalStatusLabel(status: string | null | undefined, 
   return pick(locale, JOURNAL_STATUS[status], status);
 }
 
+const CANCELLED_SOURCE_TYPES = new Set([
+  'journal_reversal',
+  'cheque_op_undone',
+  'cheque_clear_undone',
+]);
+
+function looksCancelledText(text: string | null | undefined): boolean {
+  if (!text) return false;
+  return /عكس|ملغاة|ملغى|reversal|undone|cancelled|canceled/i.test(text);
+}
+
+export type AccountingStatusToneInput = {
+  status?: string | null;
+  sourceType?: string | null;
+  text?: string | null;
+};
+
 /** Visual tone for accounting status chips and row accents. */
 export function accountingStatusTone(
-  status: string | null | undefined,
+  input: string | null | undefined | AccountingStatusToneInput,
 ): 'good' | 'bad' | 'review' | 'neutral' {
-  const value = (status ?? '').toLowerCase();
+  const opts: AccountingStatusToneInput =
+    input && typeof input === 'object' ? input : { status: input };
+  const value = (opts.status ?? '').toLowerCase();
+  const source = (opts.sourceType ?? '').toLowerCase();
   if (
     value === 'reversed' ||
     value === 'void' ||
     value === 'cancelled' ||
     value === 'bounced' ||
     value === 'rejected' ||
-    value === 'failed'
+    value === 'failed' ||
+    CANCELLED_SOURCE_TYPES.has(source) ||
+    looksCancelledText(opts.text) ||
+    looksCancelledText(source)
   ) {
     return 'bad';
   }
@@ -192,6 +215,7 @@ export function accountingStatusTone(
     value === 'overdue' ||
     value === 'collecting' ||
     value === 'deposited' ||
+    value === 'under_collection' ||
     value === 'due_soon' ||
     value === 'partially_paid'
   ) {
@@ -210,6 +234,43 @@ export function accountingStatusTone(
     return 'good';
   }
   return 'neutral';
+}
+
+/** Chip CSS class driven by tone so posted reversals are still red. */
+export function accountingStatusChipClass(input: AccountingStatusToneInput): string {
+  return `accounting-hub__status accounting-hub__status--tone-${accountingStatusTone(input)}`;
+}
+
+/**
+ * Human label for the status chip. Cancelled/reversal rows stay red and say
+ * «معكوس/ملغى» even when the journal itself is posted.
+ */
+export function accountingStatusChipLabel(
+  input: AccountingStatusToneInput,
+  locale: Locale,
+): string {
+  const tone = accountingStatusTone(input);
+  if (tone === 'bad') {
+    const status = (input.status ?? '').toLowerCase();
+    if (status === 'bounced') return pick(locale, EXPENSE_STATUS.bounced, 'Bounced');
+    if (status === 'rejected') {
+      return locale === 'ar' ? 'مرفوض' : 'Rejected';
+    }
+    if (
+      status === 'reversed' ||
+      CANCELLED_SOURCE_TYPES.has((input.sourceType ?? '').toLowerCase()) ||
+      looksCancelledText(input.text)
+    ) {
+      return pick(locale, JOURNAL_STATUS.reversed, 'Reversed');
+    }
+    return pick(locale, EXPENSE_STATUS.cancelled, locale === 'ar' ? 'ملغى' : 'Cancelled');
+  }
+  if (input.status) {
+    if (JOURNAL_STATUS[input.status]) return pick(locale, JOURNAL_STATUS[input.status], input.status);
+    if (EXPENSE_STATUS[input.status]) return pick(locale, EXPENSE_STATUS[input.status], input.status);
+    return accountingChequeStatusLabel(input.status, locale);
+  }
+  return '—';
 }
 
 export function accountingExpenseStatusLabel(status: string | null | undefined, locale: Locale) {

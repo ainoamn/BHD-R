@@ -55,6 +55,8 @@ import {
   accountingExpenseStatusLabel,
   accountingJournalStatusLabel,
   accountingSourceTypeLabel,
+  accountingStatusChipClass,
+  accountingStatusChipLabel,
   accountingStatusTone,
 } from '@/lib/accounting-i18n';
 import { workflowEventLabel } from '@/lib/ui-labels';
@@ -1266,14 +1268,20 @@ export function AccountingHub({
                       </td>
                     </tr>
                   ) : (
-                    documents.map((row) => (
+                    documents.map((row) => {
+                      const statusInput = {
+                        status: row.status,
+                        sourceType: row.sourceType ?? row.propertyLabel,
+                        text: `${row.title} ${row.propertyLabel ?? ''} ${row.note ?? ''}`,
+                      };
+                      return (
                       <tr
                         key={`${row.kind}-${row.id}`}
                         id={`accounting-doc-${row.id}`}
                         data-kind={row.kind}
                         className={
                           [
-                            `is-status-${accountingStatusTone(row.status)}`,
+                            `is-status-${accountingStatusTone(statusInput)}`,
                             row.journalId ? 'is-clickable' : '',
                             focusId === row.id ? 'is-focus' : '',
                           ]
@@ -1309,10 +1317,8 @@ export function AccountingHub({
                           </span>
                         </td>
                         <td>
-                          <span
-                            className={`accounting-hub__status accounting-hub__status--${row.status}`}
-                          >
-                            {accountingExpenseStatusLabel(row.status, locale)}
+                          <span className={accountingStatusChipClass(statusInput)}>
+                            {accountingStatusChipLabel(statusInput, locale)}
                           </span>
                           {row.archived ? (
                             <span className="accounting-hub__status accounting-hub__status--archived">
@@ -1422,7 +1428,8 @@ export function AccountingHub({
                           </div>
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1502,12 +1509,18 @@ export function AccountingHub({
                       </td>
                     </tr>
                   ) : (
-                    journals.map((row) => (
+                    journals.map((row) => {
+                      const statusInput = {
+                        status: row.status,
+                        sourceType: row.sourceType,
+                        text: row.description,
+                      };
+                      return (
                       <tr
                         key={row.id}
                         id={`accounting-journal-${row.id}`}
                         data-kind="journal"
-                        className={`is-clickable is-status-${accountingStatusTone(row.status)}${focusId === row.id || openJournalId === row.id ? ' is-focus' : ''}`}
+                        className={`is-clickable is-status-${accountingStatusTone(statusInput)}${focusId === row.id || openJournalId === row.id ? ' is-focus' : ''}`}
                         onClick={() => setOpenJournalId(row.id)}
                       >
                         <td>
@@ -1520,10 +1533,8 @@ export function AccountingHub({
                         <td>{textLabel(row.description)}</td>
                         <td>{sourceLabel(row.sourceType)}</td>
                         <td>
-                          <span
-                            className={`accounting-hub__status accounting-hub__status--${row.status}`}
-                          >
-                            {statusLabel(row.status)}
+                          <span className={accountingStatusChipClass(statusInput)}>
+                            {accountingStatusChipLabel(statusInput, locale)}
                           </span>
                           {row.archived ? (
                             <span className="accounting-hub__status accounting-hub__status--archived">
@@ -1555,7 +1566,8 @@ export function AccountingHub({
                           />
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -1628,8 +1640,18 @@ export function AccountingHub({
                       </td>
                     </tr>
                   ) : (
-                    expenses.map((row) => (
-                      <tr key={row.id} data-kind="expense">
+                    expenses.map((row) => {
+                      const statusInput = {
+                        status: row.status,
+                        sourceType: 'expense',
+                        text: row.description,
+                      };
+                      return (
+                      <tr
+                        key={row.id}
+                        data-kind="expense"
+                        className={`is-status-${accountingStatusTone(statusInput)}`}
+                      >
                         <td>
                           <span className="accounting-hub__chip accounting-hub__chip--expense">
                             <i aria-hidden="true" />
@@ -1639,10 +1661,8 @@ export function AccountingHub({
                         <td>{row.category}</td>
                         <td>{textLabel(row.description)}</td>
                         <td>
-                          <span
-                            className={`accounting-hub__status accounting-hub__status--${row.status}`}
-                          >
-                            {accountingExpenseStatusLabel(row.status, locale)}
+                          <span className={accountingStatusChipClass(statusInput)}>
+                            {accountingStatusChipLabel(statusInput, locale)}
                           </span>
                           {row.archived ? (
                             <span className="accounting-hub__status accounting-hub__status--archived">
@@ -1674,7 +1694,8 @@ export function AccountingHub({
                           />
                         </td>
                       </tr>
-                    ))
+                      );
+                    })
                   )}
                 </tbody>
               </table>

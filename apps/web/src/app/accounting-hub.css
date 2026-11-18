@@ -551,7 +551,8 @@
 .accounting-hub__status--issued,
 .accounting-hub__status--approved,
 .accounting-hub__status--accepted,
-.accounting-hub__status--in_hand {
+.accounting-hub__status--in_hand,
+.accounting-hub__status--tone-good {
   background: color-mix(in srgb, #0f7a45 22%, #fff);
   color: #0b5c34;
 }
@@ -561,7 +562,8 @@
 .accounting-hub__status--cancelled,
 .accounting-hub__status--bounced,
 .accounting-hub__status--rejected,
-.accounting-hub__status--failed {
+.accounting-hub__status--failed,
+.accounting-hub__status--tone-bad {
   background: color-mix(in srgb, #b42318 20%, #fff);
   color: #7a1b14;
 }
@@ -572,9 +574,16 @@
 .accounting-hub__status--partially_paid,
 .accounting-hub__status--deposited,
 .accounting-hub__status--collecting,
-.accounting-hub__status--due_soon {
+.accounting-hub__status--due_soon,
+.accounting-hub__status--under_collection,
+.accounting-hub__status--tone-review {
   background: color-mix(in srgb, #175cd3 18%, #fff);
   color: #123a86;
+}
+
+.accounting-hub__status--tone-neutral {
+  background: color-mix(in srgb, #64748b 16%, #fff);
+  color: #334155;
 }
 
 .accounting-hub__table tr.is-status-good {
@@ -3116,28 +3125,22 @@ button.fin-dash__metric {
 }
 
 .cheque-lifecycle__status--in_hand,
-.cheque-lifecycle__status--pending,
-.cheque-lifecycle__status--accepted {
-  background: #e0f2fe;
-  color: #0369a1;
-}
-.cheque-lifecycle__status--under_collection,
-.cheque-lifecycle__status--deposited {
-  background: #fef3c7;
-  color: #b45309;
-}
+.cheque-lifecycle__status--accepted,
 .cheque-lifecycle__status--cleared {
   background: #d1fae5;
   color: #047857;
 }
-.cheque-lifecycle__status--bounced {
-  background: #ffe4e6;
-  color: #be123c;
+.cheque-lifecycle__status--pending,
+.cheque-lifecycle__status--under_collection,
+.cheque-lifecycle__status--deposited {
+  background: #dbeafe;
+  color: #1d4ed8;
 }
+.cheque-lifecycle__status--bounced,
 .cheque-lifecycle__status--cancelled,
 .cheque-lifecycle__status--rejected {
-  background: #e2e8f0;
-  color: #475569;
+  background: #ffe4e6;
+  color: #be123c;
 }
 
 .cheque-lifecycle__ops {
