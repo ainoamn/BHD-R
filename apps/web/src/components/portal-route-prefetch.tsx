@@ -9,12 +9,18 @@ import {
   OPS_WARM_ORDER,
   type OperationsSection,
 } from '@/lib/portal-ops-types';
-import { hasOpsInflight, OPS_WARM_DONE_EVENT, warmOpsSection } from '@/lib/portal-ops-client-cache';
+import {
+  getOpsCache,
+  hasOpsInflight,
+  OPS_WARM_DONE_EVENT,
+  warmAllOpsSections,
+  warmOpsSection,
+} from '@/lib/portal-ops-client-cache';
 import { warmTenantSpace } from '@/lib/tenant-space-client-cache';
 
 const PROPERTY_SEED_LIMIT = 6;
 /** Background work waits this long after the page finished loading its own data. */
-const SETTLE_MS = 2_500;
+const SETTLE_MS = 400;
 
 /** Only authenticated, same-portal page links are eligible for background work. */
 export function portalPrefetchHref(
@@ -119,6 +125,13 @@ export function PortalRoutePrefetch({
       (section) => opsSectionsForPortal(portal).includes(section) && permitted.has(section),
     );
     let index = 0;
+    const seedProperties = (payload: Awaited<ReturnType<typeof warmOpsSection>> | null) => {
+      if (!payload) return;
+      for (const record of payload.records.slice(0, PROPERTY_SEED_LIMIT)) {
+        if (typeof record.id !== 'string') continue;
+        enqueue(`/${portal}/properties/${encodeURIComponent(record.id)}`);
+      }
+    };
     const warmNext = async () => {
       if (cancelled) return;
       if (document.visibilityState === 'hidden') {
@@ -132,33 +145,38 @@ export function PortalRoutePrefetch({
         window.dispatchEvent(new CustomEvent(OPS_WARM_DONE_EVENT, { detail: { portal } }));
         return;
       }
+      // Batch warm usually filled the cache; only hit sections still cold.
+      if (getOpsCache(portal, section)) {
+        if (section === 'properties') seedProperties(getOpsCache(portal, section));
+        later(() => {
+          void warmNext();
+        }, 40);
+        return;
+      }
       const payload = await warmOpsSection(portal, section);
       if (cancelled) return;
-      if (section === 'properties' && payload) {
-        // Visible links are discovered by scan(); only seed the first few off-screen ones.
-        for (const record of payload.records.slice(0, PROPERTY_SEED_LIMIT)) {
-          if (typeof record.id !== 'string') continue;
-          enqueue(`/${portal}/properties/${encodeURIComponent(record.id)}`);
-        }
-      }
-      // Pace after properties so the grid isn't starved by a warm storm.
-      const pauseMs = section === 'properties' ? 1_200 : 700;
+      if (section === 'properties') seedProperties(payload);
       later(() => {
         void warmNext();
-      }, pauseMs);
+      }, 120);
     };
     // Start only once the visible page has its data, so a refresh never waits behind warm-up.
     const begin = () => {
       if (cancelled) return;
       if (document.readyState !== 'complete' || hasOpsInflight()) {
-        later(begin, 300);
+        later(begin, 200);
         return;
       }
       later(drain, 0);
       if (portal === 'tenant') {
         void warmTenantSpace();
       } else {
-        void warmNext();
+        // One round-trip fills most section caches; cold leftovers follow in warmNext.
+        void warmAllOpsSections(portal).finally(() => {
+          if (cancelled) return;
+          seedProperties(getOpsCache(portal, 'properties'));
+          void warmNext();
+        });
       }
     };
     later(begin, SETTLE_MS);

@@ -222,6 +222,7 @@ function insertStaysGroup(groups: NavGroup[]): NavGroup[] {
 
 /** Portal pages kept alive in PortalMainSlot — soft-switch like ops sections (no full remount flash). */
 const SOFT_PORTAL_PATHS = new Set([
+  '', // dashboard / portal home
   '/terms',
   '/settings',
   '/stays',

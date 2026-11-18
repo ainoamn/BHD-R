@@ -1,8 +1,7 @@
 'use client';
 
-import dynamic from 'next/dynamic';
 import { Link } from '@/i18n/navigation';
-import { startTransition, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { startTransition, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { AccountingHub } from '@/components/accounting/accounting-hub';
 import { ApprovalsHub } from '@/components/approvals-hub';
 import { ContactsBoard } from '@/components/contacts-board';
@@ -10,6 +9,7 @@ import { LegalCasesBoard } from '@/components/legal-cases-board';
 import { WorkTasksBoard } from '@/components/work-tasks-board';
 import { OperationsWorkspaceClient } from '@/components/operations-workspace-client';
 import { PortalPageContext } from '@/components/portal-page';
+import { PropertySectionRecords } from '@/components/property-section-records';
 import { TeamManager } from '@/components/team-manager';
 import { TenantMaintenanceBoard } from '@/components/tenant-maintenance-board';
 import { TenantSpaceHost } from '@/components/tenant-space-host';
@@ -21,10 +21,6 @@ import {
 import { useSoftPortalPathname } from '@/lib/soft-portal-nav';
 import { tenantSoftViewFromPath } from '@/lib/tenant-soft-nav';
 import type { PortalRole } from '@/lib/types';
-
-const PropertySectionRecords = dynamic(() =>
-  import('@/components/property-section-records').then((mod) => mod.PropertySectionRecords),
-);
 
 export function opsSectionFromPathname(
   pathname: string,
@@ -43,7 +39,7 @@ export function opsSectionFromPathname(
 
 /**
  * Panels live in this shared layout, so switching only changes visibility.
- * A panel mounts on first visit; its data is already warm in the client cache.
+ * Allowed sections idle-premount after load; data is warmed into the client cache.
  */
 function SectionUnavailable({
   portal,
@@ -96,7 +92,14 @@ export function PortalMainSlot({
   const section = opsSectionFromPathname(pathname, portal);
   const tenantSoft = portal === 'tenant' ? tenantSoftViewFromPath(pathname) : null;
   const softPane = Boolean(section || tenantSoft);
-  const [visited, setVisited] = useState<OperationsSection[]>(() => (section ? [section] : []));
+  const allowedKey = useMemo(() => sections.join(','), [sections]);
+  const allowed = useMemo(
+    () => allowedKey.split(',').filter(Boolean) as OperationsSection[],
+    [allowedKey],
+  );
+  const [visited, setVisited] = useState<OperationsSection[]>(() =>
+    section && allowed.includes(section) ? [section] : [],
+  );
   const [tenantHostMounted, setTenantHostMounted] = useState(() => Boolean(tenantSoft));
   const [pages, setPages] = useState<Record<string, ReactNode>>({});
   const register = useCallback((path: string, content: ReactNode) => {
@@ -108,16 +111,43 @@ export function PortalMainSlot({
   }, []);
 
   useEffect(() => {
-    if (!section) return;
+    if (!section || !allowed.includes(section)) return;
     setVisited((current) => (current.includes(section) ? current : [...current, section]));
-  }, [section]);
+  }, [section, allowedKey]); // eslint-disable-line react-hooks/exhaustive-deps -- allowedKey tracks allowed
+
+  // Idle-premount every allowed ops pane so the first soft-nav only flips `hidden`.
+  useEffect(() => {
+    let cancelled = false;
+    const warm = () => {
+      if (cancelled) return;
+      setVisited((current) => {
+        const next = new Set(current);
+        for (const id of allowed) next.add(id);
+        return [...next];
+      });
+    };
+    let idleHandle: number | null = null;
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleHandle = window.requestIdleCallback(warm, { timeout: 1_200 });
+    } else {
+      timeoutHandle = setTimeout(warm, 400);
+    }
+    return () => {
+      cancelled = true;
+      if (idleHandle != null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleHandle);
+      }
+      if (timeoutHandle != null) clearTimeout(timeoutHandle);
+    };
+  }, [allowedKey]); // eslint-disable-line react-hooks/exhaustive-deps -- allowedKey tracks allowed
 
   useEffect(() => {
     if (!tenantSoft) return;
     setTenantHostMounted(true);
   }, [tenantSoft]);
 
-  const panels = section && !visited.includes(section) ? [...visited, section] : visited;
+  const panels = visited.filter((id) => allowed.includes(id));
   return (
     <PortalPageContext.Provider value={register}>
       {/* Live RSC for the active route; hide only while soft panes own the main area. */}
@@ -229,6 +259,7 @@ export function PortalMainSlot({
                   propertyId={null}
                   section="bookings"
                   locale={locale}
+                  active={panel === section}
                 />
               }
             />

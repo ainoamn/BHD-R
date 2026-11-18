@@ -1279,12 +1279,15 @@ export function PropertySectionRecords({
   propertyId,
   section,
   locale,
+  active = true,
 }: {
   portal: 'owner' | 'developer';
   /** null lists the bookings of every property the viewer may see. */
   propertyId: string | null;
   section: PropertyRecordSection;
   locale: 'ar' | 'en';
+  /** Soft-nav: skip network while the pane is hidden; keep last rows painted. */
+  active?: boolean;
 }) {
   const ar = locale === 'ar';
   const config = SECTIONS[section];
@@ -1349,13 +1352,13 @@ export function PropertySectionRecords({
   }, []);
 
   useEffect(() => {
+    // First mount (incl. idle-premount) warms once; later hidden panes skip churn.
+    const forced = silentReload.current;
+    if (!active && rows != null && !forced) return;
     const controller = new AbortController();
-    const silent = silentReload.current;
+    const keepPaint = forced || rows != null;
     silentReload.current = false;
-    if (!silent) {
-      setRows(null);
-      setFailed(false);
-    }
+    if (!keepPaint) setFailed(false);
     void (async () => {
       try {
         const response = await fetch(
@@ -1380,12 +1383,14 @@ export function PropertySectionRecords({
         setTenants(payload.tenants ?? []);
         setBadges(payload.badges ?? {});
         setViewer(payload.viewer ?? NO_VIEWER);
+        setFailed(false);
       } catch {
-        if (!controller.signal.aborted && !silent) setFailed(true);
+        if (!controller.signal.aborted && !keepPaint) setFailed(true);
       }
     })();
     return () => controller.abort();
-  }, [propertyId, section, reloadKey]);
+    // rows omitted: keep-last-paint flag only; including it would re-fetch every update
+  }, [propertyId, section, reloadKey, active]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!focusId || !rows?.length) return;
