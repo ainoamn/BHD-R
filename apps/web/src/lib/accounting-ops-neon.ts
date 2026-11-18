@@ -832,6 +832,7 @@ export async function listAccountingCheques(
       const registerStatus = normalizeChequeRegisterStatus(row.reviewStatus);
       const closed = registerStatus === 'cleared' || registerStatus === 'cancelled';
       const awaiting = registerStatus === 'pending';
+      const paidAmount = !awaiting && registerStatus === 'cleared' ? row.amountMinor : 0n;
       let lineStatus = awaiting ? 'pending' : 'upcoming';
       if (registerStatus === 'cleared') lineStatus = 'paid';
       else if (registerStatus === 'bounced') lineStatus = 'bounced';
@@ -845,7 +846,6 @@ export async function listAccountingCheques(
           expected += row.amountMinor;
           upcomingCount += 1;
         }
-        const paidAmount = registerStatus === 'cleared' ? row.amountMinor : 0n;
         if (closed && registerStatus === 'cleared') {
           paidCount += 1;
           paidMinor += paidAmount > 0n ? paidAmount : row.amountMinor;

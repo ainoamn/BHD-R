@@ -1581,16 +1581,19 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                           )
                       : async () => undefined
                   }
-                  onReviewCheque={
-                    canReviewCheques
-                      ? (key, decision, note) => decideCheque(key, decision, note)
-                      : undefined
-                  }
-                  onAddRequirements={
-                    canManage
-                      ? (requirements) => void act({ action: 'add_requirements', requirements })
-                      : undefined
-                  }
+                  {...(canReviewCheques
+                    ? {
+                        onReviewCheque: (key: string, decision: 'approved' | 'rejected', note?: string) =>
+                          decideCheque(key, decision, note),
+                      }
+                    : {})}
+                  {...(canManage
+                    ? {
+                        onAddRequirements: (
+                          requirements: Array<{ code: string; labelAr: string; labelEn: string }>,
+                        ) => void act({ action: 'add_requirements', requirements }),
+                      }
+                    : {})}
                   desk
                 />
               </div>
