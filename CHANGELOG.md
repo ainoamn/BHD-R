@@ -2,6 +2,10 @@
 
 All notable changes are documented here. The project follows Semantic Versioning after the first production release.
 
+## 0.8.136.239 — 2026-11-18
+
+- **استعادة رئيسية المالك بالإحصائيات الدائرية:** إعادة `PortalOverview` بدل لوحة bento، مع تحسين حلقات الإشغال/الوحدات والتنبيهات لتكون أوضح وأقرب للشكل السابق.
+
 ## 0.8.136.236 — 2026-11-18
 
 - **تحديث بصري للوحتي المالك والمستأجر:** شريط علوي وجانبي وبطاقات لوحة التحكم بتصميم أحدث، مع فصل لوني خفيف لمساحة المستأجر، دون تغيير المسارات أو الصلاحيات أو APIs. التفاصيل: [`docs/implementation/RELEASE-0.8.136.236-AR.md`](./docs/implementation/RELEASE-0.8.136.236-AR.md).
