@@ -406,105 +406,75 @@ export async function OwnerDashboard({ locale }: { locale: string }) {
 
   return (
     <div className="obd">
-      {/* ── Command hero ─────────────────────────────────────────── */}
-      <header className="obd-hero">
-        <div className="obd-hero__inner">
-          <div className="obd-hero__copy">
-            <p className="obd-kicker">
-              {t('Portal.owner')} <span className="obd-kicker__dot" aria-hidden="true" /> {todayLabel}
-            </p>
-            <h1 className="obd-hero__title">{t('Portal.welcome', { name: viewer.displayName })}</h1>
-            <p className="obd-hero__sub">
-              {updatedLabel
-                ? `${t('Portal.updatedAt')}: ${updatedLabel}`
-                : t('Portal.dashboardIntro')}
-            </p>
-          </div>
-          <div className="obd-hero__actions">
-            {opens(`/${portal}/properties/new`) ? (
-              <Link href={`/${portal}/properties/new`} className="obd-btn obd-btn--gold" prefetch>
-                ＋ {t('Portal.addProperty')}
-              </Link>
-            ) : null}
-            {opens(`/${portal}/stays/calendar`) ? (
-              <Link href={`/${portal}/stays/calendar`} className="obd-btn obd-btn--glass" prefetch>
-                {t('Portal.openCalendar')}
-              </Link>
-            ) : null}
-            {opens(`/${portal}/reports`) ? (
-              <Link href={`/${portal}/reports`} className="obd-btn obd-btn--glass">
-                {t('Common.reports')}
-              </Link>
-            ) : null}
-          </div>
+      {/* Slim top strip: greeting + actions */}
+      <header className="obd-top">
+        <div className="obd-top__id">
+          <p className="obd-kicker">
+            {t('Portal.owner')} <span className="obd-kicker__dot" aria-hidden="true" /> {todayLabel}
+          </p>
+          <h1 className="obd-top__title">{t('Portal.welcome', { name: viewer.displayName })}</h1>
+          <p className="obd-top__sub">
+            {updatedLabel
+              ? `${t('Portal.updatedAt')}: ${updatedLabel}`
+              : t('Portal.dashboardIntro')}
+          </p>
         </div>
-        {quickLinks.length ? (
-          <nav className="obd-quick" aria-label={t('Portal.quickNav')}>
-            {quickLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="obd-quick__link" prefetch>
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        ) : null}
+        <div className="obd-top__actions">
+          {opens(`/${portal}/properties/new`) ? (
+            <Link href={`/${portal}/properties/new`} className="obd-btn obd-btn--solid" prefetch>
+              ＋ {t('Portal.addProperty')}
+            </Link>
+          ) : null}
+          {opens(`/${portal}/stays/calendar`) ? (
+            <Link href={`/${portal}/stays/calendar`} className="obd-btn obd-btn--line" prefetch>
+              {t('Portal.openCalendar')}
+            </Link>
+          ) : null}
+          {opens(`/${portal}/reports`) ? (
+            <Link href={`/${portal}/reports`} className="obd-btn obd-btn--line">
+              {t('Common.reports')}
+            </Link>
+          ) : null}
+        </div>
       </header>
 
-      {/* ── Cross-space tenancy banner ───────────────────────────── */}
-      {tenancy &&
-      (tenancy.bookings > 0 ||
-        tenancy.contracts > 0 ||
-        tenancy.leases > 0 ||
-        tenancy.openInvoices > 0) ? (
-        <Link href="/tenant" className="obd-tenancy" prefetch>
-          <span className="obd-tenancy__copy">
-            <strong>
-              {ar
-                ? 'لديك أيضاً حجوزات وعقود بصفتك مستأجراً أو ضيفاً'
-                : 'You also have bookings and contracts as a tenant or guest'}
+      {/* Bento grid */}
+      <div className="obd-bento">
+        {/* Finance — anchor tile */}
+        {showFinance ? (
+          <section className="obd-tile obd-tile--finance" aria-label={t('Portal.accountingPulse')}>
+            <p className="obd-tile__kicker">{t('Portal.accountingPulse')}</p>
+            <p className="obd-finance__label">{t('Portal.collected')}</p>
+            <strong className="obd-finance__value metric-money-stack">
+              {collected.length
+                ? collected.map((amount) => (
+                    <span key={amount.currency}>
+                      {formatMoney(amount.amountMinor, amount.currency, locale)}
+                    </span>
+                  ))
+                : '—'}
             </strong>
-            <span>
-              {[
-                tenancy.bookings
-                  ? ar
-                    ? `${tenancy.bookings} حجز`
-                    : `${tenancy.bookings} bookings`
-                  : '',
-                tenancy.contracts
-                  ? ar
-                    ? `${tenancy.contracts} عقد`
-                    : `${tenancy.contracts} contracts`
-                  : '',
-                tenancy.leases
-                  ? ar
-                    ? `${tenancy.leases} إيجار ساري`
-                    : `${tenancy.leases} active leases`
-                  : '',
-                tenancy.openInvoices
-                  ? ar
-                    ? `${tenancy.openInvoices} فاتورة مستحقة`
-                    : `${tenancy.openInvoices} invoices due`
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </span>
-          </span>
-          <em className="obd-tenancy__open">{ar ? 'مساحة المستأجر ←' : 'Tenant space →'}</em>
-        </Link>
-      ) : null}
+            <div className="obd-finance__side">
+              {financeLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="obd-finance__link">
+                  {link.label}
+                </Link>
+              ))}
+              {opens(`/${portal}/accounting`) ? (
+                <Link href={`/${portal}/accounting`} className="obd-finance__link obd-finance__link--accent">
+                  {t('Common.accounting')}
+                </Link>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
-      {/* ── KPI strip ────────────────────────────────────────────── */}
-      <section className="obd-stats" aria-label={t('Portal.liveStats')}>
+        {/* KPI tiles */}
         {stats.map((stat) => {
           const pct = Math.max(0, Math.min(100, Number.isFinite(stat.percent) ? stat.percent : 0));
           const body = (
             <>
-              <span className="obd-stat__head">
-                <span className="obd-stat__label">{stat.label}</span>
-                <span className="obd-stat__spark" aria-hidden="true">
-                  <i style={{ inlineSize: `${pct}%` }} />
-                </span>
-              </span>
+              <span className="obd-stat__label">{stat.label}</span>
               <strong className="obd-stat__value">{stat.value}</strong>
               <span className="obd-stat__bar" aria-hidden="true">
                 <i style={{ inlineSize: `${pct}%` }} />
@@ -516,7 +486,7 @@ export async function OwnerDashboard({ locale }: { locale: string }) {
               <Link
                 key={stat.key}
                 href={stat.href}
-                className={`obd-stat obd-stat--${stat.tone}`}
+                className={`obd-tile obd-tile--stat obd-stat--${stat.tone}`}
                 prefetch
               >
                 {body}
@@ -524,19 +494,32 @@ export async function OwnerDashboard({ locale }: { locale: string }) {
             );
           }
           return (
-            <div key={stat.key} className={`obd-stat obd-stat--${stat.tone} obd-stat--static`}>
+            <div key={stat.key} className={`obd-tile obd-tile--stat obd-stat--${stat.tone} is-static`}>
               {body}
             </div>
           );
         })}
-      </section>
 
-      {/* ── Attention + approvals ────────────────────────────────── */}
-      <div className="obd-duo">
-        <section className="obd-card" aria-label={ar ? 'التنبيهات' : 'Alerts'}>
-          <div className="obd-card__head">
+        {/* Approvals — tall tile */}
+        <section className="obd-tile obd-tile--approvals" aria-label={t('Portal.approvalsTitle')} id="pending-approvals">
+          <PortalPendingApprovalsPanel
+            portal={portal}
+            locale={locale}
+            initial={approvals}
+            title={t('Portal.approvalsTitle')}
+            hint={t('Portal.approvalsHint')}
+            openLabel={t('Portal.approvalsOpen')}
+            moreLabel={ar ? 'عرض {count} إضافية' : 'Show {count} more'}
+            allHref={`/${portal}/bookings`}
+            allLabel={ar ? 'فتح الصفحة كاملة' : 'Open full page'}
+          />
+        </section>
+
+        {/* Alerts — tall tile */}
+        <section className="obd-tile obd-tile--alerts" aria-label={ar ? 'التنبيهات' : 'Alerts'}>
+          <div className="obd-tile__head">
             <h2>{ar ? 'التنبيهات' : 'Alerts'}</h2>
-            <Link href={`/${portal}/bookings`} className="obd-card__more">
+            <Link href={`/${portal}/bookings`} className="obd-tile__more">
               {ar ? 'فتح الصفحة كاملة' : 'Open full page'}
             </Link>
           </div>
@@ -573,104 +556,117 @@ export async function OwnerDashboard({ locale }: { locale: string }) {
           />
         </section>
 
-        <section className="obd-card" aria-label={t('Portal.approvalsTitle')} id="pending-approvals">
-          <PortalPendingApprovalsPanel
-            portal={portal}
-            locale={locale}
-            initial={approvals}
-            title={t('Portal.approvalsTitle')}
-            hint={t('Portal.approvalsHint')}
-            openLabel={t('Portal.approvalsOpen')}
-            moreLabel={ar ? 'عرض {count} إضافية' : 'Show {count} more'}
-            allHref={`/${portal}/bookings`}
-            allLabel={ar ? 'فتح الصفحة كاملة' : 'Open full page'}
-          />
-        </section>
-      </div>
+        {/* Quick links tile */}
+        {quickLinks.length ? (
+          <nav className="obd-tile obd-tile--quick" aria-label={t('Portal.quickNav')}>
+            <p className="obd-tile__kicker">{t('Portal.quickNav')}</p>
+            <div className="obd-quick">
+              {quickLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="obd-quick__link" prefetch>
+                  {link.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        ) : null}
 
-      {/* ── Finance panel ────────────────────────────────────────── */}
-      {showFinance ? (
-        <section className="obd-finance" aria-label={t('Portal.accountingPulse')}>
-          <div className="obd-finance__main">
-            <p className="obd-finance__kicker">{t('Portal.accountingPulse')}</p>
-            <p className="obd-finance__label">{t('Portal.collected')}</p>
-            <strong className="obd-finance__value metric-money-stack">
-              {collected.length
-                ? collected.map((amount) => (
-                    <span key={amount.currency}>
-                      {formatMoney(amount.amountMinor, amount.currency, locale)}
-                    </span>
-                  ))
-                : '—'}
-            </strong>
-          </div>
-          <div className="obd-finance__side">
-            {financeLinks.map((link) => (
-              <Link key={link.href} href={link.href} className="obd-finance__link">
-                {link.label}
-              </Link>
-            ))}
-            {opens(`/${portal}/accounting`) ? (
-              <Link href={`/${portal}/accounting`} className="obd-finance__link obd-finance__link--accent">
-                {t('Common.accounting')}
-              </Link>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      {/* ── Activity timeline ────────────────────────────────────── */}
-      {hasActivity ? (
-        <details className="obd-activity">
-          <summary className="obd-activity__summary">
-            <span className="obd-activity__title">{t('Portal.recentActivity')}</span>
-            <span className="obd-activity__meta">
-              <span className="obd-activity__count">{overview.recentActivity.length}</span>
-              <span className="obd-activity__hint">{ar ? 'اضغط للعرض' : 'Click to expand'}</span>
+        {/* Tenancy cross-link tile */}
+        {tenancy &&
+        (tenancy.bookings > 0 ||
+          tenancy.contracts > 0 ||
+          tenancy.leases > 0 ||
+          tenancy.openInvoices > 0) ? (
+          <Link href="/tenant" className="obd-tile obd-tile--tenancy" prefetch>
+            <span className="obd-tenancy__copy">
+              <strong>
+                {ar
+                  ? 'لديك أيضاً حجوزات وعقود بصفتك مستأجراً أو ضيفاً'
+                  : 'You also have bookings and contracts as a tenant or guest'}
+              </strong>
+              <span>
+                {[
+                  tenancy.bookings
+                    ? ar
+                      ? `${tenancy.bookings} حجز`
+                      : `${tenancy.bookings} bookings`
+                    : '',
+                  tenancy.contracts
+                    ? ar
+                      ? `${tenancy.contracts} عقد`
+                      : `${tenancy.contracts} contracts`
+                    : '',
+                  tenancy.leases
+                    ? ar
+                      ? `${tenancy.leases} إيجار ساري`
+                      : `${tenancy.leases} active leases`
+                    : '',
+                  tenancy.openInvoices
+                    ? ar
+                      ? `${tenancy.openInvoices} فاتورة مستحقة`
+                      : `${tenancy.openInvoices} invoices due`
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
             </span>
-          </summary>
-          <ul className="obd-timeline">
-            {overview.recentActivity.map((item) => {
-              const href =
-                item.resourceType === 'stay_booking' && item.resourceId
-                  ? `/${portal}/stays/bookings/${item.resourceId}`
-                  : item.resourceType === 'reservation'
-                    ? `/${portal}/bookings`
-                    : null;
-              const body = (
-                <>
-                  <span className="obd-timeline__dot" aria-hidden="true" />
-                  <span className="obd-timeline__body">
-                    <strong>{localizeWorkflowLabel(item.title, 'event', locale)}</strong>
-                    {item.status ? (
-                      <span className="obd-timeline__status">
-                        {localizeWorkflowLabel(item.status, 'status', locale)}
-                      </span>
-                    ) : null}
-                  </span>
-                  <time dateTime={item.occurredAt}>
-                    {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
-                      dateStyle: 'medium',
-                      timeStyle: 'short',
-                    }).format(new Date(item.occurredAt))}
-                  </time>
-                </>
-              );
-              return (
-                <li key={item.id} className="obd-timeline__item">
-                  {href ? (
-                    <Link href={href} className="obd-timeline__link" prefetch>
-                      {body}
-                    </Link>
-                  ) : (
-                    <span className="obd-timeline__link obd-timeline__link--static">{body}</span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </details>
-      ) : null}
+            <em className="obd-tenancy__open">{ar ? 'مساحة المستأجر ←' : 'Tenant space →'}</em>
+          </Link>
+        ) : null}
+
+        {/* Activity — wide tile */}
+        {hasActivity ? (
+          <details className="obd-tile obd-tile--activity">
+            <summary className="obd-activity__summary">
+              <span className="obd-activity__title">{t('Portal.recentActivity')}</span>
+              <span className="obd-activity__meta">
+                <span className="obd-activity__count">{overview.recentActivity.length}</span>
+                <span className="obd-activity__hint">{ar ? 'اضغط للعرض' : 'Click to expand'}</span>
+              </span>
+            </summary>
+            <ul className="obd-timeline">
+              {overview.recentActivity.map((item) => {
+                const href =
+                  item.resourceType === 'stay_booking' && item.resourceId
+                    ? `/${portal}/stays/bookings/${item.resourceId}`
+                    : item.resourceType === 'reservation'
+                      ? `/${portal}/bookings`
+                      : null;
+                const body = (
+                  <>
+                    <span className="obd-timeline__dot" aria-hidden="true" />
+                    <span className="obd-timeline__body">
+                      <strong>{localizeWorkflowLabel(item.title, 'event', locale)}</strong>
+                      {item.status ? (
+                        <span className="obd-timeline__status">
+                          {localizeWorkflowLabel(item.status, 'status', locale)}
+                        </span>
+                      ) : null}
+                    </span>
+                    <time dateTime={item.occurredAt}>
+                      {new Intl.DateTimeFormat(locale === 'ar' ? 'ar-OM' : 'en-OM', {
+                        dateStyle: 'medium',
+                        timeStyle: 'short',
+                      }).format(new Date(item.occurredAt))}
+                    </time>
+                  </>
+                );
+                return (
+                  <li key={item.id} className="obd-timeline__item">
+                    {href ? (
+                      <Link href={href} className="obd-timeline__link" prefetch>
+                        {body}
+                      </Link>
+                    ) : (
+                      <span className="obd-timeline__link obd-timeline__link--static">{body}</span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </details>
+        ) : null}
+      </div>
     </div>
   );
 }
