@@ -43,8 +43,13 @@
     "@nestjs/testing": "^11.1.9",
     "@types/cookie-parser": "1.4.10",
     "@types/express": "5.0.6",
+<<<<<<< HEAD
     "@types/node": "^24.10.1",
     "tsx": "^4.23.15",
+=======
+    "@types/node": "^26.4.1",
+    "tsx": "^4.21.0",
+>>>>>>> origin/dependabot/npm_and_yarn/types/node-26.4.1
     "vitest": "^4.0.15"
   }
 }
