@@ -130,481 +130,593 @@
 }
 
 /* ————————————————————————————————————————————————
-   OWNER BOARD (obd-*) — bento-grid dashboard design
-   Flat tiles, hairline borders, asymmetric layout.
+   OWNER BOARD (obd-*) — executive dashboard (TailAdmin / Aniq inspired)
    Markup: components/owner-dashboard.tsx
 ———————————————————————————————————————————————— */
 .portal-layout[data-portal='owner'] .obd {
+  --obd-ring-track: rgb(12 31 27 / 0.08);
+  --obd-ring-fill: #0d7a6d;
+  --obd-card: #ffffff;
+  --obd-line: rgb(12 31 27 / 0.08);
+  --obd-radius: 1.15rem;
+  --obd-shadow: 0 1px 2px rgb(12 31 27 / 0.04), 0 12px 28px rgb(12 31 27 / 0.05);
   display: grid;
-  gap: 0.9rem;
-  width: min(100%, 100rem);
+  gap: 1.1rem;
+  width: min(100%, 92rem);
   margin-inline: auto;
 }
 
-/* Slim top strip — no giant banner. */
-.portal-layout[data-portal='owner'] .obd-top {
+.portal-layout[data-portal='owner'] .obd-ring--teal { --obd-ring-fill: #0d7a6d; }
+.portal-layout[data-portal='owner'] .obd-ring--navy { --obd-ring-fill: #1d4ed8; }
+.portal-layout[data-portal='owner'] .obd-ring--gold { --obd-ring-fill: #b45309; }
+.portal-layout[data-portal='owner'] .obd-ring--forest { --obd-ring-fill: #15803d; }
+.portal-layout[data-portal='owner'] .obd-ring--amber { --obd-ring-fill: #d97706; }
+.portal-layout[data-portal='owner'] .obd-ring--coral { --obd-ring-fill: #ea580c; }
+.portal-layout[data-portal='owner'] .obd-ring--rose { --obd-ring-fill: #e11d48; }
+.portal-layout[data-portal='owner'] .obd-ring--slate { --obd-ring-fill: #475569; }
+.portal-layout[data-portal='owner'] .obd-ring--wine { --obd-ring-fill: #be123c; }
+.portal-layout[data-portal='owner'] .obd-ring--olive { --obd-ring-fill: #4d7c0f; }
+
+.portal-layout[data-portal='owner'] .obd-head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 0.9rem 1.4rem;
-  padding: 0.4rem 0.2rem 0.9rem;
-  border-bottom: 2px solid var(--pd-ink);
+  gap: 1rem 1.5rem;
+  padding: 0.15rem 0.1rem 0.25rem;
 }
 
-.portal-layout[data-portal='owner'] .obd-kicker {
+.portal-layout[data-portal='owner'] .obd-head__kicker {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
-  margin: 0 0 0.3rem;
+  gap: 0.45rem;
+  margin: 0 0 0.35rem;
   color: var(--pd-accent);
-  font-size: 0.7rem;
+  font-size: 0.72rem;
   font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
-.portal-layout[data-portal='owner'] .obd-kicker__dot {
-  width: 0.34rem;
-  height: 0.34rem;
-  border-radius: 50%;
-  background: var(--pd-accent-2);
-  box-shadow: 0 0 8px rgb(20 184 166 / 0.8);
-}
-
-.portal-layout[data-portal='owner'] .obd-top__title {
+.portal-layout[data-portal='owner'] .obd-head h1 {
   margin: 0;
   color: var(--pd-ink);
-  font-size: clamp(1.5rem, 2.8vw, 2.1rem);
+  font-size: clamp(1.45rem, 2.6vw, 2rem);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
 }
 
-.portal-layout[data-portal='owner'] .obd-top__sub {
-  margin: 0.3rem 0 0;
+.portal-layout[data-portal='owner'] .obd-head__meta {
+  margin: 0.4rem 0 0;
   color: var(--pd-muted);
-  font-size: 0.82rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
-.portal-layout[data-portal='owner'] .obd-top__actions {
+.portal-layout[data-portal='owner'] .obd-head__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.55rem;
+  gap: 0.5rem;
 }
 
 .portal-layout[data-portal='owner'] .obd-btn {
   display: inline-flex;
   align-items: center;
-  min-height: 2.45rem;
-  padding: 0 1.1rem;
-  border-radius: 0.7rem;
-  font-size: 0.85rem;
-  font-weight: 800;
+  justify-content: center;
+  min-height: 2.55rem;
+  padding: 0.55rem 1.05rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+  font-size: 0.88rem;
+  font-weight: 750;
   text-decoration: none;
-  transition:
-    transform 0.16s var(--pd-ease),
-    box-shadow 0.16s var(--pd-ease),
-    background 0.16s var(--pd-ease);
-}
-
-.portal-layout[data-portal='owner'] .obd-btn:hover {
-  transform: translateY(-2px);
+  transition: background 0.16s var(--pd-ease), border-color 0.16s var(--pd-ease), color 0.16s var(--pd-ease);
 }
 
 .portal-layout[data-portal='owner'] .obd-btn--solid {
   color: #fff;
-  background: var(--pd-accent);
-  box-shadow: 0 8px 20px rgb(13 122 109 / 0.3);
+  background: linear-gradient(180deg, #129485, var(--pd-accent));
+  box-shadow: 0 8px 18px rgb(13 122 109 / 0.22);
 }
 
 .portal-layout[data-portal='owner'] .obd-btn--solid:hover {
-  background: #0b6a5f;
-  box-shadow: 0 12px 26px rgb(13 122 109 / 0.38);
+  background: linear-gradient(180deg, #0f8678, #0b6b60);
 }
 
 .portal-layout[data-portal='owner'] .obd-btn--line {
   color: var(--pd-ink);
-  background: transparent;
-  border: 1.5px solid var(--pd-ink);
+  background: var(--obd-card);
+  border-color: var(--obd-line);
 }
 
 .portal-layout[data-portal='owner'] .obd-btn--line:hover {
-  color: #fff;
-  background: var(--pd-ink);
-}
-
-/* Bento grid — 6 columns, tiles span differently. */
-.portal-layout[data-portal='owner'] .obd-bento {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  grid-auto-flow: dense;
-  gap: 0.9rem;
-}
-
-.portal-layout[data-portal='owner'] .obd-tile {
-  grid-column: span 2;
-  min-width: 0;
-  padding: 1.05rem 1.1rem;
-  border: 1px solid var(--pd-line);
-  border-radius: 1rem;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgb(12 31 27 / 0.05);
-  transition:
-    transform 0.18s var(--pd-ease),
-    box-shadow 0.18s var(--pd-ease),
-    border-color 0.18s var(--pd-ease);
-}
-
-.portal-layout[data-portal='owner'] .obd-tile__kicker {
-  margin: 0 0 0.7rem;
+  border-color: rgb(13 122 109 / 0.35);
   color: var(--pd-accent);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
-.portal-layout[data-portal='owner'] .obd-tile__head {
-  display: flex;
+.portal-layout[data-portal='owner'] .obd-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-kpi {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem;
-  margin-bottom: 0.85rem;
+  gap: 0.75rem;
+  padding: 1.05rem 1.1rem;
+  border: 1px solid var(--obd-line);
+  border-radius: var(--obd-radius);
+  background: var(--obd-card);
+  box-shadow: var(--obd-shadow);
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.16s var(--pd-ease), box-shadow 0.16s var(--pd-ease), border-color 0.16s var(--pd-ease);
 }
 
-.portal-layout[data-portal='owner'] .obd-tile__head h2 {
+.portal-layout[data-portal='owner'] a.obd-kpi:hover {
+  transform: translateY(-2px);
+  border-color: rgb(13 122 109 / 0.22);
+  box-shadow: 0 14px 30px rgb(12 31 27 / 0.08);
+}
+
+.portal-layout[data-portal='owner'] .obd-kpi__label {
+  display: block;
+  color: var(--pd-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.portal-layout[data-portal='owner'] .obd-kpi__value {
+  display: block;
+  margin-top: 0.28rem;
+  color: var(--pd-ink);
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.portal-layout[data-portal='owner'] .obd-kpi__hint {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--pd-muted);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.portal-layout[data-portal='owner'] .obd-main,
+.portal-layout[data-portal='owner'] .obd-split,
+.portal-layout[data-portal='owner'] .obd-bottom {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-main {
+  grid-template-columns: minmax(0, 1.45fr) minmax(18rem, 0.9fr);
+  align-items: stretch;
+}
+
+.portal-layout[data-portal='owner'] .obd-split {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.portal-layout[data-portal='owner'] .obd-bottom {
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+}
+
+.portal-layout[data-portal='owner'] .obd-panel {
+  padding: 1.15rem 1.2rem 1.25rem;
+  border: 1px solid var(--obd-line);
+  border-radius: var(--obd-radius);
+  background: var(--obd-card);
+  box-shadow: var(--obd-shadow);
+  min-width: 0;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel__head h2 {
   margin: 0;
   color: var(--pd-ink);
-  font-size: 1rem;
+  font-size: 1.02rem;
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 
-.portal-layout[data-portal='owner'] .obd-tile__more {
+.portal-layout[data-portal='owner'] .obd-panel__head p {
+  margin: 0.28rem 0 0;
+  color: var(--pd-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel__link {
   color: var(--pd-accent);
-  font-size: 0.76rem;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.portal-layout[data-portal='owner'] .obd-tile__more:hover {
-  text-decoration: underline;
-}
-
-/* Finance — dark anchor tile, spans 2 cols × 2 rows. */
-.portal-layout[data-portal='owner'] .obd-tile--finance {
-  grid-column: span 4;
-  grid-row: span 2;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 1rem;
-  border: 0;
-  border-radius: 1.1rem;
-  background:
-    radial-gradient(26rem 16rem at 100% 0%, rgb(45 212 191 / 0.26), transparent 62%),
-    linear-gradient(140deg, #06231e 0%, #0d4a41 60%, #116b5e 100%);
-  box-shadow: 0 18px 42px rgb(6 35 30 / 0.28);
-}
-
-.portal-layout[data-portal='owner'] .obd-tile--finance .obd-tile__kicker {
-  color: #7ef0dd;
-}
-
-.portal-layout[data-portal='owner'] .obd-finance__label {
-  margin: 0;
-  color: rgb(224 242 238 / 0.75);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.portal-layout[data-portal='owner'] .obd-finance__value {
-  display: block;
-  margin-top: 0.2rem;
-  color: #ffffff;
-  font-size: clamp(1.9rem, 3.6vw, 2.7rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
-.portal-layout[data-portal='owner'] .obd-finance__side {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.portal-layout[data-portal='owner'] .obd-finance__link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.1rem;
-  padding: 0 0.95rem;
-  border-radius: 0.6rem;
-  color: #d9f2ec;
   font-size: 0.8rem;
   font-weight: 750;
   text-decoration: none;
-  background: rgb(255 255 255 / 0.09);
-  border: 1px solid rgb(255 255 255 / 0.16);
-  transition: background 0.15s var(--pd-ease), transform 0.15s var(--pd-ease);
+  white-space: nowrap;
 }
 
-.portal-layout[data-portal='owner'] .obd-finance__link:hover {
-  background: rgb(255 255 255 / 0.18);
-  transform: translateY(-1px);
+.portal-layout[data-portal='owner'] .obd-panel__link:hover {
+  text-decoration: underline;
 }
 
-.portal-layout[data-portal='owner'] .obd-finance__link--accent {
-  color: #3a2a10;
-  background: linear-gradient(135deg, #f2d9a7, #cfa45f);
-  border-color: transparent;
-  box-shadow: 0 8px 18px rgb(201 160 90 / 0.4);
+.portal-layout[data-portal='owner'] .obd-insights {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.85fr) minmax(0, 1.15fr);
+  gap: 1.1rem 1.25rem;
+  align-items: center;
 }
 
-/* KPI stat tiles — flat, tone edge, progress hairline. */
-.portal-layout[data-portal='owner'] .obd-tile--stat {
-  --obd-tone: #14b8a6;
+.portal-layout[data-portal='owner'] .obd-insights__hero {
+  display: grid;
+  justify-items: center;
+  gap: 0.95rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-insights__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
   gap: 0.45rem;
-  align-content: start;
-  text-decoration: none;
-  border-inline-start: 3px solid var(--obd-tone);
+  width: min(100%, 16rem);
 }
 
-.portal-layout[data-portal='owner'] .obd-tile--stat:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--obd-tone) 30%, var(--pd-line));
-  border-inline-start-color: var(--obd-tone);
-  box-shadow: 0 14px 30px rgb(12 31 27 / 0.1);
+.portal-layout[data-portal='owner'] .obd-insights__legend li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.65rem;
+  background: #f6f8f7;
 }
 
-.portal-layout[data-portal='owner'] .obd-stat--teal { --obd-tone: #14b8a6; }
-.portal-layout[data-portal='owner'] .obd-stat--navy { --obd-tone: #2563eb; }
-.portal-layout[data-portal='owner'] .obd-stat--gold { --obd-tone: #d4a24e; }
-.portal-layout[data-portal='owner'] .obd-stat--forest { --obd-tone: #16a34a; }
-.portal-layout[data-portal='owner'] .obd-stat--amber { --obd-tone: #f59e0b; }
-.portal-layout[data-portal='owner'] .obd-stat--coral { --obd-tone: #f97316; }
-.portal-layout[data-portal='owner'] .obd-stat--rose { --obd-tone: #f43f5e; }
-.portal-layout[data-portal='owner'] .obd-stat--slate { --obd-tone: #64748b; }
-.portal-layout[data-portal='owner'] .obd-stat--wine { --obd-tone: #be123c; }
-.portal-layout[data-portal='owner'] .obd-stat--olive { --obd-tone: #65a30d; }
-
-.portal-layout[data-portal='owner'] .obd-stat__label {
+.portal-layout[data-portal='owner'] .obd-insights__legend span {
   color: var(--pd-muted);
-  font-size: 0.76rem;
-  font-weight: 750;
+  font-size: 0.78rem;
+  font-weight: 650;
 }
 
-.portal-layout[data-portal='owner'] .obd-stat__value {
+.portal-layout[data-portal='owner'] .obd-insights__legend strong {
   color: var(--pd-ink);
-  font-size: clamp(1.3rem, 2vw, 1.6rem);
+  font-size: 0.86rem;
   font-weight: 800;
+}
+
+.portal-layout[data-portal='owner'] .obd-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--pd-accent);
+}
+
+.portal-layout[data-portal='owner'] .obd-dot--forest { background: #15803d; }
+.portal-layout[data-portal='owner'] .obd-dot--gold { background: #b45309; }
+.portal-layout[data-portal='owner'] .obd-dot--navy { background: #1d4ed8; }
+
+.portal-layout[data-portal='owner'] .obd-rings {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem 0.65rem;
+  justify-items: center;
+}
+
+.portal-layout[data-portal='owner'] .obd-ring-link {
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.16s var(--pd-ease);
+}
+
+.portal-layout[data-portal='owner'] a.obd-ring-link:hover {
+  transform: translateY(-2px);
+}
+
+.portal-layout[data-portal='owner'] .obd-ring {
+  width: 6.4rem;
+  height: 6.4rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  box-shadow: inset 0 0 0 1px rgb(12 31 27 / 0.04);
+}
+
+.portal-layout[data-portal='owner'] .obd-ring--lg {
+  width: 10.5rem;
+  height: 10.5rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-ring--sm {
+  width: 3.55rem;
+  height: 3.55rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-ring__core {
+  width: 76%;
+  height: 76%;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  gap: 0.12rem;
+  text-align: center;
+  background: #fff;
+  border: 1px solid rgb(12 31 27 / 0.07);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.9) inset;
+  padding: 0.2rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-ring__core strong {
+  color: var(--pd-ink);
+  font-size: 0.92rem;
+  font-weight: 850;
   letter-spacing: -0.02em;
   line-height: 1.05;
 }
 
-.portal-layout[data-portal='owner'] .obd-stat__bar {
-  display: block;
-  height: 0.28rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--obd-tone) 12%, #eef2f0);
-  overflow: hidden;
+.portal-layout[data-portal='owner'] .obd-ring--lg .obd-ring__core strong {
+  font-size: 1.55rem;
 }
 
-.portal-layout[data-portal='owner'] .obd-stat__bar i {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--obd-tone);
-  transition: inline-size 0.5s var(--pd-ease);
+.portal-layout[data-portal='owner'] .obd-ring--sm .obd-ring__core strong {
+  font-size: 0.68rem;
 }
 
-/* Approvals & alerts — tall tiles, 3 cols each. */
-.portal-layout[data-portal='owner'] .obd-tile--approvals,
-.portal-layout[data-portal='owner'] .obd-tile--alerts {
-  grid-column: span 3;
-  grid-row: span 2;
-}
-
-/* Quick links — full-width flat rail. */
-.portal-layout[data-portal='owner'] .obd-tile--quick {
-  grid-column: 1 / -1;
-}
-
-.portal-layout[data-portal='owner'] .obd-quick {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.portal-layout[data-portal='owner'] .obd-quick__link {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.1rem;
-  padding: 0 0.95rem;
-  border-radius: 0.6rem;
-  color: var(--pd-ink);
-  font-size: 0.8rem;
-  font-weight: 750;
-  text-decoration: none;
-  background: rgb(13 122 109 / 0.07);
-  border: 1px solid rgb(13 122 109 / 0.14);
-  transition: background 0.15s var(--pd-ease), transform 0.15s var(--pd-ease), color 0.15s var(--pd-ease);
-}
-
-.portal-layout[data-portal='owner'] .obd-quick__link:hover {
-  color: #fff;
-  background: var(--pd-accent);
-  border-color: var(--pd-accent);
-  transform: translateY(-1px);
-}
-
-/* Tenancy cross-link — flat accent tile. */
-.portal-layout[data-portal='owner'] .obd-tile--tenancy {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  text-decoration: none;
-  border-inline-start: 3px solid var(--pd-gold);
-  background:
-    radial-gradient(18rem 7rem at 100% 0%, rgb(201 160 90 / 0.12), transparent 60%),
-    #ffffff;
-}
-
-.portal-layout[data-portal='owner'] .obd-tile--tenancy:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgb(12 31 27 / 0.09);
-}
-
-.portal-layout[data-portal='owner'] .obd-tenancy__copy {
-  display: grid;
-  gap: 0.2rem;
-  color: var(--pd-ink);
-}
-
-.portal-layout[data-portal='owner'] .obd-tenancy__copy > span {
+.portal-layout[data-portal='owner'] .obd-ring__core span {
   color: var(--pd-muted);
-  font-size: 0.82rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1.15;
+  max-width: 4rem;
+  margin-inline: auto;
 }
 
-.portal-layout[data-portal='owner'] .obd-tenancy__open {
-  color: var(--pd-accent);
-  font-style: normal;
-  font-weight: 800;
-  white-space: nowrap;
+.portal-layout[data-portal='owner'] .obd-ring--lg .obd-ring__core span {
+  font-size: 0.78rem;
+  max-width: 6rem;
 }
 
-/* Activity — full-width timeline tile. */
-.portal-layout[data-portal='owner'] .obd-tile--activity {
-  grid-column: 1 / -1;
-  overflow: clip;
-  padding: 0;
-}
-
-.portal-layout[data-portal='owner'] .obd-activity__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.9rem;
-  padding: 1rem 1.1rem;
-  cursor: pointer;
-  list-style: none;
-  transition: background 0.16s var(--pd-ease);
-}
-
-.portal-layout[data-portal='owner'] .obd-activity__summary::-webkit-details-marker {
+.portal-layout[data-portal='owner'] .obd-ring--sm .obd-ring__core span:empty {
   display: none;
 }
 
-.portal-layout[data-portal='owner'] .obd-activity__summary:hover {
-  background: rgb(20 184 166 / 0.05);
-}
-
-.portal-layout[data-portal='owner'] .obd-activity__title {
-  color: var(--pd-ink);
-  font-weight: 800;
-}
-
-.portal-layout[data-portal='owner'] .obd-activity__meta {
-  display: flex;
+.portal-layout[data-portal='owner'] .obd-finance {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem 1.15rem;
   align-items: center;
-  gap: 0.6rem;
 }
 
-.portal-layout[data-portal='owner'] .obd-activity__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.7rem;
-  height: 1.7rem;
-  padding: 0 0.45rem;
-  border-radius: 999px;
-  background: rgb(20 184 166 / 0.14);
-  color: var(--pd-accent);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.portal-layout[data-portal='owner'] .obd-activity__hint {
+.portal-layout[data-portal='owner'] .obd-finance__label {
+  margin: 0;
   color: var(--pd-muted);
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   font-weight: 700;
 }
 
-.portal-layout[data-portal='owner'] .obd-timeline {
+.portal-layout[data-portal='owner'] .obd-finance__value {
   display: grid;
-  margin: 0;
-  padding: 0.3rem 1.1rem 1rem;
+  gap: 0.15rem;
+  margin: 0.25rem 0 0.85rem;
+  color: var(--pd-ink);
+  font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.portal-layout[data-portal='owner'] .obd-finance__stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.9rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-finance__stats > div {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.7rem;
+  background: #f6f8f7;
+}
+
+.portal-layout[data-portal='owner'] .obd-finance__stats span {
+  display: block;
+  color: var(--pd-muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.portal-layout[data-portal='owner'] .obd-finance__stats strong {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--pd-ink);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.portal-layout[data-portal='owner'] .obd-finance__links,
+.portal-layout[data-portal='owner'] .obd-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.15rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--obd-line);
+  background: #f8faf9;
+  color: var(--pd-ink);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.15s var(--pd-ease), border-color 0.15s var(--pd-ease), color 0.15s var(--pd-ease);
+}
+
+.portal-layout[data-portal='owner'] .obd-chip:hover {
+  border-color: rgb(13 122 109 / 0.3);
+  color: var(--pd-accent);
+  background: #fff;
+}
+
+.portal-layout[data-portal='owner'] .obd-chip--accent {
+  color: #fff;
+  background: var(--pd-accent);
+  border-color: transparent;
+}
+
+.portal-layout[data-portal='owner'] .obd-chip--accent:hover {
+  color: #fff;
+  background: #0b6b60;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--approvals,
+.portal-layout[data-portal='owner'] .obd-panel--alerts {
+  min-height: 18rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--tenancy {
+  display: grid;
+  gap: 0.35rem;
+  align-content: center;
+  text-decoration: none;
+  color: inherit;
+  background:
+    linear-gradient(145deg, rgb(13 122 109 / 0.08), rgb(255 255 255 / 0.96) 55%);
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--tenancy strong {
+  color: var(--pd-ink);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--tenancy span {
+  color: var(--pd-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--tenancy em {
+  margin-top: 0.35rem;
+  color: var(--pd-accent);
+  font-style: normal;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--activity {
+  grid-column: 1 / -1;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--activity > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  cursor: pointer;
   list-style: none;
 }
 
-.portal-layout[data-portal='owner'] .obd-timeline__link {
-  display: flex;
-  align-items: center;
-  gap: 0.85rem;
-  padding: 0.65rem 0.4rem;
-  border-radius: 0.6rem;
-  color: var(--pd-ink);
-  text-decoration: none;
-  transition: background 0.14s ease;
+.portal-layout[data-portal='owner'] .obd-panel--activity > summary::-webkit-details-marker {
+  display: none;
 }
 
-.portal-layout[data-portal='owner'] .obd-timeline__link:hover {
-  background: rgb(20 184 166 / 0.05);
+.portal-layout[data-portal='owner'] .obd-panel--activity > summary > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--activity > summary strong {
+  color: var(--pd-ink);
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel--activity > summary em {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding-inline: 0.35rem;
+  border-radius: 999px;
+  background: rgb(13 122 109 / 0.12);
+  color: var(--pd-accent);
+  font-style: normal;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.portal-layout[data-portal='owner'] .obd-panel__hint {
+  color: var(--pd-muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.portal-layout[data-portal='owner'] .obd-timeline {
+  list-style: none;
+  margin: 0.95rem 0 0;
+  padding: 0.85rem 0 0;
+  border-top: 1px solid var(--obd-line);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.portal-layout[data-portal='owner'] .obd-timeline__link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  padding: 0.55rem 0.45rem;
+  border-radius: 0.65rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.portal-layout[data-portal='owner'] a.obd-timeline__link:hover {
+  background: #f6f8f7;
 }
 
 .portal-layout[data-portal='owner'] .obd-timeline__dot {
-  flex: 0 0 auto;
   width: 0.55rem;
   height: 0.55rem;
   border-radius: 50%;
   background: var(--pd-accent-2);
-  box-shadow: 0 0 0 4px rgb(20 184 166 / 0.16);
 }
 
 .portal-layout[data-portal='owner'] .obd-timeline__body {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.3rem 0.7rem;
+  display: grid;
+  gap: 0.15rem;
   min-width: 0;
-  flex: 1;
 }
 
-.portal-layout[data-portal='owner'] .obd-timeline__status {
-  padding: 0.14rem 0.6rem;
-  border-radius: 999px;
-  background: rgb(20 184 166 / 0.1);
+.portal-layout[data-portal='owner'] .obd-timeline__body strong {
+  color: var(--pd-ink);
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.portal-layout[data-portal='owner'] .obd-timeline__body span {
   color: var(--pd-accent);
   font-size: 0.72rem;
-  font-weight: 750;
+  font-weight: 700;
 }
 
 .portal-layout[data-portal='owner'] .obd-timeline time {
   color: var(--pd-muted);
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   white-space: nowrap;
 }
 
@@ -1173,21 +1285,32 @@
 /* ————————————————————————————————————————————————
    Compact screens
 ———————————————————————————————————————————————— */
+@media (max-width: 1100px) {
+  .portal-layout[data-portal='owner'] .obd-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .portal-layout[data-portal='owner'] .obd-main,
+  .portal-layout[data-portal='owner'] .obd-split,
+  .portal-layout[data-portal='owner'] .obd-bottom {
+    grid-template-columns: 1fr;
+  }
+
+  .portal-layout[data-portal='owner'] .obd-insights {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 960px) {
-  .portal-layout[data-portal='owner'] .obd-bento,
   .portal-layout[data-portal='tenant'] .tnd-bento {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .portal-layout[data-portal='owner'] .obd-tile,
   .portal-layout[data-portal='tenant'] .tnd-tile {
     grid-column: span 1;
     grid-row: auto;
   }
 
-  .portal-layout[data-portal='owner'] .obd-tile--finance,
-  .portal-layout[data-portal='owner'] .obd-tile--approvals,
-  .portal-layout[data-portal='owner'] .obd-tile--alerts,
   .portal-layout[data-portal='tenant'] .tnd-tile--lease,
   .portal-layout[data-portal='tenant'] .tnd-tile--alerts,
   .portal-layout[data-portal='tenant'] .tnd-tile--board {
@@ -1206,15 +1329,32 @@
     border-width: 2.4rem;
     inset-block-end: -5.5rem;
   }
+
+  .portal-layout[data-portal='owner'] .obd-rings {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .portal-layout[data-portal='owner'] .obd-finance {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .portal-layout[data-portal='owner'] .obd-finance__links {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 520px) {
-  .portal-layout[data-portal='owner'] .obd-bento,
+  .portal-layout[data-portal='owner'] .obd-kpis,
   .portal-layout[data-portal='tenant'] .tnd-bento {
     grid-template-columns: 1fr;
   }
 
-  .portal-layout[data-portal='owner'] .obd-tile--stat,
+  .portal-layout[data-portal='owner'] .obd-rings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .portal-layout[data-portal='tenant'] .tnd-tile--metric {
     grid-column: 1 / -1;
   }
@@ -1224,9 +1364,10 @@
    Motion preferences
 ———————————————————————————————————————————————— */
 @media (prefers-reduced-motion: reduce) {
-  .portal-layout[data-portal='owner'] .obd-tile,
+  .portal-layout[data-portal='owner'] .obd-kpi,
   .portal-layout[data-portal='owner'] .obd-btn,
-  .portal-layout[data-portal='owner'] .obd-quick__link,
+  .portal-layout[data-portal='owner'] .obd-ring-link,
+  .portal-layout[data-portal='owner'] .obd-chip,
   .portal-layout[data-portal='tenant'] .tnd-tile,
   .portal-layout[data-portal='tenant'] .tnd-btn,
   .portal-layout[data-portal='tenant'] .tenant-home__chip,
@@ -1235,8 +1376,8 @@
     transition: none;
   }
 
-  .portal-layout[data-portal='owner'] .obd-tile--stat:hover,
-  .portal-layout[data-portal='owner'] .obd-btn:hover,
+  .portal-layout[data-portal='owner'] a.obd-kpi:hover,
+  .portal-layout[data-portal='owner'] a.obd-ring-link:hover,
   .portal-layout[data-portal='tenant'] .tnd-tile--metric:hover,
   .portal-layout[data-portal='tenant'] .tnd-btn:hover,
   .portal-layout[data-portal='tenant'] a.tenant-home__chip:hover {
