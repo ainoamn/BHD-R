@@ -183,9 +183,9 @@ function looksCancelledText(text: string | null | undefined): boolean {
 }
 
 export type AccountingStatusToneInput = {
-  status?: string | null;
-  sourceType?: string | null;
-  text?: string | null;
+  status?: string | null | undefined;
+  sourceType?: string | null | undefined;
+  text?: string | null | undefined;
 };
 
 /** Visual tone for accounting status chips and row accents. */
@@ -193,7 +193,7 @@ export function accountingStatusTone(
   input: string | null | undefined | AccountingStatusToneInput,
 ): 'good' | 'bad' | 'review' | 'neutral' {
   const opts: AccountingStatusToneInput =
-    input && typeof input === 'object' ? input : { status: input };
+    input && typeof input === 'object' ? input : { status: input ?? null };
   const value = (opts.status ?? '').toLowerCase();
   const source = (opts.sourceType ?? '').toLowerCase();
   if (
