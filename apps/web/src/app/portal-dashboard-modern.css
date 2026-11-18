@@ -3353,3 +3353,148 @@
   border-radius: 0.2rem !important;
   box-shadow: none !important;
 }
+
+
+/* ════════════════════════════════════════════════════════════════
+   PART 6 — deepen MoL registry look on ALL owner surfaces (0.8.136.245)
+════════════════════════════════════════════════════════════════ */
+
+/* Table header tools/labels readable on navy */
+.portal-layout[data-portal='owner'] .data-table th .ops-th-label,
+.portal-layout[data-portal='owner'] .ops-table th .ops-th-label,
+.portal-layout[data-portal='tenant'] .data-table th .ops-th-label,
+.portal-layout[data-portal='tenant'] .ops-table th .ops-th-label {
+  color: #fff !important;
+}
+
+.portal-layout[data-portal='owner'] .data-table th .ops-th-arrow,
+.portal-layout[data-portal='owner'] .ops-table th .ops-th-arrow,
+.portal-layout[data-portal='owner'] .data-table th .ops-th-tool,
+.portal-layout[data-portal='owner'] .ops-table th .ops-th-tool,
+.portal-layout[data-portal='tenant'] .data-table th .ops-th-arrow,
+.portal-layout[data-portal='tenant'] .ops-table th .ops-th-arrow,
+.portal-layout[data-portal='tenant'] .data-table th .ops-th-tool,
+.portal-layout[data-portal='tenant'] .ops-table th .ops-th-tool {
+  color: #dbe4f0 !important;
+  border-color: rgb(255 255 255 / 0.25) !important;
+  background: rgb(255 255 255 / 0.08) !important;
+}
+
+.portal-layout[data-portal='owner'] .data-table th .ops-th-arrow.is-on,
+.portal-layout[data-portal='owner'] .ops-table th .ops-th-arrow.is-on,
+.portal-layout[data-portal='owner'] .data-table th .ops-th-tool.is-on,
+.portal-layout[data-portal='owner'] .ops-table th .ops-th-tool.is-on,
+.portal-layout[data-portal='owner'] .data-table th .ops-th-sort[open] > .ops-th-arrow,
+.portal-layout[data-portal='owner'] .ops-table th .ops-th-sort[open] > .ops-th-arrow {
+  color: #fff !important;
+  background: rgb(255 255 255 / 0.2) !important;
+}
+
+.portal-layout[data-portal='owner'] .ops-th-sort__menu,
+.portal-layout[data-portal='tenant'] .ops-th-sort__menu {
+  border-radius: 0.2rem !important;
+  border-color: #c5cdd6 !important;
+  box-shadow: 0 8px 24px rgb(15 23 42 / 0.16) !important;
+}
+
+/* Nested filter menus / popovers / action menus */
+.portal-layout[data-portal='owner'] .ops-action-menu__panel,
+.portal-layout[data-portal='tenant'] .ops-action-menu__panel,
+.portal-layout[data-portal='owner'] .ops-action-menu__panel--portal,
+.portal-layout[data-portal='tenant'] .ops-action-menu__panel--portal {
+  border: 1px solid #c5cdd6 !important;
+  border-radius: 0.2rem !important;
+  background: #fff !important;
+  box-shadow: 0 10px 28px rgb(15 23 42 / 0.16) !important;
+}
+
+.portal-layout[data-portal='owner'] .ops-action-menu__panel a,
+.portal-layout[data-portal='owner'] .ops-action-menu__panel button,
+.portal-layout[data-portal='tenant'] .ops-action-menu__panel a,
+.portal-layout[data-portal='tenant'] .ops-action-menu__panel button {
+  border-radius: 0.15rem !important;
+}
+
+/* Dialogs that reuse ops-modal outside create flows */
+.portal-layout[data-portal='owner'] [role='dialog'].ops-modal__card,
+.portal-layout[data-portal='tenant'] [role='dialog'].ops-modal__card,
+.portal-layout[data-portal='owner'] .guest-stay-dialog .ops-modal__card,
+.portal-layout[data-portal='owner'] .api-key-secret,
+.portal-layout[data-portal='tenant'] .api-key-secret {
+  border: 1px solid #c5cdd6 !important;
+  border-radius: 0.25rem !important;
+  background: #fff !important;
+}
+
+/* Section forms / wizards / property hubs */
+.portal-layout[data-portal='owner'] .form-shell,
+.portal-layout[data-portal='owner'] .wizard-shell,
+.portal-layout[data-portal='owner'] .wizard-card,
+.portal-layout[data-portal='owner'] .property-360,
+.portal-layout[data-portal='owner'] .property-manager,
+.portal-layout[data-portal='owner'] .pmh-hero,
+.portal-layout[data-portal='owner'] .pmh-stats,
+.portal-layout[data-portal='owner'] .settings-desk,
+.portal-layout[data-portal='owner'] .legal-board,
+.portal-layout[data-portal='owner'] .stays-portal,
+.portal-layout[data-portal='owner'] .lrw,
+.portal-layout[data-portal='owner'] .lrw__card {
+  border: 1px solid #cfd6dd !important;
+  border-radius: 0.2rem !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.portal-layout[data-portal='owner'] .wizard-card > header,
+.portal-layout[data-portal='owner'] .form-shell > header,
+.portal-layout[data-portal='owner'] .pmh-card__head,
+.portal-layout[data-portal='owner'] .lrw__card > header {
+  background: #f3f6f9 !important;
+  border-bottom: 1px solid #d7dde5 !important;
+}
+
+/* Status expiry chips — solid like MoL */
+.portal-layout[data-portal='owner'] .ops-expiry--ok {
+  background: #16a34a !important;
+  color: #fff !important;
+  border-color: #16a34a !important;
+}
+.portal-layout[data-portal='owner'] .ops-expiry--d90 {
+  background: #ca8a04 !important;
+  color: #fff !important;
+  border-color: #ca8a04 !important;
+}
+.portal-layout[data-portal='owner'] .ops-expiry--d60 {
+  background: #ea580c !important;
+  color: #fff !important;
+  border-color: #ea580c !important;
+}
+.portal-layout[data-portal='owner'] .ops-expiry--d30 {
+  background: #dc2626 !important;
+  color: #fff !important;
+  border-color: #dc2626 !important;
+}
+
+/* Accounting / reports tables denser MoL */
+.portal-layout[data-portal='owner'] .accounting-hub__toolbar,
+.portal-layout[data-portal='owner'] .fin-dash__toolbar {
+  background: #f3f6f9 !important;
+  border: 1px solid #d7dde5 !important;
+  border-radius: 0.2rem !important;
+}
+
+.portal-layout[data-portal='owner'] .accounting-hub__table-wrap,
+.portal-layout[data-portal='owner'] .fin-dash__table-wrap {
+  border: 1px solid #d7dde5 !important;
+  border-radius: 0.2rem !important;
+  overflow: auto;
+}
+
+/* Keep top chrome green (never orange) */
+.portal-layout[data-portal='owner'] {
+  --pd-topbar: #0d7a6d;
+}
+.portal-layout[data-portal='owner'] .portal-chrome {
+  background: #0d7a6d !important;
+  border-bottom-color: #0a5f55 !important;
+}
