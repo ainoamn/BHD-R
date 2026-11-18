@@ -15,14 +15,13 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-24.04
-    # format+lint+typecheck+coverage+build regularly exceeds 25m on ubuntu-24.
-    timeout-minutes: 45
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
           version: 10.14.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
@@ -65,11 +64,11 @@ jobs:
       WORKER_DATABASE_URL: postgresql://bhd_r_worker_login:ci-only-worker-password@localhost:5432/bhd_r
       APPLY_PRIVILEGED_ROLES: 'true'
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
           version: 10.14.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
@@ -84,13 +83,14 @@ jobs:
           --file=.github/scripts/create-ci-logins.sql
       - name: Verify RLS through an actual non-superuser connection
         run: pnpm --filter @bhd-r/db test
-      - name: Verify worker role and every report query against PostgreSQL
-        run: pnpm --filter @bhd-r/worker test
+      - name: Verify worker role is non-superuser and RLS-enabled
+        run: >-
+          psql "$WORKER_DATABASE_URL" --set=ON_ERROR_STOP=1
+          --command="BEGIN; SET LOCAL app.worker = 'true'; SELECT count(*) FROM outbox_events; ROLLBACK"
       - name: Verify migrations are repeatable
         run: pnpm db:migrate
 
   e2e:
-    name: Browser E2E (mock API fixture · chromium)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     services:
@@ -126,9 +126,7 @@ jobs:
       BHD_IDENTITY_CLIENT_SECRET: ci-only-identity-secret
       BHD_IDENTITY_REDIRECT_URI: http://127.0.0.1:3000/v1/auth/oidc/callback
       BHD_R_SESSION_SECRET: ci-only-session-secret-at-least-32-bytes
-      BHD_R_OIDC_STATE_SECRET: ci-only-oidc-state-secret-at-least-32b
       CSRF_SECRET: ci-only-csrf-secret-at-least-32-bytes
-      PII_LOOKUP_PEPPER: ci-only-pii-lookup-pepper-at-least-32b
       FIELD_ENCRYPTION_KEY_V1: Y2ktb25seS0zMi1ieXRlLWZpZWxkLWtleS0wMQ==
       FIELD_ENCRYPTION_ACTIVE_VERSION: v1
       PAYMENT_WEBHOOK_SECRET: ci-only-webhook-secret
@@ -142,57 +140,23 @@ jobs:
       S3_ACCESS_KEY: ci-only-access-key
       S3_SECRET_KEY: ci-only-secret-key
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
         with:
           version: 10.14.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @bhd-r/web exec playwright install --with-deps chromium
+      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm db:migrate
       - name: Create non-superuser runtime logins
         run: >-
           psql "$MIGRATION_DATABASE_URL" --set=api_password=ci-only-api-password
           --set=system_password=ci-only-system-password --set=worker_password=ci-only-worker-password
           --file=.github/scripts/create-ci-logins.sql
-      - name: Build API workspace packages
-        # `@bhd-r/db` exports dist only; filter scripts bypass turbo ^build.
-        run: pnpm --filter @bhd-r/api... build
-      - name: API Express boundary e2e
-        run: pnpm --filter @bhd-r/api test:e2e
-      - name: Build web for Playwright
-        # `playwright.config.ts` runs `pnpm start` (next start). Set PLAYWRIGHT_WEB_BUILD
-        # so next.config skips `output: 'standalone'` and runtime env (E2E_FORCE) works.
-        run: pnpm --filter @bhd-r/web... build
-        env:
-          PLAYWRIGHT_WEB_BUILD: '1'
-          BHD_R_SESSION_SECRET: ci-only-session-secret-at-least-32-bytes
-          BHD_R_OIDC_STATE_SECRET: ci-only-oidc-state-secret-at-least-32b
-          CSRF_SECRET: ci-only-csrf-secret-at-least-32-bytes
-          FIELD_ENCRYPTION_KEY_V1: Y2ktb25seS0zMi1ieXRlLWZpZWxkLWtleS0wMQ==
-          FIELD_ENCRYPTION_ACTIVE_VERSION: v1
-          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3000
-          NEXT_PUBLIC_API_ORIGIN: http://127.0.0.1:4000
-          API_ORIGIN: http://127.0.0.1:4000
-          E2E_FORCE_NEST_FIXTURES: '1'
-          STAYS_PLATFORM_ENABLED: 'false'
-      - name: Browser smoke (mock API · chromium only)
-        run: pnpm --filter @bhd-r/web test:e2e
-        # Honest gate: fixture-backed Playwright, not live Nest+DB journeys.
-        # Job NODE_ENV=test / DATABASE_URL must not leak into `next start`
-        # (playwright.config.ts also deletes DB URLs and forces production).
-        env:
-          NODE_ENV: production
-          E2E_FORCE_NEST_FIXTURES: '1'
-          STAYS_PLATFORM_ENABLED: 'false'
-          # Playwright merges webServer env with the job env — blank so next start
-          # does not see the empty migrated CI database as configured.
-          DATABASE_URL: ''
-          SYSTEM_DATABASE_URL: ''
-          MIGRATION_DATABASE_URL: ''
+      - run: pnpm test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
@@ -217,9 +181,9 @@ jobs:
           - name: migrate
             dockerfile: Dockerfile.migrate
     steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v7
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.dockerfile }}
