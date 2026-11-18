@@ -1772,12 +1772,13 @@ export function TenantSpaceContent({
   const leaseItems = takeRows(leasePreviewItems(data, ar, locale), 3);
 
   return (
-    <div className="dash-shell tenant-space tenant-home" data-view="overview">
-      <header className="tenant-home__welcome">
-        <div className="tenant-home__welcome-copy">
-          <p className="tenant-kicker">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>
-          <h1>{ar ? `أهلاً، ${displayName}` : `Hello, ${displayName}`}</h1>
-          <p>
+    <div className="tnd tenant-space" data-view="overview">
+      {/* ── Welcome hero ─────────────────────────────────────────── */}
+      <header className="tnd-hero">
+        <div className="tnd-hero__copy">
+          <p className="tnd-hero__eyebrow">{ar ? 'مساحة المستأجر' : 'Tenant space'}</p>
+          <h1 className="tnd-hero__title">{ar ? `أهلاً، ${displayName}` : `Hello, ${displayName}`}</h1>
+          <p className="tnd-hero__sub">
             {ar
               ? 'ملخص واضح لحجوزاتك وعقودك وفواتيرك — التفاصيل بضغطة.'
               : 'A clear summary of bookings, contracts, and invoices — details one tap away.'}
@@ -1787,27 +1788,27 @@ export function TenantSpaceContent({
             locale={locale}
             size={14}
             max={4}
-            className="tenant-home__badges"
+            className="tnd-hero__badges"
           />
         </div>
-        <div className="tenant-home__welcome-actions">
-          <Link href="/properties" className="button button--primary">
+        <div className="tnd-hero__actions">
+          <Link href="/properties" className="tnd-btn tnd-btn--gold">
             {ar ? 'تصفّح العقارات' : 'Browse properties'}
           </Link>
           {data.statements.some((item) => !item.fromStay) ? (
-            <Link href="/tenant/invoices" className="button button--quiet">
+            <Link href="/tenant/invoices" className="tnd-btn tnd-btn--glass">
               {ar ? 'كشف حسابي' : 'My statement'}
             </Link>
           ) : null}
           {data.statements.some((item) =>
             ['active', 'cancel_requested', 'renewal_pending'].includes(item.status),
           ) ? (
-            <Link href="/tenant/requests" className="button button--quiet">
+            <Link href="/tenant/requests" className="tnd-btn tnd-btn--glass">
               {ar ? 'طلباتي' : 'My requests'}
             </Link>
           ) : null}
           {ownerPortal ? (
-            <Link href={`/${ownerPortal}`} className="button button--quiet">
+            <Link href={`/${ownerPortal}`} className="tnd-btn tnd-btn--glass">
               {ar ? 'مساحة المالك' : 'Owner space'}
             </Link>
           ) : null}
@@ -1815,13 +1816,30 @@ export function TenantSpaceContent({
       </header>
       {notice}
 
+      {/* ── Metric strip ─────────────────────────────────────────── */}
+      <nav className="tnd-metrics" aria-label={ar ? 'ملخص سريع' : 'Quick summary'}>
+        {metrics.map((metric) => (
+          <Link
+            key={metric.key}
+            href={metric.href}
+            className={`tnd-metric tnd-metric--${metric.tone}${
+              metric.value === 0 ? ' is-empty' : ''
+            }`}
+          >
+            <span className="tnd-metric__value">{metric.value}</span>
+            <span className="tnd-metric__label">{metric.label}</span>
+            <span className="tnd-metric__glow" aria-hidden="true" />
+          </Link>
+        ))}
+      </nav>
+
       {alertCount ? (
         <section
-          className="tenant-home__panel tenant-home__panel--alerts has-items"
+          className="tnd-alerts has-items"
           aria-label={ar ? 'يحتاج انتباهك' : 'Needs attention'}
         >
-          <div className="tenant-section__head">
-            <div className="tenant-section__titles">
+          <div className="tnd-alerts__head">
+            <div className="tnd-alerts__titles">
               <h2>{ar ? 'يحتاج انتباهك' : 'Needs your attention'}</h2>
               <p>
                 {ar
@@ -1829,7 +1847,7 @@ export function TenantSpaceContent({
                   : 'Most urgent first — open details when you need them.'}
               </p>
             </div>
-            <span className="tenant-home__count">{alertCount}</span>
+            <span className="tnd-alerts__count">{alertCount}</span>
           </div>
           <AlertsList {...ctx} />
         </section>
@@ -1837,59 +1855,44 @@ export function TenantSpaceContent({
 
       <TenantRenewalIntentList data={data} locale={locale} forceShow={focusRenewal} />
 
-      <nav className="tenant-home__nav" aria-label={ar ? 'ملخص سريع' : 'Quick summary'}>
-        {metrics.map((metric) => (
-          <Link
-            key={metric.key}
-            href={metric.href}
-            className={`tenant-home__chip tenant-home__chip--${metric.tone}${
-              metric.value === 0 ? ' is-empty' : ''
-            }`}
-          >
-            <span>{metric.label}</span>
-            <strong>{metric.value}</strong>
-          </Link>
-        ))}
-      </nav>
-
       {spotlightLease ? (
         <section
-          className="tenant-home__spotlight"
+          className="tnd-spotlight"
           aria-label={ar ? 'إيجارك الحالي' : 'Current lease'}
         >
-          <div className="tenant-home__spotlight-copy">
-            <p className="tenant-kicker">{ar ? 'إيجارك الحالي' : 'Current lease'}</p>
-            <h2>{tenancyUnitLabel(spotlightLease, ar)}</h2>
-            <p>
+          <div className="tnd-spotlight__copy">
+            <p className="tnd-spotlight__eyebrow">{ar ? 'إيجارك الحالي' : 'Current lease'}</p>
+            <h2 className="tnd-spotlight__title">{tenancyUnitLabel(spotlightLease, ar)}</h2>
+            <p className="tnd-spotlight__meta">
               {tenancyLandlordName(spotlightLease.landlord, ar)}
               {' · '}
               {period(spotlightLease.startsOn, leaseDisplayEndsOn(spotlightLease), ar)}
             </p>
-            <p className="tenant-home__spotlight-rent" dir="ltr">
-              {money(spotlightLease.rentMinor, spotlightLease.currency, locale)}
-              {ar ? ' / شهرياً' : ' / month'}
-            </p>
           </div>
-          <div className="tenant-home__spotlight-actions">
+          <div className="tnd-spotlight__rent" dir="ltr">
+            {money(spotlightLease.rentMinor, spotlightLease.currency, locale)}
+            <small>{ar ? ' / شهرياً' : ' / month'}</small>
+          </div>
+          <div className="tnd-spotlight__actions">
             <Status label={ar ? 'ساري' : 'Active'} tone="good" />
             {spotlightLease.contractId ? (
               <Link
                 href={`/tenant/contracts/${spotlightLease.contractId}`}
-                className="button button--primary button--sm"
+                className="tnd-btn tnd-btn--primary tnd-btn--sm"
               >
                 {ar ? 'عرض العقد' : 'View contract'}
               </Link>
             ) : null}
-            <Link href="/tenant/leases" className="button button--quiet button--sm">
+            <Link href="/tenant/leases" className="tnd-btn tnd-btn--quiet tnd-btn--sm">
               {ar ? 'كل الإيجارات' : 'All leases'}
             </Link>
           </div>
         </section>
       ) : null}
 
-      <div className="tenant-home__board">
+      <div className="tnd-board">
         <Section
-          className="tenant-home__card tenant-home__span"
+          className="tnd-card tnd-card--span"
           title={ar ? 'حجوزاتي' : 'My bookings'}
           hint={
             ar
@@ -1906,7 +1909,7 @@ export function TenantSpaceContent({
         </Section>
 
         <Section
-          className="tenant-home__card"
+          className="tnd-card"
           title={ar ? 'عقودي' : 'My contracts'}
           more={{ href: '/tenant/contracts', label: ar ? 'الكل' : 'All' }}
         >
@@ -1918,7 +1921,7 @@ export function TenantSpaceContent({
         </Section>
 
         <Section
-          className="tenant-home__card"
+          className="tnd-card"
           title={ar ? 'فواتير مستحقة' : 'Invoices due'}
           more={{ href: '/tenant/invoices', label: ar ? 'الكل' : 'All' }}
         >
@@ -1931,7 +1934,7 @@ export function TenantSpaceContent({
 
         {leaseItems.length ? (
           <Section
-            className="tenant-home__card tenant-home__span"
+            className="tnd-card tnd-card--span"
             title={ar ? 'إيجاراتي' : 'My leases'}
             more={{ href: '/tenant/leases', label: ar ? 'الكل' : 'All' }}
           >
