@@ -39,7 +39,7 @@ jobs:
       FIELD_ENCRYPTION_KEY_V1: Y2ktb25seS0zMi1ieXRlLWZpZWxkLWtleS0wMQ==
       FIELD_ENCRYPTION_ACTIVE_VERSION: v1
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
         with:
           version: 10.14.0

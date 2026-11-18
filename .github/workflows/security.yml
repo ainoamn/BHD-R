@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: actions/dependency-review-action@v4
@@ -27,7 +27,6 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
       - uses: pnpm/action-setup@v4
         with:
           version: 10.14.0
@@ -42,57 +41,28 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v4
+      - uses: actions/checkout@v7
+      - uses: github/codeql-action/init@v3
         with:
           languages: javascript-typescript
           queries: security-extended
-      - uses: github/codeql-action/analyze@v4
+      - uses: github/codeql-action/analyze@v3
 
   filesystem-scan:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      # Authoritative gate: table report fails the job on HIGH/CRITICAL fixed vulns.
-      # Secrets are covered by Gitleaks above — keep this scanner on lockfile vulns only.
-      - name: Trivy vulnerability gate
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+      - uses: actions/checkout@v7
+      - uses: aquasecurity/trivy-action@0.30.0
         with:
-          version: v0.76.1
           scan-type: fs
           scan-ref: .
-          scanners: vuln
-          format: table
-          output: trivy-gate.txt
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
-          skip-dirs: 'node_modules,.git,docs/handoffs,coverage,playwright-report,test-results,.next,dist'
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: trivy-gate-report
-          path: trivy-gate.txt
-          if-no-files-found: ignore
-          retention-days: 30
-      # SARIF is for GitHub Security tab only — never gate CI on SARIF generation quirks.
-      - name: Trivy SARIF for Security tab
-        if: always()
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          version: v0.76.1
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln
           format: sarif
           output: trivy-results.sarif
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          limit-severities-for-sarif: true
-          exit-code: '0'
-          skip-dirs: 'node_modules,.git,docs/handoffs,coverage,playwright-report,test-results,.next,dist'
-      - uses: github/codeql-action/upload-sarif@v4
+          exit-code: '1'
+      - uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: trivy-results.sarif
@@ -101,7 +71,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: anchore/sbom-action@v0
         with:
           path: .
