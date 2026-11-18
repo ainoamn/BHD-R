@@ -48,12 +48,16 @@ import {
 import { accountingHubCopy } from '@/lib/accounting-hub-copy';
 import {
   accountingAccountTypeLabel,
+  accountingAgingBucketLabel,
+  accountingAuditResourceLabel,
+  accountingAuditStatusTransition,
   accountingDisplayText,
   accountingDocKindLabel,
   accountingExpenseStatusLabel,
   accountingJournalStatusLabel,
   accountingSourceTypeLabel,
 } from '@/lib/accounting-i18n';
+import { workflowEventLabel } from '@/lib/ui-labels';
 import { openAccountingPrint, printAccountingDocument } from '@/lib/accounting-print';
 import {
   fetchAccountingJson,
@@ -2245,12 +2249,20 @@ export function AccountingHub({
                       audit.map((row) => (
                         <tr key={row.id}>
                           <td>{row.occurredAt.replace('T', ' ').slice(0, 19)}</td>
-                          <td>{row.eventType}</td>
+                          <td>{workflowEventLabel(row.eventType, locale)}</td>
                           <td>
-                            {row.resourceType}:{row.resourceId.slice(0, 8)}
+                            {accountingAuditResourceLabel(
+                              row.resourceType,
+                              row.resourceId,
+                              locale,
+                            )}
                           </td>
                           <td>
-                            {[row.fromStatus, row.toStatus].filter(Boolean).join(' → ') || '—'}
+                            {accountingAuditStatusTransition(
+                              row.fromStatus,
+                              row.toStatus,
+                              locale,
+                            )}
                           </td>
                         </tr>
                       ))
@@ -2390,6 +2402,7 @@ function ReportView({ ar, report }: { ar: boolean; report: Record<string, unknow
       </p>
     );
   }
+  const locale = ar ? 'ar' : 'en';
   const currency = reportCurrency(report);
   if (report.report === 'trial' && Array.isArray(report.rows)) {
     const rows = report.rows as Array<{
@@ -2420,7 +2433,7 @@ function ReportView({ ar, report }: { ar: boolean; report: Record<string, unknow
                 <tr key={`${row.code}-${row.currency}`}>
                   <td>{row.code}</td>
                   <td>{ar ? row.nameAr : row.nameEn}</td>
-                  <td>{row.type}</td>
+                  <td>{accountingAccountTypeLabel(row.type, locale)}</td>
                   <td className="num">{money(row.debitMinor, row.currency, ar)}</td>
                   <td className="num">{money(row.creditMinor, row.currency, ar)}</td>
                 </tr>
@@ -2524,7 +2537,7 @@ function ReportView({ ar, report }: { ar: boolean; report: Record<string, unknow
         <div className="accounting-hub__kpis">
           {Object.entries(buckets).map(([key, value]) => (
             <div className="accounting-hub__kpi" key={key}>
-              <span>{key}</span>
+              <span>{accountingAgingBucketLabel(key, locale)}</span>
               <strong>{money(value, currency, ar)}</strong>
             </div>
           ))}

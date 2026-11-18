@@ -135,6 +135,8 @@ const DOMAIN_STATUS: Record<string, { ar: string; en: string }> = {
   closed_won: { ar: 'تم البيع', en: 'Sold' },
   closed_lost: { ar: 'لم يتم البيع', en: 'Lost' },
   posted: { ar: 'مُرحَّل', en: 'Posted' },
+  reversed: { ar: 'معكوس', en: 'Reversed' },
+  unposted: { ar: 'غير مرحّل', en: 'Unposted' },
   approved_signed: { ar: 'معتمد وموقّع', en: 'Approved & signed' },
   pending_manager_approval: { ar: 'بانتظار اعتماد المدير', en: 'Awaiting manager approval' },
   rented: { ar: 'مؤجر', en: 'Rented' },

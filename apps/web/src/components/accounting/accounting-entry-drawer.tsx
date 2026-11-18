@@ -14,6 +14,7 @@ import {
   printAccountingJournal,
 } from '@/lib/accounting-print';
 import { formatMoney } from '@/lib/format';
+import { workflowEventLabel } from '@/lib/ui-labels';
 
 type JournalDetail = {
   id: string;
@@ -56,12 +57,6 @@ function money(minor: string, currency: string, ar: boolean) {
   if (!minor || minor === '0') return '—';
   return formatMoney(minor, currency, ar ? 'ar' : 'en');
 }
-
-const EVENT_LABEL: Record<string, { ar: string; en: string }> = {
-  'journal.created': { ar: 'إنشاء مسودة', en: 'Draft created' },
-  'journal.posted': { ar: 'ترحيل القيد', en: 'Posted' },
-  'journal.reversed': { ar: 'عكس القيد', en: 'Reversed' },
-};
 
 export function AccountingEntryDrawer({
   journalId,
@@ -236,13 +231,7 @@ export function AccountingEntryDrawer({
               <ol className="accounting-drawer__trail">
                 {detail.trail.map((event) => (
                   <li key={event.id}>
-                    <strong>
-                      {EVENT_LABEL[event.eventType]
-                        ? ar
-                          ? EVENT_LABEL[event.eventType]!.ar
-                          : EVENT_LABEL[event.eventType]!.en
-                        : event.eventType}
-                    </strong>
+                    <strong>{workflowEventLabel(event.eventType, locale)}</strong>
                     <span>{new Date(event.occurredAt).toLocaleString(ar ? 'ar-OM' : 'en-GB')}</span>
                     {event.note ? <em>{event.note}</em> : null}
                   </li>

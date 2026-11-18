@@ -5,6 +5,7 @@ import {
   AccountingWorkspace,
 } from '@/components/accounting/accounting-workspace';
 import { fetchAccountingJson } from '@/lib/accounting-client-cache';
+import { accountingIntegrityGapKindLabel } from '@/lib/accounting-i18n';
 import { formatMoney } from '@/lib/format';
 import type { IntegrityBoardPayload } from '@/lib/accounting-integrity-board';
 
@@ -114,7 +115,7 @@ export function AccountingIntegrityPanel({
                 <tr key={gap.id}>
                   <td>
                     <span className={`accounting-hub__chip accounting-hub__chip--${gap.kind}`}>
-                      {gap.kind}
+                      {accountingIntegrityGapKindLabel(gap.kind, locale)}
                     </span>
                   </td>
                   <td>{ar ? gap.labelAr : gap.labelEn}</td>

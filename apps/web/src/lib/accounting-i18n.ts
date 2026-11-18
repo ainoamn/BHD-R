@@ -35,6 +35,8 @@ const SOURCE_TYPE: Record<string, { ar: string; en: string }> = {
   cheque_clear: { ar: 'تحصيل شيك', en: 'Cheque cleared' },
   cheque_op: { ar: 'عملية شيك', en: 'Cheque operation' },
   cheque_op_undone: { ar: 'عملية شيك ملغاة', en: 'Cheque operation undone' },
+  /** Legacy / alternate key seen in some document party columns. */
+  cheque_clear_undone: { ar: 'تراجع تحصيل شيك', en: 'Cheque clear undone' },
   expense: { ar: 'مصروف', en: 'Expense' },
   ops_income: { ar: 'دخل تشغيلي', en: 'Operating income' },
   ops_purchase: { ar: 'مشتريات', en: 'Purchase' },
@@ -44,6 +46,32 @@ const SOURCE_TYPE: Record<string, { ar: string; en: string }> = {
   tenant_charge: { ar: 'رسوم مستأجر', en: 'Tenant charge' },
   invoice: { ar: 'فاتورة', en: 'Invoice' },
   payment: { ar: 'دفعة', en: 'Payment' },
+  year_close: { ar: 'إقفال السنة', en: 'Year close' },
+};
+
+const INTEGRITY_GAP_KIND: Record<string, { ar: string; en: string }> = {
+  payment_unposted: { ar: 'دفعة بلا قيد', en: 'Payment unposted' },
+  cheque_unposted: { ar: 'شيك بلا تحصيل', en: 'Cheque unposted' },
+  ar_variance: { ar: 'فرق ذمم', en: 'AR variance' },
+  draft_unbalanced: { ar: 'مسودة غير متوازنة', en: 'Unbalanced draft' },
+};
+
+const AUDIT_RESOURCE_TYPE: Record<string, { ar: string; en: string }> = {
+  journal_entry: { ar: 'قيد يومية', en: 'Journal entry' },
+  accounting_settings: { ar: 'إعدادات المحاسبة', en: 'Accounting settings' },
+  ledger_account: { ar: 'حساب دفتر', en: 'Ledger account' },
+  expense: { ar: 'مصروف', en: 'Expense' },
+  invoice: { ar: 'فاتورة', en: 'Invoice' },
+  accounting_period: { ar: 'فترة محاسبية', en: 'Accounting period' },
+  period: { ar: 'فترة محاسبية', en: 'Accounting period' },
+};
+
+const AGING_BUCKET: Record<string, { ar: string; en: string }> = {
+  current: { ar: 'جاري', en: 'Current' },
+  '1-30': { ar: '1–30 يوماً', en: '1–30 days' },
+  '31-60': { ar: '31–60 يوماً', en: '31–60 days' },
+  '61-90': { ar: '61–90 يوماً', en: '61–90 days' },
+  '90+': { ar: 'أكثر من 90 يوماً', en: '90+ days' },
 };
 
 const DOC_KIND: Record<string, { ar: string; en: string }> = {
@@ -214,4 +242,60 @@ export function accountingChequeOperationLabel(
 export function accountingChequeStatusLabel(status: string | null | undefined, locale: Locale) {
   if (!status) return '—';
   return pick(locale, CHEQUE_STATUS[status], status);
+}
+
+export function accountingIntegrityGapKindLabel(
+  kind: string | null | undefined,
+  locale: Locale,
+) {
+  if (!kind) return '—';
+  return pick(locale, INTEGRITY_GAP_KIND[kind], kind.replace(/_/g, ' '));
+}
+
+export function accountingAuditResourceLabel(
+  resourceType: string | null | undefined,
+  resourceId: string | null | undefined,
+  locale: Locale,
+) {
+  const typeLabel = pick(
+    locale,
+    resourceType ? AUDIT_RESOURCE_TYPE[resourceType] : undefined,
+    resourceType ? resourceType.replace(/_/g, ' ') : '—',
+  );
+  const shortId = resourceId ? resourceId.slice(0, 8) : '';
+  return shortId ? `${typeLabel} · ${shortId}` : typeLabel;
+}
+
+export function accountingAgingBucketLabel(bucket: string | null | undefined, locale: Locale) {
+  if (!bucket) return '—';
+  return pick(locale, AGING_BUCKET[bucket], bucket);
+}
+
+const AUDIT_STATUS_EXTRA: Record<string, { ar: string; en: string }> = {
+  active: { ar: 'ساري', en: 'Active' },
+  inactive: { ar: 'غير نشط', en: 'Inactive' },
+  locked: { ar: 'مقفلة', en: 'Locked' },
+  open: { ar: 'مفتوحة', en: 'Open' },
+  closed: { ar: 'مغلقة', en: 'Closed' },
+};
+
+/** Prefer journal statuses, then known domain statuses, for audit from→to. */
+export function accountingAuditStatusLabel(status: string | null | undefined, locale: Locale) {
+  if (!status) return '';
+  const journal = JOURNAL_STATUS[status];
+  if (journal) return pick(locale, journal, status);
+  const expense = EXPENSE_STATUS[status];
+  if (expense) return pick(locale, expense, status);
+  return pick(locale, AUDIT_STATUS_EXTRA[status], status.replace(/_/g, ' '));
+}
+
+export function accountingAuditStatusTransition(
+  fromStatus: string | null | undefined,
+  toStatus: string | null | undefined,
+  locale: Locale,
+) {
+  const parts = [fromStatus, toStatus]
+    .filter(Boolean)
+    .map((status) => accountingAuditStatusLabel(status, locale));
+  return parts.length ? parts.join(' → ') : '—';
 }
