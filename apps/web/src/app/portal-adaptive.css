@@ -508,3 +508,257 @@
     top: calc(var(--portal-pad) + 0.5rem);
   }
 }
+
+/* —— Owner + Tenant control panels: modern chrome refresh (visual only) —— */
+.portal-layout[data-portal='owner'],
+.portal-layout[data-portal='tenant'] {
+  --portal-surface: #f5f7f8;
+  --portal-ink: #0b2a24;
+  --portal-accent: #0f766e;
+  --portal-accent-soft: rgb(15 118 110 / 0.12);
+  --portal-gold: #b58d55;
+  --portal-card: rgb(255 255 255 / 0.86);
+  --portal-edge: rgb(9 45 36 / 0.08);
+  background:
+    radial-gradient(circle at 92% -8%, rgb(15 118 110 / 0.12), transparent 26rem),
+    radial-gradient(circle at -4% 108%, rgb(181 141 85 / 0.1), transparent 22rem),
+    linear-gradient(180deg, #eef3f1 0%, var(--portal-surface) 42%, #e9eef0 100%);
+}
+
+.portal-layout[data-portal='owner'] .portal-chrome,
+.portal-layout[data-portal='tenant'] .portal-chrome {
+  background: rgb(255 255 255 / 0.78);
+  border-bottom: 1px solid var(--portal-edge);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.7) inset,
+    0 12px 40px rgb(11 42 36 / 0.06);
+  backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.portal-layout[data-portal='owner'] .portal-chrome__row,
+.portal-layout[data-portal='tenant'] .portal-chrome__row {
+  min-height: 4.1rem;
+}
+
+.portal-layout[data-portal='owner'] .portal-chrome__menu,
+.portal-layout[data-portal='tenant'] .portal-chrome__menu {
+  border-radius: 0.9rem;
+  background: linear-gradient(160deg, rgb(15 118 110 / 0.1), rgb(181 141 85 / 0.08));
+  border-color: rgb(15 118 110 / 0.16);
+}
+
+.portal-layout[data-portal='owner'] .portal-sidebar,
+.portal-layout[data-portal='tenant'] .portal-sidebar {
+  color: #eef7f5;
+  background:
+    linear-gradient(165deg, rgb(255 255 255 / 0.06), transparent 40%),
+    radial-gradient(ellipse 120% 70% at 100% 0%, rgb(45 212 191 / 0.18), transparent 55%),
+    linear-gradient(188deg, #0a2f3f 0%, #0d3a4d 46%, #082533 100%);
+  border-inline-end: 1px solid rgb(255 255 255 / 0.06);
+  box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.04);
+  padding-inline: 0.75rem;
+}
+
+.portal-layout[data-portal='tenant'] .portal-sidebar {
+  background:
+    linear-gradient(165deg, rgb(255 255 255 / 0.05), transparent 42%),
+    radial-gradient(ellipse 110% 65% at 0% 0%, rgb(181 141 85 / 0.22), transparent 52%),
+    linear-gradient(188deg, #123247 0%, #163d52 50%, #0e2b3c 100%);
+}
+
+.portal-layout[data-portal='owner'] .portal-sidebar__title,
+.portal-layout[data-portal='tenant'] .portal-sidebar__title {
+  color: #99f6e4;
+  letter-spacing: 0.14em;
+}
+
+.portal-layout[data-portal='owner'] .portal-nav__group-label,
+.portal-layout[data-portal='tenant'] .portal-nav__group-label {
+  color: rgb(153 246 228 / 0.7);
+}
+
+.portal-layout[data-portal='owner'] .portal-nav a,
+.portal-layout[data-portal='tenant'] .portal-nav a,
+.portal-layout[data-portal='owner'] .portal-nav__toggle,
+.portal-layout[data-portal='tenant'] .portal-nav__toggle {
+  border-radius: 0.85rem;
+  padding-block: 0.62rem;
+}
+
+.portal-layout[data-portal='owner'] .portal-nav a:hover,
+.portal-layout[data-portal='tenant'] .portal-nav a:hover,
+.portal-layout[data-portal='owner'] .portal-nav__toggle:hover,
+.portal-layout[data-portal='tenant'] .portal-nav__toggle:hover,
+.portal-layout[data-portal='owner'] .portal-nav__toggle[data-active],
+.portal-layout[data-portal='tenant'] .portal-nav__toggle[data-active] {
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+.portal-layout[data-portal='owner'] .portal-nav a[aria-current='page'],
+.portal-layout[data-portal='tenant'] .portal-nav a[aria-current='page'] {
+  color: #042f2e;
+  background: linear-gradient(135deg, #5eead4 0%, #2dd4bf 55%, #14b8a6 100%);
+  box-shadow:
+    0 10px 24px rgb(20 184 166 / 0.28),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+.portal-layout[data-portal='tenant'] .portal-nav a[aria-current='page'] {
+  color: #3b2a12;
+  background: linear-gradient(135deg, #f0d7a8 0%, #e2bf7d 50%, #c9a05a 100%);
+  box-shadow:
+    0 10px 24px rgb(201 160 90 / 0.28),
+    inset 0 1px 0 rgb(255 255 255 / 0.4);
+}
+
+.portal-layout[data-portal='owner'] .portal-nav__mark,
+.portal-layout[data-portal='tenant'] .portal-nav__mark {
+  width: 1.7rem;
+  height: 1.7rem;
+  display: inline-grid;
+  place-content: center;
+  border-radius: 0.55rem;
+  background: rgb(255 255 255 / 0.06);
+}
+
+.portal-layout[data-portal='owner'] .portal-nav a[aria-current='page'] .portal-nav__mark,
+.portal-layout[data-portal='tenant'] .portal-nav a[aria-current='page'] .portal-nav__mark {
+  background: rgb(0 0 0 / 0.08);
+  color: inherit;
+}
+
+.portal-layout[data-portal='owner'] .portal-main,
+.portal-layout[data-portal='tenant'] .portal-main {
+  background: transparent;
+}
+
+.portal-layout[data-portal='owner'] .dash-shell,
+.portal-layout[data-portal='tenant'] .dash-shell {
+  gap: clamp(0.9rem, 1.5vw, 1.35rem);
+}
+
+.portal-layout[data-portal='owner'] .dash-hero--classic,
+.portal-layout[data-portal='tenant'] .dash-hero--classic,
+.portal-layout[data-portal='owner'] .dash-section,
+.portal-layout[data-portal='tenant'] .dash-section,
+.portal-layout[data-portal='owner'] .dash-finance--classic-solo,
+.portal-layout[data-portal='tenant'] .dash-finance--classic-solo,
+.portal-layout[data-portal='owner'] .ops-panel,
+.portal-layout[data-portal='tenant'] .ops-panel,
+.portal-layout[data-portal='owner'] .ops-mobile-card,
+.portal-layout[data-portal='tenant'] .ops-mobile-card {
+  background: var(--portal-card);
+  border: 1px solid var(--portal-edge);
+  box-shadow:
+    0 1px 0 rgb(255 255 255 / 0.8) inset,
+    0 18px 40px rgb(11 42 36 / 0.05);
+  backdrop-filter: blur(10px);
+}
+
+.portal-layout[data-portal='owner'] .dash-hero--classic,
+.portal-layout[data-portal='tenant'] .dash-hero--classic {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.15rem;
+  padding: clamp(1rem, 2vw, 1.45rem);
+}
+
+.portal-layout[data-portal='owner'] .dash-hero--classic::before,
+.portal-layout[data-portal='tenant'] .dash-hero--classic::before {
+  content: '';
+  position: absolute;
+  inset-inline-end: -12%;
+  inset-block-start: -40%;
+  width: 18rem;
+  height: 18rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(15 118 110 / 0.16), transparent 68%);
+  pointer-events: none;
+}
+
+.portal-layout[data-portal='tenant'] .dash-hero--classic::before {
+  background: radial-gradient(circle, rgb(181 141 85 / 0.18), transparent 68%);
+}
+
+.portal-layout[data-portal='owner'] .dash-hero--classic h1,
+.portal-layout[data-portal='tenant'] .dash-hero--classic h1 {
+  letter-spacing: -0.02em;
+  color: var(--portal-ink);
+}
+
+.portal-layout[data-portal='owner'] .dash-hero__toolbar :is(.button, .dash-hero__nav-link),
+.portal-layout[data-portal='tenant'] .dash-hero__toolbar :is(.button, .dash-hero__nav-link) {
+  border-radius: 999px;
+  border: 1px solid var(--portal-edge);
+  background: rgb(255 255 255 / 0.72);
+  box-shadow: 0 8px 18px rgb(11 42 36 / 0.04);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    background 0.16s ease;
+}
+
+.portal-layout[data-portal='owner'] .dash-hero__toolbar :is(.button, .dash-hero__nav-link):hover,
+.portal-layout[data-portal='tenant'] .dash-hero__toolbar :is(.button, .dash-hero__nav-link):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgb(11 42 36 / 0.08);
+}
+
+.portal-layout[data-portal='owner'] .dash-hero__toolbar .button--primary,
+.portal-layout[data-portal='tenant'] .dash-hero__toolbar .button--primary {
+  color: #042f2e;
+  background: linear-gradient(135deg, #5eead4, #14b8a6);
+  border-color: transparent;
+}
+
+.portal-layout[data-portal='tenant'] .dash-hero__toolbar .button--primary {
+  color: #3b2a12;
+  background: linear-gradient(135deg, #f0d7a8, #c9a05a);
+}
+
+.portal-layout[data-portal='owner'] .dash-ring,
+.portal-layout[data-portal='tenant'] .dash-ring {
+  border-radius: 1.1rem;
+  border: 1px solid var(--portal-edge);
+  background: linear-gradient(165deg, rgb(255 255 255 / 0.95), rgb(248 250 249 / 0.9));
+  box-shadow: 0 14px 28px rgb(11 42 36 / 0.05);
+}
+
+.portal-layout[data-portal='owner'] .dash-ring-link:hover .dash-ring,
+.portal-layout[data-portal='tenant'] .dash-ring-link:hover .dash-ring {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgb(11 42 36 / 0.09);
+}
+
+.portal-layout[data-portal='owner'] .portal-space-switch a,
+.portal-layout[data-portal='tenant'] .portal-space-switch a {
+  border-radius: 999px;
+  border: 1px solid var(--portal-edge);
+  background: rgb(255 255 255 / 0.7);
+  padding-inline: 0.75rem;
+  min-height: 2.35rem;
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+
+.portal-layout[data-portal='owner'] .portal-space-switch a[aria-current='page'],
+.portal-layout[data-portal='tenant'] .portal-space-switch a[aria-current='page'] {
+  color: #042f2e;
+  background: linear-gradient(135deg, #99f6e4, #5eead4);
+  border-color: transparent;
+}
+
+.portal-layout[data-portal='tenant'] .portal-space-switch a[aria-current='page'] {
+  color: #3b2a12;
+  background: linear-gradient(135deg, #f5e2bd, #e2bf7d);
+}
+
+@media (max-width: 960px) {
+  .portal-layout[data-portal='owner'] .portal-sidebar,
+  .portal-layout[data-portal='tenant'] .portal-sidebar {
+    box-shadow: 0 24px 60px rgb(0 0 0 / 0.35);
+  }
+}
