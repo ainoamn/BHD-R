@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 ENV TURBO_TELEMETRY_DISABLED=1
 WORKDIR /app
 RUN npm install --global pnpm@10.14.0
@@ -11,7 +11,7 @@ RUN --mount=type=cache,id=bhd-r-pnpm-store,target=/pnpm/store,sharing=locked \
     pnpm --filter @bhd-r/worker deploy --prod --legacy /prod/worker \
     && node -e "const fs=require('node:fs'); for (const p of ['src','tests','coverage','.turbo']) fs.rmSync('/prod/worker/'+p,{recursive:true,force:true})"
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production \
     CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 WORKDIR /app

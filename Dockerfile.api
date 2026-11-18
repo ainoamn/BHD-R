@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS build
+FROM node:26-bookworm-slim AS build
 ENV TURBO_TELEMETRY_DISABLED=1
 # CI/Docker must not inherit local supply-chain gates that abort installs.
 ENV PNPM_CONFIG_ENGINE_STRICT=false
@@ -14,7 +14,7 @@ RUN --mount=type=cache,id=bhd-r-pnpm-store,target=/pnpm/store,sharing=locked \
     pnpm --filter @bhd-r/api deploy --prod --legacy /prod/api \
     && node -e "const fs=require('node:fs'); for (const p of ['src','test','coverage','.turbo']) fs.rmSync('/prod/api/'+p,{recursive:true,force:true})"
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV=production
 WORKDIR /app
 RUN npm install --global pnpm@10.14.0 \
