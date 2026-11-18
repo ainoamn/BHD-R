@@ -47,12 +47,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-<<<<<<< HEAD
     "@next/eslint-plugin-next": "16.4.6",
-    "@types/node": "^24.10.1",
-=======
     "@types/node": "^26.4.1",
->>>>>>> origin/dependabot/npm_and_yarn/types/node-26.4.1
     "@vitest/coverage-v8": "^4.0.15",
     "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "7.1.1",

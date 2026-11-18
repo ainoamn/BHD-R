@@ -29,15 +29,9 @@
     "postgres": "^3.4.7"
   },
   "devDependencies": {
-<<<<<<< HEAD
-    "@types/node": "^24.10.1",
+    "@types/node": "^26.4.1",
     "drizzle-kit": "^0.31.11",
     "tsx": "^4.23.15",
-=======
-    "@types/node": "^26.4.1",
-    "drizzle-kit": "^0.31.8",
-    "tsx": "^4.21.0",
->>>>>>> origin/dependabot/npm_and_yarn/types/node-26.4.1
     "vitest": "^4.0.15"
   }
 }
