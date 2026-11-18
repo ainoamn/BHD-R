@@ -42,6 +42,10 @@ export type PendingApprovalItem = {
   phase?: LeaseJourneyPhase | null;
   /** A `lease_reservation` whose documents the system accepted and the team still has to verify. */
   verifyDocuments?: boolean;
+  /** Contracts management still has identity docs to approve. */
+  docsAwaitingManagement?: boolean;
+  /** Accountant still has tenant cheques to confirm receipt. */
+  chequesAwaitingAccountant?: boolean;
   /** After handover: meters first, then optional municipal numbers. */
   postHandoverDetails?: 'meters' | 'municipal' | null;
   /** For `sale_decision`: keep selling a leased rent-and-sale unit, or hide a leased or sold one. */
@@ -202,6 +206,21 @@ export function pendingApprovalTitle(item: PendingApprovalItem, ar: boolean): st
           ? `${kind} معتمد — جهّز ${sale ? 'عقد البيع' : 'العقد'} والمستندات`
           : `${kind} approved — prepare the contract`;
       case 'awaiting_documents_review':
+        if (item.chequesAwaitingAccountant && !item.docsAwaitingManagement) {
+          return ar
+            ? `${kind} — شيكات بانتظار اعتماد المحاسب`
+            : `${kind} — cheques awaiting accountant`;
+        }
+        if (item.docsAwaitingManagement && item.chequesAwaitingAccountant) {
+          return ar
+            ? `${kind} — مستندات للإدارة وشيكات للمحاسب`
+            : `${kind} — docs for management, cheques for accountant`;
+        }
+        if (item.docsAwaitingManagement) {
+          return ar
+            ? `${kind} — مستندات بانتظار اعتماد الإدارة`
+            : `${kind} — documents awaiting management`;
+        }
         return ar ? `${kind} — مستندات بانتظار مراجعتك` : `${kind} — documents to review`;
       case 'awaiting_contract_approval':
         return ar ? `${kind} — العقد جاهز لاعتمادك` : `${kind} — contract ready to approve`;

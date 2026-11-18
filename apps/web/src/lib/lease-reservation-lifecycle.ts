@@ -641,15 +641,21 @@ type DocumentsPackageView = {
   chequeSubmissions?: Array<{ key: string; status: string }>;
 };
 
-/**
- * True when every required document and cheque is owner-approved (manual review done).
- * Empty package counts as complete. Accepts raw lifecycle or the tenant-facing view.
- */
-export function documentsPackageFullyApproved(
+/** Identity / contract attachments — approved by contracts management (not accountant). */
+export function identityDocumentsFullyApproved(
   lifecycle: DocumentsPackageView | null | undefined,
 ): boolean {
   if (!lifecycle) return true;
   const requirements = lifecycle.requirements ?? [];
+  if (!requirements.length) return true;
+  return requirements.every((item) => item.status === 'approved');
+}
+
+/** Rent/VAT/deposit cheques — approved by the accountant after physical receipt match. */
+export function chequesFullyApproved(
+  lifecycle: DocumentsPackageView | null | undefined,
+): boolean {
+  if (!lifecycle) return true;
   const chequeStatuses =
     'cheques' in lifecycle && Array.isArray(lifecycle.cheques)
       ? lifecycle.cheques.map((item) => item.status)
@@ -659,10 +665,31 @@ export function documentsPackageFullyApproved(
           const byKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
           return instructions.map((item) => byKey.get(item.key)?.status ?? 'pending');
         })();
-  if (!requirements.length && !chequeStatuses.length) return true;
-  if (requirements.some((item) => item.status !== 'approved')) return false;
-  if (chequeStatuses.some((status) => status !== 'approved')) return false;
-  return true;
+  if (!chequeStatuses.length) return true;
+  return chequeStatuses.every((status) => status === 'approved');
+}
+
+export function documentsAwaitingManagement(
+  lifecycle: ReservationLifecycle | null | undefined,
+): boolean {
+  return (lifecycle?.requirements ?? []).some((item) => item.status === 'submitted');
+}
+
+export function chequesAwaitingAccountant(
+  lifecycle: ReservationLifecycle | null | undefined,
+): boolean {
+  return chequeStatusesOf(lifecycle).some((status) => status === 'submitted');
+}
+
+/**
+ * True when every required document and cheque is approved (management + accountant).
+ * Empty package counts as complete. Accepts raw lifecycle or the tenant-facing view.
+ */
+export function documentsPackageFullyApproved(
+  lifecycle: DocumentsPackageView | null | undefined,
+): boolean {
+  if (!lifecycle) return true;
+  return identityDocumentsFullyApproved(lifecycle) && chequesFullyApproved(lifecycle);
 }
 
 /**

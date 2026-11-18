@@ -123,7 +123,8 @@ function isUuid(value: string) {
 }
 
 function normalizeStatus(status: string): string {
-  if (status === 'pending' || status === 'accepted' || status === 'postponed') return 'in_hand';
+  if (status === 'pending') return 'pending';
+  if (status === 'accepted' || status === 'postponed') return 'in_hand';
   if (status === 'deposited') return 'under_collection';
   if (status === 'insufficient_funds') return 'bounced';
   if (status === 'partially_cleared') return 'cleared';
@@ -133,6 +134,16 @@ function normalizeStatus(status: string): string {
 
 function actionsFor(status: string): ActionDef[] {
   const s = normalizeStatus(status);
+  if (s === 'pending') {
+    return [
+      {
+        operation: 'receive',
+        ar: 'اعتماد الاستلام',
+        en: 'Confirm receipt',
+        primary: true,
+      },
+    ];
+  }
   if (s === 'in_hand') {
     return [
       { operation: 'deposit', ar: 'إيداع بالبنك', en: 'Deposit at bank', primary: true },
@@ -173,6 +184,7 @@ export function AccountingChequesPanel({
   const ar = locale === 'ar';
   const trust = useAccountingTrustConfirm(locale);
   const [rows, setRows] = useState<ChequeRow[] | null>(null);
+  const [awaitingReceipt, setAwaitingReceipt] = useState<ChequeRow[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [failed, setFailed] = useState(false);
   const [filter, setFilter] = useState<Filter>('all');
@@ -192,11 +204,14 @@ export function AccountingChequesPanel({
 
   useEffect(() => {
     if (!active && rows !== null) return;
-    const cached = getAccountingCache<{ cheques?: ChequeRow[]; summary?: Summary }>(
-      '/api/owner/accounting/cheques',
-    );
+    const cached = getAccountingCache<{
+      cheques?: ChequeRow[];
+      awaitingReceipt?: ChequeRow[];
+      summary?: Summary;
+    }>('/api/owner/accounting/cheques');
     if (cached && rows === null) {
       setRows(cached.cheques ?? []);
+      setAwaitingReceipt(cached.awaitingReceipt ?? []);
       setSummary(cached.summary ?? null);
     }
     const controller = new AbortController();
@@ -204,12 +219,14 @@ export function AccountingChequesPanel({
       try {
         const payload = await fetchAccountingJson<{
           cheques?: ChequeRow[];
+          awaitingReceipt?: ChequeRow[];
           summary?: Summary;
         }>('/api/owner/accounting/cheques', {
           preferCache: rows !== null,
           signal: controller.signal,
         });
         setRows(payload.cheques ?? []);
+        setAwaitingReceipt(payload.awaitingReceipt ?? []);
         setSummary(payload.summary ?? null);
         setFailed(false);
       } catch {
@@ -441,6 +458,14 @@ export function AccountingChequesPanel({
             }
           : {})}
         beforeSection={
+          <>
+            {awaitingReceipt.length ? (
+              <p className="notice notice--info" role="status">
+                {ar
+                  ? `${awaitingReceipt.length} شيكاً بانتظار اعتماد الاستلام من المحاسب — لن تظهر في السجل الحي حتى الاعتماد من صفحة الحجز.`
+                  : `${awaitingReceipt.length} cheque(s) awaiting accountant receipt approval — they stay off the live register until approved on the booking page.`}
+              </p>
+            ) : null}
           <ol className="cheque-lifecycle__pipeline" aria-label={ar ? 'مسار الشيك' : 'Cheque path'}>
             {PIPELINE.map((step, index) => (
               <li key={step.id}>
@@ -449,6 +474,7 @@ export function AccountingChequesPanel({
               </li>
             ))}
           </ol>
+          </>
         }
         {...(canManage
           ? {

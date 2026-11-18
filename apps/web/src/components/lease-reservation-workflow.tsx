@@ -42,6 +42,8 @@ import { buildBookingLeaseTermsDraft } from '@/lib/lease-terms-draft-from';
 import {
   BOOKING_IDENTITY_DOC_LABELS,
   bookingIdentityFileKind,
+  chequesAwaitingAccountant,
+  chequesFullyApproved,
   chequesToVerify,
   documentsPhase,
   documentsToVerify,
@@ -142,6 +144,8 @@ export type LeaseReservationWorkflowProps = {
   hasEsign: boolean;
   canManage: boolean;
   canSign: boolean;
+  /** Accountant confirms cheque receipt; management only reviews identity documents. */
+  canReviewCheques?: boolean;
   /** Controlled stepper review index (completed stage), or null for the live stage. */
   viewing?: number | null | undefined;
   onViewingChange?: ((next: number | null) => void) | undefined;
@@ -1046,7 +1050,15 @@ function VerificationPanel({
  * tenant to sign, then record the handover.
  */
 export function LeaseReservationWorkflow(serverProps: Props) {
-  const { reservationId, locale, mode, canManage, canSign, referenceCode } = serverProps;
+  const {
+    reservationId,
+    locale,
+    mode,
+    canManage,
+    canSign,
+    canReviewCheques = false,
+    referenceCode,
+  } = serverProps;
   const ar = locale === 'ar';
   const t = (arText: string, enText: string) => (ar ? arText : enText);
   const sale = mode === 'sale';
@@ -1511,29 +1523,73 @@ export function LeaseReservationWorkflow(serverProps: Props) {
               <div className="lrw__card lrw__desk">
                 <div className="lrw__desk-head">
                   <div>
-                    <h3>{t('اعتماد المستندات والشيكات', 'Approve documents & cheques')}</h3>
+                    <h3>
+                      {canReviewCheques && !canManage
+                        ? t('اعتماد استلام الشيكات', 'Approve cheque receipt')
+                        : t('اعتماد المستندات والشيكات', 'Documents & cheques')}
+                    </h3>
                     <p className="muted">
-                      {t(
-                        'العقد موقّع من الطرفين. راجع المرفقات واحداً تلو الآخر من قائمة واحدة، ثم أكمل الاعتماد قبل التسليم. يمكنك طلب مستند إضافي من العميل إن لزم.',
-                        'The contract is signed by both parties. Review attachments one by one from a single list, then finish approval before handover. You can still request an extra document if needed.',
-                      )}
+                      {canReviewCheques && !canManage
+                        ? t(
+                            'طابق صور الشيكات مع الجدول واعتمد استلامها. بعد اعتمادك تظهر في برنامج الحسابات.',
+                            'Match cheque photos to the schedule and confirm receipt. After you approve, they appear in accounting.',
+                          )
+                        : t(
+                            'البطائق والجواز والكشوفات تعتمد من إدارة العقود. الشيكات يعتمد استلامها المحاسب، ثم تظهر في الحسابات.',
+                            'ID cards, passport and statements are approved by contracts management. The accountant confirms cheque receipt; then they appear in accounting.',
+                          )}
                     </p>
                   </div>
                 </div>
+                {canManage && chequesAwaitingAccountant(lifecycle) ? (
+                  <p className="notice notice--info" role="status">
+                    {t(
+                      'المستأجر سلّم الشيكات وهي بانتظار اعتماد المحاسب لمطابقة الشيكات واستلامها.',
+                      'The tenant submitted the cheques; they await accountant approval for matching and receipt.',
+                    )}
+                  </p>
+                ) : null}
+                {canManage &&
+                !chequesAwaitingAccountant(lifecycle) &&
+                chequesFullyApproved(lifecycle) &&
+                (lifecycle.chequeInstructions?.length ?? 0) > 0 ? (
+                  <p className="notice notice--success" role="status">
+                    {t(
+                      'تم اعتماد الشيكات من المحاسب — يمكن متابعة التسليم بعد اعتماد المستندات.',
+                      'Cheques approved by the accountant — continue handover once documents are approved.',
+                    )}
+                  </p>
+                ) : null}
                 <RequirementsReview
                   {...props}
+                  canManage={canManage}
+                  canReviewCheques={canReviewCheques}
                   busy={busy}
                   fileHref={fileHref}
-                  onReview={(code, decision, note) =>
-                    decide(
-                      code,
-                      { status: decision, ...(note ? { note } : {}) },
-                      { action: 'review_document', code, decision, ...(note ? { note } : {}) },
-                    )
+                  onReview={
+                    canManage
+                      ? (code, decision, note) =>
+                          decide(
+                            code,
+                            { status: decision, ...(note ? { note } : {}) },
+                            {
+                              action: 'review_document',
+                              code,
+                              decision,
+                              ...(note ? { note } : {}),
+                            },
+                          )
+                      : async () => undefined
                   }
-                  onReviewCheque={(key, decision, note) => decideCheque(key, decision, note)}
-                  onAddRequirements={(requirements) =>
-                    void act({ action: 'add_requirements', requirements })
+                  onReviewCheque={
+                    canReviewCheques
+                      ? (key, decision, note) => decideCheque(key, decision, note)
+                      : undefined
+                  }
+                  onAddRequirements={
+                    canManage
+                      ? (requirements) => void act({ action: 'add_requirements', requirements })
+                      : undefined
                   }
                   desk
                 />
@@ -1569,8 +1625,8 @@ export function LeaseReservationWorkflow(serverProps: Props) {
                 </h3>
                 <p className="notice notice--success" role="status">
                   {t(
-                    'تم اعتماد المستندات والشيكات في المرحلة السابقة. هذه الخطوة للتسليم فقط — امسح رمز المستأجر عند حضوره.',
-                    'Documents and cheques were approved in the previous step. This step is handover only — scan the tenant’s code when they arrive.',
+                    'تم اعتماد المستندات من الإدارة والشيكات من المحاسب. هذه الخطوة للتسليم فقط — امسح رمز المستأجر عند حضوره.',
+                    'Documents were approved by management and cheques by the accountant. This step is handover only — scan the tenant’s code when they arrive.',
                   )}
                 </p>
                 <p>
@@ -2535,6 +2591,7 @@ function RequirementsReview({
   mode,
   busy,
   canManage,
+  canReviewCheques = false,
   fileHref,
   onReview,
   onReviewCheque,
@@ -2542,6 +2599,7 @@ function RequirementsReview({
   desk = false,
 }: Props & {
   busy: boolean;
+  canReviewCheques?: boolean;
   fileHref: (file: string) => string;
   onReview: (code: string, decision: 'approved' | 'rejected', note?: string) => Promise<void>;
   onReviewCheque?: (
@@ -2614,18 +2672,22 @@ function RequirementsReview({
   const chequeInstructions = lifecycle.chequeInstructions ?? [];
   const chequeByKey = new Map((lifecycle.chequeSubmissions ?? []).map((row) => [row.key, row]));
   const hasCheques = chequeInstructions.length > 0;
-  const submittedDocs = requirements.filter((item) => item.status === 'submitted' && item.file);
-  const submittedCheques = chequeInstructions.filter((item) => {
-    const row = chequeByKey.get(item.key);
-    return row?.status === 'submitted' && row.file;
-  });
+  const reviewDocs = canManage;
+  const reviewCheques = Boolean(onReviewCheque) && canReviewCheques;
+  const submittedDocs = reviewDocs
+    ? requirements.filter((item) => item.status === 'submitted' && item.file)
+    : [];
+  const submittedCheques = reviewCheques
+    ? chequeInstructions.filter((item) => {
+        const row = chequeByKey.get(item.key);
+        return row?.status === 'submitted' && row.file;
+      })
+    : [];
   const queue: ReviewQueueItem[] = [
     ...submittedDocs.map((item) => ({ kind: 'doc' as const, code: item.code })),
-    ...(onReviewCheque
-      ? submittedCheques.map((item) => ({ kind: 'cheque' as const, key: item.key }))
-      : []),
+    ...submittedCheques.map((item) => ({ kind: 'cheque' as const, key: item.key })),
   ];
-  const includeCheques = Boolean(onReviewCheque) && hasCheques;
+  const includeCheques = hasCheques;
   const approvedDocs = requirements.filter((item) => item.status === 'approved').length;
   const approvedCheques = includeCheques
     ? chequeInstructions.filter((item) => chequeByKey.get(item.key)?.status === 'approved').length
@@ -2947,7 +3009,7 @@ function RequirementsReview({
     setCustomLabel('');
   }
 
-  if (!requirements.length && !canManage) {
+  if (!requirements.length && !canManage && !canReviewCheques) {
     return hasCheques ? null : (
       <p className="muted">
         {ar
@@ -3439,7 +3501,15 @@ function RequirementsReview({
                       <div className="lrw__doc-main">
                         <strong>{ar ? item.labelAr : item.labelEn}</strong>
                         <span className="lrw__doc-status">
-                          {docStatusLabel(status, ar, 'owner')}
+                          {status === 'submitted' && !canReviewCheques
+                            ? ar
+                              ? 'بانتظار اعتماد المحاسب'
+                              : 'Awaiting accountant approval'
+                            : status === 'approved'
+                              ? ar
+                                ? 'معتمد من المحاسب'
+                                : 'Approved by accountant'
+                              : docStatusLabel(status, ar, 'owner')}
                         </span>
                         {desk ? (
                           <span className="lrw__doc-meta">
@@ -3458,7 +3528,7 @@ function RequirementsReview({
                       </div>
                       {desk ? null : (
                       <div className="lrw__doc-actions">
-                        {canManage && status === 'submitted' && row?.file ? (
+                        {canReviewCheques && status === 'submitted' && row?.file ? (
                           <OwnerAttachmentActions
                             ar={ar}
                             busy={busy}

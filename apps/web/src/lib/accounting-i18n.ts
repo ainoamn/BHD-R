@@ -171,6 +171,47 @@ export function accountingJournalStatusLabel(status: string | null | undefined, 
   return pick(locale, JOURNAL_STATUS[status], status);
 }
 
+/** Visual tone for accounting status chips and row accents. */
+export function accountingStatusTone(
+  status: string | null | undefined,
+): 'good' | 'bad' | 'review' | 'neutral' {
+  const value = (status ?? '').toLowerCase();
+  if (
+    value === 'reversed' ||
+    value === 'void' ||
+    value === 'cancelled' ||
+    value === 'bounced' ||
+    value === 'rejected' ||
+    value === 'failed'
+  ) {
+    return 'bad';
+  }
+  if (
+    value === 'draft' ||
+    value === 'pending' ||
+    value === 'overdue' ||
+    value === 'collecting' ||
+    value === 'deposited' ||
+    value === 'due_soon' ||
+    value === 'partially_paid'
+  ) {
+    return 'review';
+  }
+  if (
+    value === 'posted' ||
+    value === 'paid' ||
+    value === 'cleared' ||
+    value === 'succeeded' ||
+    value === 'approved' ||
+    value === 'accepted' ||
+    value === 'issued' ||
+    value === 'in_hand'
+  ) {
+    return 'good';
+  }
+  return 'neutral';
+}
+
 export function accountingExpenseStatusLabel(status: string | null | undefined, locale: Locale) {
   if (!status) return '—';
   return pick(locale, EXPENSE_STATUS[status] ?? JOURNAL_STATUS[status], status);
@@ -205,13 +246,13 @@ export function accountingDisplayText(text: string | null | undefined, locale: L
 }
 
 const CHEQUE_STATUS: Record<string, { ar: string; en: string }> = {
+  pending: { ar: 'بانتظار اعتماد الاستلام', en: 'Awaiting receipt approval' },
   in_hand: { ar: 'في اليد', en: 'In hand' },
   under_collection: { ar: 'برسم التحصيل', en: 'Under collection' },
   cleared: { ar: 'محصّل', en: 'Cleared' },
   bounced: { ar: 'مرتجع', en: 'Bounced' },
   cancelled: { ar: 'ملغى', en: 'Cancelled' },
   // Legacy aliases (normalized on read)
-  pending: { ar: 'في اليد', en: 'In hand' },
   accepted: { ar: 'في اليد', en: 'In hand' },
   deposited: { ar: 'برسم التحصيل', en: 'Under collection' },
   rejected: { ar: 'ملغى', en: 'Cancelled' },

@@ -22,12 +22,18 @@ export type LeaseReservationStaffView = NonNullable<
   Awaited<ReturnType<typeof loadLeaseBookingForStaff>>
 >;
 
-export type ReservationPermissions = { canManage: boolean; canSign: boolean };
+export type ReservationPermissions = {
+  canManage: boolean;
+  canSign: boolean;
+  /** Accountant may approve cheque receipt match (not building management). */
+  canReviewCheques: boolean;
+};
 
 export function reservationPermissions(claims: SessionClaims): ReservationPermissions {
   return {
     canManage: hasPermission(claims, 'reservation.manage'),
     canSign: hasPermission(claims, 'contract.create') && hasPermission(claims, 'contract.sign'),
+    canReviewCheques: hasPermission(claims, 'cheque.review'),
   };
 }
 
@@ -295,6 +301,7 @@ export function LeaseReservationDetail({
           hasEsign: Boolean(signature),
           canManage: permissions.canManage,
           canSign: permissions.canSign,
+          canReviewCheques: permissions.canReviewCheques,
         }}
         bookingSummary={bookingSummary}
         bookingDetails={bookingDetails}

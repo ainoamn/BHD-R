@@ -21,6 +21,8 @@ import {
 } from '@/lib/pending-approvals-shared';
 import { hasDatabaseUrl } from '@/lib/bhd/identity-session';
 import {
+  chequesAwaitingAccountant,
+  documentsAwaitingManagement,
   documentsToVerify,
   leaseJourneyPhase,
   phaseWaitsOn,
@@ -130,6 +132,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
   const canManageBookings =
     hasPermission(claims, 'stay.booking.manage') && hasPermission(claims, 'contract.create');
   const canManageReservations = hasPermission(claims, 'reservation.manage');
+  const canReviewCheques = hasPermission(claims, 'cheque.review');
   const canDecideRefunds = canDecideDepositRefunds(claims);
   const canPayRefunds = canPayDepositRefunds(claims);
   const canDecideSale = canDecideUnitSale(claims);
@@ -143,6 +146,7 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
       !canDecideRenewalTerms &&
       !canManageBookings &&
       !canManageReservations &&
+      !canReviewCheques &&
       !canDecideRefunds &&
       !canPayRefunds &&
       !canDecideSale &&
@@ -237,33 +241,34 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
           .orderBy(asc(stayBookings.createdAt))
           .limit(ITEM_LIMIT)
       : Promise.resolve([]);
-    const reservationQuery = canManageReservations
-      ? tx
-          .select({
-            id: reservations.id,
-            reference: sql<string | null>`${reservations.termsSnapshot}->>'referenceCode'`,
-            mode: sql<string | null>`${reservations.termsSnapshot}->>'mode'`,
-            propertyId: properties.id,
-            propertyNameAr: properties.nameAr,
-            propertyNameEn: properties.nameEn,
-            unitCode: units.code,
-            party: sql<string | null>`${reservations.termsSnapshot}->'contact'->>'fullName'`,
-            depositMinor: sql<string | null>`${reservations.termsSnapshot}->>'depositMinor'`,
-            currency: reservations.currency,
-            paidAt: sql<string>`${reservations.termsSnapshot}->>'depositPaidAt'`,
-            status: reservations.status,
-            esignAt: sql<string | null>`${reservations.termsSnapshot}->'esign'->>'signedAt'`,
-            lifecycle: sql<ReservationLifecycle | null>`${reservations.termsSnapshot}->'lifecycle'`,
-          })
-          .from(reservations)
-          .innerJoin(units, eq(units.id, reservations.unitId))
-          .innerJoin(properties, eq(properties.id, units.propertyId))
-          .where(
-            and(
-              eq(reservations.organizationId, orgId),
-              inArray(reservations.status, ['confirmed', 'converted']),
-              sql`${reservations.termsSnapshot}->>'depositPaidAt' is not null`,
-              sql`(
+    const reservationQuery =
+      canManageReservations || canReviewCheques
+        ? tx
+            .select({
+              id: reservations.id,
+              reference: sql<string | null>`${reservations.termsSnapshot}->>'referenceCode'`,
+              mode: sql<string | null>`${reservations.termsSnapshot}->>'mode'`,
+              propertyId: properties.id,
+              propertyNameAr: properties.nameAr,
+              propertyNameEn: properties.nameEn,
+              unitCode: units.code,
+              party: sql<string | null>`${reservations.termsSnapshot}->'contact'->>'fullName'`,
+              depositMinor: sql<string | null>`${reservations.termsSnapshot}->>'depositMinor'`,
+              currency: reservations.currency,
+              paidAt: sql<string>`${reservations.termsSnapshot}->>'depositPaidAt'`,
+              status: reservations.status,
+              esignAt: sql<string | null>`${reservations.termsSnapshot}->'esign'->>'signedAt'`,
+              lifecycle: sql<ReservationLifecycle | null>`${reservations.termsSnapshot}->'lifecycle'`,
+            })
+            .from(reservations)
+            .innerJoin(units, eq(units.id, reservations.unitId))
+            .innerJoin(properties, eq(properties.id, units.propertyId))
+            .where(
+              and(
+                eq(reservations.organizationId, orgId),
+                inArray(reservations.status, ['confirmed', 'converted']),
+                sql`${reservations.termsSnapshot}->>'depositPaidAt' is not null`,
+                sql`(
                 ${reservations.termsSnapshot}->'lifecycle'->'handover' is null
                 or (
                   coalesce(${reservations.termsSnapshot}->>'mode', 'rent') <> 'sale'
@@ -282,12 +287,12 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
                   )
                 )
               )`,
-              ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
-            ),
-          )
-          .orderBy(asc(reservations.updatedAt))
-          .limit(ITEM_LIMIT)
-      : Promise.resolve([]);
+                ...(ownerPartyId ? [eq(properties.ownerPartyId, ownerPartyId)] : []),
+              ),
+            )
+            .orderBy(asc(reservations.updatedAt))
+            .limit(ITEM_LIMIT)
+        : Promise.resolve([]);
     const refundQuery =
       canDecideRefunds || canPayRefunds
         ? loadDepositRefundQueue(tx, orgId, { ownerPartyId, limit: ITEM_LIMIT })
@@ -485,16 +490,48 @@ async function loadApprovalQueue(claims: SessionClaims): Promise<PendingApproval
             lifecycle: row.lifecycle,
           });
           const verify = documentsToVerify(row.lifecycle).length > 0;
+          const docsPending = documentsAwaitingManagement(row.lifecycle);
+          const chequesPending = chequesAwaitingAccountant(row.lifecycle);
           const postHandover =
             row.mode === 'sale' ? null : postHandoverGap(row.lifecycle ?? undefined);
-          return phaseWaitsOn(phase) === 'owner' || verify || postHandover
-            ? [{ ...row, phase, verify, postHandover }]
-            : [];
+          const waitsOwner = phaseWaitsOn(phase) === 'owner';
+          // Management: docs / other owner steps. Accountant: cheque intake (even without reservation.manage).
+          const forManagement =
+            canManageReservations &&
+            (waitsOwner || verify || postHandover || docsPending || chequesPending);
+          const forAccountant =
+            canReviewCheques && chequesPending && phase === 'awaiting_documents_review';
+          if (!forManagement && !forAccountant) return [];
+          // Accountant-only viewers only see cheque intake; managers always see the booking step.
+          if (!canManageReservations && forAccountant) {
+            return [
+              {
+                ...row,
+                phase,
+                verify,
+                postHandover,
+                docsPending: false,
+                chequesPending: true,
+              },
+            ];
+          }
+          return [
+            {
+              ...row,
+              phase,
+              verify,
+              postHandover,
+              docsPending,
+              chequesPending,
+            },
+          ];
         })
         .map((row) => ({
           kind: 'lease_reservation' as const,
           phase: row.phase,
           verifyDocuments: row.verify,
+          docsAwaitingManagement: row.docsPending,
+          chequesAwaitingAccountant: row.chequesPending,
           postHandoverDetails: row.postHandover,
           id: row.id,
           reference: row.reference ?? row.id.slice(0, 8).toUpperCase(),

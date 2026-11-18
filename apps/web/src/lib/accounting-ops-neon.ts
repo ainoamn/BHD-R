@@ -279,6 +279,7 @@ export async function createOpsEntry(
 }
 
 export type ChequeRegisterStatus =
+  | 'pending'
   | 'in_hand'
   | 'under_collection'
   | 'cleared'
@@ -355,10 +356,13 @@ export type AccountingChequesSummary = {
 
 export type AccountingChequesPayload = {
   cheques: AccountingChequeRow[];
+  /** Schedule rows awaiting accountant receipt confirmation — not yet on the live register. */
+  awaitingReceipt?: AccountingChequeRow[];
   summary: AccountingChequesSummary;
 };
 
 const REGISTER_STATUSES = [
+  'pending',
   'in_hand',
   'under_collection',
   'cleared',
@@ -389,7 +393,9 @@ function isChequeOperation(value: string): value is ChequeOperationName {
 export function normalizeChequeRegisterStatus(raw: string | null | undefined): ChequeRegisterStatus {
   const value = (raw ?? '').trim();
   if (isRegisterStatus(value)) return value;
-  if (value === 'pending' || value === 'accepted' || value === 'postponed') return 'in_hand';
+  // Awaiting accountant receipt confirmation — keep pending until accepted.
+  if (value === 'pending') return 'pending';
+  if (value === 'accepted' || value === 'postponed') return 'in_hand';
   if (value === 'deposited') return 'under_collection';
   if (value === 'insufficient_funds') return 'bounced';
   if (value === 'partially_cleared') return 'cleared';
@@ -473,8 +479,8 @@ async function ensureChequesFromApprovedLeases(
     amountMinor: bigint;
     currency: string;
     dueOn: string;
-    reviewStatus: 'in_hand';
-    receivedOn: string;
+    reviewStatus: 'pending';
+    receivedOn: string | null;
   }> = [];
 
   for (const lease of leaseRows) {
@@ -517,8 +523,9 @@ async function ensureChequesFromApprovedLeases(
         amountMinor: BigInt(row.amountMinor),
         currency: lease.currency || 'OMR',
         dueOn: row.dueOn,
-        reviewStatus: 'in_hand',
-        receivedOn: row.dueOn,
+        // Stay hidden from the live register until the accountant confirms receipt.
+        reviewStatus: 'pending',
+        receivedOn: null,
       });
     }
   }
@@ -824,27 +831,30 @@ export async function listAccountingCheques(
       const dueOn = String(row.dueOn);
       const registerStatus = normalizeChequeRegisterStatus(row.reviewStatus);
       const closed = registerStatus === 'cleared' || registerStatus === 'cancelled';
-      let lineStatus = 'upcoming';
+      const awaiting = registerStatus === 'pending';
+      let lineStatus = awaiting ? 'pending' : 'upcoming';
       if (registerStatus === 'cleared') lineStatus = 'paid';
       else if (registerStatus === 'bounced') lineStatus = 'bounced';
       else if (registerStatus === 'cancelled') lineStatus = 'stopped';
       else if (registerStatus === 'under_collection') lineStatus = 'collecting';
-      else if (dueOn < today) lineStatus = 'overdue';
-      else if (dueOn <= today) lineStatus = 'due_soon';
-      if (lineStatus === 'overdue' || lineStatus === 'bounced') overdueCount += 1;
-      else if (!closed && dueOn >= today) {
-        expected += row.amountMinor;
-        upcomingCount += 1;
+      else if (!awaiting && dueOn < today) lineStatus = 'overdue';
+      else if (!awaiting && dueOn <= today) lineStatus = 'due_soon';
+      if (!awaiting) {
+        if (lineStatus === 'overdue' || lineStatus === 'bounced') overdueCount += 1;
+        else if (!closed && dueOn >= today) {
+          expected += row.amountMinor;
+          upcomingCount += 1;
+        }
+        const paidAmount = registerStatus === 'cleared' ? row.amountMinor : 0n;
+        if (closed && registerStatus === 'cleared') {
+          paidCount += 1;
+          paidMinor += paidAmount > 0n ? paidAmount : row.amountMinor;
+        } else if (!closed) {
+          remainingCount += 1;
+          remainingMinor += row.amountMinor - paidAmount;
+        }
+        if (dueOn < today) pastCount += 1;
       }
-      const paidAmount = registerStatus === 'cleared' ? row.amountMinor : 0n;
-      if (closed && registerStatus === 'cleared') {
-        paidCount += 1;
-        paidMinor += paidAmount > 0n ? paidAmount : row.amountMinor;
-      } else if (!closed) {
-        remainingCount += 1;
-        remainingMinor += row.amountMinor - paidAmount;
-      }
-      if (dueOn < today) pastCount += 1;
       out.push({
         id: row.id,
         chequeNumber: row.chequeNumber,
@@ -894,8 +904,16 @@ export async function listAccountingCheques(
       return { amountMinor: amount.toString(), count };
     };
 
+    const awaitingReceipt = out
+      .filter((row) => normalizeChequeRegisterStatus(row.reviewStatus) === 'pending')
+      .slice(0, 500);
+    const live = out
+      .filter((row) => normalizeChequeRegisterStatus(row.reviewStatus) !== 'pending')
+      .slice(0, 4000);
+
     return {
-      cheques: out.slice(0, 4000),
+      cheques: live,
+      awaitingReceipt,
       summary: {
         arrearsMinor: arrears.toString(),
         expectedMinor: expected.toString(),
@@ -931,7 +949,8 @@ function openCheque(row: AccountingChequeRow): boolean {
   return (
     row.lineStatus !== 'paid' &&
     status !== 'cleared' &&
-    status !== 'cancelled'
+    status !== 'cancelled' &&
+    status !== 'pending'
   );
 }
 
@@ -1170,7 +1189,8 @@ export async function applyChequeOperation(
     };
 
     if (operation === 'receive') {
-      if (current !== 'in_hand') fail('invalid_transition');
+      // `pending` = schedule synced, awaiting accountant receipt confirmation.
+      if (current !== 'in_hand' && current !== 'pending') fail('invalid_transition');
       toStatus = 'in_hand';
       lines = postingChequeReceive(
         map,

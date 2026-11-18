@@ -544,13 +544,16 @@
   background: color-mix(in srgb, #64748b 16%, transparent);
 }
 
-.accounting-hub__status--posted {
-  background: color-mix(in srgb, #0f7a45 18%, transparent);
-  color: var(--bhd-navy, #174b70);
-}
-
-.accounting-hub__status--draft {
-  background: color-mix(in srgb, #b54708 18%, transparent);
+.accounting-hub__status--posted,
+.accounting-hub__status--paid,
+.accounting-hub__status--cleared,
+.accounting-hub__status--succeeded,
+.accounting-hub__status--issued,
+.accounting-hub__status--approved,
+.accounting-hub__status--accepted,
+.accounting-hub__status--in_hand {
+  background: color-mix(in srgb, #0f7a45 22%, #fff);
+  color: #0b5c34;
 }
 
 .accounting-hub__status--reversed,
@@ -559,34 +562,33 @@
 .accounting-hub__status--bounced,
 .accounting-hub__status--rejected,
 .accounting-hub__status--failed {
-  background: color-mix(in srgb, #b42318 16%, #fff);
+  background: color-mix(in srgb, #b42318 20%, #fff);
   color: #7a1b14;
 }
 
 .accounting-hub__status--draft,
 .accounting-hub__status--pending,
-.accounting-hub__status--overdue {
-  background: color-mix(in srgb, #b54708 18%, #fff);
-  color: #7a3b08;
-}
-
-.accounting-hub__status--posted,
-.accounting-hub__status--paid,
-.accounting-hub__status--cleared,
-.accounting-hub__status--succeeded,
-.accounting-hub__status--issued,
-.accounting-hub__status--approved,
-.accounting-hub__status--accepted {
-  background: color-mix(in srgb, #0f7a45 18%, #fff);
-  color: var(--bhd-navy, #174b70);
-}
-
+.accounting-hub__status--overdue,
 .accounting-hub__status--partially_paid,
 .accounting-hub__status--deposited,
 .accounting-hub__status--collecting,
 .accounting-hub__status--due_soon {
-  background: color-mix(in srgb, #175cd3 16%, #fff);
+  background: color-mix(in srgb, #175cd3 18%, #fff);
   color: #123a86;
+}
+
+.accounting-hub__table tr.is-status-good {
+  box-shadow: inset 3px 0 0 #0f7a45;
+}
+
+.accounting-hub__table tr.is-status-bad {
+  box-shadow: inset 3px 0 0 #b42318;
+  background: color-mix(in srgb, #b42318 5%, #fff);
+}
+
+.accounting-hub__table tr.is-status-review {
+  box-shadow: inset 3px 0 0 #175cd3;
+  background: color-mix(in srgb, #175cd3 5%, #fff);
 }
 
 .accounting-hub__status--archived {

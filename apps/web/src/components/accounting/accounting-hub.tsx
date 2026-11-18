@@ -55,6 +55,7 @@ import {
   accountingExpenseStatusLabel,
   accountingJournalStatusLabel,
   accountingSourceTypeLabel,
+  accountingStatusTone,
 } from '@/lib/accounting-i18n';
 import { workflowEventLabel } from '@/lib/ui-labels';
 import { openAccountingPrint, printAccountingDocument } from '@/lib/accounting-print';
@@ -1272,6 +1273,7 @@ export function AccountingHub({
                         data-kind={row.kind}
                         className={
                           [
+                            `is-status-${accountingStatusTone(row.status)}`,
                             row.journalId ? 'is-clickable' : '',
                             focusId === row.id ? 'is-focus' : '',
                           ]
@@ -1308,20 +1310,7 @@ export function AccountingHub({
                         </td>
                         <td>
                           <span
-                            className={
-                              row.status === 'overdue' ||
-                              row.status === 'bounced' ||
-                              row.status === 'failed'
-                                ? 'tenant-status tenant-status--bad'
-                                : row.status === 'paid' ||
-                                    row.status === 'posted' ||
-                                    row.status === 'succeeded' ||
-                                    row.status === 'cleared'
-                                  ? 'tenant-status tenant-status--good'
-                                  : row.status === 'partially_paid' || row.status === 'due_soon'
-                                    ? 'tenant-status tenant-status--warn'
-                                    : `accounting-hub__status accounting-hub__status--${row.status}`
-                            }
+                            className={`accounting-hub__status accounting-hub__status--${row.status}`}
                           >
                             {accountingExpenseStatusLabel(row.status, locale)}
                           </span>
@@ -1518,7 +1507,7 @@ export function AccountingHub({
                         key={row.id}
                         id={`accounting-journal-${row.id}`}
                         data-kind="journal"
-                        className={`is-clickable${focusId === row.id || openJournalId === row.id ? ' is-focus' : ''}`}
+                        className={`is-clickable is-status-${accountingStatusTone(row.status)}${focusId === row.id || openJournalId === row.id ? ' is-focus' : ''}`}
                         onClick={() => setOpenJournalId(row.id)}
                       >
                         <td>

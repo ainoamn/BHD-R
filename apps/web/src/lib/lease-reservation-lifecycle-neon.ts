@@ -1,8 +1,9 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
-import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, or, sql } from 'drizzle-orm';
 import { hasPermission, type SessionClaims } from '@bhd-r/authz';
 import {
+  cheques,
   contracts,
   leases,
   outboxEvents,
@@ -1064,7 +1065,12 @@ async function ownerActionInTx(
   reservationId: string,
   input: ReservationOwnerAction,
 ): Promise<{ phase: LeaseJourneyPhase; contractId?: string; contractReference?: string }> {
-  if (!hasPermission(claims, 'reservation.manage')) fail('forbidden');
+  // Cheques are confirmed by the accountant; identity docs stay with contracts management.
+  if (input.action === 'review_cheque') {
+    if (!hasPermission(claims, 'cheque.review')) fail('forbidden');
+  } else if (!hasPermission(claims, 'reservation.manage')) {
+    fail('forbidden');
+  }
   return withinViewerTenant(claims, async (tx) => {
     const row = await loadForOwner(tx, claims, reservationId);
     if (input.action !== 'restore_reservation') assertOpen(row);
@@ -1554,7 +1560,8 @@ async function ownerActionInTx(
       case 'review_cheque': {
         if (row.lifecycle.handover) fail('reservation_not_ready');
         const instructions = row.lifecycle.chequeInstructions ?? [];
-        if (!instructions.some((item) => item.key === input.key)) fail('requirement_not_found');
+        const instruction = instructions.find((item) => item.key === input.key);
+        if (!instruction) fail('requirement_not_found');
         const submissions = row.lifecycle.chequeSubmissions ?? [];
         const target = submissions.find((item) => item.key === input.key);
         if (!target?.file) fail('reservation_not_ready');
@@ -1568,7 +1575,7 @@ async function ownerActionInTx(
                 note: input.decision === 'rejected' ? note : null,
                 reviewedAt: at,
                 reviewedByName: byName,
-                // One owner review is final — no second «verify» step.
+                // Accountant receipt match is final — no second «verify» step.
                 autoApproved: false,
                 verifiedAt: input.decision === 'approved' ? at : null,
                 verifiedByName: input.decision === 'approved' ? byName : null,
@@ -1580,6 +1587,46 @@ async function ownerActionInTx(
           chequeSubmissions: next,
           ...(input.decision === 'rejected' ? { customerDocumentsSentAt: null } : {}),
         });
+        if (input.decision === 'approved') {
+          // Promote matching schedule cheque onto the live accounting register.
+          const numbers = [
+            ...new Set(
+              [target.chequeNumber?.trim(), instruction.suggestedChequeNumber?.trim()].filter(
+                (value): value is string => Boolean(value),
+              ),
+            ),
+          ];
+          if (numbers.length) {
+            const patch: {
+              reviewStatus: 'in_hand';
+              receivedOn: string;
+              reviewedByUserId: string;
+              reviewedAt: Date;
+              updatedAt: Date;
+              bankName?: string;
+            } = {
+              reviewStatus: 'in_hand',
+              receivedOn: at.slice(0, 10),
+              reviewedByUserId: claims.sub,
+              reviewedAt: now,
+              updatedAt: now,
+            };
+            if (target.bankName?.trim()) patch.bankName = target.bankName.trim().slice(0, 160);
+            await tx
+              .update(cheques)
+              .set(patch)
+              .where(
+                and(
+                  eq(cheques.organizationId, row.orgId),
+                  or(
+                    ...numbers.map(
+                      (value) => sql`lower(${cheques.chequeNumber}) = ${value.toLowerCase()}`,
+                    ),
+                  ),
+                ),
+              );
+          }
+        }
         await event(`reservation.cheque_${input.decision}`, { key: input.key });
         break;
       }

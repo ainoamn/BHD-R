@@ -430,6 +430,7 @@ export const rolePermissions: Readonly<Record<RoleKey, readonly Permission[]>> =
     'party.read',
     'property.read',
     'unit.read',
+    'reservation.read',
     'contract.read',
     'lease.read',
     'lease.cancel.clear',
