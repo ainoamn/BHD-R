@@ -11,8 +11,9 @@ type Entry = { data: unknown; savedAt: number };
 const store = new Map<string, Entry>();
 const inflight = new Map<string, Promise<unknown>>();
 
+/** Full path including query — reports/ledgers must not collide on the base path. */
 function pathKey(path: string): string {
-  return path.split('?')[0] ?? path;
+  return path;
 }
 
 export function getAccountingCache<T>(path: string): T | null {
@@ -85,6 +86,7 @@ export async function fetchAccountingJson<T>(
   return request;
 }
 
+/** Core lists needed for the first paint of primary tabs. */
 const WARM_PATHS = [
   '/api/owner/accounting/hub',
   '/api/owner/accounting/cheques',
@@ -96,11 +98,48 @@ const WARM_PATHS = [
   '/api/owner/accounting/audit',
 ] as const;
 
+/** Secondary tabs — warm after hub so deposits/settings/audit never flash Loading. */
+const SECONDARY_WARM_PATHS = [
+  '/api/owner/accounting/deposits',
+  '/api/owner/accounting/integrity',
+  '/api/owner/accounting/settings',
+  '/api/owner/accounting/dimensions',
+  '/api/owner/accounting/bank-recon',
+  '/api/owner/accounting/follow-task',
+] as const;
+
+function defaultReportPath(): string {
+  const year = new Date().toISOString().slice(0, 4);
+  const to = new Date().toISOString().slice(0, 10);
+  return `/api/owner/accounting/reports?report=trial&fromDate=${year}-01-01&toDate=${to}&asOfDate=${to}`;
+}
+
+function warmPaths(paths: readonly string[]): Promise<void> {
+  return Promise.all(
+    paths.map((path) => fetchAccountingJson(path, { preferCache: true }).catch(() => undefined)),
+  ).then(() => undefined);
+}
+
 /** Prefetch on nav hover / focus — does not block UI. */
 export function warmAccountingHub(): Promise<void> {
-  return Promise.all(
-    WARM_PATHS.map((path) =>
-      fetchAccountingJson(path, { preferCache: true }).catch(() => undefined),
-    ),
-  ).then(() => undefined);
+  return warmPaths(WARM_PATHS).then(() => {
+    void warmAccountingHubSecondary();
+  });
+}
+
+/** Idle/background prefetch for secondary accounting tabs. */
+export function warmAccountingHubSecondary(): Promise<void> {
+  const run = () =>
+    warmPaths([...SECONDARY_WARM_PATHS, defaultReportPath()]).catch(() => undefined);
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    window.requestIdleCallback(() => {
+      void run();
+    }, { timeout: 2_500 });
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    window.setTimeout(() => {
+      void run().finally(resolve);
+    }, 0);
+  });
 }

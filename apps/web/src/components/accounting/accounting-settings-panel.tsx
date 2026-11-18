@@ -10,6 +10,10 @@ import {
   type AccountingSettings,
   type AccountingTaxRow,
 } from '@/lib/accounting-integrity';
+import {
+  fetchAccountingJson,
+  getAccountingCache,
+} from '@/lib/accounting-client-cache';
 import { browserNextMutation } from '@/lib/api';
 import { OMAN_BANKS } from '@/lib/stay-deposit-refund';
 
@@ -56,21 +60,32 @@ export function AccountingSettingsPanel({
   onSaved?: () => void;
 }) {
   const ar = locale === 'ar';
-  const [settings, setSettings] = useState<AccountingSettings>(DEFAULT_ACCOUNTING_SETTINGS);
-  const [loading, setLoading] = useState(true);
+  const cachedSettings = getAccountingCache<{ settings: AccountingSettings }>(
+    '/api/owner/accounting/settings',
+  );
+  const cachedDimensions = getAccountingCache<{ properties?: DimensionProperty[] }>(
+    '/api/owner/accounting/dimensions',
+  );
+  const [settings, setSettings] = useState<AccountingSettings>(
+    () => cachedSettings?.settings ?? DEFAULT_ACCOUNTING_SETTINGS,
+  );
+  const [loading, setLoading] = useState(() => !cachedSettings);
   const [notice, setNotice] = useState<string | null>(null);
-  const [properties, setProperties] = useState<DimensionProperty[]>([]);
+  const [properties, setProperties] = useState<DimensionProperty[]>(
+    () => cachedDimensions?.properties ?? [],
+  );
   const [translating, setTranslating] = useState<string | null>(null);
   const [customBankIds, setCustomBankIds] = useState<Set<string>>(() => new Set());
   const [section, setSection] = useState<SettingsSection>('banks');
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    void fetch('/api/owner/accounting/settings', { credentials: 'same-origin' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(ar ? 'تعذر التحميل' : 'Load failed');
-        const data = (await response.json()) as { settings: AccountingSettings };
+    if (!cachedSettings) setLoading(true);
+    void fetchAccountingJson<{ settings: AccountingSettings }>(
+      '/api/owner/accounting/settings',
+      { preferCache: Boolean(cachedSettings) },
+    )
+      .then((data) => {
         if (!cancelled) setSettings(data.settings);
       })
       .catch((error: unknown) => {
@@ -90,19 +105,18 @@ export function AccountingSettingsPanel({
 
   useEffect(() => {
     let cancelled = false;
-    void fetch('/api/owner/accounting/dimensions', {
-      credentials: 'same-origin',
-      headers: { accept: 'application/json' },
-    })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const data = (await response.json()) as { properties?: DimensionProperty[] };
+    void fetchAccountingJson<{ properties?: DimensionProperty[] }>(
+      '/api/owner/accounting/dimensions',
+      { preferCache: Boolean(cachedDimensions) },
+    )
+      .then((data) => {
         if (!cancelled) setProperties(data.properties ?? []);
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional once
   }, []);
 
   const incompleteBanks = useMemo(

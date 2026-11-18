@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccountingTrustConfirm } from '@/components/accounting/accounting-trust-confirm';
 import { AccountingWorkspaceSection } from '@/components/accounting/accounting-workspace';
-import { fetchAccountingJson, invalidateAccountingCache } from '@/lib/accounting-client-cache';
+import {
+  fetchAccountingJson,
+  getAccountingCache,
+  invalidateAccountingCache,
+} from '@/lib/accounting-client-cache';
 import { browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 
@@ -44,7 +48,9 @@ export function BankReconPanel({
 }) {
   const ar = locale === 'ar';
   const trust = useAccountingTrustConfirm(locale);
-  const [data, setData] = useState<Payload | null>(null);
+  const [data, setData] = useState<Payload | null>(() =>
+    getAccountingCache<Payload>('/api/owner/accounting/bank-recon'),
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [statementOn, setStatementOn] = useState(() => new Date().toISOString().slice(0, 10));
   const [statementBalance, setStatementBalance] = useState('');
@@ -52,19 +58,25 @@ export function BankReconPanel({
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active && data !== null) return;
+    const cached = getAccountingCache<Payload>('/api/owner/accounting/bank-recon');
+    if (cached && data === null) setData(cached);
     const controller = new AbortController();
     void (async () => {
       try {
         const payload = await fetchAccountingJson<Payload>('/api/owner/accounting/bank-recon', {
+          preferCache: data !== null && !busy,
           signal: controller.signal,
         });
         setData(payload);
       } catch {
-        if (!controller.signal.aborted) setData({ sessions: [], open: { lines: [] } });
+        if (!controller.signal.aborted && data === null) {
+          setData({ sessions: [], open: { lines: [] } });
+        }
       }
     })();
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on tab open / after mutation
   }, [active, busy]);
 
   const lines = data?.open?.lines ?? [];

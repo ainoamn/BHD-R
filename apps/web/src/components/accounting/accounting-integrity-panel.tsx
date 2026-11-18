@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import {
   AccountingWorkspace,
 } from '@/components/accounting/accounting-workspace';
-import { fetchAccountingJson } from '@/lib/accounting-client-cache';
+import {
+  fetchAccountingJson,
+  getAccountingCache,
+} from '@/lib/accounting-client-cache';
 import { accountingIntegrityGapKindLabel } from '@/lib/accounting-i18n';
 import { formatMoney } from '@/lib/format';
 import type { IntegrityBoardPayload } from '@/lib/accounting-integrity-board';
@@ -17,28 +20,30 @@ export function AccountingIntegrityPanel({
   active: boolean;
 }) {
   const ar = locale === 'ar';
-  const [board, setBoard] = useState<IntegrityBoardPayload | null>(null);
+  const [board, setBoard] = useState<IntegrityBoardPayload | null>(() =>
+    getAccountingCache<IntegrityBoardPayload>('/api/owner/accounting/integrity'),
+  );
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!active) return;
+    if (!active && board !== null) return;
+    const cached = getAccountingCache<IntegrityBoardPayload>('/api/owner/accounting/integrity');
+    if (cached && board === null) setBoard(cached);
     const controller = new AbortController();
     void (async () => {
       try {
         const payload = await fetchAccountingJson<IntegrityBoardPayload>(
           '/api/owner/accounting/integrity',
-          { signal: controller.signal },
+          { preferCache: board !== null, signal: controller.signal },
         );
         setBoard(payload);
         setFailed(false);
       } catch {
-        if (!controller.signal.aborted) {
-          setFailed(true);
-          setBoard(null);
-        }
+        if (!controller.signal.aborted && board === null) setFailed(true);
       }
     })();
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keep last board; refetch when tab opens
   }, [active]);
 
   const summary = board?.summary;

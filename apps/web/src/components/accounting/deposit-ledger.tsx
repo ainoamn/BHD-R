@@ -13,6 +13,11 @@ import {
   DepositRefundForm,
   type RefundSubmit,
 } from '@/components/stays/stay-deposit-refund-admin';
+import {
+  fetchAccountingJson,
+  getAccountingCache,
+  invalidateAccountingCache,
+} from '@/lib/accounting-client-cache';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
@@ -26,6 +31,11 @@ import { domainStatusLabel } from '@/lib/ui-labels';
 
 type Row = Record<string, string | null>;
 type Viewer = { canPayRefunds: boolean; canDecideRefunds: boolean };
+type DepositsPayload = {
+  rows?: Row[];
+  claims?: Record<string, DepositClaimView[]>;
+  viewer?: Viewer;
+};
 type Filter = 'open' | 'awaiting_refund_transfer' | 'deposit_held' | 'deposit_settled' | 'all';
 
 const ORDER: Record<string, number> = {
@@ -104,9 +114,18 @@ export function DepositLedgerPanel({
   const ar = locale === 'ar';
   const searchParams = useSearchParams();
   const focusId = active ? searchParams.get('focus') : null;
-  const [rows, setRows] = useState<Row[] | null>(null);
-  const [claims, setClaims] = useState<Record<string, DepositClaimView[]>>({});
-  const [viewer, setViewer] = useState<Viewer>({ canPayRefunds: false, canDecideRefunds: false });
+  const [rows, setRows] = useState<Row[] | null>(() => {
+    const cached = getAccountingCache<DepositsPayload>('/api/owner/accounting/deposits');
+    return cached?.rows ?? null;
+  });
+  const [claims, setClaims] = useState<Record<string, DepositClaimView[]>>(() => {
+    const cached = getAccountingCache<DepositsPayload>('/api/owner/accounting/deposits');
+    return cached?.claims ?? {};
+  });
+  const [viewer, setViewer] = useState<Viewer>(() => {
+    const cached = getAccountingCache<DepositsPayload>('/api/owner/accounting/deposits');
+    return cached?.viewer ?? { canPayRefunds: false, canDecideRefunds: false };
+  });
   const [hidden, setHidden] = useState(false);
   const [failed, setFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -121,6 +140,7 @@ export function DepositLedgerPanel({
   useEffect(() => {
     const onLiveChange = () => {
       silentReload.current = true;
+      invalidateAccountingCache('/api/owner/accounting/deposits');
       setReloadKey((key) => key + 1);
     };
     window.addEventListener(LIVE_CHANGE_EVENT, onLiveChange);
@@ -129,36 +149,38 @@ export function DepositLedgerPanel({
 
   useEffect(() => {
     if (!active && rows !== null) return;
+    const cached = getAccountingCache<DepositsPayload>('/api/owner/accounting/deposits');
+    if (cached && rows === null) {
+      setRows(cached.rows ?? []);
+      setClaims(cached.claims ?? {});
+      setViewer(cached.viewer ?? { canPayRefunds: false, canDecideRefunds: false });
+    }
     const controller = new AbortController();
     const silent = silentReload.current;
     silentReload.current = false;
     void (async () => {
       try {
-        const response = await fetch('/api/owner/accounting/deposits', {
-          credentials: 'same-origin',
-          cache: 'no-store',
-          headers: { accept: 'application/json' },
-          signal: controller.signal,
-        });
-        if (response.status === 403 || response.status === 401) {
-          setHidden(true);
-          return;
-        }
-        if (!response.ok) throw new Error(`status_${response.status}`);
-        const payload = (await response.json()) as {
-          rows?: Row[];
-          claims?: Record<string, DepositClaimView[]>;
-          viewer?: Viewer;
-        };
+        const payload = await fetchAccountingJson<DepositsPayload>(
+          '/api/owner/accounting/deposits',
+          { preferCache: rows !== null, signal: controller.signal },
+        );
         setRows(payload.rows ?? []);
         setClaims(payload.claims ?? {});
         setViewer(payload.viewer ?? { canPayRefunds: false, canDecideRefunds: false });
         setFailed(false);
-      } catch {
-        if (!controller.signal.aborted && !silent) setFailed(true);
+        setHidden(false);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        const message = error instanceof Error ? error.message : '';
+        if (/401|403|unauthorized|forbidden/i.test(message)) {
+          setHidden(true);
+          return;
+        }
+        if (!silent && rows === null) setFailed(true);
       }
     })();
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keep rows; reload on tab/live only
   }, [active, reloadKey]);
 
   useEffect(() => {

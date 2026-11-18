@@ -2,7 +2,6 @@
 
 import { useSearchParams } from 'next/navigation';
 import {
-  startTransition,
   useCallback,
   useEffect,
   useMemo,
@@ -38,7 +37,7 @@ import {
   AccountingWorkspace,
   AccountingWorkspaceSection,
 } from '@/components/accounting/accounting-workspace';
-import { usePathname, useRouter } from '@/i18n/navigation';
+import { usePathname } from '@/i18n/navigation';
 import {
   ACCOUNTING_HUB_TABS,
   parseAccountingHubTab,
@@ -64,10 +63,12 @@ import {
   getAccountingCache,
   invalidateAccountingCache,
   warmAccountingHub,
+  warmAccountingHubSecondary,
 } from '@/lib/accounting-client-cache';
 import { ApiError, browserNextMutation } from '@/lib/api';
 import { formatMoney } from '@/lib/format';
 import { LIVE_CHANGE_EVENT } from '@/lib/live-sync-shared';
+import { replaceSoftPortalUrl, SOFT_PORTAL_NAV_EVENT } from '@/lib/soft-portal-nav';
 
 /** Keep every tab mounted; only visibility flips so switches stay instant. */
 function AccountingTabPanel({
@@ -249,6 +250,20 @@ function hydrateFromCache<T>(path: string, apply: (value: T) => void) {
   if (hit !== null) apply(hit);
 }
 
+function tabFromSearchParams(
+  search: { get: (key: string) => string | null },
+): AccountingHubTab {
+  const raw = search.get('tab');
+  if (raw) return parseAccountingHubTab(raw);
+  if (search.get('focus')) return 'deposits';
+  return 'dashboard';
+}
+
+function tabFromWindowSearch(): AccountingHubTab {
+  if (typeof window === 'undefined') return 'dashboard';
+  return tabFromSearchParams(new URLSearchParams(window.location.search));
+}
+
 /**
  * World-class owner accounting hub (ported from bhd-om patterns): CoA, balanced journals,
  * IFRS-style statements, period lock, audit — on top of Neon double-entry tables.
@@ -265,16 +280,12 @@ export function AccountingHub({
   const ar = locale === 'ar';
   const trust = useAccountingTrustConfirm(locale);
   const t = useMemo(() => accountingHubCopy(locale), [locale]);
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   /** Document/journal highlight id from print “back”; deposits used focus alone historically. */
   const focusId = searchParams.get('focus');
-  const tab = searchParams.get('tab')
-    ? parseAccountingHubTab(searchParams.get('tab'))
-    : focusId
-      ? 'deposits'
-      : 'dashboard';
+  /** Local tab state so clicks paint instantly; URL is synced softly afterward. */
+  const [tab, setTabState] = useState<AccountingHubTab>(() => tabFromSearchParams(searchParams));
   const [dash, setDash] = useState<HubDash | null>(null);
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [journals, setJournals] = useState<JournalRow[] | null>(null);
@@ -364,23 +375,42 @@ export function AccountingHub({
 
   const setTab = useCallback(
     (next: AccountingHubTab) => {
-      startTransition(() => {
-        const params = new URLSearchParams(searchParams.toString());
-        // Manual tab clicks clear row highlight; deposit deep-links keep focus without a tab.
-        if (next === 'deposits' && !searchParams.get('tab') && focusId) {
-          /* keep focus */
-        } else {
-          params.delete('focus');
-          params.delete('open');
-        }
-        if (next === 'dashboard') params.delete('tab');
-        else params.set('tab', next);
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-      });
+      setTabState(next);
+      const params = new URLSearchParams(
+        typeof window !== 'undefined' ? window.location.search : searchParams.toString(),
+      );
+      // Manual tab clicks clear row highlight; deposit deep-links keep focus without a tab.
+      if (next === 'deposits' && !params.get('tab') && (params.get('focus') || focusId)) {
+        /* keep focus */
+      } else {
+        params.delete('focus');
+        params.delete('open');
+      }
+      if (next === 'dashboard') params.delete('tab');
+      else params.set('tab', next);
+      const query = params.toString();
+      replaceSoftPortalUrl(query ? `${pathname}?${query}` : pathname);
     },
-    [focusId, pathname, router, searchParams],
+    [focusId, pathname, searchParams],
   );
+
+  useEffect(() => {
+    const sync = () => {
+      const next = tabFromWindowSearch();
+      setTabState((current) => (current === next ? current : next));
+    };
+    window.addEventListener('popstate', sync);
+    window.addEventListener(SOFT_PORTAL_NAV_EVENT, sync);
+    return () => {
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener(SOFT_PORTAL_NAV_EVENT, sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    const next = tabFromSearchParams(searchParams);
+    setTabState((current) => (current === next ? current : next));
+  }, [searchParams]);
 
   useEffect(() => {
     if (!active || !focusId) return;
@@ -523,6 +553,7 @@ export function AccountingHub({
               ? refreshLedgers().catch(() => undefined)
               : Promise.resolve(),
           ]);
+          void warmAccountingHubSecondary();
         });
 
         if (!syncedRef.current && (hub.capabilities.manage || hub.capabilities.post)) {

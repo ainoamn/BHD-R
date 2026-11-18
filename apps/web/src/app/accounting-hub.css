@@ -15,6 +15,7 @@
 /* Panels stay mounted; only visibility flips so tab switches never remount or flash. */
 .accounting-hub__slot[hidden] {
   display: none !important;
+  content-visibility: hidden;
 }
 
 .accounting-hub__muted--soft {
