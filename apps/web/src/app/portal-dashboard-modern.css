@@ -2554,3 +2554,134 @@
     0 1px 2px rgb(12 31 27 / 0.04),
     0 10px 24px rgb(12 31 27 / 0.045);
 }
+
+
+/* Executive ops chrome — unmistakable KPI strip + panel head (0.8.136.242) */
+.portal-layout[data-portal='owner'] .ops-workspace--exec,
+.portal-layout[data-portal='tenant'] .ops-workspace--exec {
+  gap: 1rem;
+}
+
+.portal-layout[data-portal='owner'] .ops-workspace--exec .ops-header,
+.portal-layout[data-portal='tenant'] .ops-workspace--exec .ops-header {
+  border-inline-start: 4px solid var(--pd-accent);
+}
+
+.portal-layout[data-portal='owner'] .ops-workspace--exec .ops-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: rgb(13 122 109 / 0.1);
+  color: var(--pd-accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+.portal-layout[data-portal='owner'] .ops-kpi-strip,
+.portal-layout[data-portal='tenant'] .ops-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.portal-layout[data-portal='owner'] .ops-kpi-strip__card,
+.portal-layout[data-portal='tenant'] .ops-kpi-strip__card {
+  display: grid;
+  gap: 0.35rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--pd-line);
+  border-radius: 1rem;
+  background: #fff;
+  box-shadow:
+    0 1px 2px rgb(12 31 27 / 0.04),
+    0 10px 24px rgb(12 31 27 / 0.05);
+  border-block-start: 3px solid #94a3b8;
+}
+
+.portal-layout[data-portal='owner'] .ops-kpi-strip__card span,
+.portal-layout[data-portal='tenant'] .ops-kpi-strip__card span {
+  color: var(--pd-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.portal-layout[data-portal='owner'] .ops-kpi-strip__card strong,
+.portal-layout[data-portal='tenant'] .ops-kpi-strip__card strong {
+  color: var(--pd-ink);
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+}
+
+.portal-layout[data-portal='owner'] .ops-kpi-strip__card--warn { border-block-start-color: #f59e0b; }
+.portal-layout[data-portal='owner'] .ops-kpi-strip__card--ok { border-block-start-color: #16a34a; }
+.portal-layout[data-portal='owner'] .ops-kpi-strip__card--accent {
+  border-block-start-color: var(--pd-accent);
+  background: linear-gradient(170deg, #ffffff 0%, #eef7f4 100%);
+}
+
+.portal-layout[data-portal='tenant'] .ops-kpi-strip__card--warn { border-block-start-color: #f59e0b; }
+.portal-layout[data-portal='tenant'] .ops-kpi-strip__card--ok { border-block-start-color: #16a34a; }
+.portal-layout[data-portal='tenant'] .ops-kpi-strip__card--accent {
+  border-block-start-color: var(--pd-accent);
+  background: linear-gradient(170deg, #ffffff 0%, #eef4fa 100%);
+}
+
+.portal-layout[data-portal='owner'] .ops-panel__head,
+.portal-layout[data-portal='tenant'] .ops-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.95rem 1.1rem 0.85rem;
+  border-bottom: 1px solid var(--pd-line);
+  background: linear-gradient(180deg, #ffffff, #f8faf9);
+}
+
+.portal-layout[data-portal='owner'] .ops-panel__head h2,
+.portal-layout[data-portal='tenant'] .ops-panel__head h2 {
+  margin: 0;
+  color: var(--pd-ink);
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.portal-layout[data-portal='owner'] .ops-panel__head p,
+.portal-layout[data-portal='tenant'] .ops-panel__head p {
+  margin: 0.2rem 0 0;
+  color: var(--pd-muted);
+  font-size: 0.76rem;
+}
+
+.portal-layout[data-portal='owner'] .ops-panel__count,
+.portal-layout[data-portal='tenant'] .ops-panel__count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.4rem;
+  height: 2.4rem;
+  padding-inline: 0.55rem;
+  border-radius: 999px;
+  background: rgb(13 122 109 / 0.12);
+  color: var(--pd-accent);
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+@media (max-width: 900px) {
+  .portal-layout[data-portal='owner'] .ops-kpi-strip,
+  .portal-layout[data-portal='tenant'] .ops-kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .portal-layout[data-portal='owner'] .ops-kpi-strip,
+  .portal-layout[data-portal='tenant'] .ops-kpi-strip {
+    grid-template-columns: 1fr;
+  }
+}

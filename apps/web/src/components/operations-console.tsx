@@ -3846,8 +3846,11 @@ ${depositHtml}${
       : ar
         ? 'لا توجد سجلات مطابقة'
         : 'No matching records';
+  const execChrome = portal === 'owner' || portal === 'tenant';
   return (
-    <div className={`ops-workspace ops-workspace--${section}`}>
+    <div
+      className={`ops-workspace ops-workspace--${section}${execChrome ? ' ops-workspace--exec' : ''}`}
+    >
       <header
         className={
           section === 'leasing' && leasingIntroCollapsed
@@ -3857,7 +3860,16 @@ ${depositHtml}${
       >
         <div>
           {section === 'leasing' && leasingIntroCollapsed ? null : (
-            <span className="ops-kicker">BHD R · {portal.toUpperCase()}</span>
+            <span className="ops-kicker">
+              {portal === 'tenant'
+                ? ar
+                  ? 'بوابة المستأجر'
+                  : 'Tenant portal'
+                : ar
+                  ? 'بوابة المالك'
+                  : 'Owner portal'}{' '}
+              · {ar ? definition.titleAr : definition.titleEn}
+            </span>
           )}
           {manageMode ? (
             <>
@@ -4532,6 +4544,47 @@ ${depositHtml}${
 
       {listOverride}
 
+      {execChrome && !isDailyBookings && !listOverride ? (
+        <section className="ops-kpi-strip" aria-label={ar ? 'مؤشرات سريعة' : 'Quick metrics'}>
+          <article className="ops-kpi-strip__card">
+            <span>{ar ? 'إجمالي السجلات' : 'Total records'}</span>
+            <strong>{records.length}</strong>
+          </article>
+          <article className="ops-kpi-strip__card ops-kpi-strip__card--warn">
+            <span>{ar ? 'قيد المتابعة' : 'In progress'}</span>
+            <strong>{openCount}</strong>
+          </article>
+          <article className="ops-kpi-strip__card ops-kpi-strip__card--ok">
+            <span>{ar ? 'مكتمل/مغلق' : 'Completed/closed'}</span>
+            <strong>{completedCount}</strong>
+          </article>
+          <article className="ops-kpi-strip__card ops-kpi-strip__card--accent">
+            <span>
+              {definition.moneyKey
+                ? ar
+                  ? 'القيمة المسجلة'
+                  : 'Recorded value'
+                : ar
+                  ? 'مؤشر إضافي'
+                  : 'Extra signal'}
+            </span>
+            <strong>
+              {definition.moneyKey
+                ? amountTotals.size === 1
+                  ? [...amountTotals].map(([currency, amount]) =>
+                      formatMoney(amount.toString(), currency, locale),
+                    )[0]
+                  : amountTotals.size > 1
+                    ? `${amountTotals.size} ${ar ? 'عملات' : 'currencies'}`
+                    : '—'
+                : safeString(
+                    summary.pendingApprovals ?? summary.draftJournals ?? secondary.length,
+                  )}
+            </strong>
+          </article>
+        </section>
+      ) : null}
+
       {isDailyBookings || listOverride ? null : (
         <section
           className="ops-stats"
@@ -4823,6 +4876,24 @@ ${depositHtml}${
       {listOverride ? null : (
         <section className={isDailyBookings ? 'ops-panel ops-panel--bare' : 'ops-panel'}>
           {isDailyBookings ? null : (
+            <>
+              {execChrome ? (
+                <div className="ops-panel__head">
+                  <div>
+                    <h2>{ar ? 'سجل البيانات' : 'Records'}</h2>
+                    <p>
+                      {ar
+                        ? 'ابحث وصفِّ ثم افتح أي صف للمتابعة.'
+                        : 'Search and filter, then open a row to continue.'}
+                    </p>
+                  </div>
+                  <span className="ops-panel__count">
+                    {section === 'contracts' || section === 'leasing'
+                      ? tableRows.length
+                      : filtered.length}
+                  </span>
+                </div>
+              ) : null}
             <div className="ops-toolbar">
               <label className="ops-search">
                 <span className="sr-only">{ar ? 'بحث' : 'Search'}</span>
@@ -4941,6 +5012,7 @@ ${depositHtml}${
                 </span>
               ) : null}
             </div>
+            </>
           )}
           {section === 'contracts' ? (
             <div
