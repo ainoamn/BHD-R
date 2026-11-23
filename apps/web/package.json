@@ -20,8 +20,8 @@
     "clean": "rimraf .next coverage playwright-report test-results"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1168.0",
-    "@aws-sdk/s3-request-presigner": "^3.1168.0",
+    "@aws-sdk/client-s3": "^3.1173.0",
+    "@aws-sdk/s3-request-presigner": "^3.1173.0",
     "@bhd-r/authz": "workspace:*",
     "@bhd-r/config": "workspace:*",
     "@bhd-r/contracts": "workspace:*",
@@ -33,10 +33,10 @@
     "@bhd-r/ui": "workspace:*",
     "@resvg/resvg-js": "2.6.2",
     "drizzle-orm": "^0.45.4",
-    "jose": "^6.2.17",
+    "jose": "^6.2.18",
     "leaflet": "1.9.4",
     "next": "^16.4.6",
-    "next-intl": "^4.15.1",
+    "next-intl": "^4.15.3",
     "postgres": "^3.4.7",
     "qrcode": "1.5.4",
     "react": "^19.3.1",
